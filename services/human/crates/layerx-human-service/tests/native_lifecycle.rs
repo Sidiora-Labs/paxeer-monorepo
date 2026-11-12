@@ -83,7 +83,7 @@ fn evidence() -> ProtocolEvidence {
         tx_hash,
         receipt_hash: Sha256::digest(receipt).into(),
         block_height: u64::from_be_bytes(
-            protocol.batch_id()[24..].try_into().expect("block height"),
+            protocol.batch_id()[24..].try_into().or_fail("block height"),
         ),
         rung: Rung::Receipted,
     }
@@ -143,4 +143,10 @@ fn native_lifecycle_binds_distinct_action_and_activity_without_inventing_finalit
     assert!(evidence
         .bound_activity(checked(ActivityType::new(ModuleId::Governance, 6)))
         .is_err());
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

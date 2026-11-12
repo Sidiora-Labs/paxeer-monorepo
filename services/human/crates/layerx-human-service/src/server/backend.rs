@@ -497,6 +497,8 @@ pub trait HumanApiComponents: Send + Sync + 'static {
     /// Returns configured backend readiness or request execution failures.
     fn execute(&self, request: ScopedRequest<'_>) -> Result<BackendResponse, ApiFailure>;
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     fn stream(
         &self,
         request: ScopedRequest<'_>,
@@ -536,6 +538,8 @@ impl UnixComponents {
         Self::new_with_clock(endpoint, limits, clock)
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn new_with_clock(
         endpoint: impl AsRef<Path>,
         limits: Limits,
@@ -590,6 +594,46 @@ impl UnixComponents {
     }
 }
 
+fn consume_stream_frame(
+    frame: &mut Value,
+    budget: &mut StreamBudget,
+    trace: &str,
+    emit: &mut dyn FnMut(Value) -> Result<(), ApiFailure>,
+) -> Result<bool, ApiFailure> {
+    let object = frame
+        .as_object_mut()
+        .ok_or_else(ApiFailure::upstream_degraded)?;
+    if object.get("version").and_then(Value::as_u64) != Some(COMPONENT_PROTOCOL_VERSION) {
+        return Err(ApiFailure::upstream_degraded());
+    }
+    if object.get("ok").and_then(Value::as_bool) == Some(false) {
+        if object.len() != 3 {
+            return Err(ApiFailure::upstream_degraded());
+        }
+        let failure = parse_failure(object.get("error"))?;
+        budget.accept_failure(&failure, trace)?;
+        return Err(failure);
+    }
+    if object.get("ok").and_then(Value::as_bool) != Some(true) {
+        return Err(ApiFailure::upstream_degraded());
+    }
+    if object.get("kind").and_then(Value::as_str) == Some("stream.end") {
+        if object.len() != 3 {
+            return Err(ApiFailure::upstream_degraded());
+        }
+        return Ok(true);
+    }
+    if object.len() != 3 {
+        return Err(ApiFailure::upstream_degraded());
+    }
+    let page = object
+        .remove("result")
+        .ok_or_else(ApiFailure::upstream_degraded)?;
+    budget.accept(&page, trace)?;
+    emit(page)?;
+    Ok(false)
+}
+
 impl HumanApiComponents for UnixComponents {
     fn authorize(
         &self,
@@ -614,7 +658,7 @@ impl HumanApiComponents for UnixComponents {
         }))?;
         let parsed = parse_authorized(
             &response,
-            AuthorizedExpectation {
+            &AuthorizedExpectation {
                 operation,
                 request_digest: credentials.request_digest,
                 disclosure_digest: credentials.disclosure_digest,
@@ -648,7 +692,7 @@ impl HumanApiComponents for UnixComponents {
         }))?;
         let parsed = parse_authorized(
             &response,
-            AuthorizedExpectation {
+            &AuthorizedExpectation {
                 operation,
                 request_digest: credentials.request_digest,
                 disclosure_digest: credentials.disclosure_digest,
@@ -790,41 +834,7 @@ impl HumanApiComponents for UnixComponents {
             let parsed = serde_json::from_slice::<Value>(&bytes);
             bytes.zeroize();
             let mut frame = parsed.map_err(|_| ApiFailure::upstream_degraded())?;
-            let result = (|| {
-                let object = frame
-                    .as_object_mut()
-                    .ok_or_else(ApiFailure::upstream_degraded)?;
-                if object.get("version").and_then(Value::as_u64) != Some(COMPONENT_PROTOCOL_VERSION)
-                {
-                    return Err(ApiFailure::upstream_degraded());
-                }
-                if object.get("ok").and_then(Value::as_bool) == Some(false) {
-                    if object.len() != 3 {
-                        return Err(ApiFailure::upstream_degraded());
-                    }
-                    let failure = parse_failure(object.get("error"))?;
-                    budget.accept_failure(&failure, &request.trace)?;
-                    return Err(failure);
-                }
-                if object.get("ok").and_then(Value::as_bool) != Some(true) {
-                    return Err(ApiFailure::upstream_degraded());
-                }
-                if object.get("kind").and_then(Value::as_str) == Some("stream.end") {
-                    if object.len() != 3 {
-                        return Err(ApiFailure::upstream_degraded());
-                    }
-                    return Ok(true);
-                }
-                if object.len() != 3 {
-                    return Err(ApiFailure::upstream_degraded());
-                }
-                let page = object
-                    .remove("result")
-                    .ok_or_else(ApiFailure::upstream_degraded)?;
-                budget.accept(&page, &request.trace)?;
-                emit(page)?;
-                Ok(false)
-            })();
+            let result = consume_stream_frame(&mut frame, &mut budget, &request.trace, emit);
             zeroize_value(&mut frame);
             if result? {
                 return Ok(());
@@ -866,7 +876,7 @@ struct AuthorizedExpectation<'a> {
 
 fn parse_authorized(
     response: &Value,
-    expected: AuthorizedExpectation<'_>,
+    expected: &AuthorizedExpectation<'_>,
 ) -> Result<PrincipalContext, ApiFailure> {
     let result = response
         .get("result")

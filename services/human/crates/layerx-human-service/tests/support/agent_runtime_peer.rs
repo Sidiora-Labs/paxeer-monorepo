@@ -26,6 +26,9 @@ pub struct Peer {
 }
 
 impl Peer {
+    #[must_use]
+    /// # Panics
+    /// Panics if the peer socket cannot be opened.
     pub fn serve(exchanges: Vec<(Vec<u8>, Vec<u8>)>) -> (Self, AgentRuntime) {
         let mut entropy = [0; 16];
         checked(getrandom::fill(&mut entropy));
@@ -35,7 +38,7 @@ impl Peer {
         let socket = directory.join("peer.sock");
         let listener = checked(UnixListener::bind(&socket));
         checked(listener.set_nonblocking(true));
-        let clock: Arc<dyn Clock> = Arc::new(StepClock::new(100000));
+        let clock: Arc<dyn Clock> = Arc::new(StepClock::new(100_000));
         let peer_clock = Arc::clone(&clock);
         let server = thread::spawn(move || {
             for (expected, response) in exchanges {
@@ -106,6 +109,7 @@ fn traced(inner: &[u8]) -> Vec<u8> {
     frame
 }
 
+#[must_use]
 pub fn request(opcode: u8, body: &[u8]) -> Vec<u8> {
     let mut inner = b"LXHAGT01".to_vec();
     inner.push(opcode);
@@ -113,12 +117,14 @@ pub fn request(opcode: u8, body: &[u8]) -> Vec<u8> {
     traced(&inner)
 }
 
+#[must_use]
 pub fn answer(body: &[u8]) -> Vec<u8> {
     let mut inner = b"LXHAGT01\0".to_vec();
     inner.extend_from_slice(body);
     traced(&inner)
 }
 
+#[must_use]
 pub fn frame(material: &ReceiptMaterial) -> ReceiptLookupFrame {
     ReceiptLookupFrame {
         canonical_bytes: material.canonical_bytes.clone(),

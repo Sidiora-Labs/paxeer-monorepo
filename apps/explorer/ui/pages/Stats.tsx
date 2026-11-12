@@ -12,8 +12,10 @@ import NumberWidgetsList from '../stats/NumberWidgetsList';
 import RecentBlocks from '../stats/RecentBlocks';
 import StatsFilters from '../stats/StatsFilters';
 import useStats from '../stats/useStats';
+import useStatsService from '../stats/useStatsService';
 
 const Stats = () => {
+  const hasStatsService = useStatsService();
   const {
     isPlaceholderData,
     isError,
@@ -74,7 +76,7 @@ const Stats = () => {
   }, []);
 
   return (
-    <>
+    <Box data-stats-source={ hasStatsService ? 'stats' : 'explorer' }>
       <PageTitle
         title={ config.meta.seo.enhancedDataEnabled ? `${ config.chain.name } statistic & data` : `${ config.chain.name } stats` }
       />
@@ -171,7 +173,7 @@ const Stats = () => {
           />
         </Box>
       </Flex>
-    </>
+    </Box>
   );
 };
 

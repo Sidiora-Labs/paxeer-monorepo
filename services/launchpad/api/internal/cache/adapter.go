@@ -540,6 +540,14 @@ func (a *Adapter) origin(ctx context.Context, p RoutePolicy, key string, q url.V
 	if _, e = sharedredis.CompareRevision(projection.Revision, projection.Revision); e != nil {
 		return empty, e
 	}
+	body, e := json.Marshal(projection.Body)
+	if e != nil {
+		return empty, e
+	}
+	watermark, e := json.Marshal(projection.SourceWatermark)
+	if e != nil {
+		return empty, e
+	}
 	now := time.Now()
 	ttl := p.FreshTTL
 	if ttl == 0 {
@@ -550,7 +558,7 @@ func (a *Adapter) origin(ctx context.Context, p RoutePolicy, key string, q url.V
 			return empty, e
 		}
 	}
-	snapshot := sharedredis.PolicySnapshot{Generation: p.Generation, Revision: projection.Revision, Visibility: p.visibility(), Class: string(p.Class), SourceWatermark: append(json.RawMessage(nil), projection.SourceWatermark...), FetchedAt: now, FreshUntil: now.Add(ttl), RetainUntil: now.Add(ttl + p.StaleTTL), Body: append(json.RawMessage(nil), projection.Body...)}
+	snapshot := sharedredis.PolicySnapshot{Generation: p.Generation, Revision: projection.Revision, Visibility: p.visibility(), Class: string(p.Class), SourceWatermark: watermark, FetchedAt: now, FreshUntil: now.Add(ttl), RetainUntil: now.Add(ttl + p.StaleTTL), Body: body}
 	snapshot.ContentDigest = sharedredis.PolicySnapshotDigest(snapshot)
 	snapshot.ProjectionDigest = sharedredis.PolicyProjectionDigest(snapshot)
 	current, e := a.policy(p.ID)

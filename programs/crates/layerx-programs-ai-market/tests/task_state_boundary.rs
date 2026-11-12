@@ -1,6 +1,7 @@
 //! AI.F01-T04 task-set lifecycle over the complete shared state value: `ADMIT_TASK`,
 //! `ACCEPT_TASK`, `CANCEL_TASK`, `COMMIT_TASK_RESULT` and `SEAL_TASK_SET` against an epoch
 //! opened through the real F01/F02/F03/F06/F08 producers and `OPEN_EPOCH`.
+#[allow(dead_code)]
 #[path = "repair_22_33_261.rs"]
 mod repair_22_33_261;
 

@@ -245,4 +245,133 @@ CREATE TABLE indexer_canonical_creations_v1(pool text PRIMARY KEY,token text NOT
 	RegisterSafetyRoutes(unavailable, store, nil)
 	assertError(request(unavailable, &host, http.MethodPost, "/v2/voice-rooms", valid), 503, "DEPENDENCY_UNAVAILABLE")
 	assertError(request(unavailable, &host, http.MethodGet, "/v2/voice-rooms/"+uuid.NewString(), ""), 503, "DEPENDENCY_UNAVAILABLE")
+
+	legacy := request(router, &host, http.MethodPost, "/v3/voice-rooms", `{"poolId":"`+poolID+`"}`)
+	if legacy.Code != http.StatusOK {
+		t.Fatalf("versioned room create = %d %s", legacy.Code, legacy.Body.String())
+	}
+	var createdLegacy struct {
+		RoomID   string `json:"roomId"`
+		State    string `json:"state"`
+		Revision int64  `json:"revision"`
+	}
+	if err := json.Unmarshal(legacy.Body.Bytes(), &createdLegacy); err != nil || createdLegacy.RoomID == "" || createdLegacy.State != "scheduled" || createdLegacy.Revision != 1 {
+		t.Fatalf("versioned room = %+v: %v", createdLegacy, err)
+	}
+	legacyRoom := "/v2/voice-rooms/" + createdLegacy.RoomID
+	for _, route := range []struct {
+		method, path, body string
+		status             int
+	}{
+		{http.MethodPost, legacyRoom + "/start", `{"expectedRevision":1}`, http.StatusServiceUnavailable},
+		{http.MethodPost, legacyRoom + "/end", `{"expectedRevision":1}`, http.StatusConflict},
+		{http.MethodPost, "/v3/voice-rooms/" + createdLegacy.RoomID + "/moderation-actions", `{"wallet":"` + guestWallet + `","expectedRevision":1,"action":"mute","reason":"room policy"}`, http.StatusServiceUnavailable},
+		{http.MethodPost, "/v3/voice-rooms/" + createdLegacy.RoomID + "/tickets", `{}`, http.StatusServiceUnavailable},
+		{http.MethodGet, legacyRoom + "/recording", "", http.StatusNotFound},
+		{http.MethodPost, legacyRoom + "/recording", "", http.StatusServiceUnavailable},
+		{http.MethodPost, legacyRoom + "/recording/consent", `{"recordingId":"` + uuid.NewString() + `","expectedRevision":1,"agree":true}`, http.StatusServiceUnavailable},
+		{http.MethodPost, legacyRoom + "/recording/start", `{"expectedRevision":1}`, http.StatusServiceUnavailable},
+		{http.MethodPost, legacyRoom + "/recording/stop", `{"expectedRevision":1}`, http.StatusNotFound},
+		{http.MethodPost, legacyRoom + "/speaker-requests", `{"expectedRevision":1}`, http.StatusServiceUnavailable},
+		{http.MethodPost, legacyRoom + "/speakers", `{"wallet":"` + guestWallet + `","expectedRevision":1}`, http.StatusServiceUnavailable},
+		{http.MethodPost, legacyRoom + "/leave", "", http.StatusServiceUnavailable},
+	} {
+		got := request(router, &host, route.method, route.path, route.body)
+		if got.Code != route.status {
+			t.Fatalf("%s %s = %d, want %d: %s", route.method, route.path, got.Code, route.status, got.Body.String())
+		}
+	}
+	var persistedLegacy voice.Room
+	if persistedLegacy, err = control.Read(ctx, createdLegacy.RoomID); err != nil || persistedLegacy.State != "draft" || persistedLegacy.Revision != 1 {
+		t.Fatalf("unavailable room actions changed draft = %+v: %v", persistedLegacy, err)
+	}
+	for _, path := range []string{
+		"/v3/voice-rooms", legacyRoom + "/start", legacyRoom + "/end",
+		"/v3/voice-rooms/" + createdLegacy.RoomID + "/moderation-actions",
+		"/v3/voice-rooms/" + createdLegacy.RoomID + "/tickets",
+		legacyRoom + "/recording/consent", legacyRoom + "/recording/start",
+		legacyRoom + "/recording/stop", legacyRoom + "/speaker-requests", legacyRoom + "/speakers",
+	} {
+		got := request(router, &host, http.MethodPost, path, `{"unknown":true}`)
+		if got.Code != http.StatusBadRequest {
+			t.Fatalf("invalid voice command %s = %d %s", path, got.Code, got.Body.String())
+		}
+	}
+
+	createdDependency := request(router, &host, http.MethodPost, "/v2/voice-rooms", valid)
+	if createdDependency.Code != http.StatusCreated {
+		t.Fatalf("dependency room = %d %s", createdDependency.Code, createdDependency.Body.String())
+	}
+	var dependency v2.VoiceCreateResponse
+	if err := json.Unmarshal(createdDependency.Body.Bytes(), &dependency); err != nil {
+		t.Fatal(err)
+	}
+	dependencyID := dependency.Data.Room.RoomId
+	dependencyBase := "/v2/voice-rooms/" + dependencyID
+	withoutRelation := func(table string, run func()) {
+		t.Helper()
+		name, held := pgx.Identifier{table}.Sanitize(), pgx.Identifier{table + "_unavailable"}.Sanitize()
+		if _, err := db.Exec(ctx, "ALTER TABLE "+name+" RENAME TO "+held); err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			if _, err := db.Exec(ctx, "ALTER TABLE "+held+" RENAME TO "+name); err != nil {
+				t.Fatal(err)
+			}
+		}()
+		run()
+	}
+	for _, check := range []struct{ name, table, method, path, body string }{
+		{"create identity", "account_state_v2", http.MethodPost, "/v2/voice-rooms", valid},
+		{"create publication", "safety_outbox", http.MethodPost, "/v2/voice-rooms", valid},
+		{"read identity", "account_state_v2", http.MethodGet, dependencyBase, ""},
+		{"end publication", "safety_outbox", http.MethodPost, dependencyBase + ":end", `{"expectedRevision":"1"}`},
+		{"end identity", "account_state_v2", http.MethodPost, dependencyBase + ":end", `{"expectedRevision":"1"}`},
+		{"prompt recording", "voice_recordings", http.MethodGet, dependencyBase + "/prompt", ""},
+	} {
+		t.Run(check.name, func(t *testing.T) {
+			withoutRelation(check.table, func() {
+				response := request(router, &host, check.method, check.path, check.body)
+				if strings.HasSuffix(check.path, "/prompt") {
+					var problem struct {
+						StatusCode int    `json:"statusCode"`
+						Message    string `json:"message"`
+					}
+					if err := json.Unmarshal(response.Body.Bytes(), &problem); err != nil || response.Code != http.StatusServiceUnavailable || problem.StatusCode != 503 || problem.Message != "An unexpected error occurred" {
+						t.Fatalf("prompt dependency = %d %s: %v", response.Code, response.Body.String(), err)
+					}
+				} else {
+					assertError(response, 503, "DEPENDENCY_UNAVAILABLE")
+				}
+			})
+		})
+	}
+	assertError(request(router, &host, http.MethodPost, "/v2/voice-rooms/"+uuid.NewString()+":end", `{"expectedRevision":"1"}`), 404, "NOT_FOUND")
+	var metadata []byte
+	if err := db.QueryRow(ctx, `SELECT payload FROM safety_outbox WHERE kind='voice_room_created_v2' AND entity_id=$1`, dependencyID).Scan(&metadata); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(ctx, `UPDATE safety_outbox SET payload=$2 WHERE kind='voice_room_created_v2' AND entity_id=$1`, dependencyID, strings.Replace(string(metadata), poolID, guestWallet, 1)); err != nil {
+		t.Fatal(err)
+	}
+	assertError(request(router, &host, http.MethodPost, dependencyBase+":end", `{"expectedRevision":"1"}`), 503, "DEPENDENCY_UNAVAILABLE")
+	if _, err := db.Exec(ctx, `UPDATE safety_outbox SET payload=$2 WHERE kind='voice_room_created_v2' AND entity_id=$1`, dependencyID, metadata); err != nil {
+		t.Fatal(err)
+	}
+	storedDependency, err := control.Read(ctx, dependencyID)
+	if err != nil || storedDependency.State != "draft" || storedDependency.Revision != 1 {
+		t.Fatalf("rejected end changed room = %+v: %v", storedDependency, err)
+	}
+
+	control.Provider = v2VoiceActionsLiveKit(t)
+	control.Gates = voice.Gates{ProviderQualified: true, EjectionQualified: true, ACLQualified: true, RetentionQualified: true}
+	legacyTicket := request(router, &host, http.MethodPost, "/v3/voice-rooms/"+dependencyID+"/tickets", `{}`)
+	if legacyTicket.Code != http.StatusServiceUnavailable {
+		t.Fatalf("draft admission = %d %s", legacyTicket.Code, legacyTicket.Body.String())
+	}
+	legacyBan := request(router, &host, http.MethodPost, "/v3/voice-rooms/"+dependencyID+"/moderation-actions", `{"wallet":"`+guestWallet+`","expectedRevision":1,"action":"ban","reason":"reviewed conduct"}`)
+	if legacyBan.Code != http.StatusBadRequest {
+		t.Fatalf("ban without policy version = %d %s", legacyBan.Code, legacyBan.Body.String())
+	}
+
 }

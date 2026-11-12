@@ -15,6 +15,7 @@ pub const LIMIT: usize = 32;
 pub const PARTICIPANTS_PER_CHUNK: usize = 6;
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+#[must_use]
 pub const fn participant_chunk_size(count: usize) -> usize {
     if count == LIMIT {
         PARTICIPANTS_PER_CHUNK
@@ -586,9 +587,6 @@ pub(crate) struct ReputationEditor<'a> {
     state: &'a mut ReputationState,
 }
 impl ReputationEditor<'_> {
-    pub(crate) fn records(&self) -> impl Iterator<Item = &ReputationCurrent> {
-        self.state.records()
-    }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn ordered_record(
         &self,

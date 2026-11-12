@@ -148,19 +148,26 @@ pub fn verify_direct_node_readiness(
     endpoint: &layerx_client::sequencer::SequencerEndpoint,
     expected_chain: u64,
 ) -> Result<crate::read::ServedCheckpoint, crate::read::CheckpointReadError> {
+    verify_direct_node_readiness_for_chain(endpoint, expected_chain, &expected_chain.to_string())
+}
+
+/// Verify direct node readiness against the configured consensus chain identifier.
+/// # Errors
+/// Returns an error for a different EVM chain or an invalid committed checkpoint.
+pub fn verify_direct_node_readiness_for_chain(
+    endpoint: &layerx_client::sequencer::SequencerEndpoint,
+    expected_chain: u64,
+    consensus_chain_id: &str,
+) -> Result<crate::read::ServedCheckpoint, crate::read::CheckpointReadError> {
     use crate::read::{CheckpointReadError, ServedCheckpoint};
-    if expected_chain != 125
+    if consensus_chain_id.is_empty()
+        || expected_chain != 125
         || endpoint.chain_id().map_err(CheckpointReadError::Rpc)? != expected_chain
     {
         return Err(CheckpointReadError::TargetMismatch);
     }
     let height = endpoint.block_number().map_err(CheckpointReadError::Rpc)?;
-    ServedCheckpoint::acquire_at_committed_block(
-        endpoint,
-        height,
-        None,
-        &expected_chain.to_string(),
-    )
+    ServedCheckpoint::acquire_at_committed_block(endpoint, height, None, consensus_chain_id)
 }
 
 use layerx_types::ids::Did;

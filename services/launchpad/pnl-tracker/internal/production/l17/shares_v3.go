@@ -447,7 +447,7 @@ func (w ShareWorkerV3) RunOnce(ctx context.Context) error {
 	if e != nil {
 		return e
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer rollbackPortfolio(tx)
 	var event, id, kind string
 	var fence int64
 	var raw []byte
@@ -500,7 +500,7 @@ func (w ShareWorkerV3) RunOnce(ctx context.Context) error {
 	if e != nil {
 		return e
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer rollbackPortfolio(tx)
 	var live bool
 	if e = tx.QueryRow(ctx, "SELECT lease_until>clock_timestamp() FROM portfolio_share_outbox_v3 WHERE event_id=$1 AND fence=$2 AND lease_owner=$3 FOR UPDATE", event, fence, w.Owner).Scan(&live); e != nil {
 		return e

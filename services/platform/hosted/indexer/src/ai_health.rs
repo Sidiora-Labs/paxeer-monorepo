@@ -12,6 +12,7 @@
 use std::collections::BTreeMap;
 use std::fmt;
 use std::path::Path;
+use std::time::Duration;
 
 use rusqlite::{params, Connection, OptionalExtension as _, TransactionBehavior};
 use rustls::SignatureScheme;
@@ -1213,7 +1214,11 @@ impl HealthProjection {
     /// # Errors
     /// `Store` when the file or schema cannot be opened.
     pub fn open(path: &Path) -> Result<Self, HealthError> {
-        Self::with_connection(Connection::open(path).map_err(|error| store_error(&error))?)
+        let connection = Connection::open(path).map_err(|error| store_error(&error))?;
+        connection
+            .busy_timeout(Duration::from_secs(5))
+            .map_err(|error| store_error(&error))?;
+        Self::with_connection(connection)
     }
 
     /// Opens a projection in memory.

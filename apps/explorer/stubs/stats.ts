@@ -5,6 +5,9 @@ export const HOMEPAGE_STATS: HomeStats = {
   average_block_time: 14346,
   coin_price: '1807.68',
   coin_price_change_percentage: 42,
+  secondary_coin_price: null,
+  secondary_coin_market_cap: null,
+  secondary_coin_price_change_percentage: null,
   gas_prices: {
     average: {
       fiat_price: '1.01',

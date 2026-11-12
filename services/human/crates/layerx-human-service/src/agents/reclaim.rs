@@ -226,6 +226,21 @@ pub struct Reclaim {
     engine: JourneyEngine,
 }
 
+fn reclaim_actor(request: &ReclaimRequest) -> Result<AgentDid, ReclaimError> {
+    match &request.mechanism {
+        ReclaimMechanism::ReceiveUnderPayerGrant(_) => {
+            let did = request
+                .owner
+                .canonical()
+                .strip_prefix("agent:")
+                .and_then(|value| value.strip_suffix(":main"))
+                .ok_or(ReclaimError::InvalidRequest)?;
+            AgentDid::new(did).map_err(Into::into)
+        }
+        _ => Ok(request.agent.actor.clone()),
+    }
+}
+
 impl Reclaim {
     /// Resolves the requested return, persists its immutable owner record, and
     /// starts the generic receipt-gated engine under the same stable key.
@@ -256,18 +271,7 @@ impl Reclaim {
         {
             return Err(ReclaimError::RouteWidened);
         }
-        let actor = match &request.mechanism {
-            ReclaimMechanism::ReceiveUnderPayerGrant(_) => {
-                let did = request
-                    .owner
-                    .canonical()
-                    .strip_prefix("agent:")
-                    .and_then(|value| value.strip_suffix(":main"))
-                    .ok_or(ReclaimError::InvalidRequest)?;
-                AgentDid::new(did)?
-            }
-            _ => request.agent.actor.clone(),
-        };
+        let actor = reclaim_actor(request)?;
         let compiled = compile(leg.intent(), registry)?;
         if matches!(request.mechanism, ReclaimMechanism::BudgetDefund { .. })
             && (compiled.activity_type().module() != ModuleId::Budget

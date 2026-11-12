@@ -134,7 +134,7 @@ impl SubmitPlanRequest {
 pub struct BindingExpectation {
     pub actor: AgentDid,
     pub authority: AuthorityRef,
-    /// The pending-tag nonce returned by the agent runtime's ACCOUNT_SEQUENCE answer.
+    /// The pending-tag nonce returned by the agent runtime's `ACCOUNT_SEQUENCE` answer.
     pub account_sequence: u64,
     pub currency: String,
     pub now: u64,
@@ -339,6 +339,8 @@ pub fn start_kernel_journey(
     })
 }
 
+/// # Errors
+/// Returns an error if validation or a required operation fails.
 pub fn start_native_kernel_journey(
     scope: &mut PrincipalScope<'_>,
     plan: &UnifiedPlan,

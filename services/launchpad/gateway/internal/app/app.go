@@ -243,73 +243,20 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	var identity *auth.Identity
 	var identityRPC *ethclient.Client
 	if cfg.NodeEnv == nodeEnvironmentProduction {
-		var identityConfig struct {
-			Issuer         string            `json:"issuer"`
-			Audience       string            `json:"audience"`
-			ActiveKey      string            `json:"activeKey"`
-			Keys           []auth.SigningKey `json:"keys"`
-			Domain         string            `json:"domain"`
-			URI            string            `json:"uri"`
-			AllowedOrigins []string          `json:"allowedOrigins"`
-		}
-		if err := config.ReadBoundDocument(cfg.IdentityConfigFile, cfg.IdentityConfigSHA256, &identityConfig); err != nil {
-			return nil, err
-		}
-		originSet := map[string]bool{}
-		for _, origin := range strings.Split(cfg.CORSAllowedOrigins, ",") {
-			originSet[origin] = true
-		}
-		if len(identityConfig.AllowedOrigins) != len(originSet) {
-			return nil, errors.New("identity and CORS origin bindings disagree")
-		}
-		for _, origin := range identityConfig.AllowedOrigins {
-			if !originSet[origin] {
-				return nil, errors.New("identity and CORS origin bindings disagree")
-			}
-			delete(originSet, origin)
-		}
-		provider, err := sharedsecrets.NewChecked(sharedsecrets.Options{Provider: sharedsecrets.ProviderType(cfg.SecretsProvider), CacheTTL: 0})
+		var check sharedhttp.Check
+		identity, identityRPC, check, err = newProductionIdentity(ctx, cfg, pool, connected, identityMetrics)
 		if err != nil {
-			return nil, err
-		}
-		identityKeyValues := map[string]string{}
-		for _, key := range identityConfig.Keys {
-			value, e := provider.GetRequired(ctx, key.SecretReference)
-			if e != nil {
-				return nil, fmt.Errorf("identity_signing_secret_unavailable")
+			if identityRPC != nil {
+				identityRPC.Close()
 			}
-			identityKeyValues[key.SecretReference] = value
-		}
-		secretChecks["identity_signing_keys"] = func(c context.Context) error {
-			for reference, consumed := range identityKeyValues {
-				value, e := provider.GetRequired(c, reference)
-				if e != nil {
-					return e
-				}
-				if value != consumed {
-					return errors.New("identity signing key changed; restart required")
-				}
-			}
-			return nil
-		}
-		tokens, err := auth.NewIdentityTokens(identityConfig.Issuer, identityConfig.Audience, identityConfig.ActiveKey, identityConfig.Keys, identityKeyResolver{provider}, time.Now)
-		if err != nil {
 			return nil, err
 		}
-		tokens.SetObserver(identityMetrics.observe)
-		identityRPC, err = ethclient.DialContext(ctx, cfg.RPCURL)
-		if err != nil {
-			return nil, err
-		}
+		secretChecks["identity_signing_keys"] = check
 		defer func() {
 			if !secretOwned {
 				identityRPC.Close()
 			}
 		}()
-		identity, err = auth.NewIdentity(auth.IdentityConfig{Pool: pool, Domain: identityConfig.Domain, URI: identityConfig.URI, AllowedOrigins: identityConfig.AllowedOrigins, Verifier: auth.Chain125ProofVerifier{Backend: sharedauth.NewReportedHashBackend(identityRPC.Client())}, LimiterKey: []byte(cfg.IdentityLimiterKey), Tokens: tokens, Observe: identityMetrics.observe, SecurityAuditKey: connected.auditKey, Events: &auth.IdentityEventDelivery{Store: connected.store, Subject: auth.IdentityRevisionSubject, EventType: auth.IdentityRevisionEventType}})
-		if err != nil {
-			return nil, err
-		}
 	}
 	var devIdentity *devidentity.Runtime
 	if cfg.NodeEnv != nodeEnvironmentProduction {
@@ -477,6 +424,72 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		result.auditConsumer = connected.auditConsumer
 	}
 	return result, nil
+}
+
+func newProductionIdentity(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, connected *gatewayConnectedRuntime, identityMetrics *identityRuntimeMetrics) (*auth.Identity, *ethclient.Client, sharedhttp.Check, error) {
+	var identityConfig struct {
+		Issuer         string            `json:"issuer"`
+		Audience       string            `json:"audience"`
+		ActiveKey      string            `json:"activeKey"`
+		Keys           []auth.SigningKey `json:"keys"`
+		Domain         string            `json:"domain"`
+		URI            string            `json:"uri"`
+		AllowedOrigins []string          `json:"allowedOrigins"`
+	}
+	if err := config.ReadBoundDocument(cfg.IdentityConfigFile, cfg.IdentityConfigSHA256, &identityConfig); err != nil {
+		return nil, nil, nil, err
+	}
+	originSet := map[string]bool{}
+	for _, origin := range strings.Split(cfg.CORSAllowedOrigins, ",") {
+		originSet[origin] = true
+	}
+	if len(identityConfig.AllowedOrigins) != len(originSet) {
+		return nil, nil, nil, errors.New("identity and CORS origin bindings disagree")
+	}
+	for _, origin := range identityConfig.AllowedOrigins {
+		if !originSet[origin] {
+			return nil, nil, nil, errors.New("identity and CORS origin bindings disagree")
+		}
+		delete(originSet, origin)
+	}
+	provider, err := sharedsecrets.NewChecked(sharedsecrets.Options{Provider: sharedsecrets.ProviderType(cfg.SecretsProvider), CacheTTL: 0})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	identityKeyValues := map[string]string{}
+	for _, key := range identityConfig.Keys {
+		value, e := provider.GetRequired(ctx, key.SecretReference)
+		if e != nil {
+			return nil, nil, nil, fmt.Errorf("identity_signing_secret_unavailable")
+		}
+		identityKeyValues[key.SecretReference] = value
+	}
+	check := func(c context.Context) error {
+		for reference, consumed := range identityKeyValues {
+			value, e := provider.GetRequired(c, reference)
+			if e != nil {
+				return e
+			}
+			if value != consumed {
+				return errors.New("identity signing key changed; restart required")
+			}
+		}
+		return nil
+	}
+	tokens, err := auth.NewIdentityTokens(identityConfig.Issuer, identityConfig.Audience, identityConfig.ActiveKey, identityConfig.Keys, identityKeyResolver{provider}, time.Now)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	tokens.SetObserver(identityMetrics.observe)
+	identityRPC, err := ethclient.DialContext(ctx, cfg.RPCURL)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	identity, err := auth.NewIdentity(auth.IdentityConfig{Pool: pool, Domain: identityConfig.Domain, URI: identityConfig.URI, AllowedOrigins: identityConfig.AllowedOrigins, Verifier: auth.Chain125ProofVerifier{Backend: sharedauth.NewReportedHashBackend(identityRPC.Client())}, LimiterKey: []byte(cfg.IdentityLimiterKey), Tokens: tokens, Observe: identityMetrics.observe, SecurityAuditKey: connected.auditKey, Events: &auth.IdentityEventDelivery{Store: connected.store, Subject: auth.IdentityRevisionSubject, EventType: auth.IdentityRevisionEventType}})
+	if err != nil {
+		return nil, identityRPC, nil, err
+	}
+	return identity, identityRPC, check, nil
 }
 
 // buildBuckets constructs one R2 client per configured logical bucket, all on

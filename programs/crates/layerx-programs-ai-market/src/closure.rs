@@ -138,7 +138,7 @@ struct Committed<'a> {
 fn committed(current: &[u8]) -> CodecResult<Committed<'_>> {
     let state = decode_shared_state(current)?;
     let section = PolicySection::decode(
-        *state
+        state
             .feature_sections
             .guest_index(Section::PolicyLifecycle.index()),
     )?;
@@ -439,7 +439,7 @@ fn epoch_terminal(state: &SharedState<'_>, rewards: Option<&RewardState<'_>>) ->
         return Ok(true);
     };
     let admission = AdmissionTable::decode(crate::reputation_transition::joint_table(
-        *state
+        state
             .feature_sections
             .guest_index(Section::ReputationAdmission.index()),
     )?)?;
@@ -460,7 +460,7 @@ fn task_set_identity(
     section: &PolicySection<'_>,
 ) -> CodecResult<Option<[u8; 32]>> {
     let admission = AdmissionTable::decode(crate::reputation_transition::joint_table(
-        *state
+        state
             .feature_sections
             .guest_index(Section::ReputationAdmission.index()),
     )?)?;

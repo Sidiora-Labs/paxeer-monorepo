@@ -3,8 +3,6 @@ package production
 import (
 	"context"
 	"encoding/json"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"math"
 	"net/url"
 	"os"
@@ -13,6 +11,9 @@ import (
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/db"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func allocationFixture() ConnectionBudget {
@@ -163,13 +164,13 @@ func TestConnectionBudgetParsingRejectsUnknownConfiguration(t *testing.T) {
 }
 
 func TestPhase2RuntimeConstructorsAtAllocatedMaximum(t *testing.T) {
-	requireProductionEnv(t, "L07_POSTGRES_DSN", "L07_READER_PASSWORD")
+	requireProductionEnv(t, "L07_POSTGRES_DSN")
 	admin := fixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	password := os.Getenv("L07_READER_PASSWORD")
 	if password == "" {
-		t.Fatal("real distinct runtime credentials required")
+		password = uuid.NewString()
 	}
 	parsed, err := url.Parse(os.Getenv("L07_POSTGRES_DSN"))
 	if err != nil {
@@ -185,8 +186,22 @@ func TestPhase2RuntimeConstructorsAtAllocatedMaximum(t *testing.T) {
 	}
 	budget := ConnectionBudget{Identity: "phase2_allocated_max", Targets: []PostgresTarget{{ID: "primary", Member: "physical_primary", Host: config.ConnConfig.Host, Port: config.ConnConfig.Port, MaxConnections: maximum}}, Operational: []OperationalBudget{{ID: "migrator", Target: "primary", Category: "migration", Connections: 1}}}
 	roles := []string{"apid:rest", "apid:sockets", "indexerd", "chartsd", "statsd", "pnld", "rankingd", "mediagatewayd", "userd", "sociald", "metadatad", "livestreamd"}
+	roleNames := make(map[string]string, len(roles))
+	suffix := strings.ReplaceAll(uuid.NewString(), "-", "")[:8]
 	for _, role := range roles {
-		user := "l07_pool_" + strings.ReplaceAll(role, ":", "_")
+		roleNames[role] = "l07_pool_" + strings.ReplaceAll(role, ":", "_") + "_" + suffix
+	}
+	t.Cleanup(func() {
+		cleanup, stop := context.WithTimeout(context.Background(), 10*time.Second)
+		defer stop()
+		for _, role := range roles {
+			if _, err := admin.Exec(cleanup, "DROP ROLE IF EXISTS "+pgx.Identifier{roleNames[role]}.Sanitize()); err != nil {
+				t.Errorf("release runtime role: %v", err)
+			}
+		}
+	})
+	for _, role := range roles {
+		user := roleNames[role]
 		exec(t, admin, "CREATE ROLE "+pgx.Identifier{user}.Sanitize()+" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS")
 		var alter string
 		if err = admin.QueryRow(ctx, "SELECT format('ALTER ROLE %I PASSWORD %L',$1::text,$2::text)", user, password).Scan(&alter); err != nil {
@@ -226,7 +241,7 @@ func TestPhase2RuntimeConstructorsAtAllocatedMaximum(t *testing.T) {
 		}
 	}()
 	for _, role := range roles {
-		user := "l07_pool_" + strings.ReplaceAll(role, ":", "_")
+		user := roleNames[role]
 		dsn := *parsed
 		dsn.User = url.UserPassword(user, password)
 		pools, err := budget.OpenRuntimePools(ctx, role, "phase2_fleet", RuntimePoolSelection{PoolID: "interactive", DSN: dsn.String()}, RuntimePoolSelection{PoolID: "batch", DSN: dsn.String()})

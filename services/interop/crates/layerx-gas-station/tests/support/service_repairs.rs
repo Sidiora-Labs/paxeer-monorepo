@@ -25,8 +25,13 @@ fn producer_revert_harness() -> Result<Harness, Box<dyn std::error::Error>> {
         max_priority_fee_per_gas: 1_000_000_000,
         registered_senders: vec![],
     };
-    let journal =
-        std::env::temp_dir().join(format!("producer-reverted-{}.jsonl", std::process::id()));
+    let journal = std::env::temp_dir().join(format!(
+        "producer-reverted-{}-{}.jsonl",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_nanos()
+    ));
     let clock = Arc::new(AtomicU64::new(
         captured["now"].as_u64().ok_or("captured service clock")?,
     ));
@@ -145,7 +150,7 @@ pub(crate) fn producer_revert_retains_signed_effects_and_malformed_checks() -> T
     Ok(())
 }
 
-pub(crate) fn registered_budgets_cross_caps_and_survive_restart() -> TestResult {
+pub(crate) fn registered_budgets_cross_caps_and_survive_restart(prefix: &str) -> TestResult {
     let mut observations = Vec::new();
     // The same token cost straddles each cap only cumulatively. Ordinary
     // accounts admit two quotes; the lower cap admits one, the higher three.
@@ -154,7 +159,7 @@ pub(crate) fn registered_budgets_cross_caps_and_survive_restart() -> TestResult 
         ("BUDGET_SMALL", Some(5_000_000), 1),
         ("BUDGET_LARGE", Some(12_000_000), 3),
     ] {
-        let mut harness = start_configured(name, |config, account| {
+        let mut harness = start_configured(&format!("{prefix}_{name}"), |config, account| {
             if let Some(budget) = custom {
                 config.registered_senders = vec![RegisteredSender {
                     address: account,
