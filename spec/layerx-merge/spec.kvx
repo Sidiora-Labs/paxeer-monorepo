@@ -164358,7 +164358,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.14]
 title = "Show the price update totals in the transaction statistics of the explorer transactions page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
