@@ -1,5 +1,6 @@
-#[path = "support/canonical_owner.rs"]
-mod canonical_owner;
+pub mod canonical_owner {
+    include!("support/canonical_owner.rs");
+}
 
 use layerx_human_test_support as support;
 
@@ -778,13 +779,18 @@ fn protocol_receipt_for_payload(
     );
     evidence
         .bound_activity(payload.activity_type())
-        .expect("bound owner transaction");
+        .or_fail("bound owner transaction");
     let receipt = layerx_proof::receipt::verify_sequencer_signature(
         &evidence.receipt_bytes,
         authorized_batch.sequencer_public_key(),
     )
-    .expect("sequencer-signed owner transaction receipt");
-    let protocol = receipt.protocol().expect("protocol receipt");
+    .unwrap_or_else(|error| {
+        panic!(
+            "{}: {error:?}",
+            "sequencer-signed owner transaction receipt"
+        )
+    });
+    let protocol = receipt.protocol().or_fail("protocol receipt");
     assert_eq!(protocol.batch_id(), authorized_batch.batch_id());
     assert_eq!(
         protocol.previous_state_root(),
@@ -796,8 +802,8 @@ fn protocol_receipt_for_payload(
     );
     let receipt = evidence
         .verify_outcome(payload.activity_type())
-        .expect("verified owner transaction outcome");
-    let protocol = receipt.protocol().expect("protocol receipt");
+        .or_fail("verified owner transaction outcome");
+    let protocol = receipt.protocol().or_fail("protocol receipt");
     assert_eq!(evidence.tx_hash, protocol.activity_id());
     assert_eq!(evidence.tx_hash, evidence.activity_id);
     assert_eq!(evidence.rung, layerx_types::rung::Rung::Committed);
@@ -862,4 +868,10 @@ fn push_bytes(bytes: &mut Vec<u8>, value: &[u8]) {
     let length = u32::try_from(value.len()).unwrap_or_else(|_| panic!("field overflow"));
     bytes.extend_from_slice(&length.to_be_bytes());
     bytes.extend_from_slice(value);
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

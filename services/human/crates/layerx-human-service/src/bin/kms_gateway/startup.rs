@@ -118,7 +118,7 @@ pub(super) fn prepare(
                 operation_window: Duration::from_secs(settings.number("RATE_WINDOW_SECONDS")?),
             },
         },
-        Arc::clone(&clock),
+        clock,
     )
     .map_err(|error| format!("the gateway was refused: {}", error.refusal_code()))?;
     Ok((listen, gateway))

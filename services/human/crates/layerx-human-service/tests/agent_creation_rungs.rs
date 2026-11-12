@@ -1,7 +1,8 @@
 use layerx_human_test_support::StepClock;
 use layerx_types::clock::{Clock, Deadline};
-#[path = "support/canonical_owner.rs"]
-mod canonical_owner;
+pub mod canonical_owner {
+    include!("support/canonical_owner.rs");
+}
 
 use std::fmt::Debug;
 use std::os::unix::net::UnixListener;
@@ -135,7 +136,7 @@ fn receipt(owner: &canonical_owner::SignedOwner) -> (Vec<u8>, [[u8; 32]; 5]) {
     digest.update(b"LXP/v1/receipt\0");
     digest.update(&raw);
     let signature = signer.sign(&<[u8; 32]>::from(digest.finalize()));
-    *raw.last_mut().expect("signature tag") = 1;
+    *raw.last_mut().or_fail("signature tag") = 1;
     bytes(&mut raw, &signature.to_bytes());
     let decoded = checked(layerx_wire::receipt::decode(&raw));
     assert_eq!(checked(layerx_wire::receipt::encode(&decoded)), raw);
@@ -207,6 +208,141 @@ fn capability_exchange(rung_byte: u8) -> (Vec<u8>, Vec<u8>) {
     (frame(30, &body), frame(0, &answer))
 }
 
+fn fresh_exchanges(
+    owner: &canonical_owner::SignedOwner,
+    compiled: &layerx_intents::CompiledIntent,
+    rung_byte: u8,
+    answer: &[u8],
+) -> Vec<(Option<Vec<u8>>, Vec<u8>)> {
+    let mut exchanges = Vec::new();
+    let mut nonce_request = Vec::new();
+    bytes(&mut nonce_request, b"did:layerx:owner-receipt-fixture");
+    bytes(&mut nonce_request, hex(&owner.public_key).as_bytes());
+    let mut nonce_answer = 1_u64.to_be_bytes().to_vec();
+    nonce_answer.push(rung_byte);
+    exchanges.push((Some(frame(13, &nonce_request)), frame(0, &nonce_answer)));
+
+    let (call, _) = checked(layerx_crypto::evm_transaction::decode_signed(&owner.bytes));
+    let mut preparation = Vec::new();
+    bytes(&mut preparation, b"budget-preparation");
+    preparation.push(2);
+    preparation.extend_from_slice(&call.chain_id.to_be_bytes());
+    preparation.extend_from_slice(&call.nonce.to_be_bytes());
+    preparation.extend_from_slice(&call.max_priority_fee_per_gas.to_be_bytes());
+    preparation.extend_from_slice(&call.max_fee_per_gas.to_be_bytes());
+    preparation.extend_from_slice(&call.gas_limit.to_be_bytes());
+    preparation.extend_from_slice(&call.to);
+    bytes(&mut preparation, &call.data);
+    preparation.extend_from_slice(&compiled.activity_type().value().to_be_bytes());
+    bytes(&mut preparation, b"did:layerx:owner-receipt-fixture");
+    bytes(&mut preparation, hex(&owner.public_key).as_bytes());
+    for coordinate in [1_u64, 1_000_000, 1_030_000] {
+        preparation.extend_from_slice(&coordinate.to_be_bytes());
+    }
+    preparation.extend_from_slice(&1_000_000_u128.to_be_bytes());
+    bytes(&mut preparation, compiled.payload().as_bytes());
+    preparation.extend_from_slice(&compiled.payload_hash());
+    preparation.extend_from_slice(&ACTION);
+    exchanges.push((None, frame(0, &preparation)));
+
+    let mut submitted = owner.id.to_vec();
+    bytes(&mut submitted, b"budget-submission");
+    submitted.push(6);
+    bytes(&mut submitted, b"budget-receipt");
+    submitted.extend_from_slice(&[rung_byte, 0, 0]);
+    submitted.extend_from_slice(answer);
+    exchanges.push((None, frame(0, &submitted)));
+    exchanges
+}
+
+fn serve_creation_peer(
+    listener: &UnixListener,
+    peer_clock: &Arc<dyn Clock>,
+    exchanges: Vec<(Option<Vec<u8>>, Vec<u8>)>,
+    compiled: &layerx_intents::CompiledIntent,
+    expected_owner_bytes: &[u8],
+    expected_owner_id: [u8; 32],
+    expected_owner_key: [u8; 32],
+) {
+    for (request, answer) in exchanges {
+        let mut deadline = checked(Deadline::start(peer_clock.as_ref(), Duration::from_secs(5)));
+        let mut stream = loop {
+            match listener.accept() {
+                Ok((stream, _)) => break stream,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    assert!(
+                        !checked(deadline.remaining(peer_clock.as_ref())).is_zero(),
+                        "creation peer request deadline"
+                    );
+                    thread::sleep(Duration::from_millis(1));
+                }
+                Err(error) => panic!("creation peer accept: {error}"),
+            }
+        };
+        checked(stream.set_read_timeout(Some(Duration::from_secs(5))));
+        checked(stream.set_write_timeout(Some(Duration::from_secs(5))));
+        let received = checked(read_frame(&mut stream, MAX_FRAME));
+        if let Some(request) = request {
+            assert_eq!(received, request);
+        } else {
+            match checked(decode_request(received)) {
+                HumanRequest::Prepare(request) => {
+                    assert_eq!(request.key, ACTION);
+                    assert_eq!(request.operation.idempotency_key, hex(&ACTION));
+                    assert_eq!(request.operation.payload, compiled.payload().as_bytes());
+                    assert_eq!(request.operation.payload_hash, compiled.payload_hash());
+                }
+                HumanRequest::Submit(request) => {
+                    assert_eq!(request.key, ACTION);
+                    assert_eq!(request.operation.preparation_ref, "budget-preparation");
+                    assert_eq!(request.operation.signer_public_key, expected_owner_key);
+                    let (call, _) = checked(layerx_crypto::evm_transaction::decode_signed(
+                        expected_owner_bytes,
+                    ));
+                    let signed = checked(
+                        layerx_human_service::custody::signer::attach_call_signature(
+                            &call,
+                            checked(request.operation.signature.as_slice().try_into()),
+                            checked(expected_owner_key[12..].try_into()),
+                        ),
+                    );
+                    assert_eq!(
+                        layerx_crypto::evm_transaction::transaction_hash(&signed),
+                        expected_owner_id,
+                    );
+                }
+                _ => panic!("unexpected budget creation request"),
+            }
+        }
+        checked(write_frame(&mut stream, &answer, MAX_FRAME));
+    }
+}
+
+fn creation_shared_custody(
+    root: &std::path::Path,
+    store: &Arc<Mutex<PrincipalStore>>,
+) -> CustodySigner {
+    let secret = root.join("kms-root");
+    checked(std::fs::write(&secret, [0x51; 64]));
+    let keystore = checked(Keystore::open_development(
+        root.join("custody"),
+        77,
+        checked(EnvelopeKms::new("kms://creation-primary", secret)),
+    ));
+    checked(keystore.generate(
+        &support::principal("alice"),
+        &checked(KeyId::new("human-primary")),
+        KeyClass::HumanPrimary,
+        checked(KeyEntropy::new([0x68; 32], [0x31; 16], [0x41; 24])),
+    ));
+    CustodySigner::new_shared(
+        keystore,
+        Arc::clone(store),
+        registry(),
+        checked(SigningLimits::new(10, 60)),
+    )
+}
+
 struct Fixture {
     root: PathBuf,
     store: Arc<Mutex<PrincipalStore>>,
@@ -233,25 +369,7 @@ impl Fixture {
             support::retention_uniform(100),
         );
         let store = Arc::new(Mutex::new(store));
-        let secret = root.join("kms-root");
-        checked(std::fs::write(&secret, [0x51; 64]));
-        let keystore = checked(Keystore::open_development(
-            root.join("custody"),
-            77,
-            checked(EnvelopeKms::new("kms://creation-primary", secret)),
-        ));
-        checked(keystore.generate(
-            &support::principal("alice"),
-            &checked(KeyId::new("human-primary")),
-            KeyClass::HumanPrimary,
-            checked(KeyEntropy::new([0x68; 32], [0x31; 16], [0x41; 24])),
-        ));
-        let custody = CustodySigner::new_shared(
-            keystore,
-            Arc::clone(&store),
-            registry(),
-            checked(SigningLimits::new(10, 60)),
-        );
+        let custody = creation_shared_custody(&root, &store);
         let compiled = checked(layerx_intents::compile(&intent, &registry()));
         let signing_key = match intent.kind() {
             IntentKind::BudgetCreate(_) => checked(compiled.payload().as_bytes()[2..34].try_into()),
@@ -288,43 +406,7 @@ impl Fixture {
         answer.push(rung_byte);
         let mut exchanges = Vec::new();
         if fresh {
-            let mut nonce_request = Vec::new();
-            bytes(&mut nonce_request, b"did:layerx:owner-receipt-fixture");
-            bytes(&mut nonce_request, hex(&owner.public_key).as_bytes());
-            let mut nonce_answer = 1_u64.to_be_bytes().to_vec();
-            nonce_answer.push(rung_byte);
-            exchanges.push((Some(frame(13, &nonce_request)), frame(0, &nonce_answer)));
-
-            let (call, _) = checked(layerx_crypto::evm_transaction::decode_signed(&owner.bytes));
-            let mut preparation = Vec::new();
-            bytes(&mut preparation, b"budget-preparation");
-            preparation.push(2);
-            preparation.extend_from_slice(&call.chain_id.to_be_bytes());
-            preparation.extend_from_slice(&call.nonce.to_be_bytes());
-            preparation.extend_from_slice(&call.max_priority_fee_per_gas.to_be_bytes());
-            preparation.extend_from_slice(&call.max_fee_per_gas.to_be_bytes());
-            preparation.extend_from_slice(&call.gas_limit.to_be_bytes());
-            preparation.extend_from_slice(&call.to);
-            bytes(&mut preparation, &call.data);
-            preparation.extend_from_slice(&compiled.activity_type().value().to_be_bytes());
-            bytes(&mut preparation, b"did:layerx:owner-receipt-fixture");
-            bytes(&mut preparation, hex(&owner.public_key).as_bytes());
-            for coordinate in [1_u64, 1_000_000, 1_030_000] {
-                preparation.extend_from_slice(&coordinate.to_be_bytes());
-            }
-            preparation.extend_from_slice(&1_000_000_u128.to_be_bytes());
-            bytes(&mut preparation, compiled.payload().as_bytes());
-            preparation.extend_from_slice(&compiled.payload_hash());
-            preparation.extend_from_slice(&ACTION);
-            exchanges.push((None, frame(0, &preparation)));
-
-            let mut submitted = owner.id.to_vec();
-            bytes(&mut submitted, b"budget-submission");
-            submitted.push(6);
-            bytes(&mut submitted, b"budget-receipt");
-            submitted.extend_from_slice(&[rung_byte, 0, 0]);
-            submitted.extend_from_slice(&answer);
-            exchanges.push((None, frame(0, &submitted)));
+            exchanges.extend(fresh_exchanges(&owner, &compiled, rung_byte, &answer));
         } else {
             exchanges.push((Some(frame(4, &request)), frame(0, &answer)));
         }
@@ -336,62 +418,18 @@ impl Fixture {
         let socket = root.join("peer.sock");
         let listener = checked(UnixListener::bind(&socket));
         checked(listener.set_nonblocking(true));
-        let clock: Arc<dyn Clock> = Arc::new(StepClock::new(1000000000));
+        let clock: Arc<dyn Clock> = Arc::new(StepClock::new(1_000_000_000));
         let peer_clock = Arc::clone(&clock);
         let server = thread::spawn(move || {
-            for (request, answer) in exchanges {
-                let mut deadline =
-                    checked(Deadline::start(peer_clock.as_ref(), Duration::from_secs(5)));
-                let mut stream = loop {
-                    match listener.accept() {
-                        Ok((stream, _)) => break stream,
-                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                            assert!(
-                                !checked(deadline.remaining(peer_clock.as_ref())).is_zero(),
-                                "creation peer request deadline"
-                            );
-                            thread::sleep(Duration::from_millis(1));
-                        }
-                        Err(error) => panic!("creation peer accept: {error}"),
-                    }
-                };
-                checked(stream.set_read_timeout(Some(Duration::from_secs(5))));
-                checked(stream.set_write_timeout(Some(Duration::from_secs(5))));
-                let received = checked(read_frame(&mut stream, MAX_FRAME));
-                if let Some(request) = request {
-                    assert_eq!(received, request);
-                } else {
-                    match checked(decode_request(received)) {
-                        HumanRequest::Prepare(request) => {
-                            assert_eq!(request.key, ACTION);
-                            assert_eq!(request.operation.idempotency_key, hex(&ACTION));
-                            assert_eq!(request.operation.payload, compiled.payload().as_bytes());
-                            assert_eq!(request.operation.payload_hash, compiled.payload_hash());
-                        }
-                        HumanRequest::Submit(request) => {
-                            assert_eq!(request.key, ACTION);
-                            assert_eq!(request.operation.preparation_ref, "budget-preparation");
-                            assert_eq!(request.operation.signer_public_key, expected_owner_key);
-                            let (call, _) = checked(layerx_crypto::evm_transaction::decode_signed(
-                                &expected_owner_bytes,
-                            ));
-                            let signed = checked(
-                                layerx_human_service::custody::signer::attach_call_signature(
-                                    &call,
-                                    checked(request.operation.signature.as_slice().try_into()),
-                                    checked(expected_owner_key[12..].try_into()),
-                                ),
-                            );
-                            assert_eq!(
-                                layerx_crypto::evm_transaction::transaction_hash(&signed),
-                                expected_owner_id,
-                            );
-                        }
-                        _ => panic!("unexpected budget creation request"),
-                    }
-                }
-                checked(write_frame(&mut stream, &answer, MAX_FRAME));
-            }
+            serve_creation_peer(
+                &listener,
+                &peer_clock,
+                exchanges,
+                &compiled,
+                &expected_owner_bytes,
+                expected_owner_id,
+                expected_owner_key,
+            );
         });
         let mut runtime = checked(AgentRuntime::new_with_clock(
             &socket,
@@ -461,7 +499,7 @@ impl Fixture {
     }
 
     fn finish(mut self) {
-        checked(self.server.take().expect("creation peer").join());
+        checked(self.server.take().or_fail("creation peer").join());
     }
 }
 
@@ -472,7 +510,7 @@ impl Drop for Fixture {
 }
 
 fn hex(value: &[u8]) -> String {
-    value.iter().map(|byte| format!("{byte:02x}")).collect()
+    layerx_human_service::hex::lower(value)
 }
 
 #[test]
@@ -706,7 +744,7 @@ mod capability_install_boundary {
             summary.extend_from_slice(&[0x75; 32]);
             summary.extend_from_slice(&request.expiry_sequence.to_be_bytes());
             summary.extend_from_slice(&(1_u64 << (ModuleId::Budget as u16)).to_be_bytes());
-            let activity = *request.activity_types.first().expect("activity type");
+            let activity = *request.activity_types.first().or_fail("activity type");
             summary.extend_from_slice(&activity.to_be_bytes());
             summary.extend_from_slice(&activity.to_be_bytes());
             summary.extend_from_slice(&1_000_000_u64.to_be_bytes());
@@ -884,13 +922,7 @@ mod capability_install_boundary {
     }
 }
 
-#[test]
-fn capability_install_evidence_matches_human() {
-    use layerx_agentd::capability::{Capability, CapabilityId};
-    use layerx_agentd::store::{ObjectKind, Store, TenantId};
-
-    let root = support::directory("capability-install-evidence");
-    checked(std::fs::create_dir_all(&root));
+fn creation_custody(root: &std::path::Path) -> CustodySigner {
     let (principals, _) = support::install_and_open(
         &root.join("principals"),
         &support::tenancy(&[("alice", "tenant-alice")]),
@@ -898,7 +930,7 @@ fn capability_install_evidence_matches_human() {
     );
     let secret = root.join("kms-root");
     checked(std::fs::write(&secret, [0x51; 64]));
-    let custody = CustodySigner::new_shared(
+    CustodySigner::new_shared(
         checked(Keystore::open_development(
             root.join("custody"),
             77,
@@ -907,7 +939,48 @@ fn capability_install_evidence_matches_human() {
         Arc::new(Mutex::new(principals)),
         registry(),
         checked(SigningLimits::new(10, 60)),
+    )
+}
+
+fn assert_first_install(
+    shared: Arc<Mutex<layerx_agentd::store::Store>>,
+    request: &CapabilityProvision,
+) -> (
+    layerx_agentd::store::TenantId,
+    layerx_agentd::capability::Capability,
+) {
+    use layerx_agentd::capability::{Capability, CapabilityId};
+    use layerx_agentd::store::{ObjectKind, Store, TenantId};
+    let tenant = checked(TenantId::new("tenant-alice"));
+    let guard = checked(shared.lock());
+    let store: &Store = &guard;
+    let installed = checked(Capability::restore(
+        store,
+        tenant.clone(),
+        CapabilityId(request.capability_id),
+    ))
+    .or_fail("installed capability");
+    drop(guard);
+    assert_eq!(installed.dimensions.amount_ceiling, request.amount_ceiling);
+    assert_eq!(installed.dimensions.activity_types, request.activity_types);
+    assert_eq!(
+        checked(shared.lock()).list_object_ids(&tenant, ObjectKind::Capability),
+        vec![request.capability_id.to_vec()]
     );
+    assert_eq!(Arc::strong_count(&shared), 1);
+    drop(shared);
+
+    (tenant, installed)
+}
+
+#[test]
+fn capability_install_evidence_matches_human() {
+    use layerx_agentd::capability::{Capability, CapabilityId};
+    use layerx_agentd::store::{ObjectKind, Store};
+
+    let root = support::directory("capability-install-evidence");
+    checked(std::fs::create_dir_all(&root));
+    let custody = creation_custody(&root);
     let (authority, authority_server) = capability_install_boundary::authority();
     let (node, node_server) = capability_install_boundary::node();
     let store_path = root.join("daemon");
@@ -933,21 +1006,7 @@ fn capability_install_evidence_matches_human() {
         first.receipt_digest,
         first.expected_digest(CreationStage::CapabilityNarrowing)
     );
-    let tenant = checked(TenantId::new("tenant-alice"));
-    let installed = checked(Capability::restore(
-        &*checked(shared.lock()),
-        tenant.clone(),
-        CapabilityId(request.capability_id),
-    ))
-    .expect("installed capability");
-    assert_eq!(installed.dimensions.amount_ceiling, request.amount_ceiling);
-    assert_eq!(installed.dimensions.activity_types, request.activity_types);
-    assert_eq!(
-        checked(shared.lock()).list_object_ids(&tenant, ObjectKind::Capability),
-        vec![request.capability_id.to_vec()]
-    );
-    assert_eq!(Arc::strong_count(&shared), 1);
-    drop(shared);
+    let (tenant, installed) = assert_first_install(shared, &request);
 
     let shared = Arc::new(Mutex::new(checked(Store::open(&store_path))));
     let mut changed = request.clone();
@@ -961,19 +1020,22 @@ fn capability_install_evidence_matches_human() {
         vec![request.clone(), changed],
     )
     .into_iter();
-    assert_eq!(checked(retried.next().expect("retry result")), first);
+    assert_eq!(checked(retried.next().or_fail("retry result")), first);
     let refused = Err(AgentFailure::Refused(
         "agent refused or corrupted creation operation",
     ));
-    assert_eq!(retried.next().expect("changed request result"), refused);
+    assert_eq!(retried.next().or_fail("changed request result"), refused);
+    let guard = checked(shared.lock());
+    let store: &Store = &guard;
     assert_eq!(
         checked(Capability::restore(
-            &*checked(shared.lock()),
+            store,
             tenant.clone(),
             CapabilityId(request.capability_id)
         )),
         Some(installed)
     );
+    drop(guard);
     assert_eq!(
         checked(shared.lock()).list_object_ids(&tenant, ObjectKind::Capability),
         vec![request.capability_id.to_vec()]
@@ -1000,4 +1062,10 @@ fn capability_install_evidence_matches_human() {
     checked(node_server.join());
     drop(custody);
     checked(std::fs::remove_dir_all(root));
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

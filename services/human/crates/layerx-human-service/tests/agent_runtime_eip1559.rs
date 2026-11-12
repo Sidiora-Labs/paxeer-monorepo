@@ -180,7 +180,7 @@ impl Peer {
         let socket = root.join("peer.sock");
         let listener = checked(UnixListener::bind(&socket));
         checked(listener.set_nonblocking(true));
-        let clock: Arc<dyn Clock> = Arc::new(StepClock::new(100000));
+        let clock: Arc<dyn Clock> = Arc::new(StepClock::new(100_000));
         let peer_clock = Arc::clone(&clock);
         let server = thread::spawn(move || {
             let mut prepared = None;
@@ -214,7 +214,7 @@ impl Peer {
                         HumanRequest::Submit(value) => {
                             assert_eq!(value.operation.preparation_ref, "type2-preparation");
                             assert_eq!(value.operation.signature.len(), 65);
-                            let call = prepared.as_ref().expect("prepared transaction");
+                            let call = prepared.as_ref().or_fail("prepared transaction");
                             let raw = checked(
                                 layerx_human_service::custody::signer::attach_call_signature(
                                     call,
@@ -256,7 +256,7 @@ impl Peer {
         )
     }
     fn finish(mut self) {
-        checked(self.server.take().expect("peer thread").join());
+        checked(self.server.take().or_fail("peer thread").join());
     }
 }
 impl Drop for Peer {
@@ -381,4 +381,10 @@ fn engine_refuses_a_leg_whose_canonical_bytes_are_not_a_type2_transaction() {
         Err(AgentBoundaryError::CorruptResponse)
     );
     checked(std::fs::remove_dir_all(root));
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }
