@@ -1,0 +1,6 @@
+[coverage.discovery]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/discovery"
+before_percent = 62.5
+after_percent = 85.3
+minimum_percent = 85.0
+source = "Hand-written Go sources"

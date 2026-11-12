@@ -435,7 +435,9 @@ mod guest {
             frame.sections[Section::PolicyLifecycle.index()],
             frame.sections[Section::IdentityRoster.index()],
             frame.sections[Section::ReputationAdmission.index()],
-            frame.sections[Section::SettlementClaims.index()],
+            state::room_market_parts(frame.sections[Section::SettlementClaims.index()])
+                .map_err(|_| EMPTY_REFUSAL)?
+                .0,
         )
         .map_err(|_| EMPTY_REFUSAL)?;
         let roster_end = fuel()?;
@@ -564,7 +566,7 @@ mod repair478_fund_tests {
         };
         let f = crate::repair_478_fixture::fixture([12; 32], [13; 32]).unwrap();
         let mut state = decode_shared_state(&f.next).unwrap();
-        let source = state.feature_sections[Section::SettlementClaims.index()];
+        let source = state.room_market().unwrap().0;
         let rewards = decode_reward_state(source).unwrap();
         let mut refunded = vec![0; REWARD_STATE_BYTES];
         rewards
@@ -730,9 +732,7 @@ mod repair478_fund_tests {
         };
         assert_eq!(after, before.deposit(25).unwrap());
         let produced = decode_shared_state(&next[..state_len]).unwrap();
-        let funded =
-            decode_reward_state(produced.feature_sections[Section::SettlementClaims.index()])
-                .unwrap();
+        let funded = decode_reward_state(produced.room_market().unwrap().0).unwrap();
         assert_eq!(funded.ledger().unwrap(), after);
         assert_eq!(&funded.bytes()[LEDGER_BYTES..], &settled[LEDGER_BYTES..]);
         for section in [

@@ -21275,3 +21275,58 @@ fix = "A file equal to main is not a change of the task."
 title = "The reviewed deployment record of the launchpad carries a staged runtime identity on surface identities"
 symptom = "Each surface identity of sdk/launchpad/shared/config/deployment/current.json holds a staged runtime hash and a staged upgrade name beside the runtime hash, and the web helper holds the same fields."
 fix = "A generator that derives the web helper carries both fields through."
+
+[gotcha.4291]
+title = "The build script of the human network gateway member reads a source file of the platform gateway member"
+symptom = "The build script services/human/crates/layerx-network-gateway/build.rs reads services/platform/hosted/gateway/src/evm.rs and looks for one quantity literal and one fixture path in it."
+fix = "The written form of that literal is an input of the build script."
+
+[gotcha.4292]
+title = "The recipe platform-lint covers every member of the platform workspace"
+symptom = "The recipe runs the lint with warnings denied over the three platform manifests, and the workspace manifest of the platform lists 22 members."
+fix = "A task that passes the recipe holds every member at zero findings."
+
+[gotcha.4293]
+title = "The lock file of the interop workspace lists the dependencies of each member"
+symptom = "The manifest services/interop/Cargo.toml builds its members with one lock file, services/interop/Cargo.lock, and that file names the dependencies of every member package."
+fix = "A task that changes a dependency of a member under services/interop/crates carries services/interop/Cargo.lock in the same commit."
+
+[gotcha.4294]
+title = "The canary proof and the settlement proof are modes of the room driver"
+symptom = "The proofs --proof canary and --proof settlement extend tools/qualification/paxeer-x/inference_market_room.py, the driver that the room proof of task 22.38.36 adds."
+fix = "The two tasks write their modes as additions to that driver and run their build and verification on a base that holds task 22.38.36."
+
+[gotcha.4295]
+title = "The consensus commit gate watches no path of the inference market proofs"
+symptom = "The candidate report of task 22.39.182 runs the nine release tests, the retired-caller scan, the rehearsal test and the consensus commit gate, and the path list of tools/ci/consensus_commit_gate.py holds no path that tasks 22.38.13, 22.38.36, 22.38.37, 22.38.38 and 22.38.39 change."
+fix = "The report task runs beside the inference market series."
+
+[gotcha.4296]
+title = "The agent middleware member of the platform reads the agents integration package"
+symptom = "The cases of services/platform/middleware/agent/test/proof_middleware_agent_ts_exports.test.mjs load the sources under sdk/integrations/agents/src and call the tracking tool and the receipt binding through them."
+fix = "A task that brings the middleware part of the platform test recipe through carries sdk/integrations/agents."
+
+[gotcha.4297]
+title = "The recipe platform-lint reads the workspace test file and the registry event producer"
+symptom = "The recipe platform-lint lints services/platform/tests/repair_22_33_1366.rs and services/platform/hosted/registry/src/event_producer.rs together with the members of the platform workspace."
+fix = "A task that passes the recipe carries both files."
+
+[gotcha.4298]
+title = "The closure of the inference market series reads the interface rows, the documents and the test files of the series"
+symptom = "The test of task 22.38.39 asserts the served interface rows, the operations that the protocol document names, the test files of tasks 22.38.31 to 22.38.34 and the record of the task, and reads no value of the fuel table of task 22.38.13."
+fix = "The closure task runs beside the fuel task and lists in its record the tasks of the series that are qualified at its revision."
+
+[gotcha.4299]
+title = "The merge rehearsal test of the node runs the block-end occupancy transition of Programs at the merge height"
+symptom = "The test TestMergeRehearsalFirstSequencedBlock of node/merge_rehearsal_test.go finalises the block at the merge height. The node calls the block-end occupancy transition of Programs in every block in which the schedules of Programs are present, the merge height included."
+fix = "A change to the block-end occupancy transition or to the state that the merge upgrade installs runs that test."
+
+[gotcha.4300]
+title = "The launchpad golden file of ABI identifiers holds the role ChainLaunch"
+symptom = "The file precompiles/launchpad/testdata/abi_golden.txt holds thirteen lines of the role ChainLaunch. The release test tools/release/tests/test_programme.py compares the roles of that file with the role list LAUNCHPAD_ABI_ROLES of tools/release/rehearsal/programme.py."
+fix = "A role that enters the golden file enters the role list of the release programme."
+
+[gotcha.4301]
+title = "The retired caller scan reads the attestor source of the key management member of the human service"
+symptom = "The scan tools/paxeer-x/tests/retired_callers_test.py matches the symbols of the component envelope-signing of tools/paxeer-x/retired_callers.json in services/human/crates/layerx-human-kms/src/attestor.rs and applies the allowances of that component to each matching line."
+fix = "A task that changes a matching line of that file runs the scan."

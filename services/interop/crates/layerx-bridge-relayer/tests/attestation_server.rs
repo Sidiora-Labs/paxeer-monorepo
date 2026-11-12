@@ -21,21 +21,23 @@ fn server(view: Arc<RwLock<AttestationView>>) -> SocketAddr {
 }
 
 fn server_with_origins(view: Arc<RwLock<AttestationView>>, origins: Vec<String>) -> SocketAddr {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind attestation server");
-    let address = listener.local_addr().expect("server socket address");
-    std::thread::spawn(move || serve(listener, view, origins).expect("serve attestations"));
+    let listener = TcpListener::bind("127.0.0.1:0").or_panic("bind attestation server");
+    let address = listener.local_addr().or_panic("server socket address");
+    std::thread::spawn(move || {
+        serve(&listener, &view, &origins).or_panic("serve attestations");
+    });
     address
 }
 
 fn connect(address: SocketAddr) -> TcpStream {
     let stream = TcpStream::connect_timeout(&address, Duration::from_secs(5))
-        .expect("connect to real attestation server");
+        .or_panic("connect to real attestation server");
     stream
         .set_read_timeout(Some(Duration::from_secs(5)))
-        .expect("bound client reads");
+        .or_panic("bound client reads");
     stream
         .set_write_timeout(Some(Duration::from_secs(5)))
-        .expect("bound client writes");
+        .or_panic("bound client writes");
     stream
 }
 
@@ -43,18 +45,20 @@ fn response(stream: &mut TcpStream) -> (u16, Value) {
     let mut bytes = Vec::new();
     stream
         .read_to_end(&mut bytes)
-        .expect("read HTTP response through close");
-    let text = String::from_utf8(bytes).expect("UTF-8 HTTP response");
-    let (headers, body) = text.split_once("\r\n\r\n").expect("HTTP header terminator");
+        .or_panic("read HTTP response through close");
+    let text = String::from_utf8(bytes).or_panic("UTF-8 HTTP response");
+    let (headers, body) = text
+        .split_once("\r\n\r\n")
+        .or_panic("HTTP header terminator");
     let status = headers
         .lines()
         .next()
-        .expect("status line")
+        .or_panic("status line")
         .split(' ')
         .nth(1)
-        .expect("status code")
+        .or_panic("status code")
         .parse()
-        .expect("numeric status code");
+        .or_panic("numeric status code");
     assert!(headers
         .lines()
         .any(|line| line == "Content-Type: application/json"));
@@ -62,7 +66,7 @@ fn response(stream: &mut TcpStream) -> (u16, Value) {
     assert!(headers
         .lines()
         .any(|line| line == format!("Content-Length: {}", body.len())));
-    (status, serde_json::from_str(body).expect("JSON response"))
+    (status, serde_json::from_str(body).or_panic("JSON response"))
 }
 
 fn request(address: SocketAddr, method: &str, path: &str) -> (u16, Value) {
@@ -71,7 +75,7 @@ fn request(address: SocketAddr, method: &str, path: &str) -> (u16, Value) {
         stream,
         "{method} {path} HTTP/1.1\r\nHost: localhost\r\n\r\n"
     )
-    .expect("write HTTP request");
+    .or_panic("write HTTP request");
     response(&mut stream)
 }
 
@@ -82,35 +86,35 @@ fn origin_request(
     origin: Option<&str>,
 ) -> (u16, BTreeMap<String, String>, String) {
     let mut stream = connect(address);
-    write!(stream, "{method} {path} HTTP/1.1\r\nHost: localhost\r\n").expect("request line");
+    write!(stream, "{method} {path} HTTP/1.1\r\nHost: localhost\r\n").or_panic("request line");
     if let Some(origin) = origin {
-        write!(stream, "oRiGiN: {origin}\r\n").expect("origin header");
+        write!(stream, "oRiGiN: {origin}\r\n").or_panic("origin header");
     }
     if method == "OPTIONS" {
         write!(
             stream,
             "Access-Control-Request-Method: GET\r\nAccess-Control-Request-Headers: accept\r\n"
         )
-        .expect("preflight headers");
+        .or_panic("preflight headers");
     }
-    write!(stream, "\r\n").expect("end request headers");
+    write!(stream, "\r\n").or_panic("end request headers");
     let mut text = String::new();
     stream
         .read_to_string(&mut text)
-        .expect("read real HTTP response");
-    let (head, body) = text.split_once("\r\n\r\n").expect("header terminator");
+        .or_panic("read real HTTP response");
+    let (head, body) = text.split_once("\r\n\r\n").or_panic("header terminator");
     let mut lines = head.split("\r\n");
     let status = lines
         .next()
-        .expect("status line")
+        .or_panic("status line")
         .split(' ')
         .nth(1)
-        .expect("status code")
+        .or_panic("status code")
         .parse()
-        .expect("numeric status");
+        .or_panic("numeric status");
     let mut headers = BTreeMap::new();
     for line in lines {
-        let (name, value) = line.split_once(':').expect("response header");
+        let (name, value) = line.split_once(':').or_panic("response header");
         assert!(
             headers
                 .insert(name.to_ascii_lowercase(), value.trim().to_owned())
@@ -130,18 +134,70 @@ fn origin_config() -> RelayerConfig {
         env!("CARGO_MANIFEST_DIR"),
         "/../../../../services/bridge/deploy/relayer-solana.example.json"
     )))
-    .expect("documented relayer configuration");
+    .or_panic("documented relayer configuration");
     value["paxeer"]["receipt_keys"] = json!([{
         "sequencer_id": hex::prefixed(&[1; 32]),
         "public_key": hex::prefixed(&[2; 32]),
         "first_height": 0,
         "last_height": u64::MAX,
     }]);
-    serde_json::from_value(value).expect("parse relayer configuration")
+    serde_json::from_value(value).or_panic("parse relayer configuration")
 }
 
 #[test]
 fn a_configured_origin_receives_the_allow_origin_header() {
+    let (config, allowed) = configured_allowed_origin();
+
+    let deposit = InboundAttestation {
+        chain_id: 1,
+        vault: [1; 20],
+        tx_hash: [2; 32],
+        log_index: 0,
+        recipient: [3; 32],
+        asset: [4; 20],
+        amount: uint256_from_u64(123),
+    };
+    let release = OutboundAttestation {
+        chain_id: 1,
+        vault: deposit.vault,
+        paxeer_tx_hash: [5; 32],
+        paxeer_nonce: 0,
+        recipient: [3; 20],
+        asset: deposit.asset,
+        amount: uint256_from_u64(456),
+    };
+    let mut unique = [0; 16];
+    openssl::rand::rand_bytes(&mut unique).or_panic("unique journal directory");
+    let directory = std::env::temp_dir().join(format!("attestation-cors-{}", hex::encode(&unique)));
+    std::fs::create_dir(&directory).or_panic("create journal directory");
+    let mut journal = Journal::open(&directory.join("journal.jsonl")).or_panic("open real journal");
+    let position = Position {
+        block_number: 100,
+        block_hash: [6; 32],
+    };
+    for observation in [
+        Observation::inbound(&deposit, position),
+        Observation::outbound(&release, position),
+    ] {
+        journal
+            .append(&Entry::Observed {
+                item: observation.key(),
+                observation,
+            })
+            .or_panic("record real observation");
+    }
+    let view = Arc::new(RwLock::new(AttestationView {
+        items: journal.state().items.clone(),
+        ..AttestationView::default()
+    }));
+    let address = server_with_origins(Arc::clone(&view), config.attestation_allowed_origins);
+    let unconfigured = server(view);
+    assert_origin_routes(address, unconfigured, &deposit, &release, allowed);
+    drop(journal);
+    std::fs::remove_dir_all(directory).or_panic("remove test journal");
+}
+
+fn configured_allowed_origin() -> (RelayerConfig, &'static str) {
     let mut config = origin_config();
     assert!(config.attestation_allowed_origins.is_empty());
     assert_eq!(config.validate(), Ok(()));
@@ -173,7 +229,8 @@ fn a_configured_origin_receives_the_allow_origin_header() {
             vec!["https://bridge.example".to_owned(), invalid.to_owned()];
         let error = config
             .validate()
-            .expect_err("invalid configured origin is refused");
+            .err()
+            .or_panic("invalid configured origin is refused");
         assert!(
             error.to_string().contains("attestation_allowed_origins"),
             "{invalid}: {error}"
@@ -193,50 +250,16 @@ fn a_configured_origin_receives_the_allow_origin_header() {
     config.attestation_allowed_origins = vec![allowed.to_owned()];
     assert_eq!(config.validate(), Ok(()));
 
-    let deposit = InboundAttestation {
-        chain_id: 1,
-        vault: [1; 20],
-        tx_hash: [2; 32],
-        log_index: 0,
-        recipient: [3; 32],
-        asset: [4; 20],
-        amount: uint256_from_u64(123),
-    };
-    let release = OutboundAttestation {
-        chain_id: 1,
-        vault: deposit.vault,
-        paxeer_tx_hash: [5; 32],
-        paxeer_nonce: 0,
-        recipient: [3; 20],
-        asset: deposit.asset,
-        amount: uint256_from_u64(456),
-    };
-    let mut unique = [0; 16];
-    openssl::rand::rand_bytes(&mut unique).expect("unique journal directory");
-    let directory = std::env::temp_dir().join(format!("attestation-cors-{}", hex::encode(&unique)));
-    std::fs::create_dir(&directory).expect("create journal directory");
-    let mut journal = Journal::open(&directory.join("journal.jsonl")).expect("open real journal");
-    let position = Position {
-        block_number: 100,
-        block_hash: [6; 32],
-    };
-    for observation in [
-        Observation::inbound(&deposit, position),
-        Observation::outbound(&release, position),
-    ] {
-        journal
-            .append(&Entry::Observed {
-                item: observation.key(),
-                observation,
-            })
-            .expect("record real observation");
-    }
-    let view = Arc::new(RwLock::new(AttestationView {
-        items: journal.state().items.clone(),
-        ..AttestationView::default()
-    }));
-    let address = server_with_origins(Arc::clone(&view), config.attestation_allowed_origins);
-    let unconfigured = server(view);
+    (config, allowed)
+}
+
+fn assert_origin_routes(
+    address: SocketAddr,
+    unconfigured: SocketAddr,
+    deposit: &InboundAttestation,
+    release: &OutboundAttestation,
+    allowed: &str,
+) {
     for path in [
         format!("/v1/deposit/1/{}/0", hex::prefixed(&deposit.tx_hash)),
         format!("/v1/release/1/{}/0", hex::prefixed(&release.paxeer_tx_hash)),
@@ -250,7 +273,7 @@ fn a_configured_origin_receives_the_allow_origin_header() {
             Some(allowed)
         );
         assert_eq!(headers.get("vary").map(String::as_str), Some("Origin"));
-        let expected: Value = serde_json::from_str(&body).expect("attestation JSON");
+        let expected: Value = serde_json::from_str(&body).or_panic("attestation JSON");
         assert_eq!(expected["status"], "observed");
         assert_eq!(expected["chainId"], "1");
         for origin in [
@@ -271,7 +294,7 @@ fn a_configured_origin_receives_the_allow_origin_header() {
             );
             assert_eq!(headers.get("vary").map(String::as_str), Some("Origin"));
             assert_eq!(
-                serde_json::from_str::<Value>(&body).expect("attestation JSON"),
+                serde_json::from_str::<Value>(&body).or_panic("attestation JSON"),
                 expected
             );
         }
@@ -292,8 +315,6 @@ fn a_configured_origin_receives_the_allow_origin_header() {
             .map(String::as_str),
         Some(allowed)
     );
-    drop(journal);
-    std::fs::remove_dir_all(directory).expect("remove test journal");
 }
 
 #[test]
@@ -339,7 +360,7 @@ fn a_preflight_from_a_configured_origin_is_answered() {
             assert!(!headers.contains_key("access-control-allow-methods"));
             assert!(!headers.contains_key("access-control-allow-headers"));
             assert_eq!(
-                serde_json::from_str::<Value>(&body).expect("refusal JSON")["error"],
+                serde_json::from_str::<Value>(&body).or_panic("refusal JSON")["error"],
                 "origin not allowed"
             );
         }
@@ -389,31 +410,8 @@ fn the_attestation_routes_answer_over_a_socket() {
         assert_eq!(request(address, "GET", path).0, 404);
     }
 
-    let mut unique = [0; 16];
-    openssl::rand::rand_bytes(&mut unique).expect("unique journal directory");
-    let directory =
-        std::env::temp_dir().join(format!("attestation-server-{}", hex::encode(&unique)));
-    std::fs::create_dir(&directory).expect("create journal directory");
-    let mut journal = Journal::open(&directory.join("journal.jsonl")).expect("open real journal");
-    let position = Position {
-        block_number: 100,
-        block_hash: [0x12; 32],
-    };
-    for observation in [
-        Observation::inbound(&deposit, position),
-        Observation::outbound(&release, position),
-    ] {
-        journal
-            .append(&Entry::Observed {
-                item: observation.key(),
-                observation,
-            })
-            .expect("journal observation");
-    }
-    *shared.write().expect("replace shared view") = AttestationView {
-        items: journal.state().items.clone(),
-        ..AttestationView::default()
-    };
+    let (mut journal, directory, position) =
+        observed_attestation_journal(&shared, &deposit, &release);
     let mut expected_deposit = json!({
         "chainId": deposit.chain_id.to_string(),
         "vault": hex::prefixed(&deposit.vault),
@@ -447,36 +445,7 @@ fn the_attestation_routes_answer_over_a_socket() {
         (200, expected_release.clone())
     );
 
-    let signing_key = SigningKey::from_bytes((&[1; 32]).into()).expect("attestor key");
-    let (signature, recovery) = signing_key
-        .sign_prehash_recoverable(&deposit.digest())
-        .expect("sign attestation");
-    let mut recoverable = [0; 65];
-    recoverable[..64].copy_from_slice(&signature.to_bytes());
-    recoverable[64] = recovery.to_byte();
-    let signature = to_attestor_signature(recoverable).expect("attestor signature");
-    journal
-        .append(&Entry::Signed {
-            item: Observation::inbound(&deposit, position).key(),
-            signature,
-        })
-        .expect("journal signature");
-    let destination = PolicyDestination::Inbound {
-        chain_id: 125,
-        bridge: layerx_bridge_relayer::abi::LAYERX_BRIDGE_PRECOMPILE,
-        source_chain_id: deposit.chain_id,
-        source_vault: deposit.vault,
-    };
-    let policy = AuthenticatedPolicy {
-        destination,
-        threshold: 1,
-        attestors: vec![layerx_bridge_relayer::attestation::ethereum_address(
-            signing_key.verifying_key(),
-        )],
-    };
-    let updated =
-        AttestationView::from_journal(&journal, None, &BTreeMap::from([(destination, policy)]));
-    *shared.write().expect("publish next tick snapshot") = updated;
+    let signature = publish_signed_deposit(&mut journal, &shared, &deposit, position);
     expected_deposit["signatures"] = json!([hex::prefixed(&signature)]);
     expected_deposit["status"] = json!("ready");
     assert_eq!(
@@ -496,10 +465,82 @@ fn the_attestation_routes_answer_over_a_socket() {
     }
 
     let mut pipeline = connect(address);
-    write!(pipeline, "GET {release_path} HTTP/1.1\r\nHost: localhost\r\n\r\nGET /unknown HTTP/1.1\r\nHost: localhost\r\n\r\n").expect("pipeline two requests");
+    write!(pipeline, "GET {release_path} HTTP/1.1\r\nHost: localhost\r\n\r\nGET /unknown HTTP/1.1\r\nHost: localhost\r\n\r\n").or_panic("pipeline two requests");
     assert_eq!(response(&mut pipeline), (200, expected_release));
     drop(journal);
-    std::fs::remove_dir_all(directory).expect("remove test journal");
+    std::fs::remove_dir_all(directory).or_panic("remove test journal");
+}
+
+fn observed_attestation_journal(
+    shared: &Arc<RwLock<AttestationView>>,
+    deposit: &InboundAttestation,
+    release: &OutboundAttestation,
+) -> (Journal, std::path::PathBuf, Position) {
+    let mut unique = [0; 16];
+    openssl::rand::rand_bytes(&mut unique).or_panic("unique journal directory");
+    let directory =
+        std::env::temp_dir().join(format!("attestation-server-{}", hex::encode(&unique)));
+    std::fs::create_dir(&directory).or_panic("create journal directory");
+    let mut journal = Journal::open(&directory.join("journal.jsonl")).or_panic("open real journal");
+    let position = Position {
+        block_number: 100,
+        block_hash: [0x12; 32],
+    };
+    for observation in [
+        Observation::inbound(deposit, position),
+        Observation::outbound(release, position),
+    ] {
+        journal
+            .append(&Entry::Observed {
+                item: observation.key(),
+                observation,
+            })
+            .or_panic("journal observation");
+    }
+    *shared.write().or_panic("replace shared view") = AttestationView {
+        items: journal.state().items.clone(),
+        ..AttestationView::default()
+    };
+    (journal, directory, position)
+}
+
+fn publish_signed_deposit(
+    journal: &mut Journal,
+    shared: &Arc<RwLock<AttestationView>>,
+    deposit: &InboundAttestation,
+    position: Position,
+) -> [u8; 65] {
+    let signing_key = SigningKey::from_bytes((&[1; 32]).into()).or_panic("attestor key");
+    let (signature, recovery) = signing_key
+        .sign_prehash_recoverable(&deposit.digest())
+        .or_panic("sign attestation");
+    let mut recoverable = [0; 65];
+    recoverable[..64].copy_from_slice(&signature.to_bytes());
+    recoverable[64] = recovery.to_byte();
+    let signature = to_attestor_signature(recoverable).or_panic("attestor signature");
+    journal
+        .append(&Entry::Signed {
+            item: Observation::inbound(deposit, position).key(),
+            signature,
+        })
+        .or_panic("journal signature");
+    let destination = PolicyDestination::Inbound {
+        chain_id: 125,
+        bridge: layerx_bridge_relayer::abi::LAYERX_BRIDGE_PRECOMPILE,
+        source_chain_id: deposit.chain_id,
+        source_vault: deposit.vault,
+    };
+    let policy = AuthenticatedPolicy {
+        destination,
+        threshold: 1,
+        attestors: vec![layerx_bridge_relayer::attestation::ethereum_address(
+            signing_key.verifying_key(),
+        )],
+    };
+    let updated =
+        AttestationView::from_journal(journal, None, &BTreeMap::from([(destination, policy)]));
+    *shared.write().or_panic("publish next tick snapshot") = updated;
+    signature
 }
 
 #[test]
@@ -557,15 +598,15 @@ fn malformed_attestation_paths_answer_bad_request() {
     large_header.resize(8192, b'a');
     oversized
         .write_all(&large_header)
-        .expect("send bounded oversized header");
+        .or_panic("send bounded oversized header");
     assert_eq!(response(&mut oversized).0, 413);
     let mut incomplete = connect(address);
     incomplete
         .write_all(b"GET / HTTP/1.1\r\n")
-        .expect("send incomplete request");
+        .or_panic("send incomplete request");
     incomplete
         .shutdown(Shutdown::Write)
-        .expect("end incomplete request");
+        .or_panic("end incomplete request");
     assert_eq!(response(&mut incomplete).0, 400);
     let mut idle = connect(address);
     assert_eq!(response(&mut idle).0, 408);
@@ -579,4 +620,26 @@ mod repair_22_33_68_support;
 #[test]
 fn repair_22_33_68_policy_restart_and_rotation() {
     repair_22_33_68_support::policy_restart_and_rotation();
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

@@ -139,7 +139,10 @@ impl Harness {
         .unwrap()
     }
     fn book(&self) -> RoomBook<'_> {
-        RoomBook::decode(self.state().room_market().unwrap().1).unwrap()
+        RoomBook::decode(self.room_parts().1).unwrap()
+    }
+    fn room_parts(&self) -> (&[u8], &[u8]) {
+        self.state().room_market().unwrap()
     }
     fn sequence(&self, actor: u8) -> u64 {
         if self.current.is_empty() {

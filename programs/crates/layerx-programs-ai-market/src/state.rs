@@ -605,27 +605,31 @@ pub(crate) fn encode_room_market_parts(
     w.put(b"PAXAI/F11")?;
     Ok(w.len())
 }
+pub(crate) fn room_market_parts(bytes: &[u8]) -> CodecResult<(&[u8], &[u8])> {
+    if !bytes.ends_with(b"PAXAI/F11") {
+        return Ok((bytes, &[]));
+    }
+    let footer = bytes
+        .len()
+        .checked_sub(ROOM_MARKET_FRAMING_BYTES)
+        .ok_or(NON_CANONICAL)?;
+    let len = u32::from_be_bytes(
+        bytes
+            .guest_index(footer..footer + 4)
+            .try_into()
+            .map_err(|_| NON_CANONICAL)?,
+    ) as usize;
+    let at = footer.checked_sub(len).ok_or(NON_CANONICAL)?;
+    Ok((bytes.guest_index(..at), bytes.guest_index(at..footer)))
+}
 impl<'s> SharedState<'s> {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn room_market(&self) -> CodecResult<(&'s [u8], &'s [u8])> {
-        let bytes = *self
-            .feature_sections
-            .guest_index(Section::SettlementClaims.index());
-        if !bytes.ends_with(b"PAXAI/F11") {
-            return Ok((bytes, &[]));
-        }
-        let footer = bytes
-            .len()
-            .checked_sub(ROOM_MARKET_FRAMING_BYTES)
-            .ok_or(NON_CANONICAL)?;
-        let len = u32::from_be_bytes(
-            bytes
-                .guest_index(footer..footer + 4)
-                .try_into()
-                .map_err(|_| NON_CANONICAL)?,
-        ) as usize;
-        let at = footer.checked_sub(len).ok_or(NON_CANONICAL)?;
-        Ok((bytes.guest_index(..at), bytes.guest_index(at..footer)))
+        room_market_parts(
+            *self
+                .feature_sections
+                .guest_index(Section::SettlementClaims.index()),
+        )
     }
 
     #[cfg_attr(target_arch = "wasm32", inline(never))]
@@ -786,8 +790,8 @@ pub fn settlement_rewards<'a>(
     known: Option<RewardState<'a>>,
 ) -> CodecResult<RewardState<'a>> {
     let bytes = state
-        .feature_sections
-        .guest_index(Section::SettlementClaims.index())
+        .room_market()?
+        .0
         .get(..REWARD_STATE_BYTES)
         .ok_or(WRONG_EPOCH)?;
     match known {

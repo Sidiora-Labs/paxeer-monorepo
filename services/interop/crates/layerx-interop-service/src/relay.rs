@@ -70,7 +70,7 @@ impl RelayJournal {
             connector,
             username,
             password,
-            retention_seconds: 604800,
+            retention_seconds: 604_800,
         })
     }
 
@@ -332,6 +332,9 @@ impl ChainRelay {
         }
     }
 
+    ///
+    /// # Errors
+    /// Returns an error when the requested operation fails validation or storage.
     pub fn relay(
         &self,
         idempotency_key: &str,
@@ -378,6 +381,9 @@ impl ChainRelay {
 
     /// Polls one Redis scan page for finality without submitting transactions.
     /// Unknown, pending or unverifiable claims keep their complete recovery bytes.
+    ///
+    /// # Errors
+    /// Returns an error when the requested operation fails validation or storage.
     pub fn compact_finalized(&self) -> Result<usize, RelayError> {
         let mut compacted = 0;
         for key in self.journal.retention_candidates()? {
@@ -404,6 +410,9 @@ impl ChainRelay {
         Ok(compacted)
     }
 
+    ///
+    /// # Errors
+    /// Returns an error when the requested operation fails validation or storage.
     pub fn recorded_evidence(
         &self,
         idempotency_key: &str,
@@ -483,7 +492,11 @@ impl ChainRelay {
             ReceiptKeys::HeightRanges(&self.receipt_keys),
         )
         .map_err(RelayError::ReceiptRejected)?;
-        if verified.protocol().map(|receipt| receipt.activity_id()) != Some(tx_hash) {
+        if verified
+            .protocol()
+            .map(layerx_wire::receipt::ProtocolReceipt::activity_id)
+            != Some(tx_hash)
+        {
             return Err(RelayError::ReceiptRejected(VerificationFailure {
                 check: ReceiptCheck::ActivityId,
             }));
@@ -669,13 +682,12 @@ mod tests {
         ))
     }
 
-    fn rpc_server(
-        fixture: &Value,
-        receipt_answers: Vec<Value>,
-    ) -> TestResult<(
+    type RpcServer = (
         Arc<SequencerEndpoint>,
         thread::JoinHandle<Result<(), String>>,
-    )> {
+    );
+
+    fn rpc_server(fixture: &Value, receipt_answers: Vec<Value>) -> TestResult<RpcServer> {
         rpc_server_with_blocks(fixture, receipt_answers, Vec::new())
     }
 
@@ -683,10 +695,7 @@ mod tests {
         fixture: &Value,
         receipt_answers: Vec<Value>,
         block_answers: Vec<(u64, Value)>,
-    ) -> TestResult<(
-        Arc<SequencerEndpoint>,
-        thread::JoinHandle<Result<(), String>>,
-    )> {
+    ) -> TestResult<RpcServer> {
         let listener = TcpListener::bind("127.0.0.1:0")?;
         listener.set_nonblocking(true)?;
         let endpoint = SequencerEndpoint::new(&format!("http://{}", listener.local_addr()?), &[])
@@ -863,13 +872,14 @@ mod tests {
         let (first_call, _) = layerx_crypto::evm_transaction::decode_signed(&raw)?;
         assert_eq!(first_call.nonce, call.nonce);
         let encode = |bytes: &[u8]| -> String {
-            format!(
-                "0x{}",
-                bytes
-                    .iter()
-                    .map(|byte| format!("{byte:02x}"))
-                    .collect::<String>()
-            )
+            const DIGITS: &[u8; 16] = b"0123456789abcdef";
+            let mut encoded = String::with_capacity(bytes.len() * 2 + 2);
+            encoded.push_str("0x");
+            for byte in bytes {
+                encoded.push(char::from(DIGITS[usize::from(byte >> 4)]));
+                encoded.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+            }
+            encoded
         };
         fixture["rawTransaction"] = json!(encode(&raw));
         fixture["receiptJson"]["txHash"] = json!(encode(&tx_hash));

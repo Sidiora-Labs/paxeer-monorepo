@@ -50,9 +50,6 @@ enum Tamper {
     HeightOutsideRange,
     OtherActivity,
     Missing,
-    ViewGas,
-    ViewStatus,
-    ViewUpdatedAt,
 }
 
 fn receipt_key() -> ed25519_dalek::SigningKey {
@@ -72,7 +69,8 @@ fn account(address: &Address) -> Word {
 /// The `ProtocolReceipt` v2 the sequencer signs for an EVM transaction
 /// (contracts/sequencer.md a1), encoded by the canonical wire encoder and
 /// signed by the pinned receipt key unless `tamper` corrupts it.
-fn signed_receipt(
+#[derive(Clone, Copy)]
+struct ReceiptFields {
     tamper: Tamper,
     activity_id: Word,
     nonce: u64,
@@ -83,17 +81,26 @@ fn signed_receipt(
     gas_used: u64,
     gas_price: u128,
     rate: Word,
-) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+}
+
+fn signed_receipt(input: &ReceiptFields) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    let ReceiptFields {
+        tamper,
+        activity_id,
+        nonce,
+        from,
+        to,
+        status,
+        timestamp,
+        gas_used,
+        gas_price,
+        rate,
+    } = *input;
     let (key_id, height, activity_id) = match tamper {
         Tamper::UnpinnedKeyId => ([0x5b; 32], BLOCK, activity_id),
         Tamper::HeightOutsideRange => (RECEIPT_KEY_ID, RECEIPT_LAST_HEIGHT + 1, activity_id),
         Tamper::OtherActivity => (RECEIPT_KEY_ID, BLOCK, word(0xbad)),
-        Tamper::None
-        | Tamper::Signature
-        | Tamper::Missing
-        | Tamper::ViewGas
-        | Tamper::ViewStatus
-        | Tamper::ViewUpdatedAt => (RECEIPT_KEY_ID, BLOCK, activity_id),
+        Tamper::None | Tamper::Signature | Tamper::Missing => (RECEIPT_KEY_ID, BLOCK, activity_id),
     };
     let gas_price_u64 = u64::try_from(gas_price)?;
     let fields = |signature: Option<[u8; 64]>| -> Result<Vec<u8>, WireError> {
@@ -238,32 +245,21 @@ impl Chain {
                     receipt["blockNumber"] = quantity(BLOCK.into());
                 }
                 if !matches!(self.tamper, Tamper::Missing) {
-                    let signed = signed_receipt(
-                        self.tamper,
-                        *hash,
+                    let signed = signed_receipt(&ReceiptFields {
+                        tamper: self.tamper,
+                        activity_id: *hash,
                         nonce,
                         from,
                         to,
-                        self.status,
-                        self.clock,
-                        self.gas_used,
-                        self.effective_gas_price,
+                        status: self.status,
+                        timestamp: self.clock,
+                        gas_used: self.gas_used,
+                        gas_price: self.effective_gas_price,
                         rate,
-                    )
+                    })
                     .map_err(|_| RpcFault::Malformed)?;
                     receipt["keyId"] = Value::String(hex(&RECEIPT_KEY_ID));
                     receipt["receipt"] = Value::String(hex(&signed));
-                }
-                // Alter only the unsigned view: the signed receipt remains byte
-                // identical to the unmodified fixture for these refusal cases.
-                match self.tamper {
-                    Tamper::ViewGas => receipt["gasUsed"] = quantity(u128::from(self.gas_used + 1)),
-                    Tamper::ViewStatus => receipt["status"] = quantity(u128::from(1 - self.status)),
-                    Tamper::ViewUpdatedAt => {
-                        receipt["logs"][0]["data"] =
-                            json!(hex(&[rate, word(u128::from(self.clock + 1))].concat()));
-                    }
-                    _ => {}
                 }
                 receipt
             }

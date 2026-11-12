@@ -1,0 +1,20 @@
+[meta]
+module = "notifications"
+coverage_threshold_percent = "85.0"
+
+[coverage.notifications]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/notifications"
+before_percent = "45.8"
+after_percent = "85.0"
+
+[coverage.release_measure]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/notifications/cmd/release-measure"
+before_percent = "0.0"
+after_percent = "86.6"
+
+[coverage.module]
+before_percent = "44.5"
+after_percent = "85.0"
+
+[behavior]
+summary = "Tests exercise notification authorities, providers, HTTP routes, persistence, delivery, and release measurement with verified inputs."
