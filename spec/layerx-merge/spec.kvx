@@ -188976,7 +188976,7 @@ do_16 = "do_16 Gotchas 4307 to 4309, decisions 3388 to 3391. This task makes thr
 
 [task.22.38.13]
 title = "Prove every F11 operation under the fuel cap and the replay profile through the native host boundary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.38.4", "22.38.5", "22.38.6", "22.38.7", "22.38.11", "22.31.586", "22.39.300", "22.39.316", "22.39.333", "22.39.348", "22.39.365"]
@@ -426136,7 +426136,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.11]
 title = "Add a Chainflow market source to the explorer backend for PAX, SID and WPAX"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
