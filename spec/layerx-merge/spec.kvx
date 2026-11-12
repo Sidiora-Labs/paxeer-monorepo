@@ -13432,6 +13432,54 @@ value = "The fuel table of task 22.38.13 measures the payout split operation at 
 basis = "Gotcha 4305 and decision 3233."
 affects = ["22.38.13"]
 
+[decision.3387]
+title = "Task 22.38.39 no longer requires tasks 22.38.37 and 22.38.38"
+value = "Task 22.38.39 no longer requires tasks 22.38.37 and 22.38.38. It requires tasks 22.38.33, 22.38.34, 22.38.35, 22.38.32, 22.38.22, 22.38.29, 22.38.30 and 22.38.20. Its record lists the tasks of the series that are on the main branch at its revision."
+basis = "Gotcha 4306 and decision 3381."
+affects = ["22.38.39"]
+
+[decision.3388]
+title = "Stream identifier assigned by streamOpenForAsk"
+value = "The identifier that streamOpenForAsk assigns to a stream is the idempotency key of the call with its first sixteen bytes set to zero. The outputs of streamOpenForAsk and askStreamOf and the event AskStreamOpened stay bytes32. The ask record of the AI market program and the agent daemon are not changed."
+basis = "Gotcha 4307 and decision 3056."
+affects = ["22.38.36"]
+
+[decision.3389]
+title = "The node passes the inference program option from its configuration"
+value = "The node reads the identifier of the AI market program and the reader address of the px inference reads from its configuration and passes the option WithPxInferenceProgram to its RPC server. Without the two settings the reads answer as before. The settings take part in no state transition."
+basis = "Gotcha 4308."
+affects = ["22.38.36"]
+
+[decision.3390]
+title = "Consensus endpoint setting of the agent daemon"
+value = "The agent daemon takes a setting for the consensus endpoint of its native result source. Without the setting the source connects to the node endpoint as before."
+basis = "Gotcha 4309."
+affects = ["22.38.36"]
+
+[decision.3391]
+title = "Task 22.38.36 carries the changes of decisions 3388 to 3390"
+value = "Task 22.38.36 makes the changes of decisions 3388, 3389 and 3390 in its own commit and proves them with the room proof. Its paths gain precompiles/layerxpay, modules/layerxpay, node, rpc, the agent daemon and client crates, the driver directory and the contract file of the inference market."
+basis = "Decisions 3388, 3389 and 3390."
+affects = ["22.38.36"]
+
+[decision.3392]
+title = "The explorer takes the price of PAX and SID from the Chainflow price feed"
+value = "The explorer backend gains a market source that reads the Chainflow price feed. PAX is the native coin and SID is the secondary coin of the explorer. The market value of each is the feed price multiplied by the supply the explorer holds, the native supply for PAX and the total supply of the token row for SID. The token rows of WPAX and SID receive price, market value and day volume on the token interval of the backend, and WPAX takes the price of PAX. A value the feed does not return stays empty."
+basis = "Gotcha 4310 and decision 2587."
+affects = ["22.35.11", "22.35.13"]
+
+[decision.3393]
+title = "Field names of the market and transaction statistics of the explorer API"
+value = "The statistics response carries secondary_coin_market_cap and secondary_coin_price_change_percentage. The items of the secondary coin chart carry market_cap. The transactions statistics response carries price_updates_count_24h, total_price_updates_count and total_transactions_count as integer strings, its transactions_count_24h includes the price updates of the day, and total_transactions_count equals total_transactions of the statistics response. The producing and the consuming tasks use these names and run side by side."
+basis = "Gotcha 4310 and decision 3046."
+affects = ["22.35.11", "22.35.12", "22.35.13", "22.35.14", "22.35.15"]
+
+[decision.3394]
+title = "The statistics page of the explorer reads the explorer API when no statistics service address is set"
+value = "Without a statistics service address the statistics page builds its counters and charts from the statistics, transactions statistics, price feed and chart routes of the explorer API, and its navigation entry and route are present. With a statistics service address the page reads the service as before."
+basis = "Gotcha 4311 and decision 2587."
+affects = ["22.35.15"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43092,6 +43140,51 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.35.15]
+title = "Show every explorer statistic on the statistics page from the explorer API"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/stats", "apps/explorer/ui/pages/Stats.tsx", "apps/explorer/configs/app/features/stats.ts", "apps/explorer/lib/hooks/useNavItems.tsx", "apps/explorer/pages/stats", "apps/explorer/lib/api/services/general"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/stats/repair-22-35-15.spec.tsx"
+do_1 = "do_1 Gotcha 4311, decisions 3393 and 3394, decision 2587. Without a statistics service address the page of apps/explorer/ui/pages/Stats.tsx and the components under apps/explorer/ui/stats build their content from the explorer API. Counters from the statistics response: total blocks, total addresses, total transactions, transactions of the day, average block time, total gas used, gas used of the day, network utilisation, gas prices, PAX price, PAX market value, SID price and SID market value. Counters from the transactions statistics response: the day count, the pending count, the fee total, the average fee and the price update totals. The market count comes from the price feed markets route. The charts daily transactions, PAX price, PAX market value, SID price and SID market value come from the chart routes. With a statistics service address the page reads the service as before. The feature of apps/explorer/configs/app/features/stats.ts, the navigation entry and the route of the page are present in both cases."
+symbols = []
+
+[capability.22.35.14]
+title = "Show the price update totals in the transaction statistics of the explorer transactions page"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/txs", "apps/explorer/types/api/transaction.ts", "apps/explorer/stubs", "apps/explorer/mocks"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/txs/repair-22-35-14.spec.tsx"
+do_1 = "do_1 Gotcha 4310, decision 3393, decision 2587. In apps/explorer/ui/txs/TxsStats.tsx the day count of transactions is the value the transactions statistics response returns, which includes the price updates, and the tiles add Total transactions from total_transactions_count, Price updates of the last day from price_updates_count_24h and Total price updates from total_price_updates_count. Add the three fields as optional strings to the transactions statistics type of apps/explorer/types/api/transaction.ts. A field the response does not carry shows a dash. The share shown on the day tile uses total_transactions_count when it is present."
+symbols = []
+
+[capability.22.35.13]
+title = "Show the PAX and SID prices in the explorer top bar and their price and market value charts on the home page"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/snippets/topBar", "apps/explorer/ui/home", "apps/explorer/types/api/stats.ts", "apps/explorer/types/api/charts.ts", "apps/explorer/types/homepage.ts", "apps/explorer/stubs/stats.ts", "apps/explorer/lib/api/services/general", "apps/explorer/configs/envs/paxeer-x.env", "apps/explorer/configs/app", "apps/explorer/deploy/tools/envs-validator/schemas", "docs/explorer/ENVS.md"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/snippets/topBar/repair-22-35-13.spec.tsx ui/home/repair-22-35-13.spec.tsx"
+do_1 = "do_1 Gotcha 4310, decisions 3392 and 3393, decision 2587. In apps/explorer/ui/snippets/topBar/TopBarStats.tsx the top bar shows the PAX price with its day change and the SID price with its day change from coin_price, coin_price_change_percentage, secondary_coin_price and secondary_coin_price_change_percentage of the statistics response, at desktop and mobile widths, with a dash for an absent value. apps/explorer/configs/envs/paxeer-x.env stops hiding the native coin price, names SID as the secondary coin and lists the price and market value charts in NEXT_PUBLIC_HOMEPAGE_CHARTS."
+symbols = []
+
+[capability.22.35.12]
+title = "Count the price updates in the transactions statistics response of the explorer backend"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/transaction_controller.ex", "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs", "services/explorer/backend/apps/block_scout_web/test/repair"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/repair/repair_22_35_12_test.exs && services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs"
+do_1 = "do_1 Gotcha 4310, decision 3393. The statistics response adds the total of price updates to total_transactions through the price feed context of services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex. Add to that context a count of the price updates of the last 24 hours next to the existing total. Have the stats action of the transaction controller of block_scout_web return price_updates_count_24h, total_price_updates_count and total_transactions_count as integer strings and add the day count of price updates to transactions_count_24h. total_transactions_count is the same sum the statistics response gives as total_transactions. Extend the response schema of the action with the three fields."
+symbols = []
+
+[capability.22.35.11]
+title = "Add a Chainflow market source to the explorer backend for PAX, SID and WPAX"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/market", "services/explorer/backend/apps/explorer/test/explorer/market", "services/explorer/backend/config/runtime.exs", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/stats/response.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2", "services/explorer/backend/apps/block_scout_web/test/repair", "services/explorer/deploy/env/backend.example.env"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_test.exs && services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/repair/repair_22_35_11_test.exs"
+do_1 = "do_1 Gotcha 4310, decisions 3392 and 3393. Add services/explorer/backend/apps/explorer/lib/explorer/market/source/chainflow.ex implementing the behaviour of market/source.ex in the pattern of source/dia.ex: native coin, secondary coin, tokens, native coin price history, secondary coin price history and market value history. Register it in the source list of market/source.ex. It reads the price route, the statistics route and the candle history route of the Chainflow price feed as sdk/chainflow/go/pricefeed.go and sdk/chainflow/go/tradingview.go name them. Settings in services/explorer/backend/config/runtime.exs: MARKET_CHAINFLOW_BASE_URL with the default https://data.feed.chainflowtrading.com, MARKET_CHAINFLOW_MARKET, MARKET_CHAINFLOW_COIN_SYMBOL with the default PAX, MARKET_CHAINFLOW_SECONDARY_COIN_SYMBOL with the default SID, and MARKET_CHAINFLOW_TOKENS, a list of pairs of token address and feed symbol. services/explorer/deploy/env/backend.example.env selects the source for the native coin, the secondary coin, the tokens and the three histories and lists the addresses of the wrapped native token and of SID as apps/perps/src/core/spot/addresses.ts states them."
+symbols = []
 
 [capability.22.39.496]
 title = "Admit a call of another principal within the standing occupancy responsibility of the program owner"
@@ -164233,6 +164326,95 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.35.15]
+title = "Show every explorer statistic on the statistics page from the explorer API"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.35.15"]
+interfaces = []
+do_1 = "do_1 Gotcha 4311, decisions 3393 and 3394, decision 2587. Without a statistics service address the page of apps/explorer/ui/pages/Stats.tsx and the components under apps/explorer/ui/stats build their content from the explorer API. Counters from the statistics response: total blocks, total addresses, total transactions, transactions of the day, average block time, total gas used, gas used of the day, network utilisation, gas prices, PAX price, PAX market value, SID price and SID market value. Counters from the transactions statistics response: the day count, the pending count, the fee total, the average fee and the price update totals. The market count comes from the price feed markets route. The charts daily transactions, PAX price, PAX market value, SID price and SID market value come from the chart routes. With a statistics service address the page reads the service as before. The feature of apps/explorer/configs/app/features/stats.ts, the navigation entry and the route of the page are present in both cases."
+do_2 = "do_2 Each counter and chart keeps the section layout, the filters and both colour modes of the page as spec/layerx-merge/programme/docs/explorer-ui/design-brief.md states them. An absent value shows a dash, and a failed request shows the existing error state of its own section only."
+do_3 = "do_3 Tests: apps/explorer/ui/stats/repair-22-35-15.spec.tsx renders the page without a statistics service address from responses that use the field names of decision 3393 and asserts every counter and chart of do_1, the dash for an absent value and the error state of one section. Record the consumed routes and fields in apps/explorer/ui/stats/repair-22-35-15.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/stats", "apps/explorer/ui/pages/Stats.tsx", "apps/explorer/configs/app/features/stats.ts", "apps/explorer/lib/hooks/useNavItems.tsx", "apps/explorer/pages/stats", "apps/explorer/lib/api/services/general"]
+tests = []
+planned_paths = ["apps/explorer/ui/stats/repair-22-35-15.spec.tsx", "apps/explorer/ui/stats/repair-22-35-15.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/stats/repair-22-35-15.spec.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.35.14]
+title = "Show the price update totals in the transaction statistics of the explorer transactions page"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.35.14"]
+interfaces = []
+do_1 = "do_1 Gotcha 4310, decision 3393, decision 2587. In apps/explorer/ui/txs/TxsStats.tsx the day count of transactions is the value the transactions statistics response returns, which includes the price updates, and the tiles add Total transactions from total_transactions_count, Price updates of the last day from price_updates_count_24h and Total price updates from total_price_updates_count. Add the three fields as optional strings to the transactions statistics type of apps/explorer/types/api/transaction.ts. A field the response does not carry shows a dash. The share shown on the day tile uses total_transactions_count when it is present."
+do_2 = "do_2 Tests: apps/explorer/ui/txs/repair-22-35-14.spec.tsx asserts the three new tiles, the day count and the dash for an absent field from responses that use the field names of decision 3393. Record the consumed fields in apps/explorer/ui/txs/repair-22-35-14.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/txs", "apps/explorer/types/api/transaction.ts", "apps/explorer/stubs", "apps/explorer/mocks"]
+tests = []
+planned_paths = ["apps/explorer/ui/txs/repair-22-35-14.spec.tsx", "apps/explorer/ui/txs/repair-22-35-14.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/txs/repair-22-35-14.spec.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.35.13]
+title = "Show the PAX and SID prices in the explorer top bar and their price and market value charts on the home page"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.35.13"]
+interfaces = []
+do_1 = "do_1 Gotcha 4310, decisions 3392 and 3393, decision 2587. In apps/explorer/ui/snippets/topBar/TopBarStats.tsx the top bar shows the PAX price with its day change and the SID price with its day change from coin_price, coin_price_change_percentage, secondary_coin_price and secondary_coin_price_change_percentage of the statistics response, at desktop and mobile widths, with a dash for an absent value. apps/explorer/configs/envs/paxeer-x.env stops hiding the native coin price, names SID as the secondary coin and lists the price and market value charts in NEXT_PUBLIC_HOMEPAGE_CHARTS."
+do_2 = "do_2 On the home page, beside the daily transactions chart of apps/explorer/ui/home/Stats.tsx, add four charts of the same size and style: PAX price, PAX market value, SID price and SID market value. They read the market chart route and the secondary coin chart route through ui/home/indicators/useChartDataQuery.tsx. Add the indicator secondary_coin_market_cap to types/homepage.ts, to ui/home/indicators and to the validator schema under deploy/tools/envs-validator/schemas, add secondary_coin_market_cap and secondary_coin_price_change_percentage to types/api/stats.ts and market_cap to the secondary coin chart item of types/api/charts.ts. A chart with no points shows the empty state of the daily transactions chart. Both colour modes follow spec/layerx-merge/programme/docs/explorer-ui/design-brief.md."
+do_3 = "do_3 Tests: apps/explorer/ui/snippets/topBar/repair-22-35-13.spec.tsx and apps/explorer/ui/home/repair-22-35-13.spec.tsx assert the two prices, the two changes, the dash for an absent value and the four charts from responses that use the field names of decision 3393. Update docs/explorer/ENVS.md for the new indicator. Record the consumed fields in apps/explorer/ui/home/repair-22-35-13.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/snippets/topBar", "apps/explorer/ui/home", "apps/explorer/types/api/stats.ts", "apps/explorer/types/api/charts.ts", "apps/explorer/types/homepage.ts", "apps/explorer/stubs/stats.ts", "apps/explorer/lib/api/services/general", "apps/explorer/configs/envs/paxeer-x.env", "apps/explorer/configs/app", "apps/explorer/deploy/tools/envs-validator/schemas", "docs/explorer/ENVS.md"]
+tests = []
+planned_paths = ["apps/explorer/ui/snippets/topBar/repair-22-35-13.spec.tsx", "apps/explorer/ui/home/repair-22-35-13.spec.tsx", "apps/explorer/ui/home/repair-22-35-13.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/snippets/topBar/repair-22-35-13.spec.tsx ui/home/repair-22-35-13.spec.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.455]
 title = "Hold every case of the chart recovery file steady across whole runs of the launchpad web tests"
 status = "done"
@@ -188195,7 +188377,7 @@ do_6 = "Attempt 4 (requalify, gotcha 3874, decision 3075): the attempt-3 tree f5
 
 [task.18.1750.1]
 title = "Issue #1750: Prove authenticated Claim and RefundFree replay through native activities"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -188741,7 +188923,7 @@ do_1 = "do_1 Add tools/qualification/paxeer-x/inference_market_room.py on the Ru
 do_2 = "do_2 Support the --begin-build and --build steps like the other drivers so the daemon and the peer package are built once per run."
 do_3 = "do_3 The first proof: the completion answer equals the scripted model output token for token and a deal with two peers is recorded on chain."
 symbols = ["InferenceRoomDriver"]
-touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py", "tools/qualification/paxeer-x/agent_operation_envelope.py", "services/agent/crates/layerx-client/Cargo.toml", "services/agent/Cargo.lock", "services/platform/hosted/indexer/src/ai_source.rs", "services/platform/hosted/indexer/src/bin/ai_source.rs", "services/platform/hosted/indexer/tests/ai_source.rs", "services/platform/hosted/indexer/src", "services/platform/hosted/indexer/tests", "services/platform/hosted/indexer/Cargo.toml"]
+touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py", "tools/qualification/paxeer-x/agent_operation_envelope.py", "services/agent/crates/layerx-client/Cargo.toml", "services/agent/Cargo.lock", "services/platform/hosted/indexer/src/ai_source.rs", "services/platform/hosted/indexer/src/bin/ai_source.rs", "services/platform/hosted/indexer/tests/ai_source.rs", "services/platform/hosted/indexer/src", "services/platform/hosted/indexer/tests", "services/platform/hosted/indexer/Cargo.toml", "precompiles/layerxpay", "modules/layerxpay", "node", "rpc", "services/agent/crates/layerx-agentd", "services/agent/crates/layerx-client", "tools/qualification/paxeer-x", "spec/layerx-merge/contracts/inference-market.md"]
 tests = []
 planned_paths = ["tools/qualification/paxeer-x/inference_market_room.py", "services/agent/crates/layerx-client/examples/inference_room_writes.rs", "services/platform/hosted/indexer/tests/store_writers.rs"]
 build_cmd = "export PAXEER_X_BUILDER_ID=$(hostname); make -C . build/liblayerx.a && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts && python3 tools/qualification/paxeer-x/inference_market_room.py --begin-build && python3 tools/qualification/paxeer-x/inference_market_room.py --build"
@@ -188769,6 +188951,7 @@ do_12 = "do_12 Decision 3313, gotcha 4243: the record of this task states produc
 do_13 = "do_13 Decision 3325, gotcha 4253. In services/platform/hosted/indexer/src/ai_source.rs the committed read takes the signed header and the commit of the height below the latest height of the node and requires that commit canonical, reads the store at the height below that one, and sends the store key as hexadecimal text without a prefix. The node double of services/platform/hosted/indexer/tests/ai_source.rs answers as a node does: the commit of its latest height is not canonical and a store key with a prefix is refused. The cases of that file pass, and the room journey reads through the source with no change to what the indexer verifies."
 do_14 = "do_14 Decision 3328, gotcha 4256. With the AI capture configured the indexer has two followers that write to one database file through separate connections. Find each place where a connection is opened on the file and each transaction that writes, under services/platform/hosted/indexer/src, and make a writer wait for a held write lock within a stated bound; a transaction that reads before it writes takes the write lock when it begins. Add services/platform/hosted/indexer/tests/store_writers.rs: two connections on one file, opened as the indexer opens them, write in turn from two threads for a stated number of rounds, and every write is recorded. Change nothing that the indexer verifies or records. In the room driver set no poll interval and no scan position whose purpose is to keep the two followers apart."
 do_15 = "do_15 Decision 3331, gotcha 4259: the task now requires task 22.39.400, which makes the readers of the reward state read the part of the settlement section before the room market tail. Change nothing under programs/crates/layerx-programs-ai-market in this task. The record states the bound of each retry that the source of the indexer applies."
+do_16 = "do_16 Gotchas 4307 to 4309, decisions 3388 to 3391. This task makes three changes in its own commit and proves them with the room proof. In precompiles/layerxpay the identifier that streamOpenForAsk assigns is the idempotency key of the call with its first sixteen bytes set to zero, and the cases of that package that compare the identifier follow. In node/app.go the function RegisterLocalServices passes the option WithPxInferenceProgram when the node configuration names the program identifier and the reader address. In services/agent/crates/layerx-agentd the native result source connects to the consensus endpoint setting and falls back to the node endpoint. Change nothing under programs/crates/layerx-programs-ai-market. The record names each of the three changes with its file and line."
 
 [task.22.38.13]
 title = "Prove every F11 operation under the fuel cap and the replay profile through the native host boundary"
@@ -229793,7 +229976,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.487]
 title = "Pass the race and coverage stages of the launchpad Makefile in the user module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.471", "22.39.458"]
@@ -314091,7 +314274,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.39.496]
 title = "Admit a call of another principal within the standing occupancy responsibility of the program owner"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378020,10 +378203,10 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.39]
 title = "Close the inference market series: interface rows served, docs cross-checked, reconcile clean"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
-requires = ["22.38.37", "22.38.38", "22.38.33", "22.38.34", "22.38.35", "22.38.32", "22.38.22", "22.38.29", "22.38.30", "22.38.20"]
+requires = ["22.38.33", "22.38.34", "22.38.35", "22.38.32", "22.38.22", "22.38.29", "22.38.30", "22.38.20"]
 reqs = ["22380.6", "22998.1"]
 capabilities = ["22.38.39"]
 interfaces = []
@@ -378046,6 +378229,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "do_3 Gotcha 4306, decision 3387. The task no longer requires tasks 22.38.37 and 22.38.38. The record repair_22_38_39.kvx lists the tasks of the series that are on the main branch at the revision of this task, and the test reads that list from the record. Run the reconcile and the test by hand before the one counted verification."
 
 [task.22.38.35]
 title = "Write the inference market docs: overview, protocol, operator guide, client guide and threat statement"
@@ -425865,6 +426049,66 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.35.12]
+title = "Count the price updates in the transactions statistics response of the explorer backend"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.35.12"]
+interfaces = []
+do_1 = "do_1 Gotcha 4310, decision 3393. The statistics response adds the total of price updates to total_transactions through the price feed context of services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex. Add to that context a count of the price updates of the last 24 hours next to the existing total. Have the stats action of the transaction controller of block_scout_web return price_updates_count_24h, total_price_updates_count and total_transactions_count as integer strings and add the day count of price updates to transactions_count_24h. total_transactions_count is the same sum the statistics response gives as total_transactions. Extend the response schema of the action with the three fields."
+do_2 = "do_2 Tests: apps/block_scout_web/test/repair/repair_22_35_12_test.exs loads transactions and price updates inside and outside the day window and asserts the four fields by name and value, and a case in apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs covers the day count. Record the field names in services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_12.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/transaction_controller.ex", "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs", "services/explorer/backend/apps/block_scout_web/test/repair"]
+tests = []
+planned_paths = ["services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_12_test.exs", "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_12.kvx"]
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/repair/repair_22_35_12_test.exs && services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.35.11]
+title = "Add a Chainflow market source to the explorer backend for PAX, SID and WPAX"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.35.11"]
+interfaces = []
+do_1 = "do_1 Gotcha 4310, decisions 3392 and 3393. Add services/explorer/backend/apps/explorer/lib/explorer/market/source/chainflow.ex implementing the behaviour of market/source.ex in the pattern of source/dia.ex: native coin, secondary coin, tokens, native coin price history, secondary coin price history and market value history. Register it in the source list of market/source.ex. It reads the price route, the statistics route and the candle history route of the Chainflow price feed as sdk/chainflow/go/pricefeed.go and sdk/chainflow/go/tradingview.go name them. Settings in services/explorer/backend/config/runtime.exs: MARKET_CHAINFLOW_BASE_URL with the default https://data.feed.chainflowtrading.com, MARKET_CHAINFLOW_MARKET, MARKET_CHAINFLOW_COIN_SYMBOL with the default PAX, MARKET_CHAINFLOW_SECONDARY_COIN_SYMBOL with the default SID, and MARKET_CHAINFLOW_TOKENS, a list of pairs of token address and feed symbol. services/explorer/deploy/env/backend.example.env selects the source for the native coin, the secondary coin, the tokens and the three histories and lists the addresses of the wrapped native token and of SID as apps/perps/src/core/spot/addresses.ts states them."
+do_2 = "do_2 The market value of the native coin is the feed price multiplied by the supply the backend holds for the native coin. The market value of a token is the feed price multiplied by the total supply of its token row scaled by its decimals. The token rows of WPAX and SID receive fiat_value, circulating_market_cap and volume_24h on each token interval through market/fetcher/token.ex, and WPAX takes the price of PAX. A value the feed does not return stays nil, and an unreachable feed leaves the stored rows unchanged."
+do_3 = "do_3 In the statistics controller of block_scout_web add secondary_coin_market_cap and secondary_coin_price_change_percentage to the statistics response and to its schema in schemas/api/v2/stats/response.ex, and have the items of the secondary coin chart route carry market_cap. The percentage follows the computation of coin_price_change_percentage."
+do_4 = "do_4 Tests: apps/explorer/test/explorer/market/source/chainflow_test.exs, in the pattern of the existing source tests, answers the feed routes inside the test and asserts the native coin, the secondary coin, the two token rows, the histories, the nil value on a missing field and the unchanged rows on an unreachable feed. apps/block_scout_web/test/repair/repair_22_35_11_test.exs asserts the three new response fields by name. Record the settings and the field names in services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_11.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/market", "services/explorer/backend/apps/explorer/test/explorer/market", "services/explorer/backend/config/runtime.exs", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/stats/response.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2", "services/explorer/backend/apps/block_scout_web/test/repair", "services/explorer/deploy/env/backend.example.env"]
+tests = []
+planned_paths = ["services/explorer/backend/apps/explorer/lib/explorer/market/source/chainflow.ex", "services/explorer/backend/apps/explorer/test/explorer/market/source/chainflow_test.exs", "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_11_test.exs", "services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_11.kvx"]
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_test.exs && services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/repair/repair_22_35_11_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."

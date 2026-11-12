@@ -205,6 +205,10 @@ func TestConnectedInteractionsPolicyErasureAndCache(t *testing.T) {
 			t.Fatal("warm cache leaked viewer following state")
 		}
 	}
+	metrics := f.http.Cache.Metrics()
+	if metrics.OriginFills < 2 || metrics.Hits < 2 || metrics.ActiveFills != 0 {
+		t.Fatalf("viewer cache decisions = %+v", metrics)
+	}
 	request := httptest.NewRequest(http.MethodGet, "/users/"+b+"/follow-stats", nil).WithContext(ctx)
 	response := httptest.NewRecorder()
 	f.http.Routes().ServeHTTP(response, request)
@@ -381,6 +385,17 @@ func TestConnectedInteractionsPolicyErasureAndCache(t *testing.T) {
 		if i == 29 {
 			t.Fatal("erasure did not resume to completion")
 		}
+	}
+	committedReceipt, e := f.store.ErasureReceipt(ctx, caseID)
+	mustConnected(t, e)
+	if committedReceipt.State != "completed" || committedReceipt.CaseID != caseID || committedReceipt.Wallet != a || committedReceipt.CompletedAt == nil {
+		t.Fatalf("committed erasure receipt = %+v", committedReceipt)
+	}
+	if _, e := f.store.ErasureReceipt(ctx, uuid.NewString()); !errors.Is(e, ErrInvalid) {
+		t.Fatalf("unknown erasure receipt = %v", e)
+	}
+	if _, e := (Store{}).ErasureReceipt(ctx, caseID); !errors.Is(e, ErrDependency) {
+		t.Fatalf("unbound erasure receipt = %v", e)
 	}
 	tx, e = f.db.Begin(ctx)
 	mustConnected(t, e)
@@ -599,6 +614,94 @@ func TestConnectedAdversarialRemovalReplayAndContent(t *testing.T) {
 	}
 	mustConnected(t, rows.Err())
 	rows.Close()
+	seenActions := map[string]bool{}
+	for _, payload := range payloads {
+		original, decodeErr := DecodePublicEvent(payload)
+		mustConnected(t, decodeErr)
+		if seenActions[original.Action] {
+			continue
+		}
+		var changes []struct {
+			name   string
+			change func(*PublicEvent)
+		}
+		switch original.Action {
+		case followAction:
+			changes = []struct {
+				name   string
+				change func(*PublicEvent)
+			}{
+				{"empty aggregate", func(v *PublicEvent) { v.AggregateID = "" }},
+				{"zero revision", func(v *PublicEvent) { v.Revision = 0 }},
+				{"invalid actor", func(v *PublicEvent) { v.Actor = "invalid" }},
+				{"unknown action", func(v *PublicEvent) { v.Action = "unknown" }},
+				{"different aggregate", func(v *PublicEvent) { v.AggregateID = "follow:other" }},
+				{"invalid follow target", func(v *PublicEvent) { v.Target = "invalid" }},
+				{"private body", func(v *PublicEvent) { v.Body = "private message" }},
+				{"source revision", func(v *PublicEvent) { v.SourceRevision = 1 }},
+				{"pool on follow", func(v *PublicEvent) { v.Pool = f.pool }},
+			}
+		case commentAction:
+			changes = []struct {
+				name   string
+				change func(*PublicEvent)
+			}{
+				{"invalid pool", func(v *PublicEvent) { v.Pool = "invalid" }},
+				{"removed body", func(v *PublicEvent) { v.Removed = true; v.Body = "retained" }},
+				{"invalid text", func(v *PublicEvent) { v.Body = "\x00" }},
+				{"long parent", func(v *PublicEvent) { v.Parent = strings.Repeat("x", 161) }},
+			}
+		default:
+			continue
+		}
+		seenActions[original.Action] = true
+		for _, change := range changes {
+			t.Run("public event "+change.name, func(t *testing.T) {
+				candidate := original
+				change.change(&candidate)
+				wire, encodeErr := json.Marshal(candidate)
+				if encodeErr != nil {
+					t.Fatal(encodeErr)
+				}
+				if _, decodeErr := DecodePublicEvent(wire); !errors.Is(decodeErr, ErrInvalid) {
+					t.Fatalf("tampered event accepted: %v", decodeErr)
+				}
+			})
+		}
+		if seenActions[followAction] && seenActions[commentAction] {
+			break
+		}
+	}
+	if !seenActions[followAction] || !seenActions[commentAction] {
+		t.Fatalf("committed public event kinds = %v", seenActions)
+	}
+	for _, payload := range payloads {
+		event, decodeErr := DecodePublicEvent(payload)
+		mustConnected(t, decodeErr)
+		if event.Action != followAction || event.Removed {
+			continue
+		}
+		guard, beginErr := f.db.Begin(ctx)
+		mustConnected(t, beginErr)
+		if e := ProjectPublicEvent(ctx, guard, "", delivery.Envelope{EventType: "social.edge.changed", Payload: payload}); !errors.Is(e, ErrInvalid) {
+			t.Fatalf("empty projection generation = %v", e)
+		}
+		if e := ProjectPublicEvent(ctx, guard, "erased-follow", delivery.Envelope{EventType: "social.comment.changed", Payload: payload}); !errors.Is(e, ErrInvalid) {
+			t.Fatalf("different event subject = %v", e)
+		}
+		_, e := guard.Exec(ctx, `INSERT INTO interaction_erased_wallets(wallet,deletion_case_id,policy_version) VALUES($1,$2,'retention-v2')`, event.Actor, uuid.NewString())
+		mustConnected(t, e)
+		mustConnected(t, ProjectPublicEvent(ctx, guard, "erased-follow", delivery.Envelope{EventType: "social.edge.changed", Payload: payload}))
+		var projected []byte
+		mustConnected(t, guard.QueryRow(ctx, `SELECT payload FROM interaction_feed_projection WHERE generation='erased-follow' AND aggregate_id=$1`, event.AggregateID).Scan(&projected))
+		redacted, e := DecodePublicEvent(projected)
+		mustConnected(t, e)
+		if !redacted.Removed || redacted.Body != "" || redacted.Parent != "" {
+			t.Fatalf("erased graph projection = %+v", redacted)
+		}
+		mustConnected(t, guard.Rollback(ctx))
+		break
+	}
 	tx, err := f.db.Begin(ctx)
 	mustConnected(t, err)
 	defer rollback(tx)
