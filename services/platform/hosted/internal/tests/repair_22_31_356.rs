@@ -2,6 +2,8 @@ extern crate self as layerx_platform_identity;
 
 #[path = "../../identity/src/mailer.rs"]
 pub mod mailer;
+// The integration target includes the production outbox; registry startup owns its remaining methods.
+#[allow(dead_code)]
 #[path = "../../registry/src/event_producer.rs"]
 mod registry_producer;
 #[path = "../../identity/src/seal.rs"]
@@ -10,6 +12,8 @@ pub mod seal;
 pub mod signup;
 #[path = "../../identity/src/store.rs"]
 pub mod store;
+// Both integration targets share the transport implementation; this target uses its TLS listener subset.
+#[allow(dead_code)]
 #[path = "../src/producer_test_support.rs"]
 mod transport;
 #[path = "../../identity/src/verification.rs"]
@@ -91,6 +95,8 @@ fn listener(
 // Include the production identity authority so enrollment binds to a real,
 // durably provisioned/revoked publication key rather than a canned identity.
 mod publication_authority {
+    // The included production server also contains process startup paths outside this integration target.
+    #![allow(dead_code)]
     include!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../identity/src/main.rs"
@@ -435,8 +441,8 @@ fn program_source_upstream_retires_pull_and_delivers_registry_observations() {
         Arc::clone(&tls.config),
     ));
     authority.provision(PRINCIPAL, "program-key:first");
-    let served = Arc::clone(&authority);
-    let upstream = listener(&tls, 0, move |request| served.route(request));
+    let authority_handler = Arc::clone(&authority);
+    let upstream = listener(&tls, 0, move |request| authority_handler.route(request));
     snapshot(
         &root.0,
         Kind::Program,
@@ -498,26 +504,7 @@ fn program_source_upstream_retires_pull_and_delivers_registry_observations() {
     );
 }
 
-#[test]
-fn digest_producer_recovery_reenrolls_and_replays_after_restart() {
-    let root = Directory::new();
-    let tls = transport::Tls::new(&root.0);
-    let authority = Arc::new(publication_authority::Authority::new(
-        &root.0.join("identity"),
-        Arc::clone(&tls.config),
-    ));
-    authority.provision(PRINCIPAL, "program-key:first");
-    let served = Arc::clone(&authority);
-    let upstream = listener(&tls, 0, move |request| served.route(request));
-    snapshot(
-        &root.0,
-        Kind::Program,
-        1,
-        &[(PRINCIPAL, "program-key:first")],
-    );
-    let source = source(&tls, &root.0, Kind::Program, upstream.port);
-    let server = serve_source(&tls, 0, &source);
-    let source_port = server.port;
+fn assert_program_digest_enrollment(tls: &transport::Tls, source_port: u16) -> String {
     let digest = sha256_hex(PRINCIPAL.as_bytes());
     let status_path = format!("/internal/v1/principal-digests/{digest}/enrollment");
     let query = tls.upstream(source_port, PRODUCER_TOKEN);
@@ -565,6 +552,135 @@ fn digest_producer_recovery_reenrolls_and_replays_after_restart() {
         required::<Value, _>(serde_json::from_slice(&unknown.body))["bound"],
         false
     );
+    status_path
+}
+
+fn exhaust_notification(
+    queue: DurableQueue,
+    client: Client,
+    consumer: transport::Listener,
+    inbox: Arc<Mutex<Inbox>>,
+    health: &Health,
+) -> QueueState {
+    required(client.step(&queue, health));
+    assert!(
+        required(queue.pending())
+            .unwrap_or_else(|| panic!("head missing"))
+            .observed
+    );
+    drop(consumer);
+    drop(inbox);
+    for _ in 0..MAX_DELIVERY_ATTEMPTS {
+        queue.wait_eligible();
+        assert!(client.step(&queue, health).is_err());
+    }
+    let exhausted = queue.state();
+    assert_eq!(exhausted.delivery().attempts, MAX_DELIVERY_ATTEMPTS);
+    assert!(exhausted.delivery().redelivery_required);
+    assert_eq!(exhausted.delivery().enrollment_generation, Some(1));
+    assert_eq!(
+        exhausted.delivery().last_refusal,
+        Some(DeliveryFailure::NotificationUnavailable)
+    );
+    assert_eq!(exhausted.pending_count(), 2);
+    drop(client);
+    drop(queue);
+    exhausted
+}
+
+fn assert_reopened_state(
+    tls: &transport::Tls,
+    source_port: u16,
+    queue: &DurableQueue,
+    exhausted: &QueueState,
+    first: &Pending,
+    second: &Pending,
+) {
+    assert_eq!(queue.state().delivery(), exhausted.delivery());
+    assert_eq!(required(queue.pending()), exhausted.pending());
+    assert_eq!(
+        get_record(
+            &tls.upstream(source_port, READER_TOKEN),
+            &first.observation.id
+        ),
+        first.observation.record(PRINCIPAL.to_owned())
+    );
+    assert_eq!(
+        required(
+            tls.upstream(source_port, READER_TOKEN)
+                .get(&format!("/internal/v1/events/{}", second.observation.id))
+        )
+        .status,
+        404
+    );
+}
+
+fn assert_completed_recovery(
+    queue: &DurableQueue,
+    client: &Client,
+    health: &Health,
+    inbox: &Arc<Mutex<Inbox>>,
+    first: &Pending,
+    second: &Pending,
+) -> Vec<Record> {
+    queue.wait_eligible();
+    required(client.step(queue, health));
+    assert_eq!(queue.state().delivery().last_recovery_generation, Some(3));
+    assert!(!queue.state().delivery().redelivery_required);
+    assert_eq!(queue.state().pending_count(), 1);
+    required(client.step(queue, health));
+    required(client.step(queue, health));
+    assert!(required(queue.pending()).is_none());
+    let records = required(inbox.lock()).records.clone();
+    assert_eq!(
+        records,
+        [
+            first.observation.record(PRINCIPAL.to_owned()),
+            second.observation.record(PRINCIPAL.to_owned())
+        ]
+    );
+    assert_eq!(
+        queue.state().delivery().last_delivered_id.as_deref(),
+        Some(second.observation.id.as_str())
+    );
+    records
+}
+
+fn assert_recovery_requires_enrollment(
+    queue: &DurableQueue,
+    client: &Client,
+    health: &Health,
+    inbox: &Arc<Mutex<Inbox>>,
+) {
+    queue.wait_eligible();
+    assert_eq!(
+        client.step(queue, health),
+        Err("event redelivery requires authenticated recovery".to_owned())
+    );
+    assert!(required(inbox.lock()).records.is_empty());
+}
+
+#[test]
+fn digest_producer_recovery_reenrolls_and_replays_after_restart() {
+    let root = Directory::new();
+    let tls = transport::Tls::new(&root.0);
+    let authority = Arc::new(publication_authority::Authority::new(
+        &root.0.join("identity"),
+        Arc::clone(&tls.config),
+    ));
+    authority.provision(PRINCIPAL, "program-key:first");
+    let authority_handler = Arc::clone(&authority);
+    let upstream = listener(&tls, 0, move |request| authority_handler.route(request));
+    snapshot(
+        &root.0,
+        Kind::Program,
+        1,
+        &[(PRINCIPAL, "program-key:first")],
+    );
+    let source = source(&tls, &root.0, Kind::Program, upstream.port);
+    let server = serve_source(&tls, 0, &source);
+    let source_port = server.port;
+    let status_path = assert_program_digest_enrollment(&tls, source_port);
 
     let registry = ProgramOutbox::new(&root.0.join("registry"));
     let first = publication(&registry, 7);
@@ -588,29 +704,7 @@ fn digest_producer_recovery_reenrolls_and_replays_after_restart() {
     let inbox_port = consumer.port;
     let client = client(&tls, source_port, inbox_port);
     let health = Health::default();
-    required(client.step(&queue, &health));
-    assert!(
-        required(queue.pending())
-            .unwrap_or_else(|| panic!("head missing"))
-            .observed
-    );
-    drop(consumer);
-    drop(inbox);
-    for _ in 0..MAX_DELIVERY_ATTEMPTS {
-        queue.wait_eligible();
-        assert!(client.step(&queue, &health).is_err());
-    }
-    let exhausted = queue.state();
-    assert_eq!(exhausted.delivery().attempts, MAX_DELIVERY_ATTEMPTS);
-    assert!(exhausted.delivery().redelivery_required);
-    assert_eq!(exhausted.delivery().enrollment_generation, Some(1));
-    assert_eq!(
-        exhausted.delivery().last_refusal,
-        Some(DeliveryFailure::NotificationUnavailable)
-    );
-    assert_eq!(exhausted.pending_count(), 2);
-    drop(client);
-    drop(queue);
+    let exhausted = exhaust_notification(queue, client, consumer, inbox, &health);
     drop(server);
     drop(source);
     drop(registry);
@@ -620,38 +714,17 @@ fn digest_producer_recovery_reenrolls_and_replays_after_restart() {
     let source = self::source(&tls, &root.0, Kind::Program, upstream.port);
     let server = serve_source(&tls, source_port, &source);
     let queue = DurableQueue::open(&queue_path);
-    assert_eq!(queue.state().delivery(), exhausted.delivery());
-    assert_eq!(required(queue.pending()), exhausted.pending());
-    assert_eq!(
-        get_record(
-            &tls.upstream(source_port, READER_TOKEN),
-            &first.observation.id
-        ),
-        first.observation.record(PRINCIPAL.to_owned())
-    );
-    assert_eq!(
-        required(
-            tls.upstream(source_port, READER_TOKEN)
-                .get(&format!("/internal/v1/events/{}", second.observation.id))
-        )
-        .status,
-        404
-    );
+    assert_reopened_state(&tls, source_port, &queue, &exhausted, &first, &second);
     let inbox = Arc::new(Mutex::new(Inbox::open(
         &inbox_path,
         tls.upstream(source_port, READER_TOKEN),
     )));
     let received = Arc::clone(&inbox);
-    let _consumer = listener(&tls, inbox_port, move |request| {
+    let consumer = listener(&tls, inbox_port, move |request| {
         required(received.lock()).route(request)
     });
     let client = self::client(&tls, source_port, inbox_port);
-    queue.wait_eligible();
-    assert_eq!(
-        client.step(&queue, &health),
-        Err("event redelivery requires authenticated recovery".to_owned())
-    );
-    assert!(required(inbox.lock()).records.is_empty());
+    assert_recovery_requires_enrollment(&queue, &client, &health, &inbox);
 
     // Merely incrementing the snapshot must not bypass a revoked binding.
     authority.revoke(PRINCIPAL, "program-key:first");
@@ -682,30 +755,11 @@ fn digest_producer_recovery_reenrolls_and_replays_after_restart() {
     let source = self::source(&tls, &root.0, Kind::Program, upstream.port);
     let _server = serve_source(&tls, source_port, &source);
     assert_eq!(source.generation().generation(), 3);
-    queue.wait_eligible();
-    required(client.step(&queue, &health));
-    assert_eq!(queue.state().delivery().last_recovery_generation, Some(3));
-    assert!(!queue.state().delivery().redelivery_required);
-    assert_eq!(queue.state().pending_count(), 1);
-    required(client.step(&queue, &health));
-    required(client.step(&queue, &health));
-    assert!(required(queue.pending()).is_none());
-    let records = required(inbox.lock()).records.clone();
-    assert_eq!(
-        records,
-        [
-            first.observation.record(PRINCIPAL.to_owned()),
-            second.observation.record(PRINCIPAL.to_owned())
-        ]
-    );
-    assert_eq!(
-        queue.state().delivery().last_delivered_id.as_deref(),
-        Some(second.observation.id.as_str())
-    );
+    let records = assert_completed_recovery(&queue, &client, &health, &inbox, &first, &second);
     drop(queue);
     assert!(required(DurableQueue::open(&queue_path).pending()).is_none());
     assert!(!required(fs::read_to_string(queue_path.join("journal.log"))).contains(PRINCIPAL));
-    drop(_consumer);
+    drop(consumer);
     drop(inbox);
     let recovered_inbox = Inbox::open(&inbox_path, tls.upstream(source_port, READER_TOKEN));
     assert_eq!(recovered_inbox.records, records);
@@ -720,8 +774,8 @@ fn digest_enrollment_status_binds_payment_sources_without_disclosing_principals(
         Arc::clone(&tls.config),
     ));
     authority.provision(PRINCIPAL, "payment-key:first");
-    let served = Arc::clone(&authority);
-    let upstream = listener(&tls, 0, move |request| served.route(request));
+    let authority_handler = Arc::clone(&authority);
+    let upstream = listener(&tls, 0, move |request| authority_handler.route(request));
     snapshot(
         &root.0,
         Kind::Payment,

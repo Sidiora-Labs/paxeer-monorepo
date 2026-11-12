@@ -1,3 +1,7 @@
+mod test_network {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_network.rs"));
+}
+
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::io::{Read, Write};
@@ -42,6 +46,7 @@ const CREDENTIAL: &str = "loopback-framing-credential";
 struct Scratch(PathBuf);
 impl Scratch {
     fn new(label: &str) -> Checked<Self> {
+        test_network::isolate()?;
         let path =
             std::env::temp_dir().join(format!("repair-22-33-118-{}-{label}", std::process::id()));
         std::fs::create_dir(&path)?;
@@ -145,6 +150,7 @@ struct HttpTranscript {
 }
 impl HttpTranscript {
     fn start(replies: BTreeMap<String, Vec<u8>>, tls: bool, delay: Duration) -> Checked<Self> {
+        test_network::isolate()?;
         let (acceptor, root) = if tls {
             let (identity, root) = certificate()?;
             (Some(TlsAcceptor::new(identity)?), Some(root))
@@ -429,6 +435,7 @@ struct DnsTranscript {
 }
 impl DnsTranscript {
     fn start(addresses: Vec<IpAddr>) -> Checked<Self> {
+        test_network::isolate()?;
         let socket = UdpSocket::bind("127.0.0.1:0")?;
         let address = socket.local_addr()?;
         let questions = Arc::new(Mutex::new(Vec::new()));
@@ -510,6 +517,7 @@ impl Drop for DnsTranscript {
 
 #[test]
 fn fetch_dns_deadline_cancels_slow_resolution_for_fetch_api_and_robots() -> Checked {
+    test_network::isolate()?;
     // A real DNS peer that keeps the datagrams pending, without detached
     // resolver threads, environment changes or a substituted resolver.
     let dns = UdpSocket::bind("127.0.0.1:0")?;
@@ -712,6 +720,7 @@ struct RpcTranscript {
 }
 impl RpcTranscript {
     fn start(handler: impl Fn(&Value) -> Result<Value, Value> + Send + 'static) -> Checked<Self> {
+        test_network::isolate()?;
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let address = listener.local_addr()?;
         let calls = Arc::new(Mutex::new(Vec::new()));
@@ -1094,6 +1103,7 @@ fn search_tie_expansion_keeps_ten_candidates_and_loads_only_winning_bodies() -> 
 
 #[test]
 fn fetch_dns_tcp_fallback_obeys_the_same_deadline() -> Checked {
+    test_network::isolate()?;
     let listener = TcpListener::bind("127.0.0.1:0")?;
     let address = listener.local_addr()?;
     let udp = UdpSocket::bind(address)?;

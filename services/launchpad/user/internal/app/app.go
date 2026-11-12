@@ -7,7 +7,6 @@ package app
 import (
 	"bytes"
 	"context"
-	"crypto/ed25519"
 	"crypto/sha256"
 	"crypto/subtle"
 	"crypto/tls"
@@ -27,7 +26,6 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/media/user/internal/account"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/telemetry"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
@@ -173,152 +171,14 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 	})
 
-	var accountsTLS *tls.Config
-	var accountStop context.CancelFunc
-	var accountDone chan struct{}
-	var accountNATS *nats.Conn
-	var accountRPC *sharedauth.ReportedHashBackend
-	var committedBlocks sharedauth.CommittedBlockProvider
+	var wiring accountWiring
 	if cfg.NodeEnv == nodeEnvProduction {
-		if err = cfg.ValidateAccountRuntime(); err != nil {
-			pool.Close()
-			_ = rdb.Close()
-			return nil, err
-		}
-		accountsTLS, err = accountTLS(cfg)
+		wiring, err = connectAccountRuntime(ctx, cfg, logger, pool, rdb, store, mux, accountHealth)
 		if err != nil {
 			pool.Close()
 			_ = rdb.Close()
 			return nil, err
 		}
-		committedBlocks = sharedauth.PostgresCommittedBlockProvider{Pool: pool}
-		accountRPC, err = dialAccountChain(ctx, cfg.AccountRPCURL)
-		if err != nil {
-			pool.Close()
-			_ = rdb.Close()
-			return nil, err
-		}
-		natsAuth, e := accountNATSOptions(cfg)
-		if e != nil {
-			accountRPC.Close()
-			pool.Close()
-			_ = rdb.Close()
-			return nil, e
-		}
-		accountNATS, err = nats.Connect(cfg.AccountNATSURL, append(natsAuth, nats.Name("userd-"+cfg.RuntimeInstanceID), nats.Timeout(2*time.Second), nats.MaxReconnects(-1), nats.ReconnectWait(time.Second))...)
-		if err != nil {
-			accountRPC.Close()
-			pool.Close()
-			_ = rdb.Close()
-			return nil, err
-		}
-		setupFailure := func(e error) (*App, error) {
-			accountNATS.Close()
-			accountRPC.Close()
-			pool.Close()
-			_ = rdb.Close()
-			return nil, e
-		}
-		publisher, e := natsdriver.NewPublisher(accountNATS, cfg.AccountNATSStream)
-		if e != nil {
-			return setupFailure(e)
-		}
-		var subjects map[string]string
-		if e = config.ReadBoundDocument(cfg.AccountSubjectsFile, cfg.AccountSubjectsSHA256, &subjects); e != nil {
-			return setupFailure(e)
-		}
-		policy := delivery.Policy{Subjects: map[string]bool{}, EventTypes: map[string]bool{}}
-		for kind, subject := range subjects {
-			if subject == "" || policy.Subjects[subject] {
-				return setupFailure(fmt.Errorf("account_subject_configuration_invalid"))
-			}
-			policy.Subjects[subject] = true
-			policy.EventTypes[kind] = true
-		}
-		durable, e := delivery.NewStore(pool, cfg.AccountDeliverySchema, policy)
-		if e != nil {
-			return setupFailure(e)
-		}
-		cursor, e := config.DecodeAccountKey(cfg.AccountCursorKey)
-		if e != nil {
-			return setupFailure(e)
-		}
-		exportKey, e := config.DecodeAccountKey(cfg.AccountExportKey)
-		if e != nil {
-			return setupFailure(e)
-		}
-		endpointKey, e := config.DecodeAccountKey(cfg.AccountEndpointKey)
-		if e != nil {
-			return setupFailure(e)
-		}
-		fingerprintKey, e := config.DecodeAccountKey(cfg.AccountEndpointFingerprintKey)
-		if e != nil {
-			return setupFailure(e)
-		}
-		auditKey, e := config.DecodeAccountKey(cfg.AccountAuditKey)
-		if e != nil {
-			return setupFailure(e)
-		}
-		signingSeed, e := config.DecodeAccountKey(cfg.AccountServiceSigningSeed)
-		if e != nil {
-			return setupFailure(e)
-		}
-		proofKey, e := config.DecodeAccountKey(cfg.AccountEndpointProofPublicKey)
-		if e != nil {
-			return setupFailure(e)
-		}
-		gatewayKey, e := config.DecodeAccountKey(cfg.AccountGatewayPublicKey)
-		if e != nil {
-			return setupFailure(e)
-		}
-		privateObjects, e := storage.New(ctx, storage.Config{Endpoint: cfg.S3Endpoint, Region: cfg.S3Region, AccessKeyID: cfg.S3AccessKeyID, SecretAccessKey: cfg.S3SecretAccessKey, Bucket: cfg.AccountExportBucket})
-		if e != nil {
-			return setupFailure(e)
-		}
-		policies, routes := sharedauth.AccountOwnerPoliciesV2()
-		operations := sharedauth.OperationAuthorizer{Ledger: sharedauth.Ledger{Pool: pool, Environment: cfg.AccountEnvironment, AuditKey: auditKey}, Verifier: sharedauth.CommittedProofVerifier{Backend: accountRPC, Blocks: committedBlocks}, Policies: policies, Routes: routes, Transport: sharedauth.OperationTransport{EnvelopeHeader: "X-Kindle-Operation", SignatureHeader: "X-Kindle-Operation-Signature"}}
-		userStore := account.Store{DB: pool, Clock: time.Now}
-		notificationClient, e := pinnedAccountClient(accountsTLS, cfg.NotificationCertSHA256)
-		if e != nil {
-			return setupFailure(e)
-		}
-		signer := sharedauth.ServiceRequestIssuer{Issuer: "user", Audience: "identity", Key: ed25519.NewKeyFromSeed(signingSeed), Transport: sharedauth.AssertionTransport{AssertionHeader: sharedauth.IdentityAssertionHeader, SignatureHeader: sharedauth.IdentitySignatureHeader}}
-		identityClient, e := pinnedAccountClient(accountsTLS, cfg.IdentityCertSHA256)
-		if e != nil {
-			return setupFailure(e)
-		}
-		identityAuthority, e := sharedauth.NewMTLSIdentityAuthority(cfg.IdentityURL, cfg.IdentityCertSHA256, identityClient, signer)
-		if e != nil {
-			return setupFailure(e)
-		}
-		metadataClient, e := pinnedAccountClient(accountsTLS, cfg.MetadataCertSHA256)
-		if e != nil {
-			return setupFailure(e)
-		}
-		metadataSigner := signer
-		metadataSigner.Audience = "metadata"
-		assets := accountAssetsAuthority{Store: userStore, Client: metadataClient, Endpoint: cfg.MetadataServiceURL, Signer: metadataSigner}
-
-		recoveryVerifier := sharedauth.ServiceRequestVerifier{Issuer: "gateway", Audience: cfg.AccountAssertionAudience, PeerCertSHA256: cfg.AccountGatewayCertSHA256, Key: ed25519.PublicKey(gatewayKey), Transport: sharedauth.AssertionTransport{AssertionHeader: sharedauth.IdentityAssertionHeader, SignatureHeader: sharedauth.IdentitySignatureHeader}}
-		runtime := account.Runtime{RecoveryGatewayVerifier: &recoveryVerifier, IdentityAuthority: identityAuthority, Assets: assets, ExtendedV3: cfg.AccountEnableExtendedV3, UseReadSwitch: cfg.AccountUseReadSwitch, AllowMetadataAvatars: cfg.AccountAllowMetadataAvatars, Authorizer: &operations, Objects: privateObjects, ExportKey: exportKey, EndpointKey: endpointKey, EndpointFingerprintKey: fingerprintKey, EndpointVerifier: account.CompactEndpointProofVerifier(ed25519.PublicKey(proofKey)), DeviceVerifier: account.CompactDeviceProofVerifier(ed25519.PublicKey(proofKey)), DownloadBaseURL: cfg.AccountDownloadBaseURL, Delivery: durable, Subjects: subjects, Metrics: &account.Metrics{}, DeletionOwners: map[string]account.DeletionOwner{"images": accountImageDeletionOwner{Redis: rdb, Legacy: account.ImagePurger{Store: userStore, Objects: store, Exports: privateObjects}, Assets: assets}, "notifications": notificationDeletionOwner{Client: notificationClient, Endpoint: cfg.NotificationServiceURL, Token: cfg.NotificationServiceToken, PeerCertSHA256: cfg.NotificationCertSHA256}}}
-		accounts, e := account.NewConnectedHTTP(userStore, runtime, cursor)
-		if e != nil {
-			return setupFailure(e)
-		}
-		assertions := sharedauth.ServiceAssertionVerifier{Transport: sharedauth.AssertionTransport{AssertionHeader: cfg.AccountAssertionHeader, SignatureHeader: cfg.AccountAssertionSignatureHeader}, Issuer: cfg.AccountAssertionIssuer, Audience: cfg.AccountAssertionAudience, PeerCertSHA256: cfg.AccountGatewayCertSHA256, Key: ed25519.PublicKey(gatewayKey)}
-		accountRoutes := accounts.GatewayHandler(assertions, sharedauth.PostgresIdentityResolver{Pool: pool}, operations)
-		mux.Handle("/v1/*", accountRoutes)
-		mux.Handle("/v2/*", accountRoutes)
-		mux.Handle("/v3/*", accountRoutes)
-		internalAccounts := accountNotificationAuthority(userStore, accounts.Runtime, cfg.NotificationInboundToken, cfg.NotificationCertSHA256)
-		mux.Handle("/internal/v2/accounts/*", internalAccounts)
-		mux.Handle("/internal/v2/wallets/*", internalAccounts)
-		workerContext, stop := context.WithCancel(ctx)
-		accountStop = stop
-		accountDone = make(chan struct{})
-		worker := account.Worker{Store: userStore, Runtime: accounts.Runtime, Owner: cfg.RuntimeInstanceID, LeaseDuration: time.Minute}
-		relay := delivery.Relay{Store: durable, Publisher: publisher, Owner: cfg.RuntimeInstanceID, Batch: 16, LeaseDuration: 30 * time.Second, PublishTimeout: 5 * time.Second, RetryDelay: time.Second, MaxAttempts: 20}
-		go runAccountWorkers(workerContext, worker, relay, accountNATS, accountHealth, accountDone, logger)
 	}
 
 	if metrics != nil {
@@ -328,7 +188,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		return nil, err
 	}
 	secretOwned = true
-	return &App{accountStop: accountStop, accountDone: accountDone, accountNATS: accountNATS, accountRPC: accountRPC, TLS: accountsTLS, secretStop: secretStop, tracker: tracker, Router: runtimeHandler(tracker, mux, metrics), pool: pool, redis: rdb, logger: logger}, nil
+	return &App{accountStop: wiring.stop, accountDone: wiring.done, accountNATS: wiring.natsConn, accountRPC: wiring.rpcBackend, TLS: wiring.tlsConfig, secretStop: secretStop, tracker: tracker, Router: runtimeHandler(tracker, mux, metrics), pool: pool, redis: rdb, logger: logger}, nil
 }
 
 // registerDevelopmentProfileReads mounts the public profile reads the web
@@ -582,6 +442,9 @@ type accountAssetsAuthority struct {
 	Signer   sharedauth.ServiceRequestIssuer
 }
 
+// AccountAssetsAuthority is the metadata-backed account asset authority used by userd.
+type AccountAssetsAuthority = accountAssetsAuthority
+
 func (a accountAssetsAuthority) call(ctx context.Context, method, path string, out any) error {
 	return a.callDecoded(ctx, method, path, func(raw []byte) error { return account.Decode(bytes.NewReader(raw), out) })
 }
@@ -733,6 +596,9 @@ type notificationDeletionOwner struct {
 	Client                          *http.Client
 	Endpoint, Token, PeerCertSHA256 string
 }
+
+// NotificationDeletionOwner removes account notification data through the notification service.
+type NotificationDeletionOwner = notificationDeletionOwner
 
 func (o notificationDeletionOwner) DeleteAccount(ctx context.Context, id, deletion uuid.UUID) error {
 	if o.Client == nil || len(o.Token) < 32 || id == uuid.Nil || deletion == uuid.Nil {

@@ -1960,7 +1960,7 @@ fn frozen_binding<'a>(
             .guest_index(Section::ReputationAdmission.index()),
     )?)?;
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
-    let row = crate::rewards::committed_row(state.section(Section::SettlementClaims)?, epoch)
+    let row = crate::rewards::committed_row(state.room_market()?.0, epoch)
         .map_err(|e| if e == NOT_FOUND { WRONG_EPOCH } else { e })?
         .row;
     let header = &section.header;

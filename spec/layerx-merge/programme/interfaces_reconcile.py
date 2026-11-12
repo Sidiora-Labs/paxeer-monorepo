@@ -68,7 +68,8 @@ def _symbol(kind: str, signature: str) -> tuple[str, bool]:
             match = re.search(pattern, declarator)
             if match and match[1] not in ("X", "_Atomic", "sizeof", "__attribute__"):
                 return match[1], False
-    if kind not in _LITERAL_KINDS:
+    declared_format = kind == "file_format" and signature.startswith(("pub ", "export "))
+    if kind not in _LITERAL_KINDS or declared_format:
         for pattern in _DECLARATIONS:
             match = pattern.search(signature)
             if match:

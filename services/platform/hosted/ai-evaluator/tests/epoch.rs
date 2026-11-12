@@ -40,6 +40,7 @@ use layerx_programs_ai_market::{
     queries::ReadProof,
     registry::{derive_rewards_account, MarketHeader, F01_SECTION_CAP},
     registry_ops::{self, CallContext, Outcome, PolicySection},
+    reputation_transition::split_joint,
     reward_math::allocate,
     rewards::{
         decode_reward_state, FundReplay, FundRequest, FundingAuthority, FundingPhase, RewardEpoch,
@@ -292,6 +293,7 @@ struct Parts {
     region: Vec<u8>,
     reports: Vec<u8>,
     rewards: Vec<u8>,
+    reputation: Vec<u8>,
     admission: AdmissionTable,
     replay: ReplayTable,
     features: Vec<u8>,
@@ -301,6 +303,7 @@ impl Parts {
         let state = decode_shared_state(bytes)?;
         let [policy, identity, reports, rewards, admission] = state.feature_sections;
         let (workers, region) = split_identity_section(identity)?;
+        let (_, table) = split_joint(admission)?;
         Ok(Self {
             revision: state.revision,
             policy: policy.to_vec(),
@@ -308,7 +311,8 @@ impl Parts {
             region: region.to_vec(),
             reports: reports.to_vec(),
             rewards: rewards.to_vec(),
-            admission: AdmissionTable::decode(admission)?,
+            reputation: admission[..admission.len() - table.len()].to_vec(),
+            admission: AdmissionTable::decode(table)?,
             replay: state.control.replay,
             features: state.control.feature_bytes.to_vec(),
         })
@@ -328,15 +332,11 @@ impl Parts {
         identity.extend_from_slice(&self.region);
         let mut admission = vec![0; TABLE_MAX_BYTES];
         let admission_len = self.admission.encode(&mut admission)?;
+        let mut joint = self.reputation.clone();
+        joint.extend_from_slice(&admission[..admission_len]);
         encode(&SharedState {
             revision: self.revision,
-            feature_sections: [
-                &policy,
-                &identity,
-                &self.reports,
-                &self.rewards,
-                &admission[..admission_len],
-            ],
+            feature_sections: [&policy, &identity, &self.reports, &self.rewards, &joint],
             control: Control {
                 replay: self.replay.clone(),
                 feature_bytes: &self.features,

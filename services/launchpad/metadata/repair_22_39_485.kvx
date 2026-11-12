@@ -1,0 +1,32 @@
+[metadata]
+scope = "Handwritten metadata service sources"
+coverage_before = "44.9%"
+coverage_after = "86.0%"
+
+[package.cmd_metadatad]
+before = "0.0%"
+after = "0.0%"
+
+[package.internal_app]
+before = "49.7%"
+after = "86.9%"
+
+[package.internal_config]
+before = "49.1%"
+after = "94.7%"
+
+[package.internal_image]
+before = "55.7%"
+after = "83.6%"
+
+[package.internal_internaltest]
+before = "0.0%"
+after = "81.1%"
+
+[package.internal_metadata]
+before = "46.3%"
+after = "85.8%"
+
+[package.internal_migrate]
+before = "0.0%"
+after = "73.7%"
