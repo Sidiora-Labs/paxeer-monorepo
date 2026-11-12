@@ -9,10 +9,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"math/big"
 	"strings"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -133,7 +134,7 @@ func (s *ReadService) encodeCompact(f Filter, id uuid.UUID, p Position) (string,
 	if f.Validate() != nil || p.Validate() != nil {
 		return "", ErrInvalid
 	}
-	b := make([]byte, 1+16+96+16)
+	b := make([]byte, 1+16+96+16, 1+16+96+16+sha256.Size)
 	b[0] = 2
 	copy(b[1:17], id[:])
 	offset := 17
@@ -181,7 +182,7 @@ func (s *ReadService) decodeCompact(f Filter, token string) (uuid.UUID, []string
 	return id, values, nil
 }
 func (s *ReadService) Trades(ctx context.Context, pool, side string, limit int, cursor string, now int64) (SnapshotPage, error) {
-	out := SnapshotPage{Trades: []CanonicalTrade{}, TraderPopulation: "sender_actor"}
+	out := SnapshotPage{Trades: []CanonicalTrade{}, TraderPopulation: valueSenderActor}
 	f := Filter{pool, side, s.config.ProjectionVersion}
 	if f.Validate() != nil || limit < 1 || limit > 100 || now < 0 {
 		return out, ErrInvalid
@@ -190,7 +191,7 @@ func (s *ReadService) Trades(ctx context.Context, pool, side string, limit int, 
 	if err != nil {
 		return out, err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTransaction(ctx, tx)
 	id := uuid.New()
 	var position []string
 	if cursor == "" {
@@ -318,12 +319,12 @@ func (s *ReadService) Window(ctx context.Context, pool string, seconds, now int6
 	if err != nil {
 		return out, err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTransaction(ctx, tx)
 	w, err := s.coherentTx(ctx, tx, pool, now)
 	if err != nil {
 		return out, err
 	}
-	out = WindowSnapshot{PoolAddress: pool, TraderPopulation: "sender_actor", UserActionUnavailableReason: "qualified_route_identity_unavailable", Fees: []CanonicalAssetFee{}, WindowStart: now - seconds, WindowEnd: now, ComputedAt: now, Watermark: w}
+	out = WindowSnapshot{PoolAddress: pool, TraderPopulation: valueSenderActor, UserActionUnavailableReason: "qualified_route_identity_unavailable", Fees: []CanonicalAssetFee{}, WindowStart: now - seconds, WindowEnd: now, ComputedAt: now, Watermark: w}
 	args := []any{s.config.ProjectionVersion, w.Height, out.WindowStart, now, pool}
 	where := `t.projection_version=$1 AND t.height<=$2::numeric AND t.block_timestamp>$3 AND t.block_timestamp<=$4 AND ($5='' OR t.pool=$5)`
 	join := fmt.Sprintf(` FROM %s.trade_facts t JOIN %s.accounting_market_commits c ON c.projection_version=t.projection_version AND c.pool=t.pool AND c.fill->'position'->>'transactionHash'=t.payload->'position'->>'transactionHash' AND c.fill->'position'->>'blockHash'=t.payload->'position'->>'blockHash' AND (c.fill->'position'->>'height')::numeric=t.height AND (c.fill->'position'->>'transactionIndex')::numeric=t.transaction_index AND (c.fill->'position'->>'logIndex')::numeric=t.log_index JOIN %s p ON p.pool=t.pool AND p.height<=t.height WHERE `, s.repository.schema, s.repository.schema, s.source("indexer_canonical_creations_v1"))
@@ -336,7 +337,7 @@ func (s *ReadService) Window(ctx context.Context, pool string, seconds, now int6
 		return out, err
 	}
 	for rows.Next() {
-		fee := CanonicalAssetFee{ChainID: "125", FeeType: "trading_fee", QuoteUnavailableReason: "valuation_source_unavailable"}
+		fee := CanonicalAssetFee{ChainID: "125", FeeType: valueTradingFee, QuoteUnavailableReason: "valuation_source_unavailable"}
 		if err = rows.Scan(&fee.Asset, &fee.Decimals, &fee.Disposition, &fee.Raw); err != nil {
 			rows.Close()
 			return out, err
@@ -393,7 +394,7 @@ func (s *ReadService) PruneExpiredSnapshots(ctx context.Context, limit int) (int
 }
 
 func (w WindowSnapshot) validate(config ReadConfig, pool string, seconds int64) error {
-	if w.PoolAddress != pool || w.Watermark.ChainID != "125" || w.Watermark.SourceStream != config.SourceStream || w.Watermark.ProjectionVersion != config.ProjectionVersion || !hash.MatchString(w.Watermark.BlockHash) || w.WindowEnd < 0 || w.WindowStart != w.WindowEnd-seconds || w.ComputedAt != w.WindowEnd || w.Watermark.ComputedAt != w.ComputedAt || w.TraderPopulation != "sender_actor" || w.UserActionCount != nil || w.UserActionUnavailableReason == "" || w.Fees == nil {
+	if w.PoolAddress != pool || w.Watermark.ChainID != "125" || w.Watermark.SourceStream != config.SourceStream || w.Watermark.ProjectionVersion != config.ProjectionVersion || !hash.MatchString(w.Watermark.BlockHash) || w.WindowEnd < 0 || w.WindowStart != w.WindowEnd-seconds || w.ComputedAt != w.WindowEnd || w.Watermark.ComputedAt != w.ComputedAt || w.TraderPopulation != valueSenderActor || w.UserActionCount != nil || w.UserActionUnavailableReason == "" || w.Fees == nil {
 		return ErrIntegrity
 	}
 	if _, err := Uint(w.Watermark.Height); err != nil {
@@ -412,7 +413,7 @@ func (w WindowSnapshot) validate(config ReadConfig, pool string, seconds int64) 
 	seen := map[string]bool{}
 	for _, f := range w.Fees {
 		key := strings.Join([]string{f.Asset, fmt.Sprint(f.Decimals), f.Disposition}, ":")
-		if seen[key] || !address.MatchString(f.Asset) || f.Decimals < 0 || f.Decimals > 255 || f.ChainID != "125" || f.FeeType != "trading_fee" || (f.Disposition != "distributed_usdl" && f.Disposition != "retained_token_reserve") || len(f.Raw) > 156 || !digits.MatchString(f.Raw) || f.QuoteValue != nil || f.QuoteUnavailableReason == "" {
+		if seen[key] || !address.MatchString(f.Asset) || f.Decimals < 0 || f.Decimals > 255 || f.ChainID != "125" || f.FeeType != valueTradingFee || (f.Disposition != valueDistributedUsdl && f.Disposition != valueRetainedTokenReserve) || len(f.Raw) > 156 || !digits.MatchString(f.Raw) || f.QuoteValue != nil || f.QuoteUnavailableReason == "" {
 			return ErrIntegrity
 		}
 		seen[key] = true

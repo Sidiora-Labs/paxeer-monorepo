@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -187,7 +188,7 @@ func (a OperationAuthorizer) AuthorizeRequest(ctx context.Context, r *http.Reque
 		category = "action_mismatch"
 		return req, ErrScopeDenied
 	}
-	p := Principal{Wallet: wallet, SessionID: identity.SessionID, Roles: []string{"owner"}}
+	p := Principal{Wallet: wallet, SessionID: identity.SessionID, Roles: []string{valueOwner}}
 	if err = a.Policies.Authorize(p, action, target); err != nil {
 		category = "scope_denied"
 		return req, err
@@ -262,24 +263,28 @@ func (v PostgresIdentityResolver) Resolve(ctx context.Context, p Principal) (Ide
 	var result IdentityPrincipal
 	if v.GuardFunction != "" {
 		if v.Pool == nil {
-			return result, &VerificationError{Category: "upstream", Retryable: true}
+			return result, &VerificationError{Category: valueUpstream, Retryable: true}
 		}
 		tx, err := v.Pool.Begin(ctx)
 		if err != nil {
-			return result, &VerificationError{Category: "upstream", Retryable: true}
+			return result, &VerificationError{Category: valueUpstream, Retryable: true}
 		}
-		defer tx.Rollback(context.WithoutCancel(ctx))
+		defer func() {
+			if cleanupErr := tx.Rollback(context.WithoutCancel(ctx)); cleanupErr != nil && !errors.Is(cleanupErr, pgx.ErrTxClosed) {
+				log.Printf("transaction rollback: %v", cleanupErr)
+			}
+		}()
 		result, err = v.ResolveTx(ctx, tx, p)
 		if err != nil {
 			return IdentityPrincipal{}, err
 		}
 		if err = tx.Commit(ctx); err != nil {
-			return IdentityPrincipal{}, &VerificationError{Category: "upstream", Retryable: true}
+			return IdentityPrincipal{}, &VerificationError{Category: valueUpstream, Retryable: true}
 		}
 		return result, nil
 	}
 	if v.Pool == nil || !validIdentityID(p.SessionID) {
-		return result, &VerificationError{Category: "upstream", Retryable: true}
+		return result, &VerificationError{Category: valueUpstream, Retryable: true}
 	}
 	wallet, err := NormalizeWallet(p.Wallet)
 	if err != nil || wallet != p.Wallet {
@@ -290,7 +295,7 @@ func (v PostgresIdentityResolver) Resolve(ctx context.Context, p Principal) (Ide
 		return IdentityPrincipal{}, ErrScopeDenied
 	}
 	if err != nil {
-		return IdentityPrincipal{}, &VerificationError{Category: "upstream", Retryable: true}
+		return IdentityPrincipal{}, &VerificationError{Category: valueUpstream, Retryable: true}
 	}
 	if result.Validate(time.Now()) != nil {
 		return IdentityPrincipal{}, ErrScopeDenied
@@ -316,7 +321,7 @@ func (v PostgresIdentityResolver) ResolveTx(ctx context.Context, tx pgx.Tx, p Pr
 			return IdentityPrincipal{}, ErrScopeDenied
 		}
 		if err != nil {
-			return IdentityPrincipal{}, &VerificationError{Category: "upstream", Retryable: true}
+			return IdentityPrincipal{}, &VerificationError{Category: valueUpstream, Retryable: true}
 		}
 		if result.SessionID != p.SessionID || result.Wallet != wallet || result.Validate(time.Now()) != nil {
 			return IdentityPrincipal{}, ErrScopeDenied
@@ -328,7 +333,7 @@ func (v PostgresIdentityResolver) ResolveTx(ctx context.Context, tx pgx.Tx, p Pr
 		return IdentityPrincipal{}, ErrScopeDenied
 	}
 	if err != nil {
-		return IdentityPrincipal{}, &VerificationError{Category: "upstream", Retryable: true}
+		return IdentityPrincipal{}, &VerificationError{Category: valueUpstream, Retryable: true}
 	}
 	if result.Validate(time.Now()) != nil {
 		return IdentityPrincipal{}, ErrScopeDenied
@@ -352,7 +357,7 @@ func (a OperationAuthorizer) Handler(action string, assertions ServiceAssertionV
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": code, "message": "Authorization request could not be completed", "requestId": id, "retryable": retryable, "retryAfterMs": nil, "fieldErrors": []any{}, "details": nil})
 		}
 		if r.Body == nil || owner == nil || mutation == nil || a.Ledger.Pool == nil || identities.Pool != a.Ledger.Pool {
-			deny(&VerificationError{Category: "upstream", Retryable: true})
+			deny(&VerificationError{Category: valueUpstream, Retryable: true})
 			return
 		}
 		body, err := io.ReadAll(io.LimitReader(r.Body, (1<<20)+1))
@@ -378,8 +383,8 @@ func (a OperationAuthorizer) Handler(action string, assertions ServiceAssertionV
 		if err = a.Policies.Authorize(principal, action, target); err != nil {
 			id := r.Header.Get("X-Request-ID")
 			if validIdentityID(id) {
-				if auditErr := a.Ledger.RecordDenial(r.Context(), AuditEvent{RequestID: id, Actor: identity.Wallet, Action: action, Result: "denied", PolicyVersion: a.Policies.Version, RequestDigest: RequestDigest(r.Method, r.URL.RequestURI(), body)}); auditErr != nil {
-					deny(&VerificationError{Category: "audit", Retryable: true})
+				if auditErr := a.Ledger.RecordDenial(r.Context(), AuditEvent{RequestID: id, Actor: identity.Wallet, Action: action, Result: valueDenied, PolicyVersion: a.Policies.Version, RequestDigest: RequestDigest(r.Method, r.URL.RequestURI(), body)}); auditErr != nil {
+					deny(&VerificationError{Category: valueAudit, Retryable: true})
 					return
 				}
 			}
@@ -390,8 +395,8 @@ func (a OperationAuthorizer) Handler(action string, assertions ServiceAssertionV
 		if err != nil {
 			id := r.Header.Get("X-Request-ID")
 			if validIdentityID(id) {
-				if auditErr := a.Ledger.RecordDenial(r.Context(), AuditEvent{RequestID: id, Actor: identity.Wallet, Action: action, Result: "denied", PolicyVersion: a.Policies.Version, RequestDigest: RequestDigest(r.Method, r.URL.RequestURI(), body)}); auditErr != nil {
-					deny(&VerificationError{Category: "audit", Retryable: true})
+				if auditErr := a.Ledger.RecordDenial(r.Context(), AuditEvent{RequestID: id, Actor: identity.Wallet, Action: action, Result: valueDenied, PolicyVersion: a.Policies.Version, RequestDigest: RequestDigest(r.Method, r.URL.RequestURI(), body)}); auditErr != nil {
+					deny(&VerificationError{Category: valueAudit, Retryable: true})
 					return
 				}
 			}
@@ -400,10 +405,14 @@ func (a OperationAuthorizer) Handler(action string, assertions ServiceAssertionV
 		}
 		tx, err := a.Ledger.Pool.Begin(r.Context())
 		if err != nil {
-			deny(&VerificationError{Category: "upstream", Retryable: true})
+			deny(&VerificationError{Category: valueUpstream, Retryable: true})
 			return
 		}
-		defer tx.Rollback(context.WithoutCancel(r.Context()))
+		defer func() {
+			if cleanupErr := tx.Rollback(context.WithoutCancel(r.Context())); cleanupErr != nil && !errors.Is(cleanupErr, pgx.ErrTxClosed) {
+				log.Printf("transaction rollback: %v", cleanupErr)
+			}
+		}()
 		current, err := identities.ResolveTx(r.Context(), tx, principal)
 		if err != nil || current.AccountID != identity.AccountID || current.AuthEpoch != identity.AuthEpoch || current.Wallet != identity.Wallet || current.SessionID != identity.SessionID {
 			if err == nil {
@@ -423,8 +432,8 @@ func (a OperationAuthorizer) Handler(action string, assertions ServiceAssertionV
 			_ = tx.Rollback(context.WithoutCancel(r.Context()))
 			var failure *VerificationError
 			if errors.Is(err, ErrScopeDenied) || (errors.As(err, &failure) && !failure.Retryable) {
-				if auditErr := a.Ledger.RecordDenial(r.Context(), AuditEvent{RequestID: req.RequestID, Actor: req.Actor, Action: req.Action, Result: "denied", PolicyVersion: req.PolicyVersion, RequestDigest: RequestDigest(req.Method, req.Path, req.Body)}); auditErr != nil {
-					deny(&VerificationError{Category: "audit", Retryable: true})
+				if auditErr := a.Ledger.RecordDenial(r.Context(), AuditEvent{RequestID: req.RequestID, Actor: req.Actor, Action: req.Action, Result: valueDenied, PolicyVersion: req.PolicyVersion, RequestDigest: RequestDigest(req.Method, req.Path, req.Body)}); auditErr != nil {
+					deny(&VerificationError{Category: valueAudit, Retryable: true})
 					return
 				}
 			}
@@ -433,12 +442,12 @@ func (a OperationAuthorizer) Handler(action string, assertions ServiceAssertionV
 		}
 		if duplicate {
 			if err = tx.QueryRow(r.Context(), `SELECT request_id::text FROM operation_ledger WHERE actor=$1 AND action=$2 AND nonce=$3`, req.Actor, req.Action, req.Envelope.Nonce).Scan(&req.RequestID); err != nil {
-				deny(&VerificationError{Category: "upstream", Retryable: true})
+				deny(&VerificationError{Category: valueUpstream, Retryable: true})
 				return
 			}
 		}
 		if err = tx.Commit(r.Context()); err != nil {
-			deny(&VerificationError{Category: "upstream", Retryable: true})
+			deny(&VerificationError{Category: valueUpstream, Retryable: true})
 			return
 		}
 		_ = json.NewEncoder(w).Encode(struct {

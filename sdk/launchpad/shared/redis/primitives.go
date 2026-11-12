@@ -22,13 +22,13 @@ func ProjectionKey(scope KeyScope, parameters url.Values) (string, error) {
 	if scope.RouteVersion == "" || scope.Generation == "" || len(scope.RouteVersion) > 128 || len(scope.Generation) > 128 {
 		return "", errors.New("cache: invalid route or generation")
 	}
-	if scope.Visibility != "public" && scope.Visibility != "private" {
+	if scope.Visibility != valuePublic && scope.Visibility != valuePrivate {
 		return "", errors.New("cache: invalid visibility")
 	}
-	if scope.Visibility == "private" && (scope.Principal == "" || scope.AuthorizationRevision == "") {
+	if scope.Visibility == valuePrivate && (scope.Principal == "" || scope.AuthorizationRevision == "") {
 		return "", errors.New("cache: missing private authorization scope")
 	}
-	if scope.Visibility == "public" && (scope.Principal != "" || scope.AuthorizationRevision != "") {
+	if scope.Visibility == valuePublic && (scope.Principal != "" || scope.AuthorizationRevision != "") {
 		return "", errors.New("cache: public key contains private scope")
 	}
 	if len(scope.Principal) > 256 || len(scope.AuthorizationRevision) > 78 || len(parameters) > 32 {
@@ -196,5 +196,5 @@ func GetSnapshot(ctx context.Context, c *r.Client, key string) (Snapshot, bool, 
 	if !revisionOK(s.Revision) || s.Generation == "" {
 		return s, false, errors.New("cache: corrupt snapshot")
 	}
-	return s, time.Now().Before(s.ExpiresAt) && string(s.Body) != "null", nil
+	return s, time.Now().Before(s.ExpiresAt) && string(s.Body) != valueNull, nil
 }

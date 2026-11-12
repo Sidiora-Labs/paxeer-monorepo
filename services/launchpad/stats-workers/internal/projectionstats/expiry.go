@@ -3,8 +3,9 @@ package projectionstats
 import (
 	"context"
 	"errors"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
 )
 
 type ExpiryScheduler struct {

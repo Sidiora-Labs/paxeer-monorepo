@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"reflect"
 	"regexp"
@@ -255,7 +256,7 @@ func NewSourceVerifiedAccountingConsumer(config SourceVerifiedAccountingConfig) 
 		if err = json.Unmarshal(positionWire, &b.Position); err != nil {
 			return b, err
 		}
-		if accounting.ValidatePartitionPosition(b.Position) != nil || b.Position.Sequence != "1" || b.Position.PreviousEffectIdentity != "" || b.Position.PartitionKind != "market" || b.Position.PartitionKey != "125:"+pool || b.Position.ProjectionVersion != config.ProjectionVersion {
+		if accounting.ValidatePartitionPosition(b.Position) != nil || b.Position.Sequence != "1" || b.Position.PreviousEffectIdentity != "" || b.Position.PartitionKind != valueMarket || b.Position.PartitionKey != "125:"+pool || b.Position.ProjectionVersion != config.ProjectionVersion {
 			return b, projectionstats.ErrIntegrity
 		}
 		publicationWire, err := sourcebootstrap.MarketPublication(ctx, tx, b.Position.SourceEventID, config.ProjectionVersion)
@@ -402,6 +403,9 @@ func NewSourceVerifiedAccountingConsumer(config SourceVerifiedAccountingConfig) 
 		if err != nil {
 			return err
 		}
+		if uint64(first.Index) > math.MaxInt64 || first.BlockNumber > math.MaxInt64 {
+			return projectionstats.ErrIntegrity
+		}
 		var same bool
 		err = tx.QueryRow(bounded, `SELECT topics=$4::jsonb AND data=$5 AND block_hash=$6 AND emitter=$7 FROM indexer.indexer_raw_logs_v1 WHERE chain_id=125 AND transaction_hash=$1 AND log_index=$2 AND height=$3`, first.TxHash.Hex(), int64(first.Index), int64(first.BlockNumber), encodedTopics, first.Data, first.BlockHash.Hex(), strings.ToLower(first.Address.Hex())).Scan(&same)
 		if err != nil {
@@ -423,7 +427,7 @@ func NewSourceVerifiedAccountingConsumer(config SourceVerifiedAccountingConfig) 
 	lease := func(ctx context.Context, fill accounting.FillV1) (delivery.PartitionLease, error) {
 		mu.Lock()
 		defer mu.Unlock()
-		key := delivery.ConsumerKey{ConsumerID: config.ConsumerID, ProjectionGeneration: config.Generation, PartitionKind: "market", PartitionKey: "125:" + fill.PoolAddress}
+		key := delivery.ConsumerKey{ConsumerID: config.ConsumerID, ProjectionGeneration: config.Generation, PartitionKind: valueMarket, PartitionKey: "125:" + fill.PoolAddress}
 		l, err := config.Partitions.Acquire(ctx, key, config.Owner, 30*time.Second)
 		if err != nil {
 			return l, err
@@ -438,7 +442,7 @@ func NewSourceVerifiedAccountingConsumer(config SourceVerifiedAccountingConfig) 
 		defer func() {
 			cleanup, stop := context.WithTimeout(context.Background(), time.Second)
 			defer stop()
-			tx.Rollback(cleanup)
+			rollbackTransaction(cleanup, tx)
 		}()
 		b, err := loadBootstrap(ctx, tx, fill.PoolAddress)
 		if err != nil {
@@ -466,7 +470,7 @@ func NewSourceVerifiedAccountingConsumer(config SourceVerifiedAccountingConfig) 
 	}
 	consumer.marketEffect = config.MarketEffect
 	consumer.canonicalPublication = func(ctx context.Context, tx pgx.Tx, p accounting.PublicationV1) error {
-		if p.Fill == nil || p.Facet != "market" || len(p.Positions) != 1 {
+		if p.Fill == nil || p.Facet != valueMarket || len(p.Positions) != 1 {
 			return projectionstats.ErrIntegrity
 		}
 		if err := authorize(ctx, tx, *p.Fill); err != nil {
@@ -561,7 +565,7 @@ func (c *SourceVerifiedAccountingConsumer) ConsumeBatch(ctx context.Context, mes
 		if p.Fill != nil {
 			pools = append(pools, p.Fill.PoolAddress)
 		}
-		if p.Fill == nil || p.Facet != "market" || len(p.Positions) != 1 || p.PublicationID != e.EventID || broker.EventID != e.EventID || broker.Subject != m.Subject || broker.WireSHA256 != delivery.Hash(m.Wire) {
+		if p.Fill == nil || p.Facet != valueMarket || len(p.Positions) != 1 || p.PublicationID != e.EventID || broker.EventID != e.EventID || broker.Subject != m.Subject || broker.WireSHA256 != delivery.Hash(m.Wire) {
 			return reject(m, e.EventID, delivery.PartitionBinding, pools, projectionstats.ErrIntegrity)
 		}
 		if previous, ok := seen[e.EventID]; ok && delivery.Hash(previous.message.Wire) != delivery.Hash(m.Wire) {

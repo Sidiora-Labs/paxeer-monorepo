@@ -129,6 +129,7 @@ func HashTuple(domain string, components ...string) string {
 	h := sha256.New()
 	for _, s := range append([]string{domain}, components...) {
 		var size [4]byte
+		//nolint:gosec // Tuple components are length-framed with a 32-bit wire field.
 		binary.BigEndian.PutUint32(size[:], uint32(len(s)))
 		h.Write(size[:])
 		h.Write([]byte(s))
@@ -193,11 +194,11 @@ func NewMarketPublication(f FillV1, positions []PartitionPosition) (PublicationV
 	if err != nil {
 		return PublicationV1{}, err
 	}
-	p := PublicationV1{Version: PublicationVersion, Facet: "market", SourceFillID: f.SourceFillID, SourceFactDigest: d, Fill: &f, Positions: append([]PartitionPosition(nil), positions...)}
+	p := PublicationV1{Version: PublicationVersion, Facet: valueMarket, SourceFillID: f.SourceFillID, SourceFactDigest: d, Fill: &f, Positions: append([]PartitionPosition(nil), positions...)}
 	if len(positions) != 1 {
 		return PublicationV1{}, ErrInvalid
 	}
-	p.PublicationID = PublicationIdentity(f.SourceFillID, d, "market", positions[0].ProjectionVersion, "initial", "")
+	p.PublicationID = PublicationIdentity(f.SourceFillID, d, valueMarket, positions[0].ProjectionVersion, "initial", "")
 	return p, ValidatePublicationV1(p)
 }
 func NewEnrichmentPublication(e EnrichmentV1, positions []PartitionPosition) (PublicationV1, error) {
@@ -207,9 +208,9 @@ func NewEnrichmentPublication(e EnrichmentV1, positions []PartitionPosition) (Pu
 }
 func SubjectForFacet(facet string) (string, error) {
 	switch facet {
-	case "market":
+	case valueMarket:
 		return MarketSubject, nil
-	case "inventory":
+	case valueInventory:
 		return InventorySubject, nil
 	default:
 		return "", ErrInvalid

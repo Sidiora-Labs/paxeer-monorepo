@@ -1,8 +1,9 @@
 package coverage
 
 import (
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type Actor struct {
@@ -30,7 +31,7 @@ func actors(from common.Address, to *common.Address, executor common.Address, fi
 }
 func (out *ReceiptResult) attributeTransfers() {
 	for i, e := range out.Effects {
-		if e.Kind != "core_fill" {
+		if e.Kind != effectCoreFill {
 			continue
 		}
 		buy, ok := e.Fields["isBuy"].(bool)
@@ -45,7 +46,7 @@ func (out *ReceiptResult) attributeTransfers() {
 		amount, _ := e.Fields["amountOut"].(*big.Int)
 		recipients := []common.Address{}
 		for _, movement := range out.Effects {
-			if movement.Role == "SidioraERC20" && movement.Event == "Transfer" && movement.Identity.Emitter == asset && movement.Fields["from"] == pool && equalNumber(movement.Fields["value"], amount) {
+			if movement.Role == roleSidioraERC20 && movement.Event == "Transfer" && movement.Identity.Emitter == asset && movement.Fields["from"] == pool && equalNumber(movement.Fields["value"], amount) {
 				recipient, ok := movement.Fields["to"].(common.Address)
 				if ok {
 					recipients = append(recipients, recipient)

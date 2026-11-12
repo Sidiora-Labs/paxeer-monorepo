@@ -71,7 +71,7 @@ func (b *statsBatch) enter(ctx context.Context, tx pgx.Tx, r *Repository, in App
 		return 0, err
 	}
 	bucket.volume.Add(bucket.volume, volume)
-	if in.Trade.Side == "buy" {
+	if in.Trade.Side == valueBuy {
 		bucket.buys++
 	} else {
 		bucket.sells++
@@ -217,7 +217,7 @@ func (r *Repository) ApplyAuthorizedBatch(ctx context.Context, authority *CoreRe
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTransaction(ctx, tx)
 	if err = r.lockAccountingPoolsTx(ctx, tx, sortedStatsPools(pools), false, ""); err != nil {
 		return nil, err
 	}
