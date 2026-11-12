@@ -47,7 +47,7 @@ func MetricFromMarketPrice(pool string, raw []byte) (Metric, error) {
 	if validatePrice(price, value) != nil {
 		return Metric{}, ErrInvalid
 	}
-	return Metric{PoolAddress: strings.ToLower(pool), Price: &price, Value: value, Revision: revision, ObservedAt: observed, Quality: "complete"}, nil
+	return Metric{PoolAddress: strings.ToLower(pool), Price: &price, Value: value, Revision: revision, ObservedAt: observed, Quality: qualityComplete}, nil
 }
 
 // CanonicalPrice reads the existing owner API. No foreign table or derived
