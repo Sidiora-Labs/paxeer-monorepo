@@ -13318,6 +13318,12 @@ value = "The case that reads the native replay corpus is a release gate under de
 basis = "Gotcha 4284 and decision 1806."
 affects = ["22.39.456"]
 
+[decision.3368]
+title = "The build of a launchpad web flow task reads the type check for the files of the flow"
+value = "The build runs the type check of the application and reads its findings for the paths of the task. Task 22.39.399 holds the type check of the whole application, the file apps/launchpad/web/src/widgets/create-chain/chain-launch.test.ts among its files."
+basis = "Gotcha 4285 and decisions 3327 and 3352."
+affects = ["22.40.14", "22.39.399"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -164108,7 +164114,7 @@ do_1 = "do_1 Decision 3327, gotcha 4255. Build the SDK packages as the build of 
 do_2 = "do_2 Repair each finding at its cause. For the pool detail, read what the route of the launchpad API returns for the pool and make the type of the operation table and the transport type agree with it, in the SDK package that declares it; a file that a generator of the package writes is changed through its generator and its input. For a missing declaration add the declaration package to the development dependencies of apps/launchpad/web together with the lock file. For a test file correct the types and keep every assertion. Use no ts-ignore, no ts-expect-error, no cast to any and no exclusion in tsconfig.json to quiet a finding."
 do_3 = "do_3 Search the Makefile, the files under .github/workflows and tests/ci for the place where the launchpad web application is checked and record whether the type check runs there; change no workflow file. Run the type check of the web application, the type check of apps/launchpad/mobile and the test command of the web application outside the counted gates until both type checks have zero findings and the tests pass. Record in apps/launchpad/web/repair_22_39_399.kvx each finding, its cause and its repair, and the result of the search. Then run the counted build once and the counted verification once."
 symbols = []
-touches = ["apps/launchpad/web/src/app/breakpoints.test.ts", "apps/launchpad/web/src/core/market/pool-resolver.ts", "apps/launchpad/web/src/widgets/create/creation-journey.integration.test.tsx", "apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.test.ts", "apps/launchpad/web/package.json", "apps/launchpad/pnpm-lock.yaml", "sdk/launchpad/packages/sdk/src", "sdk/launchpad/packages/sdk-v2/src"]
+touches = ["apps/launchpad/web/src/app/breakpoints.test.ts", "apps/launchpad/web/src/core/market/pool-resolver.ts", "apps/launchpad/web/src/widgets/create/creation-journey.integration.test.tsx", "apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.test.ts", "apps/launchpad/web/package.json", "apps/launchpad/pnpm-lock.yaml", "sdk/launchpad/packages/sdk/src", "sdk/launchpad/packages/sdk-v2/src", "apps/launchpad/web/src/widgets/create-chain/chain-launch.test.ts"]
 tests = []
 planned_paths = ["apps/launchpad/web/repair_22_39_399.kvx"]
 build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build"
@@ -164124,6 +164130,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3368. The type check also reads apps/launchpad/web/src/widgets/create-chain/chain-launch.test.ts, where the case that compares the local interface with the published one reads the name of an input: correct the types of the case and keep what it asserts."
 
 [task.22.40.16]
 title = "Show launched chains and trade on the home chain in the launchpad mobile application"
@@ -164200,7 +164207,7 @@ symbols = []
 touches = ["apps/launchpad/web/src/widgets/trade", "apps/launchpad/web/src/widgets/swap", "apps/launchpad/web/src/widgets/holder-rewards", "apps/launchpad/web/src/core/network/contracts.ts", "apps/launchpad/web/src/widgets/trading/use-trade-panel.ts", "apps/launchpad/web/src/widgets/trading/token-market-layout.tsx"]
 tests = []
 planned_paths = ["apps/launchpad/web/src/widgets/trade/home-chain.ts", "apps/launchpad/web/src/widgets/trade/home-chain.test.ts", "apps/launchpad/web/src/widgets/holder-rewards/chain-revenue.tsx", "apps/launchpad/web/src/widgets/holder-rewards/chain-revenue.test.tsx"]
-build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build && pnpm --dir apps/launchpad/web exec tsc --noEmit"
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build && d=$(mktemp -d) && (pnpm --dir apps/launchpad/web exec tsc --noEmit > $d/tsc.log 2>&1; echo tsc-exit $? >> $d/tsc.log) && grep -q -E '^tsc-exit [02]$' $d/tsc.log && ! grep -E '^src/(widgets/trade/|widgets/swap/|widgets/holder-rewards/|core/network/contracts|widgets/trading/use-trade-panel|widgets/trading/token-market-layout)' $d/tsc.log"
 verify_cmd = "pnpm --dir apps/launchpad/web exec vitest run src/widgets/trade/home-chain.test.ts src/widgets/holder-rewards/chain-revenue.test.tsx"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -164214,6 +164221,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "do_4 The active trade panel and the token page layout are apps/launchpad/web/src/widgets/trading/use-trade-panel.ts and apps/launchpad/web/src/widgets/trading/token-market-layout.tsx. Connect the home chain trade and the chain revenue claim there and keep the cases that read those two files passing."
+do_5 = "do_5 Decision 3368 and gotcha 4285. The build reads the type check for the paths of this task. A finding in a file of another flow is listed in the closing report and stays with task 22.39.399."
 
 [task.22.40.11]
 title = "Show the launch asset and the revenue epochs of a chain in the explorer"

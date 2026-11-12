@@ -21245,3 +21245,8 @@ fix = "Decision 3366."
 title = "Two test files of the arbiter member read a native replay corpus named by the environment"
 symptom = "tests/authority_from_prestate.rs and tests/verified_step.rs of programs/crates/layerx-programs-arbiter read the variable LAYERX_AUTHENTICATED_REPLAY_INPUTS, so a run of every test of the member needs the corpus."
 fix = "Decision 3367."
+
+[gotcha.4285]
+title = "The type check of the launchpad web application reads every file of the application"
+symptom = "pnpm --dir apps/launchpad/web exec tsc --noEmit reads the source and test files of every flow, so the build of a flow task reads files of other flows."
+fix = "Decision 3368."
