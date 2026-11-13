@@ -1,0 +1,36 @@
+# Repository source configuration v1.
+# Unresolved installation values: endpoint, source revision, workspace and environment
+# identities and generations, authority epoch, authentication profile and security domain.
+# Installation resolves these example values before readiness.
+
+[meta]
+format = "neron.source-config"
+schema_version = 1
+example = true
+
+[source]
+endpoint = "https://source.example.invalid/api/v1/source-control"
+repository = "paxeer-monorepo"
+source_backend = "git"
+revision = "git:0000000000000000000000000000000000000000"
+auth_profile = "profile-ref:paxeer-source"
+
+[workspace]
+workspace_id = "example-paxeer-source-view"
+workspace_generation = 1
+environment_id = "example-paxeer-environment"
+environment_generation = 1
+authority_epoch = "example-authority-epoch"
+read_scope = ["admin/**", "api/**", "apps/**", "cmd/**", "consensus/**", "contracts/**", "core/**", "custodyproof/**", "daemon/**", "deploy/**", "docker/**", "docs/**", "engine/**", "include/**", "interchain/**", "launchpad/**", "layerxproof/**", "migrations/**", "modules/**", "node/**", "precompiles/**", "programs/**", "rpc/**", "scripts/**", "sdk/**", "services/**", "spec/**", "src/**", "storage/**", "tests/**", "tools/**", "utils/**", "wasm-runtime/**", "wasm/**", ".devcontainer/**", ".github/**", ".editorconfig", ".gitattributes", ".gitignore", ".gitmodules", ".golangci.yml", ".markdownlint.yaml", ".pre-commit-config.yaml", ".yamllint.yaml", "Makefile", "chain.mk", "foundry.toml", "foundry.paxeer.toml", "go.mod", "go.sum", "package.json", "package-lock.json", "rust-toolchain.toml", "buf.yaml", "buf.gen.yaml", "buf.lock", "buf.baseline.binpb", "README.md", "LICENSE", "NOTICE", ".neron", "package.kvx"]
+write_scope = ["admin/**", "api/**", "apps/**", "cmd/**", "consensus/**", "contracts/**", "core/**", "custodyproof/**", "daemon/**", "deploy/**", "docker/**", "docs/**", "engine/**", "include/**", "interchain/**", "launchpad/**", "layerxproof/**", "migrations/**", "modules/**", "node/**", "precompiles/**", "programs/**", "rpc/**", "scripts/**", "sdk/**", "services/**", "spec/**", "src/**", "storage/**", "tests/**", "tools/**", "utils/**", "wasm-runtime/**", "wasm/**", ".devcontainer/**", ".github/**", ".editorconfig", ".gitattributes", ".gitignore", ".gitmodules", ".golangci.yml", ".markdownlint.yaml", ".pre-commit-config.yaml", ".yamllint.yaml", "Makefile", "chain.mk", "foundry.toml", "foundry.paxeer.toml", "go.mod", "go.sum", "package.json", "package-lock.json", "rust-toolchain.toml", "buf.yaml", "buf.gen.yaml", "buf.lock", "buf.baseline.binpb", "README.md", "LICENSE", "NOTICE", ".neron", "package.kvx"]
+
+[cache]
+directory = "/sandbox/cache/source"
+max_bytes = 2147483648
+max_entries = 100000
+security_domain = "example-paxeer-domain"
+
+[client]
+mode = "sparse"
+dirty_directory = "/sandbox/private/base-dirty"
+network_policy = "online-required"
