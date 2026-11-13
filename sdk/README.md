@@ -12,7 +12,7 @@ Query `pax_sequencerReceipt` with that hash. Its evidence progresses through `su
 
 Connect to the node JSON-RPC at the root HTTPS endpoint `https://api-mainnet-beta.paxeer.network` or root WebSocket endpoint `wss://api-mainnet-beta.paxeer.network`. Check `eth_chainId` before signing. The [public node endpoint reference](../docs/site/docs/reference/public-rpc.md) lists numbered nodes and method availability; hosted gateway methods have their own contract.
 
-The code here is part of the root Go module, `github.com/Sidiora-Labs/Paxeer-X-Network` (see [`go.mod`](../go.mod)). Other packages import it as `github.com/Sidiora-Labs/Paxeer-X-Network/sdk/...`. Only [`cosmovisor/`](cosmovisor/README.md) and `ics23/` have their own `go.mod`.
+The Cosmos SDK fork is part of the root Go module, `github.com/Sidiora-Labs/Paxeer-X-Network` (see [`go.mod`](../go.mod)). Other packages import it as `github.com/Sidiora-Labs/Paxeer-X-Network/sdk/...`. Standalone modules have their own manifests in [`cosmovisor/`](cosmovisor/go.mod), [`ics23/`](ics23/go.mod), [`chainflow/go/`](chainflow/go/go.mod), [`platform/go/`](platform/go/go.mod), [`launchpad/protocol/`](launchpad/protocol/go.mod) and [`launchpad/shared/`](launchpad/shared/go.mod).
 
 ## Layout
 

@@ -120,7 +120,7 @@ that upstream services or the database are healthy.
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `option.WithRestAPIKey` | `func(string) option.RequestOption` | - | REST key; not the WS minting key. Defaults to REST_API_KEY. |
-| `option.WithWsMintKey` | `func(string) option.RequestOption` | - | Separate WS key used ONLY to mint symbol-bound credentials. Defaults to WS_MINT_KEY. |
+| `option.WithWsMintKey` | `func(string) option.RequestOption` | - | WS minting key; sets the shared authentication header for the client or request. Defaults to WS_MINT_KEY. |
 | `option.WithWsToken` | `func(string) option.RequestOption` | - | Opaque 300-second, scope-bound token from POST /auth/ws-token. Checked at handshake, not forcibly expired mid-session. Defaults to WS_TOKEN. |
 
 Both key options set the same `X-API-Key` header; the last applied option wins.
@@ -184,7 +184,7 @@ client := sdk.NewClient(
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `option.WithRestAPIKey` | `func(string) option.RequestOption` | `os.Getenv("REST_API_KEY")` | REST key; not the WS minting key. |
-| `option.WithWsMintKey` | `func(string) option.RequestOption` | `os.Getenv("WS_MINT_KEY")` | Separate WS key used ONLY to mint symbol-bound credentials. |
+| `option.WithWsMintKey` | `func(string) option.RequestOption` | `os.Getenv("WS_MINT_KEY")` | WS minting key; sets the shared authentication header for the client or request. |
 | `option.WithWsToken` | `func(string) option.RequestOption` | `os.Getenv("WS_TOKEN")` | Opaque 300-second, scope-bound token from POST /auth/ws-token. Checked at handshake, not forcibly expired mid-session. |
 | `option.WithEnvironmentProductionHttpsGatewayUseWssForWebSocketUpgrades` | `func() option.RequestOption` | - | Select the production_https_gateway_use_wss_for_web_socket_upgrades API environment. |
 | `option.WithBaseURL` | `func(string) option.RequestOption` | `SIDIORALABS_BASE_URL`, otherwise the production data gateway | Override with a trusted gateway URL. |

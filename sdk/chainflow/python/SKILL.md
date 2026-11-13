@@ -40,8 +40,9 @@ client = ChainflowDataGateway(rest_api_key=os.environ["REST_API_KEY"])
 ```
 
 The constructor reads these environment variables when the corresponding option
-is omitted. It requires `rest_api_key` even for a client used only to mint tokens
-or connect to a stream.
+is omitted. Construction permits any credential subset, including none.
+Each protected operation requires its own credential; public health is
+unauthenticated.
 
 | Option | Environment | Sent to |
 | --- | --- | --- |
@@ -78,7 +79,7 @@ manager as below.
 
 Mint for the same scope that the connection will use, then explicitly install
 the returned token. This complete example requires the `websockets` extra and
-both API keys:
+the WS minting key:
 
 ```python
 import os
@@ -86,7 +87,6 @@ import os
 from chainflow_data_gateway import ChainflowDataGateway
 
 with ChainflowDataGateway(
-    rest_api_key=os.environ["REST_API_KEY"],
     ws_mint_key=os.environ["WS_MINT_KEY"],
 ) as client:
     credential = client.gateway.create_web_socket_token(symbol="btc")

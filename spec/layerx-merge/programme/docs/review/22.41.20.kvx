@@ -1,0 +1,159 @@
+[manifest]
+task = "22.41.20"
+pages = 40
+
+[record.1]
+path = "sdk/chainflow/typescript/src/internal/qs/LICENSE.md"
+
+[record.2]
+path = "sdk/chainflow/typescript/src/internal/qs/README.md"
+
+[record.3]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/README.md"
+
+[record.4]
+path = "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/README.md"
+
+[page.1]
+path = "programs/sdk/rust/examples/swap-cpmm/README.md"
+status = "corrected"
+
+[page.2]
+path = "programs/sdk/rust/examples/token-lxt20/README.md"
+status = "corrected"
+
+[page.3]
+path = "programs/tests/vectors/calldata/README.md"
+status = "corrected"
+
+[page.4]
+path = "rpc/AGENTS.md"
+status = "reviewed"
+
+[page.5]
+path = "rpc/README.md"
+status = "corrected"
+
+[page.6]
+path = "rpc/tests/README.md"
+status = "corrected"
+
+[page.7]
+path = "scripts/bump_version/README.md"
+status = "corrected"
+
+[page.8]
+path = "sdk/README.md"
+status = "corrected"
+
+[page.9]
+path = "sdk/chainflow/go/.claude/skills/chainflow-data-gateway-go-sdk/SKILL.md"
+status = "reviewed"
+
+[page.10]
+path = "sdk/chainflow/go/README.md"
+status = "corrected"
+
+[page.11]
+path = "sdk/chainflow/go/SECURITY.md"
+status = "reviewed"
+
+[page.12]
+path = "sdk/chainflow/go/SKILL.md"
+status = "reviewed"
+
+[page.13]
+path = "sdk/chainflow/go/api.md"
+status = "corrected"
+
+[page.14]
+path = "sdk/chainflow/python/.claude/skills/chainflow-data-gateway-python-sdk/SKILL.md"
+status = "corrected"
+
+[page.15]
+path = "sdk/chainflow/python/README.md"
+status = "corrected"
+
+[page.16]
+path = "sdk/chainflow/python/SECURITY.md"
+status = "reviewed"
+
+[page.17]
+path = "sdk/chainflow/python/SKILL.md"
+status = "corrected"
+
+[page.18]
+path = "sdk/chainflow/python/api.md"
+status = "corrected"
+
+[page.19]
+path = "sdk/chainflow/rust/CHANGELOG.md"
+status = "reviewed"
+
+[page.20]
+path = "sdk/chainflow/rust/README.md"
+status = "corrected"
+
+[page.21]
+path = "sdk/chainflow/rust/SECURITY.md"
+status = "reviewed"
+
+[page.22]
+path = "sdk/chainflow/rust/api.md"
+status = "corrected"
+
+[page.23]
+path = "sdk/chainflow/rust/reference.md"
+status = "reviewed"
+
+[page.24]
+path = "sdk/chainflow/typescript/.claude/skills/chainflow-data-gateway-typescript-sdk/SKILL.md"
+status = "corrected"
+
+[page.25]
+path = "sdk/chainflow/typescript/README.md"
+status = "corrected"
+
+[page.26]
+path = "sdk/chainflow/typescript/SECURITY.md"
+status = "reviewed"
+
+[page.27]
+path = "sdk/chainflow/typescript/SKILL.md"
+status = "corrected"
+
+[page.28]
+path = "sdk/chainflow/typescript/api.md"
+status = "corrected"
+
+[page.29]
+path = "sdk/chainflow/typescript/src/internal/README.md"
+status = "corrected"
+
+[page.30]
+path = "sdk/contrib/githooks/README.md"
+status = "corrected"
+
+[page.31]
+path = "sdk/contrib/images/simd-dlv/README.md"
+status = "corrected"
+
+[page.32]
+path = "sdk/contrib/rosetta/README.md"
+status = "corrected"
+
+[page.33]
+path = "sdk/contrib/rosetta/node/README.md"
+status = "corrected"
+
+[page.34]
+path = "sdk/cosmovisor/README.md"
+status = "corrected"
+
+[page.35]
+path = "sdk/crypto/bcrypt_readme.md"
+status = "corrected"
+
+[page.36]
+path = "sdk/ics23/README.md"
+status = "corrected"
