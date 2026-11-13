@@ -39,7 +39,7 @@ import (
 	grpctypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/grpc"
 )
 
-func repairM1461Node(t *testing.T, query func(context.Context, *coretypes.RequestABCIQuery) (*coretypes.ResultABCIQuery, error)) client.Context {
+func newQueryRPCContext(t *testing.T, query func(context.Context, *coretypes.RequestABCIQuery) (*coretypes.ResultABCIQuery, error)) client.Context {
 	t.Helper()
 	mux := http.NewServeMux()
 	rpcserver.RegisterRPCFuncs(mux, map[string]*rpcserver.RPCFunc{"abci_query": rpcserver.NewRPCFunc(query)})
@@ -50,7 +50,7 @@ func repairM1461Node(t *testing.T, query func(context.Context, *coretypes.Reques
 	return client.Context{}.WithClient(node)
 }
 
-func repairM1461Echo(ctx context.Context, req *coretypes.RequestABCIQuery) (*coretypes.ResultABCIQuery, error) {
+func handleQueryEcho(ctx context.Context, req *coretypes.RequestABCIQuery) (*coretypes.ResultABCIQuery, error) {
 	if req.Path != "/testdata.Query/Echo" {
 		return nil, fmt.Errorf("unexpected path: %s", req.Path)
 	}
@@ -73,8 +73,8 @@ func repairM1461Echo(ctx context.Context, req *coretypes.RequestABCIQuery) (*cor
 	return &coretypes.ResultABCIQuery{Response: abci.ResponseQuery{Value: value, Height: height}}, nil
 }
 
-func TestRepairM_1461_InvokeValidation(t *testing.T) {
-	ctx := repairM1461Node(t, repairM1461Echo)
+func TestClientInvokeValidation(t *testing.T) {
+	ctx := newQueryRPCContext(t, handleQueryEcho)
 	for name, request := range map[string]interface{}{
 		"nil interface": nil, "typed nil": (*testdata.EchoRequest)(nil),
 		"integer": 42, "struct": struct{}{}, "map": map[string]int{}, "slice": []byte("invalid"),
@@ -92,7 +92,7 @@ func TestRepairM_1461_InvokeValidation(t *testing.T) {
 	require.Equal(t, []string{"9"}, header.Get(grpctypes.GRPCBlockHeightHeader))
 }
 
-func TestRepairM_1461_GRPCSuiteConstructor(t *testing.T) {
+func TestClientGRPCSuiteConstructor(t *testing.T) {
 	// The norace source is outside the gate's build tags. Check its actual call
 	// expression and exercise the retained query contract over the real transport.
 	file, err := parser.ParseFile(token.NewFileSet(), "grpc_query_test.go", nil, 0)
@@ -125,7 +125,7 @@ func TestRepairM_1461_GRPCSuiteConstructor(t *testing.T) {
 		return true
 	})
 	require.Equal(t, 1, calls)
-	ctx := repairM1461Node(t, repairM1461Echo).WithHeight(1)
+	ctx := newQueryRPCContext(t, handleQueryEcho).WithHeight(1)
 	var header metadata.MD
 	reply, err := testdata.NewQueryClient(ctx).Echo(context.Background(), &testdata.EchoRequest{Message: "hello"}, grpc.Header(&header))
 	require.NoError(t, err)
@@ -133,12 +133,12 @@ func TestRepairM_1461_GRPCSuiteConstructor(t *testing.T) {
 	require.Equal(t, []string{"1"}, header.Get(grpctypes.GRPCBlockHeightHeader))
 }
 
-func TestRepairM_1461_QueryCancellation(t *testing.T) {
+func TestClientQueryCancellation(t *testing.T) {
 	for _, deadline := range []bool{false, true} {
 		t.Run(fmt.Sprintf("deadline=%v", deadline), func(t *testing.T) {
 			started := make(chan struct{})
 			stopped := make(chan error, 1)
-			ctx := repairM1461Node(t, func(callCtx context.Context, req *coretypes.RequestABCIQuery) (*coretypes.ResultABCIQuery, error) {
+			ctx := newQueryRPCContext(t, func(callCtx context.Context, req *coretypes.RequestABCIQuery) (*coretypes.ResultABCIQuery, error) {
 				if req.Path != "/testdata.Query/Echo" {
 					return nil, fmt.Errorf("unexpected path %s", req.Path)
 				}
@@ -190,8 +190,8 @@ func TestRepairM_1461_QueryCancellation(t *testing.T) {
 	}
 }
 
-func TestRepairM_1461_QueryHeight(t *testing.T) {
-	ctx := repairM1461Node(t, repairM1461Echo)
+func TestClientQueryHeight(t *testing.T) {
+	ctx := newQueryRPCContext(t, handleQueryEcho)
 	for _, tc := range []struct{ request, configured, expected int64 }{{3, 1, 3}, {0, 3, 3}, {0, 0, 9}} {
 		wire, err := proto.Marshal(&testdata.EchoRequest{Message: "height"})
 		require.NoError(t, err)
@@ -207,7 +207,7 @@ func TestRepairM_1461_QueryHeight(t *testing.T) {
 	require.Equal(t, []string{"4"}, header.Get(grpctypes.GRPCBlockHeightHeader))
 }
 
-func repairM1461Proof(t *testing.T) (abci.ResponseQuery, []byte, string) {
+func loadCommittedQueryProof(t *testing.T) (abci.ResponseQuery, []byte, string) {
 	t.Helper()
 	// This committed transcript is produced by TestChainProofVectorV1 through
 	// the production store, commit and query paths, including both proof layers.
@@ -236,10 +236,10 @@ func repairM1461Proof(t *testing.T) (abci.ResponseQuery, []byte, string) {
 	return response, root, path
 }
 
-func TestRepairM_1461_ProofRefusal(t *testing.T) {
+func TestClientQueryProofRefusal(t *testing.T) {
 	for _, name := range []string{"authentic", "missing", "empty", "forged value", "forged proof", "wrong height"} {
 		t.Run(name, func(t *testing.T) {
-			response, root, keypath := repairM1461Proof(t)
+			response, root, keypath := loadCommittedQueryProof(t)
 			switch name {
 			case "missing":
 				response.ProofOps = nil
@@ -253,7 +253,7 @@ func TestRepairM_1461_ProofRefusal(t *testing.T) {
 				response.Height++
 			}
 			requests := make(chan coretypes.RequestABCIQuery, 3)
-			ctx := repairM1461Node(t, func(_ context.Context, req *coretypes.RequestABCIQuery) (*coretypes.ResultABCIQuery, error) {
+			ctx := newQueryRPCContext(t, func(_ context.Context, req *coretypes.RequestABCIQuery) (*coretypes.ResultABCIQuery, error) {
 				requests <- *req
 				return &coretypes.ResultABCIQuery{Response: response}, nil
 			})
@@ -282,10 +282,10 @@ func TestRepairM_1461_ProofRefusal(t *testing.T) {
 	}
 }
 
-func TestRepairM_1461_QueryProofPath(t *testing.T) {
-	response, _, _ := repairM1461Proof(t)
+func TestClientQueryStoreProofPath(t *testing.T) {
+	response, _, _ := loadCommittedQueryProof(t)
 	requests := make(chan coretypes.RequestABCIQuery, 1)
-	ctx := repairM1461Node(t, func(_ context.Context, req *coretypes.RequestABCIQuery) (*coretypes.ResultABCIQuery, error) {
+	ctx := newQueryRPCContext(t, func(_ context.Context, req *coretypes.RequestABCIQuery) (*coretypes.ResultABCIQuery, error) {
 		requests <- *req
 		return &coretypes.ResultABCIQuery{Response: response}, nil
 	})
@@ -303,7 +303,7 @@ func TestRepairM_1461_QueryProofPath(t *testing.T) {
 	require.True(t, (<-requests).Prove)
 }
 
-func TestRepairM_1461_Pagination(t *testing.T) {
+func TestClientQueryPagination(t *testing.T) {
 	for _, tc := range []struct {
 		name                                     string
 		total, page, limit, fallback, start, end int

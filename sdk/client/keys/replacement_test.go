@@ -26,23 +26,23 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
 
-const repair203Name = "signer"
+const replacementKeyName = "signer"
 
-func repair203Keyring(t *testing.T, home string) keyring.Keyring {
+func newReplacementTestKeyring(t *testing.T, home string) keyring.Keyring {
 	t.Helper()
 	kb, err := keyring.New(sdk.KeyringServiceName(), keyring.BackendTest, home, nil)
 	require.NoError(t, err)
 	return kb
 }
 
-func repair203Identity(t *testing.T, kb keyring.Keyring, name string, index uint32) keyring.Info {
+func createReplacementTestIdentity(t *testing.T, kb keyring.Keyring, name string, index uint32) keyring.Info {
 	t.Helper()
 	info, err := kb.NewAccount(name, testdata.TestMnemonic, "", hd.CreateHDPath(118, 0, index).String(), hd.Secp256k1)
 	require.NoError(t, err)
 	return info
 }
 
-func repair203Context(home string, kb keyring.Keyring, input io.Reader) client.Context {
+func replacementTestContext(home string, kb keyring.Keyring, input io.Reader) client.Context {
 	registry := codectypes.NewInterfaceRegistry()
 	cryptocodec.RegisterInterfaces(registry)
 	return client.Context{}.
@@ -52,24 +52,24 @@ func repair203Context(home string, kb keyring.Keyring, input io.Reader) client.C
 		WithInput(input)
 }
 
-func repair203Command(home string, args ...string) *cobra.Command {
+func newReplacementTestCommand(home string, args ...string) *cobra.Command {
 	cmd := AddKeyCommand()
 	cmd.Flags().AddFlagSet(Commands(home).PersistentFlags())
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
-	cmd.SetArgs(append([]string{repair203Name, "--" + flags.FlagKeyringBackend + "=" + keyring.BackendTest}, args...))
+	cmd.SetArgs(append([]string{replacementKeyName, "--" + flags.FlagKeyringBackend + "=" + keyring.BackendTest}, args...))
 	return cmd
 }
 
-func repair203Execute(cmd *cobra.Command, ctx client.Context) error {
+func executeReplacementTestCommand(cmd *cobra.Command, ctx client.Context) error {
 	return cmd.ExecuteContext(context.WithValue(context.Background(), client.ClientContextKey, &ctx))
 }
 
-func repair203AssertIdentity(t *testing.T, home string, expected keyring.Info) {
+func assertReplacementIdentity(t *testing.T, home string, expected keyring.Info) {
 	t.Helper()
 	// Reopen the encrypted file backend; no live keyring object is reused.
-	reopened := repair203Keyring(t, home)
-	actual, err := reopened.Key(repair203Name)
+	reopened := newReplacementTestKeyring(t, home)
+	actual, err := reopened.Key(replacementKeyName)
 	require.NoError(t, err)
 	require.Equal(t, expected.GetName(), actual.GetName())
 	require.Equal(t, expected.GetType(), actual.GetType())
@@ -77,9 +77,9 @@ func repair203AssertIdentity(t *testing.T, home string, expected keyring.Info) {
 	require.Equal(t, expected.GetPubKey().Bytes(), actual.GetPubKey().Bytes())
 	byAddress, err := reopened.KeyByAddress(expected.GetAddress())
 	require.NoError(t, err)
-	require.Equal(t, repair203Name, byAddress.GetName())
+	require.Equal(t, replacementKeyName, byAddress.GetName())
 	message := []byte("key-overwrite-loss restart recovery")
-	signature, publicKey, err := reopened.Sign(repair203Name, message)
+	signature, publicKey, err := reopened.Sign(replacementKeyName, message)
 	require.NoError(t, err)
 	require.Equal(t, expected.GetPubKey().Bytes(), publicKey.Bytes())
 	require.True(t, expected.GetPubKey().VerifySignature(message, signature))
@@ -93,7 +93,7 @@ func repair203AssertIdentity(t *testing.T, home string, expected keyring.Info) {
 	}
 }
 
-func TestRepair_203_KeyOverwriteLoss(t *testing.T) {
+func TestKeyReplacementInvalidInputPreservesIdentity(t *testing.T) {
 	cases := []struct {
 		name      string
 		args      []string
@@ -119,13 +119,13 @@ func TestRepair_203_KeyOverwriteLoss(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			home := t.TempDir()
-			kb := repair203Keyring(t, home)
-			original := repair203Identity(t, kb, repair203Name, 0)
-			member := repair203Identity(t, kb, "member", 1)
+			kb := newReplacementTestKeyring(t, home)
+			original := createReplacementTestIdentity(t, kb, replacementKeyName, 0)
+			member := createReplacementTestIdentity(t, kb, "member", 1)
 			before, err := keyringDirectorySnapshot(filepath.Join(home, "keyring-test"), "")
 			require.NoError(t, err)
-			cmd := repair203Command(home, tc.args...)
-			err = repair203Execute(cmd, repair203Context(home, kb, strings.NewReader(tc.input)))
+			cmd := newReplacementTestCommand(home, tc.args...)
+			err = executeReplacementTestCommand(cmd, replacementTestContext(home, kb, strings.NewReader(tc.input)))
 			require.Error(t, err)
 			if tc.wantError != "" {
 				require.Contains(t, err.Error(), tc.wantError)
@@ -134,24 +134,24 @@ func TestRepair_203_KeyOverwriteLoss(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, before, after, "an unsuccessful replacement changed the durable keyring")
 			kb = nil
-			repair203AssertIdentity(t, home, original)
-			reopenedMember, err := repair203Keyring(t, home).Key("member")
+			assertReplacementIdentity(t, home, original)
+			reopenedMember, err := newReplacementTestKeyring(t, home).Key("member")
 			require.NoError(t, err)
 			require.Equal(t, member.GetAddress(), reopenedMember.GetAddress())
 		})
 	}
 }
 
-func TestRepair_203_ReplacementPersists(t *testing.T) {
+func TestKeyReplacementPersists(t *testing.T) {
 	for _, kind := range []string{"local", "same identity", "public key", "multisig with original member"} {
 		t.Run(kind, func(t *testing.T) {
 			home := t.TempDir()
-			kb := repair203Keyring(t, home)
-			original := repair203Identity(t, kb, repair203Name, 0)
-			member := repair203Identity(t, kb, "member", 1)
+			kb := newReplacementTestKeyring(t, home)
+			original := createReplacementTestIdentity(t, kb, replacementKeyName, 0)
+			member := createReplacementTestIdentity(t, kb, "member", 1)
 			producer := keyring.NewInMemory()
-			expected := repair203Identity(t, producer, repair203Name, 2)
-			ctx := repair203Context(home, kb, strings.NewReader("y\n"+testdata.TestMnemonic+"\n"))
+			expected := createReplacementTestIdentity(t, producer, replacementKeyName, 2)
+			ctx := replacementTestContext(home, kb, strings.NewReader("y\n"+testdata.TestMnemonic+"\n"))
 			args := []string{"--recover", "--index=2", "--coin-type=118"}
 			wantType := keyring.TypeLocal
 			switch kind {
@@ -164,27 +164,27 @@ func TestRepair_203_ReplacementPersists(t *testing.T) {
 				args = []string{"--pubkey=" + string(pubJSON)}
 				wantType = keyring.TypeOffline
 			case "multisig with original member":
-				args = []string{"--multisig=" + repair203Name + ",member", "--multisig-threshold=2", "--nosort"}
+				args = []string{"--multisig=" + replacementKeyName + ",member", "--multisig-threshold=2", "--nosort"}
 				pk := multisig.NewLegacyAminoPubKey(2, []cryptotypes.PubKey{original.GetPubKey(), member.GetPubKey()})
 				var err error
-				expected, err = keyring.NewMultiInfo(repair203Name, pk)
+				expected, err = keyring.NewMultiInfo(replacementKeyName, pk)
 				require.NoError(t, err)
 				wantType = keyring.TypeMulti
 			}
-			cmd := repair203Command(home, args...)
+			cmd := newReplacementTestCommand(home, args...)
 			var out bytes.Buffer
 			cmd.SetOut(&out)
-			require.NoError(t, repair203Execute(cmd, ctx))
-			require.Contains(t, out.String(), "name: "+repair203Name)
+			require.NoError(t, executeReplacementTestCommand(cmd, ctx))
+			require.Contains(t, out.String(), "name: "+replacementKeyName)
 			kb = nil
-			reopened := repair203Keyring(t, home)
-			actual, err := reopened.Key(repair203Name)
+			reopened := newReplacementTestKeyring(t, home)
+			actual, err := reopened.Key(replacementKeyName)
 			require.NoError(t, err)
 			require.Equal(t, wantType, actual.GetType())
 			require.Equal(t, expected.GetPubKey().Bytes(), actual.GetPubKey().Bytes())
 			byAddress, err := reopened.KeyByAddress(actual.GetAddress())
 			require.NoError(t, err)
-			require.Equal(t, repair203Name, byAddress.GetName())
+			require.Equal(t, replacementKeyName, byAddress.GetName())
 			if !bytes.Equal(original.GetAddress(), actual.GetAddress()) {
 				_, err = reopened.KeyByAddress(original.GetAddress())
 				require.Error(t, err)
@@ -196,40 +196,40 @@ func TestRepair_203_ReplacementPersists(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, infos, 2)
 			if wantType == keyring.TypeLocal {
-				repair203AssertIdentity(t, home, expected)
+				assertReplacementIdentity(t, home, expected)
 			}
 		})
 	}
 }
 
-func TestRepair_203_StagedStorageFailure(t *testing.T) {
+func TestKeyReplacementStagedStorageFailure(t *testing.T) {
 	home := t.TempDir()
-	kb := repair203Keyring(t, home)
-	original := repair203Identity(t, kb, repair203Name, 0)
-	cmd := repair203Command(home)
+	kb := newReplacementTestKeyring(t, home)
+	original := createReplacementTestIdentity(t, kb, replacementKeyName, 0)
+	cmd := newReplacementTestCommand(home)
 	require.NoError(t, cmd.Flags().Set(flags.FlagKeyringBackend, keyring.BackendTest))
-	r, err := stageKeyReplacement(repair203Context(home, kb, strings.NewReader("")), cmd, kb, repair203Name)
+	r, err := stageKeyReplacement(replacementTestContext(home, kb, strings.NewReader("")), cmd, kb, replacementKeyName)
 	require.NoError(t, err)
 	// An actual directory at the record path makes the real encrypted file
 	// backend fail record access after key derivation, without a storage double.
-	require.NoError(t, os.Mkdir(filepath.Join(r.stageDir, repair203Name+".info"), 0700))
-	_, err = r.keyring.NewAccount(repair203Name, testdata.TestMnemonic, "", hd.CreateHDPath(118, 0, 2).String(), hd.Secp256k1)
+	require.NoError(t, os.Mkdir(filepath.Join(r.stageDir, replacementKeyName+".info"), 0700))
+	_, err = r.keyring.NewAccount(replacementKeyName, testdata.TestMnemonic, "", hd.CreateHDPath(118, 0, 2).String(), hd.Secp256k1)
 	require.Error(t, err)
 	r.close(cmd)
 	r = nil
 	kb = nil
-	repair203AssertIdentity(t, home, original)
+	assertReplacementIdentity(t, home, original)
 }
 
-func TestRepair_203_CommitFailure(t *testing.T) {
+func TestKeyReplacementCommitFailure(t *testing.T) {
 	home := t.TempDir()
-	kb := repair203Keyring(t, home)
-	original := repair203Identity(t, kb, repair203Name, 0)
-	cmd := repair203Command(home)
+	kb := newReplacementTestKeyring(t, home)
+	original := createReplacementTestIdentity(t, kb, replacementKeyName, 0)
+	cmd := newReplacementTestCommand(home)
 	require.NoError(t, cmd.Flags().Set(flags.FlagKeyringBackend, keyring.BackendTest))
-	r, err := stageKeyReplacement(repair203Context(home, kb, strings.NewReader("")), cmd, kb, repair203Name)
+	r, err := stageKeyReplacement(replacementTestContext(home, kb, strings.NewReader("")), cmd, kb, replacementKeyName)
 	require.NoError(t, err)
-	repair203Identity(t, r.keyring, repair203Name, 2)
+	createReplacementTestIdentity(t, r.keyring, replacementKeyName, 2)
 	// A missing exchange source is a real filesystem commit failure.
 	missing := filepath.Join(r.stageRoot, "missing")
 	require.Error(t, exchangeKeyringDirectories(r.liveDir, missing))
@@ -239,52 +239,52 @@ func TestRepair_203_CommitFailure(t *testing.T) {
 	r.close(cmd)
 	r = nil
 	kb = nil
-	repair203AssertIdentity(t, home, original)
+	assertReplacementIdentity(t, home, original)
 }
 
-func TestRepair_203_ConcurrentChangePreserved(t *testing.T) {
+func TestKeyReplacementConcurrentChangePreserved(t *testing.T) {
 	home := t.TempDir()
-	kb := repair203Keyring(t, home)
-	original := repair203Identity(t, kb, repair203Name, 0)
-	cmd := repair203Command(home)
+	kb := newReplacementTestKeyring(t, home)
+	original := createReplacementTestIdentity(t, kb, replacementKeyName, 0)
+	cmd := newReplacementTestCommand(home)
 	require.NoError(t, cmd.Flags().Set(flags.FlagKeyringBackend, keyring.BackendTest))
-	r, err := stageKeyReplacement(repair203Context(home, kb, strings.NewReader("")), cmd, kb, repair203Name)
+	r, err := stageKeyReplacement(replacementTestContext(home, kb, strings.NewReader("")), cmd, kb, replacementKeyName)
 	require.NoError(t, err)
-	repair203Identity(t, r.keyring, repair203Name, 2)
-	added := repair203Identity(t, kb, "another", 3)
+	createReplacementTestIdentity(t, r.keyring, replacementKeyName, 2)
+	added := createReplacementTestIdentity(t, kb, "another", 3)
 	err = r.commit()
 	require.ErrorContains(t, err, "keyring contents changed during replacement")
 	r.close(cmd)
 	r = nil
 	kb = nil
-	repair203AssertIdentity(t, home, original)
-	actual, err := repair203Keyring(t, home).Key("another")
+	assertReplacementIdentity(t, home, original)
+	actual, err := newReplacementTestKeyring(t, home).Key("another")
 	require.NoError(t, err)
 	require.Equal(t, added.GetAddress(), actual.GetAddress())
 }
 
-func TestRepair_203_DryRunPreservesIdentity(t *testing.T) {
+func TestKeyReplacementDryRunPreservesIdentity(t *testing.T) {
 	home := t.TempDir()
-	kb := repair203Keyring(t, home)
-	original := repair203Identity(t, kb, repair203Name, 0)
-	cmd := repair203Command(home, "--dry-run", "--recover", "--index=2", "--coin-type=118")
-	require.NoError(t, repair203Execute(cmd, repair203Context(home, kb, strings.NewReader(testdata.TestMnemonic+"\n"))))
+	kb := newReplacementTestKeyring(t, home)
+	original := createReplacementTestIdentity(t, kb, replacementKeyName, 0)
+	cmd := newReplacementTestCommand(home, "--dry-run", "--recover", "--index=2", "--coin-type=118")
+	require.NoError(t, executeReplacementTestCommand(cmd, replacementTestContext(home, kb, strings.NewReader(testdata.TestMnemonic+"\n"))))
 	kb = nil
-	repair203AssertIdentity(t, home, original)
+	assertReplacementIdentity(t, home, original)
 }
 
-func TestRepair_203_UnsupportedBackendPreservesIdentity(t *testing.T) {
+func TestKeyReplacementUnsupportedBackendPreservesIdentity(t *testing.T) {
 	kb := keyring.NewInMemory()
-	original := repair203Identity(t, kb, repair203Name, 0)
-	ctx := repair203Context("", kb, strings.NewReader("y\n"))
-	cmd := repair203Command("")
+	original := createReplacementTestIdentity(t, kb, replacementKeyName, 0)
+	ctx := replacementTestContext("", kb, strings.NewReader("y\n"))
+	cmd := newReplacementTestCommand("")
 	require.NoError(t, cmd.Flags().Set(flags.FlagKeyringBackend, keyring.BackendMemory))
 	// The real in-memory keyring has no atomic replacement primitive. Refuse
 	// before deletion instead of silently using a delete-and-create fallback.
-	_, err := stageKeyReplacement(ctx, cmd, kb, repair203Name)
+	_, err := stageKeyReplacement(ctx, cmd, kb, replacementKeyName)
 	require.ErrorContains(t, err, "atomic key replacement is not supported")
 	message := []byte("unsupported backend retains signing identity")
-	sig, pub, err := kb.Sign(repair203Name, message)
+	sig, pub, err := kb.Sign(replacementKeyName, message)
 	require.NoError(t, err)
 	require.Equal(t, original.GetPubKey().Bytes(), pub.Bytes())
 	require.True(t, pub.VerifySignature(message, sig))

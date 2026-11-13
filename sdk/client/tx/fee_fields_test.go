@@ -13,7 +13,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/signing"
 )
 
-func repair204BuildTx(t *testing.T, cfg client.TxConfig, estimate uint64, granter sdk.AccAddress) client.TxBuilder {
+func buildFeeFieldsTx(t *testing.T, cfg client.TxConfig, estimate uint64, granter sdk.AccAddress) client.TxBuilder {
 	t.Helper()
 	factory := clienttx.Factory{}.
 		WithTxConfig(cfg).
@@ -29,7 +29,7 @@ func repair204BuildTx(t *testing.T, cfg client.TxConfig, estimate uint64, grante
 	return builder
 }
 
-func repair204RoundTrip(t *testing.T, cfg client.TxConfig, source signing.Tx) signing.Tx {
+func roundTripFeeFieldsTx(t *testing.T, cfg client.TxConfig, source signing.Tx) signing.Tx {
 	t.Helper()
 	wire, err := cfg.TxEncoder()(source)
 	require.NoError(t, err)
@@ -40,7 +40,7 @@ func repair204RoundTrip(t *testing.T, cfg client.TxConfig, source signing.Tx) si
 	return tx
 }
 
-func repair204AssertFields(t *testing.T, source, target signing.Tx) {
+func assertCopiedTxFields(t *testing.T, source, target signing.Tx) {
 	t.Helper()
 	require.Equal(t, source.FeeGranter(), target.FeeGranter())
 	require.Equal(t, source.GetGasEstimate(), target.GetGasEstimate())
@@ -52,33 +52,33 @@ func repair204AssertFields(t *testing.T, source, target signing.Tx) {
 	require.Equal(t, source.GetSigners(), target.GetSigners())
 }
 
-func TestRepair_204_ProtobufFeeFields(t *testing.T) {
+func TestCopyTxProtobufFeeFields(t *testing.T) {
 	cfg := makeTxEncodingConfig().TxConfig
 	for _, estimate := range []uint64{0, gasEstimate, ^uint64(0)} {
 		t.Run(fmt.Sprintf("estimate_%d", estimate), func(t *testing.T) {
-			producer := repair204BuildTx(t, cfg, estimate, addr2)
-			source := repair204RoundTrip(t, cfg, producer.GetTx())
+			producer := buildFeeFieldsTx(t, cfg, estimate, addr2)
+			source := roundTripFeeFieldsTx(t, cfg, producer.GetTx())
 			require.Equal(t, addr2, source.FeeGranter())
 			require.Equal(t, estimate, source.GetGasEstimate())
-			target := repair204BuildTx(t, cfg, 1, addr1)
+			target := buildFeeFieldsTx(t, cfg, 1, addr1)
 			// Populate the target's encoding cache before copying into it.
-			repair204RoundTrip(t, cfg, target.GetTx())
+			roundTripFeeFieldsTx(t, cfg, target.GetTx())
 			require.NoError(t, clienttx.CopyTx(source, target, false))
-			consumer := repair204RoundTrip(t, cfg, target.GetTx())
-			repair204AssertFields(t, source, consumer)
+			consumer := roundTripFeeFieldsTx(t, cfg, target.GetTx())
+			assertCopiedTxFields(t, source, consumer)
 		})
 	}
 }
 
-func TestRepair_204_UnsupportedFeeGranter(t *testing.T) {
+func TestCopyTxUnsupportedFeeGranter(t *testing.T) {
 	enc := makeTxEncodingConfig()
 	protoCfg := enc.TxConfig
 	aminoCfg := legacytx.StdTxConfig{Cdc: enc.Amino}
-	producer := repair204BuildTx(t, protoCfg, gasEstimate, addr2)
-	source := repair204RoundTrip(t, protoCfg, producer.GetTx())
+	producer := buildFeeFieldsTx(t, protoCfg, gasEstimate, addr2)
+	source := roundTripFeeFieldsTx(t, protoCfg, producer.GetTx())
 	for _, ignoreSignatureError := range []bool{false, true} {
 		t.Run(fmt.Sprintf("ignore_signature_error_%t", ignoreSignatureError), func(t *testing.T) {
-			target := repair204BuildTx(t, aminoCfg, 1, nil)
+			target := buildFeeFieldsTx(t, aminoCfg, 1, nil)
 			target.SetMemo("preserve existing transaction on refusal")
 			before, err := aminoCfg.TxEncoder()(target.GetTx())
 			require.NoError(t, err)
@@ -94,31 +94,31 @@ func TestRepair_204_UnsupportedFeeGranter(t *testing.T) {
 	require.Equal(t, legacytx.StdTx{}, converted)
 }
 
-func TestRepair_204_GasEstimateAcrossFormats(t *testing.T) {
+func TestCopyTxGasEstimateAcrossFormats(t *testing.T) {
 	enc := makeTxEncodingConfig()
 	protoCfg := enc.TxConfig
 	aminoCfg := legacytx.StdTxConfig{Cdc: enc.Amino}
-	producer := repair204BuildTx(t, protoCfg, gasEstimate, nil)
-	source := repair204RoundTrip(t, protoCfg, producer.GetTx())
+	producer := buildFeeFieldsTx(t, protoCfg, gasEstimate, nil)
+	source := roundTripFeeFieldsTx(t, protoCfg, producer.GetTx())
 	legacy, err := clienttx.ConvertTxToStdTx(enc.Amino, source)
 	require.NoError(t, err)
-	legacyConsumer := repair204RoundTrip(t, aminoCfg, legacy)
-	repair204AssertFields(t, source, legacyConsumer)
+	legacyConsumer := roundTripFeeFieldsTx(t, aminoCfg, legacy)
+	assertCopiedTxFields(t, source, legacyConsumer)
 	target := protoCfg.NewTxBuilder()
 	require.NoError(t, clienttx.CopyTx(legacyConsumer, target, false))
-	consumer := repair204RoundTrip(t, protoCfg, target.GetTx())
-	repair204AssertFields(t, source, consumer)
+	consumer := roundTripFeeFieldsTx(t, protoCfg, target.GetTx())
+	assertCopiedTxFields(t, source, consumer)
 }
 
-func TestRepair_204_EmptyFeeFieldsReplaceTarget(t *testing.T) {
+func TestCopyTxEmptyFeeFieldsReplaceTarget(t *testing.T) {
 	cfg := makeTxEncodingConfig().TxConfig
-	producer := repair204BuildTx(t, cfg, 0, nil)
-	source := repair204RoundTrip(t, cfg, producer.GetTx())
-	target := repair204BuildTx(t, cfg, gasEstimate, addr2)
-	repair204RoundTrip(t, cfg, target.GetTx())
+	producer := buildFeeFieldsTx(t, cfg, 0, nil)
+	source := roundTripFeeFieldsTx(t, cfg, producer.GetTx())
+	target := buildFeeFieldsTx(t, cfg, gasEstimate, addr2)
+	roundTripFeeFieldsTx(t, cfg, target.GetTx())
 	require.NoError(t, clienttx.CopyTx(source, target, false))
-	consumer := repair204RoundTrip(t, cfg, target.GetTx())
-	repair204AssertFields(t, source, consumer)
+	consumer := roundTripFeeFieldsTx(t, cfg, target.GetTx())
+	assertCopiedTxFields(t, source, consumer)
 	require.Empty(t, consumer.FeeGranter())
 	require.Zero(t, consumer.GetGasEstimate())
 }
