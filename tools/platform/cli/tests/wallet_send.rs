@@ -36,10 +36,10 @@ fn resign(send: &mut Send) -> Result<(), String> {
     resign_with_seed(send, &[6; 32])
 }
 
-fn resign_with_seed(send: &mut Send, seed: &[u8; 32]) -> Result<(), String> {
+fn resign_with_seed(send: &mut Send, signing_seed: &[u8; 32]) -> Result<(), String> {
     use ed25519_dalek::Signer as _;
     use sha2::Digest as _;
-    let key = ed25519_dalek::SigningKey::from_bytes(seed);
+    let key = ed25519_dalek::SigningKey::from_bytes(signing_seed);
     send.authorization.public_key = key.verifying_key().to_bytes();
     let mut hash = sha2::Sha256::new();
     hash.update(layerx_wire::hash::Domain::SignaturePreimage.tag());
@@ -91,7 +91,13 @@ fn native_send_and_authorization_bytes_match() -> Result<(), Box<dyn std::error:
 fn evm_key(account: &DerivedAccount) -> Result<EvmSigningKey, String> {
     let directory = tempfile::tempdir().map_err(|e| e.to_string())?;
     let path = directory.path().join("wallet.json");
-    let hex = |bytes: &[u8]| bytes.iter().map(|b| format!("{b:02x}")).collect::<String>();
+    let hex = |bytes: &[u8]| {
+        bytes.iter().fold(String::new(), |mut output, b| {
+            std::fmt::Write::write_fmt(&mut output, format_args!("{b:02x}"))
+                .unwrap_or_else(|error| panic!("{error:?}"));
+            output
+        })
+    };
     let mut file = std::fs::OpenOptions::new()
         .write(true)
         .create_new(true)

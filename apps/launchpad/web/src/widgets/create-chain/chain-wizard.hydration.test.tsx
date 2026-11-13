@@ -40,7 +40,7 @@ async function chain_wizard_hydrates_without_a_mismatch() {
   const fresh = renderToString(createPage(server, ''));
   const connected = renderToString(createPage(server, connectedCookie));
   const afterVisitor = renderToString(createPage(server, ''));
-  expect(connected).toContain('Launch a chain');
+  expect(connected).toContain('Launch a chain and token');
   expect(connected).not.toContain('>Connect wallet<');
   expect(afterVisitor).toBe(fresh);
   expect(afterVisitor).toContain('>Connect wallet<');
@@ -67,7 +67,7 @@ async function chain_wizard_hydrates_without_a_mismatch() {
         onRecoverableError: error => { recoverable.push(error instanceof Error ? error.message : String(error)); },
       });
     });
-    expect(container.querySelector('h1')?.textContent).toBe('Launch a chain');
+    expect(container.querySelector('h1')?.textContent).toBe('Launch a chain and token');
     expect(container.querySelector<HTMLInputElement>('#chain-name')?.value).toBe('');
     expect(container.textContent).toContain('Connect wallet');
     expect(container.querySelector('li[aria-current="step"]')?.textContent).toBe('1. Name');
@@ -80,7 +80,7 @@ async function chain_wizard_hydrates_without_a_mismatch() {
   expect(errors.filter(message => /hydrat|did not match|server rendered|#418/i.test(message))).toEqual([]);
 }
 
-test(chain_wizard_hydrates_without_a_mismatch, { timeout: 60_000 });
+test(chain_wizard_hydrates_without_a_mismatch.name, { timeout: 60_000 }, chain_wizard_hydrates_without_a_mismatch);
 
 async function chain_wizard_hydrates_saved_confirmation_across_reload() {
   const browser = await loadApp();
@@ -89,10 +89,11 @@ async function chain_wizard_hydrates_saved_confirmation_across_reload() {
   const storage = new ChainDraftStorage(creator);
   const txHash = `0x${'ab'.repeat(32)}` as const;
   storage.saveSubmission({
-    draftId: 'interrupted', version: 1, creator, chainId: 125, name: 'saved-chain',
+    draftId: 'interrupted', version: 2, creator, chainId: 125, name: 'saved-chain',
+    tokenName: 'Saved Token', tokenSymbol: 'SVT', feeStrategy: 0,
     tier: 'growth', feeShareBps: 0, updatedAt: Date.now(),
   }, { creator, chainId: 125, txHash, phase: 'confirm', bondRaw: '23000000000000000000' });
-  const serialized = localStorage.getItem('chain-submission-v1');
+  const serialized = localStorage.getItem('chain-submission-v2');
   for (let reload = 0; reload < 2; reload++) {
     const markup = renderToString(createPage(browser, ''));
     expect(markup).not.toContain(txHash);
@@ -115,7 +116,7 @@ async function chain_wizard_hydrates_saved_confirmation_across_reload() {
       expect(retry?.disabled).toBe(true);
       expect(container.textContent).toContain('belongs to a different account or chain');
       expect(container.querySelector('[aria-label="Live chain"]')).toBeNull();
-      expect(localStorage.getItem('chain-submission-v1')).toBe(serialized);
+      expect(localStorage.getItem('chain-submission-v2')).toBe(serialized);
       expect(recoverable).toEqual([]);
     } finally {
       await act(async () => root?.unmount());
@@ -125,4 +126,4 @@ async function chain_wizard_hydrates_saved_confirmation_across_reload() {
   localStorage.clear();
 }
 
-test(chain_wizard_hydrates_saved_confirmation_across_reload, { timeout: 60_000 });
+test(chain_wizard_hydrates_saved_confirmation_across_reload.name, { timeout: 60_000 }, chain_wizard_hydrates_saved_confirmation_across_reload);

@@ -1,9 +1,9 @@
 //! Task 22.31.254 / audit 22.30.123, finding 001 (config-drift).
-//! Proofs: finding_001_packaging_uses_chain_125_and_refuses_foreign_settings;
-//! finding_001_request_state_event_and_header_share_chain_125;
-//! finding_001_foreign_requests_and_state_refuse_without_writes.
-//! Task 22.31.464 wires Makefile PAXAI_CHAIN_DOMAIN and
-//! tests/ci/test_paxai_chain_domain.py to the chain-125 golden
+//! Proofs: `finding_001_packaging_uses_chain_125_and_refuses_foreign_settings`;
+//! `finding_001_request_state_event_and_header_share_chain_125`;
+//! `finding_001_foreign_requests_and_state_refuse_without_writes`.
+//! Task 22.31.464 wires Makefile `PAXAI_CHAIN_DOMAIN` and
+//! `tests/ci/test_paxai_chain_domain.py` to the chain-125 golden
 //! 62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6,
 //! retaining packaging override checks. It also updates this test record at
 //! programs/crates/layerx-programs-ai-market/tests/repair_22_31_254.rs.
@@ -19,6 +19,7 @@
 //! the ordered gate rules require complete implementation before the only verify.
 //! Qualification revision, command, exit and private log are recorded by hf-done.
 
+use layerx_ai_market_test_values::RequiredValue as _;
 use layerx_programs_ai_market::{
     codec::{self, Envelope, ResultStatus},
     deployment_chain_domain, deployment_chain_domain_from_setting,
@@ -273,7 +274,7 @@ fn finding_001_request_state_event_and_header_share_chain_125() -> CodecResult<(
     assert_eq!(header.digest, codec::state_digest(&stored)?);
     assert_eq!(header.revision, 1);
     assert_eq!(
-        usize::try_from(header.total_bytes).expect("state length fits usize"),
+        usize::try_from(header.total_bytes).required_with("state length fits usize"),
         stored.len()
     );
     assert_eq!(

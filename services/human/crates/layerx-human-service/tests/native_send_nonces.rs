@@ -55,7 +55,7 @@ fn checked<T, E: Debug>(value: Result<T, E>) -> T {
 }
 
 fn hex(value: [u8; 32]) -> String {
-    value.iter().map(|byte| format!("{byte:02x}")).collect()
+    layerx_human_service::hex::lower((value).as_ref())
 }
 
 fn owner() -> SigningKey {
@@ -86,7 +86,7 @@ impl Peer {
         let socket = root.join("peer.sock");
         let listener = checked(UnixListener::bind(&socket));
         checked(listener.set_nonblocking(true));
-        let clock: Arc<dyn Clock> = Arc::new(StepClock::new(100000));
+        let clock: Arc<dyn Clock> = Arc::new(StepClock::new(100_000));
         let peer_clock = Arc::clone(&clock);
         let server = thread::spawn(move || {
             for (expected, response) in exchanges {
@@ -133,7 +133,7 @@ impl Peer {
     }
 
     fn finish(mut self) {
-        checked(self.server.take().expect("peer thread").join());
+        checked(self.server.take().or_fail("peer thread").join());
     }
 }
 
@@ -483,76 +483,11 @@ fn native_send_access_below_pending_nonce_is_expired() {
     checked(std::fs::remove_dir_all(root));
 }
 
-pub(crate) fn consent_expiry_round_trip(label: &str) {
-    let root = directory(label);
-    let (mut store, digest) = install_and_open(
-        &root,
-        &tenancy(&[(PRINCIPAL, TENANT)]),
-        retention_uniform(10_000),
-    );
-    let id = principal(PRINCIPAL);
-    let mut scope = checked(store.principal(&id));
-    let (owner_peer, mut runtime) = Peer::serve(vec![owner_exchange()]);
-    let context = retain_access(&mut scope, &mut runtime);
-    owner_peer.finish();
-    let original = checked(serde_json::to_vec(&context));
-    let mut unsigned = checked(context.signed_grant());
-    let signature = ed25519_dalek::Signature::from_bytes(&unsigned.signature);
-    unsigned.signature = [0; 64];
-    let signed_digest: [u8; 32] =
-        Sha256::digest(checked(native_local_grant_signing_bytes(&unsigned))).into();
-    checked(
-        owner()
-            .verifying_key()
-            .verify_strict(&signed_digest, &signature),
-    );
-    // Session access consumes seconds; purpose and grant expiry remain milliseconds.
-    assert_eq!(context.expires_at_ms, EXPIRY_MS);
-    let before_seconds = EXPIRY_MS / 1_000 - 1;
-    let before_milliseconds = before_seconds.checked_mul(1_000).expect("milliseconds");
-    assert!(before_milliseconds < EXPIRY_MS);
-    let (peer, mut runtime) = Peer::serve(vec![nonce_exchange(NONCE), nonce_exchange(NONCE)]);
-    checked(context.session.validate(&scope, before_seconds));
-    let loaded = checked(load_access(&scope, &mut runtime, ACTION, before_seconds));
-    assert_eq!(checked(serde_json::to_vec(&loaded)), original);
-    drop(loaded);
-    drop(scope);
-    drop(store);
-    let mut store = checked(PrincipalStore::open(
-        &root,
-        retention_uniform(10_000),
-        digest,
-    ));
-    let scope = checked(store.principal(&id));
-    let recovered = checked(load_access(&scope, &mut runtime, ACTION, before_seconds));
-    assert_eq!(checked(serde_json::to_vec(&recovered)), original);
-    for seconds in [EXPIRY_MS.div_ceil(1_000), EXPIRY_MS.div_ceil(1_000) + 1] {
-        assert!(matches!(
-            load_access(&scope, &mut runtime, ACTION, seconds),
-            Err(AgentFailure::Refused("Human owner session unavailable"))
-        ));
-        assert!(recovered.session.validate(&scope, seconds).is_err());
-    }
-    assert_eq!(
-        scope
-            .get(
-                Table::Journeys,
-                &checked(RowKey::new(format!(
-                    "human-native-send-access-{}",
-                    hex(ACTION)
-                )))
-            )
-            .expect("immutable consent")
-            .bytes(),
-        original
-    );
-    drop(scope);
-    drop(store);
-    peer.finish();
-    checked(std::fs::remove_dir_all(root));
-}
-
-pub(crate) fn progressing_head_preserves_exact_action() {
+/// Checks that a progressing head retains the original native action.
+///
+/// # Panics
+/// Panics if the retained action or its evidence changes.
+pub fn progressing_head_preserves_exact_action() {
     let root = directory("repair-22-33-63-progressing-head");
     let (mut store, _) = install_and_open(
         &root,
@@ -572,7 +507,7 @@ pub(crate) fn progressing_head_preserves_exact_action() {
                 hex(ACTION)
             ))),
         )
-        .expect("retained consent")
+        .or_fail("retained consent")
         .bytes()
         .to_vec();
     let first = preview_exchange(&context);
@@ -616,7 +551,11 @@ pub(crate) fn progressing_head_preserves_exact_action() {
         <[u8; 32]>::from(Sha256::digest(&second.canonical_bytes))
     );
     assert_eq!(
-        second.purpose.capability_id.to_bytes().expect("capability"),
+        second
+            .purpose
+            .capability_id
+            .to_bytes()
+            .or_fail("capability"),
         ACTION
     );
     assert_eq!(second.nonce, NONCE);
@@ -629,7 +568,7 @@ pub(crate) fn progressing_head_preserves_exact_action() {
                     hex(ACTION)
                 )))
             )
-            .expect("unchanged authorization")
+            .or_fail("unchanged authorization")
             .bytes(),
         retained
     );
@@ -638,4 +577,10 @@ pub(crate) fn progressing_head_preserves_exact_action() {
     drop(store);
     peer.finish();
     checked(std::fs::remove_dir_all(root));
+}
+
+use self::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

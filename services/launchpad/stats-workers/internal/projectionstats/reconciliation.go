@@ -44,7 +44,7 @@ func ReconcileTradingFees(expected, observed []AssetFee, fromHeight string, wate
 	fold := func(fees []AssetFee) (map[group]*big.Int, error) {
 		totals := map[group]*big.Int{}
 		for _, fee := range fees {
-			if !address.MatchString(fee.Asset) || fee.Decimals < 0 || fee.Decimals > 255 || (fee.Disposition != "distributed_usdl" && fee.Disposition != "retained_token_reserve") || len(fee.Raw) > 156 || !digits.MatchString(fee.Raw) {
+			if !address.MatchString(fee.Asset) || fee.Decimals < 0 || fee.Decimals > 255 || (fee.Disposition != valueDistributedUsdl && fee.Disposition != valueRetainedTokenReserve) || len(fee.Raw) > 156 || !digits.MatchString(fee.Raw) {
 				return nil, ErrInvalid
 			}
 			key := group{fee.Asset, fee.Decimals, fee.Disposition}

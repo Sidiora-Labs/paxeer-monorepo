@@ -1,4 +1,4 @@
-//! Finding-to-case and out-of-path owner handoffs: repair_22_33_1324.kvx.
+//! Exercises chain evidence over TLS and retained historical export parsing.
 //! These tests prove transport and provenance codecs, not BFT finality.
 
 #[path = "tls_listen.rs"]
@@ -10,17 +10,19 @@ use tls_listen::node_tls::{self, EvidencePeer, ARCHIVE, TRUST};
 
 #[test]
 fn relay_retirement_26_chain_height_and_validator_set_evidence() {
-    let trust = ValidatorSetTrust::parse(TRUST).expect("explicit current trust pin");
+    let trust = ValidatorSetTrust::parse(TRUST)
+        .unwrap_or_else(|error| panic!("explicit current trust pin: {error:?}"));
     assert_eq!(trust.chain_id(), 125);
     assert_eq!(trust.comet_chain_id(), "hyperpax_125-1");
     assert_eq!(trust.height(), 23_869_863);
     let producer = node_tls::reference_from_recording();
     let peer = EvidencePeer::start(producer);
-    let consumer = node_tls::fetch(peer.address, "localhost", true)
-        .expect("real producer through TLS into production decoder");
+    let consumer = node_tls::fetch(peer.address, "localhost", true).unwrap_or_else(|error| {
+        panic!("real producer through TLS into production decoder: {error:?}")
+    });
     trust
         .check_reference(&consumer)
-        .expect("height-specific validator-set pin");
+        .unwrap_or_else(|error| panic!("height-specific validator-set pin: {error:?}"));
     assert_eq!(consumer, producer);
     assert_eq!(consumer.validator_set_hash(), trust.validator_set_hash());
     assert_eq!(consumer.covering_height(), trust.height());
@@ -44,7 +46,7 @@ fn relay_retirement_26_chain_height_and_validator_set_evidence() {
             producer.validator_set_hash(),
             producer.state_root(),
         )
-        .expect("different height producer"),
+        .unwrap_or_else(|error| panic!("different height producer: {error:?}")),
         BlockReference::new(
             producer.execution_height(),
             producer.covering_height(),
@@ -52,11 +54,13 @@ fn relay_retirement_26_chain_height_and_validator_set_evidence() {
             [0x99; 32],
             producer.state_root(),
         )
-        .expect("different validator-set producer"),
+        .unwrap_or_else(|error| panic!("different validator-set producer: {error:?}")),
     ] {
         let rejected_peer = EvidencePeer::start(invalid);
-        let transported = node_tls::fetch(rejected_peer.address, "localhost", true)
-            .expect("transport does not imply evidence authority");
+        let transported =
+            node_tls::fetch(rejected_peer.address, "localhost", true).unwrap_or_else(|error| {
+                panic!("transport does not imply evidence authority: {error:?}")
+            });
         assert!(trust.check_reference(&transported).is_err());
         assert_eq!(rejected_peer.finish(), vec![Ok(())]);
     }
@@ -70,10 +74,12 @@ fn relay_retirement_26_migration_v1_preserves_archive_without_finality() {
     use layerx_types::vectors::checkpoint::load_checkpoint_vector;
     use sha2::{Digest, Sha256};
 
-    let archive =
-        DeclaredCheckpointSettlement::parse(ARCHIVE).expect("version-one historical export reader");
+    let archive = DeclaredCheckpointSettlement::parse(ARCHIVE)
+        .unwrap_or_else(|error| panic!("version-one historical export reader: {error:?}"));
     assert_eq!(archive.protocol_version(), 2);
-    let domain = archive.domain("vectors").expect("archived vector domain");
+    let domain = archive
+        .domain("vectors")
+        .unwrap_or_else(|error| panic!("archived vector domain: {error:?}"));
     assert_eq!(domain.paxeer_chain_id(), 31_337);
     let vector = load_checkpoint_vector(
         std::path::Path::new(concat!(
@@ -82,13 +88,13 @@ fn relay_retirement_26_migration_v1_preserves_archive_without_finality() {
         )),
         "fresh",
     )
-    .expect("recorded historical export");
+    .unwrap_or_else(|error| panic!("recorded historical export: {error:?}"));
     let mut checkpoint_digest = Sha256::new();
     checkpoint_digest.update(b"LXP/v2/checkpoint-certificate\0");
     checkpoint_digest.update(&vector.header.bytes);
     checkpoint_digest.update(
         u32::try_from(vector.validity_proof.len())
-            .expect("archived proof length")
+            .unwrap_or_else(|error| panic!("archived proof length: {error:?}"))
             .to_be_bytes(),
     );
     checkpoint_digest.update(&vector.validity_proof);
@@ -175,8 +181,9 @@ fn relay_retirement_28_bounded_tls_shutdown_and_resource_release() {
                 scope.spawn(|| {
                     for _ in 0..125 {
                         assert_eq!(
-                            node_tls::fetch(address, "localhost", true)
-                                .expect("complete TLS response and close_notify"),
+                            node_tls::fetch(address, "localhost", true).unwrap_or_else(
+                                |error| panic!("complete TLS response and close_notify: {error:?}")
+                            ),
                             producer
                         );
                     }
@@ -184,9 +191,9 @@ fn relay_retirement_28_bounded_tls_shutdown_and_resource_release() {
             })
             .collect();
         for worker in workers {
-            worker
-                .join()
-                .expect("all eight clients complete without errors");
+            worker.join().unwrap_or_else(|error| {
+                panic!("all eight clients complete without errors: {error:?}")
+            });
         }
     });
     assert!(

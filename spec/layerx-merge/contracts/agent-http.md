@@ -1,57 +1,57 @@
-# Agent http contract
+# Agent HTTP contract
 
-Source revision: `2a1033aa2`. This contract freezes the cited interface and acceptance blocks of the specification. Statuses include the specification overrides. A source marked planned has line 0; a positive source line is verified in the pinned revision.
+The agent's program read listener provides health, program balances and verified
+native reads. [`main.rs`](../../../services/agent/crates/layerx-agentd/src/main.rs)
+loads `serve_read_routes` from
+[`proof_native_reads.rs`](../../../services/agent/crates/layerx-agentd/tests/proof_native_reads.rs)
+through [`proof_serve_errors.rs`](../../../services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs).
+[`read/native.rs`](../../../services/agent/crates/layerx-agentd/src/read/native.rs)
+implements native read dispatch.
+The private agent envelope transport is described in [agent-api.md](agent-api.md).
 
-The context and decision tables reproduce the rules linked by interface identifiers. An anchor without a linked context gains no additional storage, gas, activation or pause rule here. Acceptance qualification remains UNRUN until its declared gate succeeds.
+## Authentication
+
+Every request to the program read listener, including health, requires exactly
+one `Authorization: Bearer` header matching `LAYERX_AGENT_PROGRAM_BEARER_TOKEN`.
+Missing, duplicate or incorrect credentials return HTTP 401 `unauthorized`.
+Requests must use HTTP/1.1 GET with an empty body.
+
+Native read routes are available when the MCP binding installs a native reader;
+otherwise they return HTTP 404 `not_found`. The Human owner mode serves a separate
+health-only listener using `LAYERX_AGENT_PROGRAM_BEARER_TOKEN` and does not serve
+program balances or native reads.
 
 ## healthz
 
-No interface block names this anchor; the citing criteria and rules below define its scope.
-
-| Citing block | Field | Frozen criterion or rule |
-|---|---|---|
-| <code>acceptance.9.43.1</code> | req | 9043.1 |
-| <code>acceptance.9.43.1</code> | scenario | Given the binary started against a loopback node that answers eth_chainId only after 300 ms, when /healthz is polled, then the first answer is 503 and a later answer is 200. |
-| <code>acceptance.9.43.1</code> | test | services/agent/crates/layerx-agentd/host-tests/serve_routes.rs::healthz_reports_not_ready_until_the_node_answers (planned) |
-| <code>acceptance.9.43.1</code> | qualification | UNRUN |
-| <code>req.9043</code> | ac_1 | GET /healthz answers 503 until the readiness gate passes and 200 afterwards. |
-| <code>capability.9.12.4</code> | title | Serve health and program balance routes from node JSON-RPC readiness |
-| <code>capability.9.12.4</code> | reqs | 9043.1<br>9043.2 |
+`GET /healthz` answers HTTP 503 while readiness checks are pending or fail and
+HTTP 200 when the service is ready. Node readiness requires a successful chain-ID
+check against the configured network and the `readiness_gate` checks. Its JSON
+body reports `ready`, `transport_ready`, `verified_reads_ready` and
+`tenant_writes: "unknown"`.
 
 ## programs-balances
 
-No interface block names this anchor; the citing criteria and rules below define its scope.
+`GET /v1/programs/{program}/balances` validates the program identifier and reads
+its accounts through `eth_call` to layerxprograms at a committed height.
+The balance reader binds every call to that height and block hash, and refuses
+an unavailable or changing block. The response includes the program, lifecycle,
+accounts and freshness coordinates. A malformed program identifier returns
+HTTP 400 `invalid_program`.
 
-| Citing block | Field | Frozen criterion or rule |
-|---|---|---|
-| <code>acceptance.9.26.1</code> | req | 9026.1 |
-| <code>acceptance.9.26.1</code> | scenario | Given a node answering eth_call for program p-1 at height 15 with value 70, when the reader reads p-1 at height 15, then the value is 70 and freshness.value_height is 15. |
-| <code>acceptance.9.26.1</code> | test | services/agent/crates/layerx-agentd/tests/program_balances_eth_call.rs::program_balance_is_read_by_eth_call_at_a_committed_height (planned) |
-| <code>acceptance.9.26.1</code> | qualification | UNRUN |
-| <code>req.9026</code> | ac_1 | A program balance read issues eth_call to 0x101D at the requested committed height and returns the decoded value with that height. |
-| <code>acceptance.9.43.2</code> | req | 9043.2 |
-| <code>acceptance.9.43.2</code> | scenario | Given a running binary, when /v1/programs/zz/balances is requested, then the response status is 400 with error invalid_program. |
-| <code>acceptance.9.43.2</code> | test | services/agent/crates/layerx-agentd/host-tests/serve_routes.rs::unknown_program_balance_route_is_invalid_program (planned) |
-| <code>acceptance.9.43.2</code> | qualification | UNRUN |
-| <code>req.9043</code> | ac_2 | GET /v1/programs/&lt;malformed&gt;/balances answers invalid_program. |
-| <code>capability.9.5.8</code> | title | Read program balances through eth_call on layerxprograms |
-| <code>capability.9.5.8</code> | reqs | 9026.1 |
+The reader is implemented in
+[`read/program_node.rs`](../../../services/agent/crates/layerx-agentd/src/read/program_node.rs)
+and exported through
+[`read/program_balances.rs`](../../../services/agent/crates/layerx-agentd/src/read/program_balances.rs).
 
 ## reads-receipt
 
-No interface block names this anchor; the citing criteria and rules below define its scope.
+`GET /v1/reads/receipt/{hash}` looks up `pax_sequencerReceipt` for a transaction
+hash. An absent lookup is unavailable. A submitted lookup returns the transaction
+hash, nonce, null receipt and key index, and rung `submitted`. A verified signed
+receipt returns canonical receipt bytes, the pinned key and its index, height,
+transaction index, freshness and rung `receipted`.
 
-| Citing block | Field | Frozen criterion or rule |
-|---|---|---|
-| <code>acceptance.9.25.1</code> | req | 9025.1 |
-| <code>acceptance.9.25.1</code> | scenario | Given a receipted transaction, when the native route reads receipt/&lt;hash&gt;, then the value carries the receipt, the key index and rung receipted. |
-| <code>acceptance.9.25.1</code> | test | services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs::native_receipt_route_serves_a_signed_receipt (planned) |
-| <code>acceptance.9.25.1</code> | qualification | UNRUN |
-| <code>req.9025</code> | ac_1 | GET /v1/reads/receipt/&lt;hash&gt; returns the sequencer receipt with the signing key index and rung Receipted. |
-| <code>acceptance.9.25.2</code> | req | 9025.2 |
-| <code>acceptance.9.25.2</code> | scenario | Given a NativeReadRoute, when it reads batch/1, then the result is NativeReadError::InvalidRequest. |
-| <code>acceptance.9.25.2</code> | test | services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs::native_route_rejects_an_unknown_kind (planned) |
-| <code>acceptance.9.25.2</code> | qualification | UNRUN |
-| <code>req.9025</code> | ac_2 | A native read of an unknown kind is refused with NativeReadError::InvalidRequest (services/agent/crates/layerx-agentd/src/read/native.rs:291). |
-| <code>capability.9.5.7</code> | title | Serve the native read routes from node JSON-RPC |
-| <code>capability.9.5.7</code> | reqs | 9025.1<br>9025.2 |
+A signed execution receipt alone does not establish block commitment. The proof
+read acquires and verifies committed-block evidence separately. The native read
+route also dispatches `proof`, `checkpoint`, `availability` and `history`; unknown
+kinds are refused with `NativeReadError::InvalidRequest`.

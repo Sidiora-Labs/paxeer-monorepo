@@ -41,11 +41,9 @@ fn unhex(text: &str) -> Result<Vec<u8>, String> {
 }
 
 fn rpc(client: &Client, method: &str, params: Value) -> Result<Value, String> {
-    let response = client.post(
-        "/",
-        &json!({"jsonrpc":"2.0", "id":1, "method":method, "params":params}),
-        None,
-    )?;
+    let mut request = json!({"jsonrpc":"2.0", "id":1, "method":method});
+    request["params"] = params;
+    let response = client.post("/", &request, None)?;
     if response["jsonrpc"] != "2.0"
         || response["id"] != 1
         || response.get("result").is_some() == response.get("error").is_some()
@@ -132,6 +130,9 @@ fn unknown_chain_refusal(error: &str) -> bool {
             == "execution reverted: LXP_UNKNOWN_FIELD: unknown field; unknown domain"
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn list(client: &Client, base: &str) -> Result<Value, String> {
     let count = read_id(client, &ChainCall::ChainCount)?;
     let mut chains = Vec::new();
@@ -155,6 +156,9 @@ pub fn list(client: &Client, base: &str) -> Result<Value, String> {
     Ok(json!({"chains":chains}))
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn show(client: &Client, base: &str, id_or_name: &str) -> Result<Value, String> {
     let id = if !id_or_name.is_empty() && id_or_name.bytes().all(|byte| byte.is_ascii_digit()) {
         id_or_name
@@ -228,7 +232,7 @@ fn created(
         {
             continue;
         }
-        let topics = log["topics"]
+        let event_topics = log["topics"]
             .as_array()
             .ok_or("invalid chain event topics")?
             .iter()
@@ -244,7 +248,7 @@ fn created(
             name: event_name,
             operator: event_operator,
             chain_id,
-        } = decode_event(&topics, &data).map_err(|error| error.to_string())?
+        } = decode_event(&event_topics, &data).map_err(|error| error.to_string())?
         {
             if id == 0
                 || event_name != name
@@ -262,6 +266,9 @@ fn created(
     result.ok_or_else(|| "chain creation receipt contains no ChainCreated event".into())
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn create(
     client: &Client,
     base: &str,
@@ -369,6 +376,9 @@ pub fn create(
 }
 
 /// Reconciles an original creation without signing or submitting a second transaction.
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn reconcile_creation(
     client: &Client,
     base: &str,
@@ -402,6 +412,9 @@ pub fn reconcile_creation(
 }
 
 /// Public node endpoints use the origin root; hosted services are configured separately.
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn node_endpoint(url: &str) -> Result<&str, String> {
     let uri: ureq::http::Uri = url.parse().map_err(|_| "invalid node endpoint")?;
     if !matches!(uri.scheme_str(), Some("http" | "https"))

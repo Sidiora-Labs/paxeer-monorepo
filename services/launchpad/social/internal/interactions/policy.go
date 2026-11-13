@@ -136,14 +136,14 @@ func (p *PGPolicy) Check(ctx context.Context, tx pgx.Tx, r Request) error {
 		return ErrDenied
 	}
 	target := ""
-	if r.Action == "follow" {
+	if r.Action == followAction {
 		target = r.ID
 	}
-	if r.Action == "mention" {
+	if r.Action == mentionAction {
 		target = r.Parent
 	}
 	parentAuthor := ""
-	if r.Action == "comment" && r.Parent != "" {
+	if r.Action == commentAction && r.Parent != "" {
 		if e = tx.QueryRow(ctx, `SELECT author FROM interaction_comments WHERE id=$1`, r.Parent).Scan(&parentAuthor); e != nil {
 			if errors.Is(e, pgx.ErrNoRows) {
 				return ErrInvalid
@@ -152,7 +152,7 @@ func (p *PGPolicy) Check(ctx context.Context, tx pgx.Tx, r Request) error {
 		}
 	}
 	lockWallets := []string{r.Actor, target, parentAuthor}
-	if r.Action == "callout_reference" {
+	if r.Action == calloutReferenceAction {
 		var metadata struct {
 			Mentions   []string
 			Attachment Attachment
@@ -188,7 +188,7 @@ func (p *PGPolicy) Check(ctx context.Context, tx pgx.Tx, r Request) error {
 		if blocked {
 			return ErrDenied
 		}
-		if r.Action == "mention" {
+		if r.Action == mentionAction {
 			var muted bool
 			if e = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM interaction_mutes WHERE owner=$1 AND target=$2)`, target, r.Actor).Scan(&muted); e != nil {
 				return e
@@ -198,9 +198,9 @@ func (p *PGPolicy) Check(ctx context.Context, tx pgx.Tx, r Request) error {
 			}
 		}
 	}
-	if r.Action == "comment" || r.Action == "comment_hide" || r.Action == "reaction" {
+	if r.Action == commentAction || r.Action == commentHideAction || r.Action == reactionAction {
 		pool := r.Pool
-		if r.Action == "reaction" || pool == "" {
+		if r.Action == reactionAction || pool == "" {
 			if e = tx.QueryRow(ctx, `SELECT pool FROM interaction_comments WHERE id=$1`, r.ID).Scan(&pool); e != nil {
 				return e
 			}
@@ -227,7 +227,7 @@ func (p *PGPolicy) Check(ctx context.Context, tx pgx.Tx, r Request) error {
 			return ErrDenied
 		}
 	}
-	if r.Action == "callout_reference" || r.Action == "mention" {
+	if r.Action == calloutReferenceAction || r.Action == mentionAction {
 		if _, e = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,37))`, "callout:"+r.ID); e != nil {
 			return e
 		}
@@ -277,7 +277,7 @@ func (p *PGPolicy) SendPolicy(ctx context.Context, tx pgx.Tx, in fanout.SendInpu
 		return e
 	}
 	if in.Kind == "pool" {
-		return p.Check(ctx, tx, Request{Actor: in.Actor, Pool: in.Target, Action: "comment"})
+		return p.Check(ctx, tx, Request{Actor: in.Actor, Pool: in.Target, Action: commentAction})
 	}
 	if in.Kind != "dm" {
 		return ErrInvalid
@@ -411,7 +411,7 @@ func (p *PGPolicy) SetBlock(ctx context.Context, target string, remove bool) err
 		_, e = tx.Exec(ctx, `INSERT INTO interaction_blocks(owner,target) VALUES($1,$2) ON CONFLICT DO NOTHING`, principal.Wallet, target)
 		if e == nil {
 			for _, pair := range [][2]string{{principal.Wallet, target}, {target, principal.Wallet}} {
-				r := Request{Actor: pair[0], ID: pair[1], Action: "follow", Remove: true}
+				r := Request{Actor: pair[0], ID: pair[1], Action: followAction, Remove: true}
 				tag, err := tx.Exec(ctx, `DELETE FROM interaction_follows WHERE follower=$1 AND followee=$2`, r.Actor, r.ID)
 				if err != nil {
 					return err

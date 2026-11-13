@@ -70,7 +70,7 @@ impl Metrics {
     }
 
     pub fn pending(&mut self, hash: &str, proposed_height: u64) {
-        self.pending_hash = hash.to_owned();
+        hash.clone_into(&mut self.pending_hash);
         self.proposed_height = proposed_height;
     }
 

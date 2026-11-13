@@ -62,7 +62,10 @@ fn base64_key(text: &str) -> Result<[u8; 32], String> {
         bits += 6;
         if bits >= 8 {
             bits -= 8;
-            bytes.push((accumulator >> bits) as u8);
+            bytes.push(
+                u8::try_from(accumulator >> bits)
+                    .map_err(|_| "invalid receipt key base64".to_owned())?,
+            );
             accumulator &= (1 << bits) - 1;
         }
     }
@@ -74,38 +77,42 @@ fn base64_key(text: &str) -> Result<[u8; 32], String> {
         .map_err(|_| "invalid receipt key length".to_owned())
 }
 
+fn read_receipt_keys(keys_path: &Path) -> Result<Vec<SequencerAuthorization>, String> {
+    let mut document = Vec::new();
+    File::open(keys_path)
+        .map_err(|e| e.to_string())?
+        .take(MAX_KEYS_BYTES + 1)
+        .read_to_end(&mut document)
+        .map_err(|e| e.to_string())?;
+    if document.len() as u64 > MAX_KEYS_BYTES {
+        return Err("receipt key list exceeds its bound".to_owned());
+    }
+    let entries: Vec<ReceiptKeyEntry> =
+        serde_json::from_slice(&document).map_err(|e| e.to_string())?;
+    if entries.is_empty() {
+        return Err("receipt key list must hold at least one key".to_owned());
+    }
+    let mut keys: Vec<SequencerAuthorization> = Vec::with_capacity(entries.len());
+    for entry in entries {
+        let id = base64_key(&entry.key_id)?;
+        let public_key = base64_key(&entry.public_key)?;
+        if entry.first_height > entry.last_height || keys.iter().any(|key| key.sequencer_id() == id)
+        {
+            return Err("duplicate receipt key ID or invalid height range".to_owned());
+        }
+        keys.push(SequencerAuthorization::new(
+            id,
+            public_key,
+            entry.first_height,
+            entry.last_height,
+        ));
+    }
+    Ok(keys)
+}
+
 impl ChainReceipts {
     pub(super) fn from_config(url: &str, keys_path: &Path) -> Result<Self, String> {
-        let mut document = Vec::new();
-        File::open(keys_path)
-            .map_err(|e| e.to_string())?
-            .take(MAX_KEYS_BYTES + 1)
-            .read_to_end(&mut document)
-            .map_err(|e| e.to_string())?;
-        if document.len() as u64 > MAX_KEYS_BYTES {
-            return Err("receipt key list exceeds its bound".to_owned());
-        }
-        let entries: Vec<ReceiptKeyEntry> =
-            serde_json::from_slice(&document).map_err(|e| e.to_string())?;
-        if entries.is_empty() {
-            return Err("receipt key list must hold at least one key".to_owned());
-        }
-        let mut keys: Vec<SequencerAuthorization> = Vec::with_capacity(entries.len());
-        for entry in entries {
-            let id = base64_key(&entry.key_id)?;
-            let public_key = base64_key(&entry.public_key)?;
-            if entry.first_height > entry.last_height
-                || keys.iter().any(|key| key.sequencer_id() == id)
-            {
-                return Err("duplicate receipt key ID or invalid height range".to_owned());
-            }
-            keys.push(SequencerAuthorization::new(
-                id,
-                public_key,
-                entry.first_height,
-                entry.last_height,
-            ));
-        }
+        let keys = read_receipt_keys(keys_path)?;
         if url.len() > 8192
             || !url.is_ascii()
             || url.bytes().any(|b| b.is_ascii_control() || b == b' ')
@@ -217,29 +224,7 @@ impl ChainReceipts {
         transaction: [u8; 32],
     ) -> Result<Option<ChainReceipt>, String> {
         let deadline = Instant::now() + TIMEOUT;
-        let connect_deadline = Instant::now() + super::CONNECT_TIMEOUT;
-        let mut connected = None;
-        for address in &self.addresses {
-            let Some(remaining) = connect_deadline.checked_duration_since(Instant::now()) else {
-                break;
-            };
-            if let Ok(stream) = TcpStream::connect_timeout(address, remaining) {
-                connected = Some(stream);
-                break;
-            }
-        }
-        let stream = DeadlineStream {
-            stream: connected.ok_or("chain RPC connection failed")?,
-            deadline,
-        };
-        let mut stream: Box<dyn ReadWrite> = if let Some(config) = &self.tls {
-            let name = ServerName::try_from(self.host.clone()).map_err(|e| e.to_string())?;
-            let connection =
-                ClientConnection::new(Arc::clone(config), name).map_err(|e| e.to_string())?;
-            Box::new(StreamOwned::new(connection, stream))
-        } else {
-            Box::new(stream)
-        };
+        let mut stream = self.connect(deadline)?;
         let request = json!({"jsonrpc": "2.0", "id": 1, "method": "pax_sequencerReceipt", "params": [format!("0x{}", super::hex(&transaction))]}).to_string();
         write!(stream, "POST {} HTTP/1.0\r\nHost: {}\r\nContent-Type: application/json\r\nAccept: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", self.target, self.authority, request.len(), request).map_err(|e| e.to_string())?;
         stream.flush().map_err(|e| e.to_string())?;
@@ -308,7 +293,8 @@ impl ChainReceipts {
                 .as_str()
                 .and_then(|s| s.strip_prefix("0x"))
                 .ok_or("chain RPC receipt missing")?,
-            MAX_RESPONSE_BYTES as usize / 2,
+            usize::try_from(MAX_RESPONSE_BYTES / 2)
+                .map_err(|_| "chain RPC response bound unsupported".to_owned())?,
         )?;
         let decoded = verify_sequencer_signature(&bytes, self.keys.as_slice())
             .map_err(|e| format!("{e:?}"))?;
@@ -331,6 +317,32 @@ impl ChainReceipts {
             transaction_hash: transaction,
             bytes,
         }))
+    }
+
+    fn connect(&self, deadline: Instant) -> Result<Box<dyn ReadWrite>, String> {
+        let connect_deadline = Instant::now() + super::CONNECT_TIMEOUT;
+        let mut connected = None;
+        for address in &self.addresses {
+            let Some(remaining) = connect_deadline.checked_duration_since(Instant::now()) else {
+                break;
+            };
+            if let Ok(stream) = TcpStream::connect_timeout(address, remaining) {
+                connected = Some(stream);
+                break;
+            }
+        }
+        let stream = DeadlineStream {
+            stream: connected.ok_or("chain RPC connection failed")?,
+            deadline,
+        };
+        if let Some(config) = &self.tls {
+            let name = ServerName::try_from(self.host.clone()).map_err(|e| e.to_string())?;
+            let connection =
+                ClientConnection::new(Arc::clone(config), name).map_err(|e| e.to_string())?;
+            Ok(Box::new(StreamOwned::new(connection, stream)))
+        } else {
+            Ok(Box::new(stream))
+        }
     }
 }
 

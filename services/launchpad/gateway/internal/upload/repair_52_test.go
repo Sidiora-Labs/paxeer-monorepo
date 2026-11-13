@@ -19,6 +19,7 @@ import (
 
 	gatewayauth "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/proxy"
+	mediastore "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/storage"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/ethereum/go-ethereum/accounts"
@@ -223,6 +224,7 @@ func TestRepair_52_UploadErrorSchema(t *testing.T) {
 			for _, name := range []string{"scope", "authority_unauthorized", "authority_scope", "oversize", "saturation", "admission_busy", "admission_unavailable", "streaming_oversize", "invalid_route"} {
 				t.Run(name, func(t *testing.T) {
 					h := f.handler(t)
+					h.observer = mediastore.NewMediaObserver()
 					server := httptest.NewServer(h)
 					t.Cleanup(server.Close)
 					token, origin := f.token, "https://kindle.test"
@@ -273,6 +275,19 @@ func TestRepair_52_UploadErrorSchema(t *testing.T) {
 					}
 					if status == 413 && (len(envelope.FieldErrors) != 1 || envelope.FieldErrors[0].Rule != "max_bytes") {
 						t.Fatalf("oversize field errors %+v", envelope.FieldErrors)
+					}
+					outcome := "unavailable"
+					switch status {
+					case 401, 403:
+						outcome = "unauthenticated"
+					case 413:
+						outcome = "rejected"
+					case 429:
+						outcome = "rate_limited"
+					}
+					counts := h.observer.Snapshot()["uploadOutcomes"].(map[string]uint64)
+					if counts[outcome] < 1 {
+						t.Fatalf("upload outcome %q absent: %v", outcome, counts)
 					}
 				})
 			}

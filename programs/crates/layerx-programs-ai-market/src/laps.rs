@@ -2,7 +2,11 @@ use crate::types::GuestIndex as _;
 use crate::{
     codec::{self, Reader, ValidatedEnvelope, Writer},
     dispatch,
-    errors::*,
+    errors::{
+        CodecResult, ARITHMETIC, CAPACITY, CONFLICT, F11_ROOM_CLOSED, F11_ROOM_UNKNOWN,
+        F11_ROSTER_DIGEST_MISMATCH, NON_CANONICAL, NOT_FOUND, UNAUTHORIZED, UNKNOWN_OPERATION,
+        WRONG_CONFIG, WRONG_EPOCH, WRONG_PHASE,
+    },
     evidence::{self, SealRegion},
     registry::market_clock,
     registry_ops::{CallContext, ACTIVE},
@@ -51,6 +55,8 @@ impl LapReceipt<'_> {
         Ok(())
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         self.validate()?;
         let mut w = Writer::new(out);
@@ -63,7 +69,7 @@ impl LapReceipt<'_> {
         ] {
             w.u64(n)?;
         }
-        w.u8(self.layer_range_digests.len() as u8)?;
+        w.u8(u8::try_from(self.layer_range_digests.len()).map_err(|_| crate::errors::CAPACITY)?)?;
         for digest in self.layer_range_digests {
             w.put(digest.as_bytes())?;
         }
@@ -72,6 +78,8 @@ impl LapReceipt<'_> {
         Ok(w.len())
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn signing_digest(&self) -> CodecResult<Digest32> {
         let mut unsigned = *self;
         unsigned.host_signature = Signature64([1; 64]);
@@ -82,6 +90,8 @@ impl LapReceipt<'_> {
         codec::domain_hash("PAXAI/lap-signing/v1", out.guest_index(..n))
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn digest(&self) -> CodecResult<Digest32> {
         let mut out = [0; RECEIPT_FIXED_BYTES + 32 * MAX_DEAL_PEERS];
         let n = self.encode(&mut out)?;
@@ -113,6 +123,8 @@ impl ReceiptBatch {
         }
         Ok(())
     }
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn from_receipts(receipts: &[LapReceipt<'_>]) -> CodecResult<Self> {
         if receipts.is_empty() || receipts.len() > LAP_BATCH_MAX {
             return Err(CAPACITY);
@@ -165,6 +177,8 @@ impl ReceiptBatch {
         })
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self) -> CodecResult<[u8; BATCH_BYTES]> {
         self.validate()?;
         let mut out = [0; BATCH_BYTES];
@@ -181,10 +195,14 @@ impl ReceiptBatch {
         Ok(out)
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn summary_digest(&self) -> CodecResult<Digest32> {
         codec::domain_hash("PAXAI/lap-batch/v1", &self.encode()?)
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(bytes);
         let value = crate::codec::read_record!(&mut r, Self {  }; deal_id = r.digest32()?;
@@ -206,13 +224,15 @@ pub struct SettleLapsRequest<'a> {
 }
 impl SettleLapsRequest<'_> {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         if self.artifact_manifest.len() > evidence::MAX_MANIFEST_BYTES {
             return Err(CAPACITY);
         }
         let mut w = Writer::new(out);
         w.put(&self.batch.encode()?)?;
-        w.u16(self.artifact_manifest.len() as u16)?;
+        w.u16(u16::try_from(self.artifact_manifest.len()).map_err(|_| crate::errors::CAPACITY)?)?;
         w.put(self.artifact_manifest)?;
         Ok(w.len())
     }
@@ -230,10 +250,13 @@ pub struct LapSettlement {
     pub slashed_laps: [u64; MAX_DEAL_PEERS],
 }
 impl LapSettlement {
+    #[must_use]
     pub fn meter_reading(&self) -> u64 {
         self.batch.cumulative_tokens
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self) -> CodecResult<[u8; SETTLEMENT_BYTES]> {
         let mut out = [0; SETTLEMENT_BYTES];
         let mut w = Writer::new(&mut out);
@@ -273,22 +296,17 @@ impl LapSettlement {
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub(crate) fn region_length(bytes: &[u8]) -> CodecResult<usize> {
-    if !bytes.starts_with(REGION_MAGIC) {
+    let length = committed_region_length(bytes)?;
+    if length == 0 {
         return Ok(0);
     }
-    let mut r = Reader::new(bytes);
-    r.take(8)?;
-    let count = usize::from(r.u8()?);
-    if count == 0 || count > DEAL_CAPACITY {
-        return Err(NON_CANONICAL);
-    }
-    let rows = r.take(count * SETTLEMENT_BYTES)?;
+    let rows = bytes.get(9..length).ok_or(NON_CANONICAL)?;
     let mut previous = None;
     for row in rows
         .as_chunks::<{ SETTLEMENT_BYTES }>()
         .0
         .iter()
-        .map(|chunk| chunk.as_slice())
+        .map(<[u8; 448]>::as_slice)
     {
         let record = LapSettlement::decode(row)?;
         if previous.is_some_and(|id| id >= record.batch.deal_id) {
@@ -296,8 +314,23 @@ pub(crate) fn region_length(bytes: &[u8]) -> CodecResult<usize> {
         }
         previous = Some(record.batch.deal_id);
     }
-    Ok(r.offset())
+    Ok(length)
 }
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn committed_region_length(bytes: &[u8]) -> CodecResult<usize> {
+    if !bytes.starts_with(REGION_MAGIC) {
+        return Ok(0);
+    }
+    let count = usize::from(*bytes.get(8).ok_or(NON_CANONICAL)?);
+    if count == 0 || count > DEAL_CAPACITY {
+        return Err(NON_CANONICAL);
+    }
+    let length = 9 + count * SETTLEMENT_BYTES;
+    bytes.get(..length).ok_or(NON_CANONICAL)?;
+    Ok(length)
+}
+
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn rows(bytes: &[u8]) -> CodecResult<&[u8]> {
     let n = region_length(bytes)?;
@@ -315,7 +348,7 @@ fn get(bytes: &[u8], deal: Digest32) -> CodecResult<Option<LapSettlement>> {
         .as_chunks::<{ SETTLEMENT_BYTES }>()
         .0
         .iter()
-        .map(|chunk| chunk.as_slice())
+        .map(<[u8; 448]>::as_slice)
     {
         let record = LapSettlement::decode(row)?;
         if record.batch.deal_id == deal {
@@ -325,10 +358,20 @@ fn get(bytes: &[u8], deal: Digest32) -> CodecResult<Option<LapSettlement>> {
     Ok(None)
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn settlement_from_state(current: &[u8], deal: Digest32) -> CodecResult<Option<LapSettlement>> {
     let state = state::decode_shared_state(current)?;
+    settlement_from_shared(&state, deal)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn settlement_from_shared(
+    state: &state::SharedState<'_>,
+    deal: Digest32,
+) -> CodecResult<Option<LapSettlement>> {
     get(
-        SealRegion::decode(state.control.feature_bytes)?.lap_settlements(),
+        SealRegion::committed(state.control.feature_bytes)?.lap_settlements(),
         deal,
     )
 }
@@ -342,13 +385,13 @@ fn write_region(bytes: &[u8], record: &LapSettlement, out: &mut [u8]) -> CodecRe
     }
     let mut w = Writer::new(out);
     w.put(REGION_MAGIC)?;
-    w.u8(count as u8)?;
+    w.u8(u8::try_from(count).map_err(|_| crate::errors::CAPACITY)?)?;
     let mut inserted = false;
     for row in rows
         .as_chunks::<{ SETTLEMENT_BYTES }>()
         .0
         .iter()
-        .map(|chunk| chunk.as_slice())
+        .map(<[u8; 448]>::as_slice)
     {
         let id = LapSettlement::decode(row)?.batch.deal_id;
         if !inserted && id >= record.batch.deal_id {
@@ -374,6 +417,8 @@ pub enum Outcome {
     Retained(RetainedResult),
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn apply_settle_laps(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -402,7 +447,7 @@ pub fn apply_settle_laps(
     let manifest_len = usize::from(r.u16()?);
     let manifest = r.take(manifest_len)?;
     r.finish()?;
-    let book = RoomBook::decode(state.room_market()?.1)?;
+    let book = RoomBook::committed(state.room_market()?.1)?;
     let deal = book.deal(batch.deal_id)?.ok_or(NOT_FOUND)?;
     let room = book.room(deal.room_id)?.ok_or(F11_ROOM_UNKNOWN)?;
     if room.state != RoomState::Open {
@@ -437,37 +482,7 @@ pub fn apply_settle_laps(
     {
         return Ok(Outcome::Retained(retained));
     }
-    let peers = deal.layers.iter().flatten().count() as u32;
-    if batch.countersign_quorum < peers.saturating_sub(1)
-        || batch.countersign_quorum > peers
-        || batch.missing_countersigners & !peer_mask(peers as usize) != 0
-        || batch.missing_countersigners.count_ones() + batch.countersign_quorum != peers
-    {
-        return Err(UNAUTHORIZED);
-    }
-    let region = SealRegion::decode(state.control.feature_bytes)?;
-    let previous = get(region.lap_settlements(), batch.deal_id)?;
-    if let Some(previous) = previous {
-        if batch.first_lap_index <= previous.batch.last_lap_index
-            || batch.last_lap_index <= previous.batch.last_lap_index
-            || batch.cumulative_tokens < previous.meter_reading()
-        {
-            return Err(CONFLICT);
-        }
-    }
-    let task_set = evidence::require_sealed_artifact_chunk_root(&state, e.epoch, manifest, &batch)?;
-    let record = LapSettlement {
-        batch,
-        task_set,
-        epoch: e.epoch,
-        config: e.config,
-        roster: deal.roster_digest,
-        slashed_laps: [0; MAX_DEAL_PEERS],
-        settled_amount_owed: u128::from(batch.cumulative_tokens)
-            .checked_mul(deal.agreed_price_per_thousand_tokens)
-            .ok_or(ARITHMETIC)?
-            / 1000,
-    };
+    let (record, region) = settle_batch_record(&state, e, &deal, batch, manifest)?;
     let (policy_out, rest) = scratch
         .split_at_mut_checked(Section::PolicyLifecycle.payload_cap())
         .ok_or(CAPACITY)?;
@@ -491,14 +506,10 @@ pub fn apply_settle_laps(
         ctx.height,
         envelope,
         candidate,
-        policy,
+        &policy,
         settlement,
-        &record_bytes,
-        Some(&request),
-        policy_out,
-        control,
-        next,
-        event,
+        (&record_bytes, Some(&request)),
+        (policy_out, control, next, event),
     )? {
         crate::rooms::Outcome::Applied {
             revision,
@@ -542,14 +553,70 @@ pub(crate) fn record_slash(
         return Err(CONFLICT);
     }
     *record.slashed_laps.guest_index_mut(peer) |= 1u64 << offset;
+    let source = state.control.feature_bytes;
+    let region = SealRegion::committed(source)?;
+    let laps = region.lap_settlements();
+    let prefix = source.len() - laps.len() - region.rest().len();
+    let row = laps
+        .get(9..)
+        .ok_or(NON_CANONICAL)?
+        .chunks_exact(SETTLEMENT_BYTES)
+        .position(|bytes| {
+            bytes
+                .get(..32)
+                .is_some_and(|id| id == record.batch.deal_id.as_bytes())
+        })
+        .ok_or(NOT_FOUND)?;
+    let at = prefix + 9 + row * SETTLEMENT_BYTES;
+    out.get_mut(..source.len())
+        .ok_or(CAPACITY)?
+        .guest_copy_from_slice(source);
+    out.get_mut(at..at + SETTLEMENT_BYTES)
+        .ok_or(CAPACITY)?
+        .guest_copy_from_slice(&record.encode()?);
+    Ok(source.len())
+}
+
+fn settle_batch_record<'a>(
+    state: &state::SharedState<'a>,
+    e: &crate::codec::Envelope<'_>,
+    deal: &crate::rooms::DealRecord,
+    batch: ReceiptBatch,
+    manifest: &[u8],
+) -> CodecResult<(LapSettlement, SealRegion<'a>)> {
+    let peers =
+        u32::try_from(deal.layers.iter().flatten().count()).map_err(|_| crate::errors::CAPACITY)?;
+    if batch.countersign_quorum < peers.saturating_sub(1)
+        || batch.countersign_quorum > peers
+        || batch.missing_countersigners & !peer_mask(peers as usize) != 0
+        || batch.missing_countersigners.count_ones() + batch.countersign_quorum != peers
+    {
+        return Err(UNAUTHORIZED);
+    }
     let region = SealRegion::decode(state.control.feature_bytes)?;
-    let prefix = region.write_lap_prefix(out)?;
-    let n = write_region(
-        region.lap_settlements(),
-        &record,
-        out.guest_index_mut(prefix..),
-    )?;
-    let mut w = Writer::new(out.guest_index_mut(prefix + n..));
-    w.put(region.rest())?;
-    Ok(prefix + n + w.len())
+    let previous = get(region.lap_settlements(), batch.deal_id)?;
+    if let Some(previous) = previous {
+        if batch.first_lap_index <= previous.batch.last_lap_index
+            || batch.last_lap_index <= previous.batch.last_lap_index
+            || batch.cumulative_tokens < previous.meter_reading()
+        {
+            return Err(CONFLICT);
+        }
+    }
+    let task_set = evidence::require_sealed_artifact_chunk_root(state, e.epoch, manifest, &batch)?;
+    Ok((
+        LapSettlement {
+            batch,
+            task_set,
+            epoch: e.epoch,
+            config: e.config,
+            roster: deal.roster_digest,
+            slashed_laps: [0; MAX_DEAL_PEERS],
+            settled_amount_owed: u128::from(batch.cumulative_tokens)
+                .checked_mul(deal.agreed_price_per_thousand_tokens)
+                .ok_or(ARITHMETIC)?
+                / 1000,
+        },
+        region,
+    ))
 }

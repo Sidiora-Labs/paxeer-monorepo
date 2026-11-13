@@ -454,7 +454,7 @@ def test_markdown_link_guard_inventory_covers_first_party_pages():
     assert {
         "README.md",
         "consensus/spec/README.md",
-        "docs/site/docs/index.md",
+        "docs/site/paxeer-docs/README.md",
         "docs/platform/content/install.md",
         "services/interop/README.md",
     } <= pages
@@ -470,4 +470,4 @@ def test_markdown_link_guard_inventory_covers_first_party_pages():
         assert not pages.intersection(candidates)
     assert not _first_party_page("nested/vendor/package/README.md")
     assert _first_party_page("tools/wasm-tools/README.md")
-    assert _first_party_page("docs/site/docs/vendor-guide.md")
+    assert _first_party_page("docs/site/paxeer-docs/README.md")

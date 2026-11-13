@@ -15,7 +15,7 @@ finality.
 
 ## Getting Started
 
-Use the package's pinned package manager, `pnpm@12.15.0`, and run these commands
+Use the package's pinned package manager, `pnpm@10.34.9`, and run these commands
 from this directory:
 
 ```bash
@@ -56,10 +56,7 @@ configuration files contain placeholders rather than proof of deployment.
 URL values must use HTTP or HTTPS without embedded credentials; EVM vault
 addresses must be valid and nonzero. Invalid values are treated as unset.
 
-For public Paxeer JSON-RPC, use a node's root URL, for example
-`https://api1.mainnet-beta.paxeer.network`. The public node names are `api1`
-through `api14.mainnet-beta.paxeer.network`, plus
-`api-mainnet-beta.paxeer.network`; they serve chain ID 125 at the root path.
+For public Paxeer JSON-RPC, use a node's root URL for chain ID 125.
 See the [public RPC reference](../../docs/site/docs/reference/public-rpc.md).
 The app supplies no default Paxeer RPC URL.
 
@@ -134,11 +131,13 @@ Once ready, switch to Paxeer to claim a deposit or to the destination EVM chain
 to release a withdrawal. Missing or mismatched attestations must be resolved at
 the backend or deployment configuration before submission.
 
-A submitted claim or release hash is saved immediately and can make the local UI
-show completion before confirmation. Verify the destination receipt before
-treating a payout as complete. If it reverts or remains pending, inspect that
-transaction and the on-chain nullifier state before retrying. Importing an
-already tracked transfer preserves its existing local record.
+A submitted claim or release hash is saved immediately, and the transfer stays
+settling while its result is pending. Completion requires the destination
+nullifier or verified Solana release record. Reverted or dropped EVM attempts
+show a retry action. When neither the settlement receipt nor the transaction is
+found, the attempt is classified as dropped once two minutes have elapsed since
+submission. Inspect the destination receipt and nullifier before retrying.
+Importing an already tracked transfer preserves its existing local record.
 
 ## Learn More
 

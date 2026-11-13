@@ -16,6 +16,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -223,7 +224,7 @@ func main() {
 	grant("Treasury", "DEPOSITOR_ROLE", addresses["SidioraFactory"])
 	call("EventEmitter", "setPoolRegistry", addresses["PoolRegistry"])
 	call("EventEmitter", "setSidioraFactory", addresses["SidioraFactory"])
-	for _, item := range []struct{ Name, Method string }{{"SidioraNFT", "emitNftMint"}, {"Router", "emitRouterTrade"}} {
+	for _, item := range []struct{ Name, Method string }{{"SidioraNFT", "emitNftMint"}, {"Router", "emitRouterTrade"}, {"FeeAccumulator", "emitFeeFlow"}} {
 		var selector [4]byte
 		copy(selector[:], abis["EventEmitter"].Methods[item.Method].ID)
 		call("EventEmitter", "setTypedEmitter", addresses[item.Name], selector, true)
@@ -254,7 +255,7 @@ func main() {
 	addresses["SidioraPool"], addresses["SidioraERC20"] = pool, token
 	abis["SidioraERC20"], err = abi.JSON(bytes.NewReader(contracts["SidioraERC20"].ABI))
 	must(err)
-	call("USDL", "transfer", pool, big.NewInt(100000000))
+	funded := call("USDL", "transfer", pool, big.NewInt(100000000))
 	direct := call("SidioraPool", "swap", big.NewInt(100000000), big.NewInt(1), true, account, big.NewInt(1<<62))
 	call("USDL", "approve", addresses["Router"], big.NewInt(1000000000))
 	routed := call("Router", "buy", pool, big.NewInt(100000000), big.NewInt(1), big.NewInt(1<<62))
@@ -263,6 +264,21 @@ func main() {
 	call("EventEmitter", "setTypedEmitter", account, selector, true)
 	call("EventEmitter", "setAuthorizedEmitter", account, true)
 	forged := call("EventEmitter", "emitSwap", common.BytesToHash(pool.Bytes()), account, true, big.NewInt(100000000), big.NewInt(1), big.NewInt(0), big.NewInt(1))
+	copy(selector[:], abis["EventEmitter"].Methods["emitFeeFlow"].ID)
+	call("EventEmitter", "setTypedEmitter", account, selector, true)
+	orphan := call("EventEmitter", "emitFeeFlow", uint8(0), pool, account, big.NewInt(1), big.NewInt(0), big.NewInt(1), big.NewInt(0))
+	balanceInput, err := abis["SidioraERC20"].Pack("balanceOf", account)
+	must(err)
+	balanceOutput, err := client.CallContract(ctx, ethereum.CallMsg{To: &token, Data: balanceInput}, nil)
+	must(err)
+	balanceValues, err := abis["SidioraERC20"].Unpack("balanceOf", balanceOutput)
+	must(err)
+	sellAmount := new(big.Int).Div(balanceValues[0].(*big.Int), big.NewInt(4))
+	if sellAmount.Sign() == 0 {
+		panic("bought token balance missing")
+	}
+	call("SidioraERC20", "approve", addresses["Router"], sellAmount)
+	sold := call("Router", "sell", pool, sellAmount, big.NewInt(1), big.NewInt(1<<62))
 	// A block crossing RLP index 0x7f supplies independent geth trie roots for
 	// the coverage receipt verifier, including both legacy and typed values.
 	var lists []map[string]any
@@ -281,7 +297,7 @@ func main() {
 		}
 		lists = append(lists, map[string]any{"Transactions": rawTxs, "Receipts": rs, "TransactionRoot": types.DeriveSha(txs, trie.NewStackTrie(nil)), "ReceiptRoot": types.DeriveSha(rs, trie.NewStackTrie(nil))})
 	}
-	must(json.NewEncoder(os.Stdout).Encode(map[string]any{"Endpoint": fmt.Sprintf("http://127.0.0.1:%d", port), "Addresses": addresses, "Account": account, "Direct": direct.TxHash, "Routed": routed.TxHash, "Forged": forged.TxHash, "Lists": lists}))
+	must(json.NewEncoder(os.Stdout).Encode(map[string]any{"Endpoint": fmt.Sprintf("http://127.0.0.1:%d", port), "Addresses": addresses, "Account": account, "Created": creation.TxHash, "Funded": funded.TxHash, "Direct": direct.TxHash, "Routed": routed.TxHash, "Forged": forged.TxHash, "Orphan": orphan.TxHash, "Sold": sold.TxHash, "Lists": lists}))
 	_, err = io.Copy(io.Discard, os.Stdin)
 	if err != nil && !strings.Contains(err.Error(), "closed") {
 		must(err)

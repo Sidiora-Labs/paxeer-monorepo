@@ -12,6 +12,6 @@ esac
 artifact="$target_dir/$target/release/layerx_reference_escrow.wasm"
 CARGO=${CARGO:-cargo}
 
-(cd "$program_dir" && "$CARGO" build --locked --release --target "$target")
-(cd "$programs_dir" && "$CARGO" run --locked --quiet -p layerx-program-lint --bin layerx-program-lint -- "$program_dir" "$artifact")
+(cd "$program_dir" && CARGO_TARGET_DIR="$target_dir" "$CARGO" build --locked --release --target "$target")
+(cd "$programs_dir" && CARGO_TARGET_DIR="$target_dir" "$CARGO" run --locked --quiet -p layerx-program-lint --bin layerx-program-lint -- "$program_dir" "$artifact")
 printf '%s\n' "$artifact"

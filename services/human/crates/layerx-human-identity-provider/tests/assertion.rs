@@ -191,13 +191,13 @@ impl TokenSigner {
     }
 
     fn sec1_hex(&self) -> String {
-        self.key
-            .verifying_key()
-            .to_encoded_point(false)
-            .as_bytes()
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect()
+        use std::fmt::Write as _;
+        let point = self.key.verifying_key().to_encoded_point(false);
+        let mut text = String::with_capacity(point.as_bytes().len() * 2);
+        for byte in point.as_bytes() {
+            let _ = write!(text, "{byte:02x}");
+        }
+        text
     }
 
     fn binding(&self, subject: &str, did: &str) -> String {
@@ -437,9 +437,9 @@ fn assertion_wrong_issuer_audience_expired_and_not_yet_valid_are_refused() -> Re
     }
 
     let forger = TokenSigner::generate("signing-key-1")?;
-    let forged = forger.mint(&claims("user-0003", now));
+    let forged_token = forger.mint(&claims("user-0003", now));
     assert!(state
-        .open_or_create_by_assertion(&forged, None, now)
+        .open_or_create_by_assertion(&forged_token, None, now)
         .is_err());
 
     let mut array_audience = claims("user-0003", now);
@@ -1058,6 +1058,34 @@ fn assertion_wire_operation_four_reports_unavailable_without_a_verifier_or_key_s
     Ok(())
 }
 
+fn assertion_binary_command(
+    clock_command: &std::process::Command,
+    root: &Path,
+    socket: &Path,
+    policy_file: &Path,
+) -> std::process::Command {
+    let mut command =
+        std::process::Command::new(env!("CARGO_BIN_EXE_layerx-human-identity-provider"));
+    command
+        .envs(
+            clock_command
+                .get_envs()
+                .map(|(key, value)| (key, value.unwrap_or_else(|| panic!("clock binding value")))),
+        )
+        .arg("serve")
+        .env("LAYERX_HUMAN_IDENTITY_PROVIDER_STATE_ROOT", root)
+        .env("LAYERX_HUMAN_IDENTITY_PROVIDER_SOCKET", socket)
+        .env(
+            "LAYERX_HUMAN_IDENTITY_PROVIDER_RECOVERY_POLICY_FILE",
+            policy_file,
+        )
+        .env(
+            "LAYERX_HUMAN_IDENTITY_PROVIDER_ALLOWED_UID",
+            rustix::process::geteuid().as_raw().to_string(),
+        );
+    command
+}
+
 #[test]
 fn assertion_binary_serve_wires_the_configuration_from_the_environment() -> Result {
     let fixture = Fixture::new()?;
@@ -1071,28 +1099,7 @@ fn assertion_binary_serve_wires_the_configuration_from_the_environment() -> Resu
         .open(&policy_file)?
         .write_all(&serde_json::to_vec(&policy())?)?;
     let clock_command = support::command()?;
-    let command = || {
-        let mut command =
-            std::process::Command::new(env!("CARGO_BIN_EXE_layerx-human-identity-provider"));
-        command
-            .envs(
-                clock_command
-                    .get_envs()
-                    .map(|(key, value)| (key, value.expect("clock binding value"))),
-            )
-            .arg("serve")
-            .env("LAYERX_HUMAN_IDENTITY_PROVIDER_STATE_ROOT", &fixture.root)
-            .env("LAYERX_HUMAN_IDENTITY_PROVIDER_SOCKET", &socket)
-            .env(
-                "LAYERX_HUMAN_IDENTITY_PROVIDER_RECOVERY_POLICY_FILE",
-                &policy_file,
-            )
-            .env(
-                "LAYERX_HUMAN_IDENTITY_PROVIDER_ALLOWED_UID",
-                rustix::process::geteuid().as_raw().to_string(),
-            );
-        command
-    };
+    let command = || assertion_binary_command(&clock_command, &fixture.root, &socket, &policy_file);
     let now = authority_now()?;
     let token = fixture.signer.mint(&claims("user-0017", now));
 

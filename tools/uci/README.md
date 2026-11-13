@@ -8,7 +8,7 @@
 ## Status
 
 🚧 **Active development.**
-Current, focus is to support **Golang**; additional languages may be added later.
+The current focus is **Go**; additional languages may be added later.
 
 ## Principles
 

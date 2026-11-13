@@ -1,0 +1,22 @@
+[authority.precompile_conformance]
+acceptance = "22998.1"
+
+[case.receipt]
+test = "TestAuthEVMTransactionReceipt"
+proof = "The response and receipt carry execution reverted|LXP_AUTH_SCOPE, while Solidity Error(string) carries LXP_AUTH_SCOPE; refused calls have failed status, empty logs and unchanged stored grants."
+
+[case.gas]
+test = "TestAuthGasConformance"
+proof = "Successful signed calls to every ABI method consume the exact intrinsic gas plus the method gas table entry."
+
+[case.capability]
+test = "TestPrecompileGrantCapability"
+proof = "Asset SEND capabilities retain their spending and time bounds; programs-only writes revert with LXP_AUTH_SCOPE, preserve the typed cause and produce no logs or persisted host changes."
+
+[case.proof]
+test = "TestProofLayerxauth0x101c"
+proof = "Application transactions produce EVM receipts consumed by the Rust indexer across reopen; unbound and replayed signed calls preserve exact response, receipt and ABI revert reasons and emit no logs."
+
+[case.lifecycle]
+test = "TestAuthLifecycleReceipts"
+proof = "Registration and recovery consume account sequences 0 and 1 and the next global sequence; refused calls retain account sequence 2, exact event and identity rows, typed ABI reasons and unchanged host state."

@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -44,7 +46,7 @@ type EnrichmentResult struct {
 }
 
 func unavailableEnrichment(d HistoricalDeployment, hash common.Hash, method, reason string) EnrichmentResult {
-	return EnrichmentResult{ChainID: 125, Contract: strings.ToLower(d.Address.Hex()), DeploymentEpoch: d.DeploymentEpoch, BlockHash: strings.ToLower(hash.Hex()), Method: method, AttemptedAt: time.Now().UTC(), CodeDigest: strings.ToLower(d.CodeDigest.Hex()), Status: "unavailable", Failure: reason}
+	return EnrichmentResult{ChainID: 125, Contract: strings.ToLower(d.Address.Hex()), DeploymentEpoch: d.DeploymentEpoch, BlockHash: strings.ToLower(hash.Hex()), Method: method, AttemptedAt: time.Now().UTC(), CodeDigest: strings.ToLower(d.CodeDigest.Hex()), Status: valueUnavailable, Failure: reason}
 }
 
 type decimalRead struct {
@@ -77,7 +79,7 @@ func NewHistoricalReader(ctx context.Context, rpc *ethclient.Client) (*Historica
 }
 
 func (r *HistoricalReader) read(ctx context.Context, d HistoricalDeployment, hash common.Hash, method string, args []byte) (out EnrichmentResult, err error) {
-	out = EnrichmentResult{ChainID: 125, Contract: strings.ToLower(d.Address.Hex()), DeploymentEpoch: d.DeploymentEpoch, BlockHash: strings.ToLower(hash.Hex()), Method: method, AttemptedAt: time.Now().UTC(), CodeDigest: strings.ToLower(d.CodeDigest.Hex()), Status: "unavailable"}
+	out = EnrichmentResult{ChainID: 125, Contract: strings.ToLower(d.Address.Hex()), DeploymentEpoch: d.DeploymentEpoch, BlockHash: strings.ToLower(hash.Hex()), Method: method, AttemptedAt: time.Now().UTC(), CodeDigest: strings.ToLower(d.CodeDigest.Hex()), Status: valueUnavailable}
 	defer func() {
 		if err != nil {
 			out.Failure = err.Error()
@@ -131,7 +133,7 @@ func (r *HistoricalReader) OwnerOf(ctx context.Context, d HistoricalDeployment, 
 	}
 	v, _ := new(big.Int).SetString(*out.Value, 10)
 	if v.BitLen() > 160 || v.Sign() == 0 {
-		out.Status = "unavailable"
+		out.Status = valueUnavailable
 		out.Value = nil
 		out.Failure = "invalid owner address"
 		return out, fmt.Errorf("invalid owner address")
@@ -147,7 +149,7 @@ func (r *HistoricalReader) NFTIDByPool(ctx context.Context, d HistoricalDeployme
 	}
 	out, err := r.read(ctx, d, hash, "getNftIdByPool(address)", common.LeftPadBytes(pool[:], 32))
 	if err == nil && *out.Value == "0" {
-		out.Status = "unavailable"
+		out.Status = valueUnavailable
 		out.Value = nil
 		out.Failure = "pool NFT absent"
 		err = fmt.Errorf("pool NFT absent at pinned block")
@@ -192,7 +194,7 @@ func (r *HistoricalReader) Decimals(ctx context.Context, d HistoricalDeployment,
 	if err == nil {
 		v, ok := new(big.Int).SetString(*out.Value, 10)
 		if !ok || v.BitLen() > 8 {
-			out.Status = "unavailable"
+			out.Status = valueUnavailable
 			out.Value = nil
 			err = fmt.Errorf("decimals outside uint8 range")
 			out.Failure = err.Error()
@@ -211,7 +213,7 @@ func (r *HistoricalReader) Decimals(ctx context.Context, d HistoricalDeployment,
 }
 
 func (r *HistoricalReader) verifyCachedDecimals(ctx context.Context, d HistoricalDeployment, hash common.Hash, value string) (out EnrichmentResult, err error) {
-	out = EnrichmentResult{ChainID: 125, Contract: strings.ToLower(d.Address.Hex()), DeploymentEpoch: d.DeploymentEpoch, BlockHash: strings.ToLower(hash.Hex()), Method: "decimals()", AttemptedAt: time.Now().UTC(), CodeDigest: strings.ToLower(d.CodeDigest.Hex()), Status: "unavailable"}
+	out = EnrichmentResult{ChainID: 125, Contract: strings.ToLower(d.Address.Hex()), DeploymentEpoch: d.DeploymentEpoch, BlockHash: strings.ToLower(hash.Hex()), Method: "decimals()", AttemptedAt: time.Now().UTC(), CodeDigest: strings.ToLower(d.CodeDigest.Hex()), Status: valueUnavailable}
 	defer func() {
 		if err != nil {
 			out.Failure = err.Error()
@@ -306,7 +308,7 @@ func (t historicalTransport) RoundTrip(request *http.Request) (*http.Response, e
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer checked.Close(response.Body)
 	if response.ContentLength > MaxHistoricalResponseBytes {
 		return nil, fmt.Errorf("historical RPC response exceeds byte cap")
 	}
@@ -318,7 +320,11 @@ func (t historicalTransport) RoundTrip(request *http.Request) (*http.Response, e
 		return nil, fmt.Errorf("historical RPC response exceeds byte cap")
 	}
 	response.Body = io.NopCloser(bytes.NewReader(body))
-	response.ContentLength = int64(len(body))
+	lenBodyInt64, conversionErr := checked.Convert[int64](len(body))
+	if conversionErr != nil {
+		return nil, conversionErr
+	}
+	response.ContentLength = lenBodyInt64
 	return response, nil
 }
 

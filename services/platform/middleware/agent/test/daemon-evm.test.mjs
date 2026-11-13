@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { keccak_256 } from "@noble/hashes/sha3.js";
-import { decodeRawEip1559, eip1559SigningHash, recoverEip1559Sender, PlatformSdkError } from "@sidiora/layerx-sdk";
-import { daemonFixture, loopback, envelopeClient, BudgetStore, temporaryDirectory, receiptsForDaemon } from "./repair-support.mjs";
 import { join } from "node:path";
+const { decodeRawEip1559, eip1559SigningHash, recoverEip1559Sender, PlatformSdkError } = await import("@sidiora/layerx-sdk");
+const { daemonFixture, loopback, envelopeClient, BudgetStore, temporaryDirectory, receiptsForDaemon } = await import("./repair-support.mjs");
 const { AgentMiddleware, decodeDaemonPrepared, signedActivityId, decodeDaemonSubmission,
   decodeDaemonSubmitResult, resolveDaemonReceipt, verifyAgentPayment } = await import("../src/index.ts");
 
@@ -138,9 +138,9 @@ async function decodeDaemonSubmissionAcceptsOnlyRungLevels(t) {
   assert.equal(decoded.tx_hash, observation.activity_id);
   assert.equal(decoded.activity_id, observation.activity_id);
   assert.deepEqual(decoded.portableReceipt, {
-    format: "layerx-receipt-proof-v2", verificationLevel: "committed",
+    format: "layerx-receipt-proof-v2", verificationLevel: "receipted",
     rawTransaction: `0x${transcript.raw_transaction}`, signedReceipt: `0x${observation.receipt.canonical_bytes}`,
-    receiptDigest: `0x${hex(keccak_256(bytes(observation.receipt.canonical_bytes)))}`,
+    receiptDigest: `0x${observation.submission.receipt_ref}`,
     receiptKey: transcript.receipt_key,
   });
   assert.equal(decodeDaemonSubmission(transcript.pending).verification_level, "Submitted");
@@ -223,16 +223,16 @@ export async function daemonSerializerPendingTrackingSurvivesReopen(t) {
   component.budgets.close();
   observation = transcript.committed;
   component = open();
-  // A committed label alone cannot authorize a debit without consensus evidence.
+  // The signed receipt authorizes the receipted debit even when tracking reports a committed rung.
   const committed = await component.middleware.resume(input, `0x${hex(raw)}`, transcript.submit.tx_hash);
-  assert.equal(committed.kind, "unknown");
+  assert.equal(committed.kind, "verified");
   assert.equal(committed.submission.state, "Committed");
   assert.equal(committed.submission.rung, "committed");
   assert.deepEqual(committed.submission.observation, transcript.committed);
   assert.equal(committed.submission.portableReceipt.signedReceipt, `0x${transcript.submit.signed_receipt}`);
   assert.equal(component.budgets.available, 75000n);
-  assert.equal(component.budgets.transitions.length, 0);
-  assert.equal([...component.budgets.reservations.values()][0].state, "reserved");
+  assert.equal(component.budgets.transitions.length, 1);
+  assert.equal([...component.budgets.reservations.values()][0].state, "committed");
   assert.equal(calls.filter((call) => call.operation === "submit").length, 1);
   assert.equal(calls.filter((call) => call.operation === "track").length, 2);
   component.budgets.close();

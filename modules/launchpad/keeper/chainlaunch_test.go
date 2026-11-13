@@ -63,6 +63,7 @@ func TestLaunchChainCreatesMarketChainAndBinding(t *testing.T) {
 	require.True(t, found)
 	require.Equal(t, record.RegistryNumber, indexed)
 	require.Equal(t, record.ChainID, c.k.HomeChainByPool(c.ctx, pool))
+	require.Equal(t, uint64(0), c.k.HomeChainByPool(c.ctx, recordedCreator))
 	_, found = c.k.GetMarket(c.ctx, market.Denom)
 	require.True(t, found)
 	domain, found := app.LayerXChainsKeeper.GetDomain(c.ctx, nextID)

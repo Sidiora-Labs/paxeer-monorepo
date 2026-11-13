@@ -45,7 +45,8 @@ versions of
 [contracts/\*](https://github.com/CosmWasm/cosmwasm/tree/main/contracts/) run
 through [cosmwasm/optimizer](https://github.com/CosmWasm/optimizer).
 
-To rebuild the test contracts, go to the repo root and do
+Run each shell block below from `core/deps/cosmwasm`. To rebuild the test
+contracts, use
 
 ```sh
 docker run --rm -v "$(pwd)":/code \

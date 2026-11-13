@@ -28,11 +28,11 @@ decides the verdict: `/success`, `/errorReason` or `/transaction`. Pending
 responses are valid wire documents with `success: false` and
 `errorReason: "settlement_pending"`.
 
-The three original sequenced vectors copy `extensions.layerx.receiptDigest`
+The `receipted_settlement`, `submitted_settlement` and
+`committed_without_proof` vectors carry `extensions.layerx.receiptDigest`
 verbatim from the `receiptDigest` of case `V1-layerxledger-pay-exact` in
-`sdk/platform/conformance/fixtures/sequencer-receipt-v1.json`. That fixture was
-written by `rpc/sequencer_receipt_vectors_test.go` with
-`go test -count=1 ./rpc/ -run TestSequencerReceiptVectors -update`. The
+`sdk/platform/conformance/fixtures/sequencer-receipt-v1.json`. The producer is
+`rpc/sequencer_receipt_vectors_test.go::TestSequencerReceiptVectors`. The
 receipted and submitted cases also copy its `receiptJson.txHash` as
 `transaction` and its `signedReceipt` as `extensions.layerx.signedReceipt`.
 The committed-without-proof case has `success: true`, no `errorReason`, an
@@ -42,7 +42,7 @@ on `/transaction`; it does not inspect the receipt extensions or establish
 commitment.
 
 `committed_settlement` copies the `committed-payExact` case in
-`services/interop/specs/conformance/committed/vector-v4-committed.json`, recorded
+`services/interop/specs/conformance/committed/vector-v4-committed.json`, produced
 by `daemon/committed-fixture/vector_v4.go::recordV4`. It uses that case's
 `receiptJson.txHash`, signed receipt, payer account and amount (3 atomic units).
 Its LayerX extension carries the canonical receipt digest,
@@ -78,8 +78,7 @@ exact-payment profile and authenticated node receipts.
 
 `PaymentRequirements::is_layerx_network` selects this profile only for
 `eip155:125` (`LAYERX_NETWORK` in
-[`model.rs`](../../../crates/layerx-x402/src/model.rs)). The historical
-`layerx:*` namespace is not the current Paxeer payment network identifier.
+[`model.rs`](../../../crates/layerx-x402/src/model.rs)).
 
 `extra.layerx` supplies the quote's account and currency terms:
 
@@ -99,8 +98,8 @@ account. The vectors cover a missing profile, another account's `payTo`, an
 invalid currency and an offer on another network without this profile. On a
 non-Paxeer network the validator rejects a supplied LayerX profile.
 
-Some recorded documents retain an `extra.layerx.commitment` field as historical
-extension data. It is not a current profile requirement or a finality selector:
+Some vectors carry an `extra.layerx.commitment` extension field.
+It is not a profile requirement or a finality selector:
 `LayerXTerms` contains only `account` and `currency`, and the profile parser
 reads only those fields. Settlement evidence is evaluated separately. The
 `extensions.layerx.verificationLevel` value in a settlement response describes

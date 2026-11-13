@@ -764,6 +764,29 @@ pub mod inference_market {
         height: u64,
         publication_time_ms: u64,
     ) -> Result<FinalizedSnapshot, AiClientError> {
+        poll_finalized_market_with_consensus(
+            endpoint,
+            endpoint,
+            verifier,
+            program_id,
+            height,
+            publication_time_ms,
+        )
+    }
+
+    /// Authenticate the node's committed header and the consensus listener's store proofs.
+    ///
+    /// # Errors
+    /// Returns an error if either endpoint refuses the pinned height or any proof,
+    /// namespace artifact, state digest or finalized snapshot is invalid.
+    pub fn poll_finalized_market_with_consensus(
+        endpoint: &crate::sequencer::SequencerEndpoint,
+        consensus: &crate::sequencer::SequencerEndpoint,
+        verifier: &layerx_programs_registry::chain_proof::ChainProofVerifier,
+        program_id: program::types::ProgramId,
+        height: u64,
+        publication_time_ms: u64,
+    ) -> Result<FinalizedSnapshot, AiClientError> {
         use super::{CommitFinality, ObservedSnapshot, VerifiedProgramState};
         use program::{
             codec::{self, ChunkRequest},
@@ -781,13 +804,13 @@ pub mod inference_market {
         key.extend_from_slice(b"progstor");
         key.extend_from_slice(program_id.as_bytes());
         key.push(1);
-        let (namespace, ops) = namespace_artifact(endpoint, &key, state_height, true)?;
+        let (namespace, ops) = namespace_artifact(consensus, &key, state_height, true)?;
         if namespace.len() != 38 || namespace[..2] != [0, 1] {
             return Err(invalid());
         }
         let mut blob = vec![5, 0, 9];
         blob.extend_from_slice(&namespace[6..]);
-        let (manifest, _) = namespace_artifact(endpoint, &blob, state_height, false)?;
+        let (manifest, _) = namespace_artifact(consensus, &blob, state_height, false)?;
         if sha2::Sha256::digest(&manifest).as_slice() != &namespace[6..] {
             return Err(invalid());
         }
@@ -812,7 +835,7 @@ pub mod inference_market {
         reader.finish()?;
         let mut blob = vec![5, 0, 9];
         blob.extend_from_slice(&state_digest.ok_or_else(invalid)?);
-        let (state, _) = namespace_artifact(endpoint, &blob, state_height, false)?;
+        let (state, _) = namespace_artifact(consensus, &blob, state_height, false)?;
         let witness = VerifiedProgramState::verify(
             &head,
             &verifier.chain_id,
@@ -869,10 +892,26 @@ pub mod inference_market {
         use base64::Engine as _;
         use layerx_programs_registry::chain_proof::decode::ProofOp;
         let invalid = || AiClientError::FinalityMismatch;
-        let result = endpoint.call_raw("abci_query", &serde_json::json!({
-            "path": "/store/lxphost/key", "data": format!("0x{}", layerx_programs_registry::hex::encode(key)),
+        let params = serde_json::json!({
+            "path": "/store/lxphost/key", "data": layerx_programs_registry::hex::encode(key),
             "height": height.to_string(), "prove": prove
-        })).map_err(|error| AiClientError::Submit(crate::rpc::submit::SubmitError::Sequencer(error)))?;
+        });
+        let mut result = serde_json::Value::Null;
+        for retry in 0..=8 {
+            result = endpoint.call_raw("abci_query", &params).map_err(|error| {
+                AiClientError::Submit(crate::rpc::submit::SubmitError::Sequencer(error))
+            })?;
+            let response = &result["response"];
+            if response["code"].as_u64() != Some(36)
+                || !response["log"]
+                    .as_str()
+                    .is_some_and(|log| log.starts_with("historical proof rate limited"))
+                || retry == 8
+            {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(250));
+        }
         let response = &result["response"];
         if response["code"].as_u64() != Some(0)
             || response["height"]

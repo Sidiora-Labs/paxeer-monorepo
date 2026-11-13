@@ -70,11 +70,7 @@ contract SelfDestructFactory {
     event ChildCreated(address child);
     event ChildDestroyed(address child);
 
-    function createAndDestroy(uint256 numKeys, address payable recipient)
-        external
-        payable
-        returns (address child)
-    {
+    function createAndDestroy(uint256 numKeys, address payable recipient) external payable returns (address child) {
         SelfDestructTester c = new SelfDestructTester{value: msg.value}(numKeys);
         child = address(c);
         emit ChildCreated(child);

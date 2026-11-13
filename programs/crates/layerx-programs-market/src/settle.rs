@@ -202,6 +202,8 @@ pub(crate) fn encode_claim(claim: &UsageClaim, output: &mut [u8]) -> Result<usiz
     Ok(offset)
 }
 
+/// # Errors
+/// Returns an error when the claim bytes contain an invalid field or trailing data.
 pub fn decode_claim(input: &[u8]) -> Result<UsageClaim, ProgramError> {
     let mut cursor = crate::Cursor::new(input);
     if cursor.byte()? != 1 {
@@ -1161,8 +1163,23 @@ mod tests {
             window.last_challenge_height,
         ));
 
-        let (_, claimed_expiry_lease, claimed_expiry, at_expiry) =
-            ok(finalize_unchallenged(offer, lease, claim, lease.expires_at));
+        settlement_expiry_paths(offer, &lease, &claim, honest, won, stake);
+    }
+
+    fn settlement_expiry_paths(
+        offer: Offer<'_>,
+        lease: &ComputeLease<'_>,
+        claim: &UsageClaim,
+        honest: SettlementPlan,
+        won: SettlementPlan,
+        stake: Amount,
+    ) {
+        let (_, claimed_expiry_lease, claimed_expiry, at_expiry) = ok(finalize_unchallenged(
+            offer,
+            *lease,
+            *claim,
+            lease.expires_at,
+        ));
         assert_eq!(at_expiry, honest);
         ok(SettlementRecord::new(
             &claimed_expiry_lease,
@@ -1172,8 +1189,8 @@ mod tests {
             lease.expires_at,
         ));
 
-        assert!(expire(offer, lease, lease.expires_at - 1).is_err());
-        let (expired_offer, expired) = ok(expire(offer, lease, lease.expires_at));
+        assert!(expire(offer, *lease, lease.expires_at - 1).is_err());
+        let (expired_offer, expired) = ok(expire(offer, *lease, lease.expires_at));
         assert_eq!(expired.status, LeaseStatus::ExpiredRefunded);
         assert_eq!(
             expired_offer.available_capacity,

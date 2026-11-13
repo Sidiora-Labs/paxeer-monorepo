@@ -6,14 +6,16 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"errors"
-	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
-	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/cleanup"
+	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 )
 
 type SocketIdentityAuthority interface {
@@ -39,13 +41,13 @@ type ConnectedWS struct {
 
 func NewConnectedWS(d ConnectedWSDeps) (*ConnectedWS, error) {
 	target, err := url.Parse(d.URL)
-	if err != nil || target.Scheme != "https" || target.Host == "" || target.Path != "" || target.User != nil || target.RawQuery != "" || target.Fragment != "" || d.Identity == nil || len(d.SigningKey) != ed25519.PrivateKeySize || d.TLS == nil || d.TLS.InsecureSkipVerify || d.TLS.RootCAs == nil || len(d.TLS.Certificates) == 0 || d.TLS.MinVersion < tls.VersionTLS13 {
+	if err != nil || target.Scheme != httpsScheme || target.Host == "" || target.Path != "" || target.User != nil || target.RawQuery != "" || target.Fragment != "" || d.Identity == nil || len(d.SigningKey) != ed25519.PrivateKeySize || d.TLS == nil || d.TLS.InsecureSkipVerify || d.TLS.RootCAs == nil || len(d.TLS.Certificates) == 0 || d.TLS.MinVersion < tls.VersionTLS13 {
 		return nil, errors.New("authenticated social socket binding unavailable")
 	}
 	origins := map[string]bool{}
 	for _, value := range d.Origins {
 		origin, err := url.Parse(value)
-		if err != nil || origin.Scheme != "https" || origin.Host == "" || origin.Path != "" || origin.User != nil || origin.RawQuery != "" || origin.Fragment != "" || strings.Contains(value, "*") {
+		if err != nil || origin.Scheme != httpsScheme || origin.Host == "" || origin.Path != "" || origin.User != nil || origin.RawQuery != "" || origin.Fragment != "" || strings.Contains(value, "*") {
 			return nil, errors.New("explicit socket origin required")
 		}
 		origins[value] = true
@@ -54,13 +56,13 @@ func NewConnectedWS(d ConnectedWSDeps) (*ConnectedWS, error) {
 		return nil, errors.New("socket origins unavailable")
 	}
 	target.Scheme = "wss"
-	target.Path = "/v2/stream"
+	target.Path = streamSocketRoute
 	transport := sharedauth.AssertionTransport{AssertionHeader: "X-Internal-Assertion", SignatureHeader: "X-Internal-Signature"}
-	return &ConnectedWS{target: target, identity: d.Identity, signer: sharedauth.ServiceAssertionIssuer{Issuer: "gateway", Audience: "social", Key: append(ed25519.PrivateKey(nil), d.SigningKey...), Transport: transport}, dialer: &websocket.Dialer{TLSClientConfig: d.TLS.Clone(), Proxy: nil, HandshakeTimeout: 3 * time.Second, ReadBufferSize: 4096, WriteBufferSize: 4096}, upgrader: websocket.Upgrader{Subprotocols: []string{"sidiora.v2"}, ReadBufferSize: 4096, WriteBufferSize: 4096, CheckOrigin: func(r *http.Request) bool { return origins[r.Header.Get("Origin")] }}, origins: origins, slots: make(chan struct{}, 10000)}, nil
+	return &ConnectedWS{target: target, identity: d.Identity, signer: sharedauth.ServiceAssertionIssuer{Issuer: gatewayServiceName, Audience: socialServiceName, Key: append(ed25519.PrivateKey(nil), d.SigningKey...), Transport: transport}, dialer: &websocket.Dialer{TLSClientConfig: d.TLS.Clone(), Proxy: nil, HandshakeTimeout: 3 * time.Second, ReadBufferSize: 4096, WriteBufferSize: 4096}, upgrader: websocket.Upgrader{Subprotocols: []string{streamSubprotocol}, ReadBufferSize: 4096, WriteBufferSize: 4096, CheckOrigin: func(r *http.Request) bool { return origins[r.Header.Get("Origin")] }}, origins: origins, slots: make(chan struct{}, 10000)}, nil
 }
 func (p *ConnectedWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	if r.Method != http.MethodGet || r.URL == nil || r.URL.Path != "/v2/stream" || r.URL.RawPath != "" || !websocket.IsWebSocketUpgrade(r) {
+	if r.Method != http.MethodGet || r.URL == nil || r.URL.Path != streamSocketRoute || r.URL.RawPath != "" || !websocket.IsWebSocketUpgrade(r) {
 		connectedError(w, 400, "socket_request_invalid")
 		return
 	}
@@ -79,7 +81,7 @@ func (p *ConnectedWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	protocol := false
 	for _, value := range websocket.Subprotocols(r) {
 		switch {
-		case value == "sidiora.v2":
+		case value == streamSubprotocol:
 			if protocol {
 				connectedError(w, 400, "socket_protocol_invalid")
 				return
@@ -138,7 +140,7 @@ func (p *ConnectedWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	binding := sharedauth.StreamTicketBinding{SchemaMajor: 2, Topics: topics, FilterDigest: sharedauth.StreamFilterDigest(topics), Origin: r.Header.Get("Origin"), Endpoint: "/v2/stream"}
+	binding := sharedauth.StreamTicketBinding{SchemaMajor: 2, Topics: topics, FilterDigest: sharedauth.StreamFilterDigest(topics), Origin: r.Header.Get("Origin"), Endpoint: streamSocketRoute}
 	if credentialed && sharedauth.ValidateChatStreamBinding(principal.StreamPrincipal(), binding) != nil {
 		connectedError(w, 401, "socket_scope_denied")
 		return
@@ -169,7 +171,7 @@ func (p *ConnectedWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	dialer := *p.dialer
-	dialer.Subprotocols = []string{"sidiora.v2", "ticket." + ticket}
+	dialer.Subprotocols = []string{streamSubprotocol, "ticket." + ticket}
 	upstream, response, err := dialer.DialContext(r.Context(), target.String(), request.Header)
 	if err != nil {
 		status := 503
@@ -183,8 +185,8 @@ func (p *ConnectedWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		connectedError(w, status, "socket_upstream_unavailable")
 		return
 	}
-	defer upstream.Close()
-	if upstream.Subprotocol() != "sidiora.v2" {
+	defer cleanup.Close(upstream)
+	if upstream.Subprotocol() != streamSubprotocol {
 		connectedError(w, 502, "socket_protocol_invalid")
 		return
 	}
@@ -192,7 +194,7 @@ func (p *ConnectedWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	defer client.Close()
+	defer cleanup.Close(client)
 	client.SetReadLimit(64 << 10)
 	upstream.SetReadLimit(64 << 10)
 	ctx, cancel := context.WithCancel(r.Context())
@@ -225,7 +227,8 @@ func (p *ConnectedWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		select {
 		case <-ctx.Done():
 			return
-		case <-failures:
+		case err := <-failures:
+			cleanup.Report("proxy stream", err)
 			return
 		case <-ticker.C:
 			if !credentialed {

@@ -85,7 +85,7 @@ func tenantReceiptActors(ctx context.Context, a Qualification, b Bundle, markets
 		}
 		var matches []*decode.DecodedEnvelope
 		for _, transfer := range out {
-			if transfer.Event == nil || transfer.Status != "decoded" || transfer.EmitterRole != "SidioraERC20" || common.HexToAddress(transfer.Raw.Emitter) != outputToken || transfer.EventName != "Transfer" || transfer.Raw.Order.Log >= env.Raw.Order.Log {
+			if transfer.Event == nil || transfer.Status != valueDecoded || transfer.EmitterRole != valueSidioraERC20 || common.HexToAddress(transfer.Raw.Emitter) != outputToken || transfer.EventName != "Transfer" || transfer.Raw.Order.Log >= env.Raw.Order.Log {
 				continue
 			}
 			if transfer.Event.Args["from"] == strings.ToLower(market.Pool.Hex()) && transfer.Event.Args["value"] == env.Event.Args["amountOut"] {

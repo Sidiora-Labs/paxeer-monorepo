@@ -1,14 +1,16 @@
-use std::sync::{Arc, Mutex, OnceLock};
+use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 use std::os::unix::fs::{FileTypeExt, MetadataExt, PermissionsExt};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
-use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, Zeroizing};
 
-use layerx_platform_internal::producer::{DeliveryFailure, DeliveryState, Health, Observation, Outbox, Pending, QueueState,
-    MAX_SCHEDULED_PRINCIPALS};
+use layerx_platform_internal::producer::{
+    DeliveryFailure, DeliveryState, Health, Observation, Outbox, Pending, QueueState,
+    MAX_SCHEDULED_PRINCIPALS,
+};
 
 use crate::store::{PrincipalScope, PrincipalStore, RowKey, StoreError, Table};
 
@@ -26,102 +28,155 @@ struct IssuedEnrollment {
 }
 
 impl Drop for IssuedEnrollment {
-    fn drop(&mut self) { self.credential.zeroize(); }
+    fn drop(&mut self) {
+        self.credential.zeroize();
+    }
 }
 
 pub(crate) fn enroll_session(
-    scope: &mut PrincipalScope<'_>, grant: &crate::auth::SessionGrant, now: u64,
+    scope: &mut PrincipalScope<'_>,
+    grant: &crate::auth::SessionGrant,
+    now: u64,
 ) -> Result<(), StoreError> {
     let key = RowKey::new("event-enrollment")?;
-    let prior = scope.get(Table::EventOutbox, &key)
+    let prior = scope
+        .get(Table::EventOutbox, &key)
         .map(|row| serde_json::from_slice::<IssuedEnrollment>(row.bytes()))
-        .transpose().map_err(|_| StoreError::Corrupt("invalid event enrollment"))?;
+        .transpose()
+        .map_err(|_| StoreError::Corrupt("invalid event enrollment"))?;
     if let Some(prior) = &prior {
-        if prior.principal != scope.principal().as_str() || prior.tenant != scope.tenant().as_str() {
+        if prior.principal != scope.principal().as_str() || prior.tenant != scope.tenant().as_str()
+        {
             return Err(StoreError::Corrupt("event enrollment ownership mismatch"));
         }
-        if prior.session_id == grant.session_id() && prior.credential == grant.access_token().expose()
+        if prior.session_id == grant.session_id()
+            && prior.credential == grant.access_token().expose()
             && prior.expires_at == grant.access_expires_at()
         {
             return Ok(());
         }
     }
-    let revision = prior.as_ref().map_or(Some(1), |prior| prior.revision.checked_add(1))
+    let revision = prior
+        .as_ref()
+        .map_or(Some(1), |prior| prior.revision.checked_add(1))
         .ok_or(StoreError::Corrupt("event enrollment revision exhausted"))?;
-    let enrollment = IssuedEnrollment { principal: scope.principal().as_str().to_owned(),
-        tenant: scope.tenant().as_str().to_owned(), revision, session_id: grant.session_id().to_owned(),
-        credential: grant.access_token().expose().to_owned(), expires_at: grant.access_expires_at() };
-    scope.put(Table::EventOutbox, key, now, serde_json::to_vec(&enrollment)
-        .map_err(|_| StoreError::Corrupt("event enrollment encoding"))?)
+    let enrollment = IssuedEnrollment {
+        principal: scope.principal().as_str().to_owned(),
+        tenant: scope.tenant().as_str().to_owned(),
+        revision,
+        session_id: grant.session_id().to_owned(),
+        credential: grant.access_token().expose().to_owned(),
+        expires_at: grant.access_expires_at(),
+    };
+    scope.put(
+        Table::EventOutbox,
+        key,
+        now,
+        serde_json::to_vec(&enrollment)
+            .map_err(|_| StoreError::Corrupt("event enrollment encoding"))?,
+    )
 }
 
 fn start_enrollment_reconciler(outbox: &Arc<HumanOutbox>) -> Result<(), String> {
     let mut sources = Vec::new();
     for kind in ["JOURNEY", "APPROVAL"] {
-        let source = layerx_platform_internal::tls::Upstream::from_environment(&format!("LAYERX_EVENTS_{kind}"))?;
-        if !source.authenticated_producer() { return Err("Human enrollment requires producer mTLS".to_owned()); }
+        let source = layerx_platform_internal::tls::Upstream::from_environment(&format!(
+            "LAYERX_EVENTS_{kind}"
+        ))?;
+        if !source.authenticated_producer() {
+            return Err("Human enrollment requires producer mTLS".to_owned());
+        }
         sources.push(source);
     }
     let owner = Arc::downgrade(outbox);
-    std::thread::Builder::new().name("human-event-enrollment".to_owned()).spawn(move || {
-        let mut after = String::new();
-        while let Some(outbox) = owner.upgrade() {
-            let enrollment = (|| -> Result<Option<IssuedEnrollment>, StoreError> {
-                let mut store = outbox.store.lock().map_err(|_| StoreError::Corrupt("Human store unavailable"))?;
-                let mut principals = store.known_principals()?;
-                if principals.len() > MAX_SCHEDULED_PRINCIPALS {
-                    return Err(StoreError::Corrupt("Human enrollment principal bound"));
-                }
-                principals.sort_by(|left, right| left.as_str().cmp(right.as_str()));
-                let Some(principal) = principals.iter().find(|principal| principal.as_str() > after.as_str())
-                    .or_else(|| principals.first()) else { return Ok(None); };
-                after = principal.as_str().to_owned();
-                let scope = store.principal(principal)?;
-                let row = scope.get(Table::EventOutbox, &RowKey::new("event-enrollment")?);
-                let enrollment = row.map(|row| serde_json::from_slice::<IssuedEnrollment>(row.bytes()))
-                    .transpose().map_err(|_| StoreError::Corrupt("event enrollment encoding"))?;
-                if enrollment.as_ref().is_some_and(|entry| entry.principal != scope.principal().as_str()
-                    || entry.tenant != scope.tenant().as_str())
-                { return Err(StoreError::Corrupt("event enrollment ownership mismatch")); }
-                Ok(enrollment)
-            })();
-            if let Ok(Some(enrollment)) = enrollment {
-                let now = layerx_platform_internal::secret::unix_seconds().unwrap_or(u64::MAX);
-                if enrollment.expires_at > now {
-                    if let Ok(body) = serde_json::to_vec(&enrollment) {
-                        let body = Zeroizing::new(body);
-                        let mut admitted = Vec::new();
-                        for source in &sources {
-                            let accepted = source.post("/internal/v1/enrollments", &body).ok()
-                                .filter(|response| response.status == 200)
-                                .and_then(|response| serde_json::from_slice::<serde_json::Value>(&response.body).ok())
-                                .is_some_and(|response| response["bound"] == true
-                                    && response["principal"] == enrollment.principal
-                                    && response["tenant"] == enrollment.tenant
-                                    && response["revision"] == enrollment.revision
-                                    && response["generation"].as_u64().is_some());
-                            admitted.push(accepted);
-                        }
-                        if let Ok(mut store) = outbox.store.lock() {
-                            if let Ok(principal) = crate::store::PrincipalId::new(enrollment.principal.clone()) {
-                                if let Ok(mut scope) = store.principal(&principal) {
-                                    if let Ok(key) = RowKey::new("event-enrollment-status") {
-                                        if let Ok(value) = serde_json::to_vec(&serde_json::json!({
+    std::thread::Builder::new()
+        .name("human-event-enrollment".to_owned())
+        .spawn(move || {
+            let mut after = String::new();
+            while let Some(outbox) = owner.upgrade() {
+                let enrollment = (|| -> Result<Option<IssuedEnrollment>, StoreError> {
+                    let mut store = outbox
+                        .store
+                        .lock()
+                        .map_err(|_| StoreError::Corrupt("Human store unavailable"))?;
+                    let mut principals = store.known_principals()?;
+                    if principals.len() > MAX_SCHEDULED_PRINCIPALS {
+                        return Err(StoreError::Corrupt("Human enrollment principal bound"));
+                    }
+                    principals.sort_by(|left, right| left.as_str().cmp(right.as_str()));
+                    let Some(principal) = principals
+                        .iter()
+                        .find(|principal| principal.as_str() > after.as_str())
+                        .or_else(|| principals.first())
+                    else {
+                        return Ok(None);
+                    };
+                    principal.as_str().clone_into(&mut after);
+                    let scope = store.principal(principal)?;
+                    let row = scope.get(Table::EventOutbox, &RowKey::new("event-enrollment")?);
+                    let enrollment = row
+                        .map(|row| serde_json::from_slice::<IssuedEnrollment>(row.bytes()))
+                        .transpose()
+                        .map_err(|_| StoreError::Corrupt("event enrollment encoding"))?;
+                    if enrollment.as_ref().is_some_and(|entry| {
+                        entry.principal != scope.principal().as_str()
+                            || entry.tenant != scope.tenant().as_str()
+                    }) {
+                        return Err(StoreError::Corrupt("event enrollment ownership mismatch"));
+                    }
+                    Ok(enrollment)
+                })();
+                if let Ok(Some(enrollment)) = enrollment {
+                    let now = layerx_platform_internal::secret::unix_seconds().unwrap_or(u64::MAX);
+                    if enrollment.expires_at > now {
+                        if let Ok(body) = serde_json::to_vec(&enrollment) {
+                            let body = Zeroizing::new(body);
+                            let mut admitted = Vec::new();
+                            for source in &sources {
+                                let accepted = source
+                                    .post("/internal/v1/enrollments", &body)
+                                    .ok()
+                                    .filter(|response| response.status == 200)
+                                    .and_then(|response| {
+                                        serde_json::from_slice::<serde_json::Value>(&response.body)
+                                            .ok()
+                                    })
+                                    .is_some_and(|response| {
+                                        response["bound"] == true
+                                            && response["principal"] == enrollment.principal
+                                            && response["tenant"] == enrollment.tenant
+                                            && response["revision"] == enrollment.revision
+                                            && response["generation"].as_u64().is_some()
+                                    });
+                                admitted.push(accepted);
+                            }
+                            if let Ok(mut store) = outbox.store.lock() {
+                                if let Ok(principal) =
+                                    crate::store::PrincipalId::new(enrollment.principal.clone())
+                                {
+                                    if let Ok(mut scope) = store.principal(&principal) {
+                                        if let Ok(key) = RowKey::new("event-enrollment-status") {
+                                            if let Ok(value) =
+                                                serde_json::to_vec(&serde_json::json!({
                                             "revision":enrollment.revision,"checked_at":now,
                                             "journey_bound":admitted.first() == Some(&true),
                                             "approval_bound":admitted.get(1) == Some(&true)}))
-                                        { let _ = scope.put(Table::EventOutbox, key, now, value); }
+                                            {
+                                                let _ =
+                                                    scope.put(Table::EventOutbox, key, now, value);
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
+                drop(outbox);
+                std::thread::sleep(Duration::from_millis(250));
             }
-            drop(outbox);
-            std::thread::sleep(Duration::from_millis(250));
-        }
-    }).map_err(|_| "Human enrollment worker unavailable".to_owned())?;
+        })
+        .map_err(|_| "Human enrollment worker unavailable".to_owned())?;
     Ok(())
 }
 
@@ -181,15 +236,22 @@ impl HumanOutbox {
     fn scheduling_ready(&self) -> Result<bool, String> {
         let now = layerx_platform_internal::secret::unix_seconds()?;
         let mut store = self.store.lock().map_err(|_| "Human store unavailable")?;
-        let principals = store.known_principals().map_err(|error| error.to_string())?;
+        let principals = store
+            .known_principals()
+            .map_err(|error| error.to_string())?;
         if principals.len() > MAX_SCHEDULED_PRINCIPALS {
             return Err("Human principal scheduling bound exceeded".to_owned());
         }
         for principal in principals {
-            let scope = store.principal(&principal).map_err(|error| error.to_string())?;
+            let scope = store
+                .principal(&principal)
+                .map_err(|error| error.to_string())?;
             let state = state(&scope).map_err(|error| error.to_string())?;
-            if state.delivery().attempts > 0 && state.delivery().first_refused_at
-                .is_some_and(|first| now.saturating_sub(first) >= 30)
+            if state.delivery().attempts > 0
+                && state
+                    .delivery()
+                    .first_refused_at
+                    .is_some_and(|first| now.saturating_sub(first) >= 30)
             {
                 return Ok(false);
             }
@@ -203,69 +265,120 @@ impl HumanOutbox {
 
     fn scheduled_at(&self, select: bool, now: u64) -> Result<Option<Pending>, String> {
         let mut store = self.store.lock().map_err(|_| "Human store unavailable")?;
-        let principals = store.known_principals().map_err(|error| error.to_string())?;
+        let principals = store
+            .known_principals()
+            .map_err(|error| error.to_string())?;
         if principals.len() > MAX_SCHEDULED_PRINCIPALS {
             return Err("Human principal scheduling bound exceeded".to_owned());
         }
         let mut maximum = 0;
         let mut selected: Option<(crate::store::PrincipalId, u64, Pending)> = None;
         for principal in principals {
-            let scope = store.principal(&principal).map_err(|error| error.to_string())?;
+            let scope = store
+                .principal(&principal)
+                .map_err(|error| error.to_string())?;
             let state = state(&scope).map_err(|error| error.to_string())?;
             maximum = maximum.max(state.delivery().selected_turn);
             if let Some(pending) = state.pending() {
                 let turn = state.delivery().selected_turn;
                 if (!select || state.delivery().eligible(now))
-                    && selected.as_ref().is_none_or(|(_, earlier, _)| turn < *earlier)
+                    && selected
+                        .as_ref()
+                        .is_none_or(|(_, earlier, _)| turn < *earlier)
                 {
                     selected = Some((principal, turn, pending));
                 }
             }
         }
-        let Some((principal, _, pending)) = selected else { return Ok(None); };
+        let Some((principal, _, pending)) = selected else {
+            return Ok(None);
+        };
         if select {
-            let mut scope = store.principal(&principal).map_err(|error| error.to_string())?;
+            let mut scope = store
+                .principal(&principal)
+                .map_err(|error| error.to_string())?;
             let mut state = state(&scope).map_err(|error| error.to_string())?;
-            state.selected(maximum.checked_add(1).ok_or("Human scheduling turn exhausted")?)?;
+            state.selected(
+                maximum
+                    .checked_add(1)
+                    .ok_or("Human scheduling turn exhausted")?,
+            )?;
             persist_state(&mut scope, &state, now)?;
         }
         Ok(Some(pending))
     }
 
-    fn update_head<T>(&self, id: &str, update: impl FnOnce(&mut QueueState) -> Result<T, String>) -> Result<T, String> {
+    fn update_head<T>(
+        &self,
+        id: &str,
+        update: impl FnOnce(&mut QueueState) -> Result<T, String>,
+    ) -> Result<T, String> {
         let mut store = self.store.lock().map_err(|_| "Human store unavailable")?;
-        for principal in store.known_principals().map_err(|error| error.to_string())? {
-            let mut scope = store.principal(&principal).map_err(|error| error.to_string())?;
+        for principal in store
+            .known_principals()
+            .map_err(|error| error.to_string())?
+        {
+            let mut scope = store
+                .principal(&principal)
+                .map_err(|error| error.to_string())?;
             let mut state = state(&scope).map_err(|error| error.to_string())?;
-            if state.pending().is_some_and(|entry| entry.observation.id == id) {
+            if state
+                .pending()
+                .is_some_and(|entry| entry.observation.id == id)
+            {
                 let result = update(&mut state)?;
-                persist_state(&mut scope, &state, layerx_platform_internal::secret::unix_seconds()?)?;
+                persist_state(
+                    &mut scope,
+                    &state,
+                    layerx_platform_internal::secret::unix_seconds()?,
+                )?;
                 return Ok(result);
             }
         }
         Err("Human delivery has no pending head".to_owned())
     }
 
-    fn status(&self, principal: &crate::store::PrincipalId, redeliver: bool) -> Result<serde_json::Value, String> {
+    fn status(
+        &self,
+        principal: &crate::store::PrincipalId,
+        redeliver: bool,
+    ) -> Result<serde_json::Value, String> {
         let mut store = self.store.lock().map_err(|_| "Human store unavailable")?;
-        if !store.known_principals().map_err(|error| error.to_string())?.contains(principal) {
+        if !store
+            .known_principals()
+            .map_err(|error| error.to_string())?
+            .contains(principal)
+        {
             return Err("unknown Human event principal".to_owned());
         }
-        let mut scope = store.principal(principal).map_err(|error| error.to_string())?;
+        let mut scope = store
+            .principal(principal)
+            .map_err(|error| error.to_string())?;
         let mut state = state(&scope).map_err(|error| error.to_string())?;
         if redeliver {
             state.operator_redelivery()?;
-            persist_state(&mut scope, &state, layerx_platform_internal::secret::unix_seconds()?)?;
+            persist_state(
+                &mut scope,
+                &state,
+                layerx_platform_internal::secret::unix_seconds()?,
+            )?;
         }
-        let enrollment = scope.get(Table::EventOutbox, &RowKey::new("event-enrollment-status")
-            .map_err(|error| error.to_string())?)
+        let enrollment = scope
+            .get(
+                Table::EventOutbox,
+                &RowKey::new("event-enrollment-status").map_err(|error| error.to_string())?,
+            )
             .map(|row| serde_json::from_slice::<serde_json::Value>(row.bytes()))
-            .transpose().map_err(|_| "invalid event enrollment status")?;
-        Ok(serde_json::json!({"principal":principal.as_str(), "delivery":state.delivery(),"enrollment":enrollment,
-            "pending":state.pending(), "pending_count":state.pending_count()}))
+            .transpose()
+            .map_err(|_| "invalid event enrollment status")?;
+        Ok(
+            serde_json::json!({"principal":principal.as_str(), "delivery":state.delivery(),"enrollment":enrollment,
+            "pending":state.pending(), "pending_count":state.pending_count()}),
+        )
     }
     pub(crate) fn start(store: Arc<Mutex<PrincipalStore>>) -> Result<Arc<Self>, String> {
-        let producer = layerx_platform_internal::producer::Client::from_environment(&["journey", "approval"])?;
+        let producer =
+            layerx_platform_internal::producer::Client::from_environment(&["journey", "approval"])?;
         health().require_admission();
         let outbox = Arc::new(Self {
             store,
@@ -279,17 +392,28 @@ impl HumanOutbox {
 }
 
 impl Outbox for HumanOutbox {
-    fn pending(&self) -> Result<Option<Pending>, String> { self.scheduled(false) }
+    fn pending(&self) -> Result<Option<Pending>, String> {
+        self.scheduled(false)
+    }
 
-    fn select(&self) -> Result<Option<Pending>, String> { self.scheduled(true) }
+    fn select(&self) -> Result<Option<Pending>, String> {
+        self.scheduled(true)
+    }
 
     fn scheduling(&self, id: &str) -> Result<Option<DeliveryState>, String> {
         self.update_head(id, |state| Ok(Some(state.delivery().clone())))
     }
 
-    fn failed_delivery(&self, id: &str, generation: Option<u64>, reason: DeliveryFailure) -> Result<(), String> {
+    fn failed_delivery(
+        &self,
+        id: &str,
+        generation: Option<u64>,
+        reason: DeliveryFailure,
+    ) -> Result<(), String> {
         let now = layerx_platform_internal::secret::unix_seconds()?;
-        self.update_head(id, |state| state.failed_delivery(id, generation, now, reason))
+        self.update_head(id, |state| {
+            state.failed_delivery(id, generation, now, reason)
+        })
     }
 
     fn resume_delivery(&self, id: &str, generation: u64) -> Result<(), String> {
@@ -323,26 +447,42 @@ impl Outbox for HumanOutbox {
     }
 }
 
-fn persist_state(scope: &mut PrincipalScope<'_>, state: &QueueState, now: u64) -> Result<(), String> {
-    scope.put(Table::EventOutbox, key().map_err(|error| error.to_string())?, now,
-        serde_json::to_vec(state).map_err(|error| error.to_string())?)
+fn persist_state(
+    scope: &mut PrincipalScope<'_>,
+    state: &QueueState,
+    now: u64,
+) -> Result<(), String> {
+    scope
+        .put(
+            Table::EventOutbox,
+            key().map_err(|error| error.to_string())?,
+            now,
+            serde_json::to_vec(state).map_err(|error| error.to_string())?,
+        )
         .map_err(|error| error.to_string())
 }
 
 fn start_status_listener(outbox: &Arc<HumanOutbox>) -> Result<(), String> {
-    let Some(path) = std::env::var_os("LAYERX_HUMAN_EVENT_STATUS_SOCKET") else { return Ok(()); };
+    let Some(path) = std::env::var_os("LAYERX_HUMAN_EVENT_STATUS_SOCKET") else {
+        return Ok(());
+    };
     let path = Path::new(&path);
     let parent = path.parent().ok_or("Human event status parent missing")?;
     let metadata = std::fs::symlink_metadata(parent).map_err(|error| error.to_string())?;
     let uid = rustix::process::geteuid().as_raw();
-    if !path.is_absolute() || std::fs::canonicalize(parent).map_err(|error| error.to_string())? != parent
-        || !metadata.is_dir() || metadata.uid() != uid || metadata.mode() & 0o077 != 0
+    if !path.is_absolute()
+        || std::fs::canonicalize(parent).map_err(|error| error.to_string())? != parent
+        || !metadata.is_dir()
+        || metadata.uid() != uid
+        || metadata.mode() & 0o077 != 0
     {
         return Err("Human event status directory must be owner-only".to_owned());
     }
     match std::fs::symlink_metadata(path) {
         Ok(metadata) => {
-            if !metadata.file_type().is_socket() || metadata.uid() != uid || metadata.mode() & 0o077 != 0
+            if !metadata.file_type().is_socket()
+                || metadata.uid() != uid
+                || metadata.mode() & 0o077 != 0
                 || UnixStream::connect(path).is_ok()
             {
                 return Err("Human event status socket is occupied or unprotected".to_owned());
@@ -353,46 +493,77 @@ fn start_status_listener(outbox: &Arc<HumanOutbox>) -> Result<(), String> {
         Err(error) => return Err(error.to_string()),
     }
     let listener = UnixListener::bind(path).map_err(|error| error.to_string())?;
-    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600)).map_err(|error| error.to_string())?;
-    listener.set_nonblocking(true).map_err(|error| error.to_string())?;
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
+        .map_err(|error| error.to_string())?;
+    listener
+        .set_nonblocking(true)
+        .map_err(|error| error.to_string())?;
     let owner = Arc::downgrade(outbox);
-    std::thread::Builder::new().name("human-event-status".to_owned()).spawn(move || {
-        while let Some(outbox) = owner.upgrade() {
-            match listener.accept() {
-                Ok((mut stream, _)) => {
-                    if !rustix::net::sockopt::socket_peercred(&stream).is_ok_and(|peer| peer.uid.as_raw() == uid) {
-                        continue;
+    std::thread::Builder::new()
+        .name("human-event-status".to_owned())
+        .spawn(move || {
+            while let Some(outbox) = owner.upgrade() {
+                match listener.accept() {
+                    Ok((mut stream, _)) => {
+                        if !rustix::net::sockopt::socket_peercred(&stream)
+                            .is_ok_and(|peer| peer.uid.as_raw() == uid)
+                        {
+                            continue;
+                        }
+                        let result = status_request(&outbox, &mut stream);
+                        let response = result.unwrap_or_else(
+                            |_| serde_json::json!({"error":"event_status_refused"}),
+                        );
+                        if let Ok(bytes) = serde_json::to_vec(&response) {
+                            let _ = stream.write_all(&bytes);
+                        }
                     }
-                    let result = status_request(&outbox, &mut stream);
-                    let response = result.unwrap_or_else(|_| serde_json::json!({"error":"event_status_refused"}));
-                    if let Ok(bytes) = serde_json::to_vec(&response) { let _ = stream.write_all(&bytes); }
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        drop(outbox);
+                        std::thread::sleep(Duration::from_millis(100));
+                    }
+                    Err(_) => break,
                 }
-                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                    drop(outbox);
-                    std::thread::sleep(Duration::from_millis(100));
-                }
-                Err(_) => break,
             }
-        }
-    }).map(|_| ()).map_err(|error| error.to_string())
+        })
+        .map(|_| ())
+        .map_err(|error| error.to_string())
 }
 
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-struct StatusRequest { operation: String, principal: String }
+struct StatusRequest {
+    operation: String,
+    principal: String,
+}
 
-fn status_request(outbox: &HumanOutbox, stream: &mut UnixStream) -> Result<serde_json::Value, String> {
-    stream.set_read_timeout(Some(Duration::from_secs(3))).map_err(|error| error.to_string())?;
-    stream.set_write_timeout(Some(Duration::from_secs(3))).map_err(|error| error.to_string())?;
+fn status_request(
+    outbox: &HumanOutbox,
+    stream: &mut UnixStream,
+) -> Result<serde_json::Value, String> {
+    stream
+        .set_read_timeout(Some(Duration::from_secs(3)))
+        .map_err(|error| error.to_string())?;
+    stream
+        .set_write_timeout(Some(Duration::from_secs(3)))
+        .map_err(|error| error.to_string())?;
     let mut bytes = Vec::new();
-    stream.take(4097).read_to_end(&mut bytes).map_err(|error| error.to_string())?;
-    if bytes.len() > 4096 { return Err("event status request exceeds bound".to_owned()); }
-    let request: StatusRequest = serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
+    stream
+        .take(4097)
+        .read_to_end(&mut bytes)
+        .map_err(|error| error.to_string())?;
+    if bytes.len() > 4096 {
+        return Err("event status request exceeds bound".to_owned());
+    }
+    let request: StatusRequest =
+        serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
     if !matches!(request.operation.as_str(), "status" | "redeliver") {
         return Err("unknown event status operation".to_owned());
     }
-    outbox.status(&crate::store::PrincipalId::new(request.principal).map_err(|error| error.to_string())?,
-        request.operation == "redeliver")
+    outbox.status(
+        &crate::store::PrincipalId::new(request.principal).map_err(|error| error.to_string())?,
+        request.operation == "redeliver",
+    )
 }
 
 #[cfg(test)]
@@ -545,82 +716,140 @@ mod fairness_tests {
         result.unwrap_or_else(|error| panic!("{error:?}"))
     }
 
+    fn seed_approvals(store: &Arc<Mutex<PrincipalStore>>, alice: &PrincipalId, bob: &PrincipalId) {
+        let mut store = required(store.lock());
+        for principal in [alice, bob] {
+            let mut scope = required(store.principal(principal));
+            for (sequence, status) in [(1, "pending"), (2, "approved")] {
+                required(crate::server::stream_journal::StreamJournal::append(
+                    &mut scope,
+                    &format!("approval:{}:{sequence}", principal.as_str()),
+                    if sequence == 1 {
+                        "approval-created"
+                    } else {
+                        "approval-approved"
+                    },
+                    100 + sequence,
+                    serde_json::json!({"approval":{"approval_id":format!("approval-{}", principal.as_str()),
+                        "agent_id":"agent-one", "state":status, "created_at":100}}),
+                ));
+            }
+        }
+    }
+
+    fn refuse_first(outbox: &HumanOutbox, id: &str, now: u64) {
+        required(outbox.update_head(id, |state| {
+            state.failed_delivery(id, Some(1), now, DeliveryFailure::ObservationRefused)
+        }));
+    }
+
+    fn reopened_outbox(
+        directory: &std::path::Path,
+        retention: RetentionPolicy,
+        digest: crate::store::TenancyDigest,
+    ) -> HumanOutbox {
+        HumanOutbox {
+            store: Arc::new(Mutex::new(required(PrincipalStore::open(
+                directory, retention, digest,
+            )))),
+            health: Arc::new(Health::default()),
+        }
+    }
+
     #[test]
     fn failed_first_principal_cannot_starve_a_healthy_outbox_and_survives_restart() {
-        let directory = std::env::temp_dir().join(format!("human-fair-events-{}", std::process::id()));
+        let directory =
+            std::env::temp_dir().join(format!("human-fair-events-{}", std::process::id()));
         required(std::fs::create_dir_all(&directory));
         let alice = required(PrincipalId::new("alice"));
         let bob = required(PrincipalId::new("bob"));
         let tenant = required(AgentTenantId::new("tenant"));
-        let tenancy = required(TenancyMap::new([(alice.clone(), tenant.clone()), (bob.clone(), tenant)]));
+        let tenancy = required(TenancyMap::new([
+            (alice.clone(), tenant.clone()),
+            (bob.clone(), tenant),
+        ]));
         let digest = required(tenancy.install(&directory));
         let period = RetentionPeriod::new(10);
-        let retention = RetentionPolicy { journeys: period, notifications: period,
-            audit: period, telemetry: period, cache: period };
-        let store = Arc::new(Mutex::new(required(PrincipalStore::open(&directory, retention, digest))));
-        {
-            let mut store = required(store.lock());
-            for principal in [&alice, &bob] {
-                let mut scope = required(store.principal(principal));
-                for (sequence, status) in [(1, "pending"), (2, "approved")] {
-                    required(crate::server::stream_journal::StreamJournal::append(&mut scope,
-                        &format!("approval:{}:{sequence}", principal.as_str()),
-                        if sequence == 1 { "approval-created" } else { "approval-approved" },
-                        100 + sequence,
-                        serde_json::json!({"approval":{"approval_id":format!("approval-{}", principal.as_str()),
-                            "agent_id":"agent-one", "state":status, "created_at":100}})));
-                }
-            }
-        }
-        let outbox = HumanOutbox { store: Arc::clone(&store), health: Arc::new(Health::default()) };
+        let retention = RetentionPolicy {
+            journeys: period,
+            notifications: period,
+            audit: period,
+            telemetry: period,
+            cache: period,
+        };
+        let store = Arc::new(Mutex::new(required(PrincipalStore::open(
+            &directory, retention, digest,
+        ))));
+        seed_approvals(&store, &alice, &bob);
+        let outbox = HumanOutbox {
+            store: Arc::clone(&store),
+            health: Arc::new(Health::default()),
+        };
         let now = 1_000;
         let first = required(outbox.pending()).unwrap_or_else(|| panic!("first pending"));
         assert_eq!(first.observation.principal.as_deref(), Some("alice"));
         assert_eq!(required(outbox.pending()), Some(first.clone()));
-        assert_eq!(required(outbox.scheduled_at(true, now)), Some(first.clone()));
-        required(outbox.update_head(&first.observation.id, |state| state.failed_delivery(
-            &first.observation.id, Some(1), now, DeliveryFailure::ObservationRefused)));
+        assert_eq!(
+            required(outbox.scheduled_at(true, now)),
+            Some(first.clone())
+        );
+        refuse_first(&outbox, &first.observation.id, now);
         let failure = required(outbox.status(&alice, false));
         for sequence in [1, 2] {
-            let healthy = required(outbox.scheduled_at(true, now)).unwrap_or_else(|| panic!("healthy principal starved"));
+            let healthy = required(outbox.scheduled_at(true, now))
+                .unwrap_or_else(|| panic!("healthy principal starved"));
             assert_eq!(healthy.observation.principal.as_deref(), Some("bob"));
             assert_eq!(healthy.observation.sequence, sequence);
             assert!(outbox.acknowledge(&healthy.observation.id, false).is_err());
             required(outbox.acknowledge(&healthy.observation.id, true));
-            let observed = required(outbox.scheduled_at(true, now)).unwrap_or_else(|| panic!("notification missing"));
+            let observed = required(outbox.scheduled_at(true, now))
+                .unwrap_or_else(|| panic!("notification missing"));
             assert!(observed.observed);
             assert_eq!(observed.body, healthy.body);
             required(outbox.acknowledge(&healthy.observation.id, false));
         }
         let remaining = required(outbox.status(&alice, false));
-        assert_eq!(remaining["pending"], serde_json::to_value(&first).unwrap_or_else(|error| panic!("{error}")));
-        assert_eq!(remaining["delivery"]["first_refused_at"], failure["delivery"]["first_refused_at"]);
+        assert_eq!(
+            remaining["pending"],
+            serde_json::to_value(&first).unwrap_or_else(|error| panic!("{error}"))
+        );
+        assert_eq!(
+            remaining["delivery"]["first_refused_at"],
+            failure["delivery"]["first_refused_at"]
+        );
         for _ in 1..layerx_platform_internal::producer::MAX_DELIVERY_ATTEMPTS {
-            required(outbox.update_head(&first.observation.id, |state| state.failed_delivery(
-            &first.observation.id, Some(1), now, DeliveryFailure::ObservationRefused)));
+            refuse_first(&outbox, &first.observation.id, now);
         }
         let terminal = required(outbox.status(&alice, false));
         assert_eq!(terminal["pending_count"], 2);
         assert_eq!(terminal["delivery"]["redelivery_required"], true);
         drop(outbox);
         drop(store);
-        let outbox = HumanOutbox {
-            store: Arc::new(Mutex::new(required(PrincipalStore::open(&directory, retention, digest)))),
-            health: Arc::new(Health::default()),
-        };
+        let outbox = reopened_outbox(&directory, retention, digest);
         assert_eq!(required(outbox.status(&alice, false)), terminal);
         assert_eq!(required(outbox.status(&bob, false))["pending_count"], 0);
         assert!(outbox.resume_delivery(&first.observation.id, 1).is_err());
         required(outbox.resume_delivery(&first.observation.id, 2));
-        assert_eq!(required(outbox.scheduled_at(true, now)), Some(first.clone()));
-        let second_id = layerx_platform_internal::producer::event_id("approval", "approval-alice", 2);
+        assert_eq!(
+            required(outbox.scheduled_at(true, now)),
+            Some(first.clone())
+        );
+        let second_id =
+            layerx_platform_internal::producer::event_id("approval", "approval-alice", 2);
         assert!(outbox.acknowledge(&second_id, true).is_err());
         required(outbox.acknowledge(&first.observation.id, true));
         required(outbox.acknowledge(&first.observation.id, false));
-        let second = required(outbox.scheduled_at(true, now)).unwrap_or_else(|| panic!("second event missing"));
+        let second = required(outbox.scheduled_at(true, now))
+            .unwrap_or_else(|| panic!("second event missing"));
         assert_eq!(second.observation.id, second_id);
-        required(outbox.update_head(&second_id, |state| state.failed_delivery(
-            &second_id, Some(2), now, DeliveryFailure::NotificationUnavailable)));
+        required(outbox.update_head(&second_id, |state| {
+            state.failed_delivery(
+                &second_id,
+                Some(2),
+                now,
+                DeliveryFailure::NotificationUnavailable,
+            )
+        }));
         required(outbox.status(&alice, true));
         assert_eq!(required(outbox.scheduled_at(true, now)), Some(second));
         drop(outbox);

@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 mod support;
 
 use layerx_human_security_provider::{serve, Config};

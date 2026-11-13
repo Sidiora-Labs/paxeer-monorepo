@@ -6,10 +6,14 @@
 /// Append the minimal unsigned protobuf varint representation of `value`.
 pub fn encode_varint(mut value: u64, output: &mut Vec<u8>) {
     while value >= 0x80 {
-        output.push((value as u8 & 0x7f) | 0x80);
+        output.push((value.to_le_bytes()[0] & 0x7f) | 0x80);
         value >>= 7;
     }
-    output.push(value as u8);
+    output.push(value.to_le_bytes()[0]);
+}
+
+pub(crate) fn signed_varint(value: i64) -> u64 {
+    u64::from_ne_bytes(value.to_ne_bytes())
 }
 
 /// Append a field key with wire type 0 followed by an unsigned varint.

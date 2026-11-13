@@ -88,6 +88,11 @@ func (d *repairM1040DB) stop() {
 	<-d.Accepted
 	d.Connections.Wait()
 }
+func (d *repairM1040DB) commitDrops() int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.CommitDrops
+}
 func (d *repairM1040DB) save() {
 	raw, err := json.Marshal(d.Tables)
 	if err != nil {
@@ -148,11 +153,14 @@ func (d *repairM1040DB) connection(connection net.Conn) {
 		}
 		if lower == "commit" {
 			d.save()
-			locked = false
-			d.mu.Unlock()
-			if d.DropCommit {
+			dropCommit := d.DropCommit
+			if dropCommit {
 				d.DropCommit = false
 				d.CommitDrops++
+			}
+			locked = false
+			d.mu.Unlock()
+			if dropCommit {
 				return repair1039Result{err: "fixture: commit acknowledgement lost"}
 			}
 			return repair1039Result{tag: "COMMIT"}
@@ -462,7 +470,7 @@ func TestRepairM_1040_CommitAckLost(t *testing.T) {
 	server := httptest.NewServer(f.router(t))
 	status, _, reply := repairM1040Post(t, server.Client(), server.URL, body)
 	server.Close()
-	if status != http.StatusServiceUnavailable || reply.OK || reply.Errors != 1 || f.db.CommitDrops != 1 {
+	if status != http.StatusServiceUnavailable || reply.OK || reply.Errors != 1 || f.db.commitDrops() != 1 {
 		t.Fatalf("ambiguous commit acknowledged: %d %+v", status, reply)
 	}
 	f.restart(t)

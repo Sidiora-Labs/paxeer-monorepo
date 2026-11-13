@@ -1,42 +1,13 @@
-//! Task 22.33.260 repair record (base e10f9259ee12f1c3a5844cab3d0331703298a243).
-//! Original baseline: the declared integration target did not exist. No baseline gate ran: the
-//! task's bounded gate order requires implementation before the first build/verification.
-//! Continued candidate ac62f650f92bf4699a92c09f5dfb13e5000eebc1: build and dependency
-//! checks passed; all eight cases refused with F02_DEADLINE_INVALID (verify exit 1,
-//! /out/logs/verify-1.log). Enrollment now respects the proposal lifetime; signed metadata
-//! refreshes preserve live workers, and recovery retains Create's produced joint section.
-//! Attempt 4 diagnostic candidate 6e770fda6cf94f010f647714b687d8f4d026642d: build
-//! and dependents exit 0; verify exit 1, all eight cases BAD_VERSION (/out/logs/verify-1.log).
-//! One site: admission.rs:660, reached through tasks.rs::set_binding by seal_tasks;
-//! the fixture passed Create's RP07-prefixed joint section to an F08-only reader.
-//! Task-set and admitted-report reads now use epoch::carry_reputation, just like dispatch,
-//! preserving produced bytes and presenting only the F08 table to those consumers.
-//! Attempt 4 candidate 0b5369ce473eb4154744eb2fa7dd0006f77a898e: seven cases passed;
-//! aggregation_storage_admission_refusal expected AlreadyApplied for a stale cursor.
-//! The continuation proves STALE_CURSOR leaves recovered state and settlement intact,
-//! then reads progress and sends the current cursor to prove AlreadyApplied separately.
-//! Final build/verify revision, commands and exits are recorded by reference in the last
-//! build/verify rows of /out/run/gates.jsonl, including their private log locations.
-//! These references do not claim a pass before the gates execute.
-//! evaluator-admission-fixture: evaluator_admission_fixture; windows-admission-fixture:
-//! windows_admission_fixture; aggregation-admission-fixture: aggregation_admission_fixture;
-//! reputation-admission-fixture: reputation_admission_fixture; routed-sealed-revocation:
-//! routed_sealed_revocation; reward-lifecycle-producer: reward_lifecycle_producer;
-//! reputation-native-atomicity: reputation_storage_refusal_and_reopen.
-//! aggregation-native-fuel-proof: native `prove` protocol in test_ai_host_boundary.c;
-//! full guest execution is not a claimed result of this self-contained Rust gate.
-//! Native ProcessAggregation fuel execution requires the production guest; the C harness
-//! accepts per-call fuel and storage-admission controls without substituting a guest.
-//! Wiring request (domain 13): programs/tests/ai-market/run-aggregation-runtime.sh must
-//! drive the native harness fuel control and retain its execution receipt as AI.F05-A16.
+//! Market state producers and persistence assertions.
 
 // This integration target is also included by the existing suites for its shared, real
 // producer fixtures. It has no subprocess, artifact or environment dependency.
 #![allow(dead_code)]
 use ed25519_dalek::{Signer, SigningKey};
+use layerx_ai_market_test_values::RequiredValue as _;
 use layerx_programs_ai_market::{
     admission::{AdmissionContext, AdmissionTable, ApprovalTerms, EvaluatorConsent, Participant},
-    aggregation::{self, Progress},
+    aggregation::{self},
     aggregation_codec::AggregationPhase,
     codec::{self, decode_envelope, decode_result, encode_envelope, Envelope, ResultStatus},
     dispatch::{self, Buffers, Operation, Routed},
@@ -51,7 +22,6 @@ use layerx_programs_ai_market::{
     registry::{derive_rewards_account, MarketHeader},
     registry_ops::{CallContext, PolicySection},
     reputation_transition::split_joint,
-    rewards::{decode_reward_state, REWARD_STATE_BYTES},
     state::{decode_shared_state, ActorSlot, Section},
     tasks::{self, SetBinding, TaskSet},
     types::*,
@@ -65,9 +35,8 @@ fn fixture_step<T>(
     operation: &str,
     run: impl FnOnce() -> CodecResult<T>,
 ) -> CodecResult<T> {
-    run().map_err(|error| {
+    run().inspect_err(|&error| {
         eprintln!("fixture step={step} operation={operation}: {error:?}");
-        error
     })
 }
 
@@ -103,9 +72,8 @@ pub fn table(bytes: &[u8]) -> CodecResult<AdmissionTable> {
             })?;
             let joint = state.feature_sections[Section::ReputationAdmission.index()];
             let (_, table) = fixture_step("table", "split_joint", || split_joint(joint))?;
-            AdmissionTable::decode(table).map_err(|error| {
+            AdmissionTable::decode(table).inspect_err(|_| {
         eprintln!("fixture step=table operation=AdmissionTable::decode decoder=admission.rs:660 prefix={:?} length={}", table.get(..2), table.len());
-        error
     })
         },
     )
@@ -244,7 +212,7 @@ fn crate_error_name(error: layerx_programs_ai_market::errors::ApplicationError) 
     layerx_programs_ai_market::errors::APPLICATION_ERRORS
         .iter()
         .find(|entry| entry.code == error.code())
-        .expect("registered application error")
+        .required_with("registered application error")
         .name
 }
 pub fn apply(
@@ -258,7 +226,7 @@ pub fn apply(
         compose(bytes, encoded, actor, at)
     })?;
     match reply.routed {
-        Routed::Applied { .. } => *bytes = reply.state.clone(),
+        Routed::Applied { .. } => bytes.clone_from(&reply.state),
         Routed::Refused { .. } => {
             let error = decode_result(&reply.result)?.error.ok_or(NON_CANONICAL)?;
             let name = crate_error_name(error);
@@ -595,7 +563,7 @@ pub fn refresh_workers_with(
                 manifest.extend_from_slice(&1u16.to_be_bytes());
                 manifest.push(1);
                 let uri = b"https://worker.example/paxai/v1";
-                manifest.extend_from_slice(&(uri.len() as u32).to_be_bytes());
+                manifest.extend_from_slice(&(u32::try_from(uri.len()).required()).to_be_bytes());
                 manifest.extend_from_slice(uri);
                 manifest.extend_from_slice(&[70; 32]);
                 manifest.push(1);
@@ -612,7 +580,8 @@ pub fn refresh_workers_with(
                 payload.extend_from_slice(summary.digest.as_bytes());
                 payload.extend_from_slice(&summary.valid_from.to_be_bytes());
                 payload.extend_from_slice(&summary.expiry.to_be_bytes());
-                payload.extend_from_slice(&(manifest.len() as u32).to_be_bytes());
+                payload
+                    .extend_from_slice(&(u32::try_from(manifest.len()).required()).to_be_bytes());
                 payload.extend_from_slice(&manifest);
                 let encoded = envelope(
                     bytes,
@@ -688,7 +657,8 @@ pub fn open(bytes: &mut Vec<u8>, at: u64) -> CodecResult<Frozen> {
                 cursor = next_cursor;
                 let captured = epoch::captured_roster(&decode_shared_state(bytes)?)?;
                 if cursor == participant_count {
-                    let captured = captured.expect("the final opening call publishes the roster");
+                    let captured =
+                        captured.required_with("the final opening call publishes the roster");
                     assert_eq!(captured.binding.epoch, frozen.epoch);
                     assert_eq!(captured.binding.config, frozen.config);
                     assert_eq!(captured.binding.roster, frozen.roster);
@@ -845,6 +815,10 @@ pub fn heartbeat(bytes: &mut Vec<u8>, at: u64) -> CodecResult<()> {
 }
 /// Four admissions per opened epoch, with real terminal steps and heartbeats in between.
 /// Returns the height at which the final roster can be opened (epoch 12 for 32 workers).
+#[allow(
+    clippy::too_many_arguments,
+    reason = "The shared producer API preserves each explicit identity and roster input."
+)]
 pub fn grow(
     bytes: &mut Vec<u8>,
     owner_sequence: &mut u64,
@@ -939,16 +913,7 @@ pub fn prepare_scores(
             if weights.iter().all(|(_, weight)| *weight == 0) {
                 return Ok(());
             }
-            let mut ballot = weights
-                .iter()
-                .map(|(w, score)| (w.worker, *score))
-                .collect::<Vec<_>>();
-            ballot.sort_by_key(|(w, _)| *w);
-            let mut scores = Vec::new();
-            for (worker, score) in ballot {
-                scores.extend_from_slice(worker.as_bytes());
-                scores.extend_from_slice(&score.to_be_bytes());
-            }
+            let scores = prepared_scores(weights);
             let policy = PolicySection::decode(
                 decode_shared_state(bytes)?.feature_sections[Section::PolicyLifecycle.index()],
             )?
@@ -1028,6 +993,19 @@ pub fn prepare_scores(
             Ok(())
         },
     )
+}
+fn prepared_scores(weights: &[(WorkerRosterEntry, u32)]) -> Vec<u8> {
+    let mut ballot = weights
+        .iter()
+        .map(|(w, score)| (w.worker, *score))
+        .collect::<Vec<_>>();
+    ballot.sort_by_key(|(w, _)| *w);
+    let mut scores = Vec::new();
+    for (worker, score) in ballot {
+        scores.extend_from_slice(worker.as_bytes());
+        scores.extend_from_slice(&score.to_be_bytes());
+    }
+    scores
 }
 
 fn fixture_principal(n: u8) -> CodecResult<PrincipalId> {

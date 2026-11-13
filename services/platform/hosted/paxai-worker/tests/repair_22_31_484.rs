@@ -11,13 +11,13 @@ use layerx_programs_ai_market::{
     errors::{BAD_VERSION, CAPACITY, NON_CANONICAL},
     policy::{PolicyCommitments, TaskPolicyV1, TASK_POLICY_BYTES},
     queries::{read_state_chunk, CaptureFacts, FinalityEvidence, ReadProof, StateCapture},
-    registry::{derive_rewards_account, F01_SECTION_CAP},
+    registry::{derive_rewards_account, MarketHeader, F01_SECTION_CAP},
     registry_ops::{self, CallContext, Outcome, PolicySection},
     reputation_transition::{encode_joint, split_joint, HistorySeal, Region},
     state::{decode_shared_state, encode_shared_state, Section, SharedState},
     types::{
-        AssetId, Authentication, ChainDomain, Digest32, MetadataDigest, Presence, PrincipalId,
-        ProgramId, PublicKey32, RequestId, RubricDigest,
+        AssetId, Authentication, ChainDomain, Digest32, MarketId, MetadataDigest, Presence,
+        PrincipalId, ProgramId, PublicKey32, RequestId, RubricDigest,
     },
     workers::{WorkerCurrent, WorkerState, WorkerTable, WORKER_TABLE_MAX_BYTES},
     MAX_ENVELOPE_BYTES, MAX_EVENT_BYTES, MAX_STATE_BYTES,
@@ -46,6 +46,62 @@ struct Fixture {
     table: AdmissionTable,
     table_bytes: Vec<u8>,
     region: Region,
+}
+
+fn approved_worker(
+    header: &MarketHeader,
+    market: MarketId,
+    owner: PrincipalId,
+) -> Checked<(WorkerCurrent, Vec<u8>, AdmissionTable, Vec<u8>)> {
+    let worker = WorkerCurrent {
+        worker: checked(derive_worker(market, owner, [17; 32]))?,
+        owner,
+        delegate: PublicKey32([18; 32]),
+        metadata: checked(MetadataDigest::new([19; 32]))?,
+        generation: 1,
+        key_version: 1,
+        metadata_revision: 1,
+        valid_from: HEIGHT,
+        expiry: HEIGHT + 64,
+        revocation_sequence: 0,
+        effective_epoch: 0,
+        last_sequence: 0,
+        last_request_id: [0; 32],
+        last_request_digest: [0; 32],
+        last_result_digest: [0; 32],
+        state: WorkerState::Enrolled,
+        slot: 0,
+        last_metadata_height: HEIGHT,
+    };
+    let mut workers = WorkerTable::new();
+    checked(workers.insert(&worker))?;
+    let mut identity = vec![0; WORKER_TABLE_MAX_BYTES];
+    let len = checked(workers.encode(&mut identity))?;
+    identity.truncate(len);
+    let mut table = AdmissionTable::new();
+    checked(table.approve(
+        &AdmissionContext {
+            market: header,
+            invoking_principal: owner,
+            height: HEIGHT,
+        },
+        &ApprovalTerms {
+            participant: Participant::Worker(worker.worker),
+            owner,
+            enrollment_nonce_commitment: checked(Digest32::new([20; 32]))?,
+            delegate: worker.delegate,
+            delegate_generation: 1,
+            identity_commitment: checked(Digest32::new([21; 32]))?,
+            effective_epoch: 0,
+            config_version: 1,
+            request: checked(RequestId::new([22; 32]))?,
+            expiry_height: HEIGHT + 64,
+        },
+    ))?;
+    let mut table_bytes = vec![0; TABLE_MAX_BYTES];
+    let len = checked(table.encode(&mut table_bytes))?;
+    table_bytes.truncate(len);
+    Ok((worker, identity, table, table_bytes))
 }
 
 impl Fixture {
@@ -124,54 +180,7 @@ impl Fixture {
             state.section(Section::ReputationAdmission),
         )?))?;
         let region = region.ok_or("CREATE must produce the F07 region")?;
-        let worker = WorkerCurrent {
-            worker: checked(derive_worker(market, owner, [17; 32]))?,
-            owner,
-            delegate: PublicKey32([18; 32]),
-            metadata: checked(MetadataDigest::new([19; 32]))?,
-            generation: 1,
-            key_version: 1,
-            metadata_revision: 1,
-            valid_from: HEIGHT,
-            expiry: HEIGHT + 64,
-            revocation_sequence: 0,
-            effective_epoch: 0,
-            last_sequence: 0,
-            last_request_id: [0; 32],
-            last_request_digest: [0; 32],
-            last_result_digest: [0; 32],
-            state: WorkerState::Enrolled,
-            slot: 0,
-            last_metadata_height: HEIGHT,
-        };
-        let mut workers = WorkerTable::new();
-        checked(workers.insert(&worker))?;
-        let mut identity = vec![0; WORKER_TABLE_MAX_BYTES];
-        let len = checked(workers.encode(&mut identity))?;
-        identity.truncate(len);
-        let mut table = AdmissionTable::new();
-        checked(table.approve(
-            &AdmissionContext {
-                market: &header,
-                invoking_principal: owner,
-                height: HEIGHT,
-            },
-            &ApprovalTerms {
-                participant: Participant::Worker(worker.worker),
-                owner,
-                enrollment_nonce_commitment: checked(Digest32::new([20; 32]))?,
-                delegate: worker.delegate,
-                delegate_generation: 1,
-                identity_commitment: checked(Digest32::new([21; 32]))?,
-                effective_epoch: 0,
-                config_version: 1,
-                request: checked(RequestId::new([22; 32]))?,
-                expiry_height: HEIGHT + 64,
-            },
-        ))?;
-        let mut table_bytes = vec![0; TABLE_MAX_BYTES];
-        let len = checked(table.encode(&mut table_bytes))?;
-        table_bytes.truncate(len);
+        let (worker, identity, table, table_bytes) = approved_worker(&header, market, owner)?;
         let state = checked(state.replace_section(Section::IdentityRoster, &identity))?;
         Ok(Self {
             state: encode_state(&state)?,

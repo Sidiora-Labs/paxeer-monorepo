@@ -1,0 +1,31 @@
+[manifest]
+task = "22.41.92"
+pages = 7
+
+[page.1]
+path = "spec/layerx-merge/docs/plans/activation-and-migration.md"
+status = "corrected"
+
+[page.2]
+path = "spec/layerx-merge/docs/plans/orchestration.md"
+status = "corrected"
+
+[page.3]
+path = "spec/layerx-merge/docs/plans/test-plan.md"
+status = "corrected"
+
+[page.4]
+path = "spec/layerx-merge/docs/plans/wave-plan.md"
+status = "corrected"
+
+[page.5]
+path = "spec/layerx-merge/programme/data/parity-inventory-original.md"
+status = "corrected"
+
+[page.6]
+path = "spec/layerx-merge/programme/dependabot/README.md"
+status = "reviewed"
+
+[page.7]
+path = "spec/layerx-merge/programme/docs/explorer-ui/design-brief.md"
+status = "corrected"

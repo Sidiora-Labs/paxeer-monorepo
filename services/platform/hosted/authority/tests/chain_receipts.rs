@@ -1,4 +1,5 @@
 include!("../src/main.rs");
+use layerx_platform_authority::assertion::Must;
 
 use ed25519_dalek::Signer as _;
 use sha2::Digest as _;
@@ -6,6 +7,16 @@ use std::os::unix::fs::{FileTypeExt as _, PermissionsExt as _};
 use std::process::Command;
 
 use chain_readiness_tests::{base64, hex_bytes, must, receipt_vectors, vector, ReceiptHarness};
+
+impl ReceiptHarness {
+    fn files(&self) -> Vec<PathBuf> {
+        let mut files: Vec<_> = must(fs::read_dir(&self.directory))
+            .map(|entry| must(entry).path())
+            .collect();
+        files.sort();
+        files
+    }
+}
 
 struct AuthorityProcess {
     child: std::process::Child,
@@ -128,7 +139,7 @@ impl AuthorityProcess {
             String::from_utf8_lossy(&output.stderr)
         );
         let text = must(String::from_utf8(output.stdout));
-        let (body, status) = text.rsplit_once('\n').unwrap();
+        let (body, status) = text.rsplit_once('\n').must();
         (must(status.parse()), must(serde_json::from_str(body)))
     }
 }
@@ -144,10 +155,8 @@ impl Drop for AuthorityProcess {
 fn receipt_lookup_reads_the_sequencer_receipt() {
     let document = receipt_vectors();
     let case = vector(&document, "V1-pax-transfer");
-    let mut harness = ReceiptHarness::start(&[case.clone()], &case);
-    let hash: [u8; 32] = hex_bytes(&case["receiptJson"]["txHash"])
-        .try_into()
-        .unwrap();
+    let mut harness = ReceiptHarness::start(std::slice::from_ref(&case), &case);
+    let hash: [u8; 32] = hex_bytes(&case["receiptJson"]["txHash"]).try_into().must();
     let expected = hex_bytes(&case["signedReceipt"]);
     match lookup_receipt(&harness.config, hash, false) {
         ReceiptSource::Found(bytes) => assert_eq!(bytes, expected),
@@ -212,10 +221,10 @@ fn receipt_signed_by_an_unpinned_key_is_refused() {
     let own_key = SequencerAuthorization::new(
         hex_bytes(&unpinned["receiptJson"]["keyId"])
             .try_into()
-            .unwrap(),
+            .must(),
         hex_bytes(&unpinned["pinnedKey"]["publicKey"])
             .try_into()
-            .unwrap(),
+            .must(),
         1,
         u64::MAX,
     );
@@ -231,7 +240,7 @@ fn receipt_signed_by_an_unpinned_key_is_refused() {
     let before = harness.files();
     let hash: [u8; 32] = hex_bytes(&unpinned["receiptJson"]["txHash"])
         .try_into()
-        .unwrap();
+        .must();
     assert!(matches!(
         lookup_receipt(&harness.config, hash, false),
         ReceiptSource::KeyMismatch
@@ -246,7 +255,7 @@ fn receipt_signed_by_an_unpinned_key_is_refused() {
     ));
     let outside: [u8; 32] = hex_bytes(&outside_range["receiptJson"]["txHash"])
         .try_into()
-        .unwrap();
+        .must();
     assert!(matches!(
         lookup_receipt(&harness.config, outside, false),
         ReceiptSource::KeyMismatch
@@ -269,7 +278,7 @@ fn trust_accepts_genesis_receipt_key_ids() {
     let template = vector(&document, "V1-pax-transfer");
     let original_bytes = hex_bytes(&template["signedReceipt"]);
     let decoded = must(layerx_wire::receipt::decode(&original_bytes));
-    let original = decoded.protocol().unwrap();
+    let original = decoded.protocol().must();
     let signer = ed25519_dalek::SigningKey::from_bytes(&[0x51; 32]);
     let public_key = signer.verifying_key().to_bytes();
     let key_id = <[u8; 32]>::from(sha2::Sha256::digest(public_key));
@@ -284,13 +293,13 @@ fn trust_accepts_genesis_receipt_key_ids() {
             public_key
         };
         let claimed_id = <[u8; 32]>::from(sha2::Sha256::digest(claimed_public_key));
-        let activity = [0x41 + index as u8; 32];
+        let activity = [0x41 + u8::try_from(index).must(); 32];
         let mut bytes = original_bytes.clone();
         for (old, new) in [
             (original.context_hash(), claimed_id),
             (original.activity_id(), activity),
         ] {
-            let offset = bytes.windows(32).position(|value| value == old).unwrap();
+            let offset = bytes.windows(32).position(|value| value == old).must();
             bytes[offset..offset + 32].copy_from_slice(&new);
         }
         let unsigned = must(layerx_wire::receipt::encode_unsigned(&must(
@@ -316,7 +325,7 @@ fn trust_accepts_genesis_receipt_key_ids() {
     assert_eq!(
         must(layerx_wire::receipt::decode(&receipt))
             .protocol()
-            .unwrap()
+            .must()
             .context_hash(),
         key_id
     );
@@ -357,15 +366,19 @@ fn trust_accepts_genesis_receipt_key_ids() {
     }
 }
 
-#[test]
-fn trust_snapshot_is_the_pinned_key_list() {
-    use std::os::unix::net::UnixListener;
+struct TrustCases {
+    cases: Vec<serde_json::Value>,
+    pins: Vec<serde_json::Value>,
+    expected_keys: Vec<SequencerAuthorization>,
+    headers: Vec<(Vec<u8>, [u8; 64])>,
+}
 
+fn make_trust_cases() -> TrustCases {
     let document = receipt_vectors();
     let template = vector(&document, "V1-pax-transfer");
     let original_bytes = hex_bytes(&template["signedReceipt"]);
     let decoded = must(layerx_wire::receipt::decode(&original_bytes));
-    let original = decoded.protocol().unwrap();
+    let original = decoded.protocol().must();
     let mut cases = Vec::new();
     let mut pins = Vec::new();
     let mut expected_keys = Vec::new();
@@ -390,13 +403,13 @@ fn trust_snapshot_is_the_pinned_key_list() {
             let mut bytes = original_bytes.clone();
             let mut batch = [0; 32];
             batch[24..].copy_from_slice(&height.to_be_bytes());
-            let activity = [0x31 + (index * 4 + height_index) as u8; 32];
+            let activity = [0x31 + u8::try_from(index * 4 + height_index).must(); 32];
             for (old, new) in [
                 (original.batch_id(), batch),
                 (original.context_hash(), key_id),
                 (original.activity_id(), activity),
             ] {
-                let offset = bytes.windows(32).position(|value| value == old).unwrap();
+                let offset = bytes.windows(32).position(|value| value == old).must();
                 bytes[offset..offset + 32].copy_from_slice(&new);
             }
             let unsigned = must(layerx_wire::receipt::encode_unsigned(&must(
@@ -414,12 +427,12 @@ fn trust_snapshot_is_the_pinned_key_list() {
             case["receiptJson"]["keyId"] = pin["pinnedKey"]["keyId"].clone();
             case["receiptJson"]["height"] = serde_json::json!(format!("0x{height:x}"));
             cases.push(case);
-            let mut header = must(hex::decode(native_fixture["header_hex"].as_str().unwrap()));
+            let mut header = must(hex::decode(native_fixture["header_hex"].as_str().must()));
             let original_header = must(layerx_wire::receipt::decode_batch_header(&header));
             let offset = header
                 .windows(32)
                 .position(|bytes| bytes == original_header.sequencer_id())
-                .unwrap();
+                .must();
             header[offset..offset + 32].copy_from_slice(&key_id);
             header[9..13].copy_from_slice(&125_u32.to_be_bytes());
             header[23..31].copy_from_slice(&height.to_be_bytes());
@@ -429,18 +442,21 @@ fn trust_snapshot_is_the_pinned_key_list() {
             headers.push((header, signature));
         }
     }
-    let mut harness = ReceiptHarness::start_with_pins(&cases, &pins);
-    let kernel = must(UnixListener::bind(
-        harness.directory.join("absent-lni.sock"),
-    ));
-    must(kernel.set_nonblocking(true));
-    let initial_key = harness.config.sequencer_public_key;
-    harness.config.sequencer_public_key = [0x73; 32];
-    assert!(!expected_keys
-        .iter()
-        .any(|key| key.public_key() == harness.config.sequencer_public_key));
-    assert_eq!(harness.config.chain_receipts.pinned_keys(), expected_keys);
-    let expected = expected_keys.clone();
+    TrustCases {
+        cases,
+        pins,
+        expected_keys,
+        headers,
+    }
+}
+
+fn assert_initial_trust(
+    harness: &ReceiptHarness,
+    cases: &mut Vec<serde_json::Value>,
+    expected_keys: &[SequencerAuthorization],
+    headers: &[(Vec<u8>, [u8; 64])],
+) {
+    let expected = expected_keys.to_vec();
     for (index, (header, signature)) in headers.iter().enumerate() {
         if index < 8 {
             assert_eq!(
@@ -454,7 +470,7 @@ fn trust_snapshot_is_the_pinned_key_list() {
     }
     let unpinned = cases.split_off(8);
     assert_eq!(must(trust::current(&harness.config)), expected.clone());
-    for key in &expected_keys {
+    for key in expected_keys {
         assert_eq!(
             must(trust::snapshot(&harness.config, key.public_key())),
             expected.clone()
@@ -463,32 +479,28 @@ fn trust_snapshot_is_the_pinned_key_list() {
     for claimed in [[0; 32], harness.config.sequencer_public_key] {
         assert!(trust::snapshot(&harness.config, claimed).is_err());
     }
-    for case in &cases {
-        let activity = hex_bytes(&case["receiptJson"]["txHash"])
-            .try_into()
-            .unwrap();
+    for case in cases.iter() {
+        let activity = hex_bytes(&case["receiptJson"]["txHash"]).try_into().must();
         let expected = hex_bytes(&case["signedReceipt"]);
         assert!(matches!(lookup_receipt(&harness.config, activity, false),
             ReceiptSource::Found(bytes) if bytes == expected));
     }
     assert_eq!(must(harness.calls.lock()).len(), cases.len());
     for case in &unpinned {
-        let activity = hex_bytes(&case["receiptJson"]["txHash"])
-            .try_into()
-            .unwrap();
+        let activity = hex_bytes(&case["receiptJson"]["txHash"]).try_into().must();
         assert!(matches!(
             lookup_receipt(&harness.config, activity, false),
             ReceiptSource::KeyMismatch
         ));
     }
     {
-        let authority = AuthorityProcess::start(&harness);
-        for case in &cases {
+        let authority = AuthorityProcess::start(harness);
+        for case in cases.iter() {
             let activity = case["receiptJson"]["txHash"]
                 .as_str()
-                .unwrap()
+                .must()
                 .strip_prefix("0x")
-                .unwrap();
+                .must();
             let (status, body) = authority.receipt(activity);
             assert_eq!(status, 503);
             assert_eq!(
@@ -499,15 +511,43 @@ fn trust_snapshot_is_the_pinned_key_list() {
         for case in &unpinned {
             let activity = case["receiptJson"]["txHash"]
                 .as_str()
-                .unwrap()
+                .must()
                 .strip_prefix("0x")
-                .unwrap();
+                .must();
             let (status, body) = authority.receipt(activity);
             assert_eq!(status, 502);
             assert_eq!(body["error"]["code"], "sequencer_key_mismatch");
         }
     }
+}
 
+fn load_trust_keys(
+    harness: &ReceiptHarness,
+    keys: &[SequencerAuthorization],
+) -> Result<ChainReceipts, String> {
+    let keys_file = harness.directory.join("receipt-keys.json");
+    let chain_url = format!("http://{}/evm", harness.config.replica_address);
+    let entries: Vec<_> = keys
+        .iter()
+        .map(|key| {
+            serde_json::json!({
+                "keyId": base64(&key.sequencer_id()),
+                "publicKey": base64(&key.public_key()),
+                "firstHeight": key.first_batch_number(),
+                "lastHeight": key.last_batch_number(),
+            })
+        })
+        .collect();
+    must(fs::write(&keys_file, serde_json::to_vec(&entries).must()));
+    ChainReceipts::load(&chain_url, &keys_file)
+}
+
+fn assert_ranged_trust(
+    harness: &mut ReceiptHarness,
+    expected_keys: &[SequencerAuthorization],
+    headers: &[(Vec<u8>, [u8; 64])],
+) {
+    let expected = expected_keys.to_vec();
     let ranged_keys = [
         SequencerAuthorization::new(
             expected_keys[0].sequencer_id(),
@@ -522,24 +562,7 @@ fn trust_snapshot_is_the_pinned_key_list() {
             29,
         ),
     ];
-    let keys_file = harness.directory.join("receipt-keys.json");
-    let chain_url = format!("http://{}/evm", harness.config.replica_address);
-    let load_keys = |keys: &[SequencerAuthorization]| {
-        let entries: Vec<_> = keys
-            .iter()
-            .map(|key| {
-                serde_json::json!({
-                    "keyId": base64(&key.sequencer_id()),
-                    "publicKey": base64(&key.public_key()),
-                    "firstHeight": key.first_batch_number(),
-                    "lastHeight": key.last_batch_number(),
-                })
-            })
-            .collect();
-        must(fs::write(&keys_file, serde_json::to_vec(&entries).unwrap()));
-        ChainReceipts::load(&chain_url, &keys_file)
-    };
-    harness.config.chain_receipts = must(load_keys(&ranged_keys));
+    harness.config.chain_receipts = must(load_trust_keys(harness, &ranged_keys));
     let ranged = ranged_keys.to_vec();
     assert_eq!(must(trust::current(&harness.config)), ranged);
     for key in &ranged {
@@ -581,8 +604,17 @@ fn trust_snapshot_is_the_pinned_key_list() {
             }
         }
     }
-    harness.config.chain_receipts = must(load_keys(&expected));
+    harness.config.chain_receipts = must(load_trust_keys(harness, &expected));
+}
 
+fn assert_invalid_trust(
+    harness: &mut ReceiptHarness,
+    expected_keys: &[SequencerAuthorization],
+    headers: &[(Vec<u8>, [u8; 64])],
+    initial_key: [u8; 32],
+) {
+    let keys_file = harness.directory.join("receipt-keys.json");
+    let expected = expected_keys.to_vec();
     let rotated = serde_json::json!([{
         "keyId": base64(&expected_keys[0].sequencer_id()), "publicKey": base64(&initial_key),
         "firstHeight": 0, "lastHeight": u64::MAX,
@@ -640,7 +672,7 @@ fn trust_snapshot_is_the_pinned_key_list() {
         )]);
     }
     for keys in invalid_lists {
-        let result = match load_keys(&keys) {
+        let result = match load_trust_keys(harness, &keys) {
             Ok(chain_receipts) => {
                 harness.config.chain_receipts = chain_receipts;
                 trust::current(&harness.config)
@@ -652,7 +684,32 @@ fn trust_snapshot_is_the_pinned_key_list() {
             "invalid pinned key list was admitted: {keys:?}"
         );
     }
-    let error = kernel.accept().unwrap_err();
+}
+
+#[test]
+fn trust_snapshot_is_the_pinned_key_list() {
+    use std::os::unix::net::UnixListener;
+    let TrustCases {
+        mut cases,
+        pins,
+        expected_keys,
+        headers,
+    } = make_trust_cases();
+    let mut harness = ReceiptHarness::start_with_pins(&cases, &pins);
+    let kernel = must(UnixListener::bind(
+        harness.directory.join("absent-lni.sock"),
+    ));
+    must(kernel.set_nonblocking(true));
+    let initial_key = harness.config.sequencer_public_key;
+    harness.config.sequencer_public_key = [0x73; 32];
+    assert!(!expected_keys
+        .iter()
+        .any(|key| key.public_key() == harness.config.sequencer_public_key));
+    assert_eq!(harness.config.chain_receipts.pinned_keys(), expected_keys);
+    assert_initial_trust(&harness, &mut cases, &expected_keys, &headers);
+    assert_ranged_trust(&mut harness, &expected_keys, &headers);
+    assert_invalid_trust(&mut harness, &expected_keys, &headers, initial_key);
+    let error = kernel.accept().err().must();
     assert_eq!(
         error.kind(),
         std::io::ErrorKind::WouldBlock,
@@ -664,7 +721,7 @@ fn trust_snapshot_is_the_pinned_key_list() {
 fn authority_starts_without_an_lni_socket() {
     let document = receipt_vectors();
     let case = vector(&document, "V1-pax-transfer");
-    let harness = ReceiptHarness::start(&[case.clone()], &case);
+    let harness = ReceiptHarness::start(std::slice::from_ref(&case), &case);
     assert!(harness
         .files()
         .iter()
@@ -682,9 +739,7 @@ fn authority_starts_without_an_lni_socket() {
             "wire_version": PROTOCOL_VERSION.to_string(),
         })
     );
-    let activity = hex_bytes(&case["receiptJson"]["txHash"])
-        .try_into()
-        .unwrap();
+    let activity = hex_bytes(&case["receiptJson"]["txHash"]).try_into().must();
     match lookup_receipt(&harness.config, activity, false) {
         ReceiptSource::Found(bytes) => assert_eq!(bytes, hex_bytes(&case["signedReceipt"])),
         other => panic!("chain receipt was not admitted without an LNI variable: {other:?}"),
@@ -715,7 +770,7 @@ fn receipt_admission_needs_no_kernel_socket() {
     chain_readiness_tests::actual_node_info_refuses_incompatible_receipt_admission();
     let document = receipt_vectors();
     let case = vector(&document, "V1-pax-transfer");
-    let harness = ReceiptHarness::start(&[case.clone()], &case);
+    let harness = ReceiptHarness::start(std::slice::from_ref(&case), &case);
     let authority =
         AuthorityProcess::start_with_replica(&harness, Some(harness.config.replica_address));
     let (status, body) = authority.get("/readyz");
@@ -729,9 +784,7 @@ fn receipt_admission_needs_no_kernel_socket() {
             "wire_version": PROTOCOL_VERSION.to_string(),
         })
     );
-    let activity = hex_bytes(&case["receiptJson"]["txHash"])
-        .try_into()
-        .unwrap();
+    let activity = hex_bytes(&case["receiptJson"]["txHash"]).try_into().must();
     let expected = hex_bytes(&case["signedReceipt"]);
     match lookup_receipt(&harness.config, activity, false) {
         ReceiptSource::Found(bytes) => assert_eq!(bytes, expected),
@@ -746,7 +799,11 @@ fn receipt_admission_needs_no_kernel_socket() {
         must(must(SequencerEndpoint::new(&harness.config.chain_rpc_url, &[])).chain_id()),
         125
     );
-    let mut other = ReceiptHarness::start_with_chain_id(&[case.clone()], &[case], 126);
+    let mut other = ReceiptHarness::start_with_chain_id(
+        std::slice::from_ref(&case),
+        std::slice::from_ref(&case),
+        126,
+    );
     let other_authority =
         AuthorityProcess::start_with_replica(&other, Some(other.config.replica_address));
     let (status, body) = other_authority.get("/readyz");

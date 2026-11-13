@@ -1,15 +1,23 @@
 # Ethereum and Solana migration
 
-`layerx-migrate` maps external accounts, credits assets, and imports
-external history through `SourceVerifier` + `MigrationPlane` +
-gateway idempotency (`services/interop/crates/layerx-migrate/src/lib.rs`).
-The adapter id is `migration`.
+`layerx-migrate` verifies external account ownership, asset finality and
+history (`services/interop/crates/layerx-migrate/src/lib.rs`). Its hosted
+account mapping, asset settlement and history routes use the migration-v2
+profile described below. The adapter id is `migration`.
 
 Authenticated HTTPS source-chain RPC clients are available in
 `services/interop/crates/layerx-migrate/src/rpc.rs`. Durable migration journals
 require an independent rollback authority; this tree supplies its client
 contract, but no production authority server
 (`services/interop/crates/layerx-migrate/README.md`).
+
+The hosted interop service exposes `POST /v2/migration/accounts`,
+`/v2/migration/assets`, `/v2/migration/history` and `/v2/migration/history/read`.
+Those routes use the optional migration-v2 profile loaded from
+`LAYERX_INTEROP_MIGRATION_V2_CONFIG`; an unconfigured profile returns
+`503` with `migration_v2_unconfigured`. The library types below also include
+retained v1 contracts; they are not the hosted v2 request schema. See
+[Interop](Interop.md) for the active HTTP contract and external provenance.
 
 [Programs porting](Porting.md) is a different crate and topic.
 

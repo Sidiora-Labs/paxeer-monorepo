@@ -16,10 +16,13 @@ pub fn recorded_base64(encoded: &str) -> Vec<u8> {
                 assert_eq!(*byte, b'=');
                 0
             } else {
-                ALPHABET
-                    .iter()
-                    .position(|candidate| candidate == byte)
-                    .unwrap_or_else(|| panic!("invalid recorded base64")) as u32
+                u32::try_from(
+                    ALPHABET
+                        .iter()
+                        .position(|candidate| candidate == byte)
+                        .unwrap_or_else(|| panic!("invalid recorded base64")),
+                )
+                .unwrap_or_else(|error| panic!("numeric fixture fits u32: {error:?}"))
             };
             word = (word << 6) | digit;
         }
@@ -37,7 +40,13 @@ pub fn recorded_timestamp(encoded: &str) -> Timestamp {
     let (date, time) = utc
         .split_once('T')
         .unwrap_or_else(|| panic!("invalid recorded time"));
-    let date: Vec<u32> = date.split('-').map(|part| part.parse().unwrap()).collect();
+    let date: Vec<u32> = date
+        .split('-')
+        .map(|part| {
+            part.parse()
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+        })
+        .collect();
     assert_eq!(date.len(), 3);
     let (year, month, day) = (date[0], date[1], date[2]);
     assert!((1..=9999).contains(&year));
@@ -60,7 +69,13 @@ pub fn recorded_timestamp(encoded: &str) -> Timestamp {
     assert!((1..=months[month as usize - 1]).contains(&day));
     let (whole, fraction) = time.split_once('.').unwrap_or((time, ""));
     assert!(fraction.len() <= 9 && fraction.bytes().all(|byte| byte.is_ascii_digit()));
-    let time: Vec<u32> = whole.split(':').map(|part| part.parse().unwrap()).collect();
+    let time: Vec<u32> = whole
+        .split(':')
+        .map(|part| {
+            part.parse()
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+        })
+        .collect();
     assert_eq!(time.len(), 3);
     assert!(time[0] < 24 && time[1] < 60 && time[2] < 60);
     let days_before_year = |year: u32| {
@@ -75,7 +90,13 @@ pub fn recorded_timestamp(encoded: &str) -> Timestamp {
         nanos: if fraction.is_empty() {
             0
         } else {
-            fraction.parse::<u32>().unwrap() * 10_u32.pow(9 - fraction.len() as u32)
+            fraction
+                .parse::<u32>()
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+                * 10_u32.pow(
+                    9 - u32::try_from(fraction.len())
+                        .unwrap_or_else(|error| panic!("numeric fixture fits u32: {error:?}")),
+                )
         },
     }
 }

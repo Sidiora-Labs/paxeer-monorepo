@@ -1,0 +1,5 @@
+[source]
+execution = "execution.json"
+copies = ["receipt.hex", "terminal.hex", "call-graph.hex", "signed-activity.hex", "sequencer-public.hex"]
+writer = "sdk/platform/conformance/fixtures/sync_emulator_response_fixture.py"
+terminal_vector = "programs/tests/vectors/terminal-v4-outcome.hex"

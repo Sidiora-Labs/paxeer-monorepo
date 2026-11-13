@@ -46,7 +46,7 @@ const PROGRAM_LOG: &str = "Program log: ";
 /// The page size of every `getSignaturesForAddress` call.
 pub const SIGNATURE_PAGE: usize = 1000;
 
-/// Maximum pages (and at most this many times SIGNATURE_PAGE transactions) per pass.
+/// Maximum pages (and at most this many times `SIGNATURE_PAGE` transactions) per pass.
 pub const MAX_SCAN_PAGES: usize = 2;
 
 /// The reason a deposit whose logged record and receipt disagree is refused.
@@ -491,7 +491,7 @@ fn signature_page(
 }
 
 /// Compatibility scan for a complete small window. An incomplete budget is an
-/// explicit error: callers must use observe_deposits_pass to resume durably.
+/// explicit error: callers must use `observe_deposits_pass` to resume durably.
 fn signatures_in(
     rpc: &SolanaRpc,
     settings: &SolanaSettings,
@@ -521,6 +521,44 @@ pub struct ScanProgress {
     pub observed: usize,
     pub refused: usize,
     pub complete: bool,
+}
+
+fn record_finding(
+    journal: &mut Journal,
+    progress: &mut ScanProgress,
+    finding: Finding,
+) -> Result<(), RelayerError> {
+    let (observation, refusal) = match finding {
+        Finding::Deposit(observation) => (observation, None),
+        Finding::Refused {
+            observation,
+            reason,
+        } => (observation, Some(reason)),
+    };
+    let item = observation.key();
+    if let Some(existing) = journal.lookup(&item)? {
+        if existing.observation != observation {
+            return Err(
+                JournalError::Conflict(format!("{item} observed with different content")).into(),
+            );
+        }
+    } else {
+        journal.append(&Entry::Observed {
+            item: item.clone(),
+            observation,
+        })?;
+        progress.observed += 1;
+    }
+    if let Some(reason) = refusal {
+        if journal
+            .lookup(&item)?
+            .is_some_and(|record| record.refusal.is_none())
+        {
+            journal.append(&Entry::Refused { item, reason })?;
+            progress.refused += 1;
+        }
+    }
+    Ok(())
 }
 
 /// Runs one bounded backfill pass. Findings are synced to the relay journal
@@ -597,37 +635,7 @@ pub fn observe_deposits_pass(
                 .ok_or(RelayerError::Rpc(RpcFault::Unavailable))?;
             progress.transactions += 1;
             for finding in transaction_findings(rpc, settings, info, &transaction)? {
-                let (observation, refusal) = match finding {
-                    Finding::Deposit(observation) => (observation, None),
-                    Finding::Refused {
-                        observation,
-                        reason,
-                    } => (observation, Some(reason)),
-                };
-                let item = observation.key();
-                if let Some(existing) = journal.lookup(&item)? {
-                    if existing.observation != observation {
-                        return Err(JournalError::Conflict(format!(
-                            "{item} observed with different content"
-                        ))
-                        .into());
-                    }
-                } else {
-                    journal.append(&Entry::Observed {
-                        item: item.clone(),
-                        observation,
-                    })?;
-                    progress.observed += 1;
-                }
-                if let Some(reason) = refusal {
-                    if journal
-                        .lookup(&item)?
-                        .is_some_and(|record| record.refusal.is_none())
-                    {
-                        journal.append(&Entry::Refused { item, reason })?;
-                        progress.refused += 1;
-                    }
-                }
+                record_finding(journal, &mut progress, finding)?;
             }
         }
         if page.complete {

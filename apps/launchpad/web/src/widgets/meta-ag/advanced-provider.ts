@@ -294,7 +294,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
     }
   };
   const block = async () => {
-    const latest = await client.getBlockNumber();
+    const latest = await client.getBlockNumber({ cacheTime: 0 });
     if (latest < BigInt(manifest.confirmations)) throw new Error('Finalized block unavailable');
     return client.getBlock({ blockNumber: latest - BigInt(manifest.confirmations) + 1n });
   };
@@ -556,7 +556,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
       if (!active) continue;
       const binding = manifest.adapters.find(
         (item) =>
-          item.id.toLowerCase() === adapterId.toLowerCase() && address(item.address) === target,
+          item.id.toLowerCase() === adapterId.toLowerCase() && address(item.address) === target
       );
       if (!binding) {
         adapterDiagnostics.set(adapterId, 'Adapter outside admitted deployment registry');
@@ -574,8 +574,8 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
   const approve = async (token: Address, spender: Address, amount: bigint) => {
     const account = await owner();
     uint(amount, true);
-    const allowed = [manifest.orders, manifest.router].find(
-      (binding) => binding && address(binding.address) === address(spender),
+    const allowed = [manifest.orders, manifest.router, manifest.vault].find(
+      (binding) => binding && address(binding.address) === address(spender)
     );
     await checkedBinding(allowed ?? null, 'approval spender');
     const balance = await client.readContract({
@@ -617,7 +617,8 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
   };
   const prepareOrder = async (draft: OrderDraft, minimumOutput: bigint): Promise<PreparedOrder> => {
     const account = await owner(),
-      spender = await required('orders'),
+      orders = await required('orders'),
+      spender = await checkedBinding(manifest.vault, 'escrow vault'),
       oracle = await required('oracle');
     if (account !== address(draft.owner)) throw new Error('Order owner changed');
     if (address(draft.settlementAsset) !== address(manifest.usdl))
@@ -653,11 +654,11 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
     const intent = validateOrder(
       { ...draft, settlementAsset: manifest.usdl, amountDecimals: verifiedDecimals },
       rules,
-      current.timestamp,
+      current.timestamp
     );
     uint(minimumOutput, true);
     const pricing = await client.readContract({
-      address: spender,
+      address: orders,
       abi: advancedOrdersAbi,
       functionName: 'getPricingConfig',
     });
@@ -697,30 +698,32 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
           settlementAsset: prepared.intent.settlementAsset,
           amount: (await import('viem')).formatUnits(
             prepared.intent.amountRaw,
-            await decimals(prepared.escrowAsset),
+            await decimals(prepared.escrowAsset)
           ),
           triggerPrice:
             prepared.intent.triggerPriceRaw === undefined
               ? undefined
               : (await import('viem')).formatUnits(
                   prepared.intent.triggerPriceRaw,
-                  prepared.intent.priceScale,
+                  prepared.intent.priceScale
                 ),
           limitPrice:
             prepared.intent.limitPriceRaw === undefined
               ? undefined
               : (await import('viem')).formatUnits(
                   prepared.intent.limitPriceRaw,
-                  prepared.intent.priceScale,
+                  prepared.intent.priceScale
                 ),
           expiresAt: prepared.intent.expiresAt,
         },
-        prepared.minimumOutput,
+        prepared.minimumOutput
       );
     if ((await revalidate()).fees !== prepared.fees)
       throw new Error('Order pricing configuration changed; review again');
     const target = await required('orders');
-    await approve(prepared.escrowAsset, target, prepared.intent.amountRaw);
+    const spender = await checkedBinding(manifest.vault, 'escrow vault');
+    if (spender !== prepared.spender) throw new Error('Order escrow spender changed');
+    await approve(prepared.escrowAsset, spender, prepared.intent.amountRaw);
     if ((await revalidate()).fees !== prepared.fees)
       throw new Error('Order pricing configuration changed; review again');
     const request = {
@@ -748,7 +751,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
       encodeFunctionData({ abi: advancedOrdersAbi, functionName: 'placeOrder', args: [request] }),
       () => wallet.writeContract({ ...simulation.request, account, chain: wallet.chain }),
       receipt,
-      reconcileAction,
+      reconcileAction
     );
     if (result.status !== 'success' || !('created' in result) || !result.created)
       throw new Error('Order placement reverted');
@@ -759,7 +762,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
     id: bigint,
     from: bigint,
     through: bigint,
-    event: AbiEvent,
+    event: AbiEvent
   ) => {
     const records = [];
     // Every RPC range is admitted independently; order age never discards evidence.
@@ -793,7 +796,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
   const order = async (
     id: bigint,
     family: 'limit' | 'stop',
-    creationBlock: bigint,
+    creationBlock: bigint
   ): Promise<ConnectedOrder> => {
     const account = await owner(),
       target = await required('orders'),
@@ -838,7 +841,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
         id,
         creationBlock,
         finalized.number,
-        parseAbiItem('event StopLimitActivated(uint256 indexed orderId,uint256 activationPrice)'),
+        parseAbiItem('event StopLimitActivated(uint256 indexed orderId,uint256 activationPrice)')
       );
       if (
         activations.length !== 1 ||
@@ -853,17 +856,17 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
         raw.status === 2
           ? family === 'limit'
             ? parseAbiItem(
-                'event LimitOrderExecuted(uint256 indexed orderId,uint256 executionPrice)',
+                'event LimitOrderExecuted(uint256 indexed orderId,uint256 executionPrice)'
               )
             : parseAbiItem(
-                'event StopLimitExecuted(uint256 indexed orderId,uint256 executionPrice)',
+                'event StopLimitExecuted(uint256 indexed orderId,uint256 executionPrice)'
               )
           : raw.status === 3
             ? family === 'limit'
               ? parseAbiItem('event LimitOrderCancelled(uint256 indexed orderId)')
               : parseAbiItem('event StopLimitCancelled(uint256 indexed orderId)')
             : parseAbiItem(
-                'event OrderExpiredAndRefunded(uint256 indexed orderId,address indexed user,uint256 amount)',
+                'event OrderExpiredAndRefunded(uint256 indexed orderId,address indexed user,uint256 amount)'
               );
       const logs = await orderHistory(target, id, creationBlock, finalized.number, event);
       const terminalLogs = logs.flatMap((log) => {
@@ -935,7 +938,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
             log.logIndex === terminalLogs[0].logIndex &&
             log.address.toLowerCase() === target &&
             log.data === terminalLogs[0].data &&
-            JSON.stringify(log.topics) === JSON.stringify(terminalLogs[0].topics),
+            JSON.stringify(log.topics) === JSON.stringify(terminalLogs[0].topics)
         ) ||
         receiptTerminalCount !== 1
       )
@@ -1060,7 +1063,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
       client.getLogs({
         address: target,
         event: parseAbiItem(
-          'event LimitOrderCreated(uint256 indexed orderId,address indexed user,uint8 orderType,uint256 amount,uint256 targetPrice)',
+          'event LimitOrderCreated(uint256 indexed orderId,address indexed user,uint8 orderType,uint256 amount,uint256 targetPrice)'
         ),
         args: { user: account },
         fromBlock: from,
@@ -1070,7 +1073,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
       client.getLogs({
         address: target,
         event: parseAbiItem(
-          'event StopLimitOrderCreated(uint256 indexed orderId,address indexed user,uint8 orderType,uint256 amount,uint256 stopPrice,uint256 limitPrice)',
+          'event StopLimitOrderCreated(uint256 indexed orderId,address indexed user,uint8 orderType,uint256 amount,uint256 stopPrice,uint256 limitPrice)'
         ),
         args: { user: account },
         fromBlock: from,
@@ -1088,7 +1091,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
           ? a.log.logIndex - b.log.logIndex
           : a.log.blockNumber < b.log.blockNumber
             ? -1
-            : 1,
+            : 1
       );
     const selected = records.slice(0, size);
     const items = await Promise.all(
@@ -1100,7 +1103,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
         });
         if (!('orderId' in decoded.args)) throw new Error('Invalid creation evidence');
         return order(decoded.args.orderId, family, log.blockNumber);
-      }),
+      })
     );
     const last = selected.at(-1);
     const nextCursor =
@@ -1137,7 +1140,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
     const candidates = stored.records.filter(
       (value) =>
         value.action === 'cancel-order' &&
-        value.intentId === `${manifest.revision}:${item.family}:${item.orderId}`.slice(0, 128),
+        value.intentId === `${manifest.revision}:${item.family}:${item.orderId}`.slice(0, 128)
     );
     if (candidates.length > 1)
       throw new Error('Conflicting cancellation attempts require reconciliation');
@@ -1159,7 +1162,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
     };
     options.attempts.setItem(
       attemptKey(account, item.family, item.orderId),
-      encodeCancelAttempt(recovered),
+      encodeCancelAttempt(recovered)
     );
     return recovered;
   };
@@ -1183,6 +1186,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
         functionName: item.family === 'limit' ? 'cancelLimitOrder' : 'cancelStopLimitOrder',
         args: [BigInt(item.orderId)],
       });
+      const gas = await client.estimateContractGas({ ...simulation.request, account });
       if ((await owner()) !== account) throw new Error('Cancellation account changed');
       const beforeSignature = await order(BigInt(item.orderId), item.family, item.creationBlock);
       if (
@@ -1194,6 +1198,9 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
         ...simulation.request,
         account,
         chain: wallet.chain,
+        // Keep room for the isolated vault refund and tracker calls after
+        // estimation; the mined receipt still decides whether it succeeded.
+        gas: (gas * 125n + 99n) / 100n,
       });
       const attempt: CancelAttempt = {
         orderId: item.orderId,
@@ -1239,7 +1246,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
     const outcome = cancellationOutcome(updated, latest);
     options.attempts.setItem(
       attemptKey(attempt.owner, item.family, item.orderId),
-      encodeCancelAttempt(updated),
+      encodeCancelAttempt(updated)
     );
     if (outcome.state !== 'checking') {
       volatileCancels.delete(attemptKey(attempt.owner, item.family, item.orderId));
@@ -1258,7 +1265,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
     tokenOut: Address,
     amount: string,
     overallDeadline: number,
-    generation: number,
+    generation: number
   ): Promise<RouteQuote | null> => {
     const account = await owner();
     await required('routes');
@@ -1284,7 +1291,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
           new Promise<never>((_, reject) => {
             timer = setTimeout(
               () => reject(new Error('Adapter quote deadline exceeded')),
-              Math.max(0, overallDeadline - performance.now() - 80),
+              Math.max(0, overallDeadline - performance.now() - 80)
             );
           }),
         ]);
@@ -1300,7 +1307,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
             const binding = manifest.adapters.find(
               (item) =>
                 item.id.toLowerCase() === adapter.id.toLowerCase() &&
-                address(item.address) === adapter.address,
+                address(item.address) === adapter.address
             )!;
             const result = await client.readContract({
               address: adapter.address,
@@ -1328,7 +1335,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
                 ? decodeAbiParameters(parseAbiParameters('address,address'), result.adapterData)
                 : decodeAbiParameters(
                     parseAbiParameters('uint8,address,address'),
-                    result.adapterData,
+                    result.adapterData
                   );
             const decoded = validateAdapterData(
               binding.adapterData,
@@ -1336,7 +1343,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
               fields,
               tokenIn,
               tokenOut,
-              manifest.usdl,
+              manifest.usdl
             );
             if (binding.adapterData === 'sidiora-v1') {
               const registry = await client.readContract({
@@ -1375,15 +1382,15 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
               expiresAt,
               blockHeight: quoteBlock.number,
             });
-          })(),
-        ),
-      ),
+          })()
+        )
+      )
     );
     results.forEach((result, index) => {
       if (result.status === 'rejected')
         diagnostics.set(
           registered[index].id,
-          result.reason instanceof Error ? result.reason.message : String(result.reason),
+          result.reason instanceof Error ? result.reason.message : String(result.reason)
         );
     });
     if (generation !== quoteGeneration)
@@ -1391,7 +1398,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
     adapterDiagnostics.clear();
     diagnostics.forEach((reason, id) => adapterDiagnostics.set(id, reason));
     const valid = results.flatMap((result) =>
-      result.status === 'fulfilled' && result.value ? [result.value] : [],
+      result.status === 'fulfilled' && result.value ? [result.value] : []
     );
     const best = selectBestRoute(valid, context, registered, Date.now());
     if ((await owner()) !== account) throw new Error('Quote account changed');
@@ -1403,7 +1410,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
   const quote = async (
     tokenIn: Address,
     tokenOut: Address,
-    amount: string,
+    amount: string
   ): Promise<RouteQuote | null> => {
     const started = performance.now(),
       generation = ++quoteGeneration;
@@ -1447,7 +1454,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
     const rechecked = await adapters();
     if (
       !rechecked.some(
-        (item) => item.id === value.adapterId && item.address === value.adapterAddress,
+        (item) => item.id === value.adapterId && item.address === value.adapterAddress
       ) ||
       (await owner()) !== account
     )
@@ -1466,11 +1473,12 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
         deadline,
       ],
     });
+    const gas = await client.estimateContractGas({ ...simulation.request, account });
     if (value.expiresAt <= Date.now() || (await owner()) !== account)
       throw new Error('Route review expired or account changed before signature');
     if (
       !(await adapters()).some(
-        (item) => item.id === value.adapterId && item.address === value.adapterAddress,
+        (item) => item.id === value.adapterId && item.address === value.adapterAddress
       )
     )
       throw new Error('Adapter deactivated before signature');
@@ -1490,9 +1498,14 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
           deadline,
         ],
       }),
-      () => wallet.writeContract({ ...simulation.request, account, chain: wallet.chain }),
+      () => wallet.writeContract({
+        ...simulation.request,
+        account,
+        chain: wallet.chain,
+        gas: (gas * 125n + 99n) / 100n,
+      }),
       receipt,
-      reconcileAction,
+      reconcileAction
     );
     if (result.status !== 'success') throw new Error('Route execution reverted');
     return result.receipt;
@@ -1501,7 +1514,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
     hops: readonly Hop[],
     inputRaw: bigint,
     finalMinimumRaw: bigint,
-    deadline: bigint,
+    deadline: bigint
   ) => {
     const account = await owner(),
       target = await required('routes'),
@@ -1520,7 +1533,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
       inputRaw,
       finalMinimumRaw,
       deadline,
-      current.timestamp,
+      current.timestamp
     );
     for (const hop of verified) {
       const supports = await client.readContract({
@@ -1586,14 +1599,14 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
       prepared.inputRaw,
       prepared.finalMinimumRaw,
       prepared.deadline,
-      (await block()).timestamp,
+      (await block()).timestamp
     );
     await approve(prepared.hops[0].tokenIn, target, prepared.inputRaw);
     const fresh = await prepareCustomRoute(
       prepared.hops,
       prepared.inputRaw,
       prepared.finalMinimumRaw,
-      prepared.deadline,
+      prepared.deadline
     );
     issuedRoutes.delete(prepared);
     if (!fresh.simulation) throw new Error('Custom route allowance unavailable');
@@ -1614,12 +1627,17 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
       prepared.hops,
       prepared.inputRaw,
       prepared.finalMinimumRaw,
-      prepared.deadline,
+      prepared.deadline
     );
     if (fresh.contextHash !== prepared.contextHash || (await owner()) !== prepared.account)
       throw new Error('Custom route context changed');
     if (!fresh.simulation) throw new Error('Allowance changed; simulate again');
     issuedRoutes.delete(fresh);
+    const gas = await client.estimateContractGas({
+      ...fresh.simulation.request,
+      account: prepared.account,
+    });
+    if ((await owner()) !== prepared.account) throw new Error('Custom route context changed');
     const target = await required('routes');
     const args = [
       fresh.hops.map((hop) => ({
@@ -1642,9 +1660,10 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
           ...fresh.simulation!.request,
           account: prepared.account,
           chain: wallet.chain,
+          gas: (gas * 125n + 99n) / 100n,
         }),
       receipt,
-      reconcileAction,
+      reconcileAction
     );
     if (result.status !== 'success') throw new Error('Custom route reverted');
     return result.receipt;

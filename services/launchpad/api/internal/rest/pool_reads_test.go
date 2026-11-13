@@ -129,13 +129,20 @@ func newPoolReadsFixture(t *testing.T, statsOrigin string) poolReadsFixture {
 	pool, model, stream, first, _ := productionReadsFixture(t)
 	ctx := context.Background()
 	for _, name := range []string{"80001", "80002", "100000", "130000"} {
-		raw, err := os.ReadFile("../../../../../launchpad/spec/production-system/integration/migrations/" + name + ".sql")
+		raw, err := os.ReadFile("../../../../../migrations/" + name + ".sql")
 		if err != nil {
 			t.Fatal(err)
 		}
 		if _, err = pool.Exec(ctx, string(raw)); err != nil {
 			t.Fatalf("registered migration %s: %v", name, err)
 		}
+	}
+	chainSchema, err := os.ReadFile("../../../indexer/internal/migrate/chainlaunch.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, string(chainSchema)); err != nil {
+		t.Fatal(err)
 	}
 	tokenFirst := "0x" + strings.Repeat("3", 40)
 	tokenSecond := "0x" + strings.Repeat("4", 40)

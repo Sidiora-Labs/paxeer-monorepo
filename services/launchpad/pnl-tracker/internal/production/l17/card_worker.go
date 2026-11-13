@@ -5,9 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/ogrender"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"image/png"
 	"io"
 	"net/http"
@@ -15,6 +12,10 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/ogrender"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 const CardWorkerDDL = `ALTER TABLE portfolio_card_outbox ADD COLUMN fence bigint NOT NULL DEFAULT 0, ADD COLUMN lease_owner text, ADD COLUMN lease_until timestamptz, ADD COLUMN attempts integer NOT NULL DEFAULT 0, ADD COLUMN next_attempt timestamptz NOT NULL DEFAULT clock_timestamp(), ADD COLUMN last_error text;
@@ -52,7 +53,7 @@ func (w CardWorker) RunOnce(ctx context.Context) error {
 	if e != nil {
 		return e
 	}
-	if kind == "render" {
+	if kind == jobRender {
 		tag, e := tx.Exec(ctx, "UPDATE portfolio_cards SET attempts=attempts+1 WHERE id=$1 AND state='pending' AND attempts<3", id)
 		if e != nil {
 			return e
@@ -70,7 +71,7 @@ func (w CardWorker) RunOnce(ctx context.Context) error {
 	work, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	var image []byte
-	if kind == "purge" {
+	if kind == jobPurge {
 		if w.Purger == nil {
 			e = ErrUnavailable
 		} else {
@@ -107,7 +108,7 @@ func (w CardWorker) RunOnce(ctx context.Context) error {
 	if !live {
 		return ErrConflict
 	}
-	if kind == "purge" {
+	if kind == jobPurge {
 		_, e = tx.Exec(ctx, "UPDATE portfolio_cards SET purged_at=clock_timestamp() WHERE id=$1 AND state='revoked'", id)
 	} else {
 		var tag pgconn.CommandTag
@@ -139,7 +140,7 @@ func (p CloudflarePurger) PurgeCard(ctx context.Context, id string) error {
 		return ErrUnavailable
 	}
 	origin, e := url.Parse(p.PublicOrigin)
-	if e != nil || origin.Scheme != "https" || origin.Host == "" || origin.User != nil || origin.RawQuery != "" || origin.Fragment != "" || (origin.Path != "" && origin.Path != "/") {
+	if e != nil || origin.Scheme != schemeHTTPS || origin.Host == "" || origin.User != nil || origin.RawQuery != "" || origin.Fragment != "" || (origin.Path != "" && origin.Path != "/") {
 		return ErrInvalid
 	}
 	imageURL := strings.TrimRight(p.PublicOrigin, "/") + "/v2/portfolio/cards/" + id + "/image.png"
@@ -165,7 +166,7 @@ func (p CloudflarePurger) PurgeCard(ctx context.Context, id string) error {
 	if e != nil {
 		return ErrUnavailable
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	var result struct {
 		Success bool `json:"success"`
 	}
@@ -180,7 +181,7 @@ func (p CloudflarePurger) PurgeCard(ctx context.Context, id string) error {
 	if e != nil {
 		return ErrUnavailable
 	}
-	defer actual.Body.Close()
+	defer func() { _ = actual.Body.Close() }()
 	if actual.StatusCode != http.StatusGone {
 		return ErrUnavailable
 	}

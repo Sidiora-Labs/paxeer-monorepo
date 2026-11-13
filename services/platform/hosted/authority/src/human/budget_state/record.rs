@@ -33,7 +33,7 @@ pub(super) fn number(bytes: &[u8], index: usize, width: usize) -> Result<u128, (
 
 impl Record {
     pub fn from_call(id: [u8; 32], bytes: &[u8]) -> Result<Self, ()> {
-        if bytes.len() < 20 * 32 || bytes.len() % 32 != 0 || number(bytes, 0, 8)? != 32 {
+        if bytes.len() < 20 * 32 || !bytes.len().is_multiple_of(32) || number(bytes, 0, 8)? != 32 {
             return Err(());
         }
         let tuple = &bytes[32..];
@@ -204,7 +204,7 @@ mod tests {
                 changed[18 * 32..19 * 32].copy_from_slice(&source);
                 assert_eq!(
                     Record::from_call([1; 32], &changed)
-                        .unwrap_or_else(|_| panic!("source"))
+                        .unwrap_or_else(|()| panic!("source"))
                         .source,
                     None
                 );
@@ -218,7 +218,7 @@ mod tests {
         for (word, field) in [(15, "closed"), (16, "revoked")] {
             let mut changed = bytes.clone();
             changed[word * 32 + 31] = 1;
-            let record = Record::from_call([1; 32], &changed).unwrap_or_else(|_| panic!("flags"));
+            let record = Record::from_call([1; 32], &changed).unwrap_or_else(|()| panic!("flags"));
             assert_eq!(record.closed, field == "closed");
             assert_eq!(record.revoked, field == "revoked");
         }
@@ -227,7 +227,7 @@ mod tests {
         exhausted[8 * 32..8 * 32 + 16].fill(0);
         assert_eq!(
             Record::from_call([1; 32], &exhausted)
-                .unwrap_or_else(|_| panic!("spent"))
+                .unwrap_or_else(|()| panic!("spent"))
                 .spent,
             u128::MAX
         );

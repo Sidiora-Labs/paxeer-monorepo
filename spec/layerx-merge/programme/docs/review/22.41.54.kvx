@@ -1,0 +1,7 @@
+[manifest]
+task = "22.41.54"
+pages = 1
+
+[page.1]
+path = "contracts/verifier-http.md"
+status = "corrected"

@@ -10,6 +10,7 @@ pub enum ChainTier {
 }
 
 impl ChainTier {
+    #[must_use]
     pub const fn allowances(self) -> (u64, u64) {
         match self {
             Self::Starter => (500_000, 65_536),

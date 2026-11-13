@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/url"
 	"strings"
@@ -66,7 +67,11 @@ func epochCommandDenied(ctx context.Context, m EpochMemberAuthority, credential 
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			log.Printf("denial connection close: %v", err)
+		}
+	}()
 	deadline, _ := bounded.Deadline()
 	if err = conn.SetDeadline(deadline); err != nil {
 		return err

@@ -45,7 +45,13 @@ func (h *Handlers) publishLegacy(ctx context.Context, addr, pool, wallet string,
 	}()
 	operation := uuid.NewString()
 	keys := make([]string, len(uploads))
+	sizes := make([]int32, len(uploads))
 	for i, up := range uploads {
+		sizeBytes, sizeErr := checkedImageSize(len(up.data))
+		if sizeErr != nil {
+			return response, sizeErr
+		}
+		sizes[i] = sizeBytes
 		keys[i] = fmt.Sprintf("legacy/%s/%s/%x.%s", operation, up.imageType, sha256.Sum256(up.data), image.ExtForMime(up.mime))
 	}
 	staged, err := json.Marshal(keys)
@@ -77,7 +83,7 @@ func (h *Handlers) publishLegacy(ctx context.Context, addr, pool, wallet string,
 		if old.StorageKey != "" {
 			retired = append(retired, old.StorageKey)
 		}
-		if err = writer.q.UpsertTokenImage(ctx, sqlcdb.UpsertTokenImageParams{ID: addr + "-" + up.imageType, TokenAddress: addr, ImageType: up.imageType, StorageKey: keys[i], MimeType: up.mime, SizeBytes: int32(len(up.data)), UploadedAt: now}); err != nil {
+		if err = writer.q.UpsertTokenImage(ctx, sqlcdb.UpsertTokenImageParams{ID: addr + "-" + up.imageType, TokenAddress: addr, ImageType: up.imageType, StorageKey: keys[i], MimeType: up.mime, SizeBytes: sizes[i], UploadedAt: now}); err != nil {
 			return response, err
 		}
 		url := base + "/" + up.imageType + "/" + addr + "." + image.ExtForMime(up.mime)

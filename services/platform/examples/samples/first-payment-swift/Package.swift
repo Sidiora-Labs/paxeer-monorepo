@@ -11,7 +11,7 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "FirstPayment",
-            dependencies: ["LayerXSDK"],
+            dependencies: [.product(name: "LayerXSDK", package: "swift")],
             path: "Sources/FirstPayment"
         )
     ]

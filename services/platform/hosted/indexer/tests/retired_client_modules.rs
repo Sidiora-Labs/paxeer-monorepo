@@ -4,16 +4,20 @@ fn no_retired_layerx_client_module_paths() {
     let mut directories = vec![manifest_dir.join("src")];
     let mut files = Vec::new();
     while let Some(directory) = directories.pop() {
-        for entry in std::fs::read_dir(&directory).expect("read indexer source directory") {
-            let entry = entry.expect("read indexer source entry");
+        for entry in std::fs::read_dir(&directory)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "read indexer source directory"))
+        {
+            let entry =
+                entry.unwrap_or_else(|error| panic!("{}: {error:?}", "read indexer source entry"));
             let path = entry.path();
             if path.is_dir() {
                 directories.push(path);
             } else if path.extension().is_some_and(|extension| extension == "rs") {
-                let source = std::fs::read_to_string(&path).expect("read indexer source file");
+                let source = std::fs::read_to_string(&path)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "read indexer source file"));
                 let relative_path = path
                     .strip_prefix(manifest_dir)
-                    .expect("indexer source path");
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "indexer source path"));
                 files.push((relative_path.display().to_string(), source));
             }
         }

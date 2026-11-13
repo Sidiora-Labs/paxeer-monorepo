@@ -1,3 +1,5 @@
+// The included runtime-clock/src/server.rs is shared with another test module.
+#[allow(clippy::duplicate_mod)]
 #[path = "../../../../../platform/hosted/runtime-clock/src/server.rs"]
 mod authority;
 
@@ -14,6 +16,10 @@ pub struct ClockAuthority {
     worker: Option<JoinHandle<std::io::Result<()>>>,
 }
 impl ClockAuthority {
+    /// Starts a runtime clock for the private socket directory.
+    ///
+    /// # Errors
+    /// Returns an error if the clock socket cannot be opened.
     pub fn start(root: &Path) -> std::io::Result<Self> {
         let mut server = authority::Server::bind(root)?;
         let binding = ClockBinding {
@@ -36,14 +42,13 @@ impl ClockAuthority {
             worker: Some(worker),
         })
     }
+    /// Connects a clock client to the running authority.
+    ///
+    /// # Panics
+    /// Panics if the local clock client cannot connect.
+    #[must_use]
     pub fn connect(&self) -> Arc<RuntimeClock> {
-        RuntimeClock::connect(self.binding.clone()).expect("authenticated runtime clock")
-    }
-    pub fn bind_command(&self, command: &mut std::process::Command) {
-        command
-            .env("LAYERX_RUNTIME_CLOCK_SOCKET", &self.binding.socket)
-            .env("LAYERX_RUNTIME_CLOCK_PID", self.binding.process.to_string())
-            .env("LAYERX_RUNTIME_CLOCK_UID", self.binding.user.to_string());
+        RuntimeClock::connect(self.binding.clone()).or_fail("authenticated runtime clock")
     }
 }
 impl Drop for ClockAuthority {
@@ -51,9 +56,11 @@ impl Drop for ClockAuthority {
         self.stop.store(true, Ordering::Release);
         self.worker
             .take()
-            .expect("clock worker")
+            .or_fail("clock worker")
             .join()
-            .expect("clock worker panicked")
-            .expect("clock authority IO");
+            .or_fail("clock worker panicked")
+            .or_fail("clock authority IO");
     }
 }
+
+use crate::require_value::RequireValue as _;

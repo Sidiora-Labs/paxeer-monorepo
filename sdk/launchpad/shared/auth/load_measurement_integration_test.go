@@ -102,6 +102,11 @@ func TestPhase4RealSignedLoadMeasurement(t *testing.T) {
 	if output == "" || !filepath.IsAbs(output) {
 		t.Fatal("absolute allocated L34_LOAD_OUTPUT_DIR required")
 	}
+	runSignedLoadFixture(t, plan, output)
+}
+
+func runSignedLoadFixture(t *testing.T, plan SignedLoadPlan, output string) {
+	t.Helper()
 	if err := os.MkdirAll(output, 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -397,6 +402,32 @@ func TestPhase4RealSignedLoadMeasurement(t *testing.T) {
 		t.Fatal("required raw measurements absent")
 	}
 	t.Logf("L34_PHASE4_MEASUREMENT run=%s requests=%d p95_ns=%d p99_ns=%d failures=%d queue_samples=%d checksum=%s full_az_restore_deferred=true", plan.RunID, result.ScheduledRequests, result.P95CorrectedNS, result.P99CorrectedNS, result.Failures, result.QueueObservations, result.SampleSHA256)
+}
+
+func TestSignedLoadOnRegisteredFixture(t *testing.T) {
+	source, err := os.ReadFile("load_measurement.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec, err := os.ReadFile("../../../../spec/layerx-merge/spec.kvx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceDigest := sha256.Sum256(source)
+	specDigest := sha256.Sum256(spec)
+	plan := SignedLoadPlan{
+		RunID: uuid.NewString(), CandidateSHA256: hex.EncodeToString(sourceDigest[:]),
+		SpecSHA256:   hex.EncodeToString(specDigest[:]),
+		SourceSHA256: map[string]string{"shared/auth/load_measurement.go": hex.EncodeToString(sourceDigest[:])},
+		Environment:  "test", ProofKind: valueEoaEip191, Region: "local",
+		DurationSeconds: 1, WarmupSeconds: 0, TargetRPS: 2, Concurrency: 1,
+		QueueCapacity: 2, RequestTimeoutMS: 1000, SampleIntervalMS: 100,
+	}
+	plan.WorkloadSHA256 = SignedLoadWorkloadDigest(plan)
+	if err := plan.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	runSignedLoadFixture(t, plan, t.TempDir())
 }
 
 func TestPhase4RejectsMissingLoadAuthority(t *testing.T) {

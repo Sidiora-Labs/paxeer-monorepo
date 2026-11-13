@@ -74,7 +74,7 @@ fn validators() -> Vec<Validator> {
 fn commit_header(chain_id: &str, observed: u64, app_hash: [u8; 32]) -> Header {
     Header {
         chain_id: chain_id.to_owned(),
-        height: (observed + 100) as i64,
+        height: ok(i64::try_from(observed + 100), "observed height"),
         app_hash: app_hash.to_vec(),
         version: ConsensusVersion { block: 11, app: 1 },
         time: Timestamp {
@@ -96,7 +96,7 @@ fn commit_header(chain_id: &str, observed: u64, app_hash: [u8; 32]) -> Header {
 /// A block commit with `(validator position, signing key)` slots, numbered from 1.
 fn signed(header: &Header, slots: &[(u8, u8)]) -> Commit {
     let mut commit = Commit {
-        height: header.height as u64,
+        height: ok(u64::try_from(header.height), "committed height"),
         round: 0,
         block_id: BlockId {
             hash: header.hash().to_vec(),
@@ -134,7 +134,11 @@ fn signed(header: &Header, slots: &[(u8, u8)]) -> Commit {
         encode_length_delimited(2, &parts, &mut block);
         encode_length_delimited(4, &block, &mut vote);
         let mut time = Vec::new();
-        encode_varint_field(1, timestamp.seconds as u64, &mut time);
+        encode_varint_field(
+            1,
+            ok(u64::try_from(timestamp.seconds), "timestamp seconds"),
+            &mut time,
+        );
         encode_varint_field(2, u64::from(timestamp.nanos), &mut time);
         encode_length_delimited(5, &time, &mut vote);
         encode_length_delimited(6, header.chain_id.as_bytes(), &mut vote);
@@ -353,10 +357,10 @@ mod repair_m1329 {
         let state = created_state();
         let mut manifest = vec![0, 1];
         manifest.extend(1u32.to_be_bytes());
-        manifest.extend((SHARED_STATE_KEY.len() as u16).to_be_bytes());
+        manifest.extend(checked(u16::try_from(SHARED_STATE_KEY.len())).to_be_bytes());
         manifest.extend(SHARED_STATE_KEY);
         manifest.extend(digest(&state));
-        manifest.extend((state.len() as u32).to_be_bytes());
+        manifest.extend(checked(u32::try_from(state.len())).to_be_bytes());
         let mut value = vec![0, 1];
         value.extend(1u32.to_be_bytes());
         value.extend(digest(&manifest));
@@ -397,8 +401,8 @@ mod repair_m1329 {
             let request = codec::ChunkRequest {
                 revision: 1,
                 digest: Presence::Present(checked(codec::state_digest(&state))),
-                offset: offset as u32,
-                requested: MAX_CHUNK_BYTES as u16,
+                offset: checked(u32::try_from(offset)),
+                requested: checked(u16::try_from(MAX_CHUNK_BYTES)),
             };
             let mut request_bytes = [0; 46];
             checked(codec::encode_chunk_request(&request, &mut request_bytes));
@@ -613,43 +617,202 @@ mod repair_m1329 {
         }
     }
 
-    #[test]
-    fn receiver_process_failure_boundaries_and_durable_effect_replay() {
-        const CHILD: &str = "WEBHOOK_REPAIR_M1329_CHILD";
-        const BOUNDARY: &str = "WEBHOOK_REPAIR_M1329_BOUNDARY";
-        if let Ok(root) = std::env::var(CHILD) {
-            let root = Path::new(&root);
-            let boundary = checked(std::env::var(BOUNDARY));
-            let delivery = retained_delivery(root);
-            let receiver = consumer(&root.join("consumer"));
-            let result = receiver.receive(&delivery.presentation(now()), |transaction| {
-                if boundary == "before_effect" {
-                    std::process::exit(79);
-                }
-                let result = credit(transaction);
-                if boundary == "after_effect" {
-                    std::process::exit(79);
-                }
-                if boundary == "before_stage" {
-                    checked(fs::create_dir(root.join("consumer/state.json.staged")));
-                }
-                if boundary == "before_rename" {
-                    checked(fs::create_dir(root.join("consumer/state.json")));
-                }
-                result
-            });
-            if boundary == "before_stage" || boundary == "before_rename" {
-                assert!(matches!(result, Err(WebhookError::Io(_))));
+    const CHILD: &str = "WEBHOOK_REPAIR_M1329_CHILD";
+    const BOUNDARY: &str = "WEBHOOK_REPAIR_M1329_BOUNDARY";
+
+    fn receiver_child(root: &Path, boundary: &str) -> ! {
+        let delivery = retained_delivery(root);
+        let receiver = consumer(&root.join("consumer"));
+        let result = receiver.receive(&delivery.presentation(now()), |transaction| {
+            if boundary == "before_effect" {
                 std::process::exit(79);
             }
+            let result = credit(transaction);
+            if boundary == "after_effect" {
+                std::process::exit(79);
+            }
+            if boundary == "before_stage" {
+                checked(fs::create_dir(root.join("consumer/state.json.staged")));
+            }
+            if boundary == "before_rename" {
+                checked(fs::create_dir(root.join("consumer/state.json")));
+            }
+            result
+        });
+        if boundary == "before_stage" || boundary == "before_rename" {
+            assert!(matches!(result, Err(WebhookError::Io(_))));
+            std::process::exit(79);
+        }
+        assert_eq!(
+            checked(result),
+            Consumed::Applied {
+                sequence: 1,
+                result: "7".into()
+            }
+        );
+        std::process::exit(80);
+    }
+
+    fn run_boundary(root: &Path, boundary: &str, delivery: &SignedDelivery, event: &ProtocolEvent) {
+        checked(fs::create_dir_all(root));
+        checked(fs::write(
+            root.join("delivery.json"),
+            checked(serde_json::to_vec(&json!({
+                "id": delivery.id, "timestamp": delivery.timestamp, "key_id": delivery.key_id,
+                "signature": delivery.signature, "body": hex_encode(&delivery.body),
+            }))),
+        ));
+        let mut child = checked(
+            Command::new(checked(std::env::current_exe()))
+                .args([
+                    "--exact",
+                    concat!(
+                        module_path!(),
+                        "::receiver_process_failure_boundaries_and_durable_effect_replay"
+                    )
+                    .split_once("::")
+                    .unwrap_or_else(|| panic!("test crate prefix"))
+                    .1,
+                    "--nocapture",
+                ])
+                .env(CHILD, root)
+                .env(BOUNDARY, boundary)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .spawn(),
+        );
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let status = loop {
+            if let Some(status) = checked(child.try_wait()) {
+                break status;
+            }
+            if Instant::now() >= deadline {
+                checked(child.kill());
+                checked(child.wait());
+                panic!("receiver child exceeded deadline at {boundary}");
+            }
+            thread::sleep(Duration::from_millis(10));
+        };
+        assert_eq!(
+            status.code(),
+            Some(if boundary == "after_commit" { 80 } else { 79 }),
+            "{boundary}"
+        );
+        if boundary == "before_stage" {
+            checked(fs::remove_dir(root.join("consumer/state.json.staged")));
+        }
+        if boundary == "before_rename" {
+            let staged: Value = checked(serde_json::from_slice(&checked(fs::read(
+                root.join("consumer/state.json.staged"),
+            ))));
             assert_eq!(
-                checked(result),
+                staged["subjects"][event.subject().as_str()]["effects"]["balance"],
+                "7"
+            );
+            assert_eq!(
+                staged["subjects"][event.subject().as_str()]["last_sequence"],
+                1
+            );
+            assert_eq!(
+                checked(
+                    staged["subjects"][event.subject().as_str()]["applied"]
+                        .as_object()
+                        .ok_or("staged ledger")
+                )
+                .len(),
+                1
+            );
+            checked(fs::remove_dir(root.join("consumer/state.json")));
+        }
+    }
+
+    fn assert_replay(
+        root: &Path,
+        boundary: &str,
+        delivery: &SignedDelivery,
+        event: &ProtocolEvent,
+    ) {
+        let receiver = consumer(&root.join("consumer"));
+        let committed = boundary == "after_commit";
+        assert_eq!(
+            checked(receiver.effect(event.subject(), "balance")),
+            if committed { Some("7".into()) } else { None },
+            "{boundary}"
+        );
+        assert_eq!(
+            checked(receiver.applied(event.subject())),
+            usize::from(committed),
+            "{boundary}"
+        );
+        assert_eq!(
+            checked(receiver.last_sequence(event.subject())),
+            u64::from(committed),
+            "{boundary}"
+        );
+        let replay = checked(receiver.receive(&delivery.presentation(now()), credit));
+        assert_eq!(
+            replay,
+            if committed {
+                Consumed::Duplicate {
+                    sequence: 1,
+                    result: "7".into(),
+                }
+            } else {
                 Consumed::Applied {
                     sequence: 1,
-                    result: "7".into()
+                    result: "7".into(),
                 }
-            );
-            std::process::exit(80);
+            },
+            "{boundary}"
+        );
+        drop(receiver);
+        let receiver = consumer(&root.join("consumer"));
+        assert_eq!(
+            checked(receiver.effect(event.subject(), "balance")),
+            Some("7".into()),
+            "{boundary}"
+        );
+        assert_eq!(
+            checked(receiver.receive(&delivery.presentation(now()), |_| panic!(
+                "replay applied the effect twice at {boundary}"
+            ))),
+            Consumed::Duplicate {
+                sequence: 1,
+                result: "7".into()
+            }
+        );
+        assert_eq!(checked(receiver.applied(event.subject())), 1, "{boundary}");
+        assert_eq!(
+            checked(receiver.last_sequence(event.subject())),
+            1,
+            "{boundary}"
+        );
+        let durable: Value = checked(serde_json::from_slice(&checked(fs::read(
+            root.join("consumer/state.json"),
+        ))));
+        assert_eq!(
+            durable["subjects"][event.subject().as_str()]["effects"]["balance"],
+            "7"
+        );
+        let ledger = &durable["subjects"][event.subject().as_str()];
+        assert_eq!(ledger["last_sequence"], 1, "{boundary}");
+        let applied = checked(ledger["applied"].as_object().ok_or("durable ledger"));
+        assert_eq!(applied.len(), 1, "{boundary}");
+        let entry = &applied[event.id().as_str()];
+        assert_eq!(entry["sequence"], 1, "{boundary}");
+        assert_eq!(entry["result"], "7", "{boundary}");
+        assert_eq!(
+            entry["body_digest"],
+            json!(digest(&delivery.body)),
+            "{boundary}"
+        );
+    }
+
+    #[test]
+    fn receiver_process_failure_boundaries_and_durable_effect_replay() {
+        if let Ok(root) = std::env::var(CHILD) {
+            let boundary = checked(std::env::var(BOUNDARY));
+            receiver_child(Path::new(&root), &boundary);
         }
         let scratch = scratch("repair-m1329-crashes");
         let document = capture_document(PROGRAM);
@@ -663,150 +826,8 @@ mod repair_m1329 {
             "after_commit",
         ] {
             let root = scratch.0.join(boundary);
-            checked(fs::create_dir_all(&root));
-            checked(fs::write(
-                root.join("delivery.json"),
-                checked(serde_json::to_vec(&json!({
-                    "id": delivery.id, "timestamp": delivery.timestamp, "key_id": delivery.key_id,
-                    "signature": delivery.signature, "body": hex_encode(&delivery.body),
-                }))),
-            ));
-            let mut child = checked(
-                Command::new(checked(std::env::current_exe()))
-                    .args([
-                        "--exact",
-                        concat!(
-                            module_path!(),
-                            "::receiver_process_failure_boundaries_and_durable_effect_replay"
-                        )
-                        .split_once("::")
-                        .expect("test crate prefix")
-                        .1,
-                        "--nocapture",
-                    ])
-                    .env(CHILD, &root)
-                    .env(BOUNDARY, boundary)
-                    .stdin(Stdio::null())
-                    .stdout(Stdio::null())
-                    .spawn(),
-            );
-            let deadline = Instant::now() + Duration::from_secs(10);
-            let status = loop {
-                if let Some(status) = checked(child.try_wait()) {
-                    break status;
-                }
-                if Instant::now() >= deadline {
-                    checked(child.kill());
-                    checked(child.wait());
-                    panic!("receiver child exceeded deadline at {boundary}");
-                }
-                thread::sleep(Duration::from_millis(10));
-            };
-            assert_eq!(
-                status.code(),
-                Some(if boundary == "after_commit" { 80 } else { 79 }),
-                "{boundary}"
-            );
-            if boundary == "before_stage" {
-                checked(fs::remove_dir(root.join("consumer/state.json.staged")));
-            }
-            if boundary == "before_rename" {
-                let staged: Value = checked(serde_json::from_slice(&checked(fs::read(
-                    root.join("consumer/state.json.staged"),
-                ))));
-                assert_eq!(
-                    staged["subjects"][event.subject().as_str()]["effects"]["balance"],
-                    "7"
-                );
-                assert_eq!(
-                    staged["subjects"][event.subject().as_str()]["last_sequence"],
-                    1
-                );
-                assert_eq!(
-                    checked(
-                        staged["subjects"][event.subject().as_str()]["applied"]
-                            .as_object()
-                            .ok_or("staged ledger")
-                    )
-                    .len(),
-                    1
-                );
-                checked(fs::remove_dir(root.join("consumer/state.json")));
-            }
-            let receiver = consumer(&root.join("consumer"));
-            let committed = boundary == "after_commit";
-            assert_eq!(
-                checked(receiver.effect(event.subject(), "balance")),
-                if committed { Some("7".into()) } else { None },
-                "{boundary}"
-            );
-            assert_eq!(
-                checked(receiver.applied(event.subject())),
-                usize::from(committed),
-                "{boundary}"
-            );
-            assert_eq!(
-                checked(receiver.last_sequence(event.subject())),
-                u64::from(committed),
-                "{boundary}"
-            );
-            let replay = checked(receiver.receive(&delivery.presentation(now()), credit));
-            assert_eq!(
-                replay,
-                if committed {
-                    Consumed::Duplicate {
-                        sequence: 1,
-                        result: "7".into(),
-                    }
-                } else {
-                    Consumed::Applied {
-                        sequence: 1,
-                        result: "7".into(),
-                    }
-                },
-                "{boundary}"
-            );
-            drop(receiver);
-            let receiver = consumer(&root.join("consumer"));
-            assert_eq!(
-                checked(receiver.effect(event.subject(), "balance")),
-                Some("7".into()),
-                "{boundary}"
-            );
-            assert_eq!(
-                checked(receiver.receive(&delivery.presentation(now()), |_| panic!(
-                    "replay applied the effect twice at {boundary}"
-                ))),
-                Consumed::Duplicate {
-                    sequence: 1,
-                    result: "7".into()
-                }
-            );
-            assert_eq!(checked(receiver.applied(event.subject())), 1, "{boundary}");
-            assert_eq!(
-                checked(receiver.last_sequence(event.subject())),
-                1,
-                "{boundary}"
-            );
-            let durable: Value = checked(serde_json::from_slice(&checked(fs::read(
-                root.join("consumer/state.json"),
-            ))));
-            assert_eq!(
-                durable["subjects"][event.subject().as_str()]["effects"]["balance"],
-                "7"
-            );
-            let ledger = &durable["subjects"][event.subject().as_str()];
-            assert_eq!(ledger["last_sequence"], 1, "{boundary}");
-            let applied = checked(ledger["applied"].as_object().ok_or("durable ledger"));
-            assert_eq!(applied.len(), 1, "{boundary}");
-            let entry = &applied[event.id().as_str()];
-            assert_eq!(entry["sequence"], 1, "{boundary}");
-            assert_eq!(entry["result"], "7", "{boundary}");
-            assert_eq!(
-                entry["body_digest"],
-                json!(digest(&delivery.body)),
-                "{boundary}"
-            );
+            run_boundary(&root, boundary, &delivery, &event);
+            assert_replay(&root, boundary, &delivery, &event);
         }
     }
 }

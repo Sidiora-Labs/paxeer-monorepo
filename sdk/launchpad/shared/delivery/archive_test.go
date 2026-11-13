@@ -13,6 +13,20 @@ import (
 	"time"
 )
 
+func requireDeliveryEnv(t *testing.T, names ...string) {
+	t.Helper()
+	for _, name := range names {
+		if os.Getenv(name) == "" {
+			t.Skipf("%s is unset: configure the real delivery integration fixture", name)
+		}
+	}
+}
+
+func requireArchiveFixture(t *testing.T) {
+	t.Helper()
+	requireDeliveryEnv(t, "DELIVERY_TEST_DSN", "DELIVERY_ARCHIVE_ENDPOINT", "DELIVERY_ARCHIVE_ACCESS_KEY", "DELIVERY_ARCHIVE_SECRET_KEY", "DELIVERY_ARCHIVE_BUCKET", "DELIVERY_ARCHIVE_STREAM", "DELIVERY_ARCHIVE_DEPLOYMENT", "DELIVERY_ARCHIVE_DECODER_SHA", "DELIVERY_ARCHIVE_ABI_SHA", "DELIVERY_ARCHIVE_CODE_SHA", "DELIVERY_ARCHIVE_FROM", "DELIVERY_ARCHIVE_TO")
+}
+
 func TestArchiveManifestRequiresEveryBlockIncludingEmpty(t *testing.T) {
 	m := ArchiveManifest{Version: 1, ChainID: 125, SourceStream: "canonical", Deployment: "deployment", DecoderDigest: strings.Repeat("a", 64), ABIDigest: strings.Repeat("b", 64), CodeDigest: strings.Repeat("c", 64), FromHeight: 10, ToHeight: 11, RawCount: 1, Complete: true, Blocks: []ArchiveBlock{{10, "0x" + strings.Repeat("d", 64), 1, Hash([]byte("raw\n")), 4}, {11, "0x" + strings.Repeat("e", 64), 0, Hash(nil), 0}}}
 	if err := ValidateArchiveManifest(m); err != nil {
@@ -42,6 +56,7 @@ func TestArchiveManifestRequiresEveryBlockIncludingEmpty(t *testing.T) {
 }
 
 func TestArchiveActualCanonicalPostgresAndObjectStorage(t *testing.T) {
+	requireArchiveFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	cfg, err := pgxpool.ParseConfig(os.Getenv("DELIVERY_TEST_DSN"))

@@ -8,9 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"golang.org/x/text/unicode/norm"
 	"io"
 	"net/url"
 	"regexp"
@@ -18,6 +15,10 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/text/unicode/norm"
 )
 
 var ErrForbidden = errors.New("creator authorization required")
@@ -62,7 +63,7 @@ func ParsePatch(raw []byte) (Patch, error) {
 			return p, ErrValidation
 		}
 		s, ok := k.(string)
-		if !ok || seen[s] || (s != "expectedRevision" && s != "description" && s != "tags" && s != "logoAssetId") {
+		if !ok || seen[s] || (s != "expectedRevision" && s != metadataDescriptionKey && s != metadataTagsKey && s != metadataLogoAssetIDKey) {
 			return p, ErrValidation
 		}
 		seen[s] = true
@@ -114,7 +115,7 @@ func revisionValid(s string) bool {
 			return false
 		}
 	}
-	return len(s) < 78 || s <= "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+	return len(s) < 78 || s <= metadataMaxRevision
 }
 func text(s string, min, max int) (string, error) {
 	if !utf8.ValidString(s) {
@@ -133,7 +134,7 @@ func text(s string, min, max int) (string, error) {
 }
 func SafeLink(s string) bool {
 	u, e := url.Parse(s)
-	return e == nil && u.Scheme == "https" && u.Hostname() != "" && u.User == nil
+	return e == nil && u.Scheme == metadataHTTPSScheme && u.Hostname() != "" && u.User == nil
 }
 
 // VerifiedAction is produced exclusively by the identity verifier, which must
@@ -183,7 +184,7 @@ func (s *ProductionStore) Apply(ctx context.Context, pool string, raw []byte, a 
 	}
 	h := sha256.Sum256(raw)
 	digest := hex.EncodeToString(h[:])
-	if a.Method != "PATCH" || a.Path != "/v1/tokens/"+pool+"/metadata" || a.BodyHash != digest || s.Verifier == nil {
+	if a.Method != metadataPatchMethod || a.Path != "/v1/tokens/"+pool+"/metadata" || a.BodyHash != digest || s.Verifier == nil {
 		return "", ErrForbidden
 	}
 	tx, e := s.Pool.Begin(ctx)
@@ -193,7 +194,7 @@ func (s *ProductionStore) Apply(ctx context.Context, pool string, raw []byte, a 
 	defer func() {
 		c, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 		defer cancel()
-		tx.Rollback(c)
+		rollbackTransaction(c, tx)
 	}()
 	var creator string
 	token := pool
@@ -234,7 +235,7 @@ func (s *ProductionStore) Apply(ctx context.Context, pool string, raw []byte, a 
 	if e != nil {
 		return "", e
 	}
-	if current != p.ExpectedRevision || current == "115792089237316195423570985008687907853269984665640564039457584007913129639935" {
+	if current != p.ExpectedRevision || current == metadataMaxRevision {
 		return "", ErrConflict
 	}
 	if blocked {
@@ -243,16 +244,16 @@ func (s *ProductionStore) Apply(ctx context.Context, pool string, raw []byte, a 
 	if p.LogoAssetID != nil {
 		var state string
 		e = tx.QueryRow(ctx, "SELECT state FROM "+s.table("assets")+" WHERE id=$1 AND pool=$2 FOR SHARE", *p.LogoAssetID, pool).Scan(&state)
-		if e != nil || state != "APPROVED" {
+		if e != nil || state != metadataStateApproved {
 			return "", ErrMissing
 		}
 	}
 	doc := map[string]any{}
 	if p.Description != nil {
-		doc["description"] = *p.Description
+		doc[metadataDescriptionKey] = *p.Description
 	}
 	if p.Tags != nil {
-		doc["tags"] = *p.Tags
+		doc[metadataTagsKey] = *p.Tags
 	}
 	patch, _ := json.Marshal(doc)
 	e = tx.QueryRow(ctx, "UPDATE "+s.table("documents")+" SET revision=revision+1,document=document||$2::jsonb,asset_id=COALESCE($3,asset_id) WHERE pool=$1 RETURNING revision::text", pool, string(patch), p.LogoAssetID).Scan(&revision)
@@ -280,7 +281,7 @@ func (s *ProductionStore) Restrict(ctx context.Context, pool, revision string, b
 	defer func() {
 		c, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 		defer cancel()
-		tx.Rollback(c)
+		rollbackTransaction(c, tx)
 	}()
 	var creator string
 	if e = tx.QueryRow(ctx, "SELECT creator FROM "+s.table("pools")+" WHERE pool=$1 FOR UPDATE", pool).Scan(&creator); e != nil {

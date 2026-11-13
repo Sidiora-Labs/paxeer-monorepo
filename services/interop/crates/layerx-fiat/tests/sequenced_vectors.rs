@@ -35,19 +35,19 @@ const PROVIDER_DOMAIN: &[u8] = b"LayerX/fiat/sequenced-provider/v1\0";
 fn field<'a>(value: &'a Value, name: &str) -> &'a str {
     value[name]
         .as_str()
-        .unwrap_or_else(|| panic!("missing string field {name}"))
+        .or_panic(&format!("missing string field {name}"))
 }
 
 fn number(value: &Value, name: &str) -> u64 {
     value[name]
         .as_u64()
-        .unwrap_or_else(|| panic!("missing integer field {name}"))
+        .or_panic(&format!("missing integer field {name}"))
 }
 
 fn hex(value: &str) -> Vec<u8> {
     let value = value
         .strip_prefix("0x")
-        .unwrap_or_else(|| panic!("hex field must start with 0x"));
+        .or_panic("hex field must start with 0x");
     assert!(value.is_ascii());
     assert_eq!(value.len() % 2, 0);
     (0..value.len())
@@ -134,7 +134,7 @@ fn recorded_payment_topics(case: &Value) -> [[u8; 32]; 3] {
     [5, 0, 1].map(|word| {
         transaction[start + word * 32..start + (word + 1) * 32]
             .try_into()
-            .expect("recorded payExact calldata word")
+            .or_panic("recorded payExact calldata word")
     })
 }
 
@@ -150,18 +150,18 @@ fn recorded_evidence(case: &Value, rung: SettlementRung) -> SequencerEvidence {
     }
     let logs = case["receiptJson"]["logs"]
         .as_array()
-        .unwrap_or_else(|| panic!("recorded log list"))
+        .or_panic("recorded log list")
         .iter()
         .map(|log| {
             let topics = log["topics"]
                 .as_array()
-                .unwrap_or_else(|| panic!("recorded topics"))
+                .or_panic("recorded topics")
                 .iter()
-                .map(|topic| array(topic.as_str().unwrap_or_else(|| panic!("log topic"))))
+                .map(|topic| array(topic.as_str().or_panic("log topic")))
                 .collect();
             let index = field(log, "logIndex")
                 .strip_prefix("0x")
-                .unwrap_or_else(|| panic!("log index prefix"));
+                .or_panic("log index prefix");
             SequencerLog::new(
                 array(field(log, "address")),
                 topics,
@@ -256,12 +256,9 @@ impl FiatPlane for RecordedSequencer<'_> {
                 &evidence.signed_receipt,
                 ReceiptKeys::HeightRanges(&self.keys),
             )
-            .unwrap_or_else(|error| panic!("recorded sequencer signature: {error:?}"));
-            verify_logs(&receipt, evidence.logs.clone())
-                .unwrap_or_else(|error| panic!("recorded sequencer logs: {error:?}"));
-            let protocol = receipt
-                .protocol()
-                .unwrap_or_else(|| panic!("recorded protocol receipt"));
+            .or_panic("recorded sequencer signature");
+            verify_logs(&receipt, evidence.logs.clone()).or_panic("recorded sequencer logs");
+            let protocol = receipt.protocol().or_panic("recorded protocol receipt");
             assert_eq!(protocol.activity_id(), evidence.transaction_hash);
             assert_eq!(
                 protocol.result_code() == 0,
@@ -316,44 +313,7 @@ fn fiat_sequenced_journey_vectors_replay() {
     let mut coverage = [0_usize; 5];
     let mut failures = Vec::new();
     for vector in &vectors {
-        let name = field(vector, "name");
-        let declared = &vector["sequencer"];
-        assert_eq!(field(declared, "fixture"), FIXTURE_PATH, "{name}");
-        let case = fixture["cases"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|case| field(case, "id") == field(declared, "case"))
-            .unwrap_or_else(|| panic!("{name}: missing producer recording"));
-        assert_eq!(field(case, "id"), name);
-        let rung = match field(declared, "rung") {
-            "submitted" => SettlementRung::Submitted,
-            "receipted" => SettlementRung::Receipted,
-            other => panic!("{name}: unsupported rung {other}"),
-        };
-        assert_eq!(
-            declared["transaction_hash"], case["receiptJson"]["txHash"],
-            "{name}"
-        );
-        if rung == SettlementRung::Receipted {
-            assert_eq!(declared["receipt_digest"], case["receiptDigest"], "{name}");
-        } else {
-            assert!(declared["receipt_digest"].is_null(), "{name}");
-        }
-        assert_eq!(
-            recorded_payment_topics(case)[0],
-            array(field(declared, "payment_reference")),
-            "{name}: the signed transaction carries the provider reference"
-        );
-        let raw = hex(field(case, "rawTransaction"));
-        let calldata = hex(field(declared, "payment_calldata"));
-        assert_eq!(
-            raw.windows(calldata.len())
-                .filter(|part| *part == calldata)
-                .count(),
-            1,
-            "{name}: exact producer calldata"
-        );
+        let (name, case, rung) = recorded_vector_case(vector, &fixture);
         assert_eq!(field(vector, "provider_public_key"), PROVIDER_PUBLIC_KEY);
         let facts = facts(&vector["provider_facts"]);
         let token = TokenReference::new(field(vector, "token").as_bytes().to_vec())
@@ -392,58 +352,8 @@ fn fiat_sequenced_journey_vectors_replay() {
             },
             calls: 0,
         };
-        let expected = &vector["expect"];
         let (expected_outcome, expected_translation, coverage_index) =
-            if let Some(refusal) = expected["refusal"].as_str() {
-                assert_eq!(refusal, "ReceiptMismatch", "{name}");
-                assert_eq!(field(case, "id"), "card_reverted_never_credits");
-                assert_eq!(field(case, "vector"), "V2");
-                assert_eq!(case["receiptJson"]["status"], "0x0");
-                assert!(case["receiptJson"]["logs"]
-                    .as_array()
-                    .is_some_and(Vec::is_empty));
-                (
-                    Err(FiatError::ReceiptMismatch),
-                    TranslationStatus::Pending,
-                    4,
-                )
-            } else {
-                assert_eq!(field(case, "id"), name);
-                match field(expected, "state") {
-                    "credit-pending" => {
-                        assert_eq!(rung, SettlementRung::Submitted);
-                        (
-                            Ok(FiatJourneyState::CreditPending),
-                            TranslationStatus::Pending,
-                            3,
-                        )
-                    }
-                    "credited" => {
-                        assert_eq!(rung, SettlementRung::Receipted);
-                        assert_eq!(expected["receipt_digest"], declared["receipt_digest"]);
-                        let receipt_digest = array(field(case, "receiptDigest"));
-                        let index = match facts.rail {
-                            FiatRail::Card => 0,
-                            FiatRail::Bank => 1,
-                            FiatRail::RealTimePayment => 2,
-                        };
-                        (
-                            Ok(FiatJourneyState::Credited { receipt_digest }),
-                            TranslationStatus::ReceiptVerified { receipt_digest },
-                            index,
-                        )
-                    }
-                    other => panic!("{name}: unsupported expected state {other}"),
-                }
-            };
-        assert_eq!(
-            field(expected, "translation"),
-            if expected_translation == TranslationStatus::Pending {
-                "pending"
-            } else {
-                "receipt-verified"
-            },
-        );
+            expected_vector_result(vector, case, rung, &facts, name);
         let mut gateway = registered_gateway(vectors.len(), &trace);
         for now in [number(vector, "now"), number(vector, "replay_at")] {
             let outcome = FiatAdapter::apply(
@@ -487,10 +397,122 @@ fn fiat_sequenced_journey_vectors_replay() {
     );
 }
 
+fn recorded_vector_case<'a>(
+    vector: &'a Value,
+    fixture: &'a Value,
+) -> (&'a str, &'a Value, SettlementRung) {
+    let name = field(vector, "name");
+    let declared = &vector["sequencer"];
+    assert_eq!(field(declared, "fixture"), FIXTURE_PATH, "{name}");
+    let case = fixture["cases"]
+        .as_array()
+        .or_panic("expected Some value")
+        .iter()
+        .find(|case| field(case, "id") == field(declared, "case"))
+        .or_panic(&format!("{name}: missing producer recording"));
+    assert_eq!(field(case, "id"), name);
+    let rung = match field(declared, "rung") {
+        "submitted" => SettlementRung::Submitted,
+        "receipted" => SettlementRung::Receipted,
+        other => panic!("{name}: unsupported rung {other}"),
+    };
+    assert_eq!(
+        declared["transaction_hash"], case["receiptJson"]["txHash"],
+        "{name}"
+    );
+    if rung == SettlementRung::Receipted {
+        assert_eq!(declared["receipt_digest"], case["receiptDigest"], "{name}");
+    } else {
+        assert!(declared["receipt_digest"].is_null(), "{name}");
+    }
+    assert_eq!(
+        recorded_payment_topics(case)[0],
+        array(field(declared, "payment_reference")),
+        "{name}: the signed transaction carries the provider reference"
+    );
+    let raw = hex(field(case, "rawTransaction"));
+    let calldata = hex(field(declared, "payment_calldata"));
+    assert_eq!(
+        raw.windows(calldata.len())
+            .filter(|part| *part == calldata)
+            .count(),
+        1,
+        "{name}: exact producer calldata"
+    );
+    (name, case, rung)
+}
+
+fn expected_vector_result(
+    vector: &Value,
+    case: &Value,
+    rung: SettlementRung,
+    facts: &VerifiedProviderFacts,
+    name: &str,
+) -> (
+    Result<FiatJourneyState, FiatError>,
+    TranslationStatus,
+    usize,
+) {
+    let declared = &vector["sequencer"];
+    let expected = &vector["expect"];
+    let (expected_outcome, expected_translation, coverage_index) =
+        if let Some(refusal) = expected["refusal"].as_str() {
+            assert_eq!(refusal, "ReceiptMismatch", "{name}");
+            assert_eq!(field(case, "id"), "card_reverted_never_credits");
+            assert_eq!(field(case, "vector"), "V2");
+            assert_eq!(case["receiptJson"]["status"], "0x0");
+            assert!(case["receiptJson"]["logs"]
+                .as_array()
+                .is_some_and(Vec::is_empty));
+            (
+                Err(FiatError::ReceiptMismatch),
+                TranslationStatus::Pending,
+                4,
+            )
+        } else {
+            assert_eq!(field(case, "id"), name);
+            match field(expected, "state") {
+                "credit-pending" => {
+                    assert_eq!(rung, SettlementRung::Submitted);
+                    (
+                        Ok(FiatJourneyState::CreditPending),
+                        TranslationStatus::Pending,
+                        3,
+                    )
+                }
+                "credited" => {
+                    assert_eq!(rung, SettlementRung::Receipted);
+                    assert_eq!(expected["receipt_digest"], declared["receipt_digest"]);
+                    let receipt_digest = array(field(case, "receiptDigest"));
+                    let index = match facts.rail {
+                        FiatRail::Card => 0,
+                        FiatRail::Bank => 1,
+                        FiatRail::RealTimePayment => 2,
+                    };
+                    (
+                        Ok(FiatJourneyState::Credited { receipt_digest }),
+                        TranslationStatus::ReceiptVerified { receipt_digest },
+                        index,
+                    )
+                }
+                other => panic!("{name}: unsupported expected state {other}"),
+            }
+        };
+    assert_eq!(
+        field(expected, "translation"),
+        if expected_translation == TranslationStatus::Pending {
+            "pending"
+        } else {
+            "receipt-verified"
+        },
+    );
+    (expected_outcome, expected_translation, coverage_index)
+}
+
 #[test]
 fn resigned_mutations_are_not_producer_recordings() {
-    let vectors: Vec<Value> = serde_json::from_str(JOURNEYS).unwrap();
-    let fixture: Value = serde_json::from_str(SHARED_FIXTURE).unwrap();
+    let vectors: Vec<Value> = serde_json::from_str(JOURNEYS).or_panic("expected Ok value");
+    let fixture: Value = serde_json::from_str(SHARED_FIXTURE).or_panic("expected Ok value");
     let mut checked = 0;
     for vector in vectors
         .iter()
@@ -498,10 +520,10 @@ fn resigned_mutations_are_not_producer_recordings() {
     {
         let case = fixture["cases"]
             .as_array()
-            .unwrap()
+            .or_panic("expected Some value")
             .iter()
             .find(|case| case["id"] == "V1-layerxledger-pay-exact")
-            .unwrap();
+            .or_panic("expected Some value");
         let source = recorded_evidence(case, SettlementRung::Receipted);
         let reference = FiatAdapter::idempotency_key(&facts(&vector["provider_facts"]));
         let mutation = resigned_payment(case, &vector["sequencer"], reference);
@@ -512,8 +534,9 @@ fn resigned_mutations_are_not_producer_recordings() {
             number(pin, "firstHeight"),
             number(pin, "lastHeight"),
         )];
-        let signed = verify_sequencer_signature(&mutation.signed_receipt, &keys).unwrap();
-        verify_logs(&signed, mutation.logs.clone()).unwrap();
+        let signed = verify_sequencer_signature(&mutation.signed_receipt, &keys)
+            .or_panic("expected Ok value");
+        verify_logs(&signed, mutation.logs.clone()).or_panic("expected Ok value");
         assert_eq!(mutation.transaction_hash, source.transaction_hash);
         assert_ne!(mutation.signed_receipt, source.signed_receipt);
         assert_ne!(mutation.logs, source.logs);
@@ -523,8 +546,8 @@ fn resigned_mutations_are_not_producer_recordings() {
             "negative fixture: the original transaction did not request this reference"
         );
         assert_ne!(
-            canonical_receipt_digest(&mutation.signed_receipt).unwrap(),
-            canonical_receipt_digest(&source.signed_receipt).unwrap()
+            canonical_receipt_digest(&mutation.signed_receipt).or_panic("expected Ok value"),
+            canonical_receipt_digest(&source.signed_receipt).or_panic("expected Ok value")
         );
         checked += 1;
     }
@@ -538,4 +561,26 @@ mod producer_path;
 fn fiat_resigned_vectors_uses_unchanged_producer_evidence() -> Result<(), Box<dyn std::error::Error>>
 {
     producer_path::fiat_resigned_vectors()
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

@@ -65,15 +65,7 @@ fn replay_exchange(
     ))
 }
 
-#[test]
-fn replayed_http_status_reopens_400_and_409() -> TestResult {
-    let _serial = CONFIGURATION.lock().unwrap();
-    let case = payment_case()?;
-    let dir = Directory::new()?;
-    let identity = configure(&dir.0, &case)?;
-    let node = Node::start(&case)?;
-    let redis = Redis::start(&dir.0, &identity, "127.0.0.1:0".parse()?)?;
-    let mut config = gateway(&dir.0, &redis, &node)?;
+fn issue_authorization(config: &Config) -> TestResult<String> {
     let issued = IssuedKey::generate()?;
     let salt = "http-replay-salt";
     let record = KeyRecord {
@@ -95,7 +87,54 @@ fn replayed_http_status_reopens_400_and_409() -> TestResult {
     config
         .store
         .issue_key(&record, "HTTP replay test issuance")?;
-    let authorization = format!("LayerX-Key {}:{}", issued.id(), issued.secret());
+    Ok(format!("LayerX-Key {}:{}", issued.id(), issued.secret()))
+}
+
+fn record_payment_replays(
+    mut config: Config,
+    case: &Value,
+    authorization: &str,
+    trace: &str,
+    completions: &mut Vec<(&'static str, Vec<u8>, HttpReplayResponse)>,
+) -> TestResult<Config> {
+    let payment = visa_payment(case)?;
+    let (next, paid) =
+        replay_exchange(config, "POST", PAYMENT_PATH, &payment, authorization, trace)?;
+    config = next;
+    assert_eq!(paid.status, 200, "{}", text(&paid.body));
+    let value: Value = serde_json::from_slice(&paid.body)?;
+    assert_eq!(value["result"]["state"], "receipt-verified");
+    let mut reused_credential = payment.clone();
+    reused_credential.push(b'\n');
+    let (next, refused) = replay_exchange(
+        config,
+        "POST",
+        PAYMENT_PATH,
+        &reused_credential,
+        authorization,
+        trace,
+    )?;
+    config = next;
+    assert_eq!(refused.status, 409, "{}", text(&refused.body));
+    let value: Value = serde_json::from_slice(&refused.body)?;
+    assert_eq!(value["error"]["code"], "visa_tap_replayed");
+    assert!(!refused.headers.contains_key("retry-after"));
+    completions.push((PAYMENT_PATH, reused_credential, refused));
+    completions.push((PAYMENT_PATH, payment, paid));
+
+    Ok(config)
+}
+
+#[test]
+fn replayed_http_status_reopens_400_and_409() -> TestResult {
+    let _serial = CONFIGURATION.lock().or_panic("test value");
+    let case = payment_case()?;
+    let dir = Directory::new()?;
+    let identity = configure(&dir.0, &case)?;
+    let node = Node::start(&case)?;
+    let redis = Redis::start(&dir.0, &identity, "127.0.0.1:0".parse()?)?;
+    let mut config = gateway(&dir.0, &redis, &node)?;
+    let authorization = issue_authorization(&config)?;
     let original_trace = layerx_interop_gateway::trace::TraceId::mint([0x87; 16]);
     let replay_trace = layerx_interop_gateway::trace::TraceId::mint([0x88; 16]);
     let mut completions = Vec::new();
@@ -119,36 +158,13 @@ fn replayed_http_status_reopens_400_and_409() -> TestResult {
         completions.push((path, body, response));
     }
 
-    let payment = visa_payment(&case)?;
-    let (next, paid) = replay_exchange(
+    config = record_payment_replays(
         config,
-        "POST",
-        PAYMENT_PATH,
-        &payment,
+        &case,
         &authorization,
         original_trace.as_str(),
+        &mut completions,
     )?;
-    config = next;
-    assert_eq!(paid.status, 200, "{}", text(&paid.body));
-    let value: Value = serde_json::from_slice(&paid.body)?;
-    assert_eq!(value["result"]["state"], "receipt-verified");
-    let mut reused_credential = payment.clone();
-    reused_credential.push(b'\n');
-    let (next, refused) = replay_exchange(
-        config,
-        "POST",
-        PAYMENT_PATH,
-        &reused_credential,
-        &authorization,
-        original_trace.as_str(),
-    )?;
-    config = next;
-    assert_eq!(refused.status, 409, "{}", text(&refused.body));
-    let value: Value = serde_json::from_slice(&refused.body)?;
-    assert_eq!(value["error"]["code"], "visa_tap_replayed");
-    assert!(!refused.headers.contains_key("retry-after"));
-    completions.push((PAYMENT_PATH, reused_credential, refused));
-    completions.push((PAYMENT_PATH, payment, paid));
 
     for (path, body, original) in &completions {
         let (next, replay) = replay_exchange(
@@ -205,7 +221,7 @@ fn replayed_http_status_reopens_400_and_409() -> TestResult {
         config = next;
         assert_eq!(&polled, original);
     }
-    let state = node.state.lock().unwrap();
+    let state = node.state.lock().or_panic("test value");
     assert_eq!(state.attempts.len(), 1);
     assert_eq!(state.accepted.len(), 1);
     Ok(())

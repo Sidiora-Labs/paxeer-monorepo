@@ -1,0 +1,100 @@
+[meta]
+task = "22.39.430"
+acceptance = "22998.1"
+decision = "3349"
+manifest = "services/interop/Cargo.toml"
+recipe = "interop-test"
+python_requirements = "services/interop/crates/layerx-portable/tests/requirements.txt"
+
+[coverage]
+rule = "The interop recipe runs every workspace test target and every library documentation test with the locked manifest."
+
+[case.python_verifier_accepts_the_same_v2_proof]
+file = "services/interop/crates/layerx-portable/tests/independent_verifier.rs"
+runtime = "The verifier interpreter provides the pinned cryptography and pycryptodome packages."
+rule = "The independent Python verifier checks the same signed v2 receipt and substitutions using the pinned cryptography and pycryptodome packages."
+
+[case.portable_json_budget]
+file = "services/interop/crates/layerx-portable/tests/repair_22_31_167.rs"
+rule = "The Python portable verifier preserves the JSON size budget with its pinned cryptography and pycryptodome packages."
+
+[case.declared_cardinality_assembles_only_from_distinct_real_operator_shares]
+file = "services/interop/crates/layerx-bridge-relayer/tests/operator_cosign_contract.rs"
+decision = "3042"
+cause = "The governed bridge manifest and the relayer transport describe distinct attestor inventories."
+change = "Transport membership and quorum derive from the relayer constants; the governed manifest is checked independently."
+rule = "The multioperator transport fixture uses the relayer's five distinct members at threshold three and proves collection, refusal, delivery and restart behavior."
+
+[case.supplied_operator_inventory_matches_registered_bridge_configuration]
+file = "services/interop/crates/layerx-bridge-relayer/tests/operator_cosign_contract.rs"
+decision = "3042"
+rule = "The governed bridge manifest declares one attestor at threshold one, while the relayer operator inventory preserves its five-member threshold-three interface."
+
+[case.registered_senders_parse_resolve_their_own_budget_and_are_quoted]
+file = "services/interop/crates/layerx-gas-station/tests/service.rs"
+cause = "Both service and budget cases exercise registered budget scenarios in the same test process."
+change = "Each caller assigns a distinct durable journal namespace."
+rule = "Registered senders retain their own budget and use an independent durable journal for quoted admissions."
+
+[case.registered_budget_test_gap_admissions_and_restart]
+file = "services/interop/crates/layerx-gas-station/tests/repair_22_33_71.rs"
+rule = "The ordinary and registered budget caps persist across service restart in an independent durable journal."
+
+[case.revert_fixture_shape_http_refusal_status_and_restart]
+file = "services/interop/crates/layerx-gas-station/tests/support/service_repairs.rs"
+cause = "Receipt scenarios own independent durable payment state."
+change = "Each scenario creates a unique journal and preserves that journal across restart."
+rule = "A reverted receipt remains refused after restart with the signed node recording and a fresh journal."
+
+[case.legacy_gateway_recording_is_reproduced_by_the_real_signers]
+file = "services/interop/crates/x-websearch/tests/fixtures/gateway/metered.json"
+decision = "2592"
+cause = "The receiver DID key identifies the receiver across all accepted assets."
+change = "Every recorded receiver sequence call binds that same receiver DID key."
+rule = "Receiver sequence calls use the receiver DID key for every asset while the recording stays byte exact."
+
+[case.the_pinned_conformance_suite_is_the_recorded_gateway_exchange]
+file = "services/interop/crates/x-websearch/src/lib.rs"
+rule = "The published conformance digest binds the exact gateway recording bytes in file name order."
+
+[case.the_gate_reads_its_payment_settings_and_checks_the_configured_suite]
+file = "services/interop/crates/x-websearch/src/lib.rs"
+rule = "The configured payment gate accepts the suite digest of the current recorded gateway exchange."
+
+[case.the_program_exchange_collects_peer_signatures_by_program_and_request]
+file = "services/interop/crates/x-websearch/tests/program.rs"
+cause = "The program exchange distinguishes a locally recorded answer from an accepted peer signature."
+change = "The case asserts local-answer ownership and admits peer signatures through the peer acceptance route."
+rule = "An exchange records one local answer for a program request and admits peer signatures through the peer acceptance path."
+
+[case.mirror_transport_isolation]
+files = "layerx-mirror/tests/repair_22_31_166.rs, layerx-mirror/tests/repair_22_33_100.rs, layerx-mirror/tests/repair_22_33_101.rs, layerx-mirror/tests/support/mod.rs"
+cause = "Independent loopback scenarios otherwise share the host network's connection-tracking capacity."
+change = "Each test worker creates a private Linux network namespace and enables loopback before starting its listeners; repeated fixture creation retains the same worker network."
+rule = "Publication recovery, committed-source verification and RPC deadline cases exercise real TCP and TLS with their original deadlines, signatures and assertions."
+
+[case.websearch_transport_isolation]
+files = "x-websearch/tests/binary.rs, x-websearch/tests/content.rs, x-websearch/tests/search.rs, x-websearch/tests/crawl.rs, x-websearch/tests/payment.rs, x-websearch/tests/program.rs, x-websearch/tests/repair_22_33_118.rs, x-websearch/tests/support/gateway.rs, x-websearch/tests/support/payment_repair.rs"
+cause = "Payment, crawl and program scenarios use multiple real loopback connections per request."
+change = "Each test worker and its child servers share a private loopback namespace, independent of host connection-tracking capacity."
+rule = "Payment settlement, program attestation, HTTP framing and binary startup preserve their original transport, refusal and timeout assertions."
+
+[runtime.test_network]
+platform = "Linux"
+requirements = "Network namespace creation capability and iproute2 for private loopback setup."
+implementation = "services/interop/crates/test_network.rs"
+
+[case.fetch_dns_deadline_cancels_slow_resolution_for_fetch_api_and_robots]
+file = "services/interop/crates/x-websearch/tests/repair_22_33_118.rs"
+implementation = "services/interop/crates/x-websearch/src/resolve.rs"
+cause = "Socket read timeout granularity and the monotonic caller deadline can differ."
+change = "UDP and TCP DNS reads retry interrupted or timed socket reads against the remaining caller deadline; direct DNS listeners join the worker network before binding."
+rule = "Silent DNS peers return Timeout at the original total deadline for fetch, API and robots requests, while other socket errors retain Resolve."
+
+[case.fetch_dns_tcp_fallback_obeys_the_same_deadline]
+file = "services/interop/crates/x-websearch/tests/repair_22_33_118.rs"
+rule = "A truncated UDP DNS answer switches to real TCP within the same caller deadline and closes the pending read on timeout."
+
+[case.sigint_stops_the_binary_cleanly_and_other_signals_keep_their_default_action]
+file = "services/interop/crates/x-websearch/tests/binary.rs"
+rule = "Graceful shutdown drains workers and commits the index; a bounded 30-second exit poll accommodates concurrent workspace load while preserving SIGINT success, clean-shutdown logging, listener release and the default SIGHUP action."

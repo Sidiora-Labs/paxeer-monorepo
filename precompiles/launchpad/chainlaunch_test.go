@@ -80,6 +80,11 @@ func TestChainLaunchEmitsChainLaunchedAndTheMarketEvents(t *testing.T) {
 	require.Equal(t, common.BigToHash(new(big.Int).SetUint64(uint64(chain))), logs[0].Topics[1])
 	require.Equal(t, common.BytesToHash(pool.Bytes()), logs[0].Topics[2])
 	require.Equal(t, common.BytesToHash(token.Bytes()), logs[0].Topics[3])
+	fields, err := roleABI(t, directRole).Events["ChainLaunched"].Inputs.NonIndexed().Unpack(logs[0].Data)
+	require.NoError(t, err)
+	require.Equal(t, out[4], fields[0])
+	require.Equal(t, out[2], fields[1])
+	require.Equal(t, h.caller, fields[2])
 	require.Len(t, h.logs(before, precompile, "MarketCreated(bytes32,address,address,address,address,uint256,uint256)"), 1)
 	require.Len(t, h.logs(before, factory, "MarketCreated(address,address,address,uint256,address)"), 1)
 }
@@ -100,6 +105,21 @@ func TestChainLaunchRevertLeavesNoState(t *testing.T) {
 	_, found, err := h.keeper.GetLaunchedChain(h.ctx(), uint64(next))
 	require.NoError(t, err)
 	require.False(t, found)
+}
+
+func TestChainLaunchDuplicateNameKeepsTheFirstMarket(t *testing.T) {
+	h, value := chainHarness(t)
+	first := launchThroughABI(t, h, value, "reserved-chain")
+	count := h.keeper.GetMarketCount(h.ctx())
+	next := testkeeper.EVMTestApp.LayerXChainsKeeper.NextID(h.ctx())
+	params := testkeeper.EVMTestApp.LayerXChainsKeeper.GetParams(h.ctx())
+	input := pack(t, directRole, "launchChain", "Another Token", "NEXT", uint8(types.FeeStrategyClaim),
+		common.Address{}, "reserved-chain", params.MinGasAllowance, params.MinByteAllowance, uint16(100))
+	_, _, err := h.evm.Call(h.caller, precompile, input, callGas, uint256.MustFromBig(value))
+	require.ErrorIs(t, err, vm.ErrExecutionReverted)
+	require.Equal(t, count, h.keeper.GetMarketCount(h.ctx()))
+	require.Equal(t, next, testkeeper.EVMTestApp.LayerXChainsKeeper.NextID(h.ctx()))
+	require.Equal(t, first[0], h.view(precompile, directRole, "launchedChain", first[3].(uint32))[3])
 }
 
 func TestChainLaunchStaticCallIsRefused(t *testing.T) {

@@ -1,0 +1,12 @@
+[meta]
+member = "layerx-programs-runtime"
+
+[lint.too_many_lines]
+count = 1
+location = "src/transfer.rs"
+resolution = "Destination authorization vector assertions are grouped in a helper."
+
+[lint.needless_pass_by_value]
+count = 1
+location = "src/transfer.rs"
+resolution = "The destination authorization vector helper borrows the decoded transfer set."

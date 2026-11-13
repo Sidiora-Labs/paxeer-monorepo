@@ -1,0 +1,64 @@
+[coverage]
+module = "social"
+minimum_percent = 85.0
+after_percent = 85.6
+
+[package.cmd_sociald]
+before_percent = 0.0
+after_percent = 0.0
+
+[package.internal_app]
+before_percent = 54.7
+after_percent = 81.3
+
+[package.internal_common]
+before_percent = 94.7
+after_percent = 94.7
+
+[package.internal_config]
+before_percent = 78.1
+after_percent = 89.4
+
+[package.internal_db_sqlcdb]
+before_percent = 0.0
+after_percent = 0.0
+
+[package.internal_devsocial]
+before_percent = 73.6
+after_percent = 84.8
+
+[package.internal_fanout]
+before_percent = 69.6
+after_percent = 86.5
+
+[package.internal_interactions]
+before_percent = 71.0
+after_percent = 86.8
+
+[package.internal_internaltest]
+before_percent = 56.0
+after_percent = 75.9
+
+[package.internal_migrate]
+before_percent = 73.3
+after_percent = 73.3
+
+[package.internal_safety]
+before_percent = 70.7
+after_percent = 88.7
+
+[package.internal_social]
+before_percent = 69.9
+after_percent = 89.7
+
+[package.internal_voice]
+before_percent = 64.2
+after_percent = 84.2
+
+[package.migrations]
+before_percent = "no statements"
+after_percent = "no statements"
+
+[package.pkg_types]
+before_percent = "no statements"
+after_percent = "no statements"

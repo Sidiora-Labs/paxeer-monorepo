@@ -4,12 +4,15 @@ import {
   decodeFunctionResult, defineChain, encodeAbiParameters, encodeErrorResult, encodeEventTopics, encodeFunctionData,
   parseAbi, type Hex, type PublicClient, type TransactionReceipt, type WalletClient,
 } from 'viem';
-import { ChainLaunchAdapter, chainsAbi, type ChainLaunchStep } from './chain-adapters';
+import { ChainLaunchAdapter, chainLaunchRequest, chainsAbi, type ChainLaunchStep } from './chain-adapters';
 import { CHAINS_PRECOMPILE, chainCost, type ChainDraft } from './chain-domain';
+import { CHAIN_LAUNCH_ABI, LAUNCHPAD_ADDRESS } from '@/core/network/contracts';
 import vectors from '../../../../../../tests/vectors/chains/abi-vectors.json';
 
 const creator = '0x1111111111111111111111111111111111111111';
 const other = '0x2222222222222222222222222222222222222222';
+const token = '0x3333333333333333333333333333333333333333';
+const pool = '0x4444444444444444444444444444444444444444';
 const txHash: Hex = `0x${'ab'.repeat(32)}`;
 const blockHash: Hex = `0x${'cd'.repeat(32)}`;
 const chain = defineChain({
@@ -29,22 +32,22 @@ function unknownChainError() {
 
 function chainFixture() {
   const draft: ChainDraft = {
-    draftId: 'chain-demo', version: 1, creator, chainId: 125, name: 'demo',
+    draftId: 'chain-demo', version: 2, creator, chainId: 125, name: 'demo',
+    tokenName: 'Demo Token', tokenSymbol: 'DMT', feeStrategy: 2,
     tier: 'starter', feeShareBps: 100, updatedAt: Date.now(),
   };
   const scope = { creator, chainId: 125, epoch: 1 };
   const params = decodeFunctionResult({ abi: chainsAbi, functionName: 'params', data: vectors.params.returndata as Hex });
   const record = decodeFunctionResult({ abi: chainsAbi, functionName: 'getChain', data: vectors.getChain.returndata as Hex });
-  const eventAbi = parseAbi(['event ChainCreated(uint32 indexed id,string name,address indexed operator,uint64 chainId)']);
   const log: TransactionReceipt['logs'][number] = {
-    address: CHAINS_PRECOMPILE,
-    topics: encodeEventTopics({ abi: eventAbi, eventName: 'ChainCreated', args: { id: 1, operator: creator } }) as [Hex, ...Hex[]],
-    data: encodeAbiParameters([{ type: 'string' }, { type: 'uint64' }], ['demo', 125000001n]),
+    address: LAUNCHPAD_ADDRESS,
+    topics: encodeEventTopics({ abi: CHAIN_LAUNCH_ABI, eventName: 'ChainLaunched', args: { chain: 1, pool, token } }) as [Hex, ...Hex[]],
+    data: encodeAbiParameters([{ type: 'uint64' }, { type: 'uint256' }, { type: 'address' }, { type: 'uint256' }, { type: 'uint256' }], [125000001n, 7n, creator, 100n, 42n]),
     blockHash, blockNumber: 42n, transactionHash: txHash, transactionIndex: 0, logIndex: 0, removed: false,
   };
   const receipt: TransactionReceipt = {
     status: 'success', transactionHash: txHash, blockHash, blockNumber: 42n, transactionIndex: 0,
-    from: creator, to: CHAINS_PRECOMPILE, contractAddress: null, cumulativeGasUsed: 60000n,
+    from: creator, to: LAUNCHPAD_ADDRESS, contractAddress: null, cumulativeGasUsed: 60000n,
     gasUsed: 60000n, effectiveGasPrice: 1000000000n, logsBloom: `0x${'00'.repeat(256)}`,
     type: 'eip1559', logs: [log],
   };
@@ -52,11 +55,14 @@ function chainFixture() {
   const publicClient = createPublicClient({ chain, transport }) as PublicClient;
   const walletClient = createWalletClient({ chain, transport }) as WalletClient;
   const readContract = vi.spyOn(publicClient, 'readContract').mockImplementation(async request => {
-    if (request.address !== CHAINS_PRECOMPILE) throw new Error('Unexpected registry address');
+    if (request.address !== CHAINS_PRECOMPILE && request.address !== LAUNCHPAD_ADDRESS && request.address !== token) throw new Error('Unexpected launch address');
     switch (request.functionName) {
       case 'params': return params;
       case 'chainByName': return 0;
       case 'getChain': return record;
+      case 'launchedChain': return [1, 125000001n, pool, token, 7n, creator, 42n];
+      case 'name': return 'Demo Token';
+      case 'symbol': return 'DMT';
       default: throw new Error('Unexpected registry method');
     }
   });
@@ -101,22 +107,29 @@ async function chain_adapter_launches_and_reports_the_new_chain() {
   expect(f.wallet.writeContract).toHaveBeenCalledTimes(1);
   const request = f.wallet.writeContract.mock.calls[0][0];
   expect(request).toEqual({
-    address: CHAINS_PRECOMPILE, abi: chainsAbi, functionName: 'createChain',
-    args: ['demo', 500000n, 65536n, 100], value: BigInt(cost.totalValueRaw), account: creator, chain,
+    address: LAUNCHPAD_ADDRESS, abi: CHAIN_LAUNCH_ABI, functionName: 'launchChain',
+    args: ['Demo Token', 'DMT', 2, '0x0000000000000000000000000000000000000000', 'demo', 500000n, 65536n, 100], value: BigInt(cost.totalValueRaw), account: creator, chain,
   });
-  expect(encodeFunctionData(request)).toBe(vectors.methods.find(method => method.name === 'createChain')!.calldata);
+  expect(encodeFunctionData(chainLaunchRequest(f.draft, creator, BigInt(cost.totalValueRaw))).slice(0, 10))
+    .toBe(encodeFunctionData({ abi: CHAIN_LAUNCH_ABI, functionName: 'launchChain', args: [
+      'Demo Token', 'DMT', 2, '0x0000000000000000000000000000000000000000', 'demo', 500000n, 65536n, 100,
+    ] }).slice(0, 10));
   expect(f.client.estimateContractGas).toHaveBeenCalledWith({
-    address: CHAINS_PRECOMPILE, abi: chainsAbi, functionName: 'createChain',
-    args: ['demo', 500000n, 65536n, 100], value: BigInt(cost.totalValueRaw), account: creator,
+    address: LAUNCHPAD_ADDRESS, abi: CHAIN_LAUNCH_ABI, functionName: 'launchChain',
+    args: ['Demo Token', 'DMT', 2, '0x0000000000000000000000000000000000000000', 'demo', 500000n, 65536n, 100], value: BigInt(cost.totalValueRaw), account: creator,
   });
   expect(f.client.waitForTransactionReceipt).toHaveBeenCalledWith({ hash: txHash, timeout: 30000 });
-  expect(f.log.topics[0]).toBe(vectors.events.find(event => event.name === 'ChainCreated')!.topic0);
+  expect(f.log.topics[0]).toBe(encodeEventTopics({ abi: CHAIN_LAUNCH_ABI, eventName: 'ChainLaunched' })[0]);
   expect(polls).toBe(2);
-  expect(f.client.readContract).toHaveBeenLastCalledWith({
+  expect(f.client.readContract).toHaveBeenCalledWith({
     address: CHAINS_PRECOMPILE, abi: chainsAbi, functionName: 'getChain', args: [1], blockNumber: 42n,
   });
+  expect(f.client.readContract).toHaveBeenCalledWith({
+    address: LAUNCHPAD_ADDRESS, abi: CHAIN_LAUNCH_ABI, functionName: 'launchedChain', args: [1], blockNumber: 42n,
+  });
   expect(result).toEqual({
-    id: 1, chainId: 125000001, name: 'demo', txHash,
+    id: 1, chainId: 125000001, name: 'demo', tokenName: 'Demo Token', tokenSymbol: 'DMT', token, pool,
+    tradingPath: `/coin/${pool}`, txHash,
     rpcUrl: 'https://rpc.example/evm/chain/1', explorerUrl: 'https://explorer.example/chains/1',
     walletNetwork: {
       chainId: '0x7735941', chainName: 'demo on Paxeer',
@@ -133,7 +146,7 @@ async function chain_adapter_launches_and_reports_the_new_chain() {
       ? [1, 'demo', creator, 1, 125000001n, ...allowance, 100, sized.params[1], 1000000000n, 42n]
       : sizedRead(request));
     await sized.adapter.launch({ ...sized.draft, tier }, () => {});
-    expect(sized.wallet.writeContract.mock.calls[0][0].args).toEqual(['demo', ...allowance, 100]);
+    expect(sized.wallet.writeContract.mock.calls[0][0].args).toEqual(['Demo Token', 'DMT', 2, '0x0000000000000000000000000000000000000000', 'demo', ...allowance, 100]);
   }
 }
 
@@ -180,22 +193,34 @@ async function chain_adapter_refuses_a_taken_name_and_a_changed_wallet() {
     expect(f.wallet.writeContract).not.toHaveBeenCalled();
   }
 
-  for (const kind of ['reverted', 'missing-event', 'wrong-event', 'wrong-record', 'rpc-error'] as const) {
+  for (const kind of ['reverted', 'missing-event', 'wrong-event', 'wrong-binding', 'wrong-record', 'wrong-token', 'rpc-error'] as const) {
     const f = chainFixture();
     const steps: ChainLaunchStep[] = [];
     let error: string;
     switch (kind) {
-      case 'reverted': f.receipt.status = 'reverted'; error = 'Chain creation receipt failed'; break;
-      case 'missing-event': f.receipt.logs = []; error = 'Expected one ChainCreated'; break;
+      case 'reverted': f.receipt.status = 'reverted'; error = 'Chain launch receipt failed'; break;
+      case 'missing-event': f.receipt.logs = []; error = 'Expected one ChainLaunched'; break;
       case 'wrong-event': {
-        f.log.data = encodeAbiParameters([{ type: 'string' }, { type: 'uint64' }], ['other', 125000001n]);
-        error = 'ChainCreated event does not match'; break;
+        f.log.data = encodeAbiParameters([{ type: 'uint64' }, { type: 'uint256' }, { type: 'address' }, { type: 'uint256' }, { type: 'uint256' }], [125000002n, 7n, creator, 100n, 42n]);
+        error = 'invalid_chain_launch_event'; break;
+      }
+      case 'wrong-binding': {
+        const read = f.client.readContract.getMockImplementation()!;
+        f.client.readContract.mockImplementation(async request => request.functionName === 'launchedChain'
+          ? [1, 125000001n, pool, other, 7n, creator, 42n] : read(request));
+        error = 'Chain launch readback does not match'; break;
       }
       case 'wrong-record': {
         const read = f.client.readContract.getMockImplementation()!;
         f.client.readContract.mockImplementation(async request => request.functionName === 'getChain'
           ? [1, 'other', ...f.record.slice(2)] : read(request));
-        error = 'Chain registry record does not match'; break;
+        error = 'Chain launch readback does not match'; break;
+      }
+      case 'wrong-token': {
+        const read = f.client.readContract.getMockImplementation()!;
+        f.client.readContract.mockImplementation(async request => request.functionName === 'symbol'
+          ? 'OTHER' : read(request));
+        error = 'Chain launch readback does not match'; break;
       }
       case 'rpc-error': {
         const read = f.client.readContract.getMockImplementation()!;
@@ -274,7 +299,7 @@ async function chain_adapter_distinguishes_revert_from_unknown_and_checks_recove
   f.scope.creator = creator;
   f.receipt.status = 'reverted';
   f.receipt.transactionHash = blockHash;
-  expect(await f.adapter.confirm(txHash, f.draft, outcome.submission)).toMatchObject({ submission: { phase: 'confirm' }, error: 'Chain creation receipt failed.' });
+  expect(await f.adapter.confirm(txHash, f.draft, outcome.submission)).toMatchObject({ submission: { phase: 'confirm' }, error: 'Chain launch receipt failed.' });
   f.receipt.transactionHash = txHash;
   expect(await f.adapter.confirm(txHash, f.draft, outcome.submission)).toMatchObject({ txHash, submission: { phase: 'reverted' } });
   const read = f.client.readContract.getMockImplementation()!;
@@ -287,7 +312,7 @@ async function chain_adapter_distinguishes_revert_from_unknown_and_checks_recove
   expect(f.wallet.writeContract).toHaveBeenCalledTimes(2);
 }
 
-test(chain_adapter_launches_and_reports_the_new_chain);
-test(chain_adapter_refuses_a_taken_name_and_a_changed_wallet);
-test(chain_adapter_recovers_receipt_and_readback_without_resubmitting);
-test(chain_adapter_distinguishes_revert_from_unknown_and_checks_recovery_scope);
+test(chain_adapter_launches_and_reports_the_new_chain.name, chain_adapter_launches_and_reports_the_new_chain);
+test(chain_adapter_refuses_a_taken_name_and_a_changed_wallet.name, chain_adapter_refuses_a_taken_name_and_a_changed_wallet);
+test(chain_adapter_recovers_receipt_and_readback_without_resubmitting.name, chain_adapter_recovers_receipt_and_readback_without_resubmitting);
+test(chain_adapter_distinguishes_revert_from_unknown_and_checks_recovery_scope.name, chain_adapter_distinguishes_revert_from_unknown_and_checks_recovery_scope);

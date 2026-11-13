@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import re
+import tomllib
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -22,7 +23,10 @@ def _table_rows(text):
     for line in text.splitlines():
         if not line.startswith("|"):
             continue
-        cells = [cell.strip() for cell in line.strip("|").split("|")]
+        cells = [
+            cell.strip().replace(r"\|", "|")
+            for cell in re.split(r"(?<!\\)\|", line.strip("|"))
+        ]
         if not all(re.fullmatch(r"[-: ]+", cell) for cell in cells):
             rows.append(cells)
     assert rows, "Expected a non-empty documentation table"
@@ -67,7 +71,8 @@ def test_gap_table_lists_only_open_ids():
     assert [row[0] for row in gaps[1:]] == ["D5"]
     assert gaps[1][1] == "spec/layerx-merge/spec.kvx"
     assert "17.0.9" in gaps[1][2]
-    assert "pending" in gaps[1][2]
+    assert "no runnable command" in gaps[1][2]
+    assert "7.0.0-candidate-report.md" in gaps[1][2]
 
     support = _table_rows(_section(text, "Implemented release support"))
     assert support[0] == ["ID", "Present support", "Source"]
@@ -120,14 +125,14 @@ def test_checklist_has_no_closed_gaps():
     gap_items = [
         line for line in text.splitlines() if "**Gap" in line and "- [ ]" in line
     ]
-    assert len(gap_items) == 3
+    assert len(gap_items) == 2
     assert [re.findall(r"\bD\d+\b", line) for line in gap_items] == [
-        ["D5"],
         ["D5"],
         [],
     ]
     assert "17.0.9" in gap_items[0]
-    assert "check-attestor-manifest.py" in gap_items[2]
+    assert "check-attestor-manifest.py" in gap_items[1]
+    assert "7.0.0-candidate-report.md" in text
     for source in (
         "tools/release/version.json:2",
         "tools/release/upgrade_info.py:27",
@@ -254,6 +259,96 @@ def test_exported_state_rehearsal_waiver_retains_candidate_evidence():
         assert PROGRAMME_REHEARSAL_TEST in item
         assert "**Gap" not in item
     assert 'UPGRADE "v7.0" NEEDED' in waiver_items[1]
+
+
+def test_candidate_report_names_the_proven_checks_and_open_evidence():
+    report = _read_doc("candidate-report")
+    checklist = _section(
+        _read_doc("readiness-checklist"), "Release checks and rehearsal evidence"
+    )
+    rows = _table_rows(report)
+    assert rows[0] == ["Check", "Command", "Exit", "Private evidence reference"]
+    expected = {
+        "First sequenced block": "TestMergeRehearsalFirstSequencedBlock",
+        "Export and re-import sequencing state": (
+            "TestExportAfterMergeKeepsSequencerState"
+        ),
+        "Merge-gated precompile activation": "TestMergePlanActivatesGatedPrecompiles",
+        "Anchor-store deletion order": "TestAnchorStoreDeletedAtStep",
+        "Guarantor bond returns": "TestMergePlanReturnsGuarantorBonds",
+        "Missing merge constructors refuse": (
+            "TestMergePlanRefusesMissingMergeConstructors"
+        ),
+        "Retired anchor writes revert": "TestRetiredWritesRevertAfterMerge",
+        "Every anchor selector is retired": "TestEveryAnchorSelectorRetired",
+        "Custodied balances move to the authority": (
+            "TestReleaseRetiredMovesEveryCustodiedBalanceToTheAuthority"
+        ),
+        "Retired-caller inventory": "tools/paxeer-x/tests/retired_callers_test.py",
+        "Programme ABI and refusal goldens": "tools/release/tests/test_programme.py",
+        "Ordered programme rehearsal": PROGRAMME_REHEARSAL_TEST,
+        "Pool-parity comparison rules": "case_pool_parity_units",
+        "Consensus-commit coverage": "tools/ci/consensus_commit_gate.py",
+        "Release documentation consistency": "tests/ci/test_release_docs_gap_markers.py",
+    }
+    assert [row[0] for row in rows[1:]] == list(expected)
+    for check, command, status, evidence in rows[1:]:
+        assert command.startswith("`") and command.endswith("`")
+        assert expected[check] in command
+        assert status == "0"
+        assert re.fullmatch(r"Candidate evidence [A-Z]\d", evidence)
+    revision = re.search(r"Checked revision: `([0-9a-f]{40})`", report)[1]
+    record = (RELEASE_DOCS / "repair_22_39_182.kvx").read_text(encoding="utf-8")
+    assert f'source_revision = "{revision}"' in record
+    assert "full node rehearsal" in report
+    assert "after-cutover" in report
+    assert "owner inputs" in report
+    assert "test_programme_gate.py" in report
+    assert "no runnable command" in report
+    assert "tests/parity/kernel_chain/" in report
+    assert "Pool-parity comparison rules" in report
+    assert "- [ ] Parity checks" in checklist
+    assert "- [ ] Programme release qualification" in checklist
+    for item in (
+        "Candidate release evidence",
+        "Golden-vector checks",
+        "The retired-caller scan",
+        "The four ordered rehearsal tests",
+        "Bond return and custody release tests",
+        "Retired anchor writes",
+        "Retired custody balances",
+        "Refusal tests",
+        "The programme rehearsal",
+        "Pool-parity comparison rules",
+    ):
+        line = next(
+            line
+            for line in checklist.splitlines()
+            if line.startswith(f"- [x] {item}")
+        )
+        assert f"revision `{revision}`" in line
+        assert "exit 0" in line
+        assert "7.0.0-candidate-report.md" in line
+        assert re.search(r"Candidate evidence [A-Z]\d", line)
+
+
+def test_candidate_record_identifies_every_ticked_line():
+    record = tomllib.loads(
+        (RELEASE_DOCS / "repair_22_39_182.kvx").read_text(encoding="utf-8")
+    )
+    lines = _read_doc("readiness-checklist").splitlines()
+    recorded = record["checklist"]
+    assert len(recorded["ticked_lines"]) == len(recorded["ticked_items"]) == 11
+    assert recorded["ticked_lines"] == sorted(set(recorded["ticked_lines"]))
+    for number, item in zip(recorded["ticked_lines"], recorded["ticked_items"]):
+        assert lines[number - 1].startswith(f"- [x] {item}")
+        assert record["release_candidate"]["source_revision"] in lines[number - 1]
+    assert (
+        record["release_candidate"]["report"]
+        == "docs/release/7.0.0-candidate-report.md"
+    )
+    assert record["release_candidate"]["build_reference"] == "Candidate evidence B1"
+    assert record["release_candidate"]["verification_reference"] == "Candidate evidence V1"
 
 
 def test_agent_daemon_qualification_is_after_s_acceptance():

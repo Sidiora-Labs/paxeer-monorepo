@@ -13,9 +13,6 @@ use layerx_agentd::session::{
 };
 use layerx_agentd::sign::ProvisionedSessionKey;
 use layerx_agentd::store::{Store, TenantId};
-use layerx_crypto::local::LocalSigner;
-use layerx_crypto::session::IssuedSessionKey;
-use layerx_crypto::signer::Signer as _;
 use layerx_human_service::custody::{
     AgentContractError, AgentSessionContract, AgentSessionProvision, EnvelopeKms, KeyClass,
     KeyEntropy, KeyId, Keystore, ProtocolIdentitySnapshot, ProvisionEvidence, RevocationEvidence,
@@ -92,7 +89,6 @@ impl IdentityResolver for IdentityBoundary {
 }
 
 struct InstalledSession {
-    issued: IssuedSessionKey,
     token: Token,
     current_revocation_sequence: u64,
 }
@@ -309,7 +305,6 @@ impl AgentSessionContract for AgentLayer {
             grant_id,
             InstalledSession {
                 current_revocation_sequence: issued.revocation_sequence,
-                issued,
                 token,
             },
         );
@@ -568,7 +563,10 @@ fn rotation_fixture(
 fn session_rotation_reconciles_only_at_committed() {
     let (mut provisioner, keys, current, pending, principal, did) =
         rotation_fixture("rotation-rungs");
-    let original = provisioner.session(&principal, &did).unwrap().clone();
+    let original = provisioner
+        .session(&principal, &did)
+        .unwrap_or_else(|| panic!("missing value"))
+        .clone();
     let announced = provisioner
         .announce_rotation(
             &keys,
@@ -584,21 +582,33 @@ fn session_rotation_reconciles_only_at_committed() {
     assert_eq!(announced.state, RotationJourneyState::ChallengeOpen);
     assert_eq!(
         announced.tx_hash,
-        provisioner.contract().rotation.as_ref().unwrap().tx_hash
+        provisioner
+            .contract()
+            .rotation
+            .as_ref()
+            .unwrap_or_else(|| panic!("missing value"))
+            .tx_hash
     );
-    let (receipted, replacement) = provisioner.reconcile_rotation(&principal, &did).unwrap();
+    let (receipted, replacement) = provisioner
+        .reconcile_rotation(&principal, &did)
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     assert_eq!(receipted, announced);
     assert!(replacement.is_none());
     assert!(provisioner.contract().daemon_open(original.grant_id));
     assert_eq!(provisioner.session(&principal, &did), Some(&original));
 
     provisioner.contract_mut().advance(1_060, 50);
-    let (receipted, replacement) = provisioner.reconcile_rotation(&principal, &did).unwrap();
+    let (receipted, replacement) = provisioner
+        .reconcile_rotation(&principal, &did)
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     assert_eq!(receipted, announced);
     assert!(replacement.is_none());
     assert_eq!(provisioner.contract().installed.len(), 1);
 
-    provisioner.contract_mut().commit_rotation().unwrap();
+    provisioner
+        .contract_mut()
+        .commit_rotation()
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     assert!(!provisioner.contract().daemon_open(original.grant_id));
     provisioner.contract_mut().observation_rung = Rung::Submitted;
     assert!(matches!(
@@ -607,14 +617,18 @@ fn session_rotation_reconciles_only_at_committed() {
     ));
     provisioner.contract_mut().observation_rung = Rung::Receipted;
 
-    let (receipted, replacement) = provisioner.reconcile_rotation(&principal, &did).unwrap();
+    let (receipted, replacement) = provisioner
+        .reconcile_rotation(&principal, &did)
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     assert_eq!(receipted, announced);
     assert!(replacement.is_none());
     assert_eq!(provisioner.session(&principal, &did), Some(&original));
     assert_eq!(provisioner.contract().installed.len(), 1);
 
     provisioner.contract_mut().observation_rung = Rung::Committed;
-    let (committed, replacement) = provisioner.reconcile_rotation(&principal, &did).unwrap();
+    let (committed, replacement) = provisioner
+        .reconcile_rotation(&principal, &did)
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     assert_eq!(
         committed.state,
         RotationJourneyState::Effective {
@@ -622,13 +636,15 @@ fn session_rotation_reconciles_only_at_committed() {
             observed_sequence: 50,
         }
     );
-    let replacement = replacement.expect("committed rotation restores agent authority");
+    let replacement = replacement.or_fail("committed rotation restores agent authority");
     assert_ne!(replacement.grant_id, original.grant_id);
     assert!(provisioner.contract().daemon_open(replacement.grant_id));
     assert!(provisioner
         .contract()
         .token_authorizes(replacement.grant_id, "prepare"));
-    let (again, extra) = provisioner.reconcile_rotation(&principal, &did).unwrap();
+    let (again, extra) = provisioner
+        .reconcile_rotation(&principal, &did)
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     assert_eq!(again, committed);
     assert!(extra.is_none());
     assert_eq!(provisioner.contract().installed.len(), 2);
@@ -638,7 +654,10 @@ fn session_rotation_reconciles_only_at_committed() {
 fn rotation_observation_for_another_transaction_is_refused() {
     let (mut provisioner, keys, current, pending, principal, did) =
         rotation_fixture("rotation-transaction");
-    let original = provisioner.session(&principal, &did).unwrap().clone();
+    let original = provisioner
+        .session(&principal, &did)
+        .unwrap_or_else(|| panic!("missing value"))
+        .clone();
     let announced = provisioner
         .announce_rotation(
             &keys,
@@ -652,14 +671,19 @@ fn rotation_observation_for_another_transaction_is_refused() {
         )
         .unwrap_or_else(|error| panic!("announce: {error}"));
     provisioner.contract_mut().advance(1_060, 50);
-    provisioner.contract_mut().commit_rotation().unwrap();
+    provisioner
+        .contract_mut()
+        .commit_rotation()
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     let path = provisioner.contract().root.join("rotation-transaction");
-    let matching_transaction = fs::read(&path).unwrap();
+    let matching_transaction =
+        fs::read(&path).unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     let message = Sha256::digest(b"another signed rotation transaction");
     let signature = SigningKey::from_bytes(&[0x91; 32])
         .sign(&message)
         .to_bytes();
-    fs::write(&path, [message.as_slice(), signature.as_slice()].concat()).unwrap();
+    fs::write(&path, [message.as_slice(), signature.as_slice()].concat())
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     for rung in [Rung::Receipted, Rung::Committed] {
         provisioner.contract_mut().observation_rung = rung;
         assert!(matches!(
@@ -669,13 +693,18 @@ fn rotation_observation_for_another_transaction_is_refused() {
         assert_eq!(provisioner.session(&principal, &did), Some(&original));
         assert_eq!(provisioner.contract().installed.len(), 1);
     }
-    fs::write(&path, matching_transaction).unwrap();
+    fs::write(&path, matching_transaction)
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     provisioner.contract_mut().observation_rung = Rung::Receipted;
-    let (still_pending, replacement) = provisioner.reconcile_rotation(&principal, &did).unwrap();
+    let (still_pending, replacement) = provisioner
+        .reconcile_rotation(&principal, &did)
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     assert_eq!(still_pending, announced);
     assert!(replacement.is_none());
     provisioner.contract_mut().observation_rung = Rung::Committed;
-    let (committed, replacement) = provisioner.reconcile_rotation(&principal, &did).unwrap();
+    let (committed, replacement) = provisioner
+        .reconcile_rotation(&principal, &did)
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     assert!(matches!(
         committed.state,
         RotationJourneyState::Effective { .. }
@@ -689,4 +718,10 @@ mod current_rotation_path;
 #[test]
 fn current_rotation_requires_a_real_producer_before_rung_acceptance() {
     current_rotation_path::current_rotation_reaches_custody("session-rungs-current-rotation");
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

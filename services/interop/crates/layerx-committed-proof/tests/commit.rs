@@ -30,8 +30,12 @@ fn reference_vote(index: usize, flag: BlockIdFlag) -> CommitSig {
         block_id_flag: flag,
         validator_address: hex_bytes::<20>(ADDRESSES[index]).to_vec(),
         timestamp: Timestamp {
-            seconds: 1_700_000_123 + index as i64,
-            nanos: 987_654_321 - index as u32,
+            seconds: 1_700_000_123
+                + i64::try_from(index)
+                    .unwrap_or_else(|error| panic!("numeric fixture fits i64: {error:?}")),
+            nanos: 987_654_321
+                - u32::try_from(index)
+                    .unwrap_or_else(|error| panic!("numeric fixture fits u32: {error:?}")),
         },
         signature: Some(hex_bytes(if flag == BlockIdFlag::Nil {
             NIL_SIGNATURES[index]
@@ -133,7 +137,9 @@ fn a_three_of_four_commit_verifies() {
     zero_round.round = 0;
     for (index, vote) in zero_round.signatures.iter_mut().enumerate() {
         vote.timestamp = Timestamp {
-            seconds: index as i64 - 1,
+            seconds: i64::try_from(index)
+                .unwrap_or_else(|error| panic!("numeric fixture fits i64: {error:?}"))
+                - 1,
             nanos: 0,
         };
         vote.signature = Some(hex_bytes(ZERO_ROUND_SIGNATURES[index]));

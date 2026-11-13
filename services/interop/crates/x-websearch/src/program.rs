@@ -300,10 +300,15 @@ pub fn observation_bytes(
     Ok(out)
 }
 
-pub(crate) fn observation_signers(
+pub type ObservationSigners = (Vec<[u8; 20]>, Vec<[u8; SIGNATURE_LENGTH]>);
+
+///
+/// # Errors
+/// Returns an error when the requested operation fails validation or storage.
+pub fn observation_signers(
     bytes: &[u8],
     digest: &[u8; 32],
-) -> Result<(Vec<[u8; 20]>, Vec<[u8; SIGNATURE_LENGTH]>), KernelError> {
+) -> Result<ObservationSigners, KernelError> {
     if bytes.len() <= OBSERVATION_HEADER_BYTES {
         return Err(KernelError::Journal);
     }
@@ -555,6 +560,8 @@ impl ProgramExchange {
     }
 
     /// Pins persisted program answers to the chain and local signing identity.
+    /// # Errors
+    /// Returns an error when program state or chain interaction cannot be validated.
     pub fn bind_chain(&self, chain: u64, network: u32, signer: [u8; 20]) -> io::Result<()> {
         let path = self.log_path.with_file_name("identity.json");
         let identity = json!({"chain": chain, "network": network, "signer": hex(&signer)});
@@ -616,11 +623,13 @@ impl ProgramExchange {
         Ok(())
     }
 
-    pub(crate) fn snapshot(&self, key: ProgramKey) -> Option<Value> {
+    pub fn snapshot(&self, key: ProgramKey) -> Option<Value> {
         self.answers().get(&key).map(held_value)
     }
 
-    pub(crate) fn restore(
+    /// # Errors
+    /// Returns an error when the saved answer does not match its request or signatures.
+    pub fn restore(
         &self,
         request: &ProgramRequest,
         network_id: u32,
@@ -708,6 +717,8 @@ impl ProgramExchange {
     /// Keeps this sidecar's own answer and its own signature under the
     /// answer's program and request. An answer already held there is kept
     /// as it is.
+    /// # Errors
+    /// Returns an error when program state or chain interaction cannot be validated.
     pub fn record(&self, answer: Answer) -> Result<(), KernelError> {
         let key = (answer.attestation.requester, answer.request_id());
         if answer.attestation.origin != ORIGIN_PROGRAM
@@ -771,6 +782,8 @@ impl ProgramExchange {
     }
 
     /// Drops the answer and signatures for a program's request.
+    /// # Errors
+    /// Returns an error when program state or chain interaction cannot be validated.
     pub fn forget(&self, key: ProgramKey) -> Result<(), KernelError> {
         let answers = self.answers();
         let mut retired = self.retired.lock().unwrap_or_else(PoisonError::into_inner);
@@ -1004,6 +1017,8 @@ pub struct ProgramRelay {
 }
 
 impl ProgramRelay {
+    /// # Errors
+    /// Returns an error when program state or chain interaction cannot be validated.
     pub fn discarded(&self) -> Result<Vec<ProgramRefusal>, EvmError> {
         let path = self
             .exchange
@@ -1039,6 +1054,8 @@ impl ProgramRelay {
         Ok(self.exchange.ready(key, &self.set))
     }
 
+    /// # Errors
+    /// Returns an error when program state or chain interaction cannot be validated.
     pub fn step(&mut self) -> Result<Vec<Step>, EvmError> {
         let discarded = self.discarded()?;
         self.watcher.poll()?;
@@ -1139,7 +1156,7 @@ fn decode_held(row: &Value) -> Option<Held> {
         || attestation.network_id[..28] != [0; 28]
         || attestation.network_id[28..] == [0; 4]
         || response.len() > MAX_RESPONSE_BYTES
-        || attestation.full_length < response.len() as u32
+        || u32::try_from(response.len()).map_or(true, |length| attestation.full_length < length)
         || fixed(value.get("content_digest")) != Some(attestation.content_digest)
         || value["full_length"].as_u64() != Some(u64::from(attestation.full_length))
         || attestation.response_hash != keccak(&response)

@@ -57,6 +57,9 @@ pub struct ProtocolFixture {
 }
 
 #[must_use]
+/// # Panics
+///
+/// Panics if the deterministic fixture cannot be constructed.
 pub fn verifier_for_fixture(
     fixture: &ProtocolFixture,
     staleness_ms: u64,
@@ -70,11 +73,17 @@ pub fn verifier_for_fixture(
 }
 
 #[must_use]
+/// # Panics
+///
+/// Panics if the deterministic fixture cannot be constructed.
 pub fn program() -> ProgramId {
     ProgramId::new(PROGRAM_BYTES).unwrap_or_else(|error| panic!("program: {error}"))
 }
 
 #[must_use]
+/// # Panics
+///
+/// Panics if the deterministic fixture cannot be constructed.
 pub fn code_hash(wasm: &[u8]) -> [u8; 32] {
     hash_bytes(HashAlgorithm::Sha256, wasm)
         .unwrap_or_else(|error| panic!("program code hash: {error}"))
@@ -134,6 +143,9 @@ pub fn programs_call_fixture(payload: &[u8], block_height: u64, timestamp: u64) 
 }
 
 #[must_use]
+/// # Panics
+///
+/// Panics if the deterministic fixture cannot be constructed.
 pub fn wrong_abi_fixture(block_height: u64, timestamp: u64) -> ProtocolFixture {
     let mut fixture = deploy_fixture(
         WASM_V1,
@@ -172,6 +184,9 @@ pub fn upgrade_fixture(
 }
 
 #[must_use]
+/// # Panics
+///
+/// Panics if the deterministic fixture cannot be constructed.
 pub fn deprecated_state(fixture: &ProtocolFixture, timestamp: u64) -> ProgramStateProof {
     self::fixture(
         &fixture.proof.state.transaction,
@@ -358,6 +373,10 @@ fn deploy_payload(wasm: &[u8], policy: UpgradePolicy, interface: &ProgramInterfa
 
 /// Primitive runtime/record fixture, followed by independently synthesized chain
 /// proofs. This does not prove a node/host producer-to-consumer deployment.
+/// # Panics
+///
+/// Panics if the deterministic fixture cannot be constructed.
+#[must_use]
 pub fn produced_deployment(
     wasm: &[u8],
     policy: UpgradePolicy,
@@ -402,6 +421,7 @@ pub fn produced_deployment(
 }
 
 impl ProtocolFixture {
+    #[must_use]
     pub fn program_bundle(&self) -> layerx_programs::ProgramStateBundle {
         layerx_programs::ProgramStateBundle {
             commitment: self.proof.state.commitment.clone(),
@@ -431,6 +451,9 @@ fn upgrade_payload(old_wasm: &[u8], new_wasm: &[u8]) -> Vec<u8> {
 }
 
 #[must_use]
+/// # Panics
+///
+/// Panics if the deterministic fixture cannot be constructed.
 pub fn fixture_interface(wasm: &[u8]) -> ProgramInterface {
     ProgramInterface::bind(
         wasm,

@@ -58,7 +58,7 @@ func (h *handlers) rewards(w http.ResponseWriter, r *http.Request) {
 		Quality     string         `json:"quality"`
 		NextCursor  *string        `json:"nextCursor"`
 		GeneratedAt string         `json:"generatedAt"`
-	}{requestID(), rewardsData{Items: []struct{}{}}, &watermark, &revision, "complete", nil, h.Now().UTC().Format(observedLayout)})
+	}{requestID(), rewardsData{Items: []struct{}{}}, &watermark, &revision, statusComplete, nil, h.Now().UTC().Format(observedLayout)})
 }
 
 type rewardsData struct {

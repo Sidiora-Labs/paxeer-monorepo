@@ -52,7 +52,7 @@ type networkReads struct {
 // bounded transport.
 func dialNetworkRPC(ctx context.Context, rpcURL string, allowPlainHTTP bool) (*rpc.Client, error) {
 	u, err := url.Parse(rpcURL)
-	if err != nil || (u.Scheme != "https" && !(allowPlainHTTP && u.Scheme == "http")) || u.Host == "" || u.User != nil || u.Fragment != "" {
+	if err != nil || (u.Scheme != literalHttps && (!allowPlainHTTP || u.Scheme != "http")) || u.Host == "" || u.User != nil || u.Fragment != "" {
 		return nil, errors.New("NETWORK_RPC_URL must be an http(s) URL without credentials")
 	}
 	client := &http.Client{Transport: boundedRPCTransport{base: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS13}, ResponseHeaderTimeout: 3 * time.Second, MaxIdleConnsPerHost: 20}}, Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}

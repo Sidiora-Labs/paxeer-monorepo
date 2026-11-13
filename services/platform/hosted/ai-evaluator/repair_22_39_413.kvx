@@ -1,0 +1,10 @@
+[repair]
+member = "layerx-ai-evaluator"
+
+[lint.missing_errors_doc]
+files = ["src/main.rs"]
+change = "The ABI return and program record functions document their refusal cases."
+
+[lint.cast_possible_truncation]
+files = ["src/main.rs"]
+change = "The terminal kind is converted to a byte after its valid range is checked."

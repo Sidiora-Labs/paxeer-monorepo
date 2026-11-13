@@ -2,9 +2,10 @@ package coverage
 
 import (
 	"fmt"
+	"math/big"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/protocol/catalog"
 	"github.com/ethereum/go-ethereum/common"
-	"math/big"
 )
 
 type OrderState struct {
@@ -70,7 +71,7 @@ func (s *Lifecycle) apply(e Effect) error {
 		}
 		s.InvalidatedOpticals[optical] = e.Position
 	}
-	if e.Role == "PECOROrders" && (e.Kind == "order_created" || e.Kind == "order_triggered" || e.Kind == "order_filled" || e.Kind == "order_unchanged" || e.Kind == "expired_refunded" || e.Kind == "order_cancelled" || e.Kind == "minimum_output") {
+	if e.Role == "PECOROrders" && (e.Kind == effectOrderCreated || e.Kind == effectOrderTriggered || e.Kind == effectOrderFilled || e.Kind == "order_unchanged" || e.Kind == effectExpiredRefunded || e.Kind == effectOrderCancelled || e.Kind == effectMinimumOutput) {
 		key, err := orderKey(e)
 		if err != nil {
 			return err
@@ -79,7 +80,7 @@ func (s *Lifecycle) apply(e Effect) error {
 		if old.Created && !old.Last.Before(e.Position) {
 			return fmt.Errorf("out of order native order transition")
 		}
-		if e.Kind == "order_created" {
+		if e.Kind == effectOrderCreated {
 			if old.Created {
 				return fmt.Errorf("duplicate order creation")
 			}
@@ -90,24 +91,24 @@ func (s *Lifecycle) apply(e Effect) error {
 				return fmt.Errorf("order transition requires active native order")
 			}
 			switch e.Kind {
-			case "order_triggered":
+			case effectOrderTriggered:
 				old.Triggered = true
-			case "order_filled":
+			case effectOrderFilled:
 				old.Active = false
 				old.Filled = true
 				old.ExecutionHash = e.Identity.TransactionHash
-			case "expired_refunded":
+			case effectExpiredRefunded:
 				amount, err := unsigned(e.Fields["amount"])
 				if err != nil {
 					return err
 				}
 				old.Active = false
-				old.Terminal = "expired_refunded"
+				old.Terminal = effectExpiredRefunded
 				old.RefundAmount = amount
-			case "order_cancelled":
+			case effectOrderCancelled:
 				old.Active = false
 				old.Terminal = "cancelled"
-			case "minimum_output":
+			case effectMinimumOutput:
 				amount, err := unsigned(e.Fields["minimum"])
 				if err != nil {
 					return err
@@ -118,7 +119,7 @@ func (s *Lifecycle) apply(e Effect) error {
 		old.Last = e.Position
 		s.Orders[key] = old
 	}
-	if e.Kind == "control_transition" {
+	if e.Kind == effectControlTransition {
 		old := s.Controls[e.Identity.Emitter]
 		if old.Last != (Position{}) && !old.Last.Before(e.Position) {
 			return fmt.Errorf("out of order control transition")
@@ -130,7 +131,7 @@ func (s *Lifecycle) apply(e Effect) error {
 				return fmt.Errorf("pause state missing")
 			}
 			old.Paused = paused
-		case "Upgraded":
+		case eventUpgraded:
 			implementation, ok := e.Fields["implementation"].(common.Address)
 			if !ok || implementation == (common.Address{}) {
 				return fmt.Errorf("implementation missing")

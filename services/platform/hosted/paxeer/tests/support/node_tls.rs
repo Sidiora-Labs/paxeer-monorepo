@@ -21,6 +21,13 @@ const REQUEST: &[u8] =
 const TIMEOUT: Duration = Duration::from_secs(5);
 const WORKERS: usize = 8;
 
+/// Builds a client configuration with the selected trust root.
+///
+/// # Errors
+/// Returns an error when the trust root is invalid.
+///
+/// # Panics
+/// Panics if the installed TLS provider has no default protocol versions.
 pub fn client_config(ca: Option<&[u8]>) -> Result<Arc<ClientConfig>, rustls::Error> {
     let mut roots = RootCertStore::empty();
     if let Some(ca) = ca {
@@ -29,12 +36,17 @@ pub fn client_config(ca: Option<&[u8]>) -> Result<Arc<ClientConfig>, rustls::Err
     Ok(Arc::new(
         ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
             .with_safe_default_protocol_versions()
-            .expect("TLS versions")
+            .unwrap_or_else(|error| panic!("TLS versions: {error:?}"))
             .with_root_certificates(roots)
             .with_no_client_auth(),
     ))
 }
 
+/// Connects to a loopback TLS peer using its verified name.
+///
+/// # Panics
+/// Panics if the peer cannot be reached or TLS setup fails.
+#[must_use]
 pub fn connect(
     address: SocketAddr,
     name: &str,
@@ -42,25 +54,44 @@ pub fn connect(
 ) -> StreamOwned<ClientConnection, TcpStream> {
     let connection = ClientConnection::new(
         config,
-        ServerName::try_from(name.to_owned()).expect("server name"),
+        ServerName::try_from(name.to_owned())
+            .unwrap_or_else(|error| panic!("server name: {error:?}")),
     )
-    .expect("TLS client");
-    let socket = TcpStream::connect_timeout(&address, TIMEOUT).expect("connect reported address");
-    socket.set_read_timeout(Some(TIMEOUT)).expect("read bound");
+    .unwrap_or_else(|error| panic!("TLS client: {error:?}"));
+    let socket = TcpStream::connect_timeout(&address, TIMEOUT)
+        .unwrap_or_else(|error| panic!("connect reported address: {error:?}"));
+    socket
+        .set_read_timeout(Some(TIMEOUT))
+        .unwrap_or_else(|error| panic!("read bound: {error:?}"));
     socket
         .set_write_timeout(Some(TIMEOUT))
-        .expect("write bound");
+        .unwrap_or_else(|error| panic!("write bound: {error:?}"));
     StreamOwned::new(connection, socket)
 }
 
+/// Reads a chain reference from a TLS peer.
+///
+/// # Errors
+/// Returns an error when transport or evidence decoding fails.
+///
+/// # Panics
+/// Panics if the TLS roots cannot be configured.
 pub fn fetch(address: SocketAddr, name: &str, trusted: bool) -> Result<BlockReference, String> {
     fetch_with_config(
         address,
         name,
-        client_config(if trusted { Some(CA) } else { None }).expect("TLS roots"),
+        client_config(if trusted { Some(CA) } else { None })
+            .unwrap_or_else(|error| panic!("TLS roots: {error:?}")),
     )
 }
 
+/// Reads a chain reference using the supplied TLS configuration.
+///
+/// # Errors
+/// Returns an error when transport or evidence decoding fails.
+///
+/// # Panics
+/// Panics if the TLS connection cannot be established.
 pub fn fetch_with_config(
     address: SocketAddr,
     name: &str,
@@ -116,10 +147,14 @@ pub struct EvidencePeer {
 }
 
 impl EvidencePeer {
+    /// Starts an evidence peer with the committed server identity.
+    #[must_use]
     pub fn start(reference: BlockReference) -> Self {
         Self::with_identity(reference, CERT, KEY)
     }
 
+    /// Starts an evidence peer with the CA identity as its server leaf.
+    #[must_use]
     pub fn ca_as_server(reference: BlockReference) -> Self {
         Self::with_identity(
             reference,
@@ -132,17 +167,22 @@ impl EvidencePeer {
         let tls = Arc::new(
             ServerConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
                 .with_safe_default_protocol_versions()
-                .expect("TLS versions")
+                .unwrap_or_else(|error| panic!("TLS versions: {error:?}"))
                 .with_no_client_auth()
                 .with_single_cert(
                     vec![CertificateDer::from(cert.to_vec())],
                     PrivateKeyDer::from(PrivatePkcs8KeyDer::from(key.to_vec())),
                 )
-                .expect("committed server identity"),
+                .unwrap_or_else(|error| panic!("committed server identity: {error:?}")),
         );
-        let listener = TcpListener::bind(("127.0.0.1", 0)).expect("loopback listener");
-        let address = listener.local_addr().expect("bound address");
-        listener.set_nonblocking(true).expect("bounded accept loop");
+        let listener = TcpListener::bind(("127.0.0.1", 0))
+            .unwrap_or_else(|error| panic!("loopback listener: {error:?}"));
+        let address = listener
+            .local_addr()
+            .unwrap_or_else(|error| panic!("bound address: {error:?}"));
+        listener
+            .set_nonblocking(true)
+            .unwrap_or_else(|error| panic!("bounded accept loop: {error:?}"));
         let report = format!("{address}\n");
         let active = Arc::new(AtomicUsize::new(0));
         let maximum = Arc::new(AtomicUsize::new(0));
@@ -165,9 +205,12 @@ impl EvidencePeer {
                         thread::spawn(move || {
                             let mut results = Vec::new();
                             loop {
-                                let socket = match receiver.lock().expect("peer queue").recv() {
-                                    Ok(socket) => socket,
-                                    Err(_) => return results,
+                                let Ok(socket) = receiver
+                                    .lock()
+                                    .unwrap_or_else(|error| panic!("peer queue: {error:?}"))
+                                    .recv()
+                                else {
+                                    return results;
                                 };
                                 let count = active.fetch_add(1, Ordering::SeqCst) + 1;
                                 maximum.fetch_max(count, Ordering::SeqCst);
@@ -179,9 +222,11 @@ impl EvidencePeer {
                     .collect();
                 while !stop.load(Ordering::SeqCst) {
                     match listener.accept() {
-                        Ok((socket, _)) => sender.send(socket).expect("peer workers remain live"),
+                        Ok((socket, _)) => sender
+                            .send(socket)
+                            .unwrap_or_else(|error| panic!("peer workers remain live: {error:?}")),
                         Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                            thread::sleep(Duration::from_millis(1))
+                            thread::sleep(Duration::from_millis(1));
                         }
                         Err(error) => panic!("accept peer: {error}"),
                     }
@@ -189,10 +234,16 @@ impl EvidencePeer {
                 drop(sender);
                 let results = workers
                     .into_iter()
-                    .flat_map(|worker| worker.join().expect("TLS worker"))
+                    .flat_map(|worker| {
+                        worker
+                            .join()
+                            .unwrap_or_else(|error| panic!("TLS worker: {error:?}"))
+                    })
                     .collect();
                 drop(listener);
-                finished.send(results).expect("peer result receiver");
+                finished
+                    .send(results)
+                    .unwrap_or_else(|error| panic!("peer result receiver: {error:?}"));
             })
         };
         Self {
@@ -207,17 +258,24 @@ impl EvidencePeer {
         }
     }
 
+    /// Stops the evidence peer and returns its connection results.
+    ///
+    /// # Panics
+    /// Panics if a worker fails to finish within the socket bound.
+    #[must_use]
     pub fn finish(mut self) -> Vec<Result<(), String>> {
         self.stop.store(true, Ordering::SeqCst);
         let results = self
             .done
             .recv_timeout(TIMEOUT + Duration::from_secs(2))
-            .expect("TLS workers must terminate within their socket bound");
+            .unwrap_or_else(|error| {
+                panic!("TLS workers must terminate within their socket bound: {error:?}")
+            });
         self.worker
             .take()
-            .expect("peer owner")
+            .unwrap_or_else(|| panic!("peer owner"))
             .join()
-            .expect("listener owner");
+            .unwrap_or_else(|error| panic!("listener owner: {error:?}"));
         assert_eq!(
             self.active.load(Ordering::SeqCst),
             0,
@@ -228,7 +286,9 @@ impl EvidencePeer {
             1,
             "all Rustls server configurations released"
         );
-        TcpListener::bind(self.address).expect("listener port must be reusable after shutdown");
+        TcpListener::bind(self.address).unwrap_or_else(|error| {
+            panic!("listener port must be reusable after shutdown: {error:?}")
+        });
         results
     }
 }
@@ -237,7 +297,9 @@ impl Drop for EvidencePeer {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::SeqCst);
         if let Some(worker) = self.worker.take() {
-            worker.join().expect("stop loopback peer");
+            worker
+                .join()
+                .unwrap_or_else(|error| panic!("stop loopback peer: {error:?}"));
         }
     }
 }
@@ -291,31 +353,38 @@ pub const TRUST: &str = include_str!("../fixtures/repair_22_33_1324/chain-trust-
 pub const ARCHIVE: &str =
     include_str!("../../../../../../contracts/config/checkpoint-settlement.json");
 
+fn hash(value: &serde_json::Value) -> [u8; 32] {
+    let text = value.as_str().unwrap_or_else(|| panic!("recorded hash"));
+    assert_eq!(text.len(), 64);
+    let mut hash = [0; 32];
+    for (index, byte) in hash.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(&text[index * 2..index * 2 + 2], 16)
+            .unwrap_or_else(|error| panic!("hash byte: {error:?}"));
+    }
+    hash
+}
+
+/// Decodes the committed chain reference recording.
+///
+/// # Panics
+/// Panics if the recording does not match the chain reference schema.
+#[must_use]
 pub fn reference_from_recording() -> BlockReference {
     let record: serde_json::Value =
         serde_json::from_str(include_str!("../fixtures/repair_22_33_1324/commit.json"))
-            .expect("recorded node interface");
+            .unwrap_or_else(|error| panic!("recorded node interface: {error:?}"));
     let signed = &record["result"]["signed_header"];
     let header = &signed["header"];
-    let trust =
-        layerx_types::chain::ValidatorSetTrust::parse(TRUST).expect("independent chain pin");
+    let trust = layerx_types::chain::ValidatorSetTrust::parse(TRUST)
+        .unwrap_or_else(|error| panic!("independent chain pin: {error:?}"));
     let height = header["height"]
         .as_str()
-        .expect("header height")
+        .unwrap_or_else(|| panic!("header height"))
         .parse::<u64>()
-        .expect("height number");
+        .unwrap_or_else(|error| panic!("height number: {error:?}"));
     assert_eq!(header["chain_id"], trust.comet_chain_id());
     assert_eq!(height, trust.height());
     assert_eq!(signed["commit"]["height"], header["height"]);
-    fn hash(value: &serde_json::Value) -> [u8; 32] {
-        let text = value.as_str().expect("recorded hash");
-        assert_eq!(text.len(), 64);
-        let mut hash = [0; 32];
-        for (index, byte) in hash.iter_mut().enumerate() {
-            *byte = u8::from_str_radix(&text[index * 2..index * 2 + 2], 16).expect("hash byte");
-        }
-        hash
-    }
     BlockReference::new(
         height,
         height,
@@ -323,9 +392,13 @@ pub fn reference_from_recording() -> BlockReference {
         hash(&header["validators_hash"]),
         hash(&header["app_hash"]),
     )
-    .expect("production chain-reference producer")
+    .unwrap_or_else(|error| panic!("production chain-reference producer: {error:?}"))
 }
 
+/// Checks the listener report and its TLS chain reference response.
+///
+/// # Panics
+/// Panics if the listener report or response differs from the recording.
 pub fn qualify_listener() {
     let reference = reference_from_recording();
     let peer = EvidencePeer::start(reference);
@@ -335,7 +408,7 @@ pub fn qualify_listener() {
         .report
         .trim_end()
         .parse()
-        .expect("reported socket address");
+        .unwrap_or_else(|error| panic!("reported socket address: {error:?}"));
     assert_eq!(reported, peer.address);
     assert!(reported.ip().is_loopback());
     assert_ne!(reported.port(), 0);
@@ -344,7 +417,8 @@ pub fn qualify_listener() {
         "the reported listener retains its port"
     );
     assert_eq!(
-        fetch(reported, "localhost", true).expect("trusted TLS and exact evidence"),
+        fetch(reported, "localhost", true)
+            .unwrap_or_else(|error| panic!("trusted TLS and exact evidence: {error:?}")),
         reference
     );
     let results = peer.finish();
@@ -352,6 +426,10 @@ pub fn qualify_listener() {
     assert!(results.into_iter().all(|result| result.is_ok()));
 }
 
+/// Checks that the peer rejects untrusted names and certificates.
+///
+/// # Panics
+/// Panics if TLS admits an untrusted peer identity.
 pub fn qualify_tls_identity() {
     let peer = EvidencePeer::start(reference_from_recording());
     for host in ["wrong-host.invalid", "127.0.0.1"] {
@@ -367,7 +445,7 @@ pub fn qualify_tls_identity() {
     let unrelated = client_config(Some(include_bytes!(
         "../fixtures/repair_22_33_1324/unrelated-ca.der"
     )))
-    .expect("unrelated CA");
+    .unwrap_or_else(|error| panic!("unrelated CA: {error:?}"));
     assert!(
         fetch_with_config(peer.address, "localhost", unrelated).is_err(),
         "unrelated CA must not trust the server"
@@ -384,7 +462,8 @@ pub fn qualify_tls_identity() {
         .is_err(),
         "missing CA is an explicit configuration failure"
     );
-    fetch(peer.address, "localhost", true).expect("trusted connection after refused handshakes");
+    fetch(peer.address, "localhost", true)
+        .unwrap_or_else(|error| panic!("trusted connection after refused handshakes: {error:?}"));
     let results = peer.finish();
     assert_eq!(results.len(), 5);
     assert_eq!(results.iter().filter(|result| result.is_err()).count(), 4);

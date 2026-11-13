@@ -5,7 +5,7 @@ use core::fmt::{self, Display};
 use layerx_programs_runtime::{derive_program_account, ProgramId};
 
 use crate::{
-    chain_evidence::{programs_state_key, HOST_STORE_NAME},
+    chain_evidence::HOST_STORE_NAME,
     chain_proof::{decode::ProofOp, state::verify_state, VerifiedChainHead},
     hash::sha256,
     ReadFreshness,
@@ -422,6 +422,10 @@ impl ProgramValueAccountBinding {
     }
 
     /// Decodes the production version-two Programs binding record.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the account or state record cannot be validated or encoded.
     pub fn decode_primary_value(value: &[u8]) -> Result<Self, AccountStateError> {
         if value.len() < 139 {
             return Err(AccountStateError::InvalidBinding);
@@ -592,12 +596,20 @@ impl CanonicalAccountLeaf {
 }
 
 impl CanonicalAccountLeaf {
-    /// Standalone lx_account_record_encode bytes persisted by lxphost at 06 || id.
+    /// Standalone `lx_account_record_encode` bytes persisted by lxphost at 06 || id.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the account or state record cannot be validated or encoded.
     pub fn host_record_encoding(&self) -> Result<Vec<u8>, AccountStateError> {
         self.validate_module_value()?;
         let mut bytes = Vec::new();
         for field in [&self.account_id[..], self.name.as_slice()] {
-            bytes.extend_from_slice(&(field.len() as u32).to_be_bytes());
+            bytes.extend_from_slice(
+                &u32::try_from(field.len())
+                    .map_err(|_| AccountStateError::InvalidAccountLeaf)?
+                    .to_be_bytes(),
+            );
             bytes.extend_from_slice(field);
         }
         bytes.push(self.kind);
@@ -615,6 +627,10 @@ impl CanonicalAccountLeaf {
         Ok(bytes)
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the account or state record cannot be validated or encoded.
     pub fn decode_host_record(bytes: &[u8]) -> Result<Self, AccountStateError> {
         fn take<const N: usize>(
             bytes: &[u8],

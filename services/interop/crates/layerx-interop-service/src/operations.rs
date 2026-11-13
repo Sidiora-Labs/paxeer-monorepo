@@ -2,6 +2,9 @@ use layerx_ap2::PortableLayerXEvidence;
 use layerx_proof::inclusion::SequencerAuthorization;
 use serde::{Deserialize, Serialize};
 
+///
+/// # Errors
+/// Returns an error when the requested operation fails validation or storage.
 pub fn validate_startup_arguments(arguments: &[String]) -> Result<(), String> {
     if arguments.is_empty() {
         Ok(())
@@ -19,6 +22,7 @@ pub enum ComponentStatus {
 }
 
 impl ComponentStatus {
+    #[must_use]
     pub const fn from_ready(ready: bool) -> Self {
         if ready {
             Self::Ready
@@ -43,6 +47,9 @@ pub struct ReadinessDocument {
 }
 
 impl ReadinessDocument {
+    ///
+    /// # Errors
+    /// Returns an error when the requested operation fails validation or storage.
     pub fn from_json(bytes: &[u8]) -> Result<Self, String> {
         if bytes.len() > 512 * 1024 {
             return Err("readiness response exceeds its bound".to_owned());
@@ -57,6 +64,7 @@ impl ReadinessDocument {
         Ok(document)
     }
 
+    #[must_use]
     pub fn is_ready(&self) -> bool {
         self.status == "ready"
             && self.components.sequencer == ComponentStatus::Ready
@@ -66,6 +74,9 @@ impl ReadinessDocument {
 
 /// Verifies concrete payment evidence offline; /readyz is operational status,
 /// and supplies no receipt or consensus inclusion proof.
+///
+/// # Errors
+/// Returns an error when the requested operation fails validation or storage.
 pub fn verify_receipted_json(
     bytes: &[u8],
     receipt_keys: &[SequencerAuthorization],

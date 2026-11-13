@@ -311,6 +311,8 @@ pub struct PaymentAccounts {
 }
 
 impl RampOrder {
+    /// # Errors
+    /// Returns an error if the order or either ledger account is invalid.
     pub fn payment_accounts(&self) -> Result<PaymentAccounts, RampError> {
         self.validate_bound()?;
         let (from, to) = match self.direction() {
@@ -333,6 +335,8 @@ pub struct CustomerPaymentAuthorization {
 }
 
 impl RampOrder {
+    /// # Errors
+    /// Returns an error unless the off-ramp order carries a valid customer budget.
     pub fn customer_payment_authorization(
         &self,
     ) -> Result<CustomerPaymentAuthorization, RampError> {
@@ -354,6 +358,8 @@ impl RampOrder {
 
 /// Compatibility entry point; compiles the maintained customer budget
 /// authority, never the retired ledger draw selector. Sequence is EVM nonce.
+/// # Errors
+/// Returns an error if the customer payment cannot be compiled.
 pub fn compile_payer_grant_draw(
     order: &RampOrder,
     _receiver_sequence: u64,
@@ -361,6 +367,8 @@ pub fn compile_payer_grant_draw(
     compile_customer_payment(order)
 }
 
+/// # Errors
+/// Returns an error if the order or customer payment authorization is invalid.
 pub fn compile_customer_payment(order: &RampOrder) -> Result<LedgerCall, RampError> {
     order.validate_bound()?;
     let authorization = order.customer_payment_authorization()?;
@@ -420,8 +428,11 @@ pub struct VerifiedLayerxLeg {
     pub rung: Rung,
 }
 
-fn serialize_rung<S: serde::Serializer>(rung: &Rung, serializer: S) -> Result<S::Ok, S::Error> {
-    serializer.serialize_str(rung.name())
+fn serialize_rung<S: serde::Serializer, T: std::borrow::Borrow<Rung>>(
+    rung: T,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(rung.borrow().name())
 }
 
 /// # Errors
@@ -565,11 +576,14 @@ fn serialize_transaction_hash<S: serde::Serializer>(
     serializer.serialize_str(&format!("0x{}", clients::hex(hash)))
 }
 
-fn serialize_optional_transaction_hash<S: serde::Serializer>(
-    hash: &Option<[u8; 32]>,
+fn serialize_optional_transaction_hash<
+    S: serde::Serializer,
+    T: std::borrow::Borrow<Option<[u8; 32]>>,
+>(
+    hash: T,
     serializer: S,
 ) -> Result<S::Ok, S::Error> {
-    match hash {
+    match hash.borrow() {
         Some(hash) => serialize_transaction_hash(hash, serializer),
         None => serializer.serialize_none(),
     }

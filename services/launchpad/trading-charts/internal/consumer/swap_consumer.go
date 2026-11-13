@@ -8,6 +8,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
+	"math"
+	"regexp"
+	"sync"
+	"time"
+
+	chartcleanup "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/cleanup"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -15,10 +22,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"log/slog"
-	"regexp"
-	"sync"
-	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/constants"
 	sharedredis "github.com/Sidiora-Technologies/KindleLaunch/shared/redis"
@@ -178,7 +181,7 @@ func (c *AccountingConsumer) Consume(ctx context.Context, message *natsdriver.Me
 		}
 	}
 	if cfg.SeriesCheckpoint != nil {
-		if message.Sequence > uint64(^uint64(0)>>1) {
+		if message.Sequence > math.MaxInt64 {
 			return ErrAccountingAuthority
 		}
 		if err := cfg.Exact.RecordAttempt(ctx, cfg.ConsumerID, cfg.Generation, message.EventID, delivery.Hash(message.Wire), int64(message.Sequence), "received", false); err != nil {
@@ -221,7 +224,7 @@ func (c *AccountingConsumer) Consume(ctx context.Context, message *natsdriver.Me
 		if publication.Fill != nil {
 			pools = append(pools, publication.Fill.PoolAddress)
 		}
-		if publication.Facet != "market" || publication.Fill == nil || publication.Enrichment != nil || len(publication.Positions) != 1 || publication.Positions[0].ProjectionVersion != cfg.ProjectionVersion || publication.Positions[0].PartitionKind != "market" || publication.Positions[0].PartitionKey != "125:"+publication.Fill.PoolAddress || publication.PublicationID != message.EventID || publication.PublicationID != envelope.EventID {
+		if publication.Facet != marketPartitionKind || publication.Fill == nil || publication.Enrichment != nil || len(publication.Positions) != 1 || publication.Positions[0].ProjectionVersion != cfg.ProjectionVersion || publication.Positions[0].PartitionKind != marketPartitionKind || publication.Positions[0].PartitionKey != "125:"+publication.Fill.PoolAddress || publication.PublicationID != message.EventID || publication.PublicationID != envelope.EventID {
 			return publication, &delivery.IntegrityFailure{Class: delivery.PartitionBinding, AffectedPools: pools, Cause: delivery.ErrIntegrity}
 		}
 		return publication, nil
@@ -350,7 +353,7 @@ func NewSourceVerifiedAccountingConsumer(config SourceVerifiedAccountingConfig) 
 	lease := func(ctx context.Context, fill accounting.FillV1) (delivery.PartitionLease, error) {
 		mu.Lock()
 		defer mu.Unlock()
-		key := delivery.ConsumerKey{ConsumerID: config.ConsumerID, ProjectionGeneration: config.Generation, PartitionKind: "market", PartitionKey: "125:" + fill.PoolAddress}
+		key := delivery.ConsumerKey{ConsumerID: config.ConsumerID, ProjectionGeneration: config.Generation, PartitionKind: marketPartitionKind, PartitionKey: "125:" + fill.PoolAddress}
 		l, err := config.Partitions.Acquire(ctx, key, config.Owner, 30*time.Second)
 		if err != nil {
 			return l, err
@@ -365,7 +368,7 @@ func NewSourceVerifiedAccountingConsumer(config SourceVerifiedAccountingConfig) 
 		defer func() {
 			cleanup, stop := context.WithTimeout(context.Background(), time.Second)
 			defer stop()
-			tx.Rollback(cleanup)
+			chartcleanup.Rollback(cleanup, tx)
 		}()
 		b, err := loadBootstrap(ctx, tx, fill.PoolAddress)
 		if err != nil {

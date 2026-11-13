@@ -9,6 +9,7 @@ import RouterAbi from './abis/Router.json';
 import QuoterAbi from './abis/Quoter.json';
 import FeesRouterAbi from './abis/FeesRouter.json';
 import OpticalRegistryAbi from './abis/OpticalRegistry.json';
+import { parseAbi } from 'viem';
 
 export const ROUTER_ADDRESS = CORE_DEPLOYMENT.router;
 export const QUOTER_ADDRESS = CORE_DEPLOYMENT.quoter;
@@ -16,6 +17,24 @@ export const FEES_ROUTER_ADDRESS = CORE_DEPLOYMENT.feesRouter;
 export const OPTICAL_REGISTRY_ADDRESS = CORE_DEPLOYMENT.opticalRegistry;
 export const USDL_ADDRESS = CORE_DEPLOYMENT.usdl;
 export const PROTOCOL_CONFIG_ADDRESS = CORE_DEPLOYMENT.protocolConfig;
+export const LAUNCHPAD_ADDRESS = CORE_DEPLOYMENT.launchpadPrecompile;
+export const CHAIN_LAUNCH_ABI = parseAbi([
+  'function launchChain(string name,string symbol,uint8 feeStrategy,address optical,string chainName,uint64 gasAllowance,uint64 byteAllowance,uint16 feeShareBps) payable returns (address tokenAddr,address poolAddr,uint256 nftId,uint32 chain,uint64 chainId)',
+  'function launchedChain(uint32 chain) view returns (uint32 registryNumber,uint64 chainId,address pool,address token,uint256 nftId,address creator,uint64 blockNumber)',
+  'function launchedChainOfPool(address pool) view returns (uint32)',
+  'function homeChainOf(address pool) view returns (uint64)',
+  'function chainRevenueEpoch(uint32 chain,uint64 epoch) view returns (uint32 registryNumber,uint64 epochNumber,uint256 epochAmount,uint64 snapshotBlock,uint256 eligibleSupply,uint256 claimedTotal,uint64 openedAt)',
+  'function chainRevenueClaimable(uint32 chain,uint64 epoch,address holder) view returns (uint256)',
+  'function claimChainRevenue(uint32 chain,uint64 epoch) returns (uint256)',
+  'function claimChainRevenueBatch(uint32 chain,uint64[] epochs) returns (uint256)',
+  'function openChainRevenueEpoch(uint32 chain) returns (uint64,uint256)',
+  'event ChainLaunched(uint32 indexed chain,address indexed pool,address indexed token,uint64 chainId,uint256 nftId,address creator,uint256 timestamp,uint256 blockNumber)',
+  'event ChainRevenueEpochOpened(uint32 indexed chain,uint64 indexed epoch,uint256 epochAmount,uint64 snapshotBlock,uint256 eligibleSupply,uint256 timestamp,uint256 blockNumber)',
+  'event ChainRevenueClaimed(uint32 indexed chain,uint64 indexed epoch,address indexed holder,uint256 amount,uint256 timestamp,uint256 blockNumber)',
+  'error AlreadyClaimed()',
+  'error ZeroAmount()',
+  'error NotLaunchedChain()',
+]);
 
 const ERC20_ABI = [
   { type: 'function', name: 'approve', stateMutability: 'nonpayable', inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [{ name: '', type: 'bool' }] },
@@ -248,6 +267,7 @@ export function useReadQuoterQuoteMultihop(
   enabled = true,
 ) {
   return useReadContract({
+    chainId: CORE_DEPLOYMENT.chainId,
     address: QUOTER_ADDRESS,
     abi: QuoterAbi as any,
     functionName: 'quoteMultihop',

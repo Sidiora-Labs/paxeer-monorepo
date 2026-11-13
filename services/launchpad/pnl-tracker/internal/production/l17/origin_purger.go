@@ -25,7 +25,7 @@ type OriginPurger struct {
 // info, path, query or fragment.
 func ValidPublicOrigin(origin string) bool {
 	parsed, e := url.Parse(origin)
-	return e == nil && parsed.Scheme == "https" && parsed.Host != "" && parsed.User == nil && parsed.RawQuery == "" && parsed.Fragment == "" && (parsed.Path == "" || parsed.Path == "/")
+	return e == nil && parsed.Scheme == schemeHTTPS && parsed.Host != "" && parsed.User == nil && parsed.RawQuery == "" && parsed.Fragment == "" && (parsed.Path == "" || parsed.Path == "/")
 }
 
 func (p OriginPurger) PurgeCard(ctx context.Context, id string) error {
@@ -65,7 +65,7 @@ func (p OriginPurger) verifyGone(ctx context.Context, timeout time.Duration, tar
 		if e != nil {
 			return ErrUnavailable
 		}
-		actual.Body.Close()
+		_ = actual.Body.Close()
 		if actual.StatusCode != http.StatusGone {
 			return ErrUnavailable
 		}

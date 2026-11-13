@@ -7,14 +7,15 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"io"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type DeadLetterMetadata struct {
@@ -77,14 +78,14 @@ func (d DeadLetters) Handler() http.Handler {
 		if raw := r.URL.Query().Get("limit"); raw != "" {
 			n, err := strconv.Atoi(raw)
 			if err != nil {
-				http.Error(w, "invalid pagination", 400)
+				http.Error(w, "invalid pagination", http.StatusBadRequest)
 				return
 			}
 			limit = n
 		}
 		rows, err := d.Inspect(r.Context(), r.URL.Query().Get("after"), limit)
 		if err != nil {
-			http.Error(w, "inspection unavailable", 503)
+			http.Error(w, "inspection unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		nextCursor := ""
@@ -116,13 +117,13 @@ func (d DeadLetters) RequestRedrive(ctx context.Context, request *http.Request, 
 	if verifyErr != nil {
 		return "", verifyErr
 	}
-	if d.Pool == nil || id.Kind != "operator" || !id.MFA || id.Audience != d.Audience || !id.Scopes["replay"] || !id.Expires.After(time.Now()) || id.Issued.After(time.Now()) || id.Expires.Sub(id.Issued) > 15*time.Minute || !regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`).MatchString(d.DeliverySchema) || !regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`).MatchString(d.SecuritySchema) || !regexp.MustCompile(`^[0-9a-f]{64}$`).MatchString(envelopeHash) || !regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$`).MatchString(consumer) || !regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$`).MatchString(generation) || id.Actor == "" || d.PolicyVersion == "" || len(reason) < 1 || len(reason) > 1000 || strings.TrimSpace(reason) != reason || strings.ContainsAny(reason, "\r\n\x00") {
+	if d.Pool == nil || id.Kind != identityOperator || !id.MFA || id.Audience != d.Audience || !id.Scopes["replay"] || !id.Expires.After(time.Now()) || id.Issued.After(time.Now()) || id.Expires.Sub(id.Issued) > 15*time.Minute || !regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`).MatchString(d.DeliverySchema) || !regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`).MatchString(d.SecuritySchema) || !regexp.MustCompile(`^[0-9a-f]{64}$`).MatchString(envelopeHash) || !regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$`).MatchString(consumer) || !regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$`).MatchString(generation) || id.Actor == "" || d.PolicyVersion == "" || len(reason) < 1 || len(reason) > 1000 || strings.TrimSpace(reason) != reason || strings.ContainsAny(reason, "\r\n\x00") {
 		return "", ErrDenied
 	}
 	wire, _ := json.Marshal([]string{consumer, generation, envelopeHash, reason, id.Actor})
 	sum := sha256.Sum256(wire)
 	job := hex.EncodeToString(sum[:])
-	err := MutateAudited(ctx, d.Pool, pgx.Identifier{d.SecuritySchema, "audit_outbox"}, Audit{Actor: id.Actor, Action: "deadletter-redrive", Target: consumer + "/" + generation + "/" + envelopeHash, BeforeDigest: envelopeHash, AfterDigest: job, PolicyVersion: d.PolicyVersion}, func(tx pgx.Tx) error {
+	err := MutateAudited(ctx, d.Pool, pgx.Identifier{d.SecuritySchema, auditOutboxTable}, Audit{Actor: id.Actor, Action: "deadletter-redrive", Target: consumer + "/" + generation + "/" + envelopeHash, BeforeDigest: envelopeHash, AfterDigest: job, PolicyVersion: d.PolicyVersion}, func(tx pgx.Tx) error {
 		var exists bool
 		if err := tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM "+pgx.Identifier{d.DeliverySchema, "delivery_quarantine"}.Sanitize()+" WHERE consumer_id=$1 AND projection_generation=$2 AND envelope_hash=$3)", consumer, generation, envelopeHash).Scan(&exists); err != nil {
 			return err

@@ -1,0 +1,7 @@
+[hardhat_compilers]
+projects = ["contracts: 0.8.27", "tests/integration/dapp_tests: 0.8.20", "tests/integration/rpc_tests: 0.8.28"]
+versions_from = "Each project's hardhat.config.js or hardhat.config.ts solidity.version"
+native_builds = ["0.8.20: solc-linux-amd64-v0.8.20+commit.a1b79de6", "0.8.27: solc-linux-amd64-v0.8.27+commit.40a35a09", "0.8.28: solc-linux-amd64-v0.8.28+commit.7893614a"]
+wasm_builds = ["0.8.20: soljson-v0.8.20+commit.a1b79de6.js", "0.8.27: soljson-v0.8.27+commit.40a35a09.js", "0.8.28: soljson-v0.8.28+commit.7893614a.js"]
+cache_paths = "Hardhat getCompilersDir()/linux-amd64 and getCompilersDir()/wasm; each platform holds list.json and the compiler build named by that list"
+fetch_recipe = "paxeer-npm-install runs install-hardhat-compilers.mjs after the three JavaScript project installs"

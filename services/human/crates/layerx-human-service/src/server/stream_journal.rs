@@ -68,14 +68,66 @@ fn settlement_domain(record: &mut Value) -> bool {
         .is_some()
 }
 
+fn approval_row(
+    scope: &PrincipalScope<'_>,
+    event: &Event,
+) -> Result<(Table, RowKey, Vec<u8>), ApiFailure> {
+    let value = event
+        .payload
+        .get("approval")
+        .ok_or_else(ApiFailure::upstream_degraded)?;
+    let resource = value
+        .get("approval_id")
+        .and_then(Value::as_str)
+        .ok_or_else(ApiFailure::upstream_degraded)?;
+    let state = value
+        .get("state")
+        .and_then(Value::as_str)
+        .ok_or_else(ApiFailure::upstream_degraded)?;
+    let facts = ["agent_id", "state", "created_at"]
+        .into_iter()
+        .map(|name| {
+            let value = value.get(name).ok_or_else(ApiFailure::upstream_degraded)?;
+            Ok(layerx_platform_internal::events::Fact {
+                name: name.to_owned(),
+                value: value
+                    .as_str()
+                    .map_or_else(|| value.to_string(), str::to_owned),
+            })
+        })
+        .collect::<Result<Vec<_>, ApiFailure>>()?;
+    let observation = layerx_platform_internal::producer::Observation {
+        kind: "approval".to_owned(),
+        id: String::new(),
+        principal: Some(scope.principal().as_str().to_owned()),
+        principal_digest: None,
+        resource: resource.to_owned(),
+        sequence: 0,
+        source_sequence: event.sequence,
+        occurred_at: event.observed_at,
+        facts,
+        activity_id: None,
+        amount: None,
+        asset: None,
+    };
+    crate::event_producer::enqueue_row(scope, &format!("approval:{resource}:{state}"), observation)
+        .map_err(|error| store_failure(&error))
+}
+
 pub struct StreamJournal {
     key: [u8; 32],
 }
 impl StreamJournal {
+    /// Creates a journal with the supplied cursor key.
+    #[must_use]
     pub const fn new(key: [u8; 32]) -> Self {
         Self { key }
     }
 
+    /// Appends an observed event to the principal's stream.
+    ///
+    /// # Errors
+    /// Returns an error when the event is invalid or storage fails.
     pub fn append(
         scope: &mut PrincipalScope<'_>,
         source: &str,
@@ -131,52 +183,7 @@ impl StreamJournal {
             (Table::Stream, head_key, sequence.to_be_bytes().to_vec()),
         ];
         if kind.starts_with("approval-") {
-            let value = event
-                .payload
-                .get("approval")
-                .ok_or_else(ApiFailure::upstream_degraded)?;
-            let resource = value
-                .get("approval_id")
-                .and_then(Value::as_str)
-                .ok_or_else(ApiFailure::upstream_degraded)?;
-            let state = value
-                .get("state")
-                .and_then(Value::as_str)
-                .ok_or_else(ApiFailure::upstream_degraded)?;
-            let facts = ["agent_id", "state", "created_at"]
-                .into_iter()
-                .map(|name| {
-                    let value = value.get(name).ok_or_else(ApiFailure::upstream_degraded)?;
-                    Ok(layerx_platform_internal::events::Fact {
-                        name: name.to_owned(),
-                        value: value
-                            .as_str()
-                            .map_or_else(|| value.to_string(), str::to_owned),
-                    })
-                })
-                .collect::<Result<Vec<_>, ApiFailure>>()?;
-            let observation = layerx_platform_internal::producer::Observation {
-                kind: "approval".to_owned(),
-                id: String::new(),
-                principal: Some(scope.principal().as_str().to_owned()),
-                principal_digest: None,
-                resource: resource.to_owned(),
-                sequence: 0,
-                source_sequence: sequence,
-                occurred_at: observed_at,
-                facts,
-                activity_id: None,
-                amount: None,
-                asset: None,
-            };
-            rows.push(
-                crate::event_producer::enqueue_row(
-                    scope,
-                    &format!("approval:{resource}:{state}"),
-                    observation,
-                )
-                .map_err(|error| store_failure(&error))?,
-            );
+            rows.push(approval_row(scope, &event)?);
         }
         let mut legacy_rows = Vec::new();
         for key in scope.keys(Table::Stream) {
@@ -211,10 +218,18 @@ impl StreamJournal {
         Ok(())
     }
 
+    /// Returns a cursor for the current stream position.
+    ///
+    /// # Errors
+    /// Returns an error when the stream position cannot be read.
     pub fn open(&self, scope: &PrincipalScope<'_>) -> Result<Value, ApiFailure> {
         let position = Self::head(scope)?;
         Ok(json!({"cursor":self.cursor(scope,position)}))
     }
+    /// Returns events following the supplied cursor.
+    ///
+    /// # Errors
+    /// Returns an error for an invalid cursor or a storage failure.
     pub fn next(&self, scope: &PrincipalScope<'_>, cursor: &str) -> Result<Value, ApiFailure> {
         let after = self.decode_cursor(scope, cursor)?;
         let head = Self::head(scope)?;

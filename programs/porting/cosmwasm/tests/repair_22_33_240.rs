@@ -146,8 +146,7 @@ fn cosmwasm_storage_guide_global_item_preserves_cross_sender_state_and_grants() 
     assert_eq!(read_only.commit().storage, storage);
 }
 
-#[test]
-fn cosmwasm_storage_guide_scans_enforce_scope_bounds_and_cursor_contract() {
+fn check_scan_limits() {
     for text in [
         "storage_scan_scoped",
         "1–256 bytes",
@@ -171,6 +170,11 @@ fn cosmwasm_storage_guide_scans_enforce_scope_bounds_and_cursor_contract() {
         );
     }
     assert!(ScanLimits::new(64, 67_126_228).is_ok());
+}
+
+#[test]
+fn cosmwasm_storage_guide_scans_enforce_scope_bounds_and_cursor_contract() {
+    check_scan_limits();
     let mut storage = Storage::new();
     {
         let mut tx = storage.transaction(StorageNamespace::shared(program()));
@@ -249,97 +253,109 @@ fn cosmwasm_storage_guide_scans_enforce_scope_bounds_and_cursor_contract() {
         assert!(maximum_prefix.entries().is_empty());
         assert_eq!(maximum_prefix.cursor(), None);
         storage = invocation.commit().storage;
-        // A fresh invocation consumes the real store-issued opaque continuation.
-        let mut next = abi(
-            storage,
-            program(),
-            actor(2),
-            &[Capability::StorageRead, Capability::SharedStorageRead],
-        );
-        let second = checked(next.storage_scan_selected(
-            &mut Meter::declared(),
-            selector,
-            &prefix,
-            &cursor,
-            limits,
-        ));
-        assert_eq!(second.entries().len(), 1);
-        assert_eq!(second.entries()[0].key, second_key);
-        assert_eq!(second.entries()[0].value, b"second");
-        assert_eq!(second.cursor(), None);
-        storage = next.commit().storage;
-        let mut other_sender = abi(
-            storage.clone(),
-            program(),
-            actor(3),
-            &[Capability::StorageRead, Capability::SharedStorageRead],
-        );
-        let resumed = other_sender.storage_scan_selected(
-            &mut Meter::declared(),
-            selector,
-            &prefix,
-            &cursor,
-            limits,
-        );
-        if selector == StorageSelector::Shared {
-            assert_eq!(checked(resumed), second);
-        } else {
-            assert_eq!(
-                resumed,
-                Err(AbiError::Storage(StorageError::InvalidScanCursor))
-            );
-            assert!(checked(other_sender.storage_scan_selected(
-                &mut Meter::declared(),
-                selector,
-                &prefix,
-                &[],
-                limits
-            ))
-            .entries()
-            .is_empty());
-        }
-        let mut other_program = abi(
-            storage.clone(),
-            checked(ProgramId::new([9; 32])),
-            actor(2),
-            &[Capability::StorageRead, Capability::SharedStorageRead],
-        );
-        assert_eq!(
-            other_program.storage_scan_selected(
-                &mut Meter::declared(),
-                selector,
-                &prefix,
-                &cursor,
-                limits
-            ),
-            Err(AbiError::Storage(StorageError::InvalidScanCursor))
-        );
-        let wrong_scope = if selector == StorageSelector::Shared {
-            StorageSelector::Principal
-        } else {
-            StorageSelector::Shared
-        };
-        assert_eq!(
-            other_sender.storage_scan_selected(
-                &mut Meter::declared(),
-                wrong_scope,
-                &prefix,
-                &cursor,
-                limits
-            ),
-            Err(AbiError::Storage(StorageError::InvalidScanCursor))
-        );
-        let wrong_grant = if selector == StorageSelector::Shared {
-            Capability::StorageRead
-        } else {
-            Capability::SharedStorageRead
-        };
-        let mut denied = abi(storage.clone(), program(), actor(2), &[wrong_grant]);
-        assert_eq!(
-            denied.storage_scan_selected(&mut Meter::declared(), selector, &prefix, &[], limits),
-            Err(AbiError::CapabilityDenied)
-        );
+        storage = check_scan_continuation(storage, selector, &prefix, &cursor, limits, &second_key);
     }
+}
+
+fn check_scan_continuation(
+    mut storage: Storage,
+    selector: StorageSelector,
+    prefix: &[u8],
+    cursor: &[u8],
+    limits: ScanLimits,
+    second_key: &[u8],
+) -> Storage {
+    // A fresh invocation consumes the real store-issued opaque continuation.
+    let mut next = abi(
+        storage,
+        program(),
+        actor(2),
+        &[Capability::StorageRead, Capability::SharedStorageRead],
+    );
+    let second = checked(next.storage_scan_selected(
+        &mut Meter::declared(),
+        selector,
+        prefix,
+        cursor,
+        limits,
+    ));
+    assert_eq!(second.entries().len(), 1);
+    assert_eq!(second.entries()[0].key, second_key);
+    assert_eq!(second.entries()[0].value, b"second");
+    assert_eq!(second.cursor(), None);
+    storage = next.commit().storage;
+    let mut other_sender = abi(
+        storage.clone(),
+        program(),
+        actor(3),
+        &[Capability::StorageRead, Capability::SharedStorageRead],
+    );
+    let resumed = other_sender.storage_scan_selected(
+        &mut Meter::declared(),
+        selector,
+        prefix,
+        cursor,
+        limits,
+    );
+    if selector == StorageSelector::Shared {
+        assert_eq!(checked(resumed), second);
+    } else {
+        assert_eq!(
+            resumed,
+            Err(AbiError::Storage(StorageError::InvalidScanCursor))
+        );
+        assert!(checked(other_sender.storage_scan_selected(
+            &mut Meter::declared(),
+            selector,
+            prefix,
+            &[],
+            limits
+        ))
+        .entries()
+        .is_empty());
+    }
+    let mut other_program = abi(
+        storage.clone(),
+        checked(ProgramId::new([9; 32])),
+        actor(2),
+        &[Capability::StorageRead, Capability::SharedStorageRead],
+    );
+    assert_eq!(
+        other_program.storage_scan_selected(
+            &mut Meter::declared(),
+            selector,
+            prefix,
+            cursor,
+            limits
+        ),
+        Err(AbiError::Storage(StorageError::InvalidScanCursor))
+    );
+    let wrong_scope = if selector == StorageSelector::Shared {
+        StorageSelector::Principal
+    } else {
+        StorageSelector::Shared
+    };
+    assert_eq!(
+        other_sender.storage_scan_selected(
+            &mut Meter::declared(),
+            wrong_scope,
+            prefix,
+            cursor,
+            limits
+        ),
+        Err(AbiError::Storage(StorageError::InvalidScanCursor))
+    );
+    let wrong_grant = if selector == StorageSelector::Shared {
+        Capability::StorageRead
+    } else {
+        Capability::SharedStorageRead
+    };
+    let mut denied = abi(storage.clone(), program(), actor(2), &[wrong_grant]);
+    assert_eq!(
+        denied.storage_scan_selected(&mut Meter::declared(), selector, prefix, &[], limits),
+        Err(AbiError::CapabilityDenied)
+    );
+    storage
 }
 
 fn finish_guest(mut builder: ModuleBuilder, code: &Code) -> Vec<u8> {
@@ -554,75 +570,7 @@ fn cosmwasm_storage_guide_scoped_scan_crosses_real_guest_host_boundary() {
     assert_eq!(storage, before);
 }
 
-#[test]
-fn cosmwasm_custody_guide_prepares_registration_funds_and_bounds_later_withdrawal() {
-    for text in [
-        "registration_payload()",
-        "funding_grant(Amount::from_u128(30))",
-        "spend_grant(recipient, Amount::from_u128(5))",
-        "transfer::fund_program_account",
-        "transfer::pay_from_program_account",
-        "`MessageInfo.funds` remains unavailable",
-    ] {
-        assert!(
-            GUIDE.contains(text),
-            "missing documented custody phase: {text}"
-        );
-    }
-    let asset = checked(AssetId::new([4; 32]));
-    let recipient = checked(AccountId::new([5; 32]));
-    let vault = checked(PreparedProgramAccount::new(
-        checked(SdkProgramId::new(program().bytes())),
-        b"vault",
-        asset,
-    ));
-    let registration = checked(vault.registration_payload());
-    // Freeze the real SDK producer's native registration wire layout.
-    let mut expected_registration = program().bytes().to_vec();
-    expected_registration.extend_from_slice(b"LXPA1");
-    expected_registration.extend_from_slice(&asset.bytes());
-    expected_registration.extend_from_slice(&5u32.to_be_bytes());
-    expected_registration.extend_from_slice(b"vault");
-    assert_eq!(registration.as_slice(), expected_registration);
-
-    let deposit = checked(vault.deposit(Amount::from_u128(30)));
-    let funding_grant = checked(vault.funding_grant(Amount::from_u128(30)));
-    let mut encoded = [0; 128];
-    let mut sdk_grants = layerx_program_sdk::CapabilitySet::<1>::empty();
-    checked(sdk_grants.insert(funding_grant));
-    let used = checked(sdk_grants.encode_into(&mut encoded));
-    let funding_grants = checked(CapabilitySet::new(checked(
-        CapabilitySet::decode_v2_canonical(&encoded[..used]),
-    )));
-    let funded = execute(&funding_guest(deposit), program(), actor(2), funding_grants);
-    let funding_effects = funded
-        .effects()
-        .unwrap_or_else(|| panic!("funding failed: {:?}", funded.outcome()));
-    assert_eq!(funding_effects.transfers.len(), 1);
-    let funding = &funding_effects.transfers[0];
-    assert_eq!(funding.amount, 30);
-    assert_eq!(funding.to, vault.account().bytes());
-    assert_eq!(funding.asset, asset.bytes());
-    let TransferSource::ProgramFunding { principal, binding } = funding.source() else {
-        panic!("deposit must debit the caller")
-    };
-    assert_eq!(*principal, actor(2));
-    assert_eq!(binding.owner_program(), program());
-    assert_eq!(binding.seed(), b"vault");
-    assert_eq!(binding.destination_account(), vault.account().bytes());
-    assert_eq!(binding.asset(), asset.bytes());
-    let denied_funding = execute(
-        &funding_guest(deposit),
-        program(),
-        actor(2),
-        CapabilitySet::empty(),
-    );
-    assert!(matches!(
-        denied_funding.outcome(),
-        V2ActivityOutcome::Failure(_)
-    ));
-    assert!(denied_funding.effects().is_none());
-
+fn verify_custody_withdrawal(vault: &PreparedProgramAccount, asset: AssetId, recipient: AccountId) {
     let flow = ValueFlow::BankSend {
         recipient: recipient.bytes(),
         amount: 5,
@@ -721,4 +669,76 @@ fn cosmwasm_custody_guide_prepares_registration_funds_and_bounds_later_withdrawa
         ),
         Err(PortRefusal::InvalidProgramAccount)
     );
+}
+
+#[test]
+fn cosmwasm_custody_guide_prepares_registration_funds_and_bounds_later_withdrawal() {
+    for text in [
+        "registration_payload()",
+        "funding_grant(Amount::from_u128(30))",
+        "spend_grant(recipient, Amount::from_u128(5))",
+        "transfer::fund_program_account",
+        "transfer::pay_from_program_account",
+        "`MessageInfo.funds` remains unavailable",
+    ] {
+        assert!(
+            GUIDE.contains(text),
+            "missing documented custody phase: {text}"
+        );
+    }
+    let asset = checked(AssetId::new([4; 32]));
+    let recipient = checked(AccountId::new([5; 32]));
+    let vault = checked(PreparedProgramAccount::new(
+        checked(SdkProgramId::new(program().bytes())),
+        b"vault",
+        asset,
+    ));
+    let registration = checked(vault.registration_payload());
+    // Freeze the real SDK producer's native registration wire layout.
+    let mut expected_registration = program().bytes().to_vec();
+    expected_registration.extend_from_slice(b"LXPA1");
+    expected_registration.extend_from_slice(&asset.bytes());
+    expected_registration.extend_from_slice(&5u32.to_be_bytes());
+    expected_registration.extend_from_slice(b"vault");
+    assert_eq!(registration.as_slice(), expected_registration);
+
+    let deposit = checked(vault.deposit(Amount::from_u128(30)));
+    let funding_grant = checked(vault.funding_grant(Amount::from_u128(30)));
+    let mut encoded = [0; 128];
+    let mut sdk_grants = layerx_program_sdk::CapabilitySet::<1>::empty();
+    checked(sdk_grants.insert(funding_grant));
+    let used = checked(sdk_grants.encode_into(&mut encoded));
+    let funding_grants = checked(CapabilitySet::new(checked(
+        CapabilitySet::decode_v2_canonical(&encoded[..used]),
+    )));
+    let funded = execute(&funding_guest(deposit), program(), actor(2), funding_grants);
+    let funding_effects = funded
+        .effects()
+        .unwrap_or_else(|| panic!("funding failed: {:?}", funded.outcome()));
+    assert_eq!(funding_effects.transfers.len(), 1);
+    let funding = &funding_effects.transfers[0];
+    assert_eq!(funding.amount, 30);
+    assert_eq!(funding.to, vault.account().bytes());
+    assert_eq!(funding.asset, asset.bytes());
+    let TransferSource::ProgramFunding { principal, binding } = funding.source() else {
+        panic!("deposit must debit the caller")
+    };
+    assert_eq!(*principal, actor(2));
+    assert_eq!(binding.owner_program(), program());
+    assert_eq!(binding.seed(), b"vault");
+    assert_eq!(binding.destination_account(), vault.account().bytes());
+    assert_eq!(binding.asset(), asset.bytes());
+    let denied_funding = execute(
+        &funding_guest(deposit),
+        program(),
+        actor(2),
+        CapabilitySet::empty(),
+    );
+    assert!(matches!(
+        denied_funding.outcome(),
+        V2ActivityOutcome::Failure(_)
+    ));
+    assert!(denied_funding.effects().is_none());
+
+    verify_custody_withdrawal(&vault, asset, recipient);
 }

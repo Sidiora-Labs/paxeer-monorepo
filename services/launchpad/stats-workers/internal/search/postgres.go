@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"time"
 )
 
 type Store struct{ Pool *pgxpool.Pool }
@@ -44,11 +45,11 @@ func (s Store) Search(ctx context.Context, r Request) (Page, error) {
 	}
 	predicate := `(d.name_key LIKE $2 ESCAPE '\' OR d.ticker_key LIKE $2 ESCAPE '\')`
 	value := like(q.Key)
-	if q.Kind == "exact_address" {
+	if q.Kind == valueExactAddress {
 		predicate = `(d.pool_address=$2 OR d.token_address=$2)`
 		value = q.Key
 	}
-	if q.Kind == "partial_address" {
+	if q.Kind == valuePartialAddress {
 		predicate = `(d.pool_address LIKE $2 ESCAPE '\' OR d.token_address LIKE $2 ESCAPE '\')`
 		value = q.Key + "%"
 	}
@@ -82,8 +83,8 @@ func (s Store) Search(ctx context.Context, r Request) (Page, error) {
 		p.Items = p.Items[:r.Limit]
 		p.Next = &Cursor{Version: Version, NormalizationVersion: Version, FilterDigest: Binding(q, r), Generation: p.Generation, Snapshot: p.Watermark, After: *p.Items[len(p.Items)-1].PoolAddress}
 	}
-	if len(p.Items) == 0 && q.Kind == "exact_address" {
-		p.Status = "not-indexed"
+	if len(p.Items) == 0 && q.Kind == valueExactAddress {
+		p.Status = valueNotIndexed
 	}
 	if e = tx.Commit(ctx); e != nil {
 		return Page{}, fmt.Errorf("%w: commit", ErrUnavailable)

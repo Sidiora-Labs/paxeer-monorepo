@@ -1,4 +1,4 @@
-# The hyperfide platform Provider Bridge Protocol
+# Provider bridge protocol
 
 The one JSON-RPC contract between the agent runtime and every provider
 bridge process. Message schemas live in `@hyperfide/provider-bridge-protocol`
@@ -9,17 +9,19 @@ dialect, the runtime knows the timeline.** A bridge parses its provider's
 traffic into a narrow grammar of semantic deltas (`thread/delta`); the
 runtime's delta assembler owns every timeline invariant — id minting,
 turn/item lifecycle, ordering — and constructs the canonical `ThreadEvent`s.
-The conformance kit enforces the testable rules against every bridge in CI.
+The conformance kit checks bridge behavior against this contract.
 
 The provider declaration, handshake summary, vocabulary, and presentation
 contract are in [provider-plugin-api.md](provider-plugin-api.md); building,
 packaging, and testing a bridge is in the hyperfide-plugin-authoring skill
-(`plugins/hyperfide-guide/skills/hyperfide-plugin-authoring/references/providers.md`).
+([provider authoring guide](../../../tools/hyperfide/plugins/hyperfide-guide/skills/hyperfide-plugin-authoring/references/providers.md)).
+
+Source paths below are relative to `tools/hyperfide`.
 
 ## Where a bridge lives
 
 A bridge is the `experimental_providerBridge` export of its plugin's
-**`hyperfide platform.host` artifact** ([provider-plugin-api.md](provider-plugin-api.md) §2),
+**`hyperfide.host` artifact** ([provider-plugin-api.md](provider-plugin-api.md) §2),
 not a program. The daemon runs it through a bootstrap that owns everything
 outside the protocol: argv, the plugin-scoped `dataDir`/`tempDir`, the
 bounded stdin framing, and the signals. The bundle is self-contained (only
@@ -38,16 +40,16 @@ spaces.
 
 Hygiene rules:
 
-- An undecodable or schema-invalid request is answered with
-  `INVALID_PARAMS (-32602)` carrying the validation issues. Never silently
-  dropped — a dropped request is an undebuggable 30-second timeout.
+- A recognized request with schema-invalid parameters is answered with
+  `INVALID_PARAMS (-32602)` carrying the validation issues.
 - An unrecognized method is answered with `METHOD_NOT_FOUND (-32601)`.
-- Anything written to stdout that is not protocol traffic is ignored by the
-  reader; bridges must guard stdout against stray writes.
+- Lines that cannot be parsed as JSON-RPC are ignored by the reader. Stdout
+  carries protocol traffic; diagnostic output belongs on stderr.
 
 ## Versioning and capabilities
 
-`initialize` exchanges `{protocolVersion, capabilities}` in both directions.
+`initialize` takes `{ protocolVersion, client: { name, version }, grammarVersions }`
+and returns `{ protocolVersion, capabilities }`.
 The current version is **2**; the runtime rejects a bridge answering another
 version with a legible startup error. The version bumps only for breaking
 changes; everything additive rides capability tolerance: unknown methods
@@ -56,7 +58,7 @@ pass through. Bridges version with their plugin, not with the daemon.
 
 Handshake capabilities are **session-behavior facts** (`sessionRestore`,
 `threadArchive`, `threadRename`, `threadGoalClear`, `fork`,
-`approvalEnforcedBy`, `grammarVersions`, `steerMode`, `skills`). They are
+`approvalEnforcedBy`, `grammarVersions`, `steerMode`, `skills`, `commands`). They are
 reported by the code that implements them, so they cannot drift from
 behavior. The runtime never sends a capability-gated method to a bridge that
 did not advertise it. A handshake fact may only _narrow_ what the provider's
@@ -81,7 +83,7 @@ hint whatever the mode.
 The sessionless `provider/health`, `provider/usage`,
 `provider/installation/status`, and `provider/installation/run` methods are
 different: their support is declared by each provider through
-`hyperfide platform.providers.register` (`maintenance`), so the server can skip an
+`hyperfide.providers.register` (`maintenance`), so the server can skip an
 unsupported host probe and clients can omit providers that never expose usage
 or installation management before a bridge has started. A shared bridge may
 declare health or usage for every provider it owns and still return
@@ -111,8 +113,8 @@ browser—chooses the environment and working directory, serializes
 installations, supervises the process, streams output, and asks the bridge
 for fresh status to verify success.
 
-Every handshake capability gates a request method, which is why the set holds
-no compaction fact: there is no compact request method. Compaction is a
+The handshake includes `skills.configure` and `commands.list` for the
+`skills/configure` and `commands/list` methods. It includes no compaction fact: there is no compact request method. Compaction is a
 standalone builtin `/compact` prompt travelling the normal turn pipeline,
 which each bridge maps to its provider's compaction command, and the
 affordance is gated solely by the declaration's `supportsManualCompaction`.
@@ -126,7 +128,7 @@ shape, streamed text (`item.textDelta`/`item.textClose`), `usage`,
 `contextWindow`, errors/warnings, `unhandled` diagnostics, session lifecycle
 (`session.reset`, `session.ended`) — never a raw provider event and never a
 finished `ThreadEvent`. The schemas in
-`@hyperfide/provider-bridge-protocol/src/thread-delta.ts` are the source of truth
+`core/provider-bridge-protocol/src/thread-delta.ts` are the source of truth
 for the grammar.
 
 The runtime's **delta assembler** (one per bridge adapter) consumes the
@@ -232,8 +234,8 @@ reasoningSummary | plan, text }` synthesizes the channel's `item/started`
 The current grammar (`grammarVersions: [3, 3]`) includes:
 
 - **Core item shapes** `fileRead`, `search` (`mode: content | path | list`),
-  `imageGeneration` (`prompt`, `path`, optional retained `result`, `error`,
-  and `transparentBackground`), `delegation` (`childRef`, `label`,
+  `imageGeneration` (nullable `prompt`, `path`, and `error`, required
+  `transparentBackground`, and optional retained `result`), `delegation` (`childRef`, `label`,
   `background`, `summary?`; one shape for codex `spawnAgent`/`wait`, the
   Claude `Agent` tool, and backgrounded agents), and `planSteps` (a
   structured plan snapshot as an item).
@@ -245,13 +247,13 @@ The current grammar (`grammarVersions: [3, 3]`) includes:
   after the plugin is gone. Optional for core shapes, required when the shape
   is `extension`. Conformance rule `presentation/icon-namespaced-declared`
   checks the namespaced glyph form for bridges that opt in with an
-  `icons: { pluginId, names }` fixture field; a `server: "hyperfide platform"` tool row is
+  `icons: { pluginId, names }` fixture field; a `server: "hyperfide"` tool row is
   exempt, its glyph being checked against the tool's own plugin.
 - **hyperfide-injected tools carry their presentation.** Every `dynamicTools[]`
   definition on `thread/start`, `thread/resume` and `thread/fork` may carry
   the `presentation` the server resolved for it (from the owning plugin's
   `presentation`, or a generic label and the plugin's glyph). A bridge stamps
-  that presentation, beside `server: "hyperfide platform"`, on the `item.open`/`item.close`
+  that presentation, beside `server: "hyperfide"`, on the `item.open`/`item.close`
   of every call to the tool; a definition without one presents generically.
 - **Extension kinds** `"<pluginId>/<name>"`: the `extension` item shape
   (opaque JSON `payload`; its lifecycle delta must carry a `presentation`)
@@ -390,11 +392,11 @@ the failure is typed.
 
 Three identifier families, three owners:
 
-| Identifier                              | Minted by                   | Notes                                                                                                                                                                                                |
-| --------------------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `threadId`                              | hyperfide platform server                   | Opaque to the provider; echoed verbatim.                                                                                                                                                             |
+| Identifier                              | Minted by                   | Notes                                                                                                                                                                                                                |
+| --------------------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `threadId`                              | hyperfide platform server   | Opaque to the provider; echoed verbatim.                                                                                                                                                                             |
 | `providerThreadId`                      | the provider                | Its session handle (rollout id, session id). Returned on the `thread/start`/`thread/resume`/`thread/fork` result (required) and echoed by `thread/identity`; never used to scope hyperfide platform events directly. |
-| turn ids and item ids on `ThreadEvent`s | **the runtime's assembler** | Never the provider, never the bridge.                                                                                                                                                                |
+| turn ids and item ids on `ThreadEvent`s | **the runtime's assembler** | Never the provider, never the bridge.                                                                                                                                                                                |
 
 A `providerThreadId` is a durable handle: hyperfide platform persists it and sends it to a new
 bridge process to resume the session after a restart. It must name exactly one
@@ -620,12 +622,11 @@ recordings stay out of git.
 `core/provider-bridge-protocol/recordings/row-counts.json` pins each cell's
 event, row, `provider/unhandled`, and grammar-drop counts;
 `parity.self.test.ts` checks the pins and replays every cell through the
-current bridge on each commit, and `UPDATE_PARITY_ROW_COUNTS=1` rewrites the
-pins deliberately. `pnpm parity` compares two checkouts
-([debugging-and-qa.md](debugging-and-qa.md)); differences a migration PR
-intends go in `core/provider-bridge-protocol/recordings/parity-allowlist.json` with the PR and reason, and
-an entry that masks nothing fails the run. A recording is never rewritten:
-when a bridge change alters its output,
+current bridge. `UPDATE_PARITY_ROW_COUNTS=1` writes the counts from that run.
+`pnpm parity` compares two checkouts
+([debugging-and-qa.md](debugging-and-qa.md)) using
+`core/provider-bridge-protocol/recordings/parity-allowlist.json`;
+an entry that matches no difference fails the run.
 `pnpm --filter @hyperfide/provider-parity rerecord [--plan-with <checkout>]` writes
 `bridge→runtime.current.ndjson` beside the recorded lane, and the self-suite
 compares against that file when it exists. `pnpm parity --dump-dir <dir>`

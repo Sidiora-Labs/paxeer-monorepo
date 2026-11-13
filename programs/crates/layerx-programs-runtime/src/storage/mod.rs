@@ -208,7 +208,7 @@ impl Storage {
         self.accessed_namespaces.borrow_mut().clear();
     }
 
-    #[cfg(feature = "host-ffi")]
+    #[cfg(any(feature = "host-ffi", test))]
     pub(crate) fn was_accessed(&self, namespace: StorageNamespace) -> bool {
         self.accessed_namespaces.borrow().contains(&namespace)
     }

@@ -112,7 +112,7 @@ func dispatchEvent(ctx context.Context, deps WebhookDeps, ev WebhookEvent) error
 	switch ev.EventName {
 	case "Swap":
 		return deps.Swap.ProcessWebhookEvent(ctx, consumer.SwapEvent{
-			PoolAddress:    asString(ev.Args["poolAddress"]),
+			PoolAddress:    asString(ev.Args[valuePoolAddress]),
 			Sender:         asString(ev.Args["sender"]),
 			IsBuy:          asBool(ev.Args["isBuy"]),
 			AmountIn:       asString(ev.Args["amountIn"]),
@@ -131,7 +131,7 @@ func dispatchEvent(ctx context.Context, deps WebhookDeps, ev WebhookEvent) error
 		})
 	case "PoolStateUpdated":
 		return deps.State.ProcessEvent(ctx, consumer.StateEvent{
-			PoolAddress: asString(ev.Args["poolAddress"]),
+			PoolAddress: asString(ev.Args[valuePoolAddress]),
 			Price:       asString(ev.Args["price"]),
 		})
 	case "MultihopSwap":

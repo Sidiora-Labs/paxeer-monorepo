@@ -1,8 +1,9 @@
 package social
 
 import (
-	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/interactions"
 	"net/http"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/interactions"
 
 	"github.com/go-chi/chi/v5"
 

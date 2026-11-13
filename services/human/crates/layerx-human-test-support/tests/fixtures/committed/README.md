@@ -1,8 +1,7 @@
 # Committed evidence recording
 
-`vector-v4-committed.json` is fresh output from the repository's
-`daemon/committed-fixture` recorder at source revision
-`44823b0a8346dd793d93d2e438a7b4688d933eda`. It starts the production `paxd` nodes
+`vector-v4-committed.json` contains output from the repository's
+`daemon/committed-fixture` recorder. The recorder starts production `paxd` nodes
 with an isolated `committed-fixture` chain (EVM chain id 125, EIP-1559 type 2), executes a
 ledger payment, and captures the receipt, native sequence-batch transaction,
 inclusion proofs, linked execution/successor headers, commits and validators.
@@ -27,12 +26,12 @@ The recording SHA-256 is
 `76cfee5540d369ad93286723b81117ec90ca85f12b7b074afffb78456a4cc3c6`;
 execution height 10 is linked to successor commitment height 11.
 
-Regenerate during implementation from the repository root:
+Regenerate the recording from the repository root:
 
 ```sh
 make -j4 paxd-native-libs
-go build -p 4 -o /tmp/repair223355-paxd ./daemon/paxd
-python3 services/human/crates/layerx-human-test-support/tests/support/record_committed_evidence.py --record /tmp/repair223355-paxd
+go build -p 4 -o /tmp/paxd-committed-fixture ./daemon/paxd
+python3 services/human/crates/layerx-human-test-support/tests/support/record_committed_evidence.py --record /tmp/paxd-committed-fixture
 python3 services/human/crates/layerx-human-test-support/tests/support/derive_committed_evidence.py
 ```
 

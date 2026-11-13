@@ -50,6 +50,14 @@ export type ChainTransfer = v.InferOutput<typeof transferSchema>;
 export type ChainEvent = v.InferOutput<typeof eventSchema>;
 export type ActivityKind = 'transfers' | 'events';
 
+export function parseChainRecord(json: unknown, expectedId: number): ChainRecord {
+  const [ record ] = parseChainsResponse({ chains: [ json ] });
+  if (record.id !== expectedId) {
+    throw new Error('Record belongs to a different virtual chain');
+  }
+  return record;
+}
+
 export function parseSummary(json: unknown, expectedId?: number): ChainSummary {
   const summary = v.parse(summarySchema, json);
   if (expectedId !== undefined && summary.id !== expectedId) {

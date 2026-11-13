@@ -53,6 +53,9 @@ impl Default for Configuration {
 }
 
 impl Configuration {
+    ///
+    /// # Errors
+    /// Returns an error when input validation or the requested operation fails.
     pub fn load() -> Result<Self, String> {
         let path = path()?;
         let source = match fs::read_to_string(&path) {
@@ -75,6 +78,9 @@ impl Configuration {
         Ok(parsed)
     }
 
+    ///
+    /// # Errors
+    /// Returns an error when input validation or the requested operation fails.
     pub fn save(&self) -> Result<(), String> {
         let path = path()?;
         let parent = path
@@ -109,6 +115,9 @@ impl Configuration {
         result
     }
 
+    ///
+    /// # Errors
+    /// Returns an error when input validation or the requested operation fails.
     pub fn active_environment(&self) -> Result<(&str, &Environment), String> {
         self.environments
             .get_key_value(&self.current_environment)
@@ -121,6 +130,9 @@ impl Configuration {
             })
     }
 
+    ///
+    /// # Errors
+    /// Returns an error when input validation or the requested operation fails.
     pub fn canonical_environment_name(name: &str) -> Result<String, String> {
         match name {
             "emulator" | "beta" | "production" => Ok(name.to_owned()),
@@ -129,6 +141,9 @@ impl Configuration {
         }
     }
 
+    ///
+    /// # Errors
+    /// Returns an error when input validation or the requested operation fails.
     pub fn validate_environment_name(name: &str) -> Result<(), String> {
         Self::canonical_environment_name(name).map(|_| ())
     }
@@ -140,11 +155,14 @@ impl Configuration {
                 .or_insert(environment);
         }
         if self.current_environment == LEGACY_BETA_ENVIRONMENT {
-            self.current_environment = "beta".to_owned();
+            "beta".clone_into(&mut self.current_environment);
         }
     }
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn path() -> Result<PathBuf, String> {
     if let Some(explicit) = env::var_os("LAYERX_CONFIG") {
         return absolute(PathBuf::from(explicit));
@@ -167,6 +185,9 @@ fn absolute(path: PathBuf) -> Result<PathBuf, String> {
         .map_err(|error| format!("could not resolve configuration path: {error}"))
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn ensure_directory_empty(path: &Path) -> Result<(), String> {
     match fs::read_dir(path) {
         Ok(mut entries) => {

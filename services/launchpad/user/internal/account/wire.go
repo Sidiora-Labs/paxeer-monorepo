@@ -3,9 +3,10 @@ package account
 import (
 	"encoding/json"
 	"errors"
-	"github.com/google/uuid"
 	"net/http"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // WireError uses frozen IF_ERROR codes and JSON-pointer field errors.
@@ -183,7 +184,7 @@ type DeletionData struct {
 
 func deletionProjection(j Job) DeletionData {
 	at := j.RequestedAt.UTC().Format("2006-01-02T15:04:05.000Z")
-	retained := []RetentionReason{{Domain: "indexer", ReasonCode: "immutable_chain_fact", IrreversibleChainData: true}, {Domain: "security", ReasonCode: "required_audit"}}
-	domains := []DomainResult{{Domain: "user", State: "completed", CompletedAt: &at}, {Domain: "sessions", State: "completed", CompletedAt: &at}, {Domain: "images", State: "pending"}, {Domain: "notifications", State: "pending"}}
-	return DeletionData{Job: WireAccountJob{JobID: j.ID.String(), AccountID: j.AccountID.String(), Kind: "deletion", State: "running", RequestedAt: at, DomainResults: domains, RetainedReasons: retained}, RetentionSummary: retained}
+	retained := []RetentionReason{{Domain: "indexer", ReasonCode: "immutable_chain_fact", IrreversibleChainData: true}, {Domain: domainSecurity, ReasonCode: "required_audit"}}
+	domains := []DomainResult{{Domain: domainUser, State: stateCompleted, CompletedAt: &at}, {Domain: domainSessions, State: stateCompleted, CompletedAt: &at}, {Domain: domainImages, State: "pending"}, {Domain: domainNotifications, State: "pending"}}
+	return DeletionData{Job: WireAccountJob{JobID: j.ID.String(), AccountID: j.AccountID.String(), Kind: kindDeletion, State: "running", RequestedAt: at, DomainResults: domains, RetainedReasons: retained}, RetentionSummary: retained}
 }

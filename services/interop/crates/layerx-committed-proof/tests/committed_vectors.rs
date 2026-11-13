@@ -22,31 +22,29 @@ const BATCH_DOMAIN: &[u8] = b"PAXEER/v1/sequence-batch\0";
 fn string<'a>(value: &'a Value, field: &str) -> &'a str {
     value[field]
         .as_str()
-        .unwrap_or_else(|| panic!("missing string {field}"))
+        .or_panic(&format!("missing string {field}"))
 }
 
 fn number(value: &Value, field: &str) -> u64 {
     value[field]
         .as_u64()
-        .unwrap_or_else(|| panic!("missing unsigned number {field}"))
+        .or_panic(&format!("missing unsigned number {field}"))
 }
 
 fn signed(value: &Value, field: &str) -> i64 {
     value[field]
         .as_i64()
-        .unwrap_or_else(|| panic!("missing signed number {field}"))
+        .or_panic(&format!("missing signed number {field}"))
 }
 
 fn array<'a>(value: &'a Value, field: &str) -> &'a [Value] {
     value[field]
         .as_array()
-        .unwrap_or_else(|| panic!("missing array {field}"))
+        .or_panic(&format!("missing array {field}"))
 }
 
 fn hex_bytes(hex: &str) -> Vec<u8> {
-    let hex = hex
-        .strip_prefix("0x")
-        .unwrap_or_else(|| panic!("missing hex prefix"));
+    let hex = hex.strip_prefix("0x").or_panic("missing hex prefix");
     assert!(hex.is_ascii());
     assert_eq!(hex.len() % 2, 0);
     (0..hex.len())
@@ -76,7 +74,9 @@ fn recorded_block_id(value: &Value) -> BlockId {
     BlockId {
         hash: recorded_hex(value, "hash"),
         part_set_header: PartSetHeader {
-            total: number(&value["parts"], "total").try_into().unwrap(),
+            total: number(&value["parts"], "total")
+                .try_into()
+                .or_panic("expected Ok value"),
             hash: recorded_hex(&value["parts"], "hash"),
         },
     }
@@ -84,8 +84,12 @@ fn recorded_block_id(value: &Value) -> BlockId {
 
 fn recorded_commit(value: &Value) -> Commit {
     Commit {
-        height: string(value, "height").parse().unwrap(),
-        round: signed(value, "round").try_into().unwrap(),
+        height: string(value, "height")
+            .parse()
+            .or_panic("expected Ok value"),
+        round: signed(value, "round")
+            .try_into()
+            .or_panic("expected Ok value"),
         block_id: recorded_block_id(&value["block_id"]),
         signatures: array(value, "signatures")
             .iter()
@@ -104,7 +108,7 @@ fn recorded_commit(value: &Value) -> Commit {
                     Some(
                         recorded_base64(string(vote, "signature"))
                             .try_into()
-                            .unwrap(),
+                            .or_panic("expected Ok value"),
                     )
                 },
             })
@@ -194,7 +198,7 @@ fn inclusion(root: &[u8], proof: &Value) -> Result<(), ProofError> {
     let aunts: Vec<[u8; 32]> = array(proof, "aunts")
         .iter()
         .map(|aunt| {
-            hex_bytes(aunt.as_str().unwrap_or_else(|| panic!("invalid aunt")))
+            hex_bytes(aunt.as_str().or_panic("invalid aunt"))
                 .try_into()
                 .unwrap_or_else(|_| panic!("incorrect aunt length"))
         })
@@ -213,7 +217,7 @@ fn quantity(value: &Value, field: &str) -> u64 {
     u64::from_str_radix(
         string(value, field)
             .strip_prefix("0x")
-            .unwrap_or_else(|| panic!("missing quantity prefix {field}")),
+            .or_panic(&format!("missing quantity prefix {field}")),
         16,
     )
     .unwrap_or_else(|error| panic!("invalid quantity {field}: {error}"))
@@ -223,10 +227,16 @@ fn receipt_and_batch(case: &Value, execution: &Header, block_hash: [u8; 32]) {
     let receipt = &case["receiptJson"];
     assert_eq!(string(receipt, "rung"), "committed");
     assert_eq!(bytes(receipt, "receipt"), bytes(case, "signedReceipt"));
-    assert_eq!(quantity(receipt, "blockNumber"), execution.height as u64);
+    assert_eq!(
+        quantity(receipt, "blockNumber"),
+        u64::from_ne_bytes((execution.height).to_ne_bytes())
+    );
     assert_eq!(fixed::<32>(receipt, "blockHash"), execution.hash());
     assert_eq!(execution.hash(), block_hash);
-    assert_eq!(quantity(receipt, "height"), execution.height as u64);
+    assert_eq!(
+        quantity(receipt, "height"),
+        u64::from_ne_bytes((execution.height).to_ne_bytes())
+    );
 
     let pin = &case["pinnedKey"];
     assert_eq!(fixed::<32>(pin, "publicKey"), fixed(receipt, "signingKey"));
@@ -276,7 +286,10 @@ fn receipt_and_batch(case: &Value, execution: &Header, block_hash: [u8; 32]) {
                 .unwrap_or_else(|_| panic!("invalid batch integer")),
         )
     };
-    assert_eq!(integer(0), execution.height as u64);
+    assert_eq!(
+        integer(0),
+        u64::from_ne_bytes((execution.height).to_ne_bytes())
+    );
     // This recording contains one payment in its sequence batch.
     assert_eq!(integer(8), quantity(receipt, "seq"));
     assert_eq!(integer(16), quantity(receipt, "seq"));
@@ -326,6 +339,30 @@ fn committed_vector_commits_verify() {
     let recording: Value = serde_json::from_slice(RECORDING)
         .unwrap_or_else(|error| panic!("invalid source recording: {error}"));
     let settlement = &recording["settlement"];
+    assert_recording_matches(&vectors, &recording, cases, positive, settlement);
+    assert_header_provenance(positive, settlement, provenance);
+    assert_commit_cases(cases, positive, provenance);
+    let set: Vec<Validator> = array(positive, "validators")
+        .iter()
+        .map(|validator| Validator {
+            pub_key: fixed(validator, "pub_key"),
+            voting_power: signed(validator, "voting_power"),
+        })
+        .collect();
+    let block_hash = verify_header(&header(&positive["executionHeader"]), &set)
+        .or_panic("recorded execution header refused");
+    for case in cases {
+        receipt_and_batch(case, &header(&case["executionHeader"]), block_hash);
+    }
+}
+
+fn assert_recording_matches(
+    vectors: &Value,
+    recording: &Value,
+    cases: &[Value],
+    positive: &Value,
+    settlement: &Value,
+) {
     assert_eq!(vectors["authorization"], recording["authorization"]);
     assert_eq!(vectors["positive"], recording["positive"]);
     assert_eq!(vectors["settlement"], *settlement);
@@ -389,8 +426,8 @@ fn committed_vector_commits_verify() {
             .zip(array(&recorded["proof"], "aunts"))
         {
             assert_eq!(
-                hex_bytes(aunt.as_str().unwrap()),
-                recorded_base64(recorded.as_str().unwrap())
+                hex_bytes(aunt.as_str().or_panic("expected Some value")),
+                recorded_base64(recorded.as_str().or_panic("expected Some value"))
             );
         }
     }
@@ -401,6 +438,9 @@ fn committed_vector_commits_verify() {
         positive["execTxResultProof"]["data"],
         settlement["exec_tx_result_bytes"]
     );
+}
+
+fn assert_header_provenance(positive: &Value, settlement: &Value, provenance: &Value) {
     for (field, source, height_field) in [
         ("executionHeader", "execution_header", "executionHeight"),
         ("header", "header", "commitHeight"),
@@ -449,164 +489,15 @@ fn committed_vector_commits_verify() {
             );
         }
     }
+}
+
+fn assert_commit_cases(cases: &[Value], positive: &Value, provenance: &Value) {
     let mut seen = BTreeSet::new();
     for case in cases {
         let id = string(case, "id");
         assert!(seen.insert(id), "duplicate case {id}");
-        let mut mutation = positive.clone();
-        mutation["id"] = case["id"].clone();
-        mutation["expected"] = case["expected"].clone();
-        match id {
-            "committed-payExact" => {}
-            "commit-under-two-thirds" => {
-                let slots = mutation["commit"]["signatures"]
-                    .as_array_mut()
-                    .unwrap_or_else(|| panic!("missing commit signatures"));
-                for slot in slots {
-                    *slot = serde_json::json!({
-                        "block_id_flag": 1,
-                        "validator_address": "0x",
-                        "timestamp": {"seconds": -62_135_596_800_i64, "nanos": 0},
-                        "signature": null,
-                    });
-                }
-            }
-            "wrong-validators-hash" => {
-                mutation["validators"][0]["voting_power"] =
-                    (signed(&positive["validators"][0], "voting_power") + 1).into();
-            }
-            "flipped-proof-aunt" => {
-                let mut aunt = hex_bytes(
-                    positive["batchProof"]["aunts"][0]
-                        .as_str()
-                        .unwrap_or_else(|| panic!("missing batch proof aunt")),
-                );
-                aunt[0] ^= 1;
-                let hex: String = aunt.iter().map(|byte| format!("{byte:02x}")).collect();
-                mutation["batchProof"]["aunts"][0] = format!("0x{hex}").into();
-            }
-            _ => panic!("unexpected committed vector {id}"),
-        }
-        assert_eq!(&mutation, case, "{id}: only the named evidence may change");
-        let header = header(&case["header"]);
-        let execution = self::header(&case["executionHeader"]);
-        let set: Vec<Validator> = array(case, "validators")
-            .iter()
-            .map(|validator| Validator {
-                pub_key: fixed(validator, "pub_key"),
-                voting_power: signed(validator, "voting_power"),
-            })
-            .collect();
-        let commit = commit(&case["commit"]);
-        assert_eq!(set.len(), 2);
-        assert_eq!(set[1].voting_power, 1);
-        assert_eq!(commit.signatures.len(), 2);
-        assert_eq!(commit.signatures[1].block_id_flag, BlockIdFlag::Absent);
-        let absent_power = set[1].voting_power as u64;
-        assert_eq!(header.chain_id, string(provenance, "chainId"));
-        assert_eq!(header.chain_id, execution.chain_id);
-        assert_eq!(header.height, execution.height + 1);
-        assert_eq!(header.last_block_id.hash, execution.hash());
-        assert_eq!(
-            verify_header(&execution, &set).is_ok(),
-            id != "wrong-validators-hash"
-        );
-        assert_eq!(
-            inclusion(&header.last_results_hash, &case["execTxResultProof"]),
-            Ok(()),
-            "{id}"
-        );
-
-        let header_result = verify_header(&header, &set);
-        let commit_result = verify_commit(
-            &header.chain_id,
-            &set,
-            header.hash(),
-            header
-                .height
-                .try_into()
-                .unwrap_or_else(|_| panic!("invalid height")),
-            &commit,
-        );
-        let proof_result = inclusion(&execution.data_hash, &case["batchProof"]);
-        let expected = &case["expected"];
-        let expected_error = match id {
-            "committed-payExact" => {
-                assert_eq!(
-                    set.iter()
-                        .map(|validator| validator.voting_power as u64)
-                        .sum::<u64>(),
-                    number(expected, "power"),
-                    "{id}"
-                );
-                assert_eq!(
-                    commit_result,
-                    Ok(number(expected, "power") - absent_power),
-                    "{id}"
-                );
-                None
-            }
-            "commit-under-two-thirds" => {
-                assert_eq!(
-                    commit_result,
-                    Err(ProofError::InsufficientVotingPower),
-                    "{id}"
-                );
-                assert_eq!(string(expected, "commitError"), "InsufficientVotingPower");
-                Some(ProofError::InsufficientVotingPower)
-            }
-            "wrong-validators-hash" => {
-                assert_eq!(
-                    header_result,
-                    Err(ProofError::ValidatorsHashMismatch),
-                    "{id}"
-                );
-                Some(ProofError::ValidatorsHashMismatch)
-            }
-            "flipped-proof-aunt" => {
-                assert_eq!(proof_result, Err(ProofError::RootMismatch), "{id}");
-                Some(ProofError::RootMismatch)
-            }
-            _ => panic!("unexpected committed vector {id}"),
-        };
-        if id != "commit-under-two-thirds" {
-            assert_eq!(
-                set.iter()
-                    .map(|validator| validator.voting_power as u64)
-                    .sum::<u64>(),
-                number(expected, "commitPower"),
-                "{id}"
-            );
-            assert_eq!(
-                commit_result,
-                Ok(number(expected, "commitPower") - absent_power),
-                "{id}"
-            );
-        }
-        if id != "wrong-validators-hash" {
-            assert_eq!(header_result, Ok(header.hash()), "{id}");
-        }
-        if id != "flipped-proof-aunt" {
-            assert_eq!(proof_result, Ok(()), "{id}");
-        }
-        let verified = header_result
-            .and_then(|_| commit_result)
-            .and_then(|power| proof_result.map(|()| power));
-        match expected_error {
-            None => {
-                assert_eq!(string(expected, "rung"), "committed");
-                assert_eq!(
-                    verified,
-                    Ok(number(expected, "power") - absent_power),
-                    "{id}"
-                );
-            }
-            Some(error) => {
-                assert_eq!(string(expected, "rung"), "refused");
-                assert_eq!(string(expected, "error"), format!("{error:?}"));
-                assert_eq!(verified, Err(error), "{id}");
-            }
-        }
+        assert_case_mutation(positive, case, id);
+        assert_case_checks(case, provenance, id);
     }
     assert_eq!(
         seen,
@@ -617,16 +508,200 @@ fn committed_vector_commits_verify() {
             "flipped-proof-aunt"
         ])
     );
-    let set: Vec<Validator> = array(positive, "validators")
+}
+
+fn assert_case_mutation(positive: &Value, case: &Value, id: &str) {
+    let mut mutation = positive.clone();
+    mutation["id"] = case["id"].clone();
+    mutation["expected"] = case["expected"].clone();
+    match id {
+        "committed-payExact" => {}
+        "commit-under-two-thirds" => {
+            let slots = mutation["commit"]["signatures"]
+                .as_array_mut()
+                .or_panic("missing commit signatures");
+            for slot in slots {
+                *slot = serde_json::json!({
+                    "block_id_flag": 1,
+                    "validator_address": "0x",
+                    "timestamp": {"seconds": -62_135_596_800_i64, "nanos": 0},
+                    "signature": null,
+                });
+            }
+        }
+        "wrong-validators-hash" => {
+            mutation["validators"][0]["voting_power"] =
+                (signed(&positive["validators"][0], "voting_power") + 1).into();
+        }
+        "flipped-proof-aunt" => {
+            let mut aunt = hex_bytes(
+                positive["batchProof"]["aunts"][0]
+                    .as_str()
+                    .or_panic("missing batch proof aunt"),
+            );
+            aunt[0] ^= 1;
+            let mut hex = String::with_capacity(aunt.len() * 2);
+            for byte in aunt {
+                use std::fmt::Write as _;
+                write!(&mut hex, "{byte:02x}").or_panic("hex rendering");
+            }
+            mutation["batchProof"]["aunts"][0] = format!("0x{hex}").into();
+        }
+        _ => panic!("unexpected committed vector {id}"),
+    }
+    assert_eq!(&mutation, case, "{id}: only the named evidence may change");
+}
+
+fn assert_case_structure(
+    case: &Value,
+    provenance: &Value,
+    id: &str,
+) -> (Header, Header, Vec<Validator>, Commit, u64) {
+    let header = header(&case["header"]);
+    let execution = self::header(&case["executionHeader"]);
+    let set: Vec<Validator> = array(case, "validators")
         .iter()
         .map(|validator| Validator {
             pub_key: fixed(validator, "pub_key"),
             voting_power: signed(validator, "voting_power"),
         })
         .collect();
-    let block_hash = verify_header(&header(&positive["executionHeader"]), &set)
-        .unwrap_or_else(|error| panic!("recorded execution header refused: {error:?}"));
-    for case in cases {
-        receipt_and_batch(case, &header(&case["executionHeader"]), block_hash);
+    let commit = commit(&case["commit"]);
+    assert_eq!(set.len(), 2);
+    assert_eq!(set[1].voting_power, 1);
+    assert_eq!(commit.signatures.len(), 2);
+    assert_eq!(commit.signatures[1].block_id_flag, BlockIdFlag::Absent);
+    let absent_power = u64::from_ne_bytes((set[1].voting_power).to_ne_bytes());
+    assert_eq!(header.chain_id, string(provenance, "chainId"));
+    assert_eq!(header.chain_id, execution.chain_id);
+    assert_eq!(header.height, execution.height + 1);
+    assert_eq!(header.last_block_id.hash, execution.hash());
+    assert_eq!(
+        verify_header(&execution, &set).is_ok(),
+        id != "wrong-validators-hash"
+    );
+    assert_eq!(
+        inclusion(&header.last_results_hash, &case["execTxResultProof"]),
+        Ok(()),
+        "{id}"
+    );
+
+    (header, execution, set, commit, absent_power)
+}
+
+fn assert_case_checks(case: &Value, provenance: &Value, id: &str) {
+    let (header, execution, set, commit, absent_power) =
+        assert_case_structure(case, provenance, id);
+    let header_result = verify_header(&header, &set);
+    let commit_result = verify_commit(
+        &header.chain_id,
+        &set,
+        header.hash(),
+        header
+            .height
+            .try_into()
+            .unwrap_or_else(|_| panic!("invalid height")),
+        &commit,
+    );
+    let proof_result = inclusion(&execution.data_hash, &case["batchProof"]);
+    let expected = &case["expected"];
+    let expected_error = match id {
+        "committed-payExact" => {
+            assert_eq!(
+                set.iter()
+                    .map(|validator| u64::from_ne_bytes((validator.voting_power).to_ne_bytes()))
+                    .sum::<u64>(),
+                number(expected, "power"),
+                "{id}"
+            );
+            assert_eq!(
+                commit_result,
+                Ok(number(expected, "power") - absent_power),
+                "{id}"
+            );
+            None
+        }
+        "commit-under-two-thirds" => {
+            assert_eq!(
+                commit_result,
+                Err(ProofError::InsufficientVotingPower),
+                "{id}"
+            );
+            assert_eq!(string(expected, "commitError"), "InsufficientVotingPower");
+            Some(ProofError::InsufficientVotingPower)
+        }
+        "wrong-validators-hash" => {
+            assert_eq!(
+                header_result,
+                Err(ProofError::ValidatorsHashMismatch),
+                "{id}"
+            );
+            Some(ProofError::ValidatorsHashMismatch)
+        }
+        "flipped-proof-aunt" => {
+            assert_eq!(proof_result, Err(ProofError::RootMismatch), "{id}");
+            Some(ProofError::RootMismatch)
+        }
+        _ => panic!("unexpected committed vector {id}"),
+    };
+    if id != "commit-under-two-thirds" {
+        assert_eq!(
+            set.iter()
+                .map(|validator| u64::from_ne_bytes((validator.voting_power).to_ne_bytes()))
+                .sum::<u64>(),
+            number(expected, "commitPower"),
+            "{id}"
+        );
+        assert_eq!(
+            commit_result,
+            Ok(number(expected, "commitPower") - absent_power),
+            "{id}"
+        );
+    }
+    if id != "wrong-validators-hash" {
+        assert_eq!(header_result, Ok(header.hash()), "{id}");
+    }
+    if id != "flipped-proof-aunt" {
+        assert_eq!(proof_result, Ok(()), "{id}");
+    }
+    let verified = header_result
+        .and(commit_result)
+        .and_then(|power| proof_result.map(|()| power));
+    match expected_error {
+        None => {
+            assert_eq!(string(expected, "rung"), "committed");
+            assert_eq!(
+                verified,
+                Ok(number(expected, "power") - absent_power),
+                "{id}"
+            );
+        }
+        Some(error) => {
+            assert_eq!(string(expected, "rung"), "refused");
+            assert_eq!(string(expected, "error"), format!("{error:?}"));
+            assert_eq!(verified, Err(error), "{id}");
+        }
+    }
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
     }
 }

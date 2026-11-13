@@ -53,7 +53,7 @@ for await (const line of createInterface({ input: process.stdin })) {
       const header = challenge.headers.get("PAYMENT-REQUIRED");
       const offer = decodePaymentRequiredHeader(header);
       assert.equal(offer.accepts[0].network, "eip155:125");
-      const rpc = new PaymentRpc(`${request.url}/rpc`);
+      const rpc = new PaymentRpc(request.url);
       const recorded = await rpc.receipt(vector.receiptJson.txHash);
       const produced = await verifyRpcPayment(recorded, vector.rawTransaction,
         vector.receiptJson.from.slice(2).padStart(64, "0"), offer.accepts[0], [pin]);

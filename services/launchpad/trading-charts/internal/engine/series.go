@@ -7,13 +7,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/store"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
-	"github.com/jackc/pgx/v5"
+	"math"
 	"math/big"
 	"sort"
 	"strconv"
 	"time"
+
+	chartcleanup "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/cleanup"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/store"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
+	"github.com/jackc/pgx/v5"
 )
 
 var ErrWatermarkRegression = errors.New("source_watermark_regression")
@@ -52,7 +55,7 @@ func IntervalSeconds(interval string) (int64, error) {
 		return 60, nil
 	case "5m":
 		return 300, nil
-	case "15m":
+	case intervalFifteenMinutes:
 		return 900, nil
 	case "1h":
 		return 3600, nil
@@ -66,7 +69,7 @@ func IntervalSeconds(interval string) (int64, error) {
 	return 0, ErrUnsupportedResolution
 }
 func ValidateCheckpoint(c SeriesCheckpoint, f accounting.FillV1) error {
-	if accounting.ValidateFillV1(f) != nil || c.Height > uint64(^uint64(0)>>1) || c.Timestamp < 0 {
+	if accounting.ValidateFillV1(f) != nil || c.Height > math.MaxInt64 || c.Timestamp < 0 {
 		return ErrInvalidFill
 	}
 	return nil
@@ -76,14 +79,14 @@ func DescribeSeries(c QualifiedCandle, checkpoint SeriesCheckpoint, now time.Tim
 	if err != nil || c.Trades == 0 || c.Start > int64(^uint64(0)>>1)-duration {
 		return SeriesCandle{}, ErrInvalidFill
 	}
-	state := SeriesCandle{QualifiedCandle: c, AlgorithmVersion: SeriesAlgorithm, SourceWatermarkHeight: checkpoint.Height, SourceWatermarkTimestamp: checkpoint.Timestamp, IntervalEnd: c.Start + duration, Provenance: "actual_trade"}
+	state := SeriesCandle{QualifiedCandle: c, AlgorithmVersion: SeriesAlgorithm, SourceWatermarkHeight: checkpoint.Height, SourceWatermarkTimestamp: checkpoint.Timestamp, IntervalEnd: c.Start + duration, Provenance: provenanceActualTrade}
 	switch {
 	case checkpoint.HasGaps:
 		state.CompletenessStatus = "backfill_incomplete"
 	case now.Unix() < state.IntervalEnd:
 		state.CompletenessStatus = "live_interval"
 	case checkpoint.Timestamp >= state.IntervalEnd:
-		state.CompletenessStatus = "complete_through_watermark"
+		state.CompletenessStatus = statusCompleteThroughWatermark
 	default:
 		state.CompletenessStatus = "interval_elapsed"
 	}
@@ -305,6 +308,9 @@ func ReconstructArchive(ctx context.Context, st *store.ExactStore, reader store.
 	if len(fills) > 1000000 {
 		return report, errors.New("reconstruction_fill_bound")
 	}
+	if lastManifest.ToHeight < 0 {
+		return report, ErrInvalidFill
+	}
 	projection, err := buildReconstructionProjection(fills, from, to, SeriesCheckpoint{Height: uint64(lastManifest.ToHeight), Timestamp: lastTime}, timeNowUTC())
 	if err != nil {
 		return report, err
@@ -315,7 +321,7 @@ func ReconstructArchive(ctx context.Context, st *store.ExactStore, reader store.
 	if err != nil {
 		return report, err
 	}
-	defer tx.Rollback(ctx)
+	defer chartcleanup.Rollback(ctx, tx)
 	var revision uint64
 	if err = tx.QueryRow(ctx, `SELECT revision FROM `+st.Schema+`.chart_series_clock WHERE chain_id='125' AND pool=$1`, pool).Scan(&revision); err != nil {
 		return report, err
@@ -421,7 +427,7 @@ func measurementBucket(timestamp int64, interval string) (int64, error) {
 	if timestamp < 0 {
 		return 0, ErrInvalidFill
 	}
-	durations := map[string]int64{"1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400}
+	durations := map[string]int64{"1m": 60, "5m": 300, intervalFifteenMinutes: 900, "1h": 3600, "4h": 14400, "1d": 86400}
 	if interval == "1w" {
 		stamp := time.Unix(timestamp, 0).UTC()
 		midnight := time.Date(stamp.Year(), stamp.Month(), stamp.Day(), 0, 0, 0, 0, time.UTC)
@@ -452,7 +458,7 @@ func (r *MeasurementReference) Add(fill accounting.FillV1) error {
 	numerator := new(big.Int).Mul(new(big.Int).Set(usdl), new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(fill.Token.Decimals)), nil))
 	denominator := new(big.Int).Mul(new(big.Int).Set(token), big.NewInt(1000000))
 	price := new(big.Rat).SetFrac(numerator, denominator)
-	intervals := []string{"1m", "5m", "15m", "1h", "4h", "1d", "1w"}
+	intervals := []string{"1m", "5m", intervalFifteenMinutes, "1h", "4h", "1d", "1w"}
 	newBars := 0
 	for _, interval := range intervals {
 		start, err := measurementBucket(timestamp, interval)
@@ -510,7 +516,7 @@ func (r *MeasurementReference) Add(fill accounting.FillV1) error {
 		acc.bar.Trades++
 		acc.usdl.Add(acc.usdl, usdl)
 		acc.token.Add(acc.token, token)
-		if fill.Side == "buy" {
+		if fill.Side == sideBuy {
 			acc.buy.Add(acc.buy, usdl)
 		} else {
 			acc.sell.Add(acc.sell, usdl)
@@ -556,7 +562,7 @@ func (r *MeasurementReference) Bars() []MeasurementBar {
 	return out
 }
 func MeasurementActual(bar SeriesCandle) (MeasurementBar, error) {
-	if bar.Synthetic || bar.Trades == 0 || bar.Provenance != "actual_trade" || bar.AlgorithmVersion != SeriesAlgorithm {
+	if bar.Synthetic || bar.Trades == 0 || bar.Provenance != provenanceActualTrade || bar.AlgorithmVersion != SeriesAlgorithm {
 		return MeasurementBar{}, ErrInvalidFill
 	}
 	return MeasurementBar{Pool: bar.PoolAddress, Interval: bar.Interval, Start: bar.Start, Open: bar.Open, High: bar.High, Low: bar.Low, Close: bar.Close, VolumeUsdlRaw: bar.VolumeUsdlRaw, VolumeTokenRaw: bar.VolumeTokenRaw, BuyVolumeUsdlRaw: bar.BuyVolumeUsdlRaw, SellVolumeUsdlRaw: bar.SellVolumeUsdlRaw, Trades: bar.Trades, UniqueTraders: bar.UniqueTraders, UnknownActors: bar.UnknownActorTradeCount, First: bar.OpenSource.Position, Last: bar.CloseSource.Position}, nil

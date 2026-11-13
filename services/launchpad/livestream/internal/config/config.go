@@ -19,12 +19,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
-	sharedconfig "github.com/Sidiora-Technologies/KindleLaunch/shared/config"
-	runtimedb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
-	dbproduction "github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
-	sharedsecrets "github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
-	pgxpool "github.com/jackc/pgx/v5/pgxpool"
 	"io"
 	"net"
 	"net/http"
@@ -35,6 +29,13 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	sharedconfig "github.com/Sidiora-Technologies/KindleLaunch/shared/config"
+	runtimedb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
+	dbproduction "github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
+	sharedsecrets "github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
+	pgxpool "github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/caarlos0/env/v11"
 )
@@ -146,7 +147,7 @@ const PlatformProfile = "platform"
 
 // Platform reports whether c selects the production platform runtime.
 func (c *Config) Platform() bool {
-	return c.NodeEnv == "production" && c.RuntimeProfile == PlatformProfile
+	return c.NodeEnv == nodeEnvProduction && c.RuntimeProfile == PlatformProfile
 }
 
 // ValidatePlatform enforces the production platform runtime's configuration
@@ -156,10 +157,11 @@ func (c *Config) ValidatePlatform() error {
 	if c.ConnectedEnabled {
 		errs = append(errs, errors.New("LIVESTREAM_CONNECTED_ENABLED requires the container or owned_local runtime profile"))
 	}
-	if c.ProviderMode != "unavailable" {
+	if c.ProviderMode != providerUnavailable {
 		errs = append(errs, errors.New("the platform runtime has no broadcast provider: LIVEPEER_PROVIDER_MODE=unavailable required"))
 	}
 	if c.BindAddress != "" && c.BindAddress != "0.0.0.0" && c.BindAddress != "::" {
+		//nolint:staticcheck // The trailing colons identify the accepted IPv6 wildcard value.
 		errs = append(errs, errors.New("BIND_ADDRESS must be empty, 0.0.0.0 or ::"))
 	}
 	if host, port, err := net.SplitHostPort(c.PrivateListenAddress); err != nil || port == "" || net.ParseIP(host) == nil || port == strconv.Itoa(c.Port) {
@@ -192,7 +194,7 @@ func (c *Config) ValidatePlatform() error {
 			continue
 		}
 		u, err := url.Parse(raw)
-		if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" {
+		if err != nil || u.Scheme != httpsScheme || u.Host == "" || u.User != nil || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" {
 			errs = append(errs, errors.New("CORS_ALLOWED_ORIGINS entries must be https origins"))
 			break
 		}
@@ -227,7 +229,7 @@ func (c *Config) Validate() error {
 			errs = append(errs, fmt.Errorf("runtime_document_source_ambiguous: %s_FILE and %s_DOCUMENT are both set", d[3], d[3]))
 		}
 	}
-	unavailable := c.ProviderMode == "unavailable"
+	unavailable := c.ProviderMode == providerUnavailable
 	if unavailable {
 		if err := c.ValidateUnavailableProvider(); err != nil {
 			errs = append(errs, err)
@@ -249,7 +251,7 @@ func (c *Config) Validate() error {
 		errs = append(errs, err)
 	}
 	u, e := url.Parse(c.LivepeerAPIURL)
-	if e != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+	if e != nil || u.Scheme != httpsScheme || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 		errs = append(errs, errors.New("LIVEPEER_API_URL requires HTTPS without credentials,query or fragment"))
 	}
 	if !unavailable && strings.TrimSpace(c.LivepeerAPIKey) == "" {
@@ -280,7 +282,7 @@ func requireURL(name, raw string) error {
 }
 
 func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Context) error, context.CancelFunc, error) {
-	if c.NodeEnv != "production" {
+	if c.NodeEnv != nodeEnvProduction {
 		if c.NodeEnv != "" && c.NodeEnv != "test" && c.NodeEnv != "development" {
 			return nil, nil, fmt.Errorf("environment_invalid")
 		}
@@ -298,7 +300,7 @@ func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Con
 	bindings := map[string]*string{}
 	bindings["DATABASE_URL"] = &c.DatabaseURL
 	bindings["REDIS_URL"] = &c.RedisURL
-	if c.ProviderMode == "unavailable" {
+	if c.ProviderMode == providerUnavailable {
 		if e := c.ValidateUnavailableProvider(); e != nil {
 			return nil, nil, e
 		}
@@ -382,10 +384,13 @@ func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Con
 }
 
 func (c *Config) OpenRuntimePool(ctx context.Context, role string, legacy runtimedb.PoolOptions) (*pgxpool.Pool, error) {
-	if c.NodeEnv != "production" {
+	if c.NodeEnv != nodeEnvProduction {
 		return runtimedb.NewPool(ctx, c.DatabaseURL, legacy)
 	}
 	if c.Platform() {
+		if c.DBMaxConns < 1 || c.DBMaxConns > 200 {
+			return nil, fmt.Errorf("DB_MAX_CONNS must be in 1..200")
+		}
 		pool, err := runtimedb.NewPool(ctx, c.DatabaseURL, runtimedb.PoolOptions{MaxConns: int32(c.DBMaxConns), StatementTimeout: 10 * time.Second, LockTimeout: 5 * time.Second})
 		if err != nil {
 			return nil, err
@@ -396,15 +401,16 @@ func (c *Config) OpenRuntimePool(ctx context.Context, role string, legacy runtim
 		}
 		return pool, nil
 	}
-	if c.RuntimeProfile == "container" {
+	switch c.RuntimeProfile {
+	case "container":
 		if c.Port != 8080 || c.BindAddress != "0.0.0.0" {
 			return nil, fmt.Errorf("container_bind_mismatch")
 		}
-	} else if c.RuntimeProfile == "owned_local" {
+	case "owned_local":
 		if c.BindAddress != "127.0.0.1" {
 			return nil, fmt.Errorf("owned_loopback_required")
 		}
-	} else {
+	default:
 		return nil, fmt.Errorf("runtime_profile_required")
 	}
 	if (c.RuntimeBudgetFile == "" && c.RuntimeBudgetDocument == "") || c.RuntimePoolID == "" || c.RuntimeInstanceID == "" {
@@ -436,7 +442,7 @@ func (c *Config) OpenRuntimePool(ctx context.Context, role string, legacy runtim
 	return pool, nil
 }
 func (c *Config) CheckRuntimeSchema(ctx context.Context, pool *pgxpool.Pool) error {
-	if c.NodeEnv != "production" {
+	if c.NodeEnv != nodeEnvProduction {
 		return pool.Ping(ctx)
 	}
 	if (c.ExpectedSchemaFile == "" && c.ExpectedSchemaDocument == "") || len(c.ExpectedSchemaSHA256) != 64 {
@@ -503,6 +509,7 @@ func boundBytes(path, inline, digest string) ([]byte, error) {
 		if !info.Mode().IsRegular() || info.Size() > 1048576 {
 			return nil, fmt.Errorf("runtime_document_invalid")
 		}
+		//nolint:gosec // The configured document path is checked as a regular file and verified by digest below.
 		if raw, err = os.ReadFile(path); err != nil {
 			return nil, err
 		}
@@ -547,7 +554,7 @@ func decodeBoundDocument(path, inline, digest string, out any) error {
 // platform runtime honours it because every client reaches it through the
 // platform edge proxy.
 func (c *Config) TrustedProxies() ([]netip.Prefix, error) {
-	if c.NodeEnv == "production" && !c.Platform() {
+	if c.NodeEnv == nodeEnvProduction && !c.Platform() {
 		return nil, nil
 	}
 	var out []netip.Prefix
@@ -572,10 +579,10 @@ func (c *Config) TrustedProxies() ([]netip.Prefix, error) {
 // from the read surface, so the mode only waives the unused Livepeer key and
 // webhook secret.
 func (c *Config) ValidateUnavailableProvider() error {
-	if (c.NodeEnv != "production" || c.Platform()) && c.ProviderMode == "unavailable" {
+	if (c.NodeEnv != nodeEnvProduction || c.Platform()) && c.ProviderMode == providerUnavailable {
 		return nil
 	}
-	if c.NodeEnv != "production" || c.RuntimeProfile != "owned_local" || c.ProviderMode != "unavailable" {
+	if c.NodeEnv != nodeEnvProduction || c.RuntimeProfile != "owned_local" || c.ProviderMode != providerUnavailable {
 		return errors.New("unavailable_provider_requires_explicit_private_fixture")
 	}
 	base := sharedconfig.BaseEnv{DeploymentRealm: c.DeploymentRealm, PrivateFixtureManifestFile: c.PrivateFixtureManifestFile, PrivateFixtureManifestSHA256: c.PrivateFixtureManifestSHA256, RPCURL: c.RPCURL}
@@ -585,7 +592,7 @@ func (c *Config) ValidateUnavailableProvider() error {
 
 func (c *Config) ValidateConnected() error {
 	provider, err := url.Parse(c.LivepeerAPIURL)
-	if err != nil || provider.Scheme != "https" || provider.Host != "livepeer.studio" || provider.Path != "/api" || provider.RawPath != "" || provider.User != nil || provider.RawQuery != "" || provider.Fragment != "" {
+	if err != nil || provider.Scheme != httpsScheme || provider.Host != "livepeer.studio" || provider.Path != "/api" || provider.RawPath != "" || provider.User != nil || provider.RawQuery != "" || provider.Fragment != "" {
 		return errors.New("connected_livestream_provider_endpoint_invalid")
 	}
 	if err = c.Validate(); err != nil {
@@ -596,21 +603,21 @@ func (c *Config) ValidateConnected() error {
 	}
 	for _, endpoint := range []string{c.PlaybackWebhookURL, c.BudgetAlertURL} {
 		u, e := url.Parse(endpoint)
-		if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		if e != nil || u.Scheme != httpsScheme || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 			return errors.New("livestream_callback_endpoint_invalid")
 		}
 	}
-	if (c.BudgetPolicyFile == "" && c.BudgetPolicyDocument == "") || len(c.BudgetPolicySHA256) != 64 || (c.WebhookTimestampUnit != "seconds" && c.WebhookTimestampUnit != "milliseconds") || c.ProviderMode != "available" || c.NodeEnv != "production" || c.MaxGlobalStreams < 1 || c.MaxGlobalStreams > 100000 || c.MaxStreamsPerWallet > c.MaxGlobalStreams || c.ActionEnvironment == "" || len(c.ActionAuditKey) < 32 || len(c.ViewerTokenKey) < 32 || len(c.VaultTransitToken) < 16 || c.VaultTransitKey == "" {
+	if (c.BudgetPolicyFile == "" && c.BudgetPolicyDocument == "") || len(c.BudgetPolicySHA256) != 64 || (c.WebhookTimestampUnit != "seconds" && c.WebhookTimestampUnit != "milliseconds") || c.ProviderMode != "available" || c.NodeEnv != nodeEnvProduction || c.MaxGlobalStreams < 1 || c.MaxGlobalStreams > 100000 || c.MaxStreamsPerWallet > c.MaxGlobalStreams || c.ActionEnvironment == "" || len(c.ActionAuditKey) < 32 || len(c.ViewerTokenKey) < 32 || len(c.VaultTransitToken) < 16 || c.VaultTransitKey == "" {
 		return errors.New("connected_livestream_authority_missing")
 	}
 	for _, raw := range []string{c.VaultTransitURL, c.IdentityURL} {
 		u, e := url.Parse(raw)
-		if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" {
+		if e != nil || u.Scheme != httpsScheme || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" {
 			return errors.New("connected_livestream_authority_endpoint_invalid")
 		}
 	}
 	ingest, e := url.Parse(c.IngestEndpoint)
-	if e != nil || (ingest.Scheme != "https" && ingest.Scheme != "rtmps") || ingest.Host == "" || ingest.User != nil || ingest.RawQuery != "" || ingest.Fragment != "" {
+	if e != nil || (ingest.Scheme != httpsScheme && ingest.Scheme != "rtmps") || ingest.Host == "" || ingest.User != nil || ingest.RawQuery != "" || ingest.Fragment != "" {
 		return errors.New("connected_livestream_ingest_endpoint_invalid")
 	}
 	return nil
@@ -666,5 +673,6 @@ func Material(path, inline string) ([]byte, error) {
 	if err != nil || !info.Mode().IsRegular() || info.Size() < 1 || info.Size() > 1<<20 {
 		return nil, errors.New("material file unavailable")
 	}
+	//nolint:gosec // The caller selects a regular certificate or key file through configuration.
 	return os.ReadFile(path)
 }

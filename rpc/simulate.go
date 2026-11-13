@@ -411,6 +411,13 @@ func (b *Backend) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHas
 	if err != nil {
 		return nil, nil, err
 	}
+	if readHeight, ok := ctx.Value(pxProgramReadBatchKey{}).(int64); ok {
+		if readHeight != height || height == math.MaxInt64 {
+			return nil, nil, errors.New("invalid committed program read height")
+		}
+		// The store is pinned after H; a private native simulation belongs to H+1.
+		sdkCtx = sdkCtx.WithBlockHeight(height + 1)
+	}
 	return state.NewDBImpl(sdkCtx, b.keeper, true), header, nil
 }
 

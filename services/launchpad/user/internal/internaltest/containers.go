@@ -12,6 +12,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"net"
 	"net/url"
 	"os"
@@ -61,7 +62,11 @@ func throwawayDatabase(t *testing.T, admin string) string {
 	if err != nil {
 		t.Fatalf("connect USER_TEST_POSTGRES_DSN: %v", err)
 	}
-	defer conn.Close(ctx)
+	defer func() {
+		if err := conn.Close(ctx); err != nil {
+			t.Errorf("close database connection: %v", err)
+		}
+	}()
 	suffix := make([]byte, 6)
 	if _, err = rand.Read(suffix); err != nil {
 		t.Fatal(err)
@@ -76,7 +81,11 @@ func throwawayDatabase(t *testing.T, admin string) string {
 			t.Logf("drop database %s: %v", name, e)
 			return
 		}
-		defer c.Close(context.Background())
+		defer func() {
+			if err := c.Close(context.Background()); err != nil {
+				t.Errorf("close cleanup connection: %v", err)
+			}
+		}()
 		if _, e = c.Exec(context.Background(), "DROP DATABASE IF EXISTS "+name+" WITH (FORCE)"); e != nil {
 			t.Logf("drop database %s: %v", name, e)
 		}
@@ -151,7 +160,11 @@ func NewRedisURL(t *testing.T) string {
 		t.Fatalf("USER_TEST_REDIS_URL: %v", err)
 	}
 	rdb := goredis.NewClient(opts)
-	defer rdb.Close()
+	defer func() {
+		if err := rdb.Close(); err != nil {
+			t.Errorf("close Redis client: %v", err)
+		}
+	}()
 	if err = rdb.FlushDB(ctx).Err(); err != nil {
 		t.Fatalf("flush USER_TEST_REDIS_URL: %v", err)
 	}
@@ -228,13 +241,21 @@ func NewClamd(t *testing.T) (string, int) {
 	if addr == "" {
 		return "", 0
 	}
-	host, port, err := net.SplitHostPort(addr)
+	host, port, err := parseClamdAddress(addr)
 	if err != nil {
 		t.Fatalf("USER_TEST_CLAMAV_ADDR: %v", err)
 	}
+	return host, port
+}
+
+func parseClamdAddress(addr string) (string, int, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "", 0, err
+	}
 	n, err := strconv.Atoi(port)
 	if err != nil || n < 1 || n > 65535 {
-		t.Fatalf("USER_TEST_CLAMAV_ADDR: invalid port %q", port)
+		return "", 0, fmt.Errorf("invalid port %q", port)
 	}
-	return host, n
+	return host, n, nil
 }

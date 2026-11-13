@@ -1,4 +1,4 @@
-import { HStack } from '@chakra-ui/react';
+import { Box, HStack } from '@chakra-ui/react';
 import React from 'react';
 
 import config from 'configs/app';
@@ -15,6 +15,7 @@ import ColorModeToggle from './ColorModeToggle';
 import DeFiDropdown from './DeFiDropdown';
 import NetworkMenu from './NetworkMenu';
 import Settings from './settings/Settings';
+import TopBarStats from './TopBarStats';
 
 const TopBar = () => {
   const hideAddToWalletButtonCookie = cookies.get(cookies.NAMES.HIDE_ADD_TO_WALLET_BUTTON, useAppContext().cookies);
@@ -40,7 +41,12 @@ const TopBar = () => {
   }, [ ]);
 
   return (
-    <HStack data-label="header-utilities" gap={ 2 } flexShrink={ 0 }>
+    <HStack data-label="header-utilities" gap={ 2 } flexShrink={ 0 } flexWrap="wrap">
+      { !config.features.multichain.isEnabled && (
+        <Box maxW={{ base: '100%', lg: '250px' }}>
+          <TopBarStats showGasInfo={ false }/>
+        </Box>
+      ) }
       <Settings>
         <HStack flexWrap="wrap" gap={ 3 }>
           <TestnetBadge/>

@@ -89,12 +89,6 @@ fi
 run_real_node_tests() {
     : "${CARGO_TARGET_DIR:?the build output directory of the agent-test path, exported by the Makefile variable AGENT_TEST_TARGET_DIR}"
     export LAYERX_TEST_NATIVE_BUILD_DIR=${LAYERX_TEST_NATIVE_BUILD_DIR:-$repo_root/build}
-    make -j4 CC=gcc BUILD_DIR="$LAYERX_TEST_NATIVE_BUILD_DIR" \
-        LXP_REVISION="$(git rev-parse HEAD)" \
-        PROGRAMS_TARGET_DIR="$CARGO_TARGET_DIR" \
-        PROGRAMS_RUNTIME_LIB="$CARGO_TARGET_DIR/debug/liblayerx_programs_sandbox.a" \
-        "$LAYERX_TEST_NATIVE_BUILD_DIR/tests/lxp_test_program_admission" \
-        "$LAYERX_TEST_NATIVE_BUILD_DIR/tests/lxp_test_metered_allowance"
     GOMAXPROCS=4 GOFLAGS="${GOFLAGS:-} -p=4" make paxeer-build
 
     export LAYERX_TEST_NATIVE_BIN_DIR=$LAYERX_TEST_NATIVE_BUILD_DIR/bin

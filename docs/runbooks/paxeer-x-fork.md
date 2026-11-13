@@ -42,14 +42,14 @@ must rehearse their binary layout and provisioning separately: the merge plan's
 
 Keep hosts, units, paths, hashes, proposal IDs and operational evidence in a
 private inventory. Load a reviewed local environment file before using the
-examples. Examples contain placeholders and are operator instructions, not
-commands to run against production during documentation qualification.
+examples. Examples use placeholders for deployment-specific values.
 
 | Key | Meaning |
 | --- | --- |
 | `UPGRADE_NAME` | `v7.0` for the merge; the later deletion plan is a separate operation |
 | `COSMOS_CHAIN_ID` | `hyperpax_125-1` |
 | `EVM_CHAIN_ID` | `125` |
+| `RELEASE_BINARY` | Downloaded and checksum-verified `paxd-v7.0.0-linux-amd64` asset |
 | `PAXD_BIN` | Absolute path of the installed `paxd` |
 | `PAXD_HOME` | Absolute node home for this operation |
 | `PAXD_HOMES` | Space-separated node homes for discovery; use paths without spaces |
@@ -226,7 +226,7 @@ Stage the exact rehearsed binary on every validator and full node without
 replacing the running executable:
 
 ```sh
-install -m 0755 "paxd-$UPGRADE_NAME" "$PAXD_BIN.$UPGRADE_NAME"
+install -m 0755 "$RELEASE_BINARY" "$PAXD_BIN.$UPGRADE_NAME"
 sha256sum "$PAXD_BIN.$UPGRADE_NAME"
 cp -p "$PAXD_BIN" "$PAXD_BIN.pre-$UPGRADE_NAME"
 "$PAXD_BIN.$UPGRADE_NAME" version --long
@@ -241,8 +241,9 @@ Review the embedded node runtime configuration against
 [node/sequencer/config.go](../../node/sequencer/config.go). Under `[sequencer]`,
 `enable`, `role`, `wal-dir`, `receipt-key-file`, `standby-address` and
 `replication-timeout` must match the rehearsed primary/standby roles. Enabled
-nodes need positive `nonce-queue-max-per-sender`, `nonce-queue-max-total` and
-`lease-duration` (or the supported derivation from replication timeout).
+nodes need positive `wal-retain-blocks`, `nonce-queue-max-per-sender`,
+`nonce-queue-max-total` and `lease-duration` (or the supported derivation from
+replication timeout). The total nonce queue limit must be at least the per-sender limit.
 Receipt seeds must have mode `0600`; retain the WAL at its configured path.
 Use `mode = "sequential"` unless microbatch configuration was separately qualified.
 Ordinary nodes keep `enable = false`; review `receipt-forward-url` only when
@@ -254,10 +255,9 @@ Release qualification must already have run the programme rehearsal on the
 exact candidate source revision. The release gate is:
 
 ```sh
-python3 -m pytest spec/layerx-merge/programme/tests/test_rehearsal_run.py::test_rehearsal_passes_on_merged_revision -q
+PYTHONPATH=spec/layerx-merge python3 -m pytest spec/layerx-merge/programme/tests/test_rehearsal_run.py::test_rehearsal_passes_on_merged_revision -q
 ```
 
-This is release evidence, not an additional gate for a documentation rewrite.
 The test drives the four ordered steps in
 [rehearsal.kvx](../../spec/layerx-merge/programme/data/rehearsal.kvx):
 
@@ -482,12 +482,3 @@ Before the cancellation deadline, any unchecked item is a no-go: cancel and
 re-announce. Later failures require coordinated halt/recovery decisions.
 After restart, close the upgrade only when section 6 acceptance holds and exact
 release revision, commands, exits and private evidence locations are recorded.
-
-## Historical activation notes
-
-`v6.6` added the original custody, anchor, exchange, bridge and launchpad stores;
-`v6.9` was a separate activation plan, and `v6.12.0` introduced the later venue
-stores. Those historical store additions and successful custody/anchor smoke
-calls are retired operating guidance. They must not be replayed as the current
-merge procedure. The `v7.0` merge and later anchor-store deletion have distinct
-handlers and acceptance checks described above.

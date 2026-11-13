@@ -53,9 +53,9 @@ func DecodeStudioWebhook(raw []byte) (ProviderEvent, error) {
 	state := ""
 	switch event.Event {
 	case "stream.started":
-		state = "LIVE"
+		state = stateLive
 	case "stream.idle":
-		state = "ENDED"
+		state = stateEnded
 	default:
 		return ProviderEvent{}, ErrInvalid
 	}
@@ -90,9 +90,9 @@ func NormalizeStudioWebhook(w http.ResponseWriter, r *http.Request, secret strin
 func marshalNormalizedWebhook(event ProviderEvent) ([]byte, error) {
 	state := ""
 	switch event.State {
-	case "LIVE":
+	case stateLive:
 		state = "active"
-	case "ENDED":
+	case stateEnded:
 		state = "inactive"
 	default:
 		return nil, ErrInvalid
@@ -135,7 +135,7 @@ func (a ProviderWebhookAdapter) Studio(w http.ResponseWriter, r *http.Request) {
 	}
 	normalized := r.Clone(r.Context())
 	normalized.Header = r.Header.Clone()
-	normalized.Header.Set("Content-Type", "application/json")
+	normalized.Header.Set("Content-Type", jsonMediaType)
 	normalized.Header.Set(NormalizedWebhookTimestampHeader, wire.Timestamp)
 	normalized.Header.Set(NormalizedWebhookSignatureHeader, wire.Signature)
 	normalized.Body = io.NopCloser(bytes.NewReader(wire.Body))
@@ -211,7 +211,7 @@ func VerifyNormalizedProviderWebhook(w http.ResponseWriter, r *http.Request, sec
 		return ProviderEvent{}, false
 	}
 	mediaType, _, mediaErr := mime.ParseMediaType(r.Header.Get("Content-Type"))
-	if mediaErr != nil || mediaType != "application/json" || r.Header.Get("Content-Encoding") != "" {
+	if mediaErr != nil || mediaType != jsonMediaType || r.Header.Get("Content-Encoding") != "" {
 		writeRequestError(w, http.StatusUnsupportedMediaType, ruleMediaType, "JSON request required")
 		return ProviderEvent{}, false
 	}
@@ -231,9 +231,9 @@ func VerifyNormalizedProviderWebhook(w http.ResponseWriter, r *http.Request, sec
 		writeRequestError(w, http.StatusBadRequest, ruleJSON, "Invalid normalized webhook body")
 		return ProviderEvent{}, false
 	}
-	state := "LIVE"
+	state := stateLive
 	if body.Event == "inactive" {
-		state = "ENDED"
+		state = stateEnded
 	}
 	return ProviderEvent{EventID: body.EventId, ProviderID: body.StreamId, State: state, ObservedAt: observedAt}, true
 }
@@ -242,5 +242,5 @@ func AdaptV2LiveWebhook(requestID string, at time.Time) ([]byte, error) {
 	if at.IsZero() {
 		return nil, ErrInvalid
 	}
-	return marshalV2Lifecycle("LiveWebhookResponse", v2.LiveWebhookResponse{RequestId: requestID, Data: v2.LiveWebhookData{Accepted: true}, Quality: "complete", GeneratedAt: at.UTC().Format(v2LifecycleTimeLayout)})
+	return marshalV2Lifecycle("LiveWebhookResponse", v2.LiveWebhookResponse{RequestId: requestID, Data: v2.LiveWebhookData{Accepted: true}, Quality: qualityComplete, GeneratedAt: at.UTC().Format(v2LifecycleTimeLayout)})
 }

@@ -14,6 +14,11 @@ import (
 	"strings"
 )
 
+const (
+	svgExtension       = "svg"
+	xmlNamespacePrefix = "xmlns"
+)
+
 // Image type discriminators stored in users.user_images.image_type.
 const (
 	TypeAvatar = "avatar"
@@ -24,7 +29,7 @@ const (
 var allowedMimes = map[string]string{
 	"image/webp":    "webp",
 	"image/png":     "png",
-	"image/svg+xml": "svg",
+	"image/svg+xml": svgExtension,
 	"image/jpeg":    "jpg",
 }
 
@@ -84,7 +89,7 @@ func IsSVGSafe(buf []byte) bool {
 				return false
 			}
 			if depth == 0 {
-				if t.Name.Local != "svg" {
+				if t.Name.Local != svgExtension {
 					return false
 				}
 				seenRoot = true
@@ -122,7 +127,7 @@ func svgElementAllowed(name xml.Name) bool {
 		return false
 	}
 	switch name.Local {
-	case "svg", "g", "defs", "title", "desc", "path", "rect", "circle",
+	case svgExtension, "g", "defs", "title", "desc", "path", "rect", "circle",
 		"ellipse", "line", "polyline", "polygon", "text", "tspan",
 		"linearGradient", "radialGradient", "stop", "clipPath":
 		return true
@@ -132,13 +137,13 @@ func svgElementAllowed(name xml.Name) bool {
 
 func svgAttributeAllowed(element string, attr xml.Attr) bool {
 	name, value := attr.Name, strings.TrimSpace(attr.Value)
-	if name.Space == "xmlns" || (name.Space == "" && name.Local == "xmlns") {
-		return value == svgNamespace || (name.Space == "xmlns" && value == xlinkNamespace)
+	if name.Space == xmlNamespacePrefix || (name.Space == "" && name.Local == xmlNamespacePrefix) {
+		return value == svgNamespace || (name.Space == xmlNamespacePrefix && value == xlinkNamespace)
 	}
 	if name.Space == xmlNamespace {
 		return name.Local == "space" && (value == "default" || value == "preserve")
 	}
-	if name.Space != "" && !(name.Space == xlinkNamespace && name.Local == "href") {
+	if name.Space != "" && (name.Space != xlinkNamespace || name.Local != "href") {
 		return false
 	}
 	switch name.Local {

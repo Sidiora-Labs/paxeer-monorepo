@@ -1,0 +1,239 @@
+[manifest]
+task = "22.41.37"
+pages = 71
+
+[record.1]
+path = "spec/layerx-merge/programme/issues/input/1883.md"
+
+[record.2]
+path = "spec/layerx-merge/programme/issues/input/1884.md"
+
+[record.3]
+path = "spec/layerx-merge/programme/issues/input/1885.md"
+
+[record.4]
+path = "spec/layerx-merge/programme/issues/input/1886.md"
+
+[record.5]
+path = "spec/layerx-merge/programme/issues/input/1887.md"
+
+[record.6]
+path = "spec/layerx-merge/programme/issues/input/1888.md"
+
+[record.7]
+path = "spec/layerx-merge/programme/issues/input/1889.md"
+
+[record.8]
+path = "spec/layerx-merge/programme/issues/input/1890.md"
+
+[record.9]
+path = "spec/layerx-merge/programme/issues/input/1891.md"
+
+[record.10]
+path = "spec/layerx-merge/programme/issues/input/1892.md"
+
+[record.11]
+path = "spec/layerx-merge/programme/issues/input/1893.md"
+
+[record.12]
+path = "spec/layerx-merge/programme/issues/input/1894.md"
+
+[record.13]
+path = "spec/layerx-merge/programme/issues/input/1895.md"
+
+[record.14]
+path = "spec/layerx-merge/programme/issues/input/1896.md"
+
+[record.15]
+path = "spec/layerx-merge/programme/issues/input/1897.md"
+
+[record.16]
+path = "spec/layerx-merge/programme/issues/input/1898.md"
+
+[record.17]
+path = "spec/layerx-merge/programme/issues/input/1899.md"
+
+[record.18]
+path = "spec/layerx-merge/programme/issues/input/1900.md"
+
+[record.19]
+path = "spec/layerx-merge/programme/issues/input/1901.md"
+
+[record.20]
+path = "spec/layerx-merge/programme/issues/input/1902.md"
+
+[record.21]
+path = "spec/layerx-merge/programme/issues/input/1903.md"
+
+[record.22]
+path = "spec/layerx-merge/programme/issues/input/1904.md"
+
+[record.23]
+path = "spec/layerx-merge/programme/issues/input/1905.md"
+
+[record.24]
+path = "spec/layerx-merge/programme/issues/input/1906.md"
+
+[record.25]
+path = "spec/layerx-merge/programme/issues/input/1907.md"
+
+[record.26]
+path = "spec/layerx-merge/programme/issues/input/1908.md"
+
+[record.27]
+path = "spec/layerx-merge/programme/issues/input/1909.md"
+
+[record.28]
+path = "spec/layerx-merge/programme/issues/input/1910.md"
+
+[record.29]
+path = "spec/layerx-merge/programme/issues/input/1911.md"
+
+[record.30]
+path = "spec/layerx-merge/programme/issues/input/1912.md"
+
+[record.31]
+path = "spec/layerx-merge/programme/issues/input/1913.md"
+
+[record.32]
+path = "spec/layerx-merge/programme/issues/input/1914.md"
+
+[record.33]
+path = "spec/layerx-merge/programme/issues/input/1915.md"
+
+[record.34]
+path = "spec/layerx-merge/programme/issues/input/1916.md"
+
+[record.35]
+path = "spec/layerx-merge/programme/issues/input/1917.md"
+
+[record.36]
+path = "spec/layerx-merge/programme/issues/input/1918.md"
+
+[record.37]
+path = "spec/layerx-merge/programme/issues/input/1919.md"
+
+[record.38]
+path = "spec/layerx-merge/programme/issues/input/1920.md"
+
+[record.39]
+path = "spec/layerx-merge/programme/issues/input/1921.md"
+
+[record.40]
+path = "spec/layerx-merge/programme/issues/input/1922.md"
+
+[record.41]
+path = "spec/layerx-merge/programme/issues/input/1923.md"
+
+[record.42]
+path = "spec/layerx-merge/programme/issues/input/1924.md"
+
+[record.43]
+path = "spec/layerx-merge/programme/issues/input/1925.md"
+
+[record.44]
+path = "spec/layerx-merge/programme/issues/input/1926.md"
+
+[record.45]
+path = "spec/layerx-merge/programme/issues/input/1927.md"
+
+[record.46]
+path = "spec/layerx-merge/programme/issues/input/1928.md"
+
+[record.47]
+path = "spec/layerx-merge/programme/issues/input/1929.md"
+
+[record.48]
+path = "spec/layerx-merge/programme/issues/input/1930.md"
+
+[page.1]
+path = "spec/layerx-merge/source-control/README.md"
+status = "corrected"
+
+[page.2]
+path = "spec/layerx-merge/source-control/SOURCE-README.md"
+status = "corrected"
+
+[page.3]
+path = "spec/layerx-merge/source-control/decisions.md"
+status = "corrected"
+
+[page.4]
+path = "spec/layerx-merge/source-control/design.body.md"
+status = "corrected"
+
+[page.5]
+path = "spec/layerx-merge/source-control/fleet-orchestration.md"
+status = "corrected"
+
+[page.6]
+path = "spec/layerx-merge/source-control/git-interop.md"
+status = "corrected"
+
+[page.7]
+path = "spec/layerx-merge/source-control/hyperfide-integration.md"
+status = "corrected"
+
+[page.8]
+path = "spec/layerx-merge/source-control/identity-security.md"
+status = "corrected"
+
+[page.9]
+path = "spec/layerx-merge/source-control/implementation-plan.md"
+status = "reviewed"
+
+[page.10]
+path = "spec/layerx-merge/source-control/interface-contracts.md"
+status = "corrected"
+
+[page.11]
+path = "spec/layerx-merge/source-control/migration.md"
+status = "corrected"
+
+[page.12]
+path = "spec/layerx-merge/source-control/protocol.md"
+status = "corrected"
+
+[page.13]
+path = "spec/layerx-merge/source-control/repository-baseline.md"
+status = "corrected"
+
+[page.14]
+path = "spec/layerx-merge/source-control/repository-layout.md"
+status = "corrected"
+
+[page.15]
+path = "spec/layerx-merge/source-control/sandbox-contracts.md"
+status = "corrected"
+
+[page.16]
+path = "spec/layerx-merge/source-control/storage.md"
+status = "corrected"
+
+[page.17]
+path = "spec/layerx-merge/source-control/traceability.md"
+status = "reviewed"
+
+[page.18]
+path = "spec/layerx-merge/source-control/verification.md"
+status = "corrected"
+
+[page.19]
+path = "spec/layerx-merge/source-control/workspaces.md"
+status = "corrected"
+
+[page.20]
+path = "spec/release-v6-12-0/contracts/README.md"
+status = "corrected"
+
+[page.21]
+path = "spec/release-v6-12-0/contracts/address-table.md"
+status = "corrected"
+
+[page.22]
+path = "spec/release-v6-12-0/contracts/application.md"
+status = "corrected"
+
+[page.23]
+path = "spec/release-v6-12-0/contracts/data-services.md"
+status = "corrected"

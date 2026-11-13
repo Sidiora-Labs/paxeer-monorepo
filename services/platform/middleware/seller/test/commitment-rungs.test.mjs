@@ -4,10 +4,9 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { ed25519 } from "@noble/curves/ed25519.js";
-import { PlatformSdkError, verifyCometCommit, verifySequencerReceipt } from "@sidiora/layerx-sdk";
-import { verifyPaymentCommitment, verifyPaymentCommitmentEvidence } from "../dist/commitment.js";
-
-import { committedPaymentFixture, nodeEvidence, refusesUnboundCommitments } from "./repair-22-33-1478-support.mjs";
+const { committedPaymentFixture, nodeEvidence, refusesUnboundCommitments } = await import("./repair-22-33-1478-support.mjs");
+const { PlatformSdkError, verifyCometCommit, verifySequencerReceipt } = await import("@sidiora/layerx-sdk");
+const { verifyPaymentCommitment, verifyPaymentCommitmentEvidence } = await import("../dist/commitment.js");
 
 const vectors = JSON.parse(readFileSync(new URL(
   "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json", import.meta.url,

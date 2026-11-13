@@ -253,12 +253,12 @@ pub(super) fn current(
             native_checkpoint(latest)?
                 .finality
                 .prove(7, &key, &registration.summary)
-                .map_err(|()| refused())?;
+                .map_err(|layerx_platform_authority::AuthorityError| refused())?;
             key[0] = 5;
             native_checkpoint(latest)?
                 .finality
                 .prove(7, &key, &registration.grant.registration_payload)
-                .map_err(|()| refused())?;
+                .map_err(|layerx_platform_authority::AuthorityError| refused())?;
             authorities.push(Authority {
                 kind: "session_key".to_owned(),
                 id: hex::encode(&id),

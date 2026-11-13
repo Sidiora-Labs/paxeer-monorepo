@@ -2,6 +2,8 @@
 mod journal_entries;
 
 use std::cell::Cell;
+use std::io::Write as _;
+use std::os::unix::fs::OpenOptionsExt as _;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -589,8 +591,6 @@ fn assert_retired_kinds_refused(path: &Path, bytes: &[u8], key: Key) -> TestResu
         assert!(matches!(Journal::open(path), Err(JournalError::Corrupt)));
         // A genuine legacy record is still classified as a version refusal.
         let legacy_path = path.with_extension("legacy");
-        use std::io::Write as _;
-        use std::os::unix::fs::OpenOptionsExt as _;
         let mut file = std::fs::OpenOptions::new()
             .write(true)
             .create(true)

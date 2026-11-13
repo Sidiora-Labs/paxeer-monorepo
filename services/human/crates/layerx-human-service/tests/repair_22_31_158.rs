@@ -31,10 +31,10 @@ type Result<T = ()> = std::result::Result<T, Box<dyn Error>>;
 static FIXTURE_LIFETIMES: Mutex<()> = Mutex::new(());
 
 fn assert_contended(result: std::result::Result<PrincipalStore, StoreError>) {
-    assert!(
-        matches!(result, Err(StoreError::Io(ref error)) if error.kind() == io::ErrorKind::WouldBlock),
-        "competing owner was not explicitly refused: {result:?}"
-    );
+    match result {
+        Err(StoreError::Io(error)) if error.kind() == io::ErrorKind::WouldBlock => {}
+        unexpected => panic!("competing owner was not explicitly refused: {unexpected:?}"),
+    }
 }
 
 fn open(root: &Path, digest: TenancyDigest) -> Result<PrincipalStore> {
@@ -108,7 +108,7 @@ fn assert_recovered(
 
 #[test]
 fn store_independent_writer_loss_recovery() -> Result {
-    let _fixture = FIXTURE_LIFETIMES.lock().expect("fixture lock poisoned");
+    let _fixture = FIXTURE_LIFETIMES.lock().or_fail("fixture lock poisoned");
     let root = directory("repair-22-31-158-handles");
     let map = tenancy(&[("alice", "tenant-a")]);
     let (mut first, digest) = install_and_open(&root, &map, retention_uniform(1_000));
@@ -146,9 +146,9 @@ fn store_independent_writer_loss_recovery() -> Result {
 
 #[test]
 fn store_independent_writer_loss_process_recovery() -> Result {
-    let _fixture = FIXTURE_LIFETIMES.lock().expect("fixture lock poisoned");
     const CHILD_ROOT: &str = "REPAIR_22_31_158_CHILD_ROOT";
     const CHILD_MODE: &str = "REPAIR_22_31_158_CHILD_MODE";
+    let _fixture = FIXTURE_LIFETIMES.lock().or_fail("fixture lock poisoned");
     let map = tenancy(&[("alice", "tenant-a")]);
     let digest = map.digest()?;
     if let Some(root) = std::env::var_os(CHILD_ROOT) {
@@ -214,14 +214,14 @@ impl Drop for RunningIdentity {
     fn drop(&mut self) {
         self.shutdown.store(true, Ordering::Release);
         if let Some(worker) = self.worker.take() {
-            assert!(worker.join().expect("identity worker panicked").is_ok());
+            assert!(worker.join().or_fail("identity worker panicked").is_ok());
         }
     }
 }
 
 #[test]
 fn store_independent_writer_loss_all_open_modes() -> Result {
-    let _fixture = FIXTURE_LIFETIMES.lock().expect("fixture lock poisoned");
+    let _fixture = FIXTURE_LIFETIMES.lock().or_fail("fixture lock poisoned");
     let root = directory("repair-22-31-158-provider");
     fs::create_dir_all(&root)?;
     fs::set_permissions(&root, fs::Permissions::from_mode(0o700))?;
@@ -321,4 +321,10 @@ fn store_independent_writer_loss_all_open_modes() -> Result {
     drop(running);
     fs::remove_dir_all(root)?;
     Ok(())
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

@@ -1,6 +1,6 @@
 //! Canonical, allocation-free big-endian codecs. Decode validates before exposing a view.
 //! Caller-provided output buffers are transport scratch, never authoritative state.
-use crate::types::GuestIndex as _;
+use crate::types::{CheckedIdentity as _, GuestIndex as _};
 use crate::{
     dispatch::{CallBoundary, Operation, SequencePolicy},
     errors::{
@@ -24,6 +24,8 @@ use sha2::{Digest, Sha256};
 pub const PARTICIPANT_METADATA_DOMAIN_V1: &str = "PAXAI/worker-metadata/v1";
 pub const PARTICIPANT_METADATA_DOMAIN_V2: &str = "PAXAI/participant-metadata/v2";
 
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn encode_manifest_v2(
     manifest: &crate::workers::ManifestV2<'_>,
     out: &mut [u8],
@@ -59,7 +61,7 @@ pub(crate) struct Sha256State {
     reference: Sha256,
 }
 
-#[inline(always)]
+#[inline]
 fn copy_hash_bytes(destination: &mut [u8], source: &[u8]) {
     #[cfg(target_arch = "wasm32")]
     crate::guest_cell::copy_slice_inline(destination, source);
@@ -68,14 +70,70 @@ fn copy_hash_bytes(destination: &mut [u8], source: &[u8]) {
 }
 
 const SHA256_ROUNDS: [u32; 64] = [
-    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+    0x428a_2f98,
+    0x7137_4491,
+    0xb5c0_fbcf,
+    0xe9b5_dba5,
+    0x3956_c25b,
+    0x59f1_11f1,
+    0x923f_82a4,
+    0xab1c_5ed5,
+    0xd807_aa98,
+    0x1283_5b01,
+    0x2431_85be,
+    0x550c_7dc3,
+    0x72be_5d74,
+    0x80de_b1fe,
+    0x9bdc_06a7,
+    0xc19b_f174,
+    0xe49b_69c1,
+    0xefbe_4786,
+    0x0fc1_9dc6,
+    0x240c_a1cc,
+    0x2de9_2c6f,
+    0x4a74_84aa,
+    0x5cb0_a9dc,
+    0x76f9_88da,
+    0x983e_5152,
+    0xa831_c66d,
+    0xb003_27c8,
+    0xbf59_7fc7,
+    0xc6e0_0bf3,
+    0xd5a7_9147,
+    0x06ca_6351,
+    0x1429_2967,
+    0x27b7_0a85,
+    0x2e1b_2138,
+    0x4d2c_6dfc,
+    0x5338_0d13,
+    0x650a_7354,
+    0x766a_0abb,
+    0x81c2_c92e,
+    0x9272_2c85,
+    0xa2bf_e8a1,
+    0xa81a_664b,
+    0xc24b_8b70,
+    0xc76c_51a3,
+    0xd192_e819,
+    0xd699_0624,
+    0xf40e_3585,
+    0x106a_a070,
+    0x19a4_c116,
+    0x1e37_6c08,
+    0x2748_774c,
+    0x34b0_bcb5,
+    0x391c_0cb3,
+    0x4ed8_aa4a,
+    0x5b9c_ca4f,
+    0x682e_6ff3,
+    0x748f_82ee,
+    0x78a5_636f,
+    0x84c8_7814,
+    0x8cc7_0208,
+    0x90be_fffa,
+    0xa450_6ceb,
+    0xbef9_a3f7,
+    0xc671_78f2,
 ];
 
 impl Sha256State {
@@ -83,8 +141,14 @@ impl Sha256State {
     pub(crate) fn new() -> Self {
         Self {
             state: [
-                0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
-                0x5be0cd19,
+                0x6a09_e667,
+                0xbb67_ae85,
+                0x3c6e_f372,
+                0xa54f_f53a,
+                0x510e_527f,
+                0x9b05_688c,
+                0x1f83_d9ab,
+                0x5be0_cd19,
             ],
             block: [0; 64],
             used: 0,
@@ -130,10 +194,10 @@ impl Sha256State {
         self.absorb(&bits);
         let mut digest = [0; 32];
         for (chunk, word) in digest
-            .as_chunks_mut::<{ 4 }>()
+            .as_chunks_mut::<4>()
             .0
             .iter_mut()
-            .map(|chunk| chunk.as_mut_slice())
+            .map(<[u8; 4]>::as_mut_slice)
             .zip(self.state)
         {
             copy_hash_bytes(chunk, &word.to_be_bytes());
@@ -152,13 +216,10 @@ impl Sha256State {
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn compress_sha256(state: &mut [u32; 8], block: &[u8; 64]) {
     let mut schedule = [0_u32; 64];
-    for (word, bytes) in schedule.iter_mut().zip(
-        block
-            .as_chunks::<{ 4 }>()
-            .0
-            .iter()
-            .map(|chunk| chunk.as_slice()),
-    ) {
+    for (word, bytes) in schedule
+        .iter_mut()
+        .zip(block.as_chunks::<4>().0.iter().map(<[u8; 4]>::as_slice))
+    {
         *word = u32::from_be_bytes([
             *bytes.guest_index(0),
             *bytes.guest_index(1),
@@ -177,28 +238,31 @@ fn compress_sha256(state: &mut [u32; 8], block: &[u8; 64]) {
             .wrapping_add(*schedule.guest_index(i - 7))
             .wrapping_add(s1);
     }
-    let [mut a, mut b, mut c, mut d, mut e, mut f, mut g, mut h] = *state;
+    let [mut round_a, mut round_b, mut round_c, mut round_d, mut round_e, mut round_f, mut round_g, mut round_h] =
+        *state;
     for (word, constant) in schedule.iter().zip(SHA256_ROUNDS) {
-        let s1 = e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25);
-        let choose = (e & f) ^ ((!e) & g);
-        let t1 = h
+        let s1 = round_e.rotate_right(6) ^ round_e.rotate_right(11) ^ round_e.rotate_right(25);
+        let choose = (round_e & round_f) ^ ((!round_e) & round_g);
+        let t1 = round_h
             .wrapping_add(s1)
             .wrapping_add(choose)
             .wrapping_add(constant)
             .wrapping_add(*word);
-        let s0 = a.rotate_right(2) ^ a.rotate_right(13) ^ a.rotate_right(22);
-        let majority = (a & b) ^ (a & c) ^ (b & c);
+        let s0 = round_a.rotate_right(2) ^ round_a.rotate_right(13) ^ round_a.rotate_right(22);
+        let majority = (round_a & round_b) ^ (round_a & round_c) ^ (round_b & round_c);
         let t2 = s0.wrapping_add(majority);
-        h = g;
-        g = f;
-        f = e;
-        e = d.wrapping_add(t1);
-        d = c;
-        c = b;
-        b = a;
-        a = t1.wrapping_add(t2);
+        round_h = round_g;
+        round_g = round_f;
+        round_f = round_e;
+        round_e = round_d.wrapping_add(t1);
+        round_d = round_c;
+        round_c = round_b;
+        round_b = round_a;
+        round_a = t1.wrapping_add(t2);
     }
-    for (word, value) in state.iter_mut().zip([a, b, c, d, e, f, g, h]) {
+    for (word, value) in state.iter_mut().zip([
+        round_a, round_b, round_c, round_d, round_e, round_f, round_g, round_h,
+    ]) {
         *word = word.wrapping_add(value);
     }
 }
@@ -209,7 +273,7 @@ pub const REPORT_MAX_BYTES: usize = 1380;
 pub const WORKER_ROSTER_BYTES: usize = 176;
 pub const EVALUATOR_ROSTER_BYTES: usize = 144;
 pub const EVENT_COMMON_BYTES: usize = 122;
-pub const STATE_SECTION_CAPS: [usize; 6] = [16384, 24576, 24576, 131072, 24576, 24576];
+pub const STATE_SECTION_CAPS: [usize; 6] = [16384, 24576, 24576, 131_072, 24576, 24576];
 pub const STATE_GLOBAL_BYTES: usize = 16;
 pub const STATE_SECTION_HEADER_BYTES: usize = 8;
 pub const STATE_FRAMING_BYTES: usize = 64;
@@ -386,9 +450,7 @@ impl<'a> ReadField<'a> {
     pub(crate) fn RequestId(out: &'a mut RequestId) -> Self {
         Self::Checked32(out.decode_destination())
     }
-    pub(crate) fn TaskId(out: &'a mut TaskId) -> Self {
-        Self::Checked32(out.decode_destination())
-    }
+
     pub(crate) fn Digest32(out: &'a mut Digest32) -> Self {
         Self::Checked32(out.decode_destination())
     }
@@ -401,9 +463,7 @@ impl<'a> ReadField<'a> {
     pub(crate) fn ReportDigest(out: &'a mut ReportDigest) -> Self {
         Self::Checked32(out.decode_destination())
     }
-    pub(crate) fn AttestationDigest(out: &'a mut AttestationDigest) -> Self {
-        Self::Checked32(out.decode_destination())
-    }
+
     pub(crate) fn CommitmentDigest(out: &'a mut CommitmentDigest) -> Self {
         Self::Checked32(out.decode_destination())
     }
@@ -413,9 +473,7 @@ impl<'a> ReadField<'a> {
     pub(crate) fn ResultDigest(out: &'a mut ResultDigest) -> Self {
         Self::Checked32(out.decode_destination())
     }
-    pub(crate) fn StateDigest(out: &'a mut StateDigest) -> Self {
-        Self::Checked32(out.decode_destination())
-    }
+
     pub(crate) fn EvidenceRoot(out: &'a mut EvidenceRoot) -> Self {
         Self::Checked32(out.decode_destination())
     }
@@ -432,9 +490,6 @@ impl<'a> ReadField<'a> {
         Self::Policy32(out.decode_destination())
     }
     pub(crate) fn PolicyRubric(out: &'a mut RubricDigest) -> Self {
-        Self::Policy32(out.decode_destination())
-    }
-    pub(crate) fn PolicyAccount(out: &'a mut AccountId) -> Self {
         Self::Policy32(out.decode_destination())
     }
 }
@@ -466,13 +521,13 @@ pub(crate) fn read_fields(r: &mut Reader<'_>, fields: &mut [ReadField<'_>]) -> C
             ReadField::Fixed16(out) => r.copy_into(out.guest_index_mut(..))?,
             ReadField::Fixed32(out) => r.copy_into(out.guest_index_mut(..))?,
             ReadField::Fixed64(out) => r.copy_into(out.guest_index_mut(..))?,
-            ReadField::PresencePrincipal(out) => **out = r.presence(|r| r.principal_id())?,
+            ReadField::PresencePrincipal(out) => **out = r.presence(Reader::principal_id)?,
             ReadField::RoomProfile(out) => **out = r.room_profile()?,
             ReadField::ChallengeCategory(out) => {
-                **out = crate::evaluators::admission::ChallengeCategory::decode(r.u8()?)?
+                **out = crate::evaluators::admission::ChallengeCategory::decode(r.u8()?)?;
             }
             ReadField::GrantStatus(out) => {
-                **out = crate::evaluators::model::GrantStatus::decode(r.u8()?)?
+                **out = crate::evaluators::model::GrantStatus::decode(r.u8()?)?;
             }
             ReadField::WorkerState(out) => **out = crate::workers::WorkerState::from_u8(r.u8()?)?,
             ReadField::RoomState(out) => **out = crate::rooms::RoomState::decode(r.u8()?)?,
@@ -584,6 +639,8 @@ impl<'a> Reader<'a> {
 
     /// Reads a nonzero salt, retaining its distinct invalid-salt status.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn salt32(&mut self) -> CodecResult<Salt32> {
         Salt32::new(self.fixed()?)
     }
@@ -616,11 +673,6 @@ impl<'a> Reader<'a> {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn policy_digest32(&mut self) -> CodecResult<Digest32> {
         Digest32::new(self.fixed()?).map_err(|_| crate::errors::F01_INVALID_POLICY)
-    }
-
-    #[cfg_attr(target_arch = "wasm32", inline(never))]
-    pub(crate) fn policy_rubric(&mut self) -> CodecResult<RubricDigest> {
-        RubricDigest::new(self.fixed()?).map_err(|_| crate::errors::F01_INVALID_POLICY)
     }
 
     #[cfg_attr(target_arch = "wasm32", inline(never))]
@@ -683,7 +735,7 @@ impl<'a> Reader<'a> {
     ///
     /// # Errors
     /// Returns `ARITHMETIC` when the end offset overflows; `NON_CANONICAL` when fewer than `length` bytes remain.
-    #[inline(always)]
+    #[inline]
     pub fn take(&mut self, length: usize) -> CodecResult<&'a [u8]> {
         let end = self.offset.checked_add(length).ok_or(ARITHMETIC)?;
         let bytes = self.input.get(self.offset..end).ok_or(NON_CANONICAL)?;
@@ -700,7 +752,7 @@ impl<'a> Reader<'a> {
     ///
     /// # Errors
     /// Propagates `take`'s `ARITHMETIC`/`NON_CANONICAL` refusals.
-    #[inline(always)]
+    #[inline]
     pub fn fixed<const N: usize>(&mut self) -> CodecResult<[u8; N]> {
         self.take(N)?.try_into().map_err(|_| NON_CANONICAL)
     }
@@ -776,10 +828,10 @@ impl<'a> Reader<'a> {
     /// Returns `NON_CANONICAL` when any reserved byte is nonzero; propagates `take`'s refusals.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn reserved(&mut self, length: usize) -> CodecResult<()> {
-        if !zero_bytes(self.take(length)?) {
-            Err(NON_CANONICAL)
-        } else {
+        if zero_bytes(self.take(length)?) {
             Ok(())
+        } else {
+            Err(NON_CANONICAL)
         }
     }
     /// Reads a `u32` length-prefixed byte string of at most `cap` bytes.
@@ -1082,13 +1134,21 @@ pub fn sha256<'p, I>(parts: I) -> CodecResult<[u8; 32]>
 where
     I: IntoIterator<Item = &'p [u8]>,
 {
-    sha256_parts(&mut parts.into_iter())
+    #[cfg(target_arch = "wasm32")]
+    {
+        sha256_parts(&mut parts.into_iter())
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        Ok(sha256_parts(&mut parts.into_iter()))
+    }
 }
 
 // Type erase only the traversal, keeping the hashing and buffer handling in one
 // guest function rather than duplicating them for every preimage iterator.
-#[cfg_attr(target_arch = "wasm32", inline(never))]
-fn sha256_parts<'p>(parts: &mut dyn Iterator<Item = &'p [u8]>) -> CodecResult<[u8; 32]> {
+#[cfg(target_arch = "wasm32")]
+#[inline(never)]
+fn sha256_parts(parts: &mut dyn Iterator<Item = &[u8]>) -> CodecResult<[u8; 32]> {
     #[cfg(target_arch = "wasm32")]
     if let Some(mut preimage) = PREIMAGE.try_borrow_mut() {
         let mut length = 0;
@@ -1120,6 +1180,14 @@ fn sha256_parts<'p>(parts: &mut dyn Iterator<Item = &'p [u8]>) -> CodecResult<[u
         h.update(part);
     }
     Ok(h.finalize())
+}
+#[cfg(not(target_arch = "wasm32"))]
+fn sha256_parts(parts: &mut dyn Iterator<Item = &[u8]>) -> [u8; 32] {
+    let mut hash = Sha256State::new();
+    for part in parts {
+        hash.update(part);
+    }
+    hash.finalize()
 }
 /// Derives the market identity from chain and program.
 ///
@@ -1579,7 +1647,7 @@ pub enum ScoreVector<'a> {
 }
 impl ScoreVector<'_> {
     /// A checked cell borrowed from a canonical vector. Internal chunk readers
-    /// need the identity for comparison, without constructing another WorkerId.
+    /// need the identity for comparison, without constructing another `WorkerId`.
     #[cfg_attr(target_arch = "wasm32", inline(always))]
     pub(crate) fn checked_cell(&self, index: usize) -> CodecResult<(&[u8; 32], Score)> {
         match self {
@@ -1926,6 +1994,8 @@ pub fn decode_worker_roster(input: &[u8]) -> CodecResult<WorkerRosterEntry> {
     Ok(v)
 }
 
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn encode_participant_roster(
     entry: &crate::roster::ParticipantRosterEntry,
     out: &mut [u8],
@@ -1952,6 +2022,8 @@ pub fn encode_participant_roster(
     Ok(w.len())
 }
 
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn decode_participant_roster(
     input: &[u8],
     manifest: &[u8],
@@ -2702,7 +2774,7 @@ pub fn decode_read_header(input: &[u8]) -> CodecResult<ReadHeader> {
     );
     let epoch = r.presence(Reader::u64)?;
     let config = r.version()?;
-    let roster = r.presence(|r| r.roster_digest())?;
+    let roster = r.presence(Reader::roster_digest)?;
     r.finish()?;
     let v = ReadHeader {
         revision,

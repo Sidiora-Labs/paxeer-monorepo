@@ -2,8 +2,9 @@ package safety
 
 import (
 	"context"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"strings"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // ListCases returns scoped metadata only. Reporter, affected wallet and evidence
@@ -16,7 +17,7 @@ func (s *Store) ListCases(ctx context.Context, state, after string, limit int) (
 	if e != nil {
 		return nil, e
 	}
-	if !Authorized(p, "", false, s.now()) && p.Role != "room_moderator" {
+	if !Authorized(p, "", false, s.now()) && p.Role != roomModeratorRole {
 		return nil, s.denial(ctx, p, "case_list")
 	}
 	if limit <= 0 {
@@ -28,7 +29,7 @@ func (s *Store) ListCases(ctx context.Context, state, after string, limit int) (
 	if len(after) > 36 || len(state) > 16 {
 		return nil, ErrInvalid
 	}
-	rows, e := s.DB.Query(ctx, `SELECT id,target_type,target_id,pool_id,state,revision FROM safety_cases WHERE ($1='' OR state=$1) AND id::text>$2 AND ($3 OR pool_id=ANY($4::text[])) ORDER BY id::text LIMIT $5`, state, after, p.Role == "global_administrator", p.Pools, limit)
+	rows, e := s.DB.Query(ctx, `SELECT id,target_type,target_id,pool_id,state,revision FROM safety_cases WHERE ($1='' OR state=$1) AND id::text>$2 AND ($3 OR pool_id=ANY($4::text[])) ORDER BY id::text LIMIT $5`, state, after, p.Role == globalAdministratorRole, p.Pools, limit)
 	if e != nil {
 		return nil, e
 	}
@@ -57,7 +58,7 @@ func (s *Store) ListBans(ctx context.Context, after string, limit int) ([]Ban, e
 	if e != nil {
 		return nil, e
 	}
-	if !Authorized(p, "", false, s.now()) && p.Role != "room_moderator" {
+	if !Authorized(p, "", false, s.now()) && p.Role != roomModeratorRole {
 		return nil, s.denial(ctx, p, "ban_list")
 	}
 	if limit <= 0 {
@@ -69,7 +70,7 @@ func (s *Store) ListBans(ctx context.Context, after string, limit int) ([]Ban, e
 	if len(after) > 36 {
 		return nil, ErrInvalid
 	}
-	rows, e := s.DB.Query(ctx, `SELECT id,wallet,scope,resource,actor,revision FROM safety_bans WHERE id::text>$1 AND ($2 OR (scope='pool' AND resource=ANY($3::text[]))) ORDER BY id::text LIMIT $4`, after, p.Role == "global_administrator", p.Pools, limit)
+	rows, e := s.DB.Query(ctx, `SELECT id,wallet,scope,resource,actor,revision FROM safety_bans WHERE id::text>$1 AND ($2 OR (scope='pool' AND resource=ANY($3::text[]))) ORDER BY id::text LIMIT $4`, after, p.Role == globalAdministratorRole, p.Pools, limit)
 	if e != nil {
 		return nil, e
 	}

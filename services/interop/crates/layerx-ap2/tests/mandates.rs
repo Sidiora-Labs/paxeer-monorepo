@@ -1,5 +1,5 @@
 #[path = "support/source_receipt.rs"]
-mod source_receipt;
+pub mod source_receipt;
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
@@ -44,17 +44,17 @@ fn recorded_hex(value: &Value) -> Vec<u8> {
     hex::decode(
         value
             .as_str()
-            .expect("recorded hex string")
+            .or_panic("recorded hex string")
             .strip_prefix("0x")
-            .expect("recorded hex prefix"),
+            .or_panic("recorded hex prefix"),
     )
-    .expect("recorded hex bytes")
+    .or_panic("recorded hex bytes")
 }
 
 fn recorded_array<const N: usize>(value: &Value) -> [u8; N] {
     recorded_hex(value)
         .try_into()
-        .expect("recorded field width")
+        .or_panic("recorded field width")
 }
 
 fn recorded_payment_topics(case: &Value) -> [[u8; 32]; 3] {
@@ -69,7 +69,7 @@ fn recorded_payment_topics(case: &Value) -> [[u8; 32]; 3] {
     [5, 0, 1].map(|word| {
         transaction[start + word * 32..start + (word + 1) * 32]
             .try_into()
-            .expect("recorded payExact calldata word")
+            .or_panic("recorded payExact calldata word")
     })
 }
 
@@ -80,14 +80,14 @@ fn recorded_payment(case: &Value) -> ExecutedPayment {
             signed_receipt: recorded_hex(&case["signedReceipt"]),
             logs: case["receiptJson"]["logs"]
                 .as_array()
-                .expect("recorded logs")
+                .or_panic("recorded logs")
                 .iter()
                 .map(|log| {
                     SequencerLog::new(
                         recorded_array(&log["address"]),
                         log["topics"]
                             .as_array()
-                            .expect("recorded topics")
+                            .or_panic("recorded topics")
                             .iter()
                             .map(recorded_array)
                             .collect(),
@@ -95,12 +95,12 @@ fn recorded_payment(case: &Value) -> ExecutedPayment {
                         u64::from_str_radix(
                             log["logIndex"]
                                 .as_str()
-                                .expect("recorded log index")
+                                .or_panic("recorded log index")
                                 .strip_prefix("0x")
-                                .expect("log index prefix"),
+                                .or_panic("log index prefix"),
                             16,
                         )
-                        .expect("recorded log index quantity"),
+                        .unwrap_or_else(|error| panic!("recorded log index quantity: {error:?}")),
                     )
                 })
                 .collect(),
@@ -132,8 +132,8 @@ impl LayerXIntentPlane for RecordedPaymentPlane {
         _: &TraceId,
     ) -> Result<CompiledIntent, Ap2Error> {
         let send = LxpSend::new(
-            AccountId::parse("agent:buyer:main").expect("payer account"),
-            AccountId::parse("agent:merchant:main").expect("payee account"),
+            AccountId::parse("agent:buyer:main").or_panic("payer account"),
+            AccountId::parse("agent:merchant:main").or_panic("payee account"),
             AssetId::new(payment.asset()),
             Amount::from_u128(payment.amount()),
             Sequence::from_u64(0),
@@ -145,16 +145,15 @@ impl LayerXIntentPlane for RecordedPaymentPlane {
                 PublicKey::new(self.key.public_key),
                 AuthorizationSignature::new(self.key.sign(&payment.request_digest())),
             ),
-            NetworkId::new(125).expect("network"),
-            ProtocolVersion::new(2).expect("protocol"),
+            NetworkId::new(125).or_panic("network"),
+            ProtocolVersion::new(2).or_panic("protocol"),
         )
         .map_err(|_| Ap2Error::IntentCompilation)?;
-        let activity = ActivityType::new(ModuleId::Asset, 5).expect("send activity");
+        let activity = ActivityType::new(ModuleId::Asset, 5).or_panic("send activity");
         let registry =
-            ModuleRegistry::new(&[
-                ModuleRegistration::new(ModuleId::Asset, &[activity]).expect("asset registration")
-            ])
-            .expect("module registry");
+            ModuleRegistry::new(&[ModuleRegistration::new(ModuleId::Asset, &[activity])
+                .or_panic("asset registration")])
+            .or_panic("module registry");
         compile(&Intent::v1(IntentKind::LxpSend(send)), &registry)
             .map_err(|_| Ap2Error::IntentCompilation)
     }
@@ -167,7 +166,7 @@ impl LayerXIntentPlane for RecordedPaymentPlane {
     ) -> Result<PlaneOutcome, Ap2Error> {
         assert_eq!(
             compiled.activity_type(),
-            ActivityType::new(ModuleId::Asset, 5).expect("send")
+            ActivityType::new(ModuleId::Asset, 5).or_panic("send")
         );
         let log = source_receipt::payment_log(&self.executed.evidence);
         assert_eq!(payment.idempotency_key(), log.topics()[1]);
@@ -185,11 +184,11 @@ impl LayerXIntentPlane for RecordedPaymentPlane {
 struct MandateReceiptSigner(SigningKey);
 
 impl ReceiptSigner for MandateReceiptSigner {
-    fn issuer(&self) -> &str {
+    fn issuer(&self) -> &'static str {
         "test-merchant-api"
     }
 
-    fn key_id(&self) -> &str {
+    fn key_id(&self) -> &'static str {
         "receipt-001"
     }
 
@@ -233,20 +232,16 @@ impl KeyResolver for TestKeyResolver {
 }
 
 fn issuer_key() -> SigningKey {
-    SigningKey::from_bytes((&[7_u8; 32]).into())
-        .unwrap_or_else(|error| panic!("valid issuer scalar: {error:?}"))
+    SigningKey::from_bytes((&[7_u8; 32]).into()).or_panic("valid issuer scalar")
 }
 fn merchant_key() -> SigningKey {
-    SigningKey::from_bytes((&[11_u8; 32]).into())
-        .unwrap_or_else(|error| panic!("valid merchant scalar: {error:?}"))
+    SigningKey::from_bytes((&[11_u8; 32]).into()).or_panic("valid merchant scalar")
 }
 fn agent_key() -> SigningKey {
-    SigningKey::from_bytes((&[19_u8; 32]).into())
-        .unwrap_or_else(|error| panic!("valid agent scalar: {error:?}"))
+    SigningKey::from_bytes((&[19_u8; 32]).into()).or_panic("valid agent scalar")
 }
 fn alternate_issuer_key() -> SigningKey {
-    SigningKey::from_bytes((&[23_u8; 32]).into())
-        .unwrap_or_else(|error| panic!("valid alternate issuer scalar: {error:?}"))
+    SigningKey::from_bytes((&[23_u8; 32]).into()).or_panic("valid alternate issuer scalar")
 }
 
 fn context() -> VerificationContext<'static> {
@@ -261,21 +256,17 @@ fn context() -> VerificationContext<'static> {
 }
 
 fn vector(source: &str, expected_generator: &str) -> Value {
-    let value: Value = serde_json::from_str(source)
-        .unwrap_or_else(|error| panic!("golden vector specification is valid JSON: {error:?}"));
+    let value: Value =
+        serde_json::from_str(source).or_panic("golden vector specification is valid JSON");
     assert_eq!(value["generator"], expected_generator);
     assert!(!source.to_ascii_lowercase().contains("placeholder"));
     value
 }
 
 fn jws(header: &Value, payload: &Value, key: &SigningKey) -> String {
-    let header = URL_SAFE_NO_PAD.encode(
-        serde_json::to_vec(header).unwrap_or_else(|error| panic!("serializable header: {error:?}")),
-    );
-    let payload = URL_SAFE_NO_PAD.encode(
-        serde_json::to_vec(payload)
-            .unwrap_or_else(|error| panic!("serializable payload: {error:?}")),
-    );
+    let header = URL_SAFE_NO_PAD.encode(serde_json::to_vec(header).or_panic("serializable header"));
+    let payload =
+        URL_SAFE_NO_PAD.encode(serde_json::to_vec(payload).or_panic("serializable payload"));
     let signing_input = format!("{header}.{payload}");
     let signature: Signature = key.sign(signing_input.as_bytes());
     format!(
@@ -313,7 +304,7 @@ fn alternate_root(mandate: Value) -> String {
 fn agent_jwk() -> Value {
     let key = agent_key();
     let point = key.verifying_key().to_encoded_point(false);
-    json!({"kty":"EC","crv":"P-256","x":URL_SAFE_NO_PAD.encode(point.x().unwrap_or_else(|| panic!("x coordinate"))),"y":URL_SAFE_NO_PAD.encode(point.y().unwrap_or_else(|| panic!("y coordinate")))})
+    json!({"kty":"EC","crv":"P-256","x":URL_SAFE_NO_PAD.encode(point.x().or_panic("x coordinate")),"y":URL_SAFE_NO_PAD.encode(point.y().or_panic("y coordinate"))})
 }
 
 fn key_bound(open: &str, mandate: Value) -> String {
@@ -375,16 +366,13 @@ fn autonomous_pair(amount: u128, maximum: u128) -> (String, String) {
 }
 
 fn corrupt_signature(presentation: &str) -> String {
-    let first = presentation
-        .find('.')
-        .unwrap_or_else(|| panic!("header separator"));
+    let first = presentation.find('.').or_panic("header separator");
     let start = presentation[first + 1..]
         .find('.')
         .map_or_else(|| panic!("payload separator"), |next| first + next + 2);
     let mut bytes = presentation.as_bytes().to_vec();
     bytes[start] = if bytes[start] == b'A' { b'B' } else { b'A' };
-    String::from_utf8(bytes)
-        .unwrap_or_else(|error| panic!("base64url mutation is UTF-8: {error:?}"))
+    String::from_utf8(bytes).or_panic("base64url mutation is UTF-8")
 }
 
 #[test]
@@ -396,32 +384,32 @@ fn authentic_direct_vector_verifies_expected_values() {
     let amount = u128::from(
         spec["expected_values"]["amount_minor_units"]
             .as_u64()
-            .unwrap_or_else(|| panic!("minor-unit amount")),
+            .or_panic("minor-unit amount"),
     );
     let (checkout, payment) = direct_pair(amount);
     let resolver = TestKeyResolver::authentic();
     let verified = MandateVerifier::new(&resolver)
         .verify(&checkout, &payment, &context())
-        .unwrap_or_else(|error| panic!("authentic direct pair verifies: {error:?}"));
+        .or_panic("authentic direct pair verifies");
     assert_eq!(verified.mode(), MandateMode::Direct);
     assert_eq!(
         verified.checkout_id(),
         spec["expected_values"]["checkout_id"]
             .as_str()
-            .unwrap_or_else(|| panic!("checkout id"))
+            .or_panic("checkout id")
     );
     assert_eq!(
         verified.payee().id(),
         spec["expected_values"]["payee_id"]
             .as_str()
-            .unwrap_or_else(|| panic!("payee id"))
+            .or_panic("payee id")
     );
     assert_eq!(verified.amount().minor_units(), amount);
     assert_eq!(
         verified.amount().currency(),
         spec["expected_values"]["currency"]
             .as_str()
-            .unwrap_or_else(|| panic!("currency"))
+            .or_panic("currency")
     );
 }
 
@@ -435,7 +423,7 @@ fn authentic_autonomous_vector_verifies_key_binding_and_constraints() {
     let resolver = TestKeyResolver::authentic();
     let verified = MandateVerifier::new(&resolver)
         .verify(&checkout, &payment, &context())
-        .unwrap_or_else(|error| panic!("authentic autonomous pair verifies: {error:?}"));
+        .or_panic("authentic autonomous pair verifies");
     assert_eq!(verified.mode(), MandateMode::Autonomous);
     assert_eq!(verified.checkout_id(), "checkout-67890");
     assert_eq!(verified.amount().minor_units(), 15_000);
@@ -497,12 +485,12 @@ fn authentic_amount_violation_reaches_constraint_evaluation() {
     let amount = u128::from(
         spec["authentic_amount_minor_units"]
             .as_u64()
-            .unwrap_or_else(|| panic!("authentic amount")),
+            .or_panic("authentic amount"),
     );
     let maximum = u128::from(
         spec["constraint_max_minor_units"]
             .as_u64()
-            .unwrap_or_else(|| panic!("constraint maximum")),
+            .or_panic("constraint maximum"),
     );
     let (checkout, payment) = autonomous_pair(amount, maximum);
     let resolver = TestKeyResolver::authentic();
@@ -593,56 +581,35 @@ fn unsupported_algorithm_is_refused_before_key_resolution() {
 #[test]
 fn mandate_payment_reference_is_the_recorded_digest() {
     let fixture: Value = serde_json::from_str(include_str!("fixtures/ap2-mandate-pay-exact.json"))
-        .expect("recorded sequencer receipt vectors");
+        .or_panic("recorded sequencer receipt vectors");
     let case = fixture["cases"]
         .as_array()
-        .expect("recorded cases")
+        .or_panic("recorded cases")
         .iter()
         .find(|case| case["id"] == "mandates")
-        .expect("recorded payExact receipt");
+        .or_panic("recorded payExact receipt");
     let executed = recorded_payment(case);
-    let digest: [u8; 32] = recorded_array(&case["receiptDigest"]);
-    assert_eq!(
-        canonical_receipt_digest(&executed.evidence.signed_receipt),
-        Ok(digest)
-    );
-    let key = &case["pinnedKey"];
-    let pins = [SequencerAuthorization::new(
-        recorded_array(&key["keyId"]),
-        recorded_array(&key["publicKey"]),
-        key["firstHeight"].as_u64().expect("first signing height"),
-        key["lastHeight"].as_u64().expect("last signing height"),
-    )];
-    assert!(!executed.order_id.is_empty());
-    assert!(executed
-        .order_id
-        .bytes()
-        .all(|byte| byte.is_ascii_graphic()));
-    let receipt = verify_sequencer_signature(&executed.evidence.signed_receipt, &pins)
-        .expect("recorded receipt is signed by its height-pinned sequencer");
-    let protocol = receipt.protocol().expect("recorded protocol receipt");
-    assert_eq!(protocol.result_code(), 0);
-    assert_eq!(protocol.activity_id(), executed.evidence.transaction_hash);
+    let pins = recorded_pins_and_digest(case, &executed);
     let log = source_receipt::payment_log(&executed.evidence);
-    let amount = u128::from_be_bytes(log.data()[48..].try_into().expect("recorded amount"));
+    let amount = u128::from_be_bytes(log.data()[48..].try_into().or_panic("recorded amount"));
     let binding = LayerXAssetBinding {
         currency: "USD".into(),
         minor_unit_exponent: 2,
         atomic_units_per_minor_unit: 1,
-        asset: log.data()[..32].try_into().expect("recorded asset"),
+        asset: log.data()[..32].try_into().or_panic("recorded asset"),
         payer_receipt_account: recorded_payment_topics(case)[1],
         payee_receipt_account: recorded_payment_topics(case)[2],
-        payee_merchant: Merchant::new("merchant-001", "Test Merchant", None).expect("merchant"),
+        payee_merchant: Merchant::new("merchant-001", "Test Merchant", None).or_panic("merchant"),
     };
     let (checkout, payment) = direct_pair(amount);
     let resolver = TestKeyResolver::authentic();
     let verification = context();
     let verified = MandateVerifier::new(&resolver)
         .verify(&checkout, &payment, &verification)
-        .expect("authentic recorded-amount mandates");
-    let principal = PrincipalId::new("buyer").expect("principal");
+        .or_panic("authentic recorded-amount mandates");
+    let principal = PrincipalId::new("buyer").or_panic("principal");
     let authorized = layerx_ap2::authorize_payment(&principal, &verified, &verification, &binding)
-        .expect("authorized recorded payment");
+        .or_panic("authorized recorded payment");
     let digest = assert_payment_reference(case, &executed.evidence, &authorized);
     let receipt_key = IntentKey::new(case);
     assert_eq!(
@@ -650,34 +617,23 @@ fn mandate_payment_reference_is_the_recorded_digest() {
         Ok(digest)
     );
     assert_eq!(digest, recorded_array::<32>(&case["receiptDigest"]));
-    let pins = [SequencerAuthorization::new(
-        recorded_array(&key["keyId"]),
-        recorded_array(&key["publicKey"]),
-        key["firstHeight"].as_u64().expect("first signing height"),
-        key["lastHeight"].as_u64().expect("last signing height"),
-    )];
-    let receipt = verify_sequencer_signature(&executed.evidence.signed_receipt, &pins)
-        .expect("mandate receipt is signed by its height-pinned sequencer");
-    let protocol = receipt.protocol().expect("mandate protocol receipt");
-    assert_eq!(protocol.result_code(), 0);
-    assert_eq!(protocol.activity_id(), executed.evidence.transaction_hash);
+    assert_receipt_protocol(
+        &executed,
+        &pins,
+        "mandate receipt is signed by its height-pinned sequencer",
+        "mandate protocol receipt",
+    );
     let signed_receipt = executed.evidence.signed_receipt.clone();
     let trace = TraceId::mint([0x57; 16]);
-    let suite = ConformanceSuite::new(
-        AdapterId::new("ap2-mandate-receipt-vectors").expect("suite ID"),
-        u64::try_from(fixture["cases"].as_array().expect("recorded cases").len())
-            .expect("vector count"),
-        Sha256::digest(include_bytes!("fixtures/ap2-mandate-pay-exact.json")).into(),
-    )
-    .expect("conformance suite");
+    let suite = recorded_mandate_suite(&fixture);
     let mut gateway = GatewayCore::new();
     gateway
         .register_adapter(
-            ap2_adapter_descriptor(suite).expect("AP2 descriptor"),
+            ap2_adapter_descriptor(suite).or_panic("AP2 descriptor"),
             &trace,
             NOW,
         )
-        .expect("register AP2");
+        .or_panic("register AP2");
     let mut plane = RecordedPaymentPlane {
         executed,
         key: receipt_key,
@@ -698,7 +654,7 @@ fn mandate_payment_reference_is_the_recorded_digest() {
             &trace,
             NOW,
         )
-        .expect("AP2 settles the recorded payExact receipt");
+        .unwrap_or_else(|error| panic!("AP2 settles the recorded payExact receipt: {error:?}"));
     let AdapterOutcome::Settled(settled) = outcome else {
         panic!("expected recorded payment settlement: {outcome:?}");
     };
@@ -712,35 +668,125 @@ fn mandate_payment_reference_is_the_recorded_digest() {
     let portable = settled
         .layerx
         .verify_v2(&pins)
-        .expect("portable receipt verifies");
+        .or_panic("portable receipt verifies");
     assert_eq!(portable.receipt_digest(), digest);
     assert_eq!(portable.signed_receipt(), signed_receipt);
-    let (input, signature) = settled
-        .payment_receipt_jwt
-        .rsplit_once('.')
-        .expect("signed payment JWT");
-    let signature =
-        Signature::from_slice(&URL_SAFE_NO_PAD.decode(signature).expect("signature bytes"))
-            .expect("ES256 signature");
+    assert_payment_jwt(
+        &settled.payment_receipt_jwt,
+        &payment_signer,
+        &verified.payment_receipt_reference(),
+        digest,
+    );
+}
+
+fn recorded_mandate_suite(fixture: &Value) -> ConformanceSuite {
+    let suite = ConformanceSuite::new(
+        AdapterId::new("ap2-mandate-receipt-vectors").or_panic("suite ID"),
+        u64::try_from(fixture["cases"].as_array().or_panic("recorded cases").len())
+            .or_panic("vector count"),
+        Sha256::digest(include_bytes!("fixtures/ap2-mandate-pay-exact.json")).into(),
+    )
+    .or_panic("conformance suite");
+    suite
+}
+
+fn recorded_pins_and_digest(
+    case: &Value,
+    executed: &ExecutedPayment,
+) -> [SequencerAuthorization; 1] {
+    let digest: [u8; 32] = recorded_array(&case["receiptDigest"]);
+    assert_eq!(
+        canonical_receipt_digest(&executed.evidence.signed_receipt),
+        Ok(digest)
+    );
+    let key = &case["pinnedKey"];
+    let pins = [SequencerAuthorization::new(
+        recorded_array(&key["keyId"]),
+        recorded_array(&key["publicKey"]),
+        key["firstHeight"].as_u64().or_panic("first signing height"),
+        key["lastHeight"].as_u64().or_panic("last signing height"),
+    )];
+    assert!(!executed.order_id.is_empty());
+    assert!(executed
+        .order_id
+        .bytes()
+        .all(|byte| byte.is_ascii_graphic()));
+    assert_receipt_protocol(
+        executed,
+        &pins,
+        "recorded receipt is signed by its height-pinned sequencer",
+        "recorded protocol receipt",
+    );
+    pins
+}
+
+fn assert_receipt_protocol(
+    executed: &ExecutedPayment,
+    pins: &[SequencerAuthorization; 1],
+    signature_context: &str,
+    protocol_context: &str,
+) {
+    let receipt = verify_sequencer_signature(&executed.evidence.signed_receipt, pins)
+        .unwrap_or_else(|error| panic!("{signature_context}: {error:?}"));
+    let protocol = receipt.protocol().or_panic(protocol_context);
+    assert_eq!(protocol.result_code(), 0);
+    assert_eq!(protocol.activity_id(), executed.evidence.transaction_hash);
+}
+
+fn assert_payment_jwt(
+    jwt: &str,
+    payment_signer: &MandateReceiptSigner,
+    expected_reference: &str,
+    digest: [u8; 32],
+) {
+    let (input, signature) = jwt.rsplit_once('.').or_panic("signed payment JWT");
+    let signature = Signature::from_slice(
+        &URL_SAFE_NO_PAD
+            .decode(signature)
+            .or_panic("signature bytes"),
+    )
+    .or_panic("ES256 signature");
     payment_signer
         .verifying_key()
         .verify(input.as_bytes(), &signature)
-        .expect("authentic payment receipt signature");
+        .or_panic("authentic payment receipt signature");
     let payload: Value = serde_json::from_slice(
         &URL_SAFE_NO_PAD
-            .decode(input.split_once('.').expect("JWT payload").1)
-            .expect("payload bytes"),
+            .decode(input.split_once('.').or_panic("JWT payload").1)
+            .or_panic("payload bytes"),
     )
-    .expect("payment receipt payload");
+    .or_panic("payment receipt payload");
     assert_eq!(payload["status"], "Success");
-    assert_eq!(payload["reference"], verified.payment_receipt_reference());
+    assert_eq!(payload["reference"], expected_reference);
     let reference = payload["layerx_receipt_reference"]
         .as_str()
-        .expect("LayerX reference");
+        .or_panic("LayerX reference");
     assert!(reference.starts_with("lxp:"));
     assert_eq!(reference, format!("lxp:{}", URL_SAFE_NO_PAD.encode(digest)));
     assert_eq!(
         payload["layerx_evidence"]["receiptDigest"],
         format!("0x{}", hex::encode(digest))
     );
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

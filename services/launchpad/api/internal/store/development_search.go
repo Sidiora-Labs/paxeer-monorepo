@@ -28,7 +28,7 @@ func likeEscape(s string) string {
 }
 
 // DevelopmentSearch runs one bounded search. kind is "pool", "token" or
-// "profile"; match is "exact_address", "partial_address" or "text"; key is the
+// "profile"; match is literalExactAddress, literalPartialAddress or "text"; key is the
 // normalized (lower-case) query. after is an exclusive keyset position (the
 // last returned pool address, or wallet for profiles); limit+1 rows are read so
 // the caller can tell whether another page exists.
@@ -38,9 +38,9 @@ func (s *Store) DevelopmentSearch(ctx context.Context, kind, match, key, after s
 	}
 	var predicate, value string
 	switch match {
-	case "exact_address":
+	case literalExactAddress:
 		value = key
-	case "partial_address":
+	case literalPartialAddress:
 		value = likeEscape(key) + "%"
 	case "text":
 		value = "%" + likeEscape(key) + "%"
@@ -51,9 +51,9 @@ func (s *Store) DevelopmentSearch(ctx context.Context, kind, match, key, after s
 	switch kind {
 	case "pool", "token":
 		switch match {
-		case "exact_address":
+		case literalExactAddress:
 			predicate = `(lower(p.pool_address)=$1 OR lower(p.token_address)=$1)`
-		case "partial_address":
+		case literalPartialAddress:
 			predicate = `(lower(p.pool_address) LIKE $1 ESCAPE '\' OR lower(p.token_address) LIKE $1 ESCAPE '\')`
 		default:
 			predicate = `(lower(COALESCE(m.name,'')) LIKE $1 ESCAPE '\' OR lower(COALESCE(m.symbol,'')) LIKE $1 ESCAPE '\')`
@@ -64,9 +64,9 @@ func (s *Store) DevelopmentSearch(ctx context.Context, kind, match, key, after s
  ORDER BY lower(p.pool_address) ASC LIMIT $3`
 	case "profile":
 		switch match {
-		case "exact_address":
+		case literalExactAddress:
 			predicate = `lower(u.wallet_address)=$1`
-		case "partial_address":
+		case literalPartialAddress:
 			predicate = `lower(u.wallet_address) LIKE $1 ESCAPE '\'`
 		default:
 			predicate = `lower(COALESCE(u.display_name,'')) LIKE $1 ESCAPE '\'`

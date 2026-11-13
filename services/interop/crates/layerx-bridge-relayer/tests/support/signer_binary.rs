@@ -19,7 +19,12 @@ fn resolve_signer_binary() -> PathBuf {
         .arg(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../Cargo.toml"))
         .args(["-p", "layerx-mirror-signer", "--message-format=json"])
         .output()
-        .expect("build the repository's real layerx-mirror-signer prerequisite");
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "build the repository's real layerx-mirror-signer prerequisite"
+            )
+        });
     assert!(
         output.status.success(),
         "layerx-mirror-signer build failed with {}: {}\n{}",
@@ -28,7 +33,7 @@ fn resolve_signer_binary() -> PathBuf {
         String::from_utf8_lossy(&output.stderr)
     );
     String::from_utf8(output.stdout)
-        .expect("Cargo artifact output is UTF-8")
+        .unwrap_or_else(|error| panic!("Cargo artifact output is UTF-8: {error:?}"))
         .lines()
         .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
         .find_map(|message| {
@@ -38,5 +43,10 @@ fn resolve_signer_binary() -> PathBuf {
                 .flatten()
         })
         .filter(|path| path.is_file())
-        .expect("Cargo must report the real layerx-mirror-signer executable")
+        .unwrap_or_else(|| {
+            panic!(
+                "{}",
+                "Cargo must report the real layerx-mirror-signer executable"
+            )
+        })
 }

@@ -1,0 +1,3 @@
+[authority_contract]
+member = "layerx-platform-authority"
+consumer = "Webhook evidence validation reads authorized batch facts and parsed replica evidence."

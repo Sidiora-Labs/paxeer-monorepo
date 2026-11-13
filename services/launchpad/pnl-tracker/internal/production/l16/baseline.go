@@ -202,7 +202,7 @@ func (a *BaselineAuthority) verifiedMovements(ctx context.Context, tx pgx.Tx, to
 			rows.Close()
 			return nil, "", "", err
 		}
-		if logIndex < 0 || logIndex > 1<<32-1 || txIndex < 0 || txIndex > 1<<32-1 || emitter != token {
+		if m.Height < 0 || logIndex < 0 || logIndex > 1<<32-1 || txIndex < 0 || txIndex > 1<<32-1 || emitter != token {
 			rows.Close()
 			return nil, "", "", delivery.ErrIntegrity
 		}
@@ -533,7 +533,7 @@ func (a *BaselineAuthority) PreparePartition(ctx context.Context, partition stri
 	if err != nil {
 		return in, err
 	}
-	lease, err := store.Acquire(ctx, delivery.ConsumerKey{ConsumerID: a.consumerID, ProjectionGeneration: a.generation, PartitionKind: "inventory", PartitionKey: partition}, a.owner, 30*time.Second)
+	lease, err := store.Acquire(ctx, delivery.ConsumerKey{ConsumerID: a.consumerID, ProjectionGeneration: a.generation, PartitionKind: sourceInventory, PartitionKey: partition}, a.owner, 30*time.Second)
 	if err != nil {
 		return in, err
 	}
@@ -541,7 +541,7 @@ func (a *BaselineAuthority) PreparePartition(ctx context.Context, partition stri
 }
 
 func (a *BaselineAuthority) VerifyBootstrapTx(ctx context.Context, tx pgx.Tx, in delivery.BootstrapInput) error {
-	if tx == nil || in.Lease.Key.ConsumerID != a.consumerID || in.Lease.Key.ProjectionGeneration != a.generation || in.Lease.Key.PartitionKind != "inventory" || in.Lease.Owner != a.owner || in.NextSequence != "1" || in.PreviousEffectIdentity != "" {
+	if tx == nil || in.Lease.Key.ConsumerID != a.consumerID || in.Lease.Key.ProjectionGeneration != a.generation || in.Lease.Key.PartitionKind != sourceInventory || in.Lease.Owner != a.owner || in.NextSequence != "1" || in.PreviousEffectIdentity != "" {
 		return delivery.ErrIntegrity
 	}
 	_, digest, err := a.readBaseline(ctx, tx, in.Lease.Key.PartitionKey)
@@ -568,7 +568,7 @@ func (a *BaselineAuthority) VerifyFreshSameOwnerTx(ctx context.Context, tx pgx.T
 }
 
 func (a *BaselineAuthority) qualifyFreshTx(ctx context.Context, tx pgx.Tx, generation string, fill accounting.FillV1, p accounting.PartitionPosition, qualified *qualifiedBaselineUse) error {
-	if tx == nil || generation != a.generation || accounting.ValidateFillV1(fill) != nil || accounting.ValidatePartitionPosition(p) != nil || p.ProjectionVersion != a.projectionVersion || p.PartitionKind != "inventory" || p.SourceEventID != fill.SourceFillID || p.SourceOrder != fill.Position {
+	if tx == nil || generation != a.generation || accounting.ValidateFillV1(fill) != nil || accounting.ValidatePartitionPosition(p) != nil || p.ProjectionVersion != a.projectionVersion || p.PartitionKind != sourceInventory || p.SourceEventID != fill.SourceFillID || p.SourceOrder != fill.Position {
 		return delivery.ErrIntegrity
 	}
 	// Baseline binding across indexer fence changes: the indexer builds a
@@ -601,7 +601,7 @@ func (a *BaselineAuthority) qualifyFreshTx(ctx context.Context, tx pgx.Tx, gener
 		return delivery.ErrIntegrity
 	}
 	sourceDigest, err := accounting.FillDigest(fill)
-	if err != nil || published.Facet != "inventory" || published.SourceFillID != fill.SourceFillID || published.SourceFactDigest != sourceDigest || published.Positions[0] != p {
+	if err != nil || published.Facet != sourceInventory || published.SourceFillID != fill.SourceFillID || published.SourceFactDigest != sourceDigest || published.Positions[0] != p {
 		return delivery.ErrIntegrity
 	}
 	if _, err = InventoryLeg(fill, published); err != nil {
@@ -777,7 +777,7 @@ func replaySameOwnerMovements(wallet, token, pool string, movements []movement, 
 			}
 			kind := "output-transfer"
 			from, to := pool, wallet
-			if f.Side == "sell" {
+			if f.Side == sideSell {
 				kind = "input-transfer"
 				from, to = wallet, pool
 			}

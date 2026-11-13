@@ -55,7 +55,8 @@ struct Arguments {
 struct Snapshot {
     version: String,
     registry_url: String,
-    snapshot_id: String,
+    #[serde(rename = "snapshot_id")]
+    id: String,
     samples: BTreeMap<String, SnapshotSample>,
 }
 
@@ -141,7 +142,7 @@ fn read(path: &Path, private: bool) -> Result<Vec<u8>> {
         require(
             path.is_absolute()
                 && metadata.uid() == rustix::process::geteuid().as_raw()
-                && metadata.mode() & 0o077 == 0,
+                && metadata.mode().trailing_zeros() >= 6,
             "protected-owner-input-required",
         )?;
     }
@@ -155,8 +156,15 @@ fn read(path: &Path, private: bool) -> Result<Vec<u8>> {
 }
 
 fn hash(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
     let digest = Sha256::digest(bytes);
-    digest.iter().map(|byte| format!("{byte:02x}")).collect()
+    digest
+        .iter()
+        .fold(String::with_capacity(64), |mut encoded, byte| {
+            encoded.push(char::from(HEX[usize::from(*byte >> 4)]));
+            encoded.push(char::from(HEX[usize::from(*byte & 0x0f)]));
+            encoded
+        })
 }
 
 fn write(path: &Path, bytes: &[u8]) -> Result<()> {
@@ -467,7 +475,7 @@ fn prepare_output(args: &Arguments) -> Result<()> {
     require(
         parent_metadata.is_dir()
             && parent_metadata.uid() == rustix::process::geteuid().as_raw()
-            && parent_metadata.mode() & 0o077 == 0
+            && parent_metadata.mode().trailing_zeros() >= 6
             && parent
                 .canonicalize()
                 .map_err(|_| "private-output-parent-required")?
@@ -542,11 +550,11 @@ fn capture_snapshot(args: &Arguments) -> Result<bool> {
     let mut snapshot = Snapshot {
         version: "layerx-ten-line-registry-snapshot-v1".to_owned(),
         registry_url: registry,
-        snapshot_id: String::new(),
+        id: String::new(),
         samples,
     };
     let context = serde_json::to_vec(&snapshot).map_err(|_| "snapshot-context-encode-refused")?;
-    snapshot.snapshot_id = format!("npm-sha256-{}", hash(&context));
+    snapshot.id = format!("npm-sha256-{}", hash(&context));
     let bytes = serde_json::to_vec_pretty(&snapshot).map_err(|_| "snapshot-encode-refused")?;
     write(&args.output.join("registry-snapshot.json"), &bytes)?;
     File::open(&args.output)
@@ -554,6 +562,132 @@ fn capture_snapshot(args: &Arguments) -> Result<bool> {
         .map_err(|_| "snapshot-directory-sync-refused")?;
     println!("registry-snapshot-captured");
     Ok(true)
+}
+
+fn verify_installed_packages(directory: &Path, versions: &BTreeMap<String, String>) -> Result<()> {
+    for (package_name, version) in versions {
+        let path = directory.join("node_modules").join(package_name);
+        require(
+            fs::symlink_metadata(&path)
+                .map_err(|_| "installed-package-missing")?
+                .is_dir(),
+            "linked-package-refused",
+        )?;
+        let installed: Value = serde_json::from_slice(&read(&path.join("package.json"), false)?)
+            .map_err(|_| "installed-package-json-required")?;
+        require(
+            installed.get("name").and_then(Value::as_str) == Some(package_name.as_str())
+                && installed.get("version").and_then(Value::as_str) == Some(version.as_str()),
+            "installed-package-identity-mismatch",
+        )?;
+    }
+    Ok(())
+}
+
+fn check_imports(
+    args: &Arguments,
+    directory: &Path,
+    registry: &str,
+    imports: &BTreeMap<String, Vec<String>>,
+) -> Result<()> {
+    let imports = serde_json::to_string(imports).map_err(|_| "import-manifest-encode-refused")?;
+    let probe = format!("import assert from 'node:assert/strict';\nimport {{ realpath }} from 'node:fs/promises';\nimport {{ fileURLToPath }} from 'node:url';\nimport {{ resolve, sep }} from 'node:path';\nconst imports = {imports};\nconst root = await realpath(resolve('node_modules'));\nfor (const [name, members] of Object.entries(imports)) {{\n const path = await realpath(fileURLToPath(import.meta.resolve(name)));\n assert.ok(path.startsWith(root + sep));\n const exported = await import(name);\n for (const member of members) assert.equal(typeof exported[member], 'function');\n}}\nconsole.log('published-package-imports-verified');\n");
+    write(&directory.join("published-imports.mjs"), probe.as_bytes())?;
+    command(
+        &args.node,
+        &["--check", "integration.mjs"],
+        directory,
+        &directory.join("syntax.log"),
+        registry,
+    )?;
+    command(
+        &args.node,
+        &["published-imports.mjs"],
+        directory,
+        &directory.join("published-imports.log"),
+        registry,
+    )?;
+    Ok(())
+}
+
+fn measure_sample(
+    args: &Arguments,
+    snapshot: &Snapshot,
+    registry: &str,
+    name: &str,
+    relative: &str,
+) -> Result<SampleMeasurement> {
+    let entry = snapshot
+        .samples
+        .get(name)
+        .ok_or("sample-snapshot-required")?;
+    let source_path = args.repository.join(relative).join("index.mjs");
+    let source = read(&source_path, false)?;
+    require(
+        hash(&source) == entry.quickstart_sha256,
+        "published-quickstart-source-mismatch",
+    )?;
+    let integration =
+        integration(std::str::from_utf8(&source).map_err(|_| "utf8-quickstart-required")?)?;
+    let package_bytes = read(&args.repository.join(relative).join("package.json"), false)?;
+    let package: Value =
+        serde_json::from_slice(&package_bytes).map_err(|_| "sample-package-json-required")?;
+    let lock_bytes = read(&entry.lock_file, true)?;
+    require(
+        hash(&lock_bytes) == entry.lock_sha256,
+        "registry-snapshot-lock-mismatch",
+    )?;
+    let lock: Value =
+        serde_json::from_slice(&lock_bytes).map_err(|_| "snapshot-lock-json-required")?;
+    let (versions, packages) = lock_contract(&lock, &package, registry)?;
+    require(
+        integration
+            .imports
+            .keys()
+            .all(|name| versions.contains_key(name)),
+        "integration-import-not-declared",
+    )?;
+    let directory = args.output.join(name);
+    directory_create(&directory)?;
+    write(&directory.join("package.json"), &package_bytes)?;
+    write(&directory.join("package-lock.json"), &lock_bytes)?;
+    write(
+        &directory.join("integration.mjs"),
+        integration.code.as_bytes(),
+    )?;
+    command(
+        &args.npm,
+        &[
+            "ci",
+            "--ignore-scripts",
+            "--no-audit",
+            "--no-fund",
+            "--workspaces=false",
+            "--include=optional",
+        ],
+        &directory,
+        &directory.join("registry-install.log"),
+        registry,
+    )?;
+    require(
+        read(&directory.join("package-lock.json"), false)? == lock_bytes,
+        "registry-install-mutated-lock",
+    )?;
+    verify_installed_packages(&directory, &versions)?;
+    check_imports(args, &directory, registry, &integration.imports)?;
+    Ok(SampleMeasurement {
+        name: name.to_owned(),
+        source: format!("{relative}/index.mjs"),
+        source_sha256: hash(&source),
+        first_integration_line: integration.first,
+        last_integration_line: integration.last,
+        integration_lines: integration.lines,
+        within_limit: integration.lines <= LIMIT,
+        lock_sha256: hash(&lock_bytes),
+        package_versions: versions,
+        registry_packages: packages,
+        published_imports_checked: true,
+    })
 }
 
 fn measure(args: &Arguments) -> Result<bool> {
@@ -567,10 +701,10 @@ fn measure(args: &Arguments) -> Result<bool> {
         serde_json::from_slice(&snapshot_bytes).map_err(|_| "closed-registry-snapshot-required")?;
     require(
         snapshot.version == "layerx-ten-line-registry-snapshot-v1"
-            && !snapshot.snapshot_id.is_empty()
-            && snapshot.snapshot_id.len() <= 128
+            && !snapshot.id.is_empty()
+            && snapshot.id.len() <= 128
             && snapshot
-                .snapshot_id
+                .id
                 .bytes()
                 .all(|byte| byte.is_ascii_alphanumeric() || b"._-".contains(&byte)),
         "immutable-registry-snapshot-required",
@@ -588,115 +722,12 @@ fn measure(args: &Arguments) -> Result<bool> {
     prepare_output(args)?;
     let mut samples = Vec::new();
     for (name, relative) in SAMPLES {
-        let entry = snapshot
-            .samples
-            .get(name)
-            .ok_or("sample-snapshot-required")?;
-        let source_path = args.repository.join(relative).join("index.mjs");
-        let source = read(&source_path, false)?;
-        require(
-            hash(&source) == entry.quickstart_sha256,
-            "published-quickstart-source-mismatch",
-        )?;
-        let integration =
-            integration(std::str::from_utf8(&source).map_err(|_| "utf8-quickstart-required")?)?;
-        let package_bytes = read(&args.repository.join(relative).join("package.json"), false)?;
-        let package: Value =
-            serde_json::from_slice(&package_bytes).map_err(|_| "sample-package-json-required")?;
-        let lock_bytes = read(&entry.lock_file, true)?;
-        require(
-            hash(&lock_bytes) == entry.lock_sha256,
-            "registry-snapshot-lock-mismatch",
-        )?;
-        let lock: Value =
-            serde_json::from_slice(&lock_bytes).map_err(|_| "snapshot-lock-json-required")?;
-        let (versions, packages) = lock_contract(&lock, &package, &registry)?;
-        require(
-            integration
-                .imports
-                .keys()
-                .all(|name| versions.contains_key(name)),
-            "integration-import-not-declared",
-        )?;
-        let directory = args.output.join(name);
-        directory_create(&directory)?;
-        write(&directory.join("package.json"), &package_bytes)?;
-        write(&directory.join("package-lock.json"), &lock_bytes)?;
-        write(
-            &directory.join("integration.mjs"),
-            integration.code.as_bytes(),
-        )?;
-        command(
-            &args.npm,
-            &[
-                "ci",
-                "--ignore-scripts",
-                "--no-audit",
-                "--no-fund",
-                "--workspaces=false",
-                "--include=optional",
-            ],
-            &directory,
-            &directory.join("registry-install.log"),
-            &registry,
-        )?;
-        require(
-            read(&directory.join("package-lock.json"), false)? == lock_bytes,
-            "registry-install-mutated-lock",
-        )?;
-        for (package_name, version) in &versions {
-            let path = directory.join("node_modules").join(package_name);
-            require(
-                fs::symlink_metadata(&path)
-                    .map_err(|_| "installed-package-missing")?
-                    .is_dir(),
-                "linked-package-refused",
-            )?;
-            let installed: Value =
-                serde_json::from_slice(&read(&path.join("package.json"), false)?)
-                    .map_err(|_| "installed-package-json-required")?;
-            require(
-                installed.get("name").and_then(Value::as_str) == Some(package_name.as_str())
-                    && installed.get("version").and_then(Value::as_str) == Some(version.as_str()),
-                "installed-package-identity-mismatch",
-            )?;
-        }
-        let imports = serde_json::to_string(&integration.imports)
-            .map_err(|_| "import-manifest-encode-refused")?;
-        let probe = format!("import assert from 'node:assert/strict';\nimport {{ realpath }} from 'node:fs/promises';\nimport {{ fileURLToPath }} from 'node:url';\nimport {{ resolve, sep }} from 'node:path';\nconst imports = {imports};\nconst root = await realpath(resolve('node_modules'));\nfor (const [name, members] of Object.entries(imports)) {{\n const path = await realpath(fileURLToPath(import.meta.resolve(name)));\n assert.ok(path.startsWith(root + sep));\n const exported = await import(name);\n for (const member of members) assert.equal(typeof exported[member], 'function');\n}}\nconsole.log('published-package-imports-verified');\n");
-        write(&directory.join("published-imports.mjs"), probe.as_bytes())?;
-        command(
-            &args.node,
-            &["--check", "integration.mjs"],
-            &directory,
-            &directory.join("syntax.log"),
-            &registry,
-        )?;
-        command(
-            &args.node,
-            &["published-imports.mjs"],
-            &directory,
-            &directory.join("published-imports.log"),
-            &registry,
-        )?;
-        samples.push(SampleMeasurement {
-            name: name.to_owned(),
-            source: format!("{relative}/index.mjs"),
-            source_sha256: hash(&source),
-            first_integration_line: integration.first,
-            last_integration_line: integration.last,
-            integration_lines: integration.lines,
-            within_limit: integration.lines <= LIMIT,
-            lock_sha256: hash(&lock_bytes),
-            package_versions: versions,
-            registry_packages: packages,
-            published_imports_checked: true,
-        });
+        samples.push(measure_sample(args, &snapshot, &registry, name, relative)?);
     }
     let passed = samples.iter().all(|sample| sample.within_limit);
     let measurement = Measurement {
         version: "layerx-ten-line-measurement-v1", registry_url: registry,
-        snapshot_id: snapshot.snapshot_id, snapshot_sha256: hash(&snapshot_bytes),
+        snapshot_id: snapshot.id, snapshot_sha256: hash(&snapshot_bytes),
         counting_rule: "Every nonblank, non-line-comment physical line between the retained exact integration markers; braces, imports and configuration lines count.",
         limit: LIMIT, passed, samples,
     };

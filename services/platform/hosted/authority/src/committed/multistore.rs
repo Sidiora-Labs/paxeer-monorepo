@@ -135,8 +135,8 @@ fn apply_inner_op(bytes: &[u8], child: [u8; 32]) -> Result<[u8; 32], ChainProofE
 
 fn hash_length(hash: &mut Sha256, mut length: usize) {
     while length >= 0x80 {
-        hash.update([(length as u8 & 0x7f) | 0x80]);
+        hash.update([(length.to_le_bytes()[0] & 0x7f) | 0x80]);
         length >>= 7;
     }
-    hash.update([length as u8]);
+    hash.update([length.to_le_bytes()[0]]);
 }

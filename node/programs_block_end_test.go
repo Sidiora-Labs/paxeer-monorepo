@@ -45,6 +45,13 @@ func programsBlockEndCommit(t *testing.T, f *hostedProgramsABIFixture) {
 	})
 }
 
+func programsBlockEndIdleBlocks(t *testing.T, f *hostedProgramsABIFixture, first, count int64) {
+	t.Helper()
+	for height := first; height < first+count; height++ {
+		programsBlockEndStep(t, f, height, false)
+	}
+}
+
 func programsBlockEndStep(t *testing.T, f *hostedProgramsABIFixture, height int64, call bool) time.Duration {
 	t.Helper()
 	f.ctx = f.ctx.WithBlockHeight(height)

@@ -37,8 +37,8 @@ func baseURL(publicURL string, r *http.Request) string {
 		return publicURL
 	}
 	scheme := "http"
-	if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
-		scheme = "https"
+	if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), metadataHTTPSScheme) {
+		scheme = metadataHTTPSScheme
 	}
 	return scheme + "://" + r.Host
 }

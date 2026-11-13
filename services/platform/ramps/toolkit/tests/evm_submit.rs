@@ -1,3 +1,5 @@
+include!("support/required.rs");
+
 use layerx_crypto::evm_transaction::{
     decode_signed, recover_sender, transaction_hash, Eip1559Call,
 };
@@ -23,7 +25,8 @@ use layerx_ramp_toolkit::clients::{LayerxConfig, MutualTlsClient, MutualTlsFiles
 use serde_json::{json, Value};
 
 #[path = "support/repair_22_33_1490.rs"]
-mod repair_1490;
+pub mod repair_1490;
+pub use repair_1490::*;
 
 #[test]
 fn compact_signer_contract_preserves_wrong_key_refusal() {
@@ -41,9 +44,9 @@ impl ClientFiles {
             std::process::id(),
             NEXT_DIRECTORY.fetch_add(1, Ordering::Relaxed)
         ));
-        fs::create_dir(&path).expect("create client credential directory");
+        fs::create_dir(&path).required("create client credential directory");
         fs::set_permissions(&path, fs::Permissions::from_mode(0o700))
-            .expect("protect client credential directory");
+            .required("protect client credential directory");
         let files = Self(path);
         files.openssl(&[
             "req",
@@ -79,7 +82,7 @@ impl ClientFiles {
             files.0.join("identity.p12"),
             fs::Permissions::from_mode(0o600),
         )
-        .expect("protect client identity");
+        .required("protect client identity");
         for (name, value) in [
             ("password", b"configuration-test".as_slice()),
             ("token", b"configuration-test-token".as_slice()),
@@ -90,8 +93,8 @@ impl ClientFiles {
                 .create_new(true)
                 .mode(0o600)
                 .open(files.0.join(name))
-                .expect("create private credential");
-            file.write_all(value).expect("write private credential");
+                .required("create private credential");
+            file.write_all(value).required("write private credential");
         }
         files
     }
@@ -101,7 +104,7 @@ impl ClientFiles {
             .args(args)
             .current_dir(&self.0)
             .output()
-            .expect("run openssl to create real TLS credentials");
+            .required("run openssl to create real TLS credentials");
         assert!(
             output.status.success(),
             "openssl failed: {:?}",
@@ -114,13 +117,13 @@ impl ClientFiles {
             &MutualTlsFiles {
                 ca_pem: self.0.join("ca.pem"),
                 identity_pkcs12: SecretFile::new(self.0.join("identity.p12"))
-                    .expect("private TLS identity"),
+                    .required("private TLS identity"),
                 identity_password: SecretFile::new(self.0.join("password"))
-                    .expect("private identity password"),
+                    .required("private identity password"),
             },
             Duration::from_secs(1),
         )
-        .expect("construct mutual TLS client")
+        .required("construct mutual TLS client")
     }
 
     fn document(&self) -> Value {
@@ -137,7 +140,7 @@ impl ClientFiles {
             }],
             "max_fee_per_gas": 100,
             "max_priority_fee_per_gas": 2,
-            "gas_limit_cap": 100000,
+            "gas_limit_cap": 100_000,
             "signer_endpoint": "https://signer.example.test",
             "signer_token_file": self.0.join("token"),
             "actor_did": "did:layerx:ramp"
@@ -145,13 +148,13 @@ impl ClientFiles {
     }
 
     fn config(&self) -> LayerxConfig {
-        serde_json::from_value(self.document()).expect("deserialize sequencer config")
+        serde_json::from_value(self.document()).required("deserialize sequencer config")
     }
 }
 
 impl Drop for ClientFiles {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).expect("remove client credentials");
+        fs::remove_dir_all(&self.0).required("remove client credentials");
     }
 }
 
@@ -194,7 +197,7 @@ fn order_for(direction: RampDirection) -> RampOrder {
         },
         1_000,
     )
-    .expect("bound order")
+    .required("bound order")
 }
 
 fn call(order: &RampOrder) -> Eip1559Call {
@@ -202,7 +205,7 @@ fn call(order: &RampOrder) -> Eip1559Call {
         RampDirection::OnRamp => compile_operator_send(order),
         RampDirection::OffRamp => compile_payer_grant_draw(order, 9),
     }
-    .expect("compile ledger call");
+    .required("compile ledger call");
     Eip1559Call {
         chain_id: 125,
         nonce: 7,
@@ -218,34 +221,37 @@ fn read_request(stream: &mut impl Read) -> (String, Value) {
     let mut bytes = Vec::new();
     let boundary = loop {
         let mut byte = [0];
-        stream.read_exact(&mut byte).expect("request header");
+        stream.read_exact(&mut byte).required("request header");
         bytes.push(byte[0]);
         assert!(bytes.len() < 32_768, "bounded header");
         if bytes.ends_with(b"\r\n\r\n") {
             break bytes.len();
         }
     };
-    let header = String::from_utf8(bytes).expect("HTTP header");
+    let header = String::from_utf8(bytes).required("HTTP header");
     let length = header
         .lines()
         .find_map(|line| {
             let (name, value) = line.split_once(':')?;
             name.eq_ignore_ascii_case("content-length")
-                .then(|| value.trim().parse::<usize>().expect("length"))
+                .then(|| value.trim().parse::<usize>().required("length"))
         })
-        .expect("content length");
+        .required("content length");
     assert!(length < 512 * 1024);
     let mut body = vec![0; length];
-    stream.read_exact(&mut body).expect("request body");
+    stream.read_exact(&mut body).required("request body");
     assert_eq!(boundary, header.len());
-    (header, serde_json::from_slice(&body).expect("request JSON"))
+    (
+        header,
+        serde_json::from_slice(&body).required("request JSON"),
+    )
 }
 
 fn respond(stream: &mut impl Write, body: &Value) {
-    let bytes = serde_json::to_vec(body).expect("response JSON");
-    write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", bytes.len()).expect("response header");
-    stream.write_all(&bytes).expect("response body");
-    stream.flush().expect("flush response");
+    let bytes = serde_json::to_vec(body).required("response JSON");
+    write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", bytes.len()).required("response header");
+    stream.write_all(&bytes).required("response body");
+    stream.flush().required("flush response");
 }
 
 struct RpcServer {
@@ -257,11 +263,11 @@ struct RpcServer {
 
 impl RpcServer {
     fn new(tx_hash: [u8; 32]) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("loopback JSON-RPC listener");
-        let endpoint = format!("http://{}", listener.local_addr().expect("RPC address"));
+        let listener = TcpListener::bind("127.0.0.1:0").required("loopback JSON-RPC listener");
+        let endpoint = format!("http://{}", listener.local_addr().required("RPC address"));
         listener
             .set_nonblocking(true)
-            .expect("nonblocking listener");
+            .required("nonblocking listener");
         let requests = Arc::new(Mutex::new(Vec::new()));
         let stop = Arc::new(AtomicBool::new(false));
         let observed = requests.clone();
@@ -278,9 +284,9 @@ impl RpcServer {
                 };
                 stream
                     .set_read_timeout(Some(Duration::from_secs(5)))
-                    .expect("read timeout");
+                    .required("read timeout");
                 let (_, request) = read_request(&mut stream);
-                let result = match request["method"].as_str().expect("RPC method") {
+                let result = match request["method"].as_str().required("RPC method") {
                     "eth_getTransactionCount" => {
                         assert_eq!(request["params"][1], "pending");
                         json!("0x7")
@@ -300,7 +306,7 @@ impl RpcServer {
                     &mut stream,
                     &json!({"jsonrpc": "2.0", "id": request["id"], "result": result}),
                 );
-                observed.lock().expect("record RPC").push(request);
+                observed.lock().required("record RPC").push(request);
             }
         });
         Self {
@@ -315,10 +321,10 @@ impl RpcServer {
         self.stop.store(true, Ordering::Release);
         self.worker
             .take()
-            .expect("RPC worker")
+            .required("RPC worker")
             .join()
-            .expect("RPC server");
-        self.requests.lock().expect("RPC requests").clone()
+            .required("RPC server");
+        self.requests.lock().required("RPC requests").clone()
     }
 }
 
@@ -326,7 +332,7 @@ impl Drop for RpcServer {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
         if let Some(worker) = self.worker.take() {
-            worker.join().expect("RPC server");
+            worker.join().required("RPC server");
         }
     }
 }
@@ -355,20 +361,20 @@ fn base64(bytes: &[u8]) -> String {
 }
 
 fn signer(files: &ClientFiles, call: Eip1559Call, secret: [u8; 32]) -> (String, JoinHandle<()>) {
-    let listener = TcpListener::bind(("localhost", 0)).expect("signer listener");
+    let listener = TcpListener::bind(("localhost", 0)).required("signer listener");
     listener
         .set_nonblocking(true)
-        .expect("nonblocking signer listener");
+        .required("nonblocking signer listener");
     let endpoint = format!(
         "https://localhost:{}",
-        listener.local_addr().expect("signer address").port()
+        listener.local_addr().required("signer address").port()
     );
     let identity = Identity::from_pkcs12(
-        &fs::read(files.0.join("identity.p12")).expect("TLS identity"),
+        &fs::read(files.0.join("identity.p12")).required("TLS identity"),
         "configuration-test",
     )
-    .expect("signer identity");
-    let acceptor = TlsAcceptor::new(identity).expect("TLS signer");
+    .required("signer identity");
+    let acceptor = TlsAcceptor::new(identity).required("TLS signer");
     let worker = thread::spawn(move || {
         let deadline = Instant::now() + Duration::from_secs(5);
         let (stream, _) = loop {
@@ -383,16 +389,16 @@ fn signer(files: &ClientFiles, call: Eip1559Call, secret: [u8; 32]) -> (String, 
         };
         stream
             .set_read_timeout(Some(Duration::from_secs(5)))
-            .expect("signer timeout");
-        let mut stream = acceptor.accept(stream).expect("authenticated TLS signer");
+            .required("signer timeout");
+        let mut stream = acceptor.accept(stream).required("authenticated TLS signer");
         let (header, request) = read_request(&mut stream);
         assert!(header.starts_with("POST /v1/signatures HTTP/1.1\r\n"));
         assert!(header.contains("Bearer configuration-test-token"));
         assert_eq!(request["algorithm"], "secp256k1");
         assert_eq!(request["key_handle"], "kms.operator-1.primary");
         assert_eq!(request["message"], base64(&call.signing_hash()));
-        let raw = call.sign(&secret).expect("real secp256k1 signature");
-        let (_, signature) = decode_signed(&raw).expect("signed call");
+        let raw = call.sign(&secret).required("real secp256k1 signature");
+        let (_, signature) = decode_signed(&raw).required("signed call");
         respond(
             &mut stream,
             &json!({
@@ -400,7 +406,7 @@ fn signer(files: &ClientFiles, call: Eip1559Call, secret: [u8; 32]) -> (String, 
                 "recovery_id": signature.as_bytes()[64] - 27
             }),
         );
-        stream.shutdown().expect("close TLS response");
+        stream.shutdown().required("close TLS response");
     });
     (endpoint, worker)
 }
@@ -411,15 +417,15 @@ fn client(
     signer_endpoint: String,
     call: &Eip1559Call,
 ) -> LayerxClient {
-    let raw = call.sign(&[1; 32]).expect("operator key");
-    let (_, signature) = decode_signed(&raw).expect("operator transaction");
+    let raw = call.sign(&[1; 32]).required("operator key");
+    let (_, signature) = decode_signed(&raw).required("operator transaction");
     let mut config = files.config();
-    config.rpc_endpoint = rpc.endpoint.clone();
+    config.rpc_endpoint.clone_from(&rpc.endpoint);
     config.actor_did = "did:layerx:operator-1".into();
     config.signer_endpoint = signer_endpoint;
     config.operator_address = format!(
         "0x{}",
-        hex(&recover_sender(call, &signature).expect("operator address"))
+        hex(&recover_sender(call, &signature).required("operator address"))
     );
     let client = config
         .build(files.http())
@@ -435,9 +441,9 @@ fn signature_from_other_key_is_refused_before_submission() {
     let mut rpc = RpcServer::new([0; 32]);
     let (endpoint, signer) = signer(&files, call.clone(), [2; 32]);
     let client = client(&files, &rpc, endpoint, &call);
-    let registry = layerx_types::payload::ModuleRegistry::new(&[]).expect("empty EVM registry");
+    let registry = layerx_types::payload::ModuleRegistry::new(&[]).required("empty EVM registry");
     let result = client.prepare_payment(&order, 9, 1_000, &registry);
-    signer.join().expect("signer checked digest");
+    signer.join().required("signer checked digest");
     assert_eq!(result, Err(RampError::Layerx));
     let requests = rpc.finish();
     assert_eq!(requests.len(), 2);
@@ -452,10 +458,11 @@ fn submit_prepared_sends_raw_transaction_once() {
     for direction in [RampDirection::OnRamp, RampDirection::OffRamp] {
         let order = order_for(direction);
         let call = call(&order);
-        let raw = call.sign(&[1; 32]).expect("signed transaction");
+        let raw = call.sign(&[1; 32]).required("signed transaction");
         let tx_hash = transaction_hash(&raw);
         let mut rpc = RpcServer::new(tx_hash);
-        let registry = layerx_types::payload::ModuleRegistry::new(&[]).expect("empty EVM registry");
+        let registry =
+            layerx_types::payload::ModuleRegistry::new(&[]).required("empty EVM registry");
         if direction == RampDirection::OffRamp {
             let client = client(&files, &rpc, "https://localhost:1".into(), &call);
             let mut changed = call.data.clone();
@@ -479,8 +486,8 @@ fn submit_prepared_sends_raw_transaction_once() {
         let client = client(&files, &rpc, endpoint, &call);
         let prepared = client
             .prepare_payment(&order, 9, 1_000, &registry)
-            .expect("prepare and authenticate transaction");
-        signer.join().expect("signer checked digest");
+            .required("prepare and authenticate transaction");
+        signer.join().required("signer checked digest");
         assert_eq!(prepared.tx_hash(), tx_hash);
         assert_eq!(prepared.raw_transaction(), raw);
         assert_eq!(prepared.activity_id(), tx_hash);
@@ -523,10 +530,12 @@ fn resolve_reports_submitted_receipt_as_pending() {
     let files = ClientFiles::new();
     let order = order();
     let call = call(&order);
-    let tx_hash = transaction_hash(&call.sign(&[1; 32]).expect("signed transaction"));
+    let tx_hash = transaction_hash(&call.sign(&[1; 32]).required("signed transaction"));
     let mut rpc = RpcServer::new(tx_hash);
     let client = client(&files, &rpc, "https://localhost:1".into(), &call);
-    let submission = client.resolve(&order, tx_hash).expect("submitted receipt");
+    let submission = client
+        .resolve(&order, tx_hash)
+        .required("submitted receipt");
     assert_eq!(submission.tx_hash(), tx_hash);
     assert_eq!(submission.raw_transaction(), None);
     assert_eq!(

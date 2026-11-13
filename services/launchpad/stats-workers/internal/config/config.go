@@ -12,6 +12,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/url"
+	"os"
+	"strings"
+	"sync"
+	"time"
+
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	runtimedb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
 	dbproduction "github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
@@ -19,12 +26,6 @@ import (
 	pgxpool "github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nkeys"
-	"io"
-	"net/url"
-	"os"
-	"strings"
-	"sync"
-	"time"
 
 	"github.com/caarlos0/env/v11"
 
@@ -128,7 +129,7 @@ func (c Config) ValidateProductionWorkers() error {
 		return fmt.Errorf("stats_public_stream_schema_invalid")
 	}
 	for _, r := range c.PublicStreamSchema {
-		if !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '_') {
+		if (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '_' {
 			return fmt.Errorf("stats_public_stream_schema_invalid")
 		}
 	}
@@ -169,7 +170,7 @@ func (c Config) HolderRefreshInterval() time.Duration {
 }
 
 func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Context) error, context.CancelFunc, error) {
-	if c.NodeEnv != "production" {
+	if c.NodeEnv != valueProduction {
 		if c.NodeEnv != "" && c.NodeEnv != "test" && c.NodeEnv != "development" {
 			return nil, nil, fmt.Errorf("environment_invalid")
 		}
@@ -199,8 +200,8 @@ func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Con
 	if c.IdentityMTLSClientKeyFile == "" {
 		bindings["IDENTITY_MTLS_CLIENT_KEY_PEM"] = &c.IdentityMTLSClientKeyPEM
 	}
-	if c.DeploymentRealm == "private_fixture" {
-		if c.RuntimeProfile != "owned_local" {
+	if c.DeploymentRealm == valuePrivateFixture {
+		if c.RuntimeProfile != valueOwnedLocal {
 			return nil, nil, fmt.Errorf("fixture_nats_profile_mismatch")
 		}
 		if _, e := c.PrivateFixtureEvidence(); e != nil {
@@ -274,18 +275,19 @@ func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Con
 }
 
 func (c *Config) OpenRuntimePool(ctx context.Context, role string, legacy runtimedb.PoolOptions) (*pgxpool.Pool, error) {
-	if c.NodeEnv != "production" {
+	if c.NodeEnv != valueProduction {
 		return runtimedb.NewPool(ctx, c.DatabaseURL, legacy)
 	}
-	if c.RuntimeProfile == "container" {
+	switch c.RuntimeProfile {
+	case "container":
 		if c.Port != 8080 || c.BindAddress != "0.0.0.0" {
 			return nil, fmt.Errorf("container_bind_mismatch")
 		}
-	} else if c.RuntimeProfile == "owned_local" {
+	case valueOwnedLocal:
 		if c.BindAddress != "127.0.0.1" {
 			return nil, fmt.Errorf("owned_loopback_required")
 		}
-	} else {
+	default:
 		return nil, fmt.Errorf("runtime_profile_required")
 	}
 	if (c.RuntimeBudgetFile == "" && c.RuntimeBudgetDocument == "") || c.RuntimePoolID == "" || c.RuntimeInstanceID == "" {
@@ -317,7 +319,7 @@ func (c *Config) OpenRuntimePool(ctx context.Context, role string, legacy runtim
 	return pool, nil
 }
 func (c *Config) CheckRuntimeSchema(ctx context.Context, pool *pgxpool.Pool) error {
-	if c.NodeEnv != "production" {
+	if c.NodeEnv != valueProduction {
 		return pool.Ping(ctx)
 	}
 	if (c.ExpectedSchemaFile == "" && c.ExpectedSchemaDocument == "") || len(c.ExpectedSchemaSHA256) != 64 {
@@ -354,14 +356,14 @@ func (c *Config) registerInlineDocuments() error {
 		if p.file != "" && p.inline != "" {
 			return fmt.Errorf("%s and %s are both set", p.fileName, p.inlineName)
 		}
-		if c.NodeEnv == "production" && c.RuntimeProfile != "" && p.file == "" && p.inline == "" {
+		if c.NodeEnv == valueProduction && c.RuntimeProfile != "" && p.file == "" && p.inline == "" {
 			return fmt.Errorf("%s or %s is required", p.fileName, p.inlineName)
 		}
 	}
 	if c.NATSCredentials != "" && c.NATSCredentialsCreds != "" {
 		return fmt.Errorf("NATS_CREDENTIALS and NATS_CREDENTIALS_CREDS are both set")
 	}
-	if c.NodeEnv == "production" && c.RuntimeProfile != "" && c.DeploymentRealm != "private_fixture" && c.NATSCredentials == "" && c.NATSCredentialsCreds == "" {
+	if c.NodeEnv == valueProduction && c.RuntimeProfile != "" && c.DeploymentRealm != valuePrivateFixture && c.NATSCredentials == "" && c.NATSCredentialsCreds == "" {
 		return fmt.Errorf("NATS_CREDENTIALS or NATS_CREDENTIALS_CREDS is required")
 	}
 	pairs := []struct{ name, file, inline, digest string }{
@@ -410,7 +412,7 @@ func boundBytes(path, inline, digest string) ([]byte, error) {
 		if !info.Mode().IsRegular() || info.Size() > 1048576 {
 			return nil, fmt.Errorf("runtime_document_invalid")
 		}
-		if raw, err = os.ReadFile(path); err != nil {
+		if raw, err = readFileWithinPath(path); err != nil {
 			return nil, err
 		}
 	} else {
@@ -451,8 +453,8 @@ func decodeBoundDocument(path, inline, digest string, out any) error {
 
 func (c *Config) RuntimeNATSOptions() ([]nats.Option, error) {
 	options := []nats.Option{nats.Timeout(2 * time.Second), nats.Name(c.RuntimeInstanceID)}
-	if c.DeploymentRealm == "private_fixture" {
-		if c.RuntimeProfile != "owned_local" || c.NATSUsername == "" || c.NATSPassword == "" {
+	if c.DeploymentRealm == valuePrivateFixture {
+		if c.RuntimeProfile != valueOwnedLocal || c.NATSUsername == "" || c.NATSPassword == "" {
 			return nil, fmt.Errorf("fixture_broker_credentials_missing")
 		}
 		if _, err := c.PrivateFixtureEvidence(); err != nil {

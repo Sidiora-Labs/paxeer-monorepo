@@ -1,3 +1,5 @@
+#[allow(dead_code)]
+#[path = "support/mod.rs"]
 mod support;
 
 use std::{
@@ -47,8 +49,13 @@ fn transcript() -> BTreeMap<String, Vec<u8>> {
     TRANSCRIPT
         .lines()
         .map(|line| {
-            let (key, value) = line.split_once('=').unwrap();
-            (key.to_owned(), layerx_programs::hex::decode(value).unwrap())
+            let (key, value) = line
+                .split_once('=')
+                .unwrap_or_else(|| panic!("expected value"));
+            (
+                key.to_owned(),
+                layerx_programs::hex::decode(value).unwrap_or_else(|error| panic!("{error:?}")),
+            )
         })
         .collect()
 }
@@ -74,14 +81,19 @@ fn state_rows(record: &DeploymentRecord, interface: &ProgramInterface) -> Vec<(V
         (program_key(), value),
         (
             programs_state_key(&interface_state_key(program())),
-            interface_state_value(program(), record.version, interface).unwrap(),
+            interface_state_value(program(), record.version, interface)
+                .unwrap_or_else(|error| panic!("{error:?}")),
         ),
     ]
 }
 
 fn sign(chain: &mut ChainFixture) {
     chain.commit.height = chain.header.height;
-    chain.commit.block_id.hash = chain.header.hash().unwrap().to_vec();
+    chain.commit.block_id.hash = chain
+        .header
+        .hash()
+        .unwrap_or_else(|error| panic!("{error:?}"))
+        .to_vec();
     let timestamp = Timestamp {
         seconds: chain.header.time.seconds,
         nanos: chain.header.time.nanos,
@@ -93,7 +105,7 @@ fn sign(chain: &mut ChainFixture) {
         Some(&chain.commit.block_id),
         timestamp,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
     for signature in &mut chain.commit.signatures {
         let key = SEEDS
             .iter()
@@ -104,7 +116,7 @@ fn sign(chain: &mut ChainFixture) {
                     .as_slice()
                     == signature.validator_address
             })
-            .unwrap();
+            .unwrap_or_else(|| panic!("expected value"));
         signature.timestamp = timestamp;
         signature.signature = key.sign(&bytes).to_bytes().to_vec();
     }
@@ -132,14 +144,9 @@ struct PeerExport {
 // Replay original node serializer bytes into an in-memory consensus/store peer.
 // A full host-executed admission export is an explicit out-of-path wiring request
 // in support/repair_22_33_222.kvx; this peer does not claim to execute the Go host.
-fn peer_exports() -> (ProtocolDeploymentVerifier, Vec<PeerExport>) {
-    let source = transcript();
-    assert_eq!(
-        hash_from_byte_slices(&[&source["success.leaf"]]).as_slice(),
-        source["success.root"]
-    );
+fn peer_records(source: &BTreeMap<String, Vec<u8>>) -> Vec<DeploymentRecord> {
     let policy = UpgradePolicy::Authority(AUTHORITY);
-    let mut runtime = Lifecycle::declared().unwrap();
+    let mut runtime = Lifecycle::declared().unwrap_or_else(|error| panic!("{error:?}"));
     let first = runtime
         .deploy(Deploy {
             program: program(),
@@ -148,7 +155,7 @@ fn peer_exports() -> (ProtocolDeploymentVerifier, Vec<PeerExport>) {
             abi_version: 1,
             upgrade_policy: policy,
         })
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let second = runtime
         .upgrade(Upgrade {
             program: program(),
@@ -158,7 +165,7 @@ fn peer_exports() -> (ProtocolDeploymentVerifier, Vec<PeerExport>) {
             abi_version: 1,
             migration: None,
         })
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let records: Vec<_> = [&first, &second]
         .into_iter()
         .enumerate()
@@ -175,22 +182,29 @@ fn peer_exports() -> (ProtocolDeploymentVerifier, Vec<PeerExport>) {
                 39 + index as u64,
                 1_700_000_001_123 + index as u64 * 1_000,
             )
-            .unwrap()
+            .unwrap_or_else(|error| panic!("{error:?}"))
         })
         .collect();
-    let unrelated = hash(&source["unrelated"]);
-    let transactions = [&source["deploy"], &source["upgrade"]];
-    let tx_proofs: Vec<_> = transactions
-        .iter()
-        .map(|transaction| indexed_pair(&unrelated, &hash(transaction)))
-        .collect();
-    let (result_root, result_proof) = indexed_pair(&source["failed.leaf"], &source["success.leaf"]);
-    let mut chains =
-        vec![ChainFixture::new(CHAIN, &SEEDS, vec![(b"unrelated".to_vec(), vec![1])]).unwrap()];
+    records
+}
+
+fn peer_chains(
+    source: &BTreeMap<String, Vec<u8>>,
+    records: &[DeploymentRecord],
+    tx_proofs: &[([u8; 32], SimpleProof)],
+    result_root: [u8; 32],
+) -> Vec<ChainFixture> {
+    let mut chains = vec![
+        ChainFixture::new(CHAIN, &SEEDS, vec![(b"unrelated".to_vec(), vec![1])])
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    ];
     for (index, record) in records.iter().enumerate() {
-        let interface =
-            ProgramInterface::decode(&source[&format!("interface.{}", index + 1)]).unwrap();
-        chains.push(ChainFixture::new(CHAIN, &SEEDS, state_rows(record, &interface)).unwrap());
+        let interface = ProgramInterface::decode(&source[&format!("interface.{}", index + 1)])
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        chains.push(
+            ChainFixture::new(CHAIN, &SEEDS, state_rows(record, &interface))
+                .unwrap_or_else(|error| panic!("{error:?}")),
+        );
     }
     for index in 0..chains.len() {
         if index > 0 {
@@ -200,8 +214,9 @@ fn peer_exports() -> (ProtocolDeploymentVerifier, Vec<PeerExport>) {
             chains[index].header.last_block_id.part_set_hash = previous_id.part_set_header.hash;
         }
         let chain = &mut chains[index];
-        chain.header.height = 38 + index as i64;
-        chain.header.time.seconds = 1_700_000_000 + index as i64;
+        chain.header.height = 38 + i64::try_from(index).unwrap_or_else(|error| panic!("{error:?}"));
+        chain.header.time.seconds =
+            1_700_000_000 + i64::try_from(index).unwrap_or_else(|error| panic!("{error:?}"));
         if index < tx_proofs.len() {
             chain.header.data_hash = tx_proofs[index].0.to_vec();
         }
@@ -210,79 +225,135 @@ fn peer_exports() -> (ProtocolDeploymentVerifier, Vec<PeerExport>) {
         }
         sign(chain);
     }
+    chains
+}
+
+fn peer_export(
+    index: usize,
+    expected: DeploymentRecord,
+    previous: &ChainFixture,
+    next: &ChainFixture,
+    tx_proof: &SimpleProof,
+    source: &BTreeMap<String, Vec<u8>>,
+    result_proof: &SimpleProof,
+) -> PeerExport {
+    let commitment = decode_commitment_proof(
+        &next
+            .encode_key(&program_key())
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let state = ChainProgramStateProof {
+        program: program(),
+        ops: commitment.proof_ops.clone(),
+    };
+    let interface_key = programs_state_key(&interface_state_key(program()));
+    let interface_state = decode_commitment_proof(
+        &next
+            .encode_key(&interface_key)
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let mut status_key = b"wind-down\0s".to_vec();
+    status_key.extend_from_slice(&program().bytes());
+    let status_ops = next
+        .prove_absent(&programs_state_key(&status_key))
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let mut proof = DeploymentProof {
+        state: ProgramStateProof {
+            lifecycle: ProgramLifecycleProof(ChainLifecycleProof {
+                program: program(),
+                record: commitment.value.clone(),
+                record_ops: state.ops.clone(),
+                status: None,
+                status_ops: status_ops.clone(),
+            }),
+            commitment,
+            state: state.clone(),
+            wind_down: ChainWindDownProof {
+                program: program(),
+                value: None,
+                ops: status_ops,
+            },
+            transaction: Vec::new(),
+            transaction_proof: tx_proof.clone(),
+        },
+        deployment: ChainDeploymentProof::from_state_proofs(
+            state,
+            expected.module.clone(),
+            &interface_state,
+        )
+        .unwrap_or_else(|error| panic!("{error:?}")),
+    };
+    let execution = DeploymentExecutionProof {
+        transaction: source[if index == 0 { "deploy" } else { "upgrade" }].clone(),
+        previous: decode_commitment_proof(
+            &previous
+                .encode_key(&program_key())
+                .unwrap_or_else(|error| panic!("{error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("{error:?}")),
+        result: TxResult {
+            code: 0,
+            data: source["success"].clone(),
+            gas_wanted: 0,
+            gas_used: 0,
+        },
+        result_proof: result_proof.clone(),
+        interface_ops: interface_state.proof_ops,
+        migration: None,
+        migration_ops: Vec::new(),
+        migration_previous_ops: Vec::new(),
+    };
+    proof
+        .bind_execution(&execution)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    PeerExport {
+        admission: proof
+            .canonical_encoding()
+            .unwrap_or_else(|error| panic!("{error:?}")),
+        proof,
+        execution,
+        expected,
+    }
+}
+
+fn peer_exports() -> (ProtocolDeploymentVerifier, Vec<PeerExport>) {
+    let source = transcript();
+    assert_eq!(
+        hash_from_byte_slices(&[&source["success.leaf"]]).as_slice(),
+        source["success.root"]
+    );
+    let records = peer_records(&source);
+    let unrelated = hash(&source["unrelated"]);
+    let transactions = [&source["deploy"], &source["upgrade"]];
+    let tx_proofs: Vec<_> = transactions
+        .iter()
+        .map(|transaction| indexed_pair(&unrelated, &hash(transaction)))
+        .collect();
+    let (result_root, result_proof) = indexed_pair(&source["failed.leaf"], &source["success.leaf"]);
+    let chains = peer_chains(&source, &records, &tx_proofs, result_root);
     let verifier = ProtocolDeploymentVerifier::from_chain_trust(
         CHAIN,
         chains[0].verifier.validators.validators().to_vec(),
         5_000,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
     let exports = records
         .into_iter()
         .enumerate()
         .map(|(index, expected)| {
             let previous = &chains[index];
             let next = &chains[index + 1];
-            let commitment =
-                decode_commitment_proof(&next.encode_key(&program_key()).unwrap()).unwrap();
-            let state = ChainProgramStateProof {
-                program: program(),
-                ops: commitment.proof_ops.clone(),
-            };
-            let interface_key = programs_state_key(&interface_state_key(program()));
-            let interface_state =
-                decode_commitment_proof(&next.encode_key(&interface_key).unwrap()).unwrap();
-            let mut status_key = b"wind-down\0s".to_vec();
-            status_key.extend_from_slice(&program().bytes());
-            let status_ops = next.prove_absent(&programs_state_key(&status_key)).unwrap();
-            let mut proof = DeploymentProof {
-                state: ProgramStateProof {
-                    lifecycle: ProgramLifecycleProof(ChainLifecycleProof {
-                        program: program(),
-                        record: commitment.value.clone(),
-                        record_ops: state.ops.clone(),
-                        status: None,
-                        status_ops: status_ops.clone(),
-                    }),
-                    commitment,
-                    state: state.clone(),
-                    wind_down: ChainWindDownProof {
-                        program: program(),
-                        value: None,
-                        ops: status_ops,
-                    },
-                    transaction: Vec::new(),
-                    transaction_proof: tx_proofs[index].1.clone(),
-                },
-                deployment: ChainDeploymentProof::from_state_proofs(
-                    state,
-                    expected.module.clone(),
-                    &interface_state,
-                )
-                .unwrap(),
-            };
-            let execution = DeploymentExecutionProof {
-                transaction: transactions[index].clone(),
-                previous: decode_commitment_proof(&previous.encode_key(&program_key()).unwrap())
-                    .unwrap(),
-                result: TxResult {
-                    code: 0,
-                    data: source["success"].clone(),
-                    gas_wanted: 0,
-                    gas_used: 0,
-                },
-                result_proof: result_proof.clone(),
-                interface_ops: interface_state.proof_ops,
-                migration: None,
-                migration_ops: Vec::new(),
-                migration_previous_ops: Vec::new(),
-            };
-            proof.bind_execution(&execution).unwrap();
-            PeerExport {
-                admission: proof.canonical_encoding().unwrap(),
-                proof,
-                execution,
+            peer_export(
+                index,
                 expected,
-            }
+                previous,
+                next,
+                &tx_proofs[index].1,
+                &source,
+                &result_proof,
+            )
         })
         .collect();
     (verifier, exports)
@@ -296,12 +367,15 @@ fn deployment_support_producer_transports_original_admission() {
     for (index, export) in exports.iter().enumerate() {
         let fixture =
             node_deployment_fixture(&export.admission, &verifier, export.expected.observed_at)
-                .unwrap();
+                .unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(fixture.admission(), export.admission);
         assert_eq!(fixture.proof(), &export.proof);
         assert_eq!(fixture.execution(), &export.execution);
         assert_eq!(
-            fixture.proof().canonical_encoding().unwrap(),
+            fixture
+                .proof()
+                .canonical_encoding()
+                .unwrap_or_else(|error| panic!("{error:?}")),
             export.admission
         );
         assert_eq!(
@@ -312,10 +386,15 @@ fn deployment_support_producer_transports_original_admission() {
         assert_eq!(fixture.execution().result_proof.index, 1);
         assert_eq!(fixture.proof().state.transaction_proof.index, 1);
         assert_eq!(fixture.execution().result_proof.total, 2);
-        let prior = ChainHeader::decode(&fixture.execution().previous.signed_header).unwrap();
-        let next = ChainHeader::decode(&fixture.proof().state.commitment.signed_header).unwrap();
+        let prior = ChainHeader::decode(&fixture.execution().previous.signed_header)
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        let next = ChainHeader::decode(&fixture.proof().state.commitment.signed_header)
+            .unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(prior.height + 1, next.height);
-        assert_eq!(next.last_block_id.hash, prior.hash().unwrap());
+        assert_eq!(
+            next.last_block_id.hash,
+            prior.hash().unwrap_or_else(|error| panic!("{error:?}"))
+        );
         assert_ne!(prior.app_hash, next.app_hash);
         assert_eq!(fixture.evidence().record(), &export.expected);
         assert_eq!(
@@ -324,16 +403,22 @@ fn deployment_support_producer_transports_original_admission() {
         );
         registry
             .record_verified_deployment(fixture.evidence())
-            .unwrap();
+            .unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(
             registry
                 .resolve_deployment(fixture.evidence().clone())
-                .unwrap(),
+                .unwrap_or_else(|error| panic!("{error:?}")),
             *fixture.evidence()
         );
-        assert_eq!(registry.latest_version(program()), Ok((index + 1) as u32));
-        let mut catalog = VerifiedProgramCatalog::declared().unwrap();
-        catalog.admit(fixture.evidence().clone()).unwrap();
+        assert_eq!(
+            registry.latest_version(program()),
+            Ok(u32::try_from(index + 1).unwrap_or_else(|error| panic!("{error:?}")))
+        );
+        let mut catalog =
+            VerifiedProgramCatalog::declared().unwrap_or_else(|error| panic!("{error:?}"));
+        catalog
+            .admit(fixture.evidence().clone())
+            .unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(
             catalog.code_hash(program()),
             Some(export.expected.new_code_hash)
@@ -360,14 +445,14 @@ impl Store {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
-        fs::create_dir(&path).unwrap();
+        fs::create_dir(&path).unwrap_or_else(|error| panic!("{error:?}"));
         Self(path)
     }
 }
 
 impl Drop for Store {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).unwrap();
+        fs::remove_dir_all(&self.0).unwrap_or_else(|error| panic!("{error:?}"));
     }
 }
 
@@ -375,22 +460,27 @@ impl Drop for Store {
 fn deployment_support_producer_recovers_original_admission() {
     let store = Store::create();
     let (verifier, exports) = peer_exports();
-    let trust = verifier.chain_trust().unwrap().clone();
+    let trust = verifier
+        .chain_trust()
+        .unwrap_or_else(|| panic!("expected value"))
+        .clone();
     let mut accepted = Vec::new();
     for (index, export) in exports.iter().enumerate() {
         let fixture =
             node_deployment_fixture(&export.admission, &verifier, export.expected.observed_at)
-                .unwrap();
+                .unwrap_or_else(|error| panic!("{error:?}"));
         fixture
             .proof()
             .publish_canonical(&store.0.join(format!("{index}.admission")))
-            .unwrap();
+            .unwrap_or_else(|error| panic!("{error:?}"));
         let envelope = DeploymentEnvelope::from_evidence(fixture.evidence());
         fs::write(
             store.0.join(format!("{index}.envelope")),
-            envelope.canonical_encoding().unwrap(),
+            envelope
+                .canonical_encoding()
+                .unwrap_or_else(|error| panic!("{error:?}")),
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
         accepted.push(fixture.evidence().clone());
     }
     drop(exports);
@@ -400,32 +490,45 @@ fn deployment_support_producer_recovers_original_admission() {
         trust.validators.validators().to_vec(),
         5_000,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
     let mut entries = Vec::new();
     for (index, expected) in accepted.iter().enumerate() {
-        let bytes = fs::read(store.0.join(format!("{index}.admission"))).unwrap();
-        let fixture =
-            node_deployment_fixture(&bytes, &reopened, expected.record().observed_at).unwrap();
+        let bytes = fs::read(store.0.join(format!("{index}.admission")))
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        let fixture = node_deployment_fixture(&bytes, &reopened, expected.record().observed_at)
+            .unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(fixture.evidence(), expected);
         assert_eq!(
             fixture.admission(),
-            expected.proof().canonical_encoding().unwrap()
+            expected
+                .proof()
+                .canonical_encoding()
+                .unwrap_or_else(|error| panic!("{error:?}"))
         );
         let envelope = DeploymentEnvelope::decode(
-            &fs::read(store.0.join(format!("{index}.envelope"))).unwrap(),
+            &fs::read(store.0.join(format!("{index}.envelope")))
+                .unwrap_or_else(|error| panic!("{error:?}")),
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(envelope.proof(), fixture.proof());
         assert_eq!(envelope.record(), expected.record());
         assert_eq!(envelope.receipt_digest(), expected.receipt_digest());
-        entries.push(envelope.journal_entry().unwrap());
+        entries.push(
+            envelope
+                .journal_entry()
+                .unwrap_or_else(|error| panic!("{error:?}")),
+        );
     }
     let mut recovered = Registry::new();
-    recovered.replay_journal(&entries).unwrap();
+    recovered
+        .replay_journal(&entries)
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(recovered.latest_version(program()), Ok(2));
     for expected in accepted {
         assert_eq!(
-            recovered.resolve_deployment(expected.clone()).unwrap(),
+            recovered
+                .resolve_deployment(expected.clone())
+                .unwrap_or_else(|error| panic!("{error:?}")),
             expected
         );
     }
@@ -443,7 +546,10 @@ fn deployment_support_producer_refuses_synthetic_and_cross_wired_evidence() {
         now,
     );
     assert!(node_deployment_fixture(
-        &primitive.proof.canonical_encoding().unwrap(),
+        &primitive
+            .proof
+            .canonical_encoding()
+            .unwrap_or_else(|error| panic!("{error:?}")),
         &support::verifier_for_fixture(&primitive, 5_000),
         now,
     )
@@ -493,7 +599,9 @@ fn deployment_support_producer_refuses_synthetic_and_cross_wired_evidence() {
             }
             _ => unreachable!(),
         };
-        proof.bind_execution(&execution).unwrap();
+        proof
+            .bind_execution(&execution)
+            .unwrap_or_else(|error| panic!("{error:?}"));
         changes.push((name, proof));
     }
     let mut bare_payload = export.proof.clone();
@@ -508,11 +616,24 @@ fn deployment_support_producer_refuses_synthetic_and_cross_wired_evidence() {
     changes.push(("different interface witness head", cross_interface));
     for (name, proof) in changes {
         assert!(
-            node_deployment_fixture(&proof.canonical_encoding().unwrap(), &verifier, now).is_err(),
+            node_deployment_fixture(
+                &proof
+                    .canonical_encoding()
+                    .unwrap_or_else(|error| panic!("{error:?}")),
+                &verifier,
+                now
+            )
+            .is_err(),
             "accepted {name}"
         );
     }
-    assert_eq!(export.admission, export.proof.canonical_encoding().unwrap());
+    assert_eq!(
+        export.admission,
+        export
+            .proof
+            .canonical_encoding()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+    );
     assert!(node_deployment_fixture(&export.admission, &verifier, now).is_ok());
 }
 
@@ -525,13 +646,13 @@ fn deployment_support_producer_uses_consumer_trust() {
         "foreign-chain",
         verifier
             .chain_trust()
-            .unwrap()
+            .unwrap_or_else(|| panic!("expected value"))
             .validators
             .validators()
             .to_vec(),
         5_000,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
     assert!(node_deployment_fixture(&export.admission, &foreign_chain, now).is_err());
     let foreign_validator = TrustedValidator::new(
         SigningKey::from_bytes(&[0x99; 32])
@@ -541,7 +662,7 @@ fn deployment_support_producer_uses_consumer_trust() {
     );
     let foreign_trust =
         ProtocolDeploymentVerifier::from_chain_trust(CHAIN, vec![foreign_validator], 5_000)
-            .unwrap();
+            .unwrap_or_else(|error| panic!("{error:?}"));
     assert!(node_deployment_fixture(&export.admission, &foreign_trust, now).is_err());
     assert!(node_deployment_fixture(&export.admission, &verifier, now + 5_001).is_err());
     assert!(node_deployment_fixture(&export.admission, &verifier, now - 1_001).is_err());

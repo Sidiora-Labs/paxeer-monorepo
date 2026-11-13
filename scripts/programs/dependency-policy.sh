@@ -1,6 +1,117 @@
 #!/bin/sh
 set -eu
 
+unsafe_exceptions() {
+    cat <<'UNSAFE_EXCEPTIONS'
+# Foreign function declaration and export for migration ingress.
+layerx-programs-runtime/src/ffi.rs
+# Foreign function declarations and exports for CALL ingress.
+layerx-programs-runtime/src/ffi_call.rs
+# Foreign function declaration for interface ingress.
+layerx-programs-runtime/src/ffi_interface.rs
+# Foreign function declarations and exports for transfer ingress.
+layerx-programs-runtime/src/ffi_transfer.rs
+# Foreign function exports for the native contract.
+layerx-programs-runtime/src/native_contract.rs
+# Guest cell of the single threaded guest.
+layerx-programs-ai-market/src/guest_cell.rs
+# Foreign function declarations and exports for sandbox host ingress.
+layerx-programs-sandbox/src/host_ffi.rs
+# Foreign function declaration and export for sandbox terminal publication.
+layerx-programs-sandbox/src/host_ffi/terminal.rs
+# Foreign function declaration retaining sandbox host exports.
+layerx-programs-sandbox/src/lib.rs
+# Foreign function link of the sandbox archive test.
+layerx-programs-sandbox/tests/repair_22_33_231.rs
+# Foreign function link of the sandbox host export test.
+layerx-programs-sandbox/tests/host_ffi_link.rs
+# Foreign function link of the runtime native contract test.
+layerx-programs-runtime/tests/repair_22_31_259.rs
+# Counting allocator of the runtime receipt decoder test.
+layerx-programs-runtime/tests/repair_22_33_226.rs
+# Counting allocator of the runtime guest execution test.
+layerx-programs-runtime/tests/repair_22_33_227.rs
+# Counting allocator of the runtime host state decoder test.
+layerx-programs-runtime/tests/repair_22_33_258.rs
+# Foreign function link of the runtime interface test.
+layerx-programs-runtime/tests/repair_22_33_259.rs
+# Foreign function link of the arbiter signature test.
+layerx-programs-arbiter/tests/proof_arbiter_crate.rs
+UNSAFE_EXCEPTIONS
+}
+
+check_unsafe_code() (
+    crates_root=$1
+    search_tool=$2
+    case "$search_tool" in
+        rg)
+            if unsafe_hits=$(rg -n --glob '*.rs' \
+                '\bunsafe\s+(fn|trait|impl|extern)|\bunsafe\s*\{' "$crates_root"); then
+                :
+            else
+                status=$?
+                [ "$status" -eq 1 ] || return "$status"
+            fi
+            ;;
+        grep)
+            if unsafe_hits=$(grep -rEn --include='*.rs' \
+                '\bunsafe[[:space:]]+(fn|trait|impl|extern)|\bunsafe[[:space:]]*\{' "$crates_root"); then
+                :
+            else
+                status=$?
+                [ "$status" -eq 1 ] || return "$status"
+            fi
+            ;;
+        *) return 2 ;;
+    esac
+    unsafe_hits=$(printf '%s\n' "$unsafe_hits" | awk \
+        -v root="$crates_root/" -v exceptions="$(unsafe_exceptions)" '
+        BEGIN {
+            count = split(exceptions, paths, "\n")
+            for (i = 1; i <= count; i++) {
+                if (paths[i] != "" && paths[i] !~ /^#/) excepted[root paths[i]] = 1
+            }
+        }
+        NF && !(substr($0, 1, index($0, ":") - 1) in excepted)
+    ')
+    if [ -n "$unsafe_hits" ]; then
+        printf '%s\n' "$unsafe_hits" >&2
+        echo "programs unsafe policy: unsafe code is forbidden" >&2
+        return 1
+    fi
+)
+
+unsafe_policy_self_test() (
+    fixture_root=$(mktemp -d)
+    trap 'rm -rf -- "$fixture_root"' EXIT HUP INT TERM
+    mkdir -p "$fixture_root/crates/layerx-programs-runtime/src"
+    printf '%s\n' 'unsafe extern "C" {}' >"$fixture_root/crates/layerx-programs-runtime/src/ffi.rs"
+    for search_tool in rg grep; do
+        if [ "$search_tool" = rg ] && ! command -v rg >/dev/null 2>&1; then
+            continue
+        fi
+        check_unsafe_code "$fixture_root/crates" "$search_tool"
+        outside="$fixture_root/crates/layerx-programs-runtime/src/ffi_extra.rs"
+        printf '%s\n' 'unsafe fn outside_boundary() {}' >"$outside"
+        if check_unsafe_code "$fixture_root/crates" "$search_tool" >"$fixture_root/output" 2>&1; then
+            echo "programs unsafe policy self-test: accepted a file outside the exception list" >&2
+            return 1
+        else
+            status=$?
+            [ "$status" -eq 1 ] || return "$status"
+        fi
+        grep -F "$outside:1:unsafe fn outside_boundary() {}" "$fixture_root/output" >/dev/null
+        grep -Fx 'programs unsafe policy: unsafe code is forbidden' "$fixture_root/output" >/dev/null
+        rm -- "$outside"
+    done
+)
+
+unsafe_policy_self_test
+if [ "${1:-}" = --self-test ]; then
+    echo "programs unsafe policy self-test passed"
+    exit 0
+fi
+
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 metadata_file=$(mktemp)
 license_file=$(mktemp)
@@ -9,7 +120,7 @@ trap 'rm -f -- "$metadata_file" "$license_file" "$vendor_file"' EXIT HUP INT TER
 
 cd "$repo_root/programs"
 cargo metadata --manifest-path "$repo_root/programs/Cargo.toml" \
-    --locked --format-version 1 >"$metadata_file"
+    --locked --format-version 1 --features layerx-programs-sandbox/host-ffi >"$metadata_file"
 
 banned='^(bindgen|libsqlite3-sys|rusqlite|sqlx-sqlite|ctor|inventory|getrandom|rand|chrono|time|instant|tokio|mio|socket2|wasi|wasmtime)$'
 if jq -r '.packages[].name' "$metadata_file" | grep -Eq "$banned"; then
@@ -130,22 +241,9 @@ if ! grep -q 'replace-with = "vendored-sources"' "$repo_root/programs/.cargo/con
 fi
 
 if command -v rg >/dev/null 2>&1; then
-    unsafe_hits=$(rg -n --glob '*.rs' \
-        --glob '!**/layerx-programs-runtime/src/ffi*.rs' \
-        --glob '!**/layerx-programs-sandbox/src/host_ffi.rs' \
-        '\bunsafe\s+(fn|trait|impl|extern)|\bunsafe\s*\{' \
-        "$repo_root/programs/crates" || true)
+    check_unsafe_code "$repo_root/programs/crates" rg
 else
-    unsafe_hits=$(grep -rEn --include='*.rs' \
-        '\bunsafe[[:space:]]+(fn|trait|impl|extern)|\bunsafe[[:space:]]*\{' \
-        "$repo_root/programs/crates" | grep -Ev \
-        '/layerx-programs-runtime/src/ffi[^/]*\.rs:|/layerx-programs-sandbox/src/host_ffi\.rs:' \
-        || true)
-fi
-if [ -n "$unsafe_hits" ]; then
-    printf '%s\n' "$unsafe_hits" >&2
-    echo "programs unsafe policy: unsafe code is forbidden" >&2
-    exit 1
+    check_unsafe_code "$repo_root/programs/crates" grep
 fi
 
 if command -v rg >/dev/null 2>&1; then

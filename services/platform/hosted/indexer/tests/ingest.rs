@@ -224,52 +224,7 @@ fn address_of(label: &str) -> String {
     }
 }
 
-#[test]
-fn paxeer_blocks_logs_and_tx_search_decode_paginate_and_roll_back() {
-    let alice = address_of("alice");
-    let bob = address_of("bob");
-    let carol = address_of("carol");
-    let chain = fixture("paxeer_blocks.json");
-    let pointer = chain["pointer"]["address"]
-        .as_str()
-        .unwrap_or_default()
-        .to_owned();
-
-    let state = Arc::new(Mutex::new("canonical"));
-    let rpc = paxeer_server(Arc::clone(&state));
-    let store = Store::open_in_memory().unwrap_or_else(|error| panic!("{error}"));
-    store
-        .register_assets(&[AssetRow {
-            asset: format!("evm:{pointer}"),
-            chain: "paxeer".to_owned(),
-            kind: "pointer".to_owned(),
-            address: Some(pointer.clone()),
-            denom: Some("upax".to_owned()),
-            metadata: json!({}),
-        }])
-        .unwrap_or_else(|error| panic!("{error}"));
-    let registry = AbiRegistry::load_dir(&precompiles()).unwrap_or_else(|error| panic!("{error}"));
-    let ingester = PaxeerIngester::new(
-        endpoint(&rpc),
-        Some(endpoint(&rpc)),
-        registry,
-        FollowPolicy {
-            finality_depth: 2,
-            max_units_per_step: 16,
-        },
-        1,
-        Some(0xe5),
-        AttributeEncoding::Base64,
-    );
-
-    assert_eq!(
-        step_ok(|| ingester.step(&store)),
-        StepOutcome::Advanced {
-            units: 3,
-            position: 3
-        }
-    );
-
+fn assert_ingested_transfers(store: &Store, alice: &str, bob: &str, carol: &str) {
     let transfers = store
         .transfers("paxeer")
         .unwrap_or_else(|error| panic!("{error}"));
@@ -279,15 +234,15 @@ fn paxeer_blocks_logs_and_tx_search_decode_paginate_and_roll_back() {
         by(&native, "direction", "out")[0]["amount"],
         "1000000000000000000"
     );
-    assert!(by(&transfers, "account", &carol)
+    assert!(by(&transfers, "account", carol)
         .iter()
         .all(|row| row["kind"] != "native_transfer"));
 
     let erc20 = by(&transfers, "kind", "erc20_transfer");
     assert_eq!(erc20.len(), 2);
     let erc20_out = &by(&erc20, "direction", "out")[0];
-    assert_eq!(erc20_out["account"], alice.as_str());
-    assert_eq!(erc20_out["counterparty"], bob.as_str());
+    assert_eq!(erc20_out["account"], alice);
+    assert_eq!(erc20_out["counterparty"], bob);
     assert_eq!(erc20_out["amount"], "1000000");
     assert_eq!(
         erc20_out["asset"],
@@ -296,10 +251,7 @@ fn paxeer_blocks_logs_and_tx_search_decode_paginate_and_roll_back() {
 
     let pointer_legs = by(&transfers, "kind", "pointer_transfer");
     assert_eq!(pointer_legs.len(), 2);
-    assert_eq!(
-        by(&pointer_legs, "direction", "in")[0]["account"],
-        carol.as_str()
-    );
+    assert_eq!(by(&pointer_legs, "direction", "in")[0]["account"], carol);
     assert_eq!(pointer_legs[0]["amount"], "42");
 
     assert!(by(&transfers, "kind", "custody_deposit").is_empty());
@@ -327,8 +279,10 @@ fn paxeer_blocks_logs_and_tx_search_decode_paginate_and_roll_back() {
     assert_eq!(checkpoint.len(), 1);
     assert_eq!(checkpoint[0]["decoded"]["attributes"]["batch_number"], "3");
     assert_eq!(by(&events, "name", "create_denom").len(), 1);
+}
 
-    let first = api::route(&store, "GET", &format!("/v1/history/{alice}?limit=1"));
+fn assert_history_pages(store: &Store, alice: &str) {
+    let first = api::route(store, "GET", &format!("/v1/history/{alice}?limit=1"));
     assert_eq!(first.status, 200);
     let first: Value = serde_json::from_str(&first.body).unwrap_or_else(|error| panic!("{error}"));
     assert_eq!(first["items"].as_array().map(Vec::len), Some(1));
@@ -350,7 +304,7 @@ fn paxeer_blocks_logs_and_tx_search_decode_paginate_and_roll_back() {
         })
     );
     let second = api::route(
-        &store,
+        store,
         "GET",
         &format!(
             "/v1/history/{}?limit=1&cursor={next}",
@@ -399,7 +353,7 @@ fn paxeer_blocks_logs_and_tx_search_decode_paginate_and_roll_back() {
         "ab".repeat(56),
     ] {
         let refused = api::route(
-            &store,
+            store,
             "GET",
             &format!("/v1/history/{alice}?cursor={cursor}"),
         );
@@ -409,7 +363,7 @@ fn paxeer_blocks_logs_and_tx_search_decode_paginate_and_roll_back() {
         assert_eq!(refused["error"]["code"], "invalid_cursor", "{cursor}");
     }
     let filtered = api::route(
-        &store,
+        store,
         "GET",
         &format!("/v1/history/{alice}?kind=erc20_transfer"),
     );
@@ -417,16 +371,18 @@ fn paxeer_blocks_logs_and_tx_search_decode_paginate_and_roll_back() {
         serde_json::from_str(&filtered.body).unwrap_or_else(|error| panic!("{error}"));
     assert_eq!(filtered["items"].as_array().map(Vec::len), Some(1));
     assert_eq!(
-        api::route(&store, "GET", "/v1/history/x?limit=0").status,
+        api::route(store, "GET", "/v1/history/x?limit=0").status,
         400
     );
     assert_eq!(
-        api::route(&store, "GET", "/v1/history/x?bogus=1").status,
+        api::route(store, "GET", "/v1/history/x?bogus=1").status,
         400
     );
-    assert_eq!(api::route(&store, "POST", "/healthz").status, 405);
+    assert_eq!(api::route(store, "POST", "/healthz").status, 405);
+}
 
-    let assets = api::route(&store, "GET", "/v1/assets?limit=100");
+fn assert_asset_pages(store: &Store) {
+    let assets = api::route(store, "GET", "/v1/assets?limit=100");
     let assets: Value =
         serde_json::from_str(&assets.body).unwrap_or_else(|error| panic!("{error}"));
     let listed: Vec<&str> = assets["items"]
@@ -439,7 +395,7 @@ fn paxeer_blocks_logs_and_tx_search_decode_paginate_and_roll_back() {
     assert!(listed.contains(&denom));
     assert!(listed.contains(&"evm:native"));
     let one = api::route(
-        &store,
+        store,
         "GET",
         &format!("/v1/assets/{}", denom.replace('/', "%2F")),
     );
@@ -448,18 +404,18 @@ fn paxeer_blocks_logs_and_tx_search_decode_paginate_and_roll_back() {
     assert_eq!(one["asset"]["kind"], "tokenfactory");
     assert_eq!(one["asset"]["transfer_legs"], "1");
     assert_eq!(
-        api::route(&store, "GET", "/v1/assets/denom:none").status,
+        api::route(store, "GET", "/v1/assets/denom:none").status,
         404
     );
 
-    let paged = api::route(&store, "GET", "/v1/assets?limit=1");
+    let paged = api::route(store, "GET", "/v1/assets?limit=1");
     let paged: Value = serde_json::from_str(&paged.body).unwrap_or_else(|error| panic!("{error}"));
     let cursor = paged["next_cursor"]
         .as_str()
         .unwrap_or_else(|| panic!("asset cursor"))
         .to_owned();
     let rest = api::route(
-        &store,
+        store,
         "GET",
         &format!("/v1/assets?limit=500&cursor={cursor}"),
     );
@@ -468,6 +424,59 @@ fn paxeer_blocks_logs_and_tx_search_decode_paginate_and_roll_back() {
         rest["items"].as_array().map(Vec::len).unwrap_or_default() + 1,
         listed.len()
     );
+}
+
+#[test]
+fn paxeer_blocks_logs_and_tx_search_decode_paginate_and_roll_back() {
+    let alice = address_of("alice");
+    let bob = address_of("bob");
+    let carol = address_of("carol");
+    let chain = fixture("paxeer_blocks.json");
+    let pointer = chain["pointer"]["address"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+
+    let state = Arc::new(Mutex::new("canonical"));
+    let rpc = paxeer_server(Arc::clone(&state));
+    let store = Store::open_in_memory().unwrap_or_else(|error| panic!("{error}"));
+    store
+        .register_assets(&[AssetRow {
+            asset: format!("evm:{pointer}"),
+            chain: "paxeer".to_owned(),
+            kind: "pointer".to_owned(),
+            address: Some(pointer.clone()),
+            denom: Some("upax".to_owned()),
+            metadata: json!({}),
+        }])
+        .unwrap_or_else(|error| panic!("{error}"));
+    let registry = AbiRegistry::load_dir(&precompiles()).unwrap_or_else(|error| panic!("{error}"));
+    let ingester = PaxeerIngester::new(
+        endpoint(&rpc),
+        Some(endpoint(&rpc)),
+        registry,
+        FollowPolicy {
+            finality_depth: 2,
+            max_units_per_step: 16,
+        },
+        1,
+        Some(0xe5),
+        AttributeEncoding::Base64,
+    );
+
+    assert_eq!(
+        step_ok(|| ingester.step(&store)),
+        StepOutcome::Advanced {
+            units: 3,
+            position: 3
+        }
+    );
+
+    assert_ingested_transfers(&store, &alice, &bob, &carol);
+
+    assert_history_pages(&store, &alice);
+
+    assert_asset_pages(&store);
 
     set(&state, "reorg");
     assert_eq!(

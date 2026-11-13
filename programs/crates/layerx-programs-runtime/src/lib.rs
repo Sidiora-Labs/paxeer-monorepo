@@ -24,6 +24,9 @@ pub mod accounts;
 pub mod budget;
 #[deny(unsafe_code)]
 pub mod cache;
+#[cfg(any(feature = "host-ffi", test))]
+#[deny(unsafe_code)]
+mod call_occupancy;
 #[deny(unsafe_code)]
 pub mod calls;
 #[deny(unsafe_code)]

@@ -13,11 +13,11 @@ pub struct Replay {
 }
 impl Replay {
     pub fn new(answers: Value) -> Self {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind RPC");
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").or_fail("bind RPC");
         listener
             .set_nonblocking(true)
-            .expect("nonblocking listener");
-        let address = listener.local_addr().expect("RPC address");
+            .or_fail("nonblocking listener");
+        let address = listener.local_addr().or_fail("RPC address");
         let stop = Arc::new(AtomicBool::new(false));
         let stopped = Arc::clone(&stop);
         let worker = std::thread::spawn(move || {
@@ -33,28 +33,28 @@ impl Replay {
                 };
                 stream
                     .set_read_timeout(Some(std::time::Duration::from_secs(5)))
-                    .expect("read deadline");
+                    .or_fail("read deadline");
                 let mut headers = Vec::new();
                 while !headers.ends_with(b"\r\n\r\n") {
                     let mut byte = [0];
-                    stream.read_exact(&mut byte).expect("HTTP header");
+                    stream.read_exact(&mut byte).or_fail("HTTP header");
                     headers.push(byte[0]);
                 }
-                let headers = String::from_utf8(headers).expect("headers");
+                let headers = String::from_utf8(headers).or_fail("headers");
                 let length: usize = headers
                     .lines()
                     .find_map(|line| {
                         let (name, value) = line.split_once(':')?;
                         name.eq_ignore_ascii_case("content-length")
-                            .then(|| value.trim().parse().expect("length"))
+                            .then(|| value.trim().parse().or_fail("length"))
                     })
-                    .expect("content length");
+                    .or_fail("content length");
                 let mut body = vec![0; length];
-                stream.read_exact(&mut body).expect("RPC body");
-                let request: Value = serde_json::from_slice(&body).expect("RPC JSON");
+                stream.read_exact(&mut body).or_fail("RPC body");
+                let request: Value = serde_json::from_slice(&body).or_fail("RPC JSON");
                 let answer = answers
                     .as_array()
-                    .expect("answers")
+                    .or_fail("answers")
                     .iter()
                     .find(|answer| {
                         answer["method"] == request["method"]
@@ -66,12 +66,12 @@ impl Replay {
                 }
                 let body = json!({"jsonrpc":"2.0", "id":request["id"], "result":answer["result"]})
                     .to_string();
-                write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body).expect("RPC reply");
+                write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body).or_fail("RPC reply");
             }
             calls
         });
         Self {
-            endpoint: SequencerEndpoint::new(&format!("http://{address}"), &[]).expect("endpoint"),
+            endpoint: SequencerEndpoint::new(&format!("http://{address}"), &[]).or_fail("endpoint"),
             stop,
             worker: Some(worker),
         }
@@ -80,9 +80,9 @@ impl Replay {
         self.stop.store(true, Ordering::SeqCst);
         self.worker
             .take()
-            .expect("worker")
+            .or_fail("worker")
             .join()
-            .expect("RPC replay")
+            .or_fail("RPC replay")
     }
 }
 impl Drop for Replay {
@@ -93,3 +93,5 @@ impl Drop for Replay {
         }
     }
 }
+
+use crate::require_value::RequireValue as _;

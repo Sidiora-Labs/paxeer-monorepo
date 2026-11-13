@@ -7,6 +7,12 @@ yanked = "deny"
 unmaintained = "all"
 ignore = [
     { id = "RUSTSEC-2024-0436", reason = "paste is a compile-time proc macro inside the pinned vendored engine tree" },
+    { id = "RUSTSEC-2026-0387", reason = "2026-11-13: elliptic-curve 0.13.8, used by k256 0.13.4, requires crypto-bigint 0.5; the corrected crypto-bigint 0.7.6 API is incompatible with that requirement." },
+    { id = "RUSTSEC-2026-0382", reason = "2026-11-13: layerx-agentd 0.1.0 requires rustls-webpki exactly 0.103.15; corrected patches 0.103.16 and 0.103.17 do not satisfy that manifest pin." },
+    { id = "RUSTSEC-2022-0061", reason = "2026-11-13: wasm-instrument 0.4.0 requires parity-wasm 0.45; this package has no maintained release." },
+    { id = "RUSTSEC-2026-0370", reason = "2026-11-13: zbus 5.19.0, used by secret-service 5, requires zvariant 5; this package has no maintained release." },
+    { id = "RUSTSEC-2026-0371", reason = "2026-11-13: zbus 5.19.0, used by secret-service 5, requires zbus_names 4; this package has no maintained release." },
+    { id = "RUSTSEC-2026-0372", reason = "2026-11-13: zvariant 5.15.0, used by zbus 5.19.0, requires zvariant_derive 5; this package has no maintained release." },
 ]
 
 [licenses]
@@ -31,13 +37,15 @@ wildcards = "allow"
 highlight = "all"
 deny = [
     { name = "bindgen", reason = "Private C layouts may not cross the node boundary" },
-    { name = "libsqlite3-sys", reason = "The platform workspace may not open node projections" },
-    { name = "rusqlite", reason = "The platform workspace may not open node projections" },
+    { name = "libsqlite3-sys", wrappers = ["rusqlite"], reason = "The platform workspace may not open node projections" },
+    { name = "rusqlite", wrappers = ["layerx-indexer"], reason = "The platform workspace may not open node projections" },
     { name = "sqlx-sqlite", reason = "The platform workspace may not open node projections" },
     { name = "ctor", reason = "Process-wide initialisation is forbidden" },
     { name = "inventory", reason = "Process-wide registries are forbidden" },
 ]
 skip = [
+    { name = "base64", version = "=0.22.1", reason = "2026-11-13: The pinned LayerX client uses base64 0.22 while the HTTP stack uses 0.23." },
+    { name = "rand_core", version = "=0.6.4", reason = "2026-11-13: The pinned elliptic-curve 0.13 API uses rand_core 0.6 while WebSocket randomness uses 0.9." },
     { name = "core-foundation", version = "=0.9.4" },
     { name = "der", version = "=0.7.10" },
     { name = "getrandom", version = "=0.2.17" },

@@ -1,0 +1,59 @@
+[manifest]
+task = "22.41.56"
+pages = 14
+
+[page.1]
+path = "docker/README.md"
+status = "corrected"
+
+[page.2]
+path = "docs/MONOREPO.md"
+status = "corrected"
+
+[page.3]
+path = "docs/QUALIFICATION.md"
+status = "corrected"
+
+[page.4]
+path = "docs/README.md"
+status = "corrected"
+
+[page.5]
+path = "docs/agent/COMPATIBILITY.md"
+status = "corrected"
+
+[page.6]
+path = "docs/agent/inference-market/README.md"
+status = "reviewed"
+
+[page.7]
+path = "docs/agent/inference-market/client.md"
+status = "corrected"
+
+[page.8]
+path = "docs/agent/inference-market/operator.md"
+status = "corrected"
+
+[page.9]
+path = "docs/agent/inference-market/protocol.md"
+status = "corrected"
+
+[page.10]
+path = "docs/agent/inference-market/threats.md"
+status = "reviewed"
+
+[page.11]
+path = "docs/ci/secrets-and-runners.md"
+status = "corrected"
+
+[page.12]
+path = "docs/evm_jsonrpc_unsupported.md"
+status = "corrected"
+
+[page.13]
+path = "docs/explorer/BUILD-TIME_ENVS.md"
+status = "corrected"
+
+[page.14]
+path = "docs/explorer/CODE_OF_CONDUCT.md"
+status = "reviewed"

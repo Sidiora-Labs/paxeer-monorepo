@@ -108,11 +108,7 @@ fn do_save_wasm(
     unchecked: bool,
 ) -> Result<Checksum, Error> {
     let wasm = wasm.read().ok_or_else(|| Error::unset_arg(WASM_ARG))?;
-    let checksum = if unchecked {
-        cache.save_wasm_unchecked(wasm)?
-    } else {
-        cache.save_wasm(wasm)?
-    };
+    let checksum = cache.store_code(wasm, !unchecked, true)?;
     Ok(checksum)
 }
 
@@ -839,7 +835,7 @@ mod tests {
         assert_eq!(elements_memory_cache, 0);
         assert_approx_eq!(
             size_pinned_memory_cache,
-            2282344,
+            3019976, // Measured with the locked Wasmer 4.2.2 engine.
             "0.2",
             "size_pinned_memory_cache: {size_pinned_memory_cache}"
         );

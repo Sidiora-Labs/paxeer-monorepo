@@ -6,11 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sync"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/util"
 )
 
 type VersionRecord struct {
@@ -149,11 +152,15 @@ func (m MountedVersions) Load(ctx context.Context) ([]VersionedValue, error) {
 		if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0007 != 0 {
 			return nil, errors.New("secrets: insecure mounted reference")
 		}
-		file, err := os.Open(path)
+		file, err := util.OpenPath(path)
 		if err != nil {
 			return nil, errors.New("secrets: mounted reference unavailable")
 		}
-		defer file.Close()
+		defer func() {
+			if cleanupErr := file.Close(); cleanupErr != nil {
+				log.Printf("cleanup file.Close: %v", cleanupErr)
+			}
+		}()
 		opened, err := file.Stat()
 		if err != nil || !os.SameFile(info, opened) {
 			return nil, errors.New("secrets: mounted reference changed")

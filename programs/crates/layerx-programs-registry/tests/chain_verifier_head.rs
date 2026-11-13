@@ -1,7 +1,13 @@
+#[allow(dead_code)]
 #[path = "support/chain.rs"]
 mod chain;
+#[allow(dead_code)]
 #[path = "../src/chain_evidence/verify_head.rs"]
 mod verify_head;
+
+#[path = "support/assertions.rs"]
+mod assertions;
+use assertions::TestResultExt;
 
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_programs as protocol_evidence;
@@ -35,12 +41,17 @@ fn fixture(seeds: &[[u8; 32]]) -> ChainFixture {
             VALUE.to_vec(),
         )],
     )
-    .expect("signed header and real state membership proof")
+    .unwrap_or_else(|error| {
+        panic!(
+            "{}: {error:?}",
+            "signed header and real state membership proof"
+        )
+    })
 }
 
 fn sign(fixture: &mut ChainFixture, seeds: &[[u8; 32]]) {
     fixture.commit.height = fixture.header.height;
-    fixture.commit.block_id.hash = fixture.header.hash().expect("header hash").to_vec();
+    fixture.commit.block_id.hash = fixture.header.hash().or_panic("header hash").to_vec();
     for signature in &mut fixture.commit.signatures {
         let key = seeds
             .iter()
@@ -51,7 +62,7 @@ fn sign(fixture: &mut ChainFixture, seeds: &[[u8; 32]]) {
                     .as_slice()
                     == signature.validator_address
             })
-            .expect("validator signing key");
+            .unwrap_or_else(|| panic!("{}", "validator signing key"));
         signature.timestamp = Timestamp {
             seconds: fixture.header.time.seconds,
             nanos: fixture.header.time.nanos,
@@ -63,7 +74,7 @@ fn sign(fixture: &mut ChainFixture, seeds: &[[u8; 32]]) {
             Some(&fixture.commit.block_id),
             signature.timestamp,
         )
-        .expect("canonical vote bytes");
+        .or_panic("canonical vote bytes");
         signature.signature = key.sign(&bytes).to_bytes().to_vec();
     }
 }
@@ -84,41 +95,18 @@ fn proof<'a>(
 }
 
 fn evidence_digest(fixture: &ChainFixture) -> [u8; 32] {
-    let mut bytes = fixture.header.hash().expect("header hash").to_vec();
+    let mut bytes = fixture.header.hash().or_panic("header hash").to_vec();
     bytes.extend_from_slice(&fixture.header.app_hash);
     Sha256::digest(bytes).into()
 }
 
-#[test]
-fn chain_protocol_and_chain_heads_verify() {
-    let mut fixture = fixture(&SEEDS);
-    fixture.header.height = 12;
-    sign(&mut fixture, &SEEDS);
-    let verified = fixture
-        .verifier
-        .verify_head(&fixture.header, &fixture.commit)
-        .expect("independently verified chain header");
-    let now_ms = u64::try_from(verified.time_ms()).expect("positive chain time");
-    let ops = fixture
-        .prove(&chain_evidence::programs_state_key(KERNEL_KEY))
-        .expect("state proof");
-    let proof = proof(&fixture, &ops);
-    let protocol =
-        protocol_head_at(&fixture.verifier, &proof, now_ms, MAX_AGE_MS).expect("protocol head");
-    let digest = evidence_digest(&fixture);
-    assert_eq!(protocol.state_root(), verified.app_hash());
-    assert_eq!(protocol.state_root().as_slice(), fixture.header.app_hash);
-    assert_eq!(protocol.header_hash(), verified.header_hash());
-    assert_eq!(protocol.header_height(), 12);
-    assert_eq!(protocol.receipt_digest(), digest);
-    assert_eq!(protocol.head_kind(), ProgramHeadKind::Ordinary);
-    assert_eq!(
-        protocol.receipt_evidence_digest(),
-        ReceiptEvidenceDigest::OrdinaryUnsignedReceipt(digest)
-    );
-    assert_eq!(protocol.freshness().observed_sequence, 12);
-    assert_eq!(protocol.freshness().observed_at, now_ms);
-
+fn verify_head_kinds(
+    fixture: &ChainFixture,
+    verified: &chain_proof::VerifiedChainHead,
+    protocol: &verify_head::VerifiedProtocolHead,
+    digest: [u8; 32],
+    now_ms: u64,
+) {
     for kind in [ProgramHeadKind::Ordinary, ProgramHeadKind::Maintenance] {
         let head = chain_head_at(
             &fixture.verifier,
@@ -128,7 +116,7 @@ fn chain_protocol_and_chain_heads_verify() {
             now_ms,
             MAX_AGE_MS,
         )
-        .expect("chain head");
+        .or_panic("chain head");
         assert_eq!(head.state_root(), verified.app_hash());
         assert_eq!(head.header_hash(), verified.header_hash());
         assert_eq!(head.header_height(), 12);
@@ -157,6 +145,39 @@ fn chain_protocol_and_chain_heads_verify() {
             Err(ProtocolEvidenceError::Stale)
         );
     }
+}
+
+#[test]
+fn chain_protocol_and_chain_heads_verify() {
+    let mut fixture = fixture(&SEEDS);
+    fixture.header.height = 12;
+    sign(&mut fixture, &SEEDS);
+    let verified = fixture
+        .verifier
+        .verify_head(&fixture.header, &fixture.commit)
+        .or_panic("independently verified chain header");
+    let now_ms = u64::try_from(verified.time_ms()).or_panic("positive chain time");
+    let ops = fixture
+        .prove(&chain_evidence::programs_state_key(KERNEL_KEY))
+        .or_panic("state proof");
+    let proof = proof(&fixture, &ops);
+    let protocol =
+        protocol_head_at(&fixture.verifier, &proof, now_ms, MAX_AGE_MS).or_panic("protocol head");
+    let digest = evidence_digest(&fixture);
+    assert_eq!(protocol.state_root(), verified.app_hash());
+    assert_eq!(protocol.state_root().as_slice(), fixture.header.app_hash);
+    assert_eq!(protocol.header_hash(), verified.header_hash());
+    assert_eq!(protocol.header_height(), 12);
+    assert_eq!(protocol.receipt_digest(), digest);
+    assert_eq!(protocol.head_kind(), ProgramHeadKind::Ordinary);
+    assert_eq!(
+        protocol.receipt_evidence_digest(),
+        ReceiptEvidenceDigest::OrdinaryUnsignedReceipt(digest)
+    );
+    assert_eq!(protocol.freshness().observed_sequence, 12);
+    assert_eq!(protocol.freshness().observed_at, now_ms);
+
+    verify_head_kinds(&fixture, &verified, &protocol, digest, now_ms);
     assert_eq!(
         protocol_head_at(&fixture.verifier, &proof, now_ms + MAX_AGE_MS, MAX_AGE_MS),
         Ok(protocol.clone())
@@ -218,7 +239,7 @@ fn chain_protocol_and_chain_heads_verify() {
         now_ms,
         MAX_AGE_MS,
     )
-    .expect("later signed head with the same app hash");
+    .or_panic("later signed head with the same app hash");
     assert_eq!(later_head.state_root(), protocol.state_root());
     assert_ne!(later_head.receipt_digest(), protocol.receipt_digest());
 }
@@ -232,7 +253,72 @@ fn fixture_with_chain_id(chain_id: &str) -> ChainFixture {
             VALUE.to_vec(),
         )],
     )
-    .expect("foreign signed head")
+    .or_panic("foreign signed head")
+}
+
+fn verify_historical_refusals(
+    anchor: &ChainFixture,
+    rotated: &ChainFixture,
+    history: &[ChainTrustStep<'_>],
+    proof: &ChainProtocolHeadProof<'_>,
+    ops: &[chain_proof::decode::ProofOp],
+) {
+    let mut unrelated = fixture(&[[9; 32], [10; 32], [11; 32], [12; 32]]);
+    unrelated.header.height = 15;
+    unrelated.header.time.seconds += 3;
+    sign(&mut unrelated, &[[9; 32], [10; 32], [11; 32], [12; 32]]);
+    unrelated
+        .verifier
+        .verify_head(&unrelated.header, &unrelated.commit)
+        .unwrap_or_else(|error| {
+            panic!("{}: {error:?}", "unrelated head is valid under its own set")
+        });
+    let unrelated_proof = self::proof(&unrelated, ops);
+    assert_eq!(
+        historical_protocol_head_at(
+            &anchor.verifier,
+            &anchor.header,
+            &anchor.commit,
+            history,
+            &unrelated_proof
+        ),
+        Err(ProtocolEvidenceError::InvalidTrustAnchor)
+    );
+    let mut forged = rotated.commit.clone();
+    forged.signatures[0].signature[0] ^= 1;
+    let forged_history = [ChainTrustStep {
+        header: &rotated.header,
+        commit: &forged,
+        validators: &rotated.verifier.validators,
+    }];
+    assert_eq!(
+        historical_protocol_head_at(
+            &anchor.verifier,
+            &anchor.header,
+            &anchor.commit,
+            &forged_history,
+            proof
+        ),
+        Err(ProtocolEvidenceError::InvalidTrustAnchor)
+    );
+    assert_eq!(
+        historical_protocol_head_at(
+            &anchor.verifier,
+            &anchor.header,
+            &anchor.commit,
+            history,
+            &ChainProtocolHeadProof {
+                value: b"changed",
+                ops: proof.ops,
+                kernel_key: proof.kernel_key,
+                store_name: proof.store_name,
+                verifier: proof.verifier,
+                header: proof.header,
+                commit: proof.commit,
+            },
+        ),
+        Err(ProtocolEvidenceError::StateProof)
+    );
 }
 
 #[test]
@@ -251,7 +337,7 @@ fn chain_historical_protocol_head_requires_trust_chain() {
     sign(&mut historical, &ROTATED_SEEDS);
     let ops = historical
         .prove(&chain_evidence::programs_state_key(KERNEL_KEY))
-        .expect("historical state proof");
+        .or_panic("historical state proof");
     let proof = proof(&historical, &ops);
     let history = [ChainTrustStep {
         header: &rotated.header,
@@ -265,14 +351,22 @@ fn chain_historical_protocol_head_requires_trust_chain() {
         &history,
         &proof,
     )
-    .expect("historical head reached through authenticated validator rotation");
+    .unwrap_or_else(|error| {
+        panic!(
+            "{}: {error:?}",
+            "historical head reached through authenticated validator rotation"
+        )
+    });
     assert_eq!(head.state_root().as_slice(), historical.header.app_hash);
-    assert_eq!(head.header_hash(), historical.header.hash().expect("hash"));
+    assert_eq!(
+        head.header_hash(),
+        historical.header.hash().or_panic("hash")
+    );
     assert_eq!(head.header_height(), 14);
     assert_eq!(head.receipt_digest(), evidence_digest(&historical));
     assert_eq!(head.freshness().observed_sequence, 14);
-    let historical_time = u64::try_from(historical.header.time.seconds).expect("time") * 1_000
-        + u64::try_from(historical.header.time.nanos / 1_000_000).expect("nanos");
+    let historical_time = u64::try_from(historical.header.time.seconds).or_panic("time") * 1_000
+        + u64::try_from(historical.header.time.nanos / 1_000_000).or_panic("nanos");
     assert_eq!(head.freshness().observed_at, historical_time);
     assert_eq!(
         protocol_head_at(
@@ -295,55 +389,7 @@ fn chain_historical_protocol_head_requires_trust_chain() {
         "the rotated set has no overlap, so its intermediate transition is required"
     );
 
-    let mut unrelated = fixture(&[[9; 32], [10; 32], [11; 32], [12; 32]]);
-    unrelated.header.height = 15;
-    unrelated.header.time.seconds += 3;
-    sign(&mut unrelated, &[[9; 32], [10; 32], [11; 32], [12; 32]]);
-    unrelated
-        .verifier
-        .verify_head(&unrelated.header, &unrelated.commit)
-        .expect("unrelated head is valid under its own set");
-    let unrelated_proof = self::proof(&unrelated, &ops);
-    assert_eq!(
-        historical_protocol_head_at(
-            &anchor.verifier,
-            &anchor.header,
-            &anchor.commit,
-            &history,
-            &unrelated_proof
-        ),
-        Err(ProtocolEvidenceError::InvalidTrustAnchor)
-    );
-    let mut forged = rotated.commit.clone();
-    forged.signatures[0].signature[0] ^= 1;
-    let forged_history = [ChainTrustStep {
-        header: &rotated.header,
-        commit: &forged,
-        validators: &rotated.verifier.validators,
-    }];
-    assert_eq!(
-        historical_protocol_head_at(
-            &anchor.verifier,
-            &anchor.header,
-            &anchor.commit,
-            &forged_history,
-            &proof
-        ),
-        Err(ProtocolEvidenceError::InvalidTrustAnchor)
-    );
-    assert_eq!(
-        historical_protocol_head_at(
-            &anchor.verifier,
-            &anchor.header,
-            &anchor.commit,
-            &history,
-            &ChainProtocolHeadProof {
-                value: b"changed",
-                ..proof
-            },
-        ),
-        Err(ProtocolEvidenceError::StateProof)
-    );
+    verify_historical_refusals(&anchor, &rotated, &history, &proof, &ops);
     let anchor_proof = self::proof(&anchor, &ops);
     let anchored = historical_protocol_head_at(
         &anchor.verifier,
@@ -352,7 +398,7 @@ fn chain_historical_protocol_head_requires_trust_chain() {
         &[],
         &anchor_proof,
     )
-    .expect("exact historical trust anchor");
+    .or_panic("exact historical trust anchor");
     assert_eq!(anchored.header_height(), 12);
     assert_eq!(anchored.receipt_digest(), evidence_digest(&anchor));
 }

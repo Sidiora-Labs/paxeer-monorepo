@@ -3,8 +3,9 @@ package auth
 import (
 	"context"
 	"errors"
-	"github.com/gorilla/websocket"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 func (s *Identity) EnforcePrivateSession(ctx context.Context, p Principal, closeConnection func() error) error {

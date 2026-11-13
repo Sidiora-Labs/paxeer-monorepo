@@ -195,7 +195,7 @@ fn created_state() -> Vec<u8> {
 fn header(root: [u8; 32], height: u64, data_hash: [u8; 32]) -> Header {
     Header {
         chain_id: CHAIN_ID.into(),
-        height: height as i64,
+        height: checked(i64::try_from(height)),
         app_hash: root.to_vec(),
         version: ConsensusVersion { block: 11, app: 1 },
         time: Timestamp {
@@ -215,7 +215,7 @@ fn header(root: [u8; 32], height: u64, data_hash: [u8; 32]) -> Header {
 }
 fn signed(header: &Header) -> Commit {
     let mut commit = Commit {
-        height: header.height as u64,
+        height: checked(u64::try_from(header.height)),
         round: 0,
         block_id: BlockId {
             hash: header.hash().to_vec(),
@@ -294,10 +294,10 @@ fn capture() -> (CaptureDocument, ProtocolEvent) {
     let state = created_state();
     let mut manifest = vec![0, 1];
     manifest.extend(1u32.to_be_bytes());
-    manifest.extend((SHARED_STATE_KEY.len() as u16).to_be_bytes());
+    manifest.extend(checked(u16::try_from(SHARED_STATE_KEY.len())).to_be_bytes());
     manifest.extend(SHARED_STATE_KEY);
     manifest.extend(digest(&state));
-    manifest.extend((state.len() as u32).to_be_bytes());
+    manifest.extend(checked(u32::try_from(state.len())).to_be_bytes());
     let mut value = vec![0, 1];
     value.extend(1u32.to_be_bytes());
     value.extend(digest(&manifest));
@@ -335,7 +335,7 @@ fn capture() -> (CaptureDocument, ProtocolEvent) {
         },
         revision: 1,
         digest: checked(codec::state_digest(&state)),
-        total_bytes: state.len() as u32,
+        total_bytes: checked(u32::try_from(state.len())),
         chunks: 1,
     };
     let binding = checked(queries::bind_snapshot(
@@ -457,6 +457,11 @@ fn material(root: &Path) {
             &p(&format!("{name}.ext")),
         ]);
     }
+    material_der(root);
+}
+
+fn material_der(root: &Path) {
+    let p = |name: &str| root.join(name).to_string_lossy().into_owned();
     for name in ["ca", "server"] {
         run(&[
             "openssl",
@@ -847,15 +852,18 @@ fn finding_34_governed_node_receipt_committed_block_and_foreign_chain_refusal() 
             .verify(&policy().consensus, &evidence.governed_keys.proof),
     )
     .block_hash;
-    let verified = checked(verifier.verify_evidence(&evidence, activity, block));
-    assert_eq!(verified.verification(), Verification::BlockCommitted);
+    let verified_operation = checked(verifier.verify_evidence(&evidence, activity, block));
+    assert_eq!(
+        verified_operation.verification(),
+        Verification::BlockCommitted
+    );
     assert!(verifier
         .verify_evidence(&evidence, activity, [9; 32])
         .is_err());
     let (_, event) = capture();
     assert!(layerx_platform_webhooks::hosted::subscription_accepts(
         &[layerx_platform_webhooks::EventKind::Program],
-        verified.verification(),
+        verified_operation.verification(),
         &event
     ));
     let mut weaker = checked(serde_json::to_value(&event));
@@ -867,7 +875,7 @@ fn finding_34_governed_node_receipt_committed_block_and_foreign_chain_refusal() 
     checked(weaker.validate());
     assert!(!layerx_platform_webhooks::hosted::subscription_accepts(
         &[],
-        verified.verification(),
+        verified_operation.verification(),
         &weaker
     ));
     let weak_delivery = checked(SignedDelivery::sign(
@@ -1012,7 +1020,7 @@ fn finding_5_process_death_before_and_after_atomic_commit() {
         );
         assert_eq!(
             checked(consumer.last_sequence(event.subject())),
-            if before { 0 } else { 1 }
+            u64::from(!before)
         );
     }
     let consumer = receiver(&scratch.0.join("consumer"));
@@ -1209,6 +1217,31 @@ fn redis_json(root: &Path, redis: u16) -> Value {
     );
     checked(serde_json::from_slice(&output.stdout))
 }
+fn open_outbox(root: &Path) -> MarketOutbox {
+    let outbox_dir = root
+        .join("outbox")
+        .join(hex_encode(&digest(principal().as_str().as_bytes())));
+
+    checked(MarketOutbox::open_portable(
+        &outbox_dir,
+        principal(),
+        policy(),
+        keys(),
+    ))
+}
+
+fn start_redis(root: &Path, redis: u16) -> Process {
+    let redis_config=format!("bind 127.0.0.1\nport 0\ntls-port {redis}\ntls-cert-file {}\ntls-key-file {}\ntls-ca-cert-file {}\ntls-auth-clients no\nuser default off\nuser webhooks on >repair-password ~webhooks:* +@all\nsave \"\"\nappendonly yes\ndir {}\n",text(&root.join("server.pem")),text(&root.join("server-key.pem")),text(&root.join("ca.pem")),text(root));
+    checked(fs::write(root.join("redis.conf"), redis_config));
+    Process(checked(
+        Command::new("redis-server")
+            .arg(root.join("redis.conf"))
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn(),
+    ))
+}
+
 #[test]
 fn finding_4_authenticated_capture_service_restart_and_durable_handoff() {
     let scratch = Scratch::new("service");
@@ -1224,17 +1257,6 @@ fn finding_4_authenticated_capture_service_restart_and_durable_handoff() {
     let listen = port();
     let redis = port();
     let environment = service_environment(root, listen, redis);
-    let outbox_dir = root
-        .join("outbox")
-        .join(hex_encode(&digest(principal().as_str().as_bytes())));
-    let outbox = || {
-        checked(MarketOutbox::open_portable(
-            &outbox_dir,
-            principal(),
-            policy(),
-            keys(),
-        ))
-    };
     let mut service = launch(root, &environment);
     assert_eq!(
         capture_http(root, listen, "operator", "source-repair", &mut service).0,
@@ -1249,25 +1271,23 @@ fn finding_4_authenticated_capture_service_restart_and_durable_handoff() {
     assert_eq!(response["Finalized"]["duplicate"], false);
     // Redis is stopped: successful admission must leave durable pending work.
     thread::sleep(Duration::from_millis(1200));
-    assert_eq!(checked(outbox().pending(&market())), vec![event.clone()]);
+    assert_eq!(
+        checked(open_outbox(root).pending(&market())),
+        vec![event.clone()]
+    );
     drop(service);
-    assert_eq!(checked(outbox().pending(&market())), vec![event.clone()]);
-    let redis_config=format!("bind 127.0.0.1\nport 0\ntls-port {redis}\ntls-cert-file {}\ntls-key-file {}\ntls-ca-cert-file {}\ntls-auth-clients no\nuser default off\nuser webhooks on >repair-password ~webhooks:* +@all\nsave \"\"\nappendonly yes\ndir {}\n",text(&root.join("server.pem")),text(&root.join("server-key.pem")),text(&root.join("ca.pem")),text(root));
-    checked(fs::write(root.join("redis.conf"), redis_config));
-    let _redis = Process(checked(
-        Command::new("redis-server")
-            .arg(root.join("redis.conf"))
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn(),
-    ));
+    assert_eq!(
+        checked(open_outbox(root).pending(&market())),
+        vec![event.clone()]
+    );
+    let _redis = start_redis(root, redis);
     let mut service = launch(root, &environment);
     let (status, response) = capture_http(root, listen, "producer", "source-repair", &mut service);
     assert_eq!(status, 202, "{response}");
     assert_eq!(response["Finalized"]["duplicate"], true);
     let mut handed_off = false;
     for _ in 0..100 {
-        if checked(outbox().pending(&market())).is_empty() {
+        if checked(open_outbox(root).pending(&market())).is_empty() {
             handed_off = true;
             break;
         }
@@ -1286,7 +1306,7 @@ fn finding_4_authenticated_capture_service_restart_and_durable_handoff() {
         capture_http(root, listen, "producer", "source-repair", &mut service).0,
         202
     );
-    assert!(checked(outbox().pending(&market())).is_empty());
+    assert!(checked(open_outbox(root).pending(&market())).is_empty());
     assert_eq!(redis_json(root, redis)["next_position"], 2);
     let resumed = checked(hub.resume(&principal(), &endpoint(), &market(), None, 32));
     let ResumePage::Events {
@@ -1298,7 +1318,7 @@ fn finding_4_authenticated_capture_service_restart_and_durable_handoff() {
         panic!("resume events")
     };
     assert_eq!(events, vec![event]);
-    assert!(outbox()
+    assert!(open_outbox(root)
         .resume(
             &checked(Principal::new("tenant:other")),
             &endpoint(),
@@ -1307,7 +1327,7 @@ fn finding_4_authenticated_capture_service_restart_and_durable_handoff() {
             32
         )
         .is_err());
-    assert!(outbox()
+    assert!(open_outbox(root)
         .resume(
             &principal(),
             &checked(EndpointId::new("whep_other")),

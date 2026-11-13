@@ -603,9 +603,19 @@ mod tests {
         let requests = served.load(std::sync::atomic::Ordering::SeqCst);
         assert_eq!(requests, 6);
 
+        assert_continuation_pages(&store, &readiness, &served, requests, &cursor);
+    }
+
+    fn assert_continuation_pages(
+        store: &Store,
+        readiness: &Readiness,
+        served: &std::sync::atomic::AtomicUsize,
+        requests: usize,
+        cursor: &str,
+    ) {
         let second = body(&route_with(
-            &store,
-            &readiness,
+            store,
+            readiness,
             "GET",
             &format!("/v1/history/{ACCOUNT}?limit=2&cursor={cursor}"),
         ));
@@ -634,8 +644,8 @@ mod tests {
             .to_owned();
 
         let third = body(&route_with(
-            &store,
-            &readiness,
+            store,
+            readiness,
             "GET",
             &format!("/v1/history/{ACCOUNT}?limit=2&cursor={cursor}"),
         ));
@@ -649,8 +659,8 @@ mod tests {
         assert_eq!(served.load(std::sync::atomic::Ordering::SeqCst), requests);
 
         let native = body(&route_with(
-            &store,
-            &readiness,
+            store,
+            readiness,
             "GET",
             &format!("/v1/history/{ACCOUNT}?kind=native_transfer"),
         ));
@@ -734,6 +744,10 @@ mod tests {
         );
         assert_eq!(served.load(std::sync::atomic::Ordering::SeqCst), 4);
 
+        assert_page_budget_resume();
+    }
+
+    fn assert_page_budget_resume() {
         let (base, served) = explorer_server_with_transactions(super::MAXIMUM_PAGES + 1);
         let store = Store::open_in_memory().unwrap_or_else(|error| panic!("{error}"));
         let readiness = Readiness {
