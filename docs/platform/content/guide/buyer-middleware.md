@@ -1,6 +1,6 @@
 # Buyer middleware
 
-`@sidiora/layerx-buyer-middleware` is the other half of a paid HTTP call: it reads a `402`, decides whether the price is acceptable, pays, and retries the request with proof.
+`@sidiora/layerx-buyer-middleware` reads a `402`, selects a supported payment offer, pays through the human API and retries the request with proof. Use `parseOffer` to inspect the amount and apply application price policy before calling `prepare`.
 
 ## One call
 
@@ -24,7 +24,7 @@
 
 ## Keys and retries
 
-The idempotency key you pass to `prepare` is the one that protects the payment. Derive it from what you are buying - the URL plus a request digest, an order identifier - not from the attempt. The middleware's retry policy governs how many times it will re-quote, re-commit and re-poll; the key governs whether any of that can cost you twice. Both matter, and only the key is a correctness property.
+The idempotency key passed to `prepare` identifies the payment across commit retries. Persist it with the order or request digest before submission. The retry policy bounds quote attempts, commit attempts and journey polling; it does not create a new payment key for each attempt.
 
 The retry policy is configurable and validated: quote and commit attempt counts must be positive safe integers; journey polls and the base delay may be zero. Configure `receiptKeys` with independently trusted, height-ranged receipt keys. A `committed` offer also requires a `commitments` resolver. Metered and subscription payments use `grantHeader` and `fetchGrant` with an already signed grant transaction rather than the exact-payment `prepare` flow.
 

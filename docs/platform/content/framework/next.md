@@ -1,6 +1,6 @@
 # Next.js quickstart
 
-Charge for a route handler in the App Router. Eight lines, plus a bundle scanner that fails your build if a secret would ship to the browser.
+Mount paid App Router handlers and scan browser-facing build artifacts for secret material.
 
 ## Before you start
 
@@ -30,7 +30,7 @@ export const layerx = mountLayerXOnRequest(() => ({
 }));
 ```
 
-`mountLayerXOnRequest` takes no router here. It returns route objects you export directly and calls your factory once, on the first request. A request that finds a declared variable missing is refused with `503` and a body naming it - `{"error":"missing-declared-key","key":"LAYERX_PRICE"}` - never served with a default or placeholder key. `mountLayerX` is still exported for a host that wants the configuration read and refused at startup.
+`mountLayerXOnRequest` returns route objects you export directly. It caches the mount after successful configuration; a configuration refusal leaves it unconfigured so a later request calls the factory again. A request that finds a required variable missing receives `503` and a body naming it, such as `{"error":"missing-declared-key","key":"LAYERX_PRICE"}`. `mountLayerX` reads configuration immediately for a host that configures at startup.
 
 ## Wire the routes
 
@@ -66,20 +66,20 @@ The package ships `layerx-scan-bundle`. Run it after `next build`:
 npx layerx-scan-bundle
 ```
 
-It reads your client bundle and reports four kinds of finding, each of which fails the build:
+The scanner reads browser-facing artifacts and exits nonzero when it reports a finding. It checks four categories:
 
 | Finding | What it caught |
 |---|---|
-| `declared-secret-value` | The literal value of `LAYERX_TOKEN` appears in a shipped artifact |
-| `declared-secret-name` | The name of a declared secret appears in a shipped artifact |
+| `declared-secret-value` | A configured secret value of at least eight characters appears in an artifact |
+| `declared-secret-name` | A configured secret variable's name appears in an artifact |
 | `private-key-block` | A PEM private key block was bundled |
 | `published-key-material` | A `NEXT_PUBLIC_`, `PUBLIC_`, `VITE_`, `REACT_APP_` or `EXPO_PUBLIC_` variable is named like a token, secret, credential or signing key |
 
-Findings are reported with a redacted locator and an offset, never with the secret itself. Wire the scanner into your build script so it cannot be forgotten - it is a build-time control, and a control you skipped enforces nothing.
+Secret-value findings use a redacted locator and an offset. Other categories identify the matched variable name or private-key marker. Run the scanner after `next build` in the same build script to make its exit status part of the build result.
 
 ## Fulfilment storage
 
-Serverless makes this sharper than it is on Express: a fulfilment repository backed by process memory is empty on the next cold start, and the exactly-once guarantee goes with it. The sample uses a durable file-backed repository:
+The sample uses a file-backed fulfilment repository. Its persistence follows the filesystem supplied by the deployment:
 
 ```js sample=paid-route-next file=lib/fulfillments.js region=storage
 import { mkdir, open, readFile } from "node:fs/promises";
@@ -135,7 +135,11 @@ export class FileFulfillmentRepository {
 
 The resource callback runs before the file record is created. Use an idempotent callback and shared storage that coordinates concurrent fulfilment across requests and cold starts.
 
+The sample's `SingleProcessWebhookDeliveryStore` keeps delivery claims in memory. Supply a shared durable delivery store when claims must survive restarts or coordinate multiple workers.
+
 ## Run it
+
+Supply the required seller and webhook configuration before sending requests.
 
 For this sample, the `dev` script first runs the matching `predev` hook, which invokes
 the repository-root `build:dependencies` script for `@sidiora/layerx-doc-paid-route-next`

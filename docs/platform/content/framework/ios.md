@@ -1,16 +1,16 @@
 # iOS quickstart
 
-Pay from an iOS app. Five lines, and the app holds no long-lived credential at any point.
+Use the human payment API from an iOS app with brokered session tokens.
 
 ## The credential model
 
-A phone is not a server. Anything you ship in the binary is public, so the iOS binding is built so that there is nothing worth extracting:
+The binding accepts public configuration and obtains session tokens at runtime:
 
 - The app carries a **publishable configuration** only: a service URL, a session broker URL, one or more event public keys, and two timeouts. All of it is safe in a bundle.
-- At call time the binding exchanges that configuration for a **short-lived session token** from a broker you run. The token lives in memory, is zeroed after use, and is re-fetched when the service says a capability was refused.
+- At call time the binding obtains a **short-lived session token** from a broker you run. The provider caches it in memory while usable. Each request creates an access-token copy and destroys that copy after use. A capability refusal invalidates the cache and triggers one retry with a freshly obtained token.
 - Your bearer token stays on your server, where it belongs.
 
-`PublishableConfiguration` refuses anything that is not publishable, so you cannot accidentally hand it a secret.
+`PublishableConfiguration` accepts declared URL, public-key and timeout settings and rejects unknown declared keys and recognized credential patterns.
 
 ## Before you start
 
@@ -20,7 +20,7 @@ A phone is not a server. Anything you ship in the binary is public, so the iOS b
 
 | Variable | What it is |
 |---|---|
-| `LAYERX_SERVICE_URL` | Your LayerX endpoint |
+| `LAYERX_SERVICE_URL` | Your human API endpoint |
 | `LAYERX_SESSION_BROKER_URL` | The broker that mints session tokens for your users |
 | `LAYERX_EVENT_PUBLIC_KEY_<key-id>` | An event signing public key you trust |
 | `LAYERX_EVENT_MAX_AGE_SECONDS` | Optional. How stale an event may be |
@@ -45,6 +45,8 @@ var journey = try await layerx.client.commit(.object(["quote_id": .string(quoteI
 
 Configure `LAYERX_RECEIPT_KEYS_JSON` independently of received proofs before using `gate()`. It verifies signed receipt evidence and matches payment facts before the app treats a journey as paid.
 
+This setting is a JSON array whose entries contain `keyId` and `publicKey` as `0x`-prefixed 32-byte hex strings and `firstHeight` and `lastHeight` as JSON integers. The height range is inclusive. Receipt verification establishes execution evidence; finality also requires committed block evidence.
+
 ## Verified push and webhook events
 
 `layerx.consume(rawBody:headerFields:handle:)` verifies an event envelope against your configured public keys, refuses it if it is stale, and claims the delivery under a lease. The claim store is pluggable; the default `FileEventDeliveryStore` retains delivery state in application support storage.
@@ -55,24 +57,25 @@ The package includes `layerx-ios-secret-scan`, which walks a built product and r
 
 ## Run the sample
 
+Set the service and session-broker URLs, at least one event public key, and
+`LAYERX_SOURCE`, `LAYERX_DESTINATION`, `LAYERX_AMOUNT`, `LAYERX_CURRENCY` and
+`LAYERX_PAYMENT_KEY` before running. The service URL must identify the human
+API; local emulator inspection routes do not submit payments.
+
 ```sh
 cd services/platform/examples/samples/mobile-payment-ios
 swift build
-LAYERX_SERVICE_URL=http://127.0.0.1:9402 LAYERX_SESSION_BROKER_URL=http://127.0.0.1:9410 \
-LAYERX_EVENT_PUBLIC_KEY_primary=$(cat ./event-key.hex) \
-LAYERX_SOURCE=did:layerx:alice LAYERX_DESTINATION=did:layerx:bob LAYERX_AMOUNT=1250000 LAYERX_CURRENCY=USD \
-LAYERX_PAYMENT_KEY=order-2f9c1b7e4a10 swift run MobilePayment
+swift run MobilePayment
 ```
 
-The sample is a command-line executable so it runs anywhere Swift does; the API it uses is exactly the one an app target uses.
+The sample is a command-line executable using the same binding API as an app target.
 
 ## Enforced by
 
 | Capability | Layer | What that means here |
 |---|---|---|
 | Atomic settlement | `protocol` | The committed move applies completely or not at all. |
-| Replay refusal | `protocol` | A retried submission from a flaky mobile network cannot apply twice. |
+| Replay refusal | `protocol` | The same signed transaction cannot apply twice with the same sender nonce. |
 | Refusal to publish a secret | `service` | The configuration accepts publishable values only, and the bundled scanner checks the built product. |
 | Verified, replay-protected webhooks | `service` | Event envelopes are signature-checked, age-checked and lease-claimed on device. |
 | Idempotent money moves | `service` | `commit` requires the key, so a retry after a dropped connection returns the original journey. |
-| Agent tenancy isolation | `agent-layer` | Session tokens are scoped by the broker you run. |
