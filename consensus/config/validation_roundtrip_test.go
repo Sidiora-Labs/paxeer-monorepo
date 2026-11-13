@@ -21,7 +21,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func repairM1087Read(t *testing.T, cfg *config.Config) {
+func writeAndReadValidationConfig(t *testing.T, cfg *config.Config) {
 	t.Helper()
 	viper.Reset()
 	t.Cleanup(viper.Reset)
@@ -32,7 +32,7 @@ func repairM1087Read(t *testing.T, cfg *config.Config) {
 	require.NoError(t, viper.ReadInConfig())
 }
 
-func TestRepairM_1087_P2PValidation(t *testing.T) {
+func TestConfigRoundTripP2PValidation(t *testing.T) {
 	cases := []struct {
 		key string
 		set func(*config.P2PConfig, int64)
@@ -46,13 +46,13 @@ func TestRepairM_1087_P2PValidation(t *testing.T) {
 		t.Run(tc.key, func(t *testing.T) {
 			cfg := config.DefaultConfig()
 			tc.set(cfg.P2P, -1)
-			repairM1087Read(t, cfg)
+			writeAndReadValidationConfig(t, cfg)
 			parsed, err := commands.ParseConfig(config.DefaultConfig())
 			require.Nil(t, parsed)
 			require.EqualError(t, err, "error in config file: error in [p2p] section: "+tc.key+" can't be negative")
 
 			tc.set(cfg.P2P, 0)
-			repairM1087Read(t, cfg)
+			writeAndReadValidationConfig(t, cfg)
 			parsed, err = commands.ParseConfig(config.DefaultConfig())
 			require.NoError(t, err)
 			require.Equal(t, cfg.P2P, parsed.P2P)
@@ -60,7 +60,7 @@ func TestRepairM_1087_P2PValidation(t *testing.T) {
 	}
 }
 
-func TestRepairM_1087_MempoolBounds(t *testing.T) {
+func TestConfigRoundTripMempoolBounds(t *testing.T) {
 	cases := []struct {
 		name string
 		set  func(*config.MempoolConfig)
@@ -76,7 +76,7 @@ func TestRepairM_1087_MempoolBounds(t *testing.T) {
 			cfg := config.DefaultConfig()
 			tc.set(cfg.Mempool)
 			require.EqualError(t, cfg.Mempool.ValidateBasic(), tc.want)
-			repairM1087Read(t, cfg)
+			writeAndReadValidationConfig(t, cfg)
 			parsed, err := commands.ParseConfig(config.DefaultConfig())
 			require.Nil(t, parsed)
 			require.EqualError(t, err, "error in config file: error in [mempool] section: "+tc.want)
@@ -86,7 +86,7 @@ func TestRepairM_1087_MempoolBounds(t *testing.T) {
 		for _, value := range []float64{-0.01, 1.01, math.NaN(), math.Inf(1), math.Inf(-1)} {
 			t.Run(fmt.Sprintf("%s/%v", field, value), func(t *testing.T) {
 				cfg := config.DefaultConfig()
-				repairM1087Read(t, cfg)
+				writeAndReadValidationConfig(t, cfg)
 				// Viper overrides follow the same decoding and startup validation as file values.
 				viper.Set("mempool."+field, value)
 				decoded := config.DefaultConfig()
@@ -108,7 +108,7 @@ func TestRepairM_1087_MempoolBounds(t *testing.T) {
 			cfg.Mempool.DropUtilisationThreshold = value
 			cfg.Mempool.PendingSize = 0
 			cfg.Mempool.MaxPendingTxsBytes = 0
-			repairM1087Read(t, cfg)
+			writeAndReadValidationConfig(t, cfg)
 			parsed, err := commands.ParseConfig(config.DefaultConfig())
 			require.NoError(t, err)
 			require.Equal(t, cfg.Mempool, parsed.Mempool)
@@ -136,7 +136,7 @@ func TestRepairM_1087_MempoolBounds(t *testing.T) {
 	}
 }
 
-func TestRepairM_1087_TOMLStrings(t *testing.T) {
+func TestConfigRoundTripTOMLStrings(t *testing.T) {
 	values := []string{
 		"node \"quoted\" \\ directory\nnext line",
 		"\"\nmode = \"seed\"\n#",
@@ -171,7 +171,7 @@ func TestRepairM_1087_TOMLStrings(t *testing.T) {
 			cfg.RPC.CORSAllowedHeaders = []string{value, "Content-Type"}
 			cfg.TxIndex.Indexer = []string{value, "kv"}
 			cfg.StateSync.RPCServers = []string{value, "http://localhost:26657"}
-			repairM1087Read(t, cfg)
+			writeAndReadValidationConfig(t, cfg)
 			decoded := config.DefaultConfig()
 			require.NoError(t, viper.Unmarshal(decoded))
 			for _, name := range fields {
@@ -190,7 +190,7 @@ func TestRepairM_1087_TOMLStrings(t *testing.T) {
 		cfg := config.DefaultConfig()
 		cfg.Moniker = values[0]
 		cfg.AutobahnConfigFile = values[3]
-		repairM1087Read(t, cfg)
+		writeAndReadValidationConfig(t, cfg)
 		parsed, err := commands.ParseConfig(config.DefaultConfig())
 		require.NoError(t, err)
 		require.Equal(t, cfg.Moniker, parsed.Moniker)
@@ -208,7 +208,7 @@ func TestRepairM_1087_TOMLStrings(t *testing.T) {
 	})
 }
 
-func TestRepairM_1087_AutobahnSequencerRoundTrip(t *testing.T) {
+func TestAutobahnSequencerRoundTrip(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
 		t.Run(fmt.Sprint(enabled), func(t *testing.T) {
 			cfg := config.DefaultConfig()
@@ -220,7 +220,7 @@ func TestRepairM_1087_AutobahnSequencerRoundTrip(t *testing.T) {
 				TimeoutVote:         30 * time.Millisecond,
 				TimeoutCommit:       40 * time.Millisecond,
 			}
-			repairM1087Read(t, cfg)
+			writeAndReadValidationConfig(t, cfg)
 			decoded := config.DefaultConfig()
 			require.NoError(t, viper.Unmarshal(decoded))
 			require.Equal(t, cfg.AutobahnConfigFile, decoded.AutobahnConfigFile)

@@ -1,0 +1,36 @@
+[manifest]
+task = "22.43.29"
+records_moved = 2
+files_renamed = 2
+
+[file.1]
+from = "consensus/config/repair_172_test.go"
+to = "consensus/config/autobahn_roundtrip_test.go"
+
+[file.2]
+from = "consensus/config/repair_m1087_test.go"
+to = "consensus/config/validation_roundtrip_test.go"
+
+[file.3]
+from = "consensus/config/repair_172.kvx"
+to = "spec/layerx-merge/programme/records/consensus/config/repair_172.kvx"
+
+[file.4]
+from = "consensus/config/repair_m1087.kvx"
+to = "spec/layerx-merge/programme/records/consensus/config/repair_m1087.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "consensus/config/repair_172_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "consensus/config/repair_m1087_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_172_"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1087_"
