@@ -1,0 +1,24 @@
+[manifest]
+task = "22.43.30"
+records_moved = 1
+files_renamed = 1
+
+[file.1]
+from = "consensus/crypto/merkle/repair_m1153_test.go"
+to = "consensus/crypto/merkle/proof_verification_test.go"
+
+[file.2]
+from = "consensus/crypto/merkle/repair_m1153.kvx"
+to = "spec/layerx-merge/programme/records/consensus/crypto/merkle/repair_m1153.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "consensus/crypto/merkle/repair_m1153_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1153_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1153_"
