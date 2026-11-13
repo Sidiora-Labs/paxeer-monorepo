@@ -37,12 +37,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const repairM1275Gas uint64 = 20_000_000
+const wasmdEVMTestGas uint64 = 20_000_000
 
-var repairM1275Caller = common.HexToAddress("0x1275000000000000000000000000000000000001")
-var repairM1275Other = common.HexToAddress("0x1275000000000000000000000000000000000002")
+var wasmdEVMTestCaller = common.HexToAddress("0x1275000000000000000000000000000000000001")
+var wasmdEVMTestOther = common.HexToAddress("0x1275000000000000000000000000000000000002")
 
-func repairM1275StoreSnapshot(t *testing.T, store sdk.KVStore) map[string][]byte {
+func snapshotWasmStore(t *testing.T, store sdk.KVStore) map[string][]byte {
 	t.Helper()
 	result := map[string][]byte{}
 	iter := store.Iterator(nil, nil)
@@ -53,26 +53,26 @@ func repairM1275StoreSnapshot(t *testing.T, store sdk.KVStore) map[string][]byte
 	return result
 }
 
-func repairM1275Context(a *app.App, ctx sdk.Context) sdk.Context {
+func wasmdEVMTestContext(a *app.App, ctx sdk.Context) sdk.Context {
 	ctx = ctx.WithIsEVM(true).WithGasMeter(sdk.NewInfiniteGasMeter(1, 1)).WithEventManager(sdk.NewEventManager())
 	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(1), app.V6120Upgrade)
 	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(1), app.MergeUpgrade)
 	a.RefreshPrecompiles(ctx)
-	for _, addr := range []common.Address{repairM1275Caller, repairM1275Other} {
+	for _, addr := range []common.Address{wasmdEVMTestCaller, wasmdEVMTestOther} {
 		a.EvmKeeper.SetAddressMapping(ctx, sdk.AccAddress(addr.Bytes()), addr)
 	}
 	return ctx
 }
 
-func repairM1275App(t *testing.T) (*app.App, sdk.Context) {
+func newWasmdEVMTestApp(t *testing.T) (*app.App, sdk.Context) {
 	t.Helper()
 	a := app.Setup(t, false, true, false)
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	ctx := a.GetContextForDeliverTx(nil).WithBlockHeight(1).WithBlockTime(time.Unix(1_800_000_000, 0).UTC())
-	return a, repairM1275Context(a, ctx)
+	return a, wasmdEVMTestContext(a, ctx)
 }
 
-func repairM1275VM(t *testing.T, a *app.App, ctx sdk.Context, hooks *tracing.Hooks) (*state.DBImpl, *vm.EVM) {
+func newWasmdEVMTestVM(t *testing.T, a *app.App, ctx sdk.Context, hooks *tracing.Hooks) (*state.DBImpl, *vm.EVM) {
 	t.Helper()
 	db := state.NewDBImpl(ctx, &a.EvmKeeper, false)
 	db.SetLogger(hooks)
@@ -82,46 +82,46 @@ func repairM1275VM(t *testing.T, a *app.App, ctx sdk.Context, hooks *tracing.Hoo
 	precompiles := a.EvmKeeper.CustomPrecompiles(ctx)
 	require.Contains(t, precompiles, wasmd.Address)
 	evm := vm.NewEVM(*block, db, chain, vm.Config{Tracer: hooks}, precompiles)
-	evm.TxContext.Origin = repairM1275Caller
+	evm.TxContext.Origin = wasmdEVMTestCaller
 	return db, evm
 }
 
-func repairM1275Instantiate(t *testing.T, a *app.App, ctx sdk.Context, file, init string) sdk.AccAddress {
+func instantiateWasmdEVMTestContract(t *testing.T, a *app.App, ctx sdk.Context, file, init string) sdk.AccAddress {
 	t.Helper()
 	code, err := os.ReadFile(file)
 	require.NoError(t, err)
 	wk := wasmkeeper.NewDefaultPermissionKeeper(a.WasmKeeper)
-	sender := sdk.AccAddress(repairM1275Caller.Bytes())
+	sender := sdk.AccAddress(wasmdEVMTestCaller.Bytes())
 	id, err := wk.Create(ctx, sender, code, nil)
 	require.NoError(t, err)
-	addr, _, err := wk.Instantiate(ctx, id, sender, sender, []byte(init), "repair-m1275", sdk.NewCoins())
+	addr, _, err := wk.Instantiate(ctx, id, sender, sender, []byte(init), "wasmd-evm-integration", sdk.NewCoins())
 	require.NoError(t, err)
 	return addr
 }
 
-func repairM1275Pack(t *testing.T, contract abi.ABI, name string, args ...interface{}) []byte {
+func packWasmdEVMTestCall(t *testing.T, contract abi.ABI, name string, args ...interface{}) []byte {
 	t.Helper()
 	input, err := contract.Pack(name, args...)
 	require.NoError(t, err)
 	return input
 }
 
-func repairM1275Finalize(t *testing.T, db *state.DBImpl) {
+func finalizeWasmdEVMTestState(t *testing.T, db *state.DBImpl) {
 	t.Helper()
 	_, err := db.Finalize()
 	require.NoError(t, err)
 	require.NoError(t, db.Error())
 }
 
-func TestRepairM_1275_QuerySelector(t *testing.T) {
+func TestQuerySelectorRefusals(t *testing.T) {
 	TestQuery(t)
 }
 
-func TestRepairM_1275_ValueSuccess(t *testing.T) {
+func TestExecuteBatchPreservesCallValue(t *testing.T) {
 	TestExecuteBatchValueImmutability(t)
 }
 
-func TestRepairM_1275_PointerArtifactProvenance(t *testing.T) {
+func TestPointerArtifactProvenance(t *testing.T) {
 	var manifest map[string]struct {
 		Source          string `json:"source"`
 		SourceSHA256    string `json:"source_sha256"`
@@ -161,25 +161,25 @@ func TestRepairM_1275_PointerArtifactProvenance(t *testing.T) {
 	}
 }
 
-func TestRepairM_1275_DelegatecallSuccess(t *testing.T) {
+func TestPointerDelegatecallAuthority(t *testing.T) {
 	for _, kind := range []string{"cw20", "cw721", "cw1155"} {
 		t.Run(kind, func(t *testing.T) {
-			a, ctx := repairM1275App(t)
-			sender := sdk.AccAddress(repairM1275Caller.Bytes())
-			other := sdk.AccAddress(repairM1275Other.Bytes())
+			a, ctx := newWasmdEVMTestApp(t)
+			sender := sdk.AccAddress(wasmdEVMTestCaller.Bytes())
+			other := sdk.AccAddress(wasmdEVMTestOther.Bytes())
 			init := fmt.Sprintf(`{"name":"Repair token","symbol":"RPR","minter":"%s"}`, sender)
 			if kind == "cw20" {
 				init = `{"name":"Repair token","symbol":"RPR","decimals":6,"initial_balances":[]}`
 			}
-			contract := repairM1275Instantiate(t, a, ctx, "../../contracts/wasm/"+kind+"_base.wasm", init)
+			contract := instantiateWasmdEVMTestContract(t, a, ctx, "../../contracts/wasm/"+kind+"_base.wasm", init)
 			pointerPrecompile, err := pointer.NewPrecompile(a.GetPrecompileKeepers())
 			require.NoError(t, err)
 			addrPrecompile, err := addr.NewPrecompile(a.GetPrecompileKeepers())
 			require.NoError(t, err)
 			pointerABI := pointerPrecompile.ABI
 			register := map[string]string{"cw20": "addCW20Pointer", "cw721": "addCW721Pointer", "cw1155": "addCW1155Pointer"}[kind]
-			db, evm := repairM1275VM(t, a, ctx, nil)
-			out, _, err := evm.Call(repairM1275Caller, common.HexToAddress(pointer.PointerAddress), repairM1275Pack(t, pointerABI, register, contract.String()), repairM1275Gas, uint256.NewInt(0))
+			db, evm := newWasmdEVMTestVM(t, a, ctx, nil)
+			out, _, err := evm.Call(wasmdEVMTestCaller, common.HexToAddress(pointer.PointerAddress), packWasmdEVMTestCall(t, pointerABI, register, contract.String()), wasmdEVMTestGas, uint256.NewInt(0))
 			require.NoError(t, err, "%x: %v", out, db.GetPrecompileError())
 			values, err := pointerABI.Methods[register].Outputs.Unpack(out)
 			require.NoError(t, err)
@@ -189,16 +189,16 @@ func TestRepairM_1275_DelegatecallSuccess(t *testing.T) {
 			runtime, err := pcommon.CWPointerRuntime(kind)
 			require.NoError(t, err)
 			require.Equal(t, runtime, db.GetCode(registered), "registration must install the linked production artifact")
-			repairM1275Finalize(t, db)
+			finalizeWasmdEVMTestState(t, db)
 			db.Cleanup()
 
 			assertRegistry := func() {
 				t.Helper()
 				viewABI := pointerview.GetABI()
 				method := map[string]string{"cw20": "getCW20Pointer", "cw721": "getCW721Pointer", "cw1155": "getCW1155Pointer"}[kind]
-				viewDB, viewVM := repairM1275VM(t, a, ctx, nil)
+				viewDB, viewVM := newWasmdEVMTestVM(t, a, ctx, nil)
 				defer viewDB.Cleanup()
-				result, _, err := viewVM.StaticCall(repairM1275Caller, common.HexToAddress(pointerview.PointerViewAddress), repairM1275Pack(t, viewABI, method, contract.String()), repairM1275Gas)
+				result, _, err := viewVM.StaticCall(wasmdEVMTestCaller, common.HexToAddress(pointerview.PointerViewAddress), packWasmdEVMTestCall(t, viewABI, method, contract.String()), wasmdEVMTestGas)
 				require.NoError(t, err, "%v", viewDB.GetPrecompileError())
 				decoded, err := viewABI.Methods[method].Outputs.Unpack(result)
 				require.NoError(t, err)
@@ -212,21 +212,21 @@ func TestRepairM_1275_DelegatecallSuccess(t *testing.T) {
 			contractABI := *artifacts.GetParsedABI(kind)
 			assertAuthority := func(amount int64, approved bool) {
 				t.Helper()
-				for _, owner := range []common.Address{repairM1275Caller, repairM1275Other} {
+				for _, owner := range []common.Address{wasmdEVMTestCaller, wasmdEVMTestOther} {
 					method := "isApprovedForAll"
 					if kind == "cw20" {
 						method = "allowance"
 					}
-					expectedAddressInputs := [][]byte{repairM1275Pack(t, addrPrecompile.ABI, addr.GetPaxAddressMethod, owner)}
+					expectedAddressInputs := [][]byte{packWasmdEVMTestCall(t, addrPrecompile.ABI, addr.GetPaxAddressMethod, owner)}
 					if kind == "cw721" {
-						if owner == repairM1275Caller && approved {
-							expectedAddressInputs = append(expectedAddressInputs, repairM1275Pack(t, addrPrecompile.ABI, addr.GetEvmAddressMethod, other.String()))
+						if owner == wasmdEVMTestCaller && approved {
+							expectedAddressInputs = append(expectedAddressInputs, packWasmdEVMTestCall(t, addrPrecompile.ABI, addr.GetEvmAddressMethod, other.String()))
 						}
 					} else {
-						expectedAddressInputs = append(expectedAddressInputs, repairM1275Pack(t, addrPrecompile.ABI, addr.GetPaxAddressMethod, repairM1275Other))
+						expectedAddressInputs = append(expectedAddressInputs, packWasmdEVMTestCall(t, addrPrecompile.ABI, addr.GetPaxAddressMethod, wasmdEVMTestOther))
 					}
 					var addressInputs [][]byte
-					viewDB, viewVM := repairM1275VM(t, a, ctx, &tracing.Hooks{OnEnter: func(_ int, typ byte, from, to common.Address, input []byte, _ uint64, _ *big.Int) {
+					viewDB, viewVM := newWasmdEVMTestVM(t, a, ctx, &tracing.Hooks{OnEnter: func(_ int, typ byte, from, to common.Address, input []byte, _ uint64, _ *big.Int) {
 						if to == common.HexToAddress(addr.AddrAddress) {
 							require.Equal(t, byte(vm.STATICCALL), typ)
 							require.Equal(t, registered, from)
@@ -235,7 +235,7 @@ func TestRepairM_1275_DelegatecallSuccess(t *testing.T) {
 						}
 					}})
 					defer viewDB.Cleanup()
-					result, _, err := viewVM.StaticCall(repairM1275Caller, registered, repairM1275Pack(t, contractABI, method, owner, repairM1275Other), repairM1275Gas)
+					result, _, err := viewVM.StaticCall(wasmdEVMTestCaller, registered, packWasmdEVMTestCall(t, contractABI, method, owner, wasmdEVMTestOther), wasmdEVMTestGas)
 					require.NoError(t, err, "%x: %v", result, viewDB.GetPrecompileError())
 					require.Equal(t, expectedAddressInputs, addressInputs, "assert every current address selector, argument and call order")
 					decoded, err := contractABI.Methods[method].Outputs.Unpack(result)
@@ -243,17 +243,17 @@ func TestRepairM_1275_DelegatecallSuccess(t *testing.T) {
 					require.Len(t, decoded, 1)
 					if kind == "cw20" {
 						want := int64(0)
-						if owner == repairM1275Caller {
+						if owner == wasmdEVMTestCaller {
 							want = amount
 						}
 						require.Zero(t, big.NewInt(want).Cmp(decoded[0].(*big.Int)), "allowance must equal the exact expected integer")
 					} else {
-						require.Equal(t, owner == repairM1275Caller && approved, decoded[0])
+						require.Equal(t, owner == wasmdEVMTestCaller && approved, decoded[0])
 					}
 				}
 			}
 			assertAuthority(0, false)
-			before := repairM1275StoreSnapshot(t, ctx.KVStore(a.GetKey(wasmtypes.StoreKey)))
+			before := snapshotWasmStore(t, ctx.KVStore(a.GetKey(wasmtypes.StoreKey)))
 			var delegateInput, delegateOutput []byte
 			delegateDepth, calls := -1, 0
 			hooks := &tracing.Hooks{
@@ -274,16 +274,16 @@ func TestRepairM_1275_DelegatecallSuccess(t *testing.T) {
 				},
 			}
 			method := "setApprovalForAll"
-			args := []interface{}{repairM1275Other, true}
+			args := []interface{}{wasmdEVMTestOther, true}
 			if kind == "cw20" {
-				method, args = "approve", []interface{}{repairM1275Other, big.NewInt(5)}
+				method, args = "approve", []interface{}{wasmdEVMTestOther, big.NewInt(5)}
 			}
-			db, evm = repairM1275VM(t, a, ctx, hooks)
-			out, gas, err := evm.Call(repairM1275Caller, registered, repairM1275Pack(t, contractABI, method, args...), repairM1275Gas, uint256.NewInt(0))
+			db, evm = newWasmdEVMTestVM(t, a, ctx, hooks)
+			out, gas, err := evm.Call(wasmdEVMTestCaller, registered, packWasmdEVMTestCall(t, contractABI, method, args...), wasmdEVMTestGas, uint256.NewInt(0))
 			require.NoError(t, err, "%x: %v", out, db.GetPrecompileError())
 			require.NoError(t, db.GetPrecompileError())
 			require.Positive(t, gas)
-			require.Less(t, gas, repairM1275Gas)
+			require.Less(t, gas, wasmdEVMTestGas)
 			require.Equal(t, 1, calls, "pointer must execute the DELEGATECALL opcode to 0x1002")
 			wasmdABI := wasmd.GetABI()
 			require.Equal(t, wasmdABI.Methods[wasmd.ExecuteMethod].ID, delegateInput[:4])
@@ -297,56 +297,56 @@ func TestRepairM_1275_DelegatecallSuccess(t *testing.T) {
 			} else {
 				require.Empty(t, returned)
 			}
-			repairM1275Finalize(t, db)
+			finalizeWasmdEVMTestState(t, db)
 			db.Cleanup()
-			require.NotEqual(t, before, repairM1275StoreSnapshot(t, ctx.KVStore(a.GetKey(wasmtypes.StoreKey))))
+			require.NotEqual(t, before, snapshotWasmStore(t, ctx.KVStore(a.GetKey(wasmtypes.StoreKey))))
 			assertAuthority(5, true)
 
 			message := []byte(fmt.Sprintf(`{"approve_all":{"operator":"%s"}}`, other))
 			if kind == "cw20" {
 				message = []byte(fmt.Sprintf(`{"increase_allowance":{"spender":"%s","amount":"1"}}`, other))
 			}
-			batch := repairM1275Pack(t, wasmdABI, wasmd.ExecuteBatchMethod, []wasmd.ExecuteMsg{
+			batch := packWasmdEVMTestCall(t, wasmdABI, wasmd.ExecuteBatchMethod, []wasmd.ExecuteMsg{
 				{ContractAddress: contract.String(), Msg: message, Coins: []byte("[]")},
 				{ContractAddress: contract.String(), Msg: message, Coins: []byte("[]")},
 			})
-			db, evm = repairM1275VM(t, a, ctx, nil)
-			out, gas, err = evm.DelegateCall(repairM1275Caller, registered, wasmd.Address, batch, repairM1275Gas, uint256.NewInt(0))
+			db, evm = newWasmdEVMTestVM(t, a, ctx, nil)
+			out, gas, err = evm.DelegateCall(wasmdEVMTestCaller, registered, wasmd.Address, batch, wasmdEVMTestGas, uint256.NewInt(0))
 			require.NoError(t, err, "%v", db.GetPrecompileError())
 			require.Positive(t, gas)
 			expected, err = wasmdABI.Methods[wasmd.ExecuteBatchMethod].Outputs.Pack([][]byte{{}, {}})
 			require.NoError(t, err)
 			require.Equal(t, expected, out)
-			repairM1275Finalize(t, db)
+			finalizeWasmdEVMTestState(t, db)
 			db.Cleanup()
 			assertAuthority(7, true)
 
 			for _, input := range [][]byte{delegateInput, batch} {
-				before = repairM1275StoreSnapshot(t, ctx.KVStore(a.GetKey(wasmtypes.StoreKey)))
+				before = snapshotWasmStore(t, ctx.KVStore(a.GetKey(wasmtypes.StoreKey)))
 				refusalCtx := ctx.WithEventManager(sdk.NewEventManager())
-				db, evm = repairM1275VM(t, a, refusalCtx, nil)
-				_, gas, err = evm.DelegateCall(repairM1275Caller, repairM1275Other, wasmd.Address, input, repairM1275Gas, uint256.NewInt(0))
+				db, evm = newWasmdEVMTestVM(t, a, refusalCtx, nil)
+				_, gas, err = evm.DelegateCall(wasmdEVMTestCaller, wasmdEVMTestOther, wasmd.Address, input, wasmdEVMTestGas, uint256.NewInt(0))
 				require.ErrorIs(t, err, vm.ErrExecutionReverted)
 				require.ErrorContains(t, db.GetPrecompileError(), "is not a pointer of "+contract.String())
 				require.Zero(t, gas)
 				require.Empty(t, db.GetAllLogs())
-				require.Equal(t, before, repairM1275StoreSnapshot(t, db.Ctx().KVStore(a.GetKey(wasmtypes.StoreKey))))
-				repairM1275Finalize(t, db)
+				require.Equal(t, before, snapshotWasmStore(t, db.Ctx().KVStore(a.GetKey(wasmtypes.StoreKey))))
+				finalizeWasmdEVMTestState(t, db)
 				require.Empty(t, refusalCtx.EventManager().Events())
 				db.Cleanup()
-				require.Equal(t, before, repairM1275StoreSnapshot(t, ctx.KVStore(a.GetKey(wasmtypes.StoreKey))))
+				require.Equal(t, before, snapshotWasmStore(t, ctx.KVStore(a.GetKey(wasmtypes.StoreKey))))
 			}
 			assertAuthority(7, true)
 			// Re-registration follows the keeper's existing-pointer deployment path
 			// and must preserve both the address and the CosmWasm authority state.
-			db, evm = repairM1275VM(t, a, ctx, nil)
-			out, _, err = evm.Call(repairM1275Caller, common.HexToAddress(pointer.PointerAddress), repairM1275Pack(t, pointerABI, register, contract.String()), repairM1275Gas, uint256.NewInt(0))
+			db, evm = newWasmdEVMTestVM(t, a, ctx, nil)
+			out, _, err = evm.Call(wasmdEVMTestCaller, common.HexToAddress(pointer.PointerAddress), packWasmdEVMTestCall(t, pointerABI, register, contract.String()), wasmdEVMTestGas, uint256.NewInt(0))
 			require.NoError(t, err, "%x: %v", out, db.GetPrecompileError())
 			values, err = pointerABI.Methods[register].Outputs.Unpack(out)
 			require.NoError(t, err)
 			require.Equal(t, []interface{}{registered}, values)
 			require.Equal(t, runtime, db.GetCode(registered))
-			repairM1275Finalize(t, db)
+			finalizeWasmdEVMTestState(t, db)
 			db.Cleanup()
 			assertRegistry()
 			assertAuthority(7, true)
@@ -356,7 +356,7 @@ func TestRepairM_1275_DelegatecallSuccess(t *testing.T) {
 
 // This EVM fixture emits LOG0, forwards the real ABI calldata and call value to
 // 0x1002, and bubbles the complete return or revert data to its EVM caller.
-func repairM1275BatchCaller() []byte {
+func wasmdBatchForwarderCode() []byte {
 	code := []byte{
 		0x36, 0x60, 0x00, 0x60, 0x00, 0x37,
 		0x60, 0x00, 0x60, 0x00, 0xa0,
@@ -370,11 +370,11 @@ func repairM1275BatchCaller() []byte {
 	return code
 }
 
-func TestRepairM_1275_BatchRollbackProof(t *testing.T) {
+func TestExecuteBatchRollbackAfterRestart(t *testing.T) {
 	dir := t.TempDir()
 	open := func(restarting bool) (*app.App, sdk.Context) {
 		t.Helper()
-		disk, err := sdk.NewLevelDB("repair-m1275", dir)
+		disk, err := sdk.NewLevelDB("wasmd-evm-integration", dir)
 		require.NoError(t, err)
 		encoding := app.MakeEncodingConfig()
 		a := app.New(disk, nil, true, map[int64]bool{}, dir, 1, true,
@@ -395,7 +395,7 @@ func TestRepairM_1275_BatchRollbackProof(t *testing.T) {
 		} else {
 			ctx = a.NewContext(false, header)
 		}
-		return a, repairM1275Context(a, ctx)
+		return a, wasmdEVMTestContext(a, ctx)
 	}
 	a, ctx := open(false)
 	t.Cleanup(func() {
@@ -403,13 +403,13 @@ func TestRepairM_1275_BatchRollbackProof(t *testing.T) {
 			require.NoError(t, a.Close())
 		}
 	})
-	sender := sdk.AccAddress(repairM1275Caller.Bytes())
-	receiver := sdk.AccAddress(repairM1275Other.Bytes())
+	sender := sdk.AccAddress(wasmdEVMTestCaller.Bytes())
+	receiver := sdk.AccAddress(wasmdEVMTestOther.Bytes())
 	forwarder := common.HexToAddress("0x1275000000000000000000000000000000000003")
 	forwarderPax := sdk.AccAddress(forwarder.Bytes())
 	a.EvmKeeper.SetAddressMapping(ctx, forwarderPax, forwarder)
-	a.EvmKeeper.SetCode(ctx, forwarder, repairM1275BatchCaller())
-	contract := repairM1275Instantiate(t, a, ctx, "../../contracts/wasm/cw20_base.wasm", fmt.Sprintf(
+	a.EvmKeeper.SetCode(ctx, forwarder, wasmdBatchForwarderCode())
+	contract := instantiateWasmdEVMTestContract(t, a, ctx, "../../contracts/wasm/cw20_base.wasm", fmt.Sprintf(
 		`{"name":"Rollback token","symbol":"ROLL","decimals":6,"initial_balances":[{"address":"%s","amount":"100"}]}`, forwarderPax))
 	funds := sdk.NewCoins(sdk.NewInt64Coin("uhpx", 10_000))
 	require.NoError(t, a.BankKeeper.MintCoins(ctx, "evm", funds))
@@ -422,7 +422,7 @@ func TestRepairM_1275_BatchRollbackProof(t *testing.T) {
 		Msg: []byte(fmt.Sprintf(`{"transfer":{"recipient":"%s","amount":"1000000"}}`, receiver))}
 	wasmdABI := wasmd.GetABI()
 	value := uint256.NewInt(1_000_000_000_000_000)
-	beforeState := repairM1275StoreSnapshot(t, ctx.KVStore(a.GetKey(wasmtypes.StoreKey)))
+	beforeState := snapshotWasmStore(t, ctx.KVStore(a.GetKey(wasmtypes.StoreKey)))
 	addresses := []sdk.AccAddress{sender, forwarderPax, contract, a.EvmKeeper.GetPaxAddressOrDefault(ctx, wasmd.Address)}
 	balances := func(readCtx sdk.Context) []sdk.Coin {
 		result := make([]sdk.Coin, len(addresses))
@@ -437,8 +437,8 @@ func TestRepairM_1275_BatchRollbackProof(t *testing.T) {
 	// and native balances, and the EVM fixture emits a real log. Discard its cache.
 	controlCtx, _ := ctx.CacheContext()
 	controlCtx = controlCtx.WithEventManager(sdk.NewEventManager())
-	db, evm := repairM1275VM(t, a, controlCtx, nil)
-	out, remaining, err := evm.Call(repairM1275Caller, forwarder, repairM1275Pack(t, wasmdABI, wasmd.ExecuteBatchMethod, []wasmd.ExecuteMsg{first}), repairM1275Gas, value)
+	db, evm := newWasmdEVMTestVM(t, a, controlCtx, nil)
+	out, remaining, err := evm.Call(wasmdEVMTestCaller, forwarder, packWasmdEVMTestCall(t, wasmdABI, wasmd.ExecuteBatchMethod, []wasmd.ExecuteMsg{first}), wasmdEVMTestGas, value)
 	require.NoError(t, err, "%x: %v", out, db.GetPrecompileError())
 	require.Positive(t, remaining)
 	decoded, err := wasmdABI.Methods[wasmd.ExecuteBatchMethod].Outputs.Unpack(out)
@@ -446,39 +446,39 @@ func TestRepairM_1275_BatchRollbackProof(t *testing.T) {
 	require.Len(t, decoded[0].([][]byte), 1)
 	require.Len(t, db.GetAllLogs(), 1)
 	require.Equal(t, forwarder, db.GetAllLogs()[0].Address)
-	require.NotEqual(t, beforeState, repairM1275StoreSnapshot(t, db.Ctx().KVStore(a.GetKey(wasmtypes.StoreKey))))
+	require.NotEqual(t, beforeState, snapshotWasmStore(t, db.Ctx().KVStore(a.GetKey(wasmtypes.StoreKey))))
 	require.Equal(t, sdk.NewInt(1000), a.BankKeeper.GetBalance(db.Ctx(), contract, "uhpx").Amount)
 	require.Equal(t, sdk.NewInt(9000), a.BankKeeper.GetBalance(db.Ctx(), sender, "uhpx").Amount)
-	repairM1275Finalize(t, db)
+	finalizeWasmdEVMTestState(t, db)
 	require.NotEmpty(t, controlCtx.EventManager().Events())
 	db.Cleanup()
-	require.Equal(t, beforeState, repairM1275StoreSnapshot(t, ctx.KVStore(a.GetKey(wasmtypes.StoreKey))))
+	require.Equal(t, beforeState, snapshotWasmStore(t, ctx.KVStore(a.GetKey(wasmtypes.StoreKey))))
 	require.Equal(t, beforeBalances, balances(ctx))
 
 	callCtx := ctx.WithEventManager(sdk.NewEventManager())
 	observedLogs := 0
-	db, evm = repairM1275VM(t, a, callCtx, &tracing.Hooks{OnLog: func(*ethtypes.Log) { observedLogs++ }})
-	input := repairM1275Pack(t, wasmdABI, wasmd.ExecuteBatchMethod, []wasmd.ExecuteMsg{first, second})
-	_, remaining, err = evm.Call(repairM1275Caller, forwarder, input, repairM1275Gas, value)
+	db, evm = newWasmdEVMTestVM(t, a, callCtx, &tracing.Hooks{OnLog: func(*ethtypes.Log) { observedLogs++ }})
+	input := packWasmdEVMTestCall(t, wasmdABI, wasmd.ExecuteBatchMethod, []wasmd.ExecuteMsg{first, second})
+	_, remaining, err = evm.Call(wasmdEVMTestCaller, forwarder, input, wasmdEVMTestGas, value)
 	require.ErrorIs(t, err, vm.ErrExecutionReverted)
 	require.ErrorContains(t, db.GetPrecompileError(), "Cannot Sub")
 	require.ErrorContains(t, db.GetPrecompileError(), "1000000", "refusal must come from the second message")
-	require.Less(t, remaining, repairM1275Gas)
+	require.Less(t, remaining, wasmdEVMTestGas)
 	require.Equal(t, 1, observedLogs, "the reverted log must actually have been emitted")
 	require.Empty(t, db.GetAllLogs())
-	require.Equal(t, beforeState, repairM1275StoreSnapshot(t, db.Ctx().KVStore(a.GetKey(wasmtypes.StoreKey))))
+	require.Equal(t, beforeState, snapshotWasmStore(t, db.Ctx().KVStore(a.GetKey(wasmtypes.StoreKey))))
 	require.Equal(t, beforeBalances, balances(db.Ctx()))
-	repairM1275Finalize(t, db)
+	finalizeWasmdEVMTestState(t, db)
 	require.Empty(t, callCtx.EventManager().Events())
-	require.Equal(t, beforeState, repairM1275StoreSnapshot(t, ctx.KVStore(a.GetKey(wasmtypes.StoreKey))))
+	require.Equal(t, beforeState, snapshotWasmStore(t, ctx.KVStore(a.GetKey(wasmtypes.StoreKey))))
 	require.Equal(t, beforeBalances, balances(ctx))
 
 	// Persist the production receipt made from the reverted StateDB, then stop
 	// the entire application and reopen every store from the same on-disk home.
 	txHash := common.HexToHash("0x1275")
 	receipt, err := a.EvmKeeper.WriteReceipt(ctx, db, &core.Message{
-		From: repairM1275Caller, To: &forwarder, GasPrice: big.NewInt(0), Data: input,
-	}, 0, txHash, repairM1275Gas-remaining, vm.ErrExecutionReverted.Error())
+		From: wasmdEVMTestCaller, To: &forwarder, GasPrice: big.NewInt(0), Data: input,
+	}, 0, txHash, wasmdEVMTestGas-remaining, vm.ErrExecutionReverted.Error())
 	require.NoError(t, err)
 	require.Zero(t, receipt.Status)
 	require.Empty(t, receipt.Logs)
@@ -492,7 +492,7 @@ func TestRepairM_1275_BatchRollbackProof(t *testing.T) {
 	a = nil
 	a, ctx = open(true)
 	require.Equal(t, height, a.LastBlockHeight())
-	require.Equal(t, beforeState, repairM1275StoreSnapshot(t, ctx.KVStore(a.GetKey(wasmtypes.StoreKey))))
+	require.Equal(t, beforeState, snapshotWasmStore(t, ctx.KVStore(a.GetKey(wasmtypes.StoreKey))))
 	require.Equal(t, beforeBalances, balances(ctx))
 	recovered, err := a.EvmKeeper.GetReceipt(ctx, txHash)
 	require.NoError(t, err)
