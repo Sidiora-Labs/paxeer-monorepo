@@ -15,15 +15,18 @@ The `precompiles` directory contains the Go EVM precompile implementations, thei
 - `launchpad/` — launchpad market, pool, token, fee, and liquidity surfaces.
 - `layerxagent/` — merge-gated agent functions: clearing, EIP-712, oracle aggregation, OROB, POFQ, scheduler, streams, and TEE attestation.
 - `layerxanchor/` — retained LayerX anchor interface.
+  Writes are retired and refuse calls from the v7.0 upgrade height; archive reads remain until the separate anchor-store deletion plan. The tree stays in the build for replay.
 - `layerxauth/` — merge-gated LayerX authority precompile.
 - `layerxbridge/` — bridge operations.
 - `layerxchains/` — merge-gated LayerX chain and tenant operations.
 - `layerxcustody/` — retained LayerX custody interface.
+  Every method is retired and refuses calls, including reads, from the v7.0 upgrade height; the tree stays in the build for replay. Remaining balances move to the custody authority and pending claims are cancelled.
 - `layerxexchange/` — LayerX exchange ABI and compatibility implementation; `setup.go` selects `perps/` for current upgrades.
 - `layerxledger/` — merge-gated LayerX ledger operations.
 - `layerxpay/` — merge-gated LayerX payment operations.
 - `layerxprograms/` — merge-gated LayerX program operations.
 - `layerxverify/` — retained LayerX verification interface.
+  Every method is retired and refuses calls, including reads, from the v7.0 upgrade height; the tree stays in the build for replay.
 - `oracle/` — retained oracle ABI; oracle data queries are disabled.
 - `p256/` — P-256 signature verification precompile.
 - `perps/` — perpetuals precompile and ABI files.

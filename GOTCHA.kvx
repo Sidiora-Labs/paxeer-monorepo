@@ -21805,3 +21805,38 @@ fix = "Decision 3482. The cases run every assertion where the variable names a c
 title = "Tool scripts carry default locations of one machine"
 symptom = "Scripts under tools/qualification/paxeer-x and tools/paxeer-x/gates and make fragments under tools/paxeer-x/build take the location of cargo, of build directories and of output directories from fixed paths under the home directory of one user where no variable is set, so they run unchanged on that one machine only."
 fix = "Decision 3483. Tasks 22.43.290 and 22.43.291."
+
+[gotcha.4397]
+title = "The front page describes the network by its consensus and not by its kernel"
+symptom = "The opening of README.md names the consensus family, the chain identifier and the token, and its diagram places the kernel as the last box behind the modules. A reader does not learn that the kernel executes each transaction on arrival, orders it in one sequence, issues the signed receipt and builds the block that validators then commit."
+fix = "Decision 3484. Task 22.43.292."
+
+[gotcha.4398]
+title = "Other entry pages still open with the consensus family"
+symptom = "The documentation index docs/README.md, the applications page apps/README.md, the abstract of CITATION.cff and the landing page of the documentation site open with the consensus family and name the kernel as a part that takes part in proposal. They do not say that the kernel executes each transaction on arrival, orders it in one sequence, issues the signed receipt and builds the block that validators then commit."
+fix = "Decision 3485. Tasks 22.43.293 and 22.43.294."
+
+[gotcha.4399]
+title = "Cases of the human workspace read inputs that no target writes"
+symptom = "Some cases of the workspace under services/human read an input named by a variable of the environment, an attestor quorum document, an assertion file or a chain snapshot document, and no target of the Makefile writes these inputs. One case of the member layerx-human-identity-provider needs the local quorum that the test support of the member layerx-human-kms provides, which adds a test dependency, and the lock file of the workspace lies outside the paths of task 22.39.499."
+fix = "Decision 3486. Task 22.39.499 takes the lock file into its paths and follows the rule."
+
+[gotcha.4400]
+title = "A workspace test target visits one member at a time"
+symptom = "The targets agent-test and human-test of the Makefile call cargo so that a run ends at the first member that holds a case to repair. One counted run therefore shows one member, and a workspace with cases in several members needs a hand pass over every member before the counted run."
+fix = "Decision 3487. Task 22.39.498 runs the target by hand over every member first, as decision 3486 says for task 22.39.499."
+
+[gotcha.4401]
+title = "The lint run of the root reads every Go package of the root module"
+symptom = "With the constraint of decision 3479 in place the lint run of the root reads every Go package of the root module. It lists lines in files that lie outside the paths of task 22.39.511, and its report holds a limit per linter, so one run does not show the full list."
+fix = "Decision 3488. Task 22.39.511 takes the full list by hand and follows the rule."
+
+[gotcha.4402]
+title = "The test target of the platform workspaces reaches the cases of the PaxAI participant member"
+symptom = "The target platform-test visits one member at a time, as gotcha 4400 says for the agent workspace. Behind the members inside the paths of task 22.39.504 it reaches the file tests/job_admission.rs of the PaxAI participant member. The cases of that file build their market through the operations of the member layerx-programs-ai-market in a form that predates the present operations, and the file lies outside the paths of the task."
+fix = "Decision 3489. Task 22.39.504 takes the test directory of that member into its paths and follows the rule."
+
+[gotcha.4403]
+title = "Pages across the repository open with the consensus family"
+symptom = "Beyond the entry pages of decision 3485, pages in the documentation, the wiki, the contract pages, the pages of services, kits and applications and pages of upstream specification carry one sentence that calls the network one BFT network and says that the kernel participates in block proposal. Thirteen Python tests read that sentence on the network page, the overview page, the documentation index and the page of the programs, and the index no longer holds it."
+fix = "Decision 3490. Tasks 22.43.295 to 22.43.303."

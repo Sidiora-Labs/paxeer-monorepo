@@ -29,14 +29,14 @@ export default function Home() {
       <section className="home-hero">
         <p className="eyebrow">PAXEER X / NETWORK DOCUMENTATION</p>
         <h1>Applications. Payments. Programs.<br /><span>Build on Paxeer.</span></h1>
-        <p className="page-description">Paxeer mainnet-beta runs EVM applications and the embedded LayerX kernel on one BFT network, with native payments, markets and deterministic programs.</p>
+        <p className="page-description">The LayerX kernel inside every paxd node executes each transaction on arrival, orders it in one global sequence and returns a signed execution receipt; validators check and commit the blocks it builds.</p>
         <div className="hero-actions"><Link className="pill-button primary-button" href="/unified-network">Explore the network <Icon name="arrow" size={16} /></Link><Link className="pill-button" href="/xdk">Start with the XDK</Link></div>
-        <div className="hero-network"><span>One BFT network</span><i /><span>EVM chain ID <code>125</code></span><i /><span>Native token <code>PAX</code></span></div>
+        <div className="hero-network"><span>LayerX kernel</span><i /><span>EVM chain ID <code>125</code></span><i /><span>Native token <code>PAX</code></span></div>
       </section>
       <Band />
       <figure className="cd-hero-panel">
         <img src="/art/docs/system-overview.webp" alt="Paxeer Docs: explore the connected system" width={1536} height={1024} decoding="async" />
-        <figcaption><span>Paxeer mainnet-beta: EVM applications and the LayerX kernel execute on one BFT network.</span><span>EVM 125 · PAX</span></figcaption>
+        <figcaption><span>The LayerX kernel executes, orders and receipts every transaction; EVM applications run on the same sequence.</span><span>EVM 125 · PAX</span></figcaption>
       </figure>
       <Band />
       <section className="cd-strip" aria-label="Network interfaces">
@@ -225,7 +225,7 @@ export default function Home() {
         <SectionHead id="evidence-title" eyebrow="EVIDENCE" title={"Receipts, blocks\nand execution records"} />
         <div className="cd-grid-3">
           <MediaCard art="payment-receipt" alt="Payment receipt: protocol 402LXP, service Compute, status Settled" kicker="RECEIPTS" title="Signed at execution" text="Verify a signed execution receipt against trusted receipt keys, then check its covering block." href="/receipts" linkLabel="Verify signed receipts" />
-          <MediaCard art="state-snapshots" alt="Stacked state snapshots" kicker="BLOCKS" title="Committed on Paxeer" text="Validators commit blocks on the BFT network. A receipt is final when its covering block is committed." href="/checkpoints" linkLabel="Verify block commitment" />
+          <MediaCard art="state-snapshots" alt="Stacked state snapshots" kicker="BLOCKS" title="Committed on Paxeer" text="Validators check and commit the blocks the kernel builds. A receipt is final when its covering block is committed." href="/checkpoints" linkLabel="Verify block commitment" />
           <MediaCard art="job-progress" alt="Job progress: submitted, processing, output ready" kicker="COMMITMENT" title="Submitted, receipted, committed" text="Track submission, verify the signed execution result and confirm block commitment before treating it as final." href="/finality" linkLabel="Read commitment levels" />
           <MediaCard art="results-artifacts" alt="Results and artifacts: output, logs and metadata ready to download" kicker="REPLAY" title="Replayable history" text="Replay deterministic execution with the required input history, state, runtime version and program artifacts." href="/sequencing" linkLabel="How sequencing works" />
           <MediaCard art="event-subscriptions" alt="Event subscriptions for task, payment and chain events" kicker="ACCOUNTS" title="Fund a bound account" text="Bind the owner identity, transfer native assets and verify the recipient, amount and transaction receipt." href="/custody" linkLabel="Account funding and keys" />
@@ -243,10 +243,10 @@ export default function Home() {
       <section id="faqs" aria-labelledby="faq-title">
         <SectionHead id="faq-title" eyebrow="FAQS" title="Frequently asked questions" />
         <div className="cd-faq">
-          <details><summary>What is the difference between Paxeer X and LayerX?<span className="cd-faq-toggle" aria-hidden="true" /></summary><p>Paxeer mainnet-beta is one BFT network. LayerX is its embedded kernel for native activities and deterministic execution. EVM transactions call native precompiles, and receipt finality comes from the covering block commit. <Link href="/paxeer-vs-layerx">Explore the network architecture</Link></p></details>
+          <details><summary>What is the difference between Paxeer X and LayerX?<span className="cd-faq-toggle" aria-hidden="true" /></summary><p>Paxeer X is the network and LayerX its kernel. LayerX executes each transaction on arrival, orders it, signs the receipt and builds the block that validators commit. EVM transactions run on the same sequence and call native precompiles. Receipt finality comes from the commit of the covering block. <Link href="/paxeer-vs-layerx">Explore the network architecture</Link></p></details>
           <details><summary>Which chain ID and token does the network use?<span className="cd-faq-toggle" aria-hidden="true" /></summary><p>EVM chain ID <code>125</code> (<code>hyperpax_125-1</code>) with native token <code>PAX</code>. Denominations, gas limits and endpoints are listed with the network parameters. <Link href="/network-parameters">Network parameters</Link></p></details>
           <details><summary>How does an agent get authority to spend?<span className="cd-faq-toggle" aria-hidden="true" /></summary><p>Through scoped, revocable delegation: primary and session keys, budget limits and mandates define exactly what an agent may do with money, and owners can revoke or rotate that authority. <Link href="/agent-budgets">Agent budgets</Link></p></details>
-          <details><summary>How do I verify a payment actually settled?<span className="cd-faq-toggle" aria-hidden="true" /></summary><p>Verify the signed execution receipt against trusted receipt keys, check its transaction and outcome, and confirm the covering BFT block is committed. <Link href="/receipts">Receipts and proofs</Link></p></details>
+          <details><summary>How do I verify a payment actually settled?<span className="cd-faq-toggle" aria-hidden="true" /></summary><p>Verify the signed execution receipt against trusted receipt keys, check its transaction and outcome, and confirm the covering block is committed. <Link href="/receipts">Receipts and proofs</Link></p></details>
           <details><summary>Can I use my existing EVM tooling?<span className="cd-faq-toggle" aria-hidden="true" /></summary><p>Yes. Deploy Solidity with Foundry or Hardhat, connect wallets over JSON-RPC, and call native precompiles for account binding, native payments and markets on chain 125. <Link href="/evm">Build on the EVM</Link></p></details>
           <details><summary>How do I run a node or operate the network?<span className="cd-faq-toggle" aria-hidden="true" /></summary><p>Start with installation and configuration, then the operator guides for BFT nodes, validators, RPC endpoints and retained chain history. <Link href="/run-node">Run a node</Link></p></details>
         </div>

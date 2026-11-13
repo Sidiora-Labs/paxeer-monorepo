@@ -12,6 +12,7 @@
 .system summary:hover { background: var(--color-surface-elevated); }
 .system summary strong { font-weight: 500; }
 .change { display: inline-block; margin-left: 8px; padding: 0 8px; border: 1px solid var(--color-border-subtle); border-radius: 999px; font-size: var(--font-text-xs-size); color: var(--color-text-secondary); }
+.change[data-change='retired'] { border-style: dashed; color: var(--color-text); }
 .details { padding: 16px; }
 .details dl { margin: 0; }
 .details dt { font-weight: 500; margin-top: 16px; }
