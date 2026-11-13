@@ -10,6 +10,11 @@ When `pecor` is zero, quotes use fee-free oracle conversion. Quote construction 
 errors and returns a partial result with stale flags. Quotes report available output reserves after
 reservations; `getLiquidityInfo` and `getAllLiquidityInfo` report total accounted reserves.
 
+With a configured engine, exact input quotes report `feeAmount` in output-token units and
+`feeBps` as the engine's tiered fee rate. Exact output quotes report `feeAmount` as the extra input
+above fee-free oracle conversion, including fee and impact costs; `feeBps` is that extra input
+divided by the fee-free input, scaled by 10,000 and rounded down.
+
 Source: [IMetaAGQuoter.sol](../../../contracts/meta-ag/interfaces/IMetaAGQuoter.sol).
 
 ### QuoteResult

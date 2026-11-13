@@ -197,8 +197,8 @@ Get the maximum input amount this adapter can handle for a pair
 
 For a supported USDL input, returns `type(uint256).max`. For a token input, returns the conservative
 sell bound `realUsdl * tokenReserve / virtualUsdl`. Returns zero when the pair is unsupported,
-reserves cannot be read, or real USDL liquidity is zero; a zero virtual reserve returns
-`type(uint256).max`.
+reserves cannot be read, or real USDL liquidity is zero with a nonzero virtual reserve. A zero
+virtual reserve returns `type(uint256).max`, including when real USDL liquidity is zero.
 
 #### Parameters
 
@@ -222,6 +222,10 @@ function getQuote(address tokenIn, address tokenOut, uint256 amountIn) external 
 Get a quote for swapping amountIn of tokenIn for tokenOut
 
 _Invariant I1 — never reverts. Returns `available=false` on any issue._
+
+Single-hop `feeAmount` is denominated in the input token. Token-to-token quotes report fees in
+USDL, converting the sell fee at the first leg's execution rate before adding the buy fee.
+`feeBps` is zero. The execution result reports zero `feeAmount`.
 
 #### Parameters
 

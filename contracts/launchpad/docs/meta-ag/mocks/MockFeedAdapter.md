@@ -7,7 +7,8 @@ confidence values, support flags and a staleness threshold. Its abstract `source
 `adapterName` methods are pure; concrete A, B and C contracts return fixed identifiers and names.
 
 `setPrice` stores a feed and marks the token supported. `setSupported` changes support
-independently. The token list retains addresses after support is disabled. `getFeedPrice` returns
+independently. The token list retains addresses after support is disabled; `setPrice` appends the
+token again if its support flag is false, so the list can contain duplicates. `getFeedPrice` returns
 the stored feed without freshness or support validation, and can be configured to revert with
 `setRevertOnGet`. `getFeedPrices` returns stored feeds without consulting that revert flag.
 
@@ -55,7 +56,7 @@ constructor(uint256 maxStaleness_)
 function sourceId() external pure virtual returns (bytes32)
 ```
 
-Unique identifier for this adapter source (e.g., keccak256("PriceOracle.v1"))
+Identifier supplied by the concrete adapter's pure implementation.
 
 #### Return Values
 
@@ -199,7 +200,7 @@ function _sourceIdInternal() internal pure virtual returns (bytes32)
 
 ## MockFeedAdapterA
 
-Mock feed adapter keyed to `keccak256("MockFeedAdapter.A.v1")`.
+Mock feed adapter keyed to `keccak256("MockFeedAdapter.A.v1")`, with name `"MockFeedAdapter.A.v1"`.
 
 ### constructor
 
@@ -213,7 +214,7 @@ constructor(uint256 maxStaleness_) public
 function sourceId() external pure returns (bytes32)
 ```
 
-Unique identifier for this adapter source (e.g., keccak256("PriceOracle.v1"))
+Returns `keccak256("MockFeedAdapter.A.v1")`.
 
 #### Return Values
 
@@ -243,7 +244,7 @@ function _sourceIdInternal() internal pure returns (bytes32)
 
 ## MockFeedAdapterB
 
-Mock feed adapter keyed to `keccak256("MockFeedAdapter.B.v1")`.
+Mock feed adapter keyed to `keccak256("MockFeedAdapter.B.v1")`, with name `"MockFeedAdapter.B.v1"`.
 
 ### constructor
 
@@ -257,7 +258,7 @@ constructor(uint256 maxStaleness_) public
 function sourceId() external pure returns (bytes32)
 ```
 
-Unique identifier for this adapter source (e.g., keccak256("PriceOracle.v1"))
+Returns `keccak256("MockFeedAdapter.B.v1")`.
 
 #### Return Values
 
@@ -287,7 +288,7 @@ function _sourceIdInternal() internal pure returns (bytes32)
 
 ## MockFeedAdapterC
 
-Mock feed adapter keyed to `keccak256("MockFeedAdapter.C.v1")`.
+Mock feed adapter keyed to `keccak256("MockFeedAdapter.C.v1")`, with name `"MockFeedAdapter.C.v1"`.
 
 ### constructor
 
@@ -301,7 +302,7 @@ constructor(uint256 maxStaleness_) public
 function sourceId() external pure returns (bytes32)
 ```
 
-Unique identifier for this adapter source (e.g., keccak256("PriceOracle.v1"))
+Returns `keccak256("MockFeedAdapter.C.v1")`.
 
 #### Return Values
 

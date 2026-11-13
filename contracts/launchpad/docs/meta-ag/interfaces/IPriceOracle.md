@@ -189,6 +189,8 @@ function getPriceHistory(address token, uint256 count) external view returns (st
 
 Get recent price history for a token
 
+The result contains at most 1000 rounds, limited by the current round count.
+
 #### Parameters
 
 | Name  | Type    | Description                         |
@@ -228,7 +230,8 @@ Get the latest round data for a token
 function getRoundData(address token, uint256 roundId) external view returns (struct IPriceOracle.PriceData data)
 ```
 
-Get the price at a specific round
+Get a stored price round. Zero, future and unavailable round IDs revert. Price publication retains
+the latest 1000 rounds in bounded history.
 
 #### Parameters
 
@@ -323,7 +326,7 @@ function batchUpdatePrices(address[] tokens, uint256[] prices) external
 Update prices for multiple tokens in a single transaction
 
 Requires `RELAYER_ROLE`. Unregistered tokens are skipped and the emitted token count records applied
-updates. The array lengths must match.
+updates. The arrays must be nonempty and their lengths must match.
 
 #### Parameters
 
@@ -345,8 +348,8 @@ Register a new token with its oracle configuration
 | Name                  | Type    | Description                           |
 | --------------------- | ------- | ------------------------------------- |
 | token                 | address | The token address to register         |
-| heartbeatInterval     | uint256 | Max seconds between updates           |
-| deviationThresholdBps | uint256 | Min deviation to warrant update (BPS) |
+| heartbeatInterval     | uint256 | Relayer heartbeat interval in seconds |
+| deviationThresholdBps | uint256 | Relayer publication trigger in BPS    |
 | minPrice              | uint256 | Lower price bound (18 decimals)       |
 | maxPrice              | uint256 | Upper price bound (18 decimals)       |
 | maxStaleness          | uint256 | Seconds after which price is stale    |
