@@ -21,7 +21,7 @@ from phase2.providers import DOCUMENT_ENV, connected_plan, validate_connected_pl
 
 
 def actual_adapter():
-    spec = spec_from_file_location('repair_22_31_313_runtime', ADAPTER)
+    spec = spec_from_file_location('topology_runtime_adapter', ADAPTER)
     module = module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -51,7 +51,7 @@ def topology_v2():
 @pytest.fixture
 def connected_inputs(tmp_path):
     config = topology_v2()
-    fixture = v1.load(Path(__file__).with_name('fixtures') / 'repair_22_31_313_documents.json')
+    fixture = v1.load(Path(__file__).with_name('fixtures') / 'runtime_documents.json')
     grants = v1.load(SOURCE_ROOT / 'migrations/grants.json')
     manifests = {manifest['runtime_role']: manifest for manifest in grants['roles']}
     documents = {}

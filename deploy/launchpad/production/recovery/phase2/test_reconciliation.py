@@ -203,7 +203,7 @@ def expected_raw_digest(rows):
 
 def load_release():
     path = HERE.parent / 'phase4' / 'release.py'
-    spec = importlib.util.spec_from_file_location('repair_22_33_719_release', path)
+    spec = importlib.util.spec_from_file_location('recovery_reconciliation_release', path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
