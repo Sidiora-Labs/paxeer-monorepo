@@ -1,15 +1,33 @@
 # Agent HTTP contract
 
-The agent's serve listener provides health and verified native reads. Source:
-[`main.rs`](../../../services/agent/crates/layerx-agentd/src/main.rs) and
-[`read/native.rs`](../../../services/agent/crates/layerx-agentd/src/read/native.rs).
+The agent's program read listener provides health, program balances and verified
+native reads. [`main.rs`](../../../services/agent/crates/layerx-agentd/src/main.rs)
+loads `serve_read_routes` from
+[`proof_native_reads.rs`](../../../services/agent/crates/layerx-agentd/tests/proof_native_reads.rs)
+through [`proof_serve_errors.rs`](../../../services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs).
+[`read/native.rs`](../../../services/agent/crates/layerx-agentd/src/read/native.rs)
+implements native read dispatch.
 The private agent envelope transport is described in [agent-api.md](agent-api.md).
+
+## Authentication
+
+Every request to the program read listener, including health, requires exactly
+one `Authorization: Bearer` header matching `LAYERX_AGENT_PROGRAM_BEARER_TOKEN`.
+Missing, duplicate or incorrect credentials return HTTP 401 `unauthorized`.
+Requests must use HTTP/1.1 GET with an empty body.
+
+Native read routes are available when the MCP binding installs a native reader;
+otherwise they return HTTP 404 `not_found`. The Human owner mode serves a separate
+health-only listener using `LAYERX_AGENT_PROGRAM_BEARER_TOKEN` and does not serve
+program balances or native reads.
 
 ## healthz
 
 `GET /healthz` answers HTTP 503 while readiness checks are pending or fail and
 HTTP 200 when the service is ready. Node readiness requires a successful chain-ID
-check against the configured network.
+check against the configured network and the `readiness_gate` checks. Its JSON
+body reports `ready`, `transport_ready`, `verified_reads_ready` and
+`tenant_writes: "unknown"`.
 
 ## programs-balances
 

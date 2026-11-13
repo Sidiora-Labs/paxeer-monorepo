@@ -12,7 +12,7 @@ Agent applications use the merged Paxeer BFT network, EVM chain ID `125` (`0x7d`
 | <code>interface.9.ts-sdk-account-derivation-account-derivation-domain-version</code> | <code>ts_export</code> | <code>services/agent/sdk/typescript/src/account-derivation.ts</code> | <code>export const ACCOUNT_DERIVATION_DOMAIN_VERSION = "1";</code> |
 | <code>interface.9.ts-sdk-account-derivation-account-derivation-hkdf-info-prefix</code> | <code>ts_export</code> | <code>services/agent/sdk/typescript/src/account-derivation.ts</code> | <code>export const ACCOUNT_DERIVATION_HKDF_INFO_PREFIX = "LX:ACCOUNT-KEY:v1";</code> |
 | <code>interface.9.ts-sdk-account-derivation-account-derivation-hkdf-salt</code> | <code>ts_export</code> | <code>services/agent/sdk/typescript/src/account-derivation.ts</code> | <code>export const ACCOUNT_DERIVATION_HKDF_SALT = "paxeer-x-network/layerx-account-key/v1";</code> |
-| <code>interface.9.ts-sdk-account-derivation-account-derivation-origin</code> | <code>ts_export</code> | <code>services/agent/sdk/typescript/src/account-derivation.ts</code> | <code>export const ACCOUNT_DERIVATION_ORIGIN = "https://paxportwallet.com";</code> |
+| <code>interface.9.ts-sdk-account-derivation-account-derivation-origin</code> | <code>ts_export</code> | <code>services/agent/sdk/typescript/src/account-derivation.ts</code> | <code>export const ACCOUNT_DERIVATION_ORIGIN</code> |
 | <code>interface.9.ts-sdk-account-derivation-account-derivation-purpose</code> | <code>ts_export</code> | <code>services/agent/sdk/typescript/src/account-derivation.ts</code> | <code>export const ACCOUNT_DERIVATION_PURPOSE = "Derive your LayerX account key";</code> |
 | <code>interface.9.ts-sdk-account-derivation-account-derivation-version</code> | <code>ts_export</code> | <code>services/agent/sdk/typescript/src/account-derivation.ts</code> | <code>export const ACCOUNT_DERIVATION_VERSION = 1;</code> |
 | <code>interface.9.ts-sdk-account-derivation-accountderivationerror</code> | <code>ts_export</code> | <code>services/agent/sdk/typescript/src/account-derivation.ts</code> | <code>export class AccountDerivationError extends Error</code> |
@@ -94,7 +94,7 @@ Agent applications use the merged Paxeer BFT network, EVM chain ID `125` (`0x7d`
 
 | Requirement | Behavior |
 | --- | --- |
-| <code>req.9359</code> | Every envelope request carries contract major 2. |
+| <code>req.9359</code> | Agent HTTP requests carry envelope version 1 with canonical decimal request and credential-generation strings; the API contract version is 2.0 (services/agent/sdk/typescript/src/agent-http.ts). |
 | <code>req.9359</code> | A proof bundle reply reports its verification as a rung. |
 
 ## ai-market
@@ -688,7 +688,7 @@ Agent applications use the merged Paxeer BFT network, EVM chain ID `125` (`0x7d`
 | Requirement | Behavior |
 | --- | --- |
 | <code>req.9355</code> | decodePxNetworkHead returns latestCommittedHeight and refuses an anchor field. |
-| <code>req.9355</code> | PX_METHODS lists exactly the eight px methods. |
+| <code>req.9355</code> | PX_METHODS lists 21 hosted px_ method names, including receipt keys, committed evidence, inference reads, funding and capability discovery (services/agent/sdk/typescript/src/px.ts). |
 
 ## revert
 
@@ -721,7 +721,7 @@ Agent applications use the merged Paxeer BFT network, EVM chain ID `125` (`0x7d`
 
 | Requirement | Behavior |
 | --- | --- |
-| <code>req.9352</code> | Every JsonRpcClient read sends an eth_ or px_ method. |
+| <code>req.9352</code> | JsonRpcClient uses eth_ and hosted px_ methods for state reads and pax_sequencerReceipt for signed execution receipts (services/agent/sdk/typescript/src/rpc.ts). |
 | <code>req.9352</code> | sendRawTransaction sends the 0x-prefixed raw bytes and returns the hash. |
 | <code>req.9352</code> | getIdentitySequence returns the pending transaction count. |
 

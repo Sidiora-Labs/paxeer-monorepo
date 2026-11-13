@@ -19,7 +19,7 @@ Source paths are relative to the repository root. Declaration tables identify th
 |---|---|
 | interface | services/bridge/deploy: deploy-evm-chain.sh, deploy-solana-program.sh, verify-evm-chain.sh and checklist.sh write and check deployment records; paxeer-bridge-proposals renders governance proposals; paxeer-bridge-app-env renders and checks the app env. |
 | storage | Deployment records &lt;chain&gt;.json under PAXEER_BRIDGE_DEPLOYMENT_RECORD_DIR; attestors.json manifest; no chain state written by the tooling except the deployments themselves. |
-| errors | Each script exits 1 naming the failing file, variable or field; appenv.LoadRecord refuses a chain_id that differs from the registry and a zero vault. |
+| errors | Scripts refuse invalid input with a nonzero exit status; appenv.LoadRecord refuses a chain_id that differs from the registry and a zero vault. |
 | events | None. |
 | gas | Forge and the Solana CLI estimate gas; the scripts set none. |
 | activation | Run by an operator per chain; the app env is rendered after the records exist. |
@@ -159,7 +159,7 @@ Source paths are relative to the repository root. Declaration tables identify th
 | --- | --- | --- | --- |
 | <code>interface.14.cli-bridge-checklist-j55</code> | <code>cli_command</code> | <code>services/bridge/deploy/checklist.sh</code> | <code>checklist.sh &lt;chain&#124;--all&gt;</code> |
 | <code>interface.14.cli-bridge-deploy-evm-chain-flag-all-j55</code> | <code>cli_command</code> | <code>services/bridge/deploy/deploy-evm-chain.sh</code> | <code>deploy-evm-chain.sh --all</code> |
-| <code>interface.14.cli-bridge-deploy-evm-chain-flag-preflight-j55</code> | <code>cli_command</code> | <code>services/bridge/deploy/deploy-evm-chain.sh</code> | <code>deploy-evm-chain.sh --preflight</code> |
+| <code>interface.14.cli-bridge-deploy-evm-chain-flag-preflight-j55</code> | <code>cli_command</code> | <code>services/bridge/deploy/deploy-evm-chain.sh</code> | <code>deploy-evm-chain.sh --preflight &lt;chain&#124;--all&gt;</code> |
 | <code>interface.14.cli-bridge-deploy-evm-chain-j55</code> | <code>cli_command</code> | <code>services/bridge/deploy/deploy-evm-chain.sh</code> | <code>deploy-evm-chain.sh [--preflight] &lt;chain&#124;--all&gt;</code> |
 | <code>interface.14.cli-bridge-deploy-solana-program-j55</code> | <code>cli_command</code> | <code>services/bridge/deploy/deploy-solana-program.sh</code> | <code>deploy-solana-program.sh [--preflight]</code> |
 | <code>interface.14.cli-bridge-overlay-j55</code> | <code>cli_command</code> | <code>services/bridge/deploy/overlay.sh</code> | <code>source services/bridge/deploy/overlay.sh</code> |
@@ -188,7 +188,7 @@ Source paths are relative to the repository root. Declaration tables identify th
 |---|---|
 | interface | services/bridge/deploy: deploy-evm-chain.sh, deploy-solana-program.sh, verify-evm-chain.sh and checklist.sh write and check deployment records; paxeer-bridge-proposals renders governance proposals; paxeer-bridge-app-env renders and checks the app env. |
 | storage | Deployment records &lt;chain&gt;.json under PAXEER_BRIDGE_DEPLOYMENT_RECORD_DIR; attestors.json manifest; no chain state written by the tooling except the deployments themselves. |
-| errors | Each script exits 1 naming the failing file, variable or field; appenv.LoadRecord refuses a chain_id that differs from the registry and a zero vault. |
+| errors | Scripts refuse invalid input with a nonzero exit status; appenv.LoadRecord refuses a chain_id that differs from the registry and a zero vault. |
 | events | None. |
 | gas | Forge and the Solana CLI estimate gas; the scripts set none. |
 | activation | Run by an operator per chain; the app env is rendered after the records exist. |

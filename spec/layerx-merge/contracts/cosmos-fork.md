@@ -6,8 +6,8 @@ Source paths are relative to the repository root. Declaration tables identify th
 
 | Requirement | Behavior |
 | --- | --- |
-| <code>req.15002</code> | The regenerated sdk/x/bank/types/query.pb.gw.go registers pattern_Query_SupplyOf_1 for GET /cosmos/bank/v1beta1/supply/by_denom beside pattern_Query_SupplyOf_0 (sdk/x/bank/types/query.pb.gw.go) and fills denom from the query string. |
-| <code>req.15002</code> | The regenerated sdk/x/bank/types/query.pb.gw.go registers pattern_Query_DenomMetadata_1 for GET /cosmos/bank/v1beta1/denoms_metadata_by_query_string beside pattern_Query_DenomMetadata_0 (sdk/x/bank/types/query.pb.gw.go). |
+| <code>req.15002</code> | sdk/x/bank/types/query.pb.gw.go registers pattern_Query_SupplyOf_1 for GET /cosmos/bank/v1beta1/supply/by_denom beside pattern_Query_SupplyOf_0 (sdk/x/bank/types/query.pb.gw.go) and fills denom from the query string. |
+| <code>req.15002</code> | sdk/x/bank/types/query.pb.gw.go registers pattern_Query_DenomMetadata_1 for GET /cosmos/bank/v1beta1/denoms_metadata_by_query_string beside pattern_Query_DenomMetadata_0 (sdk/x/bank/types/query.pb.gw.go). |
 
 ## baseapp-commit-hooks
 
@@ -1500,7 +1500,7 @@ Source paths are relative to the repository root. Declaration tables identify th
 
 | Requirement | Behavior |
 | --- | --- |
-| <code>req.15020</code> | infiniteGasMeter.ConsumeGas (sdk/store/types/gas.go) sets consumed to math.MaxUint64 on overflow as basicGasMeter does at sdk/store/types/gas.go, instead of the 0 returned by addUint64Overflow (sdk/store/types/gas.go). |
+| <code>req.15020</code> | infiniteGasMeter.ConsumeGas (sdk/store/types/gas.go) sets consumed to math.MaxUint64 on overflow, as basicGasMeter does (sdk/store/types/gas.go). |
 | <code>req.15020</code> | After saturation the meter never wraps to a small consumed value, so a recovered overflow cannot be followed by cheap execution (sdk/store/types/gas.go). |
 
 ## go-api

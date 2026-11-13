@@ -41,7 +41,7 @@ Source paths are relative to the repository root. Declaration tables identify th
 | Requirement | Behavior |
 | --- | --- |
 | <code>req.14485</code> | parseDepositAttestation throws when body.txHash or body.logIndex differs from the request (apps/bridge/src/lib/bridge/attestation-api.ts). |
-| <code>req.14486</code> | attestationPollInterval returns false for status ready with at least one signature (apps/bridge/src/lib/bridge/use-bridge-state.ts). |
+| <code>req.14486</code> | attestationPollInterval returns false for status ready with at least one signature (apps/bridge/src/lib/bridge/attestation-api.ts). |
 | <code>req.14487</code> | depositAttestationPath({chainId, txHash, logIndex}) returns /v1/deposit/<chainId>/<lowercase txHash>/<logIndex>, the path built inline at apps/bridge/src/lib/bridge/attestation-api.ts. |
 | <code>req.14487</code> | The committed fixtures deposit-ready.json and release-ready.json parse through the deposit and release parsers of apps/bridge/src/lib/bridge/attestation-api.ts into status ready bundles with at least one signature. |
 
@@ -308,7 +308,7 @@ Source paths are relative to the repository root. Declaration tables identify th
 | Requirement | Behavior |
 | --- | --- |
 | <code>req.14499</code> | describeWriteError for LXP_BRIDGE_NULLIFIED returns the already-credited sentence (precompiles/layerxbridge/layerxbridge.go). |
-| <code>req.14499</code> | describeWriteError for a reason without a registered LXP_BRIDGE_ code returns the reason text with a trailing period, as apps/bridge/src/lib/bridge/errors.ts does today. |
+| <code>req.14499</code> | describeWriteError for a reason without a registered LXP_BRIDGE_ code returns the reason text with a trailing period, as defined in apps/bridge/src/lib/bridge/errors.ts. |
 
 ## harness
 
@@ -319,11 +319,11 @@ Source paths are relative to the repository root. Declaration tables identify th
 
 | Requirement | Behavior |
 | --- | --- |
-| <code>req.14481</code> | An import of @/lib/bridge/amount from a test under apps/bridge/src resolves to apps/bridge/src/lib/bridge/amount.ts because apps/bridge/tsconfig.json sets baseUrl without a paths entry today. |
-| <code>req.14481</code> | vitest run in apps/bridge starts with environment node and no globalSetup or setupFiles entry, replacing the missing files named at apps/bridge/vitest.config.ts. |
+| <code>req.14481</code> | An import of @/lib/bridge/amount from a test under apps/bridge/src resolves to apps/bridge/src/lib/bridge/amount.ts because apps/bridge/tsconfig.json maps @/* to ./src/* with baseUrl set to the app directory. |
+| <code>req.14481</code> | vitest run in apps/bridge uses the node environment, vite-tsconfig-paths and vite-plugin-svgr, with **/*.spec.ts and **/*.spec.tsx inputs (apps/bridge/vitest.config.ts). |
 | <code>req.14482</code> | Every bare module specifier imported under apps/bridge/src, including motion, sonner, tailwindcss, @tailwindcss/turbopack (apps/bridge/next.config.ts) and @noble/curves, is a key of dependencies or devDependencies in apps/bridge/package.json. |
-| <code>req.14482</code> | No entry of dependencies in apps/bridge/package.json is unimported by apps/bridge sources or configuration files; the copied entries starting at apps/bridge/package.json are removed. |
-| <code>req.14482</code> | apps/bridge/package.json scripts (apps/bridge/package.json) gain test = "vitest run" and typecheck = "tsc --noEmit -p tsconfig.json". |
+| <code>req.14482</code> | apps/bridge/package.json declares runtime and development dependencies for the app, configuration and test tooling. |
+| <code>req.14482</code> | apps/bridge/package.json defines test = "vitest run" and typecheck = "next typegen &amp;&amp; tsc --noEmit -p tsconfig.json". |
 
 ## ledger
 
@@ -339,10 +339,10 @@ Source paths are relative to the repository root. Declaration tables identify th
 
 | Requirement | Behavior |
 | --- | --- |
-| <code>req.14488</code> | transferIdOf(direction, sourceTxHash) returns `${lowercased hash}:${direction}`, replacing depositTransferId and withdrawalTransferId at apps/bridge/src/lib/bridge/transfers.ts. |
-| <code>req.14492</code> | withdrawalRecord(input) stores the destination exactly as typed in recipient, the foreign chain id as a decimal string and no vault, matching the BridgeTransfer fields at apps/bridge/src/lib/bridge/transfers.ts. |
-| <code>req.14497</code> | importDeposit throws naming the vault when the receipt holds no BridgeDeposit log emitted by the configured vault address (apps/bridge/src/lib/bridge/chains.ts). |
-| <code>req.14497</code> | importWithdrawal(receipt) returns a BridgeTransfer with bridgeOutNonce, chain, asset, amount and recipient read from the BridgeOut event at precompiles/layerxbridge/LayerXBridge.sol:41 emitted by 0x1016. |
+| <code>req.14488</code> | transferIdOf(direction, sourceTxHash) returns `${lowercased hash}:${direction}`. With chainId and an optional eventId it returns `${chainId}:${lowercased hash}:${direction}:${eventId}`, using pending for an absent eventId (apps/bridge/src/lib/bridge/transfers.ts). |
+| <code>req.14492</code> | withdrawalRecord(input) stores the destination in recipient, the foreign chain id as a decimal string and no vault. For Solana it also validates the destination and stores its recipientHandle (apps/bridge/src/lib/bridge/submitted.ts). |
+| <code>req.14497</code> | importDeposit requires a successful receipt and a BridgeDeposit log from the configured vault, with a canonical Paxeer recipient and a configured asset. Multiple deposits require a logIndex selection; an absent matching log produces an error naming the vault (apps/bridge/src/lib/bridge/import.ts). |
+| <code>req.14497</code> | importWithdrawal requires a successful receipt and one matching BridgeOut event from the bridge precompile, using an optional nonce to select among events. It returns a BridgeTransfer with the nonce, chain, asset, amount and recipient from the event; Solana withdrawals require importWithdrawalResolved to resolve the custody recipient (apps/bridge/src/lib/bridge/import.ts). |
 
 ## lib
 
@@ -530,7 +530,7 @@ Source paths are relative to the repository root. Declaration tables identify th
 | Requirement | Behavior |
 | --- | --- |
 | <code>req.14484</code> | verifyThresholdSignatures with an empty attestor list returns ok false whatever the threshold (apps/bridge/src/lib/bridge/digests.ts). |
-| <code>req.14489</code> | assertClaimMatches throws when attestation.recipient32 differs from paxeerRecipient(transfer.recipient); the check at apps/bridge/src/components/bridge/transfer-actions.ts compares only txHash, logIndex and amount. |
+| <code>req.14489</code> | assertClaimMatches throws when attestation.recipient32 differs from paxeerRecipient(transfer.recipient) (apps/bridge/src/components/bridge/transfer-actions.ts). |
 | <code>req.14489</code> | assertClaimMatches throws when attestation.asset differs from transfer.assetId (apps/bridge/src/components/bridge/transfer-actions.ts). |
 | <code>req.14489</code> | assertClaimMatches throws when attestation.chainId differs from transfer.foreignChainId (apps/bridge/src/components/bridge/transfer-actions.ts). |
-| <code>req.14489</code> | assertReleaseMatches throws when the release attestation asset or chainId differs from the withdrawal; the check at apps/bridge/src/components/bridge/transfer-actions.ts omits both. |
+| <code>req.14489</code> | assertReleaseMatches throws when the release attestation asset or chainId differs from the withdrawal (apps/bridge/src/components/bridge/transfer-actions.ts). |
