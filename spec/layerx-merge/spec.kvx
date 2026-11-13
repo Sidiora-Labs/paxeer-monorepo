@@ -373540,7 +373540,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.260]
 title = "Keep the reference text of the earlier front page as a page under docs/readme"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
