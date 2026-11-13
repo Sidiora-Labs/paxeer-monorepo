@@ -21705,3 +21705,8 @@ fix = "A test of the batch path asserts for a batch of one request that Send ret
 title = "The inventory files under tools/workspace name each package manifest by its path"
 symptom = "The files tools/workspace/paxeer-manifest-roots.txt and tools/workspace/platform-dependency-roots.txt hold one line for each package manifest and name the test file that covers it. The scripts scripts/workspace/check-paxeer-manifests.sh and scripts/workspace/check-platform-dependencies.sh compare the lines with the manifests in the tree, and the target paxeer-manifest-lint of the Makefile runs them."
 fix = "A task that renames a directory holding a package manifest, or a test file that an inventory line names, brings the inventory line to the present path in the same commit and runs both scripts. A workflow under .github and a test under tests/ci that name the directory follow in the same commit."
+
+[gotcha.4377]
+title = "A rename leaves readers under other directories"
+symptom = "A task that renames a file changes the readers inside its own paths. A reader under another directory keeps the earlier name: a path string of a test, a line of a data file that lists file names, a workflow step, a build-time reader of Rust or a target path of a package manifest. A search of the text does not find the last two; a check that compiles the tests does."
+fix = "A task that renames a file names in its manifest every reader that git grep finds outside its paths. A later task for the area of the reader brings the reference to the present name, and runs for Rust the check that compiles the tests of the area."
