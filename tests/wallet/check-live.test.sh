@@ -49,7 +49,12 @@ const profiles = {
       result: {
         network_id: "local",
         paxeer: { chain_id: "0x7d", latest_block: "0x10" },
-        consensus: { latest_height: "9", catching_up: false },
+        consensus: {
+          latest_height: "9",
+          latest_block_hash: "ABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABAB",
+          latest_app_hash: "CDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCD",
+          catching_up: false,
+        },
       },
     },
   },
