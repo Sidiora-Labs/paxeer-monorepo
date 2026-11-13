@@ -33,17 +33,17 @@ import (
 
 // These inputs identify actual producer-issued receipts and approved runtime
 // documents. No RPC state, receipt, market, or native event is substituted.
-type repair53Inputs struct {
+type receiptReplayInputs struct {
 	Endpoint       string
 	Options        RPCOptions
 	Markets        []DiscoveredMarket
 	NativeSwap     common.Hash
 	TenantSwap     common.Hash
 	HistoricalSwap common.Hash
-	Responses      map[string]repair53Recorded
+	Responses      map[string]receiptReplayRecorded
 }
 
-type repair53Recorded struct {
+type receiptReplayRecorded struct {
 	Key    string          `json:"k"`
 	Result json.RawMessage `json:"result,omitempty"`
 	Error  json.RawMessage `json:"error,omitempty"`
@@ -51,7 +51,7 @@ type repair53Recorded struct {
 
 // Decision 3177: recorded digests may name Current or an Approved history
 // entry until the packet is re-recorded after the upgrade (decision 3119).
-func repair53ApprovedSourceDigest(digest string) bool {
+func receiptReplayApprovedSourceDigest(digest string) bool {
 	if digest == deployment.Current().SourceManifestSHA256 {
 		return true
 	}
@@ -64,14 +64,14 @@ func repair53ApprovedSourceDigest(digest string) bool {
 	return false
 }
 
-func TestRepair_22_39_328(t *testing.T) {
-	if !repair53ApprovedSourceDigest(deployment.Current().SourceManifestSHA256) {
+func TestApprovedSourceDigestAdmission(t *testing.T) {
+	if !receiptReplayApprovedSourceDigest(deployment.Current().SourceManifestSHA256) {
 		t.Fatal("current source digest refused")
 	}
 	history := 0
 	for height, ok := deployment.NextActivationHeight(0); ok; height, ok = deployment.NextActivationHeight(height) {
 		manifest, approved := deployment.Approved(height)
-		if !approved || !repair53ApprovedSourceDigest(manifest.SourceManifestSHA256) {
+		if !approved || !receiptReplayApprovedSourceDigest(manifest.SourceManifestSHA256) {
 			t.Fatalf("approved source digest refused at activation %d", height)
 		}
 		if height < deployment.Current().ActivationHeight {
@@ -82,18 +82,18 @@ func TestRepair_22_39_328(t *testing.T) {
 		t.Fatal("approved history must exercise recorded digest admission")
 	}
 	for _, digest := range []string{"", strings.Repeat("0", 64), strings.Repeat("f", 64), deployment.Current().SourceManifestSHA256[:63]} {
-		if repair53ApprovedSourceDigest(digest) {
+		if receiptReplayApprovedSourceDigest(digest) {
 			t.Fatalf("unapproved source digest accepted: %q", digest)
 		}
 	}
 }
 
-func repair53AssertManifest(t *testing.T, options RPCOptions) {
+func receiptReplayAssertManifest(t *testing.T, options RPCOptions) {
 	t.Helper()
 	recorded, current := options.Manifest, deployment.Current()
 	// Decision 3177: retain an approved recorded source digest until the packet
 	// is re-recorded after the upgrade; compare every other manifest field.
-	if !repair53ApprovedSourceDigest(recorded.SourceManifestSHA256) {
+	if !receiptReplayApprovedSourceDigest(recorded.SourceManifestSHA256) {
 		t.Fatal("recorded manifest must bind a current or approved historical source manifest")
 	}
 	recorded.SourceManifestSHA256 = current.SourceManifestSHA256
@@ -136,7 +136,7 @@ func repair53AssertManifest(t *testing.T, options RPCOptions) {
 	}
 	// Decision 3177: only the embedded evidence may retain an approved history
 	// digest until re-recording after the upgrade; the live review is exact.
-	if !repair53ApprovedSourceDigest(catalog.ManifestSHA256) {
+	if !receiptReplayApprovedSourceDigest(catalog.ManifestSHA256) {
 		t.Fatal("recorded ABI must bind a current or approved historical source manifest")
 	}
 	if reviewed.ManifestSHA256 != current.SourceManifestSHA256 {
@@ -168,38 +168,38 @@ func repair53AssertManifest(t *testing.T, options RPCOptions) {
 	}
 }
 
-func repair53InputsFromProducer(t *testing.T) repair53Inputs {
+func receiptReplayInputsFromProducer(t *testing.T) receiptReplayInputs {
 	t.Helper()
 	// The transcript must be captured by the owning node domain from actual
 	// root and tenant execution. Qualification never launches a toolchain or
 	// substitutes constructed logs for producer-issued receipts.
-	raw, err := os.ReadFile("testdata/repair53-producer.json")
+	raw, err := os.ReadFile("testdata/producer_receipts.json")
 	if err != nil {
-		t.Fatalf("committed native/tenant producer transcript required (node domain 8 wiring request in repair_53.kvx): %v", err)
+		t.Fatalf("committed native/tenant producer transcript required (node domain 8 wiring request in spec/layerx-merge/programme/records/services/launchpad/indexer/internal/receipt/repair_53.kvx): %v", err)
 	}
-	var input repair53Inputs
+	var input receiptReplayInputs
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&input); err != nil {
 		t.Fatal(err)
 	}
-	repair53AssertManifest(t, input.Options)
+	receiptReplayAssertManifest(t, input.Options)
 	if len(input.Markets) == 0 {
 		t.Fatal("producer packet must name the approved current deployment and real markets")
 	}
-	return repair53Replay(t, input)
+	return receiptReplayReplay(t, input)
 }
 
-func repair53Replay(t *testing.T, input repair53Inputs) repair53Inputs {
+func receiptReplayReplay(t *testing.T, input receiptReplayInputs) receiptReplayInputs {
 	t.Helper()
-	responses := make(map[string]repair53Recorded, len(input.Responses))
+	responses := make(map[string]receiptReplayRecorded, len(input.Responses))
 	for key, response := range input.Responses {
 		method, encoded, ok := strings.Cut(key, " ")
 		var params []any
 		if !ok || json.Unmarshal([]byte(encoded), &params) != nil {
 			t.Fatalf("invalid recorded request key %q", key)
 		}
-		canonical, err := repair53ReadKey(method, params)
+		canonical, err := receiptReplayReadKey(method, params)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -220,7 +220,7 @@ func repair53Replay(t *testing.T, input repair53Inputs) repair53Inputs {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		key, err := repair53ReadKey(request.Method, request.Params)
+		key, err := receiptReplayReadKey(request.Method, request.Params)
 		if err != nil {
 			http.Error(w, err.Error(), 400)
 			return
@@ -245,7 +245,7 @@ func repair53Replay(t *testing.T, input repair53Inputs) repair53Inputs {
 	return input
 }
 
-func repair53ReadKey(method string, params []any) (string, error) {
+func receiptReplayReadKey(method string, params []any) (string, error) {
 	// Omitted params and [] both describe a no-argument JSON-RPC request.
 	if params == nil {
 		params = []any{}
@@ -262,14 +262,14 @@ func repair53ReadKey(method string, params []any) (string, error) {
 	return method + " " + string(encoded), err
 }
 
-func TestRepair_53_recorded_read_matching(t *testing.T) {
+func TestReceiptReplayRecordedReadMatching(t *testing.T) {
 	key := func(encoded string) string {
 		t.Helper()
 		var params []any
 		if err := json.Unmarshal([]byte(encoded), &params); err != nil {
 			t.Fatal(err)
 		}
-		result, err := repair53ReadKey("eth_call", params)
+		result, err := receiptReplayReadKey("eth_call", params)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -292,7 +292,7 @@ func TestRepair_53_recorded_read_matching(t *testing.T) {
 	}
 }
 
-func repair53Open(t *testing.T, ctx context.Context, input repair53Inputs) (*RPCQualification, func()) {
+func receiptReplayOpen(t *testing.T, ctx context.Context, input receiptReplayInputs) (*RPCQualification, func()) {
 	t.Helper()
 	client, closeClient, err := NewBoundedRPCClient(ctx, input.Endpoint, "")
 	if err != nil {
@@ -306,7 +306,7 @@ func repair53Open(t *testing.T, ctx context.Context, input repair53Inputs) (*RPC
 	return authority, closeClient
 }
 
-func repair53Fill(t *testing.T, ctx context.Context, authority *RPCQualification, hash common.Hash) (accounting.FillV1, *QualifiedReceipt) {
+func receiptReplayFill(t *testing.T, ctx context.Context, authority *RPCQualification, hash common.Hash) (accounting.FillV1, *QualifiedReceipt) {
 	t.Helper()
 	if hash == (common.Hash{}) {
 		t.Fatal("producer transaction identity is required")
@@ -355,7 +355,7 @@ func repair53Fill(t *testing.T, ctx context.Context, authority *RPCQualification
 	return accounting.FillV1{}, nil
 }
 
-func repair53Delivery(t *testing.T, fill accounting.FillV1) []byte {
+func receiptReplayDelivery(t *testing.T, fill accounting.FillV1) []byte {
 	t.Helper()
 	digest, err := accounting.FillDigest(fill)
 	if err != nil {
@@ -376,18 +376,18 @@ func repair53Delivery(t *testing.T, fill accounting.FillV1) []byte {
 		t.Fatal(err)
 	}
 	envelope := delivery.Envelope{EventID: publication.PublicationID, EventType: accounting.MarketSubject, SchemaVersion: 1, ChainID: 125, SourceOrder: delivery.SourceOrder{Height: fill.Position.Height, TransactionIndex: fill.Position.TransactionIndex, LogIndex: fill.Position.LogIndex}, EmittedAt: time.Unix(seconds, 0).UTC(), TraceID: publication.PublicationID, PayloadHash: delivery.Hash(payload), Payload: payload}
-	wire, err := envelope.Encode(repair53Policy(), accounting.MarketSubject)
+	wire, err := envelope.Encode(receiptReplayPolicy(), accounting.MarketSubject)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return wire
 }
 
-func repair53Policy() delivery.Policy {
+func receiptReplayPolicy() delivery.Policy {
 	return delivery.Policy{Subjects: map[string]bool{accounting.MarketSubject: true}, EventTypes: map[string]bool{accounting.MarketSubject: true}}
 }
 
-func repair53ConsumeAfterRestart(t *testing.T, ctx context.Context, wire []byte, want accounting.FillV1) {
+func receiptReplayConsumeAfterRestart(t *testing.T, ctx context.Context, wire []byte, want accounting.FillV1) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "publication.sqlite")
 	// SQLite is the committed-fixture transport peer. Both endpoints use the
@@ -415,7 +415,7 @@ func repair53ConsumeAfterRestart(t *testing.T, ctx context.Context, wire []byte,
 	if !bytes.Equal(wire, recovered) {
 		t.Fatal("durable broker changed exact publication bytes")
 	}
-	envelope, err := delivery.Decode(recovered, repair53Policy(), accounting.MarketSubject)
+	envelope, err := delivery.Decode(recovered, receiptReplayPolicy(), accounting.MarketSubject)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -433,7 +433,7 @@ func repair53ConsumeAfterRestart(t *testing.T, ctx context.Context, wire []byte,
 
 // SQLite is a real local durable database. Each invocation closes its database
 // connection, and restoration uses the production canonical-row codec.
-func repair53Database(t *testing.T, path string, row *canonicalMarketRow, payload []byte, nft string) []DiscoveredMarket {
+func receiptReplayDatabase(t *testing.T, path string, row *canonicalMarketRow, payload []byte, nft string) []DiscoveredMarket {
 	t.Helper()
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
@@ -469,12 +469,12 @@ func repair53Database(t *testing.T, path string, row *canonicalMarketRow, payloa
 	return []DiscoveredMarket{market}
 }
 
-func repair53SwapRestart(t *testing.T, tenant bool) {
+func receiptReplaySwapRestart(t *testing.T, tenant bool) {
 	t.Helper()
-	input := repair53InputsFromProducer(t)
+	input := receiptReplayInputsFromProducer(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	authority, closeClient := repair53Open(t, ctx, input)
+	authority, closeClient := receiptReplayOpen(t, ctx, input)
 	defer func() { closeClient() }()
 	if err := authority.Rehydrate(ctx, input.Markets); err != nil {
 		t.Fatal(err)
@@ -483,7 +483,7 @@ func repair53SwapRestart(t *testing.T, tenant bool) {
 	if tenant {
 		hash = input.TenantSwap
 	}
-	fill, qualified := repair53Fill(t, ctx, authority, hash)
+	fill, qualified := receiptReplayFill(t, ctx, authority, hash)
 	domain, err := qualified.SignedChainID(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -555,24 +555,24 @@ func repair53SwapRestart(t *testing.T, tenant bool) {
 			t.Fatal("tenant economic envelope did not reach actor consumer")
 		}
 	}
-	wire := repair53Delivery(t, fill)
+	wire := receiptReplayDelivery(t, fill)
 	closeClient()
-	authority, closeClient = repair53Open(t, ctx, input)
+	authority, closeClient = receiptReplayOpen(t, ctx, input)
 	if err = authority.Rehydrate(ctx, input.Markets); err != nil {
 		t.Fatal(err)
 	}
-	replay, _ := repair53Fill(t, ctx, authority, hash)
+	replay, _ := receiptReplayFill(t, ctx, authority, hash)
 	if !reflect.DeepEqual(fill, replay) {
 		t.Fatal("restart changed source identity or economic amounts")
 	}
-	repair53ConsumeAfterRestart(t, ctx, wire, fill)
+	receiptReplayConsumeAfterRestart(t, ctx, wire, fill)
 }
 
-func TestRepair_53_native_swap_qualification(t *testing.T)        { repair53SwapRestart(t, false) }
-func TestRepair_53_tenant_transaction_qualification(t *testing.T) { repair53SwapRestart(t, true) }
+func TestReceiptReplayNativeSwapQualification(t *testing.T)        { receiptReplaySwapRestart(t, false) }
+func TestReceiptReplayTenantTransactionQualification(t *testing.T) { receiptReplaySwapRestart(t, true) }
 
-func TestRepair_53_staged_pin_qualification(t *testing.T) {
-	input := repair53InputsFromProducer(t)
+func TestReceiptReplayStagedPinQualification(t *testing.T) {
+	input := receiptReplayInputsFromProducer(t)
 	for name, role := range input.Options.Manifest.Roles {
 		if role.StagedRuntimeHash != "" || role.StagedUpgrade != "" {
 			t.Fatalf("recorded role %s must predate the staged pin", name)
@@ -592,7 +592,7 @@ func TestRepair_53_staged_pin_qualification(t *testing.T) {
 	if err := authority.Rehydrate(ctx, input.Markets); err != nil {
 		t.Fatal(err)
 	}
-	repair53Fill(t, ctx, authority, input.NativeSwap)
+	receiptReplayFill(t, ctx, authority, input.NativeSwap)
 	approved, ok := deployment.Approved(input.Options.Manifest.ActivationHeight)
 	if !ok || approved.Roles["Router"].StagedRuntimeHash == "" || approved.Roles["Router"].StagedUpgrade == "" {
 		t.Fatal("approved router must carry the staged pin")
@@ -623,11 +623,11 @@ func TestRepair_53_staged_pin_qualification(t *testing.T) {
 	}
 }
 
-func TestRepair_53_migrated_role_epochs(t *testing.T) {
-	input := repair53InputsFromProducer(t)
+func TestReceiptReplayMigratedRoleEpochs(t *testing.T) {
+	input := receiptReplayInputsFromProducer(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	authority, closeClient := repair53Open(t, ctx, input)
+	authority, closeClient := receiptReplayOpen(t, ctx, input)
 	defer closeClient()
 	bundle, err := authority.Bundle(ctx, input.NativeSwap)
 	if err != nil {
@@ -661,11 +661,11 @@ func TestRepair_53_migrated_role_epochs(t *testing.T) {
 	}
 }
 
-func TestRepair_53_approved_history_rehydration(t *testing.T) {
-	input := repair53InputsFromProducer(t)
+func TestReceiptReplayApprovedHistoryRehydration(t *testing.T) {
+	input := receiptReplayInputsFromProducer(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	authority, closeClient := repair53Open(t, ctx, input)
+	authority, closeClient := receiptReplayOpen(t, ctx, input)
 	defer func() { closeClient() }()
 	var market DiscoveredMarket
 	for _, candidate := range input.Markets {
@@ -726,29 +726,29 @@ func TestRepair_53_approved_history_rehydration(t *testing.T) {
 	}
 	database := filepath.Join(t.TempDir(), "canonical.sqlite")
 	row := canonicalMarketRow{Token: strings.ToLower(market.Token.Hex()), Pool: strings.ToLower(market.Pool.Hex()), Height: int64(market.Height), TransactionIndex: int64(market.TransactionIndex), BlockHash: strings.ToLower(market.Creation.BlockHash.Hex()), TransactionHash: strings.ToLower(market.Creation.TransactionHash.Hex()), LogIndex: int64(market.Creation.LogIndex), Provenance: provenance}
-	repair53Database(t, database, &row, payload, nft)
-	persisted := repair53Database(t, database, nil, payload, nft)
+	receiptReplayDatabase(t, database, &row, payload, nft)
+	persisted := receiptReplayDatabase(t, database, nil, payload, nft)
 	if !reflect.DeepEqual(persisted, []DiscoveredMarket{market}) {
 		t.Fatal("canonical creation provenance changed on persistence")
 	}
 	if err = authority.Rehydrate(ctx, persisted); err != nil {
 		t.Fatal(err)
 	}
-	first, _ := repair53Fill(t, ctx, authority, input.HistoricalSwap)
+	first, _ := receiptReplayFill(t, ctx, authority, input.HistoricalSwap)
 	height, err := strconv.ParseUint(first.Position.Height, 10, 64)
 	if err != nil || height < input.Options.Manifest.ActivationHeight || first.PoolAddress != strings.ToLower(market.Pool.Hex()) || first.Provenance.DeploymentID != market.Creation.Provenance.DeploymentID {
 		t.Fatal("test must resume the historical market across current activation without relabeling its generation")
 	}
 	closeClient()
-	authority, closeClient = repair53Open(t, ctx, input)
-	recovered := repair53Database(t, database, nil, payload, nft)
+	authority, closeClient = receiptReplayOpen(t, ctx, input)
+	recovered := receiptReplayDatabase(t, database, nil, payload, nft)
 	if !reflect.DeepEqual(persisted, recovered) {
 		t.Fatal("reopened canonical source identities changed")
 	}
 	if err = authority.Rehydrate(ctx, recovered); err != nil {
 		t.Fatal(err)
 	}
-	second, _ := repair53Fill(t, ctx, authority, input.HistoricalSwap)
+	second, _ := receiptReplayFill(t, ctx, authority, input.HistoricalSwap)
 	if !reflect.DeepEqual(first, second) {
 		t.Fatal("reopening rewrote historical fill identity")
 	}
@@ -770,7 +770,7 @@ func TestRepair_53_approved_history_rehydration(t *testing.T) {
 	}
 }
 
-func TestRepair_53_signed_domain_bounds(t *testing.T) {
+func TestReceiptReplaySignedDomainBounds(t *testing.T) {
 	for _, n := range []uint64{125, virtualChainIDBase + 1, virtualChainIDBase + math.MaxUint32} {
 		if !validSignedChainID(new(big.Int).SetUint64(n)) {
 			t.Fatalf("valid domain %d rejected", n)
@@ -814,7 +814,7 @@ func TestRepair_53_signed_domain_bounds(t *testing.T) {
 	}
 }
 
-func TestRepair_53_registry_abi_parity(t *testing.T) {
+func TestReceiptReplayRegistryAbiParity(t *testing.T) {
 	raw, err := os.ReadFile("../../../../../precompiles/layerxchains/abi.json")
 	if err != nil {
 		t.Fatal(err)
@@ -837,7 +837,7 @@ func TestRepair_53_registry_abi_parity(t *testing.T) {
 	}
 }
 
-func TestRepair_53_history_epoch_transition(t *testing.T) {
+func TestReceiptReplayHistoryEpochTransition(t *testing.T) {
 	historical, ok := deployment.Approved(32226215)
 	if !ok {
 		t.Fatal("approved historical deployment missing")
@@ -964,7 +964,7 @@ func TestRepair_53_history_epoch_transition(t *testing.T) {
 	}
 }
 
-func TestRepair_53_native_abi_contract(t *testing.T) {
+func TestReceiptReplayNativeAbiContract(t *testing.T) {
 	producerRaw, err := os.ReadFile("../../../../../precompiles/launchpad/abi.json")
 	if err != nil {
 		t.Fatal(err)
@@ -1000,10 +1000,10 @@ func TestRepair_53_native_abi_contract(t *testing.T) {
 // The archive is an unchanged capture from the real chain, including signed
 // transactions, factory creation, proxy storage and pinned metadata reads.
 // This supplements, and does not replace, the required post-activation proof.
-func TestRepair_53_historical_archive_restart(t *testing.T) {
+func TestReceiptReplayHistoricalArchiveRestart(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	file, err := os.Open("testdata/repair53-historical.jsonl.gz")
+	file, err := os.Open("testdata/producer_historical.jsonl.gz")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1013,11 +1013,11 @@ func TestRepair_53_historical_archive_restart(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer archive.Close()
-	input := repair53Inputs{Responses: map[string]repair53Recorded{}}
+	input := receiptReplayInputs{Responses: map[string]receiptReplayRecorded{}}
 	scanner := bufio.NewScanner(archive)
 	scanner.Buffer(make([]byte, 4096), 64<<20)
 	for scanner.Scan() {
-		var row repair53Recorded
+		var row receiptReplayRecorded
 		if err = json.Unmarshal(scanner.Bytes(), &row); err != nil {
 			t.Fatal(err)
 		}
@@ -1028,11 +1028,11 @@ func TestRepair_53_historical_archive_restart(t *testing.T) {
 	}
 	// The node's immutable exported Treasury state completes code reads the
 	// original archive omitted; receipts and source coordinates stay unchanged.
-	stateRaw, err := os.ReadFile("testdata/repair53-history-state.json")
+	stateRaw, err := os.ReadFile("testdata/producer_history_state.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var state map[string]repair53Recorded
+	var state map[string]receiptReplayRecorded
 	if err = json.Unmarshal(stateRaw, &state); err != nil {
 		t.Fatal(err)
 	}
@@ -1045,7 +1045,7 @@ func TestRepair_53_historical_archive_restart(t *testing.T) {
 	// Index the same captured full blocks by hash and number. The old
 	// archive recorded full blocks by height; reopening the real authority
 	// also looks them up by their recorded hash. No block content changes.
-	blockAliases := map[string]repair53Recorded{}
+	blockAliases := map[string]receiptReplayRecorded{}
 	for key, row := range input.Responses {
 		if !strings.HasPrefix(key, "eth_getBlockByNumber ") || !strings.HasSuffix(key, ",true]") {
 			continue
@@ -1063,7 +1063,7 @@ func TestRepair_53_historical_archive_restart(t *testing.T) {
 			"eth_getBlockByNumber [\"" + identity.Number + "\",false]",
 		} {
 			if _, alreadyRecorded := input.Responses[alias]; !alreadyRecorded {
-				blockAliases[alias] = repair53Recorded{Key: alias, Result: row.Result}
+				blockAliases[alias] = receiptReplayRecorded{Key: alias, Result: row.Result}
 			}
 		}
 	}
@@ -1134,8 +1134,8 @@ func TestRepair_53_historical_archive_restart(t *testing.T) {
 			input.Options.Discovery = append(input.Options.Discovery, RPCDiscovery{Role: contract.Name, ABIRevision: contract.ABIRevision, RuntimeHash: crypto.Keccak256Hash(masked).Hex(), Immutables: ranges})
 		}
 	}
-	input = repair53Replay(t, input)
-	authority, closeClient := repair53Open(t, ctx, input)
+	input = receiptReplayReplay(t, input)
+	authority, closeClient := receiptReplayOpen(t, ctx, input)
 	defer func() { closeClient() }()
 	_, qualified, err := authority.FetchQualifiedBatch(ctx, 33963716, 33963716)
 	if err != nil {
@@ -1183,10 +1183,10 @@ func TestRepair_53_historical_archive_restart(t *testing.T) {
 	}
 	row := canonicalMarketRow{Token: strings.ToLower(token.Hex()), Pool: strings.ToLower(pool.Hex()), Height: int64(market.Height), TransactionIndex: int64(market.TransactionIndex), BlockHash: strings.ToLower(market.Creation.BlockHash.Hex()), TransactionHash: strings.ToLower(market.Creation.TransactionHash.Hex()), LogIndex: int64(market.Creation.LogIndex), Provenance: provenance}
 	path := filepath.Join(t.TempDir(), "canonical.sqlite")
-	repair53Database(t, path, &row, payload, nft)
+	receiptReplayDatabase(t, path, &row, payload, nft)
 	closeClient()
-	authority, closeClient = repair53Open(t, ctx, input)
-	recovered := repair53Database(t, path, nil, payload, nft)
+	authority, closeClient = receiptReplayOpen(t, ctx, input)
+	recovered := receiptReplayDatabase(t, path, nil, payload, nft)
 	if !reflect.DeepEqual(recovered, []DiscoveredMarket{market}) {
 		t.Fatal("database restart changed authentic canonical creation")
 	}
@@ -1198,7 +1198,7 @@ func TestRepair_53_historical_archive_restart(t *testing.T) {
 	}
 }
 
-func TestRepair_53_historical_emitter_epoch(t *testing.T) {
+func TestReceiptReplayHistoricalEmitterEpoch(t *testing.T) {
 	manifest, ok := deployment.Approved(32226215)
 	if !ok {
 		t.Fatal("approved generation missing")

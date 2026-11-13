@@ -15,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
-func (f *repair56Fixture) openRPC(t *testing.T) (*source.CommittedSource, *receipt.RPCQualification, func()) {
+func (f *explorerDiscoveryFixture) openRPC(t *testing.T) (*source.CommittedSource, *receipt.RPCQualification, func()) {
 	t.Helper()
 	client, closeClient, err := receipt.NewBoundedRPCClient(f.ctx, f.endpoint, "")
 	if err != nil {
@@ -39,18 +39,18 @@ func (f *repair56Fixture) openRPC(t *testing.T) (*source.CommittedSource, *recei
 	}
 }
 
-func (f *repair56Fixture) explorerOptions(rpc *source.CommittedSource) source.CommittedPaxscanOptions {
+func (f *explorerDiscoveryFixture) explorerOptions(rpc *source.CommittedSource) source.CommittedPaxscanOptions {
 	return source.CommittedPaxscanOptions{SourceID: "repair56-explorer", SchemaVersion: source.ExplorerSchemaV1, ManifestDigest: f.committed.ManifestDigest, Epochs: f.committed.Epochs, RPC: rpc}
 }
 
 // Project the real recorded receipts through the exact address plan and row
 // predicate used by explorer SQL. This does not emulate a database or return
 // manufactured explorer responses. PostgreSQL transport coverage is retained
-// separately in TestRepair56Postgres_*.
-func repair56Project(t *testing.T, f *repair56Fixture, rpc *source.CommittedSource, from, to uint64, discoveries []source.AddressEpoch) source.FetchResult {
+// separately in TestExplorerDiscoveryPostgres*.
+func explorerDiscoveryProject(t *testing.T, f *explorerDiscoveryFixture, rpc *source.CommittedSource, from, to uint64, discoveries []source.AddressEpoch) source.FetchResult {
 	t.Helper()
 	o := source.FetchOptions{FromBlock: int64(from), ToBlock: int64(to)}
-	addresses, active, err := source.Repair56ExplorerFilter(f.explorerOptions(rpc), o, discoveries)
+	addresses, active, err := source.ExplorerDiscoveryFilter(f.explorerOptions(rpc), o, discoveries)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,13 +89,13 @@ func repair56Project(t *testing.T, f *repair56Fixture, rpc *source.CommittedSour
 	return result
 }
 
-func repair56QualifyProjection(t *testing.T, f *repair56Fixture, rpc *source.CommittedSource, authority *receipt.RPCQualification, from, to uint64) (store.CanonicalBatch, []*receipt.QualifiedReceipt, int) {
+func explorerDiscoveryQualifyProjection(t *testing.T, f *explorerDiscoveryFixture, rpc *source.CommittedSource, authority *receipt.RPCQualification, from, to uint64) (store.CanonicalBatch, []*receipt.QualifiedReceipt, int) {
 	t.Helper()
 	attempts := 0
 	beforeLogs := f.logReads.Load()
-	batch, qualified, err := source.Repair56QualifyWithDiscoveries(f.ctx, authority, f.committed.ManifestDigest, from, to, "historical-", func(discoveries []source.AddressEpoch) (source.FetchResult, error) {
+	batch, qualified, err := source.QualifyWithExplorerDiscoveries(f.ctx, authority, f.committed.ManifestDigest, from, to, "historical-", func(discoveries []source.AddressEpoch) (source.FetchResult, error) {
 		attempts++
-		return repair56Project(t, f, rpc, from, to, discoveries), nil
+		return explorerDiscoveryProject(t, f, rpc, from, to, discoveries), nil
 	})
 	if err != nil {
 		t.Fatalf("qualify explorer epoch projection %d..%d: %v", from, to, err)
@@ -109,20 +109,20 @@ func repair56QualifyProjection(t *testing.T, f *repair56Fixture, rpc *source.Com
 	return batch, qualified, attempts
 }
 
-func TestRepair_56_ExplorerDynamicDiscoveries(t *testing.T) {
-	f := repair56RPCSetup(t)
+func TestExplorerDynamicDiscoveries(t *testing.T) {
+	f := explorerDiscoveryRPCSetup(t)
 	initialEpochs := append([]source.AddressEpoch(nil), f.committed.Epochs...)
 	rpc, authority, stop := f.openRPC(t)
 	if len(authority.DiscoveredEpochs()) != 0 {
 		t.Fatal("cold authority already discovered markets")
 	}
-	creation, receipts, attempts := repair56QualifyProjection(t, f, rpc, authority, repair56Creation, repair56Creation)
+	creation, receipts, attempts := explorerDiscoveryQualifyProjection(t, f, rpc, authority, explorerDiscoveryCreation, explorerDiscoveryCreation)
 	if attempts != 2 || len(authority.DiscoveredEpochs()) != 2 || len(receipts) != 1 {
 		t.Fatal("market creation must grow discovery epochs and retry with a new explorer filter")
 	}
 	tokenLogs := 0
 	for _, raw := range creation.Records {
-		if raw.Emitter == repair56Token {
+		if raw.Emitter == explorerDiscoveryToken {
 			tokenLogs++
 		}
 	}
@@ -142,26 +142,26 @@ func TestRepair_56_ExplorerDynamicDiscoveries(t *testing.T) {
 	if !market {
 		t.Fatal("qualified factory market creation missing")
 	}
-	buy, buyReceipts, attempts := repair56QualifyProjection(t, f, rpc, authority, repair56Creation+1, repair56Buy)
+	buy, buyReceipts, attempts := explorerDiscoveryQualifyProjection(t, f, rpc, authority, explorerDiscoveryCreation+1, explorerDiscoveryBuy)
 	if attempts != 1 {
 		t.Fatal("known discoveries should qualify without an additional retry")
 	}
 	token, pool := false, false
 	for _, raw := range buy.Records {
-		token = token || raw.Emitter == repair56Token
+		token = token || raw.Emitter == explorerDiscoveryToken
 		pool = pool || f.poolSwap(raw.Emitter, raw.Topics)
 	}
 	if !token || !pool || len(buyReceipts) != 1 {
 		t.Fatal("subsequent history lost discovered token or pool events")
 	}
 	fills, err := buyReceipts[0].Fills(f.ctx)
-	if err != nil || len(fills) != 1 || fills[0].Side != "buy" || fills[0].PoolAddress != repair56Pool || fills[0].Token.Address != repair56Token {
+	if err != nil || len(fills) != 1 || fills[0].Side != "buy" || fills[0].PoolAddress != explorerDiscoveryPool || fills[0].Token.Address != explorerDiscoveryToken {
 		t.Fatalf("real qualified consumer did not recover buy: %+v %v", fills, err)
 	}
 	for _, interval := range []struct {
 		from, to uint64
 		expected store.CanonicalBatch
-	}{{repair56Creation, repair56Creation, creation}, {repair56Creation + 1, repair56Buy, buy}} {
+	}{{explorerDiscoveryCreation, explorerDiscoveryCreation, creation}, {explorerDiscoveryCreation + 1, explorerDiscoveryBuy, buy}} {
 		live := &source.LiveQualifiedSource{RPC: rpc, Authority: authority, DurableHeight: func() uint64 { return interval.from - 1 }}
 		rpcBatch, _, err := live.FetchQualifiedBatch(f.ctx, interval.from, interval.to)
 		if err != nil || !reflect.DeepEqual(interval.expected.Blocks, rpcBatch.Blocks) || !reflect.DeepEqual(interval.expected.Records, rpcBatch.Records) {
@@ -176,56 +176,56 @@ func TestRepair_56_ExplorerDynamicDiscoveries(t *testing.T) {
 	if len(authority.DiscoveredEpochs()) != 0 {
 		t.Fatal("restart retained process-local discoveries")
 	}
-	recoveredCreation, _, attempts := repair56QualifyProjection(t, f, rpc, authority, repair56Creation, repair56Creation)
+	recoveredCreation, _, attempts := explorerDiscoveryQualifyProjection(t, f, rpc, authority, explorerDiscoveryCreation, explorerDiscoveryCreation)
 	if attempts != 2 {
 		t.Fatal("reopened qualifier must rediscover and retry")
 	}
-	recoveredBuy, _, _ := repair56QualifyProjection(t, f, rpc, authority, repair56Creation+1, repair56Buy)
+	recoveredBuy, _, _ := explorerDiscoveryQualifyProjection(t, f, rpc, authority, explorerDiscoveryCreation+1, explorerDiscoveryBuy)
 	if !reflect.DeepEqual(creation, recoveredCreation) || !reflect.DeepEqual(buy, recoveredBuy) {
 		t.Fatal("reopened source and qualifier did not recover identical canonical history")
 	}
 }
 
-func TestRepair_56_DiscoveryEpochBounds(t *testing.T) {
-	f := repair56RPCSetup(t)
+func TestExplorerDiscoveryEpochBounds(t *testing.T) {
+	f := explorerDiscoveryRPCSetup(t)
 	rpc, authority, _ := f.openRPC(t)
-	creation, _, _ := repair56QualifyProjection(t, f, rpc, authority, repair56Creation, repair56Creation)
+	creation, _, _ := explorerDiscoveryQualifyProjection(t, f, rpc, authority, explorerDiscoveryCreation, explorerDiscoveryCreation)
 	discoveries := source.DiscoveredAddressEpochs(authority, f.committed.ManifestDigest)
 	var creationToken ethtypes.Log
-	for _, log := range repair56Project(t, f, rpc, repair56Creation, repair56Creation, discoveries).Logs {
-		if log.Address == common.HexToAddress(repair56Token) {
+	for _, log := range explorerDiscoveryProject(t, f, rpc, explorerDiscoveryCreation, explorerDiscoveryCreation, discoveries).Logs {
+		if log.Address == common.HexToAddress(explorerDiscoveryToken) {
 			creationToken = log
 			break
 		}
 	}
 	var buyToken ethtypes.Log
-	for _, log := range repair56Project(t, f, rpc, repair56Buy, repair56Buy, discoveries).Logs {
-		if log.Address == common.HexToAddress(repair56Token) {
+	for _, log := range explorerDiscoveryProject(t, f, rpc, explorerDiscoveryBuy, explorerDiscoveryBuy, discoveries).Logs {
+		if log.Address == common.HexToAddress(explorerDiscoveryToken) {
 			buyToken = log
 			break
 		}
 	}
-	if creationToken.BlockNumber != repair56Creation || buyToken.BlockNumber != repair56Buy || len(creation.Records) == 0 {
+	if creationToken.BlockNumber != explorerDiscoveryCreation || buyToken.BlockNumber != explorerDiscoveryBuy || len(creation.Records) == 0 {
 		t.Fatal("authentic creation and subsequent token logs required")
 	}
 	for _, discovery := range discoveries {
-		if discovery.ActivationHeight != repair56Creation || discovery.CreationTxIndex != 0 {
+		if discovery.ActivationHeight != explorerDiscoveryCreation || discovery.CreationTxIndex != 0 {
 			t.Fatal("authority discovery lost its creation bounds")
 		}
 	}
 	options := f.explorerOptions(rpc)
-	creationRange := source.FetchOptions{FromBlock: int64(repair56Creation), ToBlock: int64(repair56Creation)}
-	buyRange := source.FetchOptions{FromBlock: int64(repair56Buy), ToBlock: int64(repair56Buy)}
+	creationRange := source.FetchOptions{FromBlock: int64(explorerDiscoveryCreation), ToBlock: int64(explorerDiscoveryCreation)}
+	buyRange := source.FetchOptions{FromBlock: int64(explorerDiscoveryBuy), ToBlock: int64(explorerDiscoveryBuy)}
 	t.Run("creation_transaction", func(t *testing.T) {
 		bounded := append([]source.AddressEpoch(nil), discoveries...)
 		for i := range bounded {
 			bounded[i].CreationTxIndex = 1
 		}
-		addresses, active, err := source.Repair56ExplorerFilter(options, creationRange, bounded)
-		if err != nil || !slices.Contains(addresses, repair56Token) || active(creationToken) || !active(buyToken) {
+		addresses, active, err := source.ExplorerDiscoveryFilter(options, creationRange, bounded)
+		if err != nil || !slices.Contains(addresses, explorerDiscoveryToken) || active(creationToken) || !active(buyToken) {
 			t.Fatalf("creation transaction bound must exclude earlier transactions only in the activation block: %v", err)
 		}
-		_, active, err = source.Repair56ExplorerFilter(options, creationRange, discoveries)
+		_, active, err = source.ExplorerDiscoveryFilter(options, creationRange, discoveries)
 		if err != nil || !active(creationToken) {
 			t.Fatalf("events in the creation transaction must be admitted: %v", err)
 		}
@@ -236,20 +236,20 @@ func TestRepair_56_DiscoveryEpochBounds(t *testing.T) {
 			interval, inactive, admitted := creationRange, creationToken, buyToken
 			for i := range bounded {
 				if kind == "activation" {
-					bounded[i].ActivationHeight = repair56Creation + 1
+					bounded[i].ActivationHeight = explorerDiscoveryCreation + 1
 				} else {
-					retired := repair56Buy
+					retired := explorerDiscoveryBuy
 					bounded[i].RetirementHeight = &retired
 					interval, inactive, admitted = buyRange, buyToken, creationToken
 				}
 			}
-			addresses, active, err := source.Repair56ExplorerFilter(options, interval, bounded)
-			if err != nil || slices.Contains(addresses, repair56Token) || slices.Contains(addresses, repair56Pool) || active(inactive) || !active(admitted) {
+			addresses, active, err := source.ExplorerDiscoveryFilter(options, interval, bounded)
+			if err != nil || slices.Contains(addresses, explorerDiscoveryToken) || slices.Contains(addresses, explorerDiscoveryPool) || active(inactive) || !active(admitted) {
 				t.Fatalf("inactive epochs must be absent from both SQL addresses and row admission: %v", err)
 			}
 			if kind == "retirement" {
 				for i := range bounded {
-					*bounded[i].RetirementHeight = repair56Buy + 1
+					*bounded[i].RetirementHeight = explorerDiscoveryBuy + 1
 					bounded[i].Address = "0x0000000000000000000000000000000000000000"
 				}
 				if active(buyToken) || !active(creationToken) {
@@ -262,21 +262,21 @@ func TestRepair_56_DiscoveryEpochBounds(t *testing.T) {
 		invalid := append([]source.AddressEpoch(nil), discoveries...)
 		invalid[0].ManifestDigest = "unapproved"
 		for _, epochs := range [][]source.AddressEpoch{invalid, {f.committed.Epochs[0]}, {discoveries[0], discoveries[0]}} {
-			_, _, err := source.Repair56ExplorerFilter(options, creationRange, epochs)
+			_, _, err := source.ExplorerDiscoveryFilter(options, creationRange, epochs)
 			var refused *source.SourceError
 			if !errors.As(err, &refused) || refused.Kind != source.IdentityError {
 				t.Fatalf("invalid epoch must fail before explorer SQL: %v", err)
 			}
 			for _, explorer := range []bool{true, false} {
-				result, err := source.Repair56HistoricalPage(f.ctx, options, creationRange, epochs, explorer)
+				result, err := source.HistoricalDiscoveryPage(f.ctx, options, creationRange, epochs, explorer)
 				if !errors.As(err, &refused) || refused.Kind != source.IdentityError || result.Complete {
 					t.Fatalf("historical page must forward discoveries to transport (explorer=%t): %v", explorer, err)
 				}
 			}
 		}
 	})
-	addresses, active, err := source.Repair56ExplorerFilter(options, creationRange, nil)
-	if err != nil || slices.Contains(addresses, repair56Token) || slices.Contains(addresses, repair56Pool) || active(creationToken) {
+	addresses, active, err := source.ExplorerDiscoveryFilter(options, creationRange, nil)
+	if err != nil || slices.Contains(addresses, explorerDiscoveryToken) || slices.Contains(addresses, explorerDiscoveryPool) || active(creationToken) {
 		t.Fatalf("request discoveries mutated initial explorer options: %v", err)
 	}
 }

@@ -1,7 +1,7 @@
 {
-  "Source": "services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json",
+  "Source": "services/launchpad/indexer/internal/receipt/testdata/producer_receipts.json",
   "SourceSHA256": "b42f4032463a3c09d215520617e820012c26c48babd4d3a4d2170f2cc30363a3",
-  "Description": "Unchanged historical block, receipt, log and block-pinned state replies, including batches 33963716 through 33963733. Treasury state at creation and buy is supplemented by repair_m1000_treasury.json. No live upstream is used during replay.",
+  "Description": "Unchanged historical block, receipt, log and block-pinned state replies, including batches 33963716 through 33963733. Treasury state at creation and buy is supplemented by native_accounting_treasury.json. No live upstream is used during replay.",
   "Responses": {
     "eth_call [{\"from\":\"0x0000000000000000000000000000000000000000\",\"gas\":\"0x249f0\",\"input\":\"0x071de20d\",\"to\":\"0xf3669edc475cb6e1f0d7635240abd8e8fb7e20c6\"},{\"blockHash\":\"0x367aa367ab921f314429468f9023ba3ec4410a43afd00305f9b2cc3b53d3186e\"}]": {
       "k": "eth_call [{\"from\":\"0x0000000000000000000000000000000000000000\",\"gas\":\"0x249f0\",\"input\":\"0x071de20d\",\"to\":\"0xf3669edc475cb6e1f0d7635240abd8e8fb7e20c6\"},{\"blockHash\":\"0x367aa367ab921f314429468f9023ba3ec4410a43afd00305f9b2cc3b53d3186e\"}]",

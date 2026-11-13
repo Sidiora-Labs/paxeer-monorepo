@@ -33,14 +33,14 @@ import (
 )
 
 const (
-	repair56Creation = uint64(33963716)
-	repair56Buy      = uint64(33963733)
-	repair56Sell     = uint64(33963749)
-	repair56Token    = "0x0f92fdd087c96dd3413ef98646b94d0d986192fa"
-	repair56Pool     = "0xce20da50f92d21d8bee497910c782e9aa25b6263"
+	explorerDiscoveryCreation = uint64(33963716)
+	explorerDiscoveryBuy      = uint64(33963733)
+	explorerDiscoverySell     = uint64(33963749)
+	explorerDiscoveryToken    = "0x0f92fdd087c96dd3413ef98646b94d0d986192fa"
+	explorerDiscoveryPool     = "0xce20da50f92d21d8bee497910c782e9aa25b6263"
 )
 
-type repair56Fixture struct {
+type explorerDiscoveryFixture struct {
 	ctx                    context.Context
 	endpoint, reader, role string
 	options                receipt.RPCOptions
@@ -48,12 +48,12 @@ type repair56Fixture struct {
 	logReads               atomic.Uint64
 }
 
-func repair56RPCSetup(t *testing.T) *repair56Fixture {
+func explorerDiscoveryRPCSetup(t *testing.T) *explorerDiscoveryFixture {
 	t.Helper()
 	t.Setenv(chainfixture.RecordEnv, "")
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	t.Cleanup(cancel)
-	f := &repair56Fixture{ctx: ctx}
+	f := &explorerDiscoveryFixture{ctx: ctx}
 	recording := chainfixture.New(t)
 	recordedURL := recording.Serve(t)
 	client, err := ethclient.DialContext(ctx, recordedURL)
@@ -109,14 +109,14 @@ func repair56RPCSetup(t *testing.T) *repair56Fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	code, err := client.CodeAtHash(ctx, common.HexToAddress(repair56Token), common.HexToHash("0x81a18d822e327fbcbfe2be91b7f666bfa043016cb0e3f094c5bbabe91f9d192b"))
+	code, err := client.CodeAtHash(ctx, common.HexToAddress(explorerDiscoveryToken), common.HexToHash("0x81a18d822e327fbcbfe2be91b7f666bfa043016cb0e3f094c5bbabe91f9d192b"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	f.options, _, err = runtimedocs.ReceiptOptions(runtimedocs.Inputs{
 		Manifest: manifest, ReviewedCatalog: reviewed, ERC20RuntimeCode: code,
 		PoolRuntimeHash: common.HexToHash("0xa9b304d6d0aa562f283b45978b84ced8840a9331f8ac946742670b1b02a2872d"),
-		Anchor:          receipt.BlockAnchor{Height: repair56Creation - 1, Hash: common.HexToHash("0x82477110c5fc791f6bef5a7d96636dc457e83daf59c8b802e264bada02f13395")},
+		Anchor:          receipt.BlockAnchor{Height: explorerDiscoveryCreation - 1, Hash: common.HexToHash("0x82477110c5fc791f6bef5a7d96636dc457e83daf59c8b802e264bada02f13395")},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -137,9 +137,9 @@ func repair56RPCSetup(t *testing.T) *repair56Fixture {
 	return f
 }
 
-func repair56Setup(t *testing.T) *repair56Fixture {
+func explorerDiscoverySetup(t *testing.T) *explorerDiscoveryFixture {
 	t.Helper()
-	f := repair56RPCSetup(t)
+	f := explorerDiscoveryRPCSetup(t)
 	ctx := f.ctx
 	client, err := ethclient.DialContext(ctx, f.endpoint)
 	if err != nil {
@@ -170,7 +170,7 @@ GRANT SELECT ON public.blocks,public.transactions,public.logs TO `+role); err !=
 	})
 	u.User = url.UserPassword(f.role, "repair56-reader")
 	f.reader = u.String()
-	for height := repair56Creation; height <= repair56Sell; height++ {
+	for height := explorerDiscoveryCreation; height <= explorerDiscoverySell; height++ {
 		var block struct {
 			Hash, ParentHash common.Hash
 			Timestamp        hexutil.Uint64
@@ -209,7 +209,7 @@ GRANT SELECT ON public.blocks,public.transactions,public.logs TO `+role); err !=
 	return f
 }
 
-func (f *repair56Fixture) open(t *testing.T) (*source.HistoricalQualifiedSource, func()) {
+func (f *explorerDiscoveryFixture) open(t *testing.T) (*source.HistoricalQualifiedSource, func()) {
 	t.Helper()
 	client, closeClient, err := receipt.NewBoundedRPCClient(f.ctx, f.endpoint, "")
 	if err != nil {
@@ -231,7 +231,7 @@ func (f *repair56Fixture) open(t *testing.T) (*source.HistoricalQualifiedSource,
 	}
 	t.Cleanup(func() { _ = explorer.Close() })
 	history := &source.HistoricalSource{RPC: rpc, Explorer: explorer}
-	return &source.HistoricalQualifiedSource{History: history, Authority: authority, DurableHeight: func() uint64 { return repair56Creation - 1 }}, func() {
+	return &source.HistoricalQualifiedSource{History: history, Authority: authority, DurableHeight: func() uint64 { return explorerDiscoveryCreation - 1 }}, func() {
 		if err := history.Close(); err != nil {
 			t.Fatal(err)
 		}
@@ -239,7 +239,7 @@ func (f *repair56Fixture) open(t *testing.T) (*source.HistoricalQualifiedSource,
 	}
 }
 
-func repair56Fetch(t *testing.T, f *repair56Fixture, qualified *source.HistoricalQualifiedSource, from, to uint64) (store.CanonicalBatch, []*receipt.QualifiedReceipt) {
+func explorerDiscoveryFetch(t *testing.T, f *explorerDiscoveryFixture, qualified *source.HistoricalQualifiedSource, from, to uint64) (store.CanonicalBatch, []*receipt.QualifiedReceipt) {
 	t.Helper()
 	beforeQueries := qualified.History.Explorer.Metrics().Queries
 	beforeLogs := f.logReads.Load()
@@ -256,26 +256,26 @@ func repair56Fetch(t *testing.T, f *repair56Fixture, qualified *source.Historica
 	return batch, receipts
 }
 
-func (f *repair56Fixture) poolSwap(emitter string, topics []string) bool {
+func (f *explorerDiscoveryFixture) poolSwap(emitter string, topics []string) bool {
 	return emitter == strings.ToLower(f.options.Manifest.Roles["EventEmitter"].Address) &&
 		len(topics) == 3 &&
 		topics[0] == crypto.Keccak256Hash([]byte("Swap(bytes32,address,bool,uint256,uint256,uint256,uint256,uint256,uint256)")).Hex() &&
-		topics[1] == common.BytesToHash(common.HexToAddress(repair56Pool).Bytes()).Hex()
+		topics[1] == common.BytesToHash(common.HexToAddress(explorerDiscoveryPool).Bytes()).Hex()
 }
 
-func TestRepair56Postgres_ExplorerDynamicDiscoveries(t *testing.T) {
-	f := repair56Setup(t)
+func TestExplorerPostgresDynamicDiscoveries(t *testing.T) {
+	f := explorerDiscoverySetup(t)
 	qualified, stop := f.open(t)
 	if len(qualified.Authority.DiscoveredEpochs()) != 0 {
 		t.Fatal("cold authority already discovered markets")
 	}
-	creation, receipts := repair56Fetch(t, f, qualified, repair56Creation, repair56Creation)
+	creation, receipts := explorerDiscoveryFetch(t, f, qualified, explorerDiscoveryCreation, explorerDiscoveryCreation)
 	if qualified.History.Explorer.Metrics().Queries != 2 || len(qualified.Authority.DiscoveredEpochs()) != 2 || len(receipts) != 1 {
 		t.Fatal("market creation must grow discovery epochs and retry the explorer query")
 	}
 	tokenLogs := 0
 	for _, raw := range creation.Records {
-		if raw.Emitter == repair56Token {
+		if raw.Emitter == explorerDiscoveryToken {
 			tokenLogs++
 		}
 	}
@@ -295,23 +295,23 @@ func TestRepair56Postgres_ExplorerDynamicDiscoveries(t *testing.T) {
 	if !market {
 		t.Fatal("qualified factory market creation missing")
 	}
-	buy, buyReceipts := repair56Fetch(t, f, qualified, repair56Creation+1, repair56Buy)
+	buy, buyReceipts := explorerDiscoveryFetch(t, f, qualified, explorerDiscoveryCreation+1, explorerDiscoveryBuy)
 	token, pool := false, false
 	for _, raw := range buy.Records {
-		token = token || raw.Emitter == repair56Token
+		token = token || raw.Emitter == explorerDiscoveryToken
 		pool = pool || f.poolSwap(raw.Emitter, raw.Topics)
 	}
 	if !token || !pool || len(buyReceipts) != 1 {
 		t.Fatal("subsequent history lost discovered token or pool events")
 	}
 	fills, err := buyReceipts[0].Fills(f.ctx)
-	if err != nil || len(fills) != 1 || fills[0].Side != "buy" || fills[0].PoolAddress != repair56Pool || fills[0].Token.Address != repair56Token {
+	if err != nil || len(fills) != 1 || fills[0].Side != "buy" || fills[0].PoolAddress != explorerDiscoveryPool || fills[0].Token.Address != explorerDiscoveryToken {
 		t.Fatalf("real qualified consumer did not recover buy: %+v %v", fills, err)
 	}
 	for _, interval := range []struct {
 		from, to uint64
 		expected store.CanonicalBatch
-	}{{repair56Creation, repair56Creation, creation}, {repair56Creation + 1, repair56Buy, buy}} {
+	}{{explorerDiscoveryCreation, explorerDiscoveryCreation, creation}, {explorerDiscoveryCreation + 1, explorerDiscoveryBuy, buy}} {
 		live := &source.LiveQualifiedSource{RPC: qualified.History.RPC, Authority: qualified.Authority, DurableHeight: func() uint64 { return interval.from - 1 }}
 		rpcBatch, _, err := live.FetchQualifiedBatch(f.ctx, interval.from, interval.to)
 		if err != nil || !reflect.DeepEqual(interval.expected.Blocks, rpcBatch.Blocks) || !reflect.DeepEqual(interval.expected.Records, rpcBatch.Records) {
@@ -323,22 +323,22 @@ func TestRepair56Postgres_ExplorerDynamicDiscoveries(t *testing.T) {
 	if len(qualified.Authority.DiscoveredEpochs()) != 0 {
 		t.Fatal("restart retained process-local discoveries")
 	}
-	recoveredCreation, _ := repair56Fetch(t, f, qualified, repair56Creation, repair56Creation)
-	recoveredBuy, _ := repair56Fetch(t, f, qualified, repair56Creation+1, repair56Buy)
+	recoveredCreation, _ := explorerDiscoveryFetch(t, f, qualified, explorerDiscoveryCreation, explorerDiscoveryCreation)
+	recoveredBuy, _ := explorerDiscoveryFetch(t, f, qualified, explorerDiscoveryCreation+1, explorerDiscoveryBuy)
 	if !reflect.DeepEqual(creation, recoveredCreation) || !reflect.DeepEqual(buy, recoveredBuy) {
 		t.Fatal("reopened source and qualifier did not recover identical canonical history")
 	}
 }
 
-func TestRepair56Postgres_DiscoveryEpochBounds(t *testing.T) {
-	f := repair56Setup(t)
+func TestExplorerPostgresDiscoveryEpochBounds(t *testing.T) {
+	f := explorerDiscoverySetup(t)
 	qualified, _ := f.open(t)
-	_, _ = repair56Fetch(t, f, qualified, repair56Creation, repair56Creation)
+	_, _ = explorerDiscoveryFetch(t, f, qualified, explorerDiscoveryCreation, explorerDiscoveryCreation)
 	discoveries := source.DiscoveredAddressEpochs(qualified.Authority, f.committed.ManifestDigest)
-	creation := source.FetchOptions{FromBlock: int64(repair56Creation), ToBlock: int64(repair56Creation)}
-	buy := source.FetchOptions{FromBlock: int64(repair56Buy), ToBlock: int64(repair56Buy)}
+	creation := source.FetchOptions{FromBlock: int64(explorerDiscoveryCreation), ToBlock: int64(explorerDiscoveryCreation)}
+	buy := source.FetchOptions{FromBlock: int64(explorerDiscoveryBuy), ToBlock: int64(explorerDiscoveryBuy)}
 	for _, discovery := range discoveries {
-		if discovery.ActivationHeight != repair56Creation || discovery.CreationTxIndex != 0 {
+		if discovery.ActivationHeight != explorerDiscoveryCreation || discovery.CreationTxIndex != 0 {
 			t.Fatal("authority discovery lost its creation bounds")
 		}
 	}
@@ -364,10 +364,10 @@ func TestRepair56Postgres_DiscoveryEpochBounds(t *testing.T) {
 				topics[i] = topic.Hex()
 			}
 			if f.poolSwap(strings.ToLower(log.Address.Hex()), topics) {
-				found[repair56Pool] = true
+				found[explorerDiscoveryPool] = true
 			}
 		}
-		if !found[repair56Token] || !found[repair56Pool] {
+		if !found[explorerDiscoveryToken] || !found[explorerDiscoveryPool] {
 			t.Fatal("later transaction-zero events missing")
 		}
 	})
@@ -377,9 +377,9 @@ func TestRepair56Postgres_DiscoveryEpochBounds(t *testing.T) {
 			interval := creation
 			for i := range bounded {
 				if kind == "activation" {
-					bounded[i].ActivationHeight = repair56Creation + 1
+					bounded[i].ActivationHeight = explorerDiscoveryCreation + 1
 				} else {
-					retired := repair56Buy
+					retired := explorerDiscoveryBuy
 					bounded[i].RetirementHeight = &retired
 					interval = buy
 				}
@@ -389,7 +389,7 @@ func TestRepair56Postgres_DiscoveryEpochBounds(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, log := range result.Logs {
-				if log.Address == common.HexToAddress(repair56Token) || log.Address == common.HexToAddress(repair56Pool) {
+				if log.Address == common.HexToAddress(explorerDiscoveryToken) || log.Address == common.HexToAddress(explorerDiscoveryPool) {
 					t.Fatal("inactive discovery selected")
 				}
 			}
@@ -412,7 +412,7 @@ func TestRepair56Postgres_DiscoveryEpochBounds(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, log := range initial.Logs {
-		if log.Address == common.HexToAddress(repair56Token) || log.Address == common.HexToAddress(repair56Pool) {
+		if log.Address == common.HexToAddress(explorerDiscoveryToken) || log.Address == common.HexToAddress(explorerDiscoveryPool) {
 			t.Fatal("request discoveries mutated initial explorer options")
 		}
 	}

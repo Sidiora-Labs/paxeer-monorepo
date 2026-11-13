@@ -40,37 +40,37 @@ import (
 // This peer stores transactions and operator records in memory. The components
 // under repair are the real mounted handlers, Store, canonical committer, signed
 // assertion issuer/verifier and Publisher; no external database is required.
-type repair996State struct {
+type deliveryHealthState struct {
 	height, cursor, outbox, quarantine int64
 	commits                            int
 	age                                float64
 }
-type repair996DB struct {
+type deliveryHealthDB struct {
 	mu        sync.Mutex
-	state     repair996State
+	state     deliveryHealthState
 	failures  map[string]bool
-	sessions  map[string]repair996Session
+	sessions  map[string]deliveryHealthSession
 	letters   []deadLetterMetadata
 	decisions [][]any
 	reads     int
 }
-type repair996Session struct {
+type deliveryHealthSession struct {
 	actor, audience, wallet string
 	issued, expires, mfa    time.Time
 	scopes                  []string
 	revoked                 bool
 }
 
-func repair996NewDB() *repair996DB {
-	return &repair996DB{state: repair996State{height: 100, cursor: 7}, failures: map[string]bool{}, sessions: map[string]repair996Session{}}
+func deliveryHealthNewDB() *deliveryHealthDB {
+	return &deliveryHealthDB{state: deliveryHealthState{height: 100, cursor: 7}, failures: map[string]bool{}, sessions: map[string]deliveryHealthSession{}}
 }
 
-type repair996Row struct {
+type deliveryHealthRow struct {
 	values []any
 	err    error
 }
 
-func (r repair996Row) Scan(dest ...any) error {
+func (r deliveryHealthRow) Scan(dest ...any) error {
 	if r.err != nil {
 		return r.err
 	}
@@ -90,30 +90,30 @@ func (r repair996Row) Scan(dest ...any) error {
 	}
 	return nil
 }
-func (db *repair996DB) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+func (db *deliveryHealthDB) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	return db.queryRow(ctx, sql, args...)
 }
-func (db *repair996DB) queryRow(ctx context.Context, sql string, args ...any) pgx.Row {
-	row := func(v ...any) pgx.Row { return repair996Row{values: v} }
+func (db *deliveryHealthDB) queryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	row := func(v ...any) pgx.Row { return deliveryHealthRow{values: v} }
 	if err := ctx.Err(); err != nil {
-		return repair996Row{err: err}
+		return deliveryHealthRow{err: err}
 	}
 	for fragment, fail := range db.failures {
 		if fail && strings.Contains(sql, fragment) {
-			return repair996Row{err: errors.New("private-database-error")}
+			return deliveryHealthRow{err: errors.New("private-database-error")}
 		}
 	}
 	switch {
 	case strings.Contains(sql, "FROM indexer.indexer_ingest_watermarks"):
 		if args[0] != int32(125) || args[1] != "live" {
-			return repair996Row{err: pgx.ErrNoRows}
+			return deliveryHealthRow{err: pgx.ErrNoRows}
 		}
 		return row(db.state.height, db.state.height)
 	case strings.Contains(sql, "SELECT fence_token FROM indexer.indexer_ingest_leases"):
 		if args[2] != "owner" {
-			return repair996Row{err: pgx.ErrNoRows}
+			return deliveryHealthRow{err: pgx.ErrNoRows}
 		}
 		return row(int64(1))
 	case strings.Contains(sql, "-- name: GetCursor"):
@@ -123,18 +123,18 @@ func (db *repair996DB) queryRow(ctx context.Context, sql string, args ...any) pg
 	case strings.Contains(sql, `"operator_sessions"`):
 		session, ok := db.sessions[args[0].(string)]
 		if !ok || session.revoked || session.wallet != args[1] || !session.expires.After(time.Now()) {
-			return repair996Row{err: pgx.ErrNoRows}
+			return deliveryHealthRow{err: pgx.ErrNoRows}
 		}
 		return row(session.actor, session.audience, session.issued, session.expires, session.mfa, session.scopes)
 	}
-	return repair996Row{err: fmt.Errorf("unsupported memory query: %s", sql)}
+	return deliveryHealthRow{err: fmt.Errorf("unsupported memory query: %s", sql)}
 }
-func (db *repair996DB) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+func (db *deliveryHealthDB) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	return db.exec(ctx, sql, args...)
 }
-func (db *repair996DB) exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+func (db *deliveryHealthDB) exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
 	if err := ctx.Err(); err != nil {
 		return pgconn.CommandTag{}, err
 	}
@@ -165,19 +165,19 @@ func (db *repair996DB) exec(ctx context.Context, sql string, args ...any) (pgcon
 	return pgconn.CommandTag{}, fmt.Errorf("unsupported memory mutation: %s", sql)
 }
 
-type repair996Rows struct {
+type deliveryHealthRows struct {
 	pgx.Rows
 	values [][]any
 	index  int
 }
 
-func (r *repair996Rows) Next() bool { r.index++; return r.index <= len(r.values) }
-func (r *repair996Rows) Scan(dest ...any) error {
-	return (repair996Row{values: r.values[r.index-1]}).Scan(dest...)
+func (r *deliveryHealthRows) Next() bool { r.index++; return r.index <= len(r.values) }
+func (r *deliveryHealthRows) Scan(dest ...any) error {
+	return (deliveryHealthRow{values: r.values[r.index-1]}).Scan(dest...)
 }
-func (r *repair996Rows) Close()     {}
-func (r *repair996Rows) Err() error { return nil }
-func (db *repair996DB) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+func (r *deliveryHealthRows) Close()     {}
+func (r *deliveryHealthRows) Err() error { return nil }
+func (db *deliveryHealthDB) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -190,7 +190,7 @@ func (db *repair996DB) Query(ctx context.Context, sql string, args ...any) (pgx.
 		return nil, errors.New("private-quarantine-error")
 	}
 	db.reads++
-	rows := &repair996Rows{}
+	rows := &deliveryHealthRows{}
 	for _, entry := range db.letters {
 		key := entry.EnvelopeHash + "\x00" + entry.Consumer + "\x00" + entry.Generation
 		after := args[0].(string) + "\x00" + args[1].(string) + "\x00" + args[2].(string)
@@ -204,24 +204,24 @@ func (db *repair996DB) Query(ctx context.Context, sql string, args ...any) (pgx.
 	return rows, nil
 }
 
-type repair996Tx struct {
+type deliveryHealthTx struct {
 	pgx.Tx
-	db     *repair996DB
-	before repair996State
+	db     *deliveryHealthDB
+	before deliveryHealthState
 	closed bool
 }
 
-func (db *repair996DB) Begin(context.Context) (pgx.Tx, error) {
+func (db *deliveryHealthDB) Begin(context.Context) (pgx.Tx, error) {
 	db.mu.Lock()
-	return &repair996Tx{db: db, before: db.state}, nil
+	return &deliveryHealthTx{db: db, before: db.state}, nil
 }
-func (tx *repair996Tx) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+func (tx *deliveryHealthTx) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
 	return tx.db.exec(ctx, sql, args...)
 }
-func (tx *repair996Tx) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+func (tx *deliveryHealthTx) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
 	return tx.db.queryRow(ctx, sql, args...)
 }
-func (tx *repair996Tx) Commit(context.Context) error {
+func (tx *deliveryHealthTx) Commit(context.Context) error {
 	if tx.closed {
 		return pgx.ErrTxClosed
 	}
@@ -229,7 +229,7 @@ func (tx *repair996Tx) Commit(context.Context) error {
 	tx.db.mu.Unlock()
 	return nil
 }
-func (tx *repair996Tx) Rollback(context.Context) error {
+func (tx *deliveryHealthTx) Rollback(context.Context) error {
 	if tx.closed {
 		return pgx.ErrTxClosed
 	}
@@ -238,7 +238,7 @@ func (tx *repair996Tx) Rollback(context.Context) error {
 	tx.db.mu.Unlock()
 	return nil
 }
-func (db *repair996DB) Stats(ctx context.Context) (delivery.Stats, error) {
+func (db *deliveryHealthDB) Stats(ctx context.Context) (delivery.Stats, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -246,7 +246,7 @@ func (db *repair996DB) Stats(ctx context.Context) (delivery.Stats, error) {
 	}
 	return delivery.Stats{PendingRows: db.state.outbox, QuarantinedRows: db.state.quarantine, OldestUnpublishedAgeSeconds: db.state.age}, nil
 }
-func repair996GetStatus(t *testing.T, deps StatusDeps) (int, map[string]any) {
+func deliveryHealthGetStatus(t *testing.T, deps StatusDeps) (int, map[string]any) {
 	t.Helper()
 	r := chi.NewRouter()
 	RegisterStatus(r, deps)
@@ -263,8 +263,8 @@ func repair996GetStatus(t *testing.T, deps StatusDeps) (int, map[string]any) {
 	}
 	return response.StatusCode, body
 }
-func TestRepairM_996_CanonicalCommitsAndDurableHealth(t *testing.T) {
-	db := repair996NewDB()
+func TestDeliveryHealthCanonicalCommitsAndDurableHealth(t *testing.T) {
+	db := deliveryHealthNewDB()
 	st := store.NewFromDBTX(db)
 	hash := "0x" + strings.Repeat("1", 64)
 	txHash := "0x" + strings.Repeat("2", 64)
@@ -279,7 +279,7 @@ func TestRepairM_996_CanonicalCommitsAndDurableHealth(t *testing.T) {
 		t.Fatal("canonical commit absent", db.state)
 	}
 	deps := StatusDeps{Store: st, ChainID: 125, Mode: StatusCanonical, CanonicalStreamID: "live", Delivery: db, MaxDeliveryLag: time.Minute, StartTime: time.Now(), Publisher: publisher.New(publisher.Options{})}
-	code, body := repair996GetStatus(t, deps)
+	code, body := deliveryHealthGetStatus(t, deps)
 	if code != 200 || body["status"] != "ok" || body["mode"] != "canonical" || body["lastProcessedBlock"] != float64(101) || body["canonicalStreamId"] != "live" {
 		t.Fatal(code, body)
 	}
@@ -291,42 +291,42 @@ func TestRepairM_996_CanonicalCommitsAndDurableHealth(t *testing.T) {
 		t.Fatal("committed delivery intent absent", body)
 	}
 	db.state.quarantine = 1
-	code, body = repair996GetStatus(t, deps)
+	code, body = deliveryHealthGetStatus(t, deps)
 	if code != 503 || body["status"] != "degraded" {
 		t.Fatal(code, body)
 	}
 	db.state.quarantine = 0
 	db.state.age = 61
-	code, body = repair996GetStatus(t, deps)
+	code, body = deliveryHealthGetStatus(t, deps)
 	if code != 503 || body["status"] != "degraded" {
 		t.Fatal("delivery lag budget ignored", code, body)
 	}
 	db.state.age = 60
-	code, body = repair996GetStatus(t, deps)
+	code, body = deliveryHealthGetStatus(t, deps)
 	if code != 200 || body["status"] != "ok" {
 		t.Fatal("delivery lag boundary rejected", code, body)
 	}
 	deps.MaxDeliveryLag = 0
-	code, body = repair996GetStatus(t, deps)
+	code, body = deliveryHealthGetStatus(t, deps)
 	if code != 503 || body["status"] != "unavailable" {
 		t.Fatal("missing delivery budget advertised health", code, body)
 	}
 	deps.MaxDeliveryLag = time.Minute
 	deps.CanonicalStreamID = "other"
-	code, body = repair996GetStatus(t, deps)
+	code, body = deliveryHealthGetStatus(t, deps)
 	if code != 503 || body["status"] != "unavailable" || body["lastProcessedBlock"] != nil {
 		t.Fatal("wrong stream fell back to cursor", code, body)
 	}
 }
-func TestRepairM_996_LegacyAndFailedCounts(t *testing.T) {
-	db := repair996NewDB()
+func TestDeliveryHealthLegacyAndFailedCounts(t *testing.T) {
+	db := deliveryHealthNewDB()
 	deps := StatusDeps{Store: store.NewFromDBTX(db), ChainID: 125, Mode: StatusLegacy, StartTime: time.Now(), Publisher: publisher.New(publisher.Options{})}
-	code, body := repair996GetStatus(t, deps)
+	code, body := deliveryHealthGetStatus(t, deps)
 	if code != 200 || body["mode"] != "legacy" || body["lastProcessedBlock"] != float64(7) || body["totalPoolsIndexed"] != float64(0) || body["webhooks"] == nil {
 		t.Fatal(code, body)
 	}
 	db.failures["GetPoolCount"] = true
-	code, body = repair996GetStatus(t, deps)
+	code, body = deliveryHealthGetStatus(t, deps)
 	if code != 503 || body["status"] != "unavailable" || body["totalPoolsIndexed"] != nil || body["totalSwapsIndexed"] != float64(0) {
 		t.Fatal(code, body)
 	}
@@ -335,12 +335,12 @@ func TestRepairM_996_LegacyAndFailedCounts(t *testing.T) {
 		t.Fatal("private error disclosed", body)
 	}
 	deps.Mode = ""
-	code, body = repair996GetStatus(t, deps)
+	code, body = deliveryHealthGetStatus(t, deps)
 	if code != 503 || body["lastProcessedBlock"] != nil {
 		t.Fatal("unconfigured adapter advertised health", code, body)
 	}
 }
-func TestRepairM_996_RealDatabaseOutage(t *testing.T) {
+func TestDeliveryHealthRealDatabaseOutage(t *testing.T) {
 	pool, err := pgxpool.New(context.Background(), "postgres://fixture:fixture@127.0.0.1:1/fixture?sslmode=disable")
 	if err != nil {
 		t.Fatal(err)
@@ -352,7 +352,7 @@ func TestRepairM_996_RealDatabaseOutage(t *testing.T) {
 	}
 	for _, mode := range []StatusMode{StatusCanonical, StatusLegacy} {
 		deps := StatusDeps{Store: store.New(pool), ChainID: 125, Mode: mode, CanonicalStreamID: "live", Delivery: durable, MaxDeliveryLag: time.Minute, StartTime: time.Now()}
-		code, body := repair996GetStatus(t, deps)
+		code, body := deliveryHealthGetStatus(t, deps)
 		if code != 503 || body["status"] != "unavailable" || body["lastProcessedBlock"] != nil || body["totalPoolsIndexed"] != nil || body["totalSwapsIndexed"] != nil {
 			t.Fatal(mode, code, body)
 		}
@@ -360,15 +360,15 @@ func TestRepairM_996_RealDatabaseOutage(t *testing.T) {
 			t.Fatal("failed durable read reported metrics", body)
 		}
 	}
-	db := repair996NewDB()
-	code, body := repair996GetStatus(t, StatusDeps{Store: store.NewFromDBTX(db), ChainID: 125, Mode: StatusCanonical, CanonicalStreamID: "live", Delivery: durable, MaxDeliveryLag: time.Minute, StartTime: time.Now()})
+	db := deliveryHealthNewDB()
+	code, body := deliveryHealthGetStatus(t, StatusDeps{Store: store.NewFromDBTX(db), ChainID: 125, Mode: StatusCanonical, CanonicalStreamID: "live", Delivery: durable, MaxDeliveryLag: time.Minute, StartTime: time.Now()})
 	if code != 503 || body["status"] != "unavailable" || body["lastProcessedBlock"] != float64(100) || body["delivery"] != nil {
 		t.Fatal("durable outage hidden by healthy ingestion", code, body)
 	}
 }
 
-func TestRepairM_996_DeadLetterAuthorizationAndRetention(t *testing.T) {
-	db := repair996NewDB()
+func TestDeliveryHealthDeadLetterAuthorizationAndRetention(t *testing.T) {
+	db := deliveryHealthNewDB()
 	operatorSession, ordinarySession, accountID, requestID := uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()
 	policy := delivery.Policy{Subjects: map[string]bool{"events.swap": true}, EventTypes: map[string]bool{"Swap": true}}
 	payload := json.RawMessage(`{"token":"private-payload-canary","target":"https://private-target.invalid"}`)
@@ -421,7 +421,7 @@ func TestRepairM_996_DeadLetterAuthorizationAndRetention(t *testing.T) {
 		t.Fatal(err)
 	}
 	issuer := auth.ServiceAssertionIssuer{Issuer: "gateway", Audience: "indexer", Key: key, Transport: transport}
-	db.sessions[operatorSession] = repair996Session{actor: "operator-a", audience: "indexer", wallet: wallet, issued: now.Add(-time.Second), expires: now.Add(time.Minute), mfa: now.Add(time.Minute), scopes: []string{"inspect"}}
+	db.sessions[operatorSession] = deliveryHealthSession{actor: "operator-a", audience: "indexer", wallet: wallet, issued: now.Add(-time.Second), expires: now.Add(time.Minute), mfa: now.Add(time.Minute), scopes: []string{"inspect"}}
 	send := func(method, path, session string, want int, alter func(*http.Request)) string {
 		t.Helper()
 		req, err := http.NewRequest(method, server.URL+path, nil)
@@ -527,7 +527,7 @@ func TestRepairM_996_DeadLetterAuthorizationAndRetention(t *testing.T) {
 	}
 }
 
-func TestRepairM_996_NoCompatibilityDeadLetterEscape(t *testing.T) {
+func TestDeliveryHealthNoCompatibilityDeadLetterEscape(t *testing.T) {
 	ctx := context.Background()
 	_, pool := canonicaltest.New(t)
 	for _, schema := range []func(string) (string, error){delivery.SchemaDDL, delivery.WebhookDDL} {

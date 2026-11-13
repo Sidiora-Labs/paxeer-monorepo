@@ -28,20 +28,20 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
-type repairM999Response struct {
+type backfillConfigResponse struct {
 	Result json.RawMessage `json:"result"`
 	Error  json.RawMessage `json:"error"`
 }
 
-type repairM999Packet struct {
+type backfillConfigPacket struct {
 	Options    receipt.RPCOptions
 	Markets    []receipt.DiscoveredMarket
 	NativeSwap common.Hash
 	TenantSwap common.Hash
-	Responses  map[string]repairM999Response
+	Responses  map[string]backfillConfigResponse
 }
 
-func repairM999ReadKey(method string, params []any) (string, error) {
+func backfillConfigReadKey(method string, params []any) (string, error) {
 	if params == nil {
 		params = []any{}
 	}
@@ -58,7 +58,7 @@ func repairM999ReadKey(method string, params []any) (string, error) {
 
 // Decision 3177: recorded digests may name Current or an Approved history
 // entry until the packet is re-recorded after the upgrade (decision 3119).
-func repairM999ApprovedSourceDigest(digest string) bool {
+func backfillConfigApprovedSourceDigest(digest string) bool {
 	if digest == deployment.Current().SourceManifestSHA256 {
 		return true
 	}
@@ -71,14 +71,14 @@ func repairM999ApprovedSourceDigest(digest string) bool {
 	return false
 }
 
-func TestRepair_22_39_328(t *testing.T) {
-	if !repairM999ApprovedSourceDigest(deployment.Current().SourceManifestSHA256) {
+func TestApprovedSourceDigestAdmission(t *testing.T) {
+	if !backfillConfigApprovedSourceDigest(deployment.Current().SourceManifestSHA256) {
 		t.Fatal("current source digest refused")
 	}
 	history := 0
 	for height, ok := deployment.NextActivationHeight(0); ok; height, ok = deployment.NextActivationHeight(height) {
 		manifest, approved := deployment.Approved(height)
-		if !approved || !repairM999ApprovedSourceDigest(manifest.SourceManifestSHA256) {
+		if !approved || !backfillConfigApprovedSourceDigest(manifest.SourceManifestSHA256) {
 			t.Fatalf("approved source digest refused at activation %d", height)
 		}
 		if height < deployment.Current().ActivationHeight {
@@ -89,18 +89,18 @@ func TestRepair_22_39_328(t *testing.T) {
 		t.Fatal("approved history must exercise recorded digest admission")
 	}
 	for _, digest := range []string{"", strings.Repeat("0", 64), strings.Repeat("f", 64), deployment.Current().SourceManifestSHA256[:63]} {
-		if repairM999ApprovedSourceDigest(digest) {
+		if backfillConfigApprovedSourceDigest(digest) {
 			t.Fatalf("unapproved source digest accepted: %q", digest)
 		}
 	}
 }
 
-func repairM999AssertManifest(t *testing.T, options receipt.RPCOptions) {
+func backfillConfigAssertManifest(t *testing.T, options receipt.RPCOptions) {
 	t.Helper()
 	recorded, current := options.Manifest, deployment.Current()
 	// Decision 3177: retain an approved recorded source digest until the packet
 	// is re-recorded after the upgrade; compare every other manifest field.
-	if !repairM999ApprovedSourceDigest(recorded.SourceManifestSHA256) {
+	if !backfillConfigApprovedSourceDigest(recorded.SourceManifestSHA256) {
 		t.Fatal("recorded manifest must bind a current or approved historical source manifest")
 	}
 	recorded.SourceManifestSHA256 = current.SourceManifestSHA256
@@ -143,7 +143,7 @@ func repairM999AssertManifest(t *testing.T, options receipt.RPCOptions) {
 	}
 	// Decision 3177: only the embedded evidence may retain an approved history
 	// digest until re-recording after the upgrade; the live review is exact.
-	if !repairM999ApprovedSourceDigest(catalog.ManifestSHA256) {
+	if !backfillConfigApprovedSourceDigest(catalog.ManifestSHA256) {
 		t.Fatal("recorded ABI must bind a current or approved historical source manifest")
 	}
 	if reviewed.ManifestSHA256 != current.SourceManifestSHA256 {
@@ -175,28 +175,28 @@ func repairM999AssertManifest(t *testing.T, options receipt.RPCOptions) {
 	}
 }
 
-func repairM999PacketFromProducer(t *testing.T) repairM999Packet {
+func backfillConfigPacketFromProducer(t *testing.T) backfillConfigPacket {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join("..", "receipt", "testdata", "repair53-producer.json"))
+	raw, err := os.ReadFile(filepath.Join("..", "receipt", "testdata", "producer_receipts.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var packet repairM999Packet
+	var packet backfillConfigPacket
 	if err := json.Unmarshal(raw, &packet); err != nil {
 		t.Fatal(err)
 	}
-	repairM999AssertManifest(t, packet.Options)
+	backfillConfigAssertManifest(t, packet.Options)
 	if packet.Options.Anchor == nil {
 		t.Fatal("recorded producer must bind the approved current deployment and anchor")
 	}
-	responses := make(map[string]repairM999Response, len(packet.Responses))
+	responses := make(map[string]backfillConfigResponse, len(packet.Responses))
 	for key, response := range packet.Responses {
 		method, encoded, ok := strings.Cut(key, " ")
 		var params []any
 		if !ok || json.Unmarshal([]byte(encoded), &params) != nil {
 			t.Fatalf("invalid recorded request key %q", key)
 		}
-		canonical, err := repairM999ReadKey(method, params)
+		canonical, err := backfillConfigReadKey(method, params)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -209,13 +209,13 @@ func repairM999PacketFromProducer(t *testing.T) repairM999Packet {
 	return packet
 }
 
-func repairM999Documents(t *testing.T, packet repairM999Packet) map[string]app.RenderedDocument {
+func backfillConfigDocuments(t *testing.T, packet backfillConfigPacket) map[string]app.RenderedDocument {
 	t.Helper()
 	// Decision 3177: render recorded options with their byte-identical historical
 	// review until the packet is re-recorded after the upgrade.
 	reviewedName := "reviewed.json"
 	if packet.Options.Manifest.SourceManifestSHA256 != deployment.Current().SourceManifestSHA256 {
-		if !repairM999ApprovedSourceDigest(packet.Options.Manifest.SourceManifestSHA256) {
+		if !backfillConfigApprovedSourceDigest(packet.Options.Manifest.SourceManifestSHA256) {
 			t.Fatal("runtime documents require an approved source digest")
 		}
 		reviewedName = filepath.Join("history", "reviewed-"+packet.Options.Manifest.SourceManifestSHA256[:16]+".json")
@@ -300,7 +300,7 @@ func repairM999Documents(t *testing.T, packet repairM999Packet) map[string]app.R
 	return docs
 }
 
-func repairM999Environment(t *testing.T, docs map[string]app.RenderedDocument) {
+func backfillConfigEnvironment(t *testing.T, docs map[string]app.RenderedDocument) {
 	t.Helper()
 	// Remove inherited service settings; the gate supplies all of its inputs.
 	var clear func(reflect.Type)
@@ -339,10 +339,10 @@ func repairM999Environment(t *testing.T, docs map[string]app.RenderedDocument) {
 	}
 }
 
-func TestRepairM_999_ProductionBackfillDefault(t *testing.T) {
-	packet := repairM999PacketFromProducer(t)
-	docs := repairM999Documents(t, packet)
-	repairM999Environment(t, docs)
+func TestProductionBackfillDefault(t *testing.T) {
+	packet := backfillConfigPacketFromProducer(t)
+	docs := backfillConfigDocuments(t, packet)
+	backfillConfigEnvironment(t, docs)
 	for _, mode := range []string{config.ModeBackfill, config.ModeLive} {
 		t.Run(mode, func(t *testing.T) {
 			t.Setenv("INDEXER_MODE", mode)
@@ -364,9 +364,9 @@ func TestRepairM_999_ProductionBackfillDefault(t *testing.T) {
 	}
 }
 
-func TestRepairM_999_ReceiptQualifiedBackfill(t *testing.T) {
-	packet := repairM999PacketFromProducer(t)
-	repairM999Environment(t, repairM999Documents(t, packet))
+func TestReceiptQualifiedBackfill(t *testing.T) {
+	packet := backfillConfigPacketFromProducer(t)
+	backfillConfigEnvironment(t, backfillConfigDocuments(t, packet))
 	cfg, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -387,7 +387,7 @@ func TestRepairM_999_ReceiptQualifiedBackfill(t *testing.T) {
 			http.Error(w, "invalid request", 400)
 			return
 		}
-		key, err := repairM999ReadKey(call.Method, call.Params)
+		key, err := backfillConfigReadKey(call.Method, call.Params)
 		if err != nil {
 			t.Error(err)
 			http.Error(w, "invalid params", 400)

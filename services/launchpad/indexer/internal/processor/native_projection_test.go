@@ -51,7 +51,7 @@ import (
 // Native ABI codec -> approved registry -> transaction-bound read model ->
 // typed SQL and HTTP consumers. Receipt authority admission of native Swaps is
 // the separate repair 22.31.53; this test does not fabricate QualifiedReceipts.
-func repair54NativeProjectionFixture(t *testing.T) (store.CanonicalBatch, []*decode.DecodedEnvelope, int64, common.Address, common.Address, common.Hash) {
+func nativeProjectionNativeProjectionFixture(t *testing.T) (store.CanonicalBatch, []*decode.DecodedEnvelope, int64, common.Address, common.Address, common.Hash) {
 	t.Helper()
 	manifest := deployment.Current()
 	reviewed, err := os.ReadFile(filepath.Join(repositoryRoot(), "sdk/launchpad/protocol/catalog/reviewed.json"))
@@ -135,8 +135,8 @@ func repair54NativeProjectionFixture(t *testing.T) (store.CanonicalBatch, []*dec
 	return batch, envelopes, timestamp, poolAddress, token, txHash
 }
 
-func TestRepair_54_NativeProjectionIdentityGuards(t *testing.T) {
-	batch, envelopes, timestamp, _, _, txHash := repair54NativeProjectionFixture(t)
+func TestNativeProjectionNativeProjectionIdentityGuards(t *testing.T) {
+	batch, envelopes, timestamp, _, _, txHash := nativeProjectionNativeProjectionFixture(t)
 	for _, envelope := range envelopes {
 		if !nativeLegacyRole(envelope) {
 			t.Fatalf("attested native %s role %s rejected", envelope.Event.EventName, envelope.EmitterRole)
@@ -157,7 +157,7 @@ func TestRepair_54_NativeProjectionIdentityGuards(t *testing.T) {
 	}
 }
 
-func repair54ProjectionDelivery(t *testing.T, pool *pgxpool.Pool, batch store.CanonicalBatch, envelopes []*decode.DecodedEnvelope, timestamp int64) (*delivery.Store, func(context.Context, pgx.Tx) error) {
+func nativeProjectionProjectionDelivery(t *testing.T, pool *pgxpool.Pool, batch store.CanonicalBatch, envelopes []*decode.DecodedEnvelope, timestamp int64) (*delivery.Store, func(context.Context, pgx.Tx) error) {
 	t.Helper()
 	ddl, err := delivery.SchemaDDL("indexer")
 	if err != nil {
@@ -190,7 +190,7 @@ func repair54ProjectionDelivery(t *testing.T, pool *pgxpool.Pool, batch store.Ca
 	return durable, func(ctx context.Context, tx pgx.Tx) error { return stager.Stage(ctx, tx, event) }
 }
 
-func repair54AssertProjectionStatus(t *testing.T, deps httpapi.StatusDeps, height int64) {
+func nativeProjectionAssertProjectionStatus(t *testing.T, deps httpapi.StatusDeps, height int64) {
 	t.Helper()
 	for _, tc := range []struct {
 		name, component                    string
@@ -269,13 +269,13 @@ func repair54AssertProjectionStatus(t *testing.T, deps httpapi.StatusDeps, heigh
 	}
 }
 
-func TestRepair54Postgres_NativeReadModelProjection(t *testing.T) {
+func TestNativeReadModelPostgresProjection(t *testing.T) {
 	ctx := context.Background()
-	batch, envelopes, timestamp, poolAddress, token, txHash := repair54NativeProjectionFixture(t)
+	batch, envelopes, timestamp, poolAddress, token, txHash := nativeProjectionNativeProjectionFixture(t)
 	height := batch.Blocks[0].Height
 	var err error
 	_, pool := canonicaltest.New(t)
-	durable, stage := repair54ProjectionDelivery(t, pool, batch, envelopes, timestamp)
+	durable, stage := nativeProjectionProjectionDelivery(t, pool, batch, envelopes, timestamp)
 	if err = store.New(pool).UpsertCursor(ctx, 125, height-1); err != nil {
 		t.Fatal(err)
 	}
@@ -298,7 +298,7 @@ func TestRepair54Postgres_NativeReadModelProjection(t *testing.T) {
 		return nil, stage(c, canonical.Tx)
 	}
 	// Fail at the final canonical write, after the real read-model handlers ran.
-	if _, err = pool.Exec(ctx, `CREATE FUNCTION indexer.repair54_reject() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'repair54 atomic rollback'; END $$; CREATE TRIGGER repair54_reject BEFORE INSERT ON indexer.indexer_ingest_commits FOR EACH ROW EXECUTE FUNCTION indexer.repair54_reject()`); err != nil {
+	if _, err = pool.Exec(ctx, `CREATE FUNCTION indexer.native_projection_reject() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'repair54 atomic rollback'; END $$; CREATE TRIGGER native_projection_reject BEFORE INSERT ON indexer.indexer_ingest_commits FOR EACH ROW EXECUTE FUNCTION indexer.native_projection_reject()`); err != nil {
 		t.Fatal(err)
 	}
 	if err = st.CommitProjectedCanonicalTx(ctx, batch, project); err == nil || !strings.Contains(err.Error(), "repair54 atomic rollback") {
@@ -321,7 +321,7 @@ func TestRepair54Postgres_NativeReadModelProjection(t *testing.T) {
 	if watermark, err := st.GetCanonicalWatermark(ctx, 125, batch.StreamID); err != nil || watermark != height-1 {
 		t.Fatalf("rollback watermark=%d %v", watermark, err)
 	}
-	if _, err = pool.Exec(ctx, `DROP TRIGGER repair54_reject ON indexer.indexer_ingest_commits; DROP FUNCTION indexer.repair54_reject()`); err != nil {
+	if _, err = pool.Exec(ctx, `DROP TRIGGER native_projection_reject ON indexer.indexer_ingest_commits; DROP FUNCTION indexer.native_projection_reject()`); err != nil {
 		t.Fatal(err)
 	}
 	if err = st.CommitProjectedCanonicalTx(ctx, batch, project); err != nil {
@@ -338,7 +338,7 @@ func TestRepair54Postgres_NativeReadModelProjection(t *testing.T) {
 	if amount != "100" || virtual != "11" || fee != "7" || claim != "7" || eventID != strings.ToLower(txHash.Hex())+"-1" {
 		t.Fatalf("native rows: %s %s %s %s %s", amount, virtual, fee, claim, eventID)
 	}
-	repair54AssertProjectionStatus(t, httpapi.StatusDeps{Store: st, ChainID: 125, StartTime: time.Now(), Mode: httpapi.StatusCanonical, CanonicalStreamID: batch.StreamID, Delivery: durable, MaxDeliveryLag: time.Minute}, height)
+	nativeProjectionAssertProjectionStatus(t, httpapi.StatusDeps{Store: st, ChainID: 125, StartTime: time.Now(), Mode: httpapi.StatusCanonical, CanonicalStreamID: batch.StreamID, Delivery: durable, MaxDeliveryLag: time.Minute}, height)
 	if cursor, err := st.GetCursor(ctx, 125); err != nil || cursor == nil || *cursor != height-1 {
 		t.Fatalf("legacy cursor changed: %v %v", cursor, err)
 	}
@@ -358,7 +358,7 @@ func TestRepair54Postgres_NativeReadModelProjection(t *testing.T) {
 
 // Replay an actual recorded block as the final head of this bounded recording.
 // All bytes, including the node-reported block hash, remain unchanged.
-func repair54RecordedResult(t *testing.T, key string) json.RawMessage {
+func nativeProjectionRecordedResult(t *testing.T, key string) json.RawMessage {
 	t.Helper()
 	file, err := os.Open(filepath.Join(repositoryRoot(), "services/launchpad/indexer/internal/internaltest/chainfixture/testdata/paxeer125-market.jsonl.gz"))
 	if err != nil {
@@ -391,7 +391,7 @@ func repair54RecordedResult(t *testing.T, key string) json.RawMessage {
 	return nil
 }
 
-func repair54ReceiptInputs(t *testing.T) runtimedocs.Inputs {
+func nativeProjectionReceiptInputs(t *testing.T) runtimedocs.Inputs {
 	t.Helper()
 	manifest, ok := deployment.Approved(32226215)
 	if !ok {
@@ -403,7 +403,7 @@ func repair54ReceiptInputs(t *testing.T) runtimedocs.Inputs {
 	}
 	// Use the actual recorded token runtime and the production immutable mask,
 	// avoiding a dependency on a separately built Solidity artifact.
-	raw := repair54RecordedResult(t, `eth_getCode ["0x0f92fdd087c96dd3413ef98646b94d0d986192fa",{"blockHash":"0x81a18d822e327fbcbfe2be91b7f666bfa043016cb0e3f094c5bbabe91f9d192b"}]`)
+	raw := nativeProjectionRecordedResult(t, `eth_getCode ["0x0f92fdd087c96dd3413ef98646b94d0d986192fa",{"blockHash":"0x81a18d822e327fbcbfe2be91b7f666bfa043016cb0e3f094c5bbabe91f9d192b"}]`)
 	var encoded string
 	if err = json.Unmarshal(raw, &encoded); err != nil {
 		t.Fatal(err)
@@ -417,13 +417,13 @@ func repair54ReceiptInputs(t *testing.T) runtimedocs.Inputs {
 
 // This proves the recorded source and receipt path independently of the SQL
 // qualification below. It does not substitute for canonical commit recovery.
-func TestRepair_54_RecordedLiveQualification(t *testing.T) {
+func TestNativeProjectionRecordedLiveQualification(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	t.Setenv(chainfixture.RecordEnv, "")
 	fixture := chainfixture.New(t)
 	url := fixture.Serve(t)
-	options, _, err := runtimedocs.ReceiptOptions(repair54ReceiptInputs(t))
+	options, _, err := runtimedocs.ReceiptOptions(nativeProjectionReceiptInputs(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -528,7 +528,7 @@ func TestRepair_54_RecordedLiveQualification(t *testing.T) {
 	}
 }
 
-func TestRepair_54_PendingBatchRetainedOnReconciliationCancellation(t *testing.T) {
+func TestNativeProjectionPendingBatchRetainedOnReconciliationCancellation(t *testing.T) {
 	batch := fixtureBatch(t)
 	batch.Fence = 1
 	batch.Blocks = append(batch.Blocks, store.BlockCompleteness{Height: 102,
@@ -570,9 +570,9 @@ func TestRepair_54_PendingBatchRetainedOnReconciliationCancellation(t *testing.T
 	}
 }
 
-func repair54LiveProcessor(t *testing.T, ctx context.Context, pool *pgxpool.Pool, url, headURL string) (*Processor, *receipt.RPCQualification, func()) {
+func nativeProjectionLiveProcessor(t *testing.T, ctx context.Context, pool *pgxpool.Pool, url, headURL string) (*Processor, *receipt.RPCQualification, func()) {
 	t.Helper()
-	options, _, err := runtimedocs.ReceiptOptions(repair54ReceiptInputs(t))
+	options, _, err := runtimedocs.ReceiptOptions(nativeProjectionReceiptInputs(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -637,7 +637,7 @@ func repair54LiveProcessor(t *testing.T, ctx context.Context, pool *pgxpool.Pool
 	return p, authority, closeSource
 }
 
-func TestRepair54Postgres_AmbiguousCommitLiveRecovery(t *testing.T) {
+func TestNativeProjectionPostgresAmbiguousCommitLiveRecovery(t *testing.T) {
 	if os.Getenv("L06_POSTGRES_DSN") == "" {
 		t.Skip("PostgreSQL integration coverage requires L06_POSTGRES_DSN; the in-memory repair gate runs independently")
 	}
@@ -696,7 +696,7 @@ func TestRepair54Postgres_AmbiguousCommitLiveRecovery(t *testing.T) {
 	}))
 	t.Cleanup(headServer.Close)
 	headURL := headServer.URL
-	seed, _, closeSeed := repair54LiveProcessor(t, ctx, pool, url, headURL)
+	seed, _, closeSeed := nativeProjectionLiveProcessor(t, ctx, pool, url, headURL)
 	if err := seed.ProcessBatch(ctx, 33963716, 33963716); err != nil {
 		t.Fatal(err)
 	}
@@ -709,7 +709,7 @@ func TestRepair54Postgres_AmbiguousCommitLiveRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, authority, closeLive := repair54LiveProcessor(t, ctx, uncertain, url, headURL)
+	p, authority, closeLive := nativeProjectionLiveProcessor(t, ctx, uncertain, url, headURL)
 	rehydrate := func(a *receipt.RPCQualification) {
 		t.Helper()
 		var token, poolAddress string
@@ -786,7 +786,7 @@ func TestRepair54Postgres_AmbiguousCommitLiveRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer reopened.Close()
-	restarted, restartedAuthority, closeRestarted := repair54LiveProcessor(t, ctx, reopened, url, headURL)
+	restarted, restartedAuthority, closeRestarted := nativeProjectionLiveProcessor(t, ctx, reopened, url, headURL)
 	defer closeRestarted()
 	rehydrate(restartedAuthority)
 	restartCtx, stopRestart := context.WithTimeout(ctx, 100*time.Millisecond)
@@ -803,10 +803,10 @@ func TestRepair54Postgres_AmbiguousCommitLiveRecovery(t *testing.T) {
 // The persistence peer implements the processor's store contract in memory.
 // Production receipt admission, projection handlers, canonical fact validation,
 // partition sequencing and durable envelope encoding all run unchanged.
-type repair54MemoryStore struct {
+type nativeProjectionMemoryStore struct {
 	*store.Store
 	mu                   sync.Mutex
-	db                   *repair54MemoryDB
+	db                   *nativeProjectionMemoryDB
 	owner                string
 	fence                int64
 	stream               string
@@ -817,7 +817,7 @@ type repair54MemoryStore struct {
 	guard                *queue.EpochGuard
 }
 
-type repair54MemoryState struct {
+type nativeProjectionMemoryState struct {
 	height          int64
 	legacyHeight    int64
 	deliveryCreated map[string]time.Time
@@ -827,23 +827,23 @@ type repair54MemoryState struct {
 	blocks          map[int64]string
 }
 
-type repair54MemoryDB struct {
-	state  *repair54MemoryState
+type nativeProjectionMemoryDB struct {
+	state  *nativeProjectionMemoryState
 	stream string
 }
 
-func repair54NewMemoryStore(t *testing.T, height int64, stream string) *repair54MemoryStore {
+func nativeProjectionNewMemoryStore(t *testing.T, height int64, stream string) *nativeProjectionMemoryStore {
 	t.Helper()
 	guard, err := queue.NewEpochGuard("recovery", 1, "railway-prod")
 	if err != nil {
 		t.Fatal(err)
 	}
-	db := &repair54MemoryDB{stream: stream, state: &repair54MemoryState{height: height, legacyHeight: height, deliveryCreated: map[string]time.Time{}, tables: map[string]map[string][]any{}, raw: map[string]store.RawRecord{}, batches: map[string]store.CanonicalBatch{}, blocks: map[int64]string{}}}
-	return &repair54MemoryStore{Store: store.NewFromDBTX(db), db: db, stream: stream, guard: guard}
+	db := &nativeProjectionMemoryDB{stream: stream, state: &nativeProjectionMemoryState{height: height, legacyHeight: height, deliveryCreated: map[string]time.Time{}, tables: map[string]map[string][]any{}, raw: map[string]store.RawRecord{}, batches: map[string]store.CanonicalBatch{}, blocks: map[int64]string{}}}
+	return &nativeProjectionMemoryStore{Store: store.NewFromDBTX(db), db: db, stream: stream, guard: guard}
 }
 
-func (m *repair54MemoryStore) CanonicalEpochGuarded() bool { return m.guard != nil }
-func (m *repair54MemoryStore) GetCanonicalWatermark(ctx context.Context, chain int32, stream string) (int64, error) {
+func (m *nativeProjectionMemoryStore) CanonicalEpochGuarded() bool { return m.guard != nil }
+func (m *nativeProjectionMemoryStore) GetCanonicalWatermark(ctx context.Context, chain int32, stream string) (int64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -851,7 +851,7 @@ func (m *repair54MemoryStore) GetCanonicalWatermark(ctx context.Context, chain i
 	}
 	return m.Store.GetCanonicalWatermark(ctx, chain, stream)
 }
-func (m *repair54MemoryStore) Stats(ctx context.Context) (delivery.Stats, error) {
+func (m *nativeProjectionMemoryStore) Stats(ctx context.Context) (delivery.Stats, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var health delivery.Stats
@@ -876,7 +876,7 @@ func (m *repair54MemoryStore) Stats(ctx context.Context) (delivery.Stats, error)
 	}
 	return health, nil
 }
-func (m *repair54MemoryStore) AcquireLease(ctx context.Context, chain int32, stream, owner string, ttl time.Duration) (int64, error) {
+func (m *nativeProjectionMemoryStore) AcquireLease(ctx context.Context, chain int32, stream, owner string, ttl time.Duration) (int64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -889,7 +889,7 @@ func (m *repair54MemoryStore) AcquireLease(ctx context.Context, chain int32, str
 	m.owner = owner
 	return m.fence, nil
 }
-func (m *repair54MemoryStore) RenewLease(ctx context.Context, chain int32, stream, owner string, fence int64, ttl time.Duration) error {
+func (m *nativeProjectionMemoryStore) RenewLease(ctx context.Context, chain int32, stream, owner string, fence int64, ttl time.Duration) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -900,7 +900,7 @@ func (m *repair54MemoryStore) RenewLease(ctx context.Context, chain int32, strea
 	}
 	return nil
 }
-func (m *repair54MemoryStore) ReleaseLease(ctx context.Context, chain int32, stream, owner string, fence int64) error {
+func (m *nativeProjectionMemoryStore) ReleaseLease(ctx context.Context, chain int32, stream, owner string, fence int64) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -912,7 +912,7 @@ func (m *repair54MemoryStore) ReleaseLease(ctx context.Context, chain int32, str
 	m.owner = ""
 	return nil
 }
-func (m *repair54MemoryStore) ReconcileCanonicalCommit(ctx context.Context, b store.CanonicalBatch) (bool, error) {
+func (m *nativeProjectionMemoryStore) ReconcileCanonicalCommit(ctx context.Context, b store.CanonicalBatch) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -940,7 +940,7 @@ func (m *repair54MemoryStore) ReconcileCanonicalCommit(ctx context.Context, b st
 	m.reconciled = append(m.reconciled, b.BatchID)
 	return true, nil
 }
-func (m *repair54MemoryStore) CommitProjectedCanonicalTx(ctx context.Context, b store.CanonicalBatch, project func(context.Context, store.CanonicalTx) ([]store.OutboxIntent, error)) error {
+func (m *nativeProjectionMemoryStore) CommitProjectedCanonicalTx(ctx context.Context, b store.CanonicalBatch, project func(context.Context, store.CanonicalTx) ([]store.OutboxIntent, error)) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -953,7 +953,7 @@ func (m *repair54MemoryStore) CommitProjectedCanonicalTx(ctx context.Context, b 
 		return store.ErrWatermark
 	}
 	original := m.db.state
-	next := &repair54MemoryState{height: original.height, legacyHeight: original.legacyHeight, deliveryCreated: map[string]time.Time{}, tables: map[string]map[string][]any{}, raw: map[string]store.RawRecord{}, batches: map[string]store.CanonicalBatch{}, blocks: map[int64]string{}}
+	next := &nativeProjectionMemoryState{height: original.height, legacyHeight: original.legacyHeight, deliveryCreated: map[string]time.Time{}, tables: map[string]map[string][]any{}, raw: map[string]store.RawRecord{}, batches: map[string]store.CanonicalBatch{}, blocks: map[int64]string{}}
 	for key, created := range original.deliveryCreated {
 		next.deliveryCreated[key] = created
 	}
@@ -974,7 +974,7 @@ func (m *repair54MemoryStore) CommitProjectedCanonicalTx(ctx context.Context, b 
 	}
 	counts := map[int64]int{}
 	for _, raw := range b.Records {
-		key := repair54Key(raw.TransactionHash, raw.LogIndex)
+		key := nativeProjectionKey(raw.TransactionHash, raw.LogIndex)
 		if old, ok := next.raw[key]; ok && !reflect.DeepEqual(old, raw) {
 			return store.ErrIntegrity
 		}
@@ -992,8 +992,8 @@ func (m *repair54MemoryStore) CommitProjectedCanonicalTx(ctx context.Context, b 
 			return store.ErrIntegrity
 		}
 	}
-	db := &repair54MemoryDB{state: next, stream: m.stream}
-	tx := &repair54MemoryTx{db: db}
+	db := &nativeProjectionMemoryDB{state: next, stream: m.stream}
+	tx := &nativeProjectionMemoryTx{db: db}
 	if err := m.guard.Assert(ctx, tx); err != nil {
 		return err
 	}
@@ -1005,10 +1005,10 @@ func (m *repair54MemoryStore) CommitProjectedCanonicalTx(ctx context.Context, b 
 		return store.ErrIntegrity
 	}
 	for _, intent := range intents {
-		if _, ok := next.raw[repair54Key(intent.TransactionHash, intent.LogIndex)]; !ok || !json.Valid(intent.Payload) {
+		if _, ok := next.raw[nativeProjectionKey(intent.TransactionHash, intent.LogIndex)]; !ok || !json.Valid(intent.Payload) {
 			return store.ErrIntegrity
 		}
-		if _, err := db.insert("indexer_ingest_outbox", repair54Key(intent.TransactionHash, intent.LogIndex, intent.Kind), []any{intent.TransactionHash, intent.LogIndex, intent.Kind, intent.Payload}); err != nil {
+		if _, err := db.insert("indexer_ingest_outbox", nativeProjectionKey(intent.TransactionHash, intent.LogIndex, intent.Kind), []any{intent.TransactionHash, intent.LogIndex, intent.Kind, intent.Payload}); err != nil {
 			return err
 		}
 	}
@@ -1029,14 +1029,14 @@ func (m *repair54MemoryStore) CommitProjectedCanonicalTx(ctx context.Context, b 
 	return nil
 }
 
-func repair54Key(args ...any) string {
+func nativeProjectionKey(args ...any) string {
 	parts := make([]string, len(args))
 	for i, a := range args {
 		parts[i] = fmt.Sprint(a)
 	}
 	return strings.Join(parts, "\x00")
 }
-func (db *repair54MemoryDB) table(name string) map[string][]any {
+func (db *nativeProjectionMemoryDB) table(name string) map[string][]any {
 	rows := db.state.tables[name]
 	if rows == nil {
 		rows = map[string][]any{}
@@ -1044,7 +1044,7 @@ func (db *repair54MemoryDB) table(name string) map[string][]any {
 	}
 	return rows
 }
-func (db *repair54MemoryDB) insert(table, key string, args []any) (pgconn.CommandTag, error) {
+func (db *nativeProjectionMemoryDB) insert(table, key string, args []any) (pgconn.CommandTag, error) {
 	rows := db.table(table)
 	if prior, ok := rows[key]; ok {
 		if !reflect.DeepEqual(prior, args) {
@@ -1056,9 +1056,9 @@ func (db *repair54MemoryDB) insert(table, key string, args []any) (pgconn.Comman
 	return pgconn.NewCommandTag("INSERT 0 1"), nil
 }
 
-var repair54InsertTable = regexp.MustCompile(`INSERT INTO (?:"?indexer"?\.)?(\w+)`)
+var nativeProjectionInsertTable = regexp.MustCompile(`INSERT INTO (?:"?indexer"?\.)?(\w+)`)
 
-func (db *repair54MemoryDB) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+func (db *nativeProjectionMemoryDB) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
 	if err := ctx.Err(); err != nil {
 		return pgconn.CommandTag{}, err
 	}
@@ -1069,7 +1069,7 @@ func (db *repair54MemoryDB) Exec(ctx context.Context, sql string, args ...any) (
 		return pgconn.NewCommandTag("SELECT 1"), nil
 	}
 	if strings.HasPrefix(sql, `UPDATE "indexer".delivery_partition_producers`) {
-		key := repair54Key(args[:3]...)
+		key := nativeProjectionKey(args[:3]...)
 		if _, ok := db.table("delivery_partition_producers")[key]; !ok {
 			return pgconn.CommandTag{}, store.ErrIntegrity
 		}
@@ -1096,12 +1096,12 @@ func (db *repair54MemoryDB) Exec(ctx context.Context, sql string, args ...any) (
 		}
 		return pgconn.NewCommandTag(fmt.Sprintf("UPDATE %d", updated)), nil
 	}
-	match := repair54InsertTable.FindStringSubmatch(sql)
+	match := nativeProjectionInsertTable.FindStringSubmatch(sql)
 	if len(match) != 2 {
 		return pgconn.CommandTag{}, fmt.Errorf("unsupported in-memory Exec: %s", sql)
 	}
 	table := match[1]
-	key := repair54Key(args[0])
+	key := nativeProjectionKey(args[0])
 	switch table {
 	case "pools":
 		if len(args) != 9 {
@@ -1116,15 +1116,15 @@ func (db *repair54MemoryDB) Exec(ctx context.Context, sql string, args ...any) (
 		args = append(args, int64(0))
 	case "swaps", "pool_state_snapshots", "fee_distributions", "fee_events", "fee_strategy_changes", "airdrop_claims", "optical_executions", "token_for_token_swaps", "config_updates", "indexer_canonical_creations", "indexer_accounting_fills", "delivery_outbox":
 	case "indexer_token_transfers":
-		key = repair54Key(args[0], args[1])
+		key = nativeProjectionKey(args[0], args[1])
 	case "delivery_partition_producers":
-		key = repair54Key(args[:3]...)
+		key = nativeProjectionKey(args[:3]...)
 		if _, ok := db.table(table)[key]; ok {
 			return pgconn.NewCommandTag("INSERT 0 0"), nil
 		}
 		return db.insert(table, key, []any{int64(0), "", []byte(nil)})
 	case "delivery_partition_positions":
-		key = repair54Key(args[0], args[1], args[2], args[4])
+		key = nativeProjectionKey(args[0], args[1], args[2], args[4])
 	default:
 		return pgconn.CommandTag{}, fmt.Errorf("unsupported in-memory table: %s", table)
 	}
@@ -1135,9 +1135,9 @@ func (db *repair54MemoryDB) Exec(ctx context.Context, sql string, args ...any) (
 	return tag, err
 }
 
-func TestRepair_54_PoolHomeChainFromLaunchedChain(t *testing.T) {
+func TestNativeProjectionPoolHomeChainFromLaunchedChain(t *testing.T) {
 	ctx := context.Background()
-	memory := repair54NewMemoryStore(t, 0, "home-chain")
+	memory := nativeProjectionNewMemoryStore(t, 0, "home-chain")
 	pool := "0x0000000000000000000000000000000000000054"
 	token := "0x0000000000000000000000000000000000000055"
 	params := sqlcdb.InsertPoolParams{PoolAddress: pool, TokenAddress: token, Creator: pool, Optical: pool, PoolID: "pool-54", CreatedAt: 1, CreatedBlock: 1, TxHash: "0x54"}
@@ -1183,12 +1183,12 @@ func TestRepair_54_PoolHomeChainFromLaunchedChain(t *testing.T) {
 	}
 }
 
-type repair54MemoryRow struct {
+type nativeProjectionMemoryRow struct {
 	values []any
 	err    error
 }
 
-func (r repair54MemoryRow) Scan(dest ...any) error {
+func (r nativeProjectionMemoryRow) Scan(dest ...any) error {
 	if r.err != nil {
 		return r.err
 	}
@@ -1208,11 +1208,11 @@ func (r repair54MemoryRow) Scan(dest ...any) error {
 	}
 	return nil
 }
-func (db *repair54MemoryDB) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
-	row := func(v ...any) pgx.Row { return repair54MemoryRow{values: v} }
-	missing := repair54MemoryRow{err: pgx.ErrNoRows}
+func (db *nativeProjectionMemoryDB) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	row := func(v ...any) pgx.Row { return nativeProjectionMemoryRow{values: v} }
+	missing := nativeProjectionMemoryRow{err: pgx.ErrNoRows}
 	if err := ctx.Err(); err != nil {
-		return repair54MemoryRow{err: err}
+		return nativeProjectionMemoryRow{err: err}
 	}
 	switch {
 	case strings.Contains(sql, "-- name: GetPoolCount"):
@@ -1245,9 +1245,9 @@ func (db *repair54MemoryDB) QueryRow(ctx context.Context, sql string, args ...an
 		// Both sourceBound and InsertAccountingFill verify the actual raw identity.
 		var key string
 		if strings.Contains(sql, "WHERE chain_id=125") {
-			key = repair54Key(args[0], args[1])
+			key = nativeProjectionKey(args[0], args[1])
 		} else {
-			key = repair54Key(args[1], args[2])
+			key = nativeProjectionKey(args[1], args[2])
 		}
 		raw, ok := db.state.raw[key]
 		if !ok {
@@ -1255,85 +1255,85 @@ func (db *repair54MemoryDB) QueryRow(ctx context.Context, sql string, args ...an
 		}
 		return row(fmt.Sprint(raw.Height) == fmt.Sprint(args[3]) && fmt.Sprint(raw.TransactionIndex) == fmt.Sprint(args[4]) && raw.BlockHash == args[5] && raw.Emitter == args[6])
 	case strings.Contains(sql, "SELECT EXISTS(SELECT 1 FROM indexer.indexer_canonical_creations"):
-		_, ok := db.table("indexer_canonical_creations")[repair54Key(args[0])]
+		_, ok := db.table("indexer_canonical_creations")[nativeProjectionKey(args[0])]
 		return row(ok)
 	case strings.Contains(sql, "FROM indexer.indexer_canonical_creations c JOIN"):
-		saved, ok := db.table("indexer_canonical_creations")[repair54Key(args[0])]
+		saved, ok := db.table("indexer_canonical_creations")[nativeProjectionKey(args[0])]
 		if !ok {
 			return missing
 		}
 		var fact store.CreationFact
 		if err := json.Unmarshal(saved[13].([]byte), &fact); err != nil {
-			return repair54MemoryRow{err: err}
+			return nativeProjectionMemoryRow{err: err}
 		}
-		raw, ok := db.state.raw[repair54Key(fact.Position.TransactionHash, fact.Position.LogIndex)]
+		raw, ok := db.state.raw[nativeProjectionKey(fact.Position.TransactionHash, fact.Position.LogIndex)]
 		return row(ok && bytes.Equal(saved[13].([]byte), args[1].([]byte)) && fact.Pool == args[2] && fact.Creator == args[3] && fact.Factory == args[4] && fact.Position.Height == args[5] && fact.Position.BlockHash == args[6] && fact.Position.TransactionHash == args[7] && fact.Position.TransactionIndex == args[8] && fact.Position.LogIndex == args[9] && saved[11] == args[10] && fmt.Sprint(raw.Height) == fact.Position.Height && raw.BlockHash == fact.Position.BlockHash && fmt.Sprint(raw.TransactionIndex) == fact.Position.TransactionIndex && raw.Emitter == fact.Factory)
 	case strings.Contains(sql, `FROM "indexer".delivery_partition_producers`):
-		values, ok := db.table("delivery_partition_producers")[repair54Key(args...)]
+		values, ok := db.table("delivery_partition_producers")[nativeProjectionKey(args...)]
 		if !ok {
 			return missing
 		}
 		return row(values...)
 	case strings.Contains(sql, `FROM "indexer".delivery_partition_positions`):
-		values, ok := db.table("delivery_partition_positions")[repair54Key(args...)]
+		values, ok := db.table("delivery_partition_positions")[nativeProjectionKey(args...)]
 		if !ok {
 			return missing
 		}
 		return row(values[5])
 	case strings.Contains(sql, `FROM "indexer".delivery_outbox`):
-		values, ok := db.table("delivery_outbox")[repair54Key(args[0])]
+		values, ok := db.table("delivery_outbox")[nativeProjectionKey(args[0])]
 		if !ok {
 			return missing
 		}
 		return row(values[2], values[4])
 	}
-	return repair54MemoryRow{err: fmt.Errorf("unsupported in-memory QueryRow: %s", sql)}
+	return nativeProjectionMemoryRow{err: fmt.Errorf("unsupported in-memory QueryRow: %s", sql)}
 }
-func (db *repair54MemoryDB) Query(context.Context, string, ...any) (pgx.Rows, error) {
+func (db *nativeProjectionMemoryDB) Query(context.Context, string, ...any) (pgx.Rows, error) {
 	return nil, errors.New("unsupported in-memory multi-row query")
 }
 
 // Only the SQL operations used by the real canonical projection are supported;
 // any unexpected operation fails instead of returning a successful placeholder.
-type repair54MemoryTx struct{ db *repair54MemoryDB }
+type nativeProjectionMemoryTx struct{ db *nativeProjectionMemoryDB }
 
-func (tx *repair54MemoryTx) Exec(c context.Context, q string, a ...any) (pgconn.CommandTag, error) {
+func (tx *nativeProjectionMemoryTx) Exec(c context.Context, q string, a ...any) (pgconn.CommandTag, error) {
 	return tx.db.Exec(c, q, a...)
 }
-func (tx *repair54MemoryTx) QueryRow(c context.Context, q string, a ...any) pgx.Row {
+func (tx *nativeProjectionMemoryTx) QueryRow(c context.Context, q string, a ...any) pgx.Row {
 	return tx.db.QueryRow(c, q, a...)
 }
-func (tx *repair54MemoryTx) Query(c context.Context, q string, a ...any) (pgx.Rows, error) {
+func (tx *nativeProjectionMemoryTx) Query(c context.Context, q string, a ...any) (pgx.Rows, error) {
 	return tx.db.Query(c, q, a...)
 }
-func (*repair54MemoryTx) Begin(context.Context) (pgx.Tx, error) {
+func (*nativeProjectionMemoryTx) Begin(context.Context) (pgx.Tx, error) {
 	return nil, errors.New("nested transactions unsupported")
 }
-func (*repair54MemoryTx) Commit(context.Context) error {
+func (*nativeProjectionMemoryTx) Commit(context.Context) error {
 	return errors.New("the store owns the canonical commit")
 }
-func (*repair54MemoryTx) Rollback(context.Context) error {
+func (*nativeProjectionMemoryTx) Rollback(context.Context) error {
 	return errors.New("the store owns the canonical rollback")
 }
-func (*repair54MemoryTx) CopyFrom(context.Context, pgx.Identifier, []string, pgx.CopyFromSource) (int64, error) {
+func (*nativeProjectionMemoryTx) CopyFrom(context.Context, pgx.Identifier, []string, pgx.CopyFromSource) (int64, error) {
 	return 0, errors.New("copy unsupported")
 }
-func (*repair54MemoryTx) SendBatch(context.Context, *pgx.Batch) pgx.BatchResults {
+func (*nativeProjectionMemoryTx) SendBatch(context.Context, *pgx.Batch) pgx.BatchResults {
 	panic("batch unsupported")
 }
-func (*repair54MemoryTx) LargeObjects() pgx.LargeObjects { panic("large objects unsupported") }
-func (*repair54MemoryTx) Prepare(context.Context, string, string) (*pgconn.StatementDescription, error) {
+func (*nativeProjectionMemoryTx) LargeObjects() pgx.LargeObjects { panic("large objects unsupported") }
+func (*nativeProjectionMemoryTx) Prepare(context.Context, string, string) (*pgconn.StatementDescription, error) {
 	return nil, errors.New("prepare unsupported")
 }
-func (*repair54MemoryTx) Conn() *pgx.Conn { panic("connection access unsupported") }
+func (*nativeProjectionMemoryTx) Conn() *pgx.Conn { panic("connection access unsupported") }
 
-func TestRepair_54_NativeReadModelProjection(t *testing.T) {
+func TestNativeReadModelProjection(t *testing.T) {
 	ctx := context.Background()
-	batch, envelopes, timestamp, poolAddress, token, txHash := repair54NativeProjectionFixture(t)
+	batch, envelopes, timestamp, poolAddress, token, txHash := nativeProjectionNativeProjectionFixture(t)
 	height := batch.Blocks[0].Height
 	_, pool := canonicaltest.New(t)
-	_, stage := repair54ProjectionDelivery(t, pool, batch, envelopes, timestamp)
-	memory := repair54NewMemoryStore(t, height-1, batch.StreamID)
+	_, stage := nativeProjectionProjectionDelivery(t, pool, batch, envelopes, timestamp)
+	memory := nativeProjectionNewMemoryStore(t, height-1, batch.StreamID)
 	var err error
 	batch.Fence, err = memory.AcquireLease(ctx, 125, batch.StreamID, batch.Owner, 30*time.Second)
 	if err != nil {
@@ -1392,7 +1392,7 @@ func TestRepair_54_NativeReadModelProjection(t *testing.T) {
 	if swap[6] != "100" || snapshot[2] != "11" || fee[4] != "7" || claim[5] != "7" || swap[0] != strings.ToLower(txHash.Hex())+"-1" {
 		t.Fatalf("native quantities or immutable key: %v %v %v %v", swap, snapshot, fee, claim)
 	}
-	repair54AssertProjectionStatus(t, httpapi.StatusDeps{Store: memory.Store, ChainID: 125, StartTime: time.Now(), Mode: httpapi.StatusCanonical, CanonicalStreamID: batch.StreamID, Delivery: memory, MaxDeliveryLag: time.Minute}, height)
+	nativeProjectionAssertProjectionStatus(t, httpapi.StatusDeps{Store: memory.Store, ChainID: 125, StartTime: time.Now(), Mode: httpapi.StatusCanonical, CanonicalStreamID: batch.StreamID, Delivery: memory, MaxDeliveryLag: time.Minute}, height)
 	if cursor, err := memory.Store.GetCursor(ctx, 125); err != nil || cursor == nil || *cursor != height-1 {
 		t.Fatalf("legacy cursor changed: %v %v", cursor, err)
 	}
@@ -1430,13 +1430,13 @@ func TestRepair_54_NativeReadModelProjection(t *testing.T) {
 
 // This peer models app.canonicalRuntimeHead's checkpoint reload before its real
 // committed RPC head read, including the live source's durable-height fence.
-type repair54RuntimeHead struct {
+type nativeProjectionRuntimeHead struct {
 	source.HeadSource
-	memory  *repair54MemoryStore
+	memory  *nativeProjectionMemoryStore
 	durable *atomic.Uint64
 }
 
-func (h *repair54RuntimeHead) Head(ctx context.Context) (int64, error) {
+func (h *nativeProjectionRuntimeHead) Head(ctx context.Context) (int64, error) {
 	height, err := h.memory.GetCanonicalWatermark(ctx, 125, realStream)
 	if err != nil {
 		return 0, err
@@ -1445,9 +1445,9 @@ func (h *repair54RuntimeHead) Head(ctx context.Context) (int64, error) {
 	return h.HeadSource.Head(ctx)
 }
 
-func repair54MemoryProcessor(t *testing.T, ctx context.Context, memory *repair54MemoryStore, url, headURL string) (*Processor, *receipt.RPCQualification, func()) {
+func nativeProjectionMemoryProcessor(t *testing.T, ctx context.Context, memory *nativeProjectionMemoryStore, url, headURL string) (*Processor, *receipt.RPCQualification, func()) {
 	t.Helper()
-	options, _, err := runtimedocs.ReceiptOptions(repair54ReceiptInputs(t))
+	options, _, err := runtimedocs.ReceiptOptions(nativeProjectionReceiptInputs(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1510,16 +1510,16 @@ func repair54MemoryProcessor(t *testing.T, ctx context.Context, memory *repair54
 		}
 		return common.HexToHash(hash), nil
 	}}
-	head := &repair54RuntimeHead{HeadSource: rpcSource, memory: memory, durable: durableHeight}
+	head := &nativeProjectionRuntimeHead{HeadSource: rpcSource, memory: memory, durable: durableHeight}
 	p := New(Deps{Store: memory, Head: head, Decoder: decode.NewDecoder(), EventEmitterAddress: deployment.Current().Roles["EventEmitter"].Address, ChainID: 125, QualifiedBatchSource: live, CanonicalStreamID: realStream, CanonicalOwner: "repair54-memory", AccountingPartitions: partitions, Durable: stager, AccountingProjectionVersion: "accounting-market-v1", LegacyProjection: true, Reserves: authority, BatchSize: 17, PollInterval: 10 * time.Millisecond})
 	return p, authority, func() { _ = rpcSource.Close(); closeClient() }
 }
 
-func TestRepair_54_AmbiguousCommitLiveRecovery(t *testing.T) {
+func TestNativeProjectionAmbiguousCommitLiveRecovery(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	t.Setenv(chainfixture.RecordEnv, "")
-	memory := repair54NewMemoryStore(t, int64(realAnchor.Height), realStream)
+	memory := nativeProjectionNewMemoryStore(t, int64(realAnchor.Height), realStream)
 	fixture := chainfixture.New(t)
 	url := fixture.Serve(t)
 	caughtUp := make(chan struct{}, 1)
@@ -1568,7 +1568,7 @@ func TestRepair_54_AmbiguousCommitLiveRecovery(t *testing.T) {
 		fixture.ServeHTTP(w, request)
 	}))
 	defer headServer.Close()
-	seed, _, closeSeed := repair54MemoryProcessor(t, ctx, memory, url, headServer.URL)
+	seed, _, closeSeed := nativeProjectionMemoryProcessor(t, ctx, memory, url, headServer.URL)
 	if err := seed.ProcessBatch(ctx, 33963716, 33963716); err != nil {
 		closeSeed()
 		t.Fatal(err)
@@ -1613,7 +1613,7 @@ func TestRepair_54_AmbiguousCommitLiveRecovery(t *testing.T) {
 			t.Fatalf("reopened factory proof=%+v: %v", facts, err)
 		}
 	}
-	p, authority, closeLive := repair54MemoryProcessor(t, ctx, memory, url, headServer.URL)
+	p, authority, closeLive := nativeProjectionMemoryProcessor(t, ctx, memory, url, headServer.URL)
 	defer closeLive()
 	rehydrate(authority)
 	memory.lostResponse = true
@@ -1694,7 +1694,7 @@ func TestRepair_54_AmbiguousCommitLiveRecovery(t *testing.T) {
 	assertEffects()
 	closeLive()
 	// Restart the real processor and its RPC/receipt authority on the SAME store.
-	restarted, restartedAuthority, closeRestarted := repair54MemoryProcessor(t, ctx, memory, url, headServer.URL)
+	restarted, restartedAuthority, closeRestarted := nativeProjectionMemoryProcessor(t, ctx, memory, url, headServer.URL)
 	defer closeRestarted()
 	rehydrate(restartedAuthority)
 	restartCtx, stopRestart := context.WithTimeout(ctx, 100*time.Millisecond)

@@ -1,7 +1,7 @@
 [repair.22.33.1000]
 audit = "22.30.33"
 base = "8d3c6f05d482687fa70aa669e1b839d9cebf02bd"
-baseline = "The working tree had no scoped implementation and repair_m1000_test.go did not exist; the private gate ledger had zero build and verify runs. No pre-change failing tests are claimed. The explicit implementation-first bounded gate order supersedes step 8's request for an extra unchanged verification."
+baseline = "The working tree had no scoped implementation and native_accounting_test.go did not exist; the private gate ledger had zero build and verify runs. No pre-change failing tests are claimed. The explicit implementation-first bounded gate order supersedes step 8's request for an extra unchanged verification."
 evidence = "The final hf-done line and /out/run/gates.jsonl contain the candidate revision, exact command, exit code and private log location. No test success is claimed before that gate."
 
 [finding.native-feeflow-test-path]
@@ -44,17 +44,17 @@ observed = "Build passed; native FeeFlow and changed-candidate tests passed; his
 repair = "Supply the untrimmed approved catalog and exact supplemental Treasury epoch, select historical beacon-proxy pool discovery, and replay source-owned producer responses; derive address-filtered logs only from complete recorded blocks and their original receipts."
 
 [wiring.historical-source]
-request = "services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json — owning domain 4: capture authenticated Treasury proxy code, implementation slot and implementation code pinned to historical buy block 33963733; the packet currently supplies those identities at creation and later generations only."
+request = "services/launchpad/indexer/internal/receipt/testdata/producer_receipts.json — owning domain 4: capture authenticated Treasury proxy code, implementation slot and implementation code pinned to historical buy block 33963733; the packet currently supplies those identities at creation and later generations only."
 constraint = "Do not substitute state from another block, remove the Treasury emitter, or weaken the creation, fill and durable frame assertions. Final qualification remains subject to the bounded gate."
-resolved = "The in-scope testdata/repair_m1000_treasury.json now records all three exact pinned state reads at creation and buy from public archival node 2; replay rejects any conflict with the original transcript."
+resolved = "The in-scope testdata/native_accounting_treasury.json now records all three exact pinned state reads at creation and buy from public archival node 2; replay rejects any conflict with the original transcript."
 
 [qualification.continuation-source]
 base = "90c597177fcfcac6653ca7effb29d994ae45b128"
 request = "https://api1.mainnet-beta.paxeer.network/ eth_getCode [0xBb82d74E071e03d8E68F1d78Fae9EFe8b6b7A723,0x2063ec4]"
 observed = "The public node returned JSON-RPC -32000: requested height 33963716 has been pruned; earliest available is 42534998. EIP-1898 reads at the original creation and buy block hashes returned block not found by hash."
-fixture = "The committed repair53-producer.json already records Treasury proxy code, implementation slot and implementation code at creation block 33963716 (0x81a18d822e327fbcbfe2be91b7f666bfa043016cb0e3f094c5bbabe91f9d192b); it does not contain Treasury state at buy block 33963733."
+fixture = "The committed producer_receipts.json already records Treasury proxy code, implementation slot and implementation code at creation block 33963716 (0x81a18d822e327fbcbfe2be91b7f666bfa043016cb0e3f094c5bbabe91f9d192b); it does not contain Treasury state at buy block 33963733."
 constraint = "Keep the exact approved Treasury epoch, require each original block-pinned response and preserve every assertion; neither a pruned-state error nor creation-block state supplies the missing buy-block evidence."
-wiring_request = "services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json — owning domain 4: obtain an authenticated archival recording of Treasury proxy code, implementation slot and implementation code at buy block 33963733; the requested public node no longer serves that history."
+wiring_request = "services/launchpad/indexer/internal/receipt/testdata/producer_receipts.json — owning domain 4: obtain an authenticated archival recording of Treasury proxy code, implementation slot and implementation code at buy block 33963733; the requested public node no longer serves that history."
 
 [qualification.continuation-public-node]
 request = "https://api1.mainnet-beta.paxeer.network/ eth_getCode [0xBb82d74E071e03d8E68F1d78Fae9EFe8b6b7A723,0x2063ec4]"
@@ -73,7 +73,7 @@ repair = "Capture exact Treasury proxy code, implementation slot and implementat
 [continuation.attempt-4]
 base_revision = "b664b08b724ec5b190920b99ba70b283c8a796c9"
 baseline = "The supplied attempt-3 gate failed TestRepairM_1000_LiveGeneration and TestRepairM_1000_InventoryDurableFrames on Treasury code qualification; the continuation starts with no current gate ledger and does not repeat an unchanged gate."
-fixture = "testdata/repair_m1000_batches.json preserves historical block, receipt, log and pinned state responses from the committed repair53-producer transcript; testdata/repair_m1000_treasury.json preserves exact creation and buy block-hash-pinned Treasury proxy, implementation slot and implementation code replies. No live endpoint or recording mode is used by replay."
+fixture = "testdata/native_accounting_batches.json preserves historical block, receipt, log and pinned state responses from the committed repair53-producer transcript; testdata/native_accounting_treasury.json preserves exact creation and buy block-hash-pinned Treasury proxy, implementation slot and implementation code replies. No live endpoint or recording mode is used by replay."
 proof = "TestRepairM_1000_TreasuryCodeEpoch qualifies both creation 33963716 and buy 33963733 through the real authority, checks every block and receipt binding, and requires Treasury provenance at each original block. LiveGeneration and InventoryDurableFrames consume the same committed replay through real processor and SQL paths with every inherited assertion retained."
 gotcha = "Historical JSON-RPC headers may encode an empty transaction list as null, and block-receipt selectors may use EIP-1898 objects; transcript selection preserves those responses unchanged."
 external_interface = "The public PNL bridge wiring request above remains open; passing producer/transport tests does not establish the out-of-scope inventory/cost consumer proof."

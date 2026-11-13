@@ -20,7 +20,7 @@ observed = "The test decoded discovered token logs with the baseline Registry ac
 
 [repair.22.31.55.continuation]
 prior_failure = "Attempt 1 failed TestRepair_55_RestartRecoversRealMarketBeyondLifetimeBounds because the recorded RPC transcript lacked historical token and settlement decimals calls made by fresh authorities."
-recording = "testdata/repair_55_rpc.jsonl contains eight exact eth_call responses recorded from the real contracts at the original buy/sell block hashes and their predecessors via the public archive RPC; replay is entirely local and every unrecorded call still fails."
+recording = "testdata/market_recovery_rpc.jsonl contains eight exact eth_call responses recorded from the real contracts at the original buy/sell block hashes and their predecessors via the public archive RPC; replay is entirely local and every unrecorded call still fails."
 head_recording = "The supplemental full-transaction latest response is the unchanged producer-recorded head at 0x206a528 from chainfixture's latest,false entry: that block has an empty transaction list, so the result is identical for true and false. No header, transaction or receipt is synthesized."
 in_process = "The inventory peer now uses an ordered disk snapshot read with Go alone, preserving close/reopen, all 4200 identities, paging bounds and dense-batch refusal without an external sqlite3 process; production keeps its address-selected PostgreSQL keyset query."
 gotcha = "Per-authority decimal caches require recorded calls at the trade block hashes as well as their predecessors after reopening; process-wide cached recordings are insufficient."

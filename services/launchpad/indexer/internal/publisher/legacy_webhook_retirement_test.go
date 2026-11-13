@@ -11,7 +11,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/publisher"
 )
 
-func TestRepairM_998_CompatibilityConfigurationRefused(t *testing.T) {
+func TestLegacyWebhookCompatibilityConfigurationRefused(t *testing.T) {
 	var requests atomic.Int64
 	receiver := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests.Add(1)
@@ -39,7 +39,7 @@ func TestRepairM_998_CompatibilityConfigurationRefused(t *testing.T) {
 	}
 }
 
-func TestRepairM_998_RetirementSurvivesRestart(t *testing.T) {
+func TestLegacyWebhookRetirementSurvivesRestart(t *testing.T) {
 	var requests atomic.Int64
 	receiver := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests.Add(1)
@@ -80,7 +80,7 @@ func TestRepairM_998_RetirementSurvivesRestart(t *testing.T) {
 	}
 }
 
-func TestRepairM_998_RealtimeOnlyConfigurationRemainsAvailable(t *testing.T) {
+func TestLegacyWebhookRealtimeOnlyConfigurationRemainsAvailable(t *testing.T) {
 	for _, urls := range [][]string{nil, {}} {
 		targets, err := publisher.BuildTargets(urls, "unused-secret", []string{"unused-per-url-secret"})
 		if err != nil || len(targets) != 0 {

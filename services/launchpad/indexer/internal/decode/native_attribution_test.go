@@ -21,22 +21,22 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-type repair995Recorded struct {
+type nativeAttributionRecorded struct {
 	Key    string          `json:"k"`
 	Result json.RawMessage `json:"result,omitempty"`
 	Error  json.RawMessage `json:"error,omitempty"`
 }
 
-type repair995Producer struct {
+type nativeAttributionProducer struct {
 	Options    receipt.RPCOptions
 	Markets    []receipt.DiscoveredMarket
 	NativeSwap common.Hash
-	Responses  map[string]repair995Recorded
+	Responses  map[string]nativeAttributionRecorded
 }
 
 // Decision 3177: recorded digests may name Current or an Approved history
 // entry until the packet is re-recorded after the upgrade (decision 3119).
-func repair995ApprovedSourceDigest(digest string) bool {
+func nativeAttributionApprovedSourceDigest(digest string) bool {
 	if digest == deployment.Current().SourceManifestSHA256 {
 		return true
 	}
@@ -49,14 +49,14 @@ func repair995ApprovedSourceDigest(digest string) bool {
 	return false
 }
 
-func TestRepair_22_39_328(t *testing.T) {
-	if !repair995ApprovedSourceDigest(deployment.Current().SourceManifestSHA256) {
+func TestApprovedSourceDigestAdmission(t *testing.T) {
+	if !nativeAttributionApprovedSourceDigest(deployment.Current().SourceManifestSHA256) {
 		t.Fatal("current source digest refused")
 	}
 	history := 0
 	for height, ok := deployment.NextActivationHeight(0); ok; height, ok = deployment.NextActivationHeight(height) {
 		manifest, approved := deployment.Approved(height)
-		if !approved || !repair995ApprovedSourceDigest(manifest.SourceManifestSHA256) {
+		if !approved || !nativeAttributionApprovedSourceDigest(manifest.SourceManifestSHA256) {
 			t.Fatalf("approved source digest refused at activation %d", height)
 		}
 		if height < deployment.Current().ActivationHeight {
@@ -67,18 +67,18 @@ func TestRepair_22_39_328(t *testing.T) {
 		t.Fatal("approved history must exercise recorded digest admission")
 	}
 	for _, digest := range []string{"", strings.Repeat("0", 64), strings.Repeat("f", 64), deployment.Current().SourceManifestSHA256[:63]} {
-		if repair995ApprovedSourceDigest(digest) {
+		if nativeAttributionApprovedSourceDigest(digest) {
 			t.Fatalf("unapproved source digest accepted: %q", digest)
 		}
 	}
 }
 
-func repair995AssertManifest(t *testing.T, options receipt.RPCOptions) {
+func nativeAttributionAssertManifest(t *testing.T, options receipt.RPCOptions) {
 	t.Helper()
 	recorded, current := options.Manifest, deployment.Current()
 	// Decision 3177: retain an approved recorded source digest until the packet
 	// is re-recorded after the upgrade; compare every other manifest field.
-	if !repair995ApprovedSourceDigest(recorded.SourceManifestSHA256) {
+	if !nativeAttributionApprovedSourceDigest(recorded.SourceManifestSHA256) {
 		t.Fatal("recorded manifest must bind a current or approved historical source manifest")
 	}
 	recorded.SourceManifestSHA256 = current.SourceManifestSHA256
@@ -121,7 +121,7 @@ func repair995AssertManifest(t *testing.T, options receipt.RPCOptions) {
 	}
 	// Decision 3177: only the embedded evidence may retain an approved history
 	// digest until re-recording after the upgrade; the live review is exact.
-	if !repair995ApprovedSourceDigest(catalog.ManifestSHA256) {
+	if !nativeAttributionApprovedSourceDigest(catalog.ManifestSHA256) {
 		t.Fatal("recorded ABI must bind a current or approved historical source manifest")
 	}
 	if reviewed.ManifestSHA256 != current.SourceManifestSHA256 {
@@ -153,24 +153,24 @@ func repair995AssertManifest(t *testing.T, options receipt.RPCOptions) {
 	}
 }
 
-func repair995Load(t *testing.T) repair995Producer {
+func nativeAttributionLoad(t *testing.T) nativeAttributionProducer {
 	t.Helper()
-	raw, err := os.ReadFile("../receipt/testdata/repair53-producer.json")
+	raw, err := os.ReadFile("../receipt/testdata/producer_receipts.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var input repair995Producer
+	var input nativeAttributionProducer
 	if err := json.Unmarshal(raw, &input); err != nil {
 		t.Fatal(err)
 	}
-	repair995AssertManifest(t, input.Options)
+	nativeAttributionAssertManifest(t, input.Options)
 	if len(input.Markets) != 1 || input.NativeSwap == (common.Hash{}) {
 		t.Fatal("approved native producer capture required")
 	}
 	return input
 }
 
-func repair995Key(method string, params []any) (string, error) {
+func nativeAttributionKey(method string, params []any) (string, error) {
 	if params == nil {
 		params = []any{}
 	}
@@ -183,16 +183,16 @@ func repair995Key(method string, params []any) (string, error) {
 	return method + " " + string(raw), err
 }
 
-func repair995Replay(t *testing.T, input repair995Producer) string {
+func nativeAttributionReplay(t *testing.T, input nativeAttributionProducer) string {
 	t.Helper()
-	responses := make(map[string]repair995Recorded, len(input.Responses))
+	responses := make(map[string]nativeAttributionRecorded, len(input.Responses))
 	for key, response := range input.Responses {
 		method, encoded, ok := strings.Cut(key, " ")
 		var params []any
 		if !ok || json.Unmarshal([]byte(encoded), &params) != nil {
 			t.Fatalf("invalid recorded key: %s", key)
 		}
-		canonical, err := repair995Key(method, params)
+		canonical, err := nativeAttributionKey(method, params)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -212,7 +212,7 @@ func repair995Replay(t *testing.T, input repair995Producer) string {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		key, err := repair995Key(request.Method, request.Params)
+		key, err := nativeAttributionKey(request.Method, request.Params)
 		if err != nil {
 			t.Error(err)
 			http.Error(w, err.Error(), 400)
@@ -238,7 +238,7 @@ func repair995Replay(t *testing.T, input repair995Producer) string {
 	return server.URL
 }
 
-func repair995Bundle(t *testing.T, input repair995Producer) (*types.Transaction, *types.Receipt) {
+func nativeAttributionBundle(t *testing.T, input nativeAttributionProducer) (*types.Transaction, *types.Receipt) {
 	t.Helper()
 	var rec types.Receipt
 	key := " [\"" + input.NativeSwap.Hex() + "\"]"
@@ -290,7 +290,7 @@ func repair995Bundle(t *testing.T, input repair995Producer) (*types.Transaction,
 	return tx, &rec
 }
 
-func repair995Registry(t *testing.T, input repair995Producer, origin bool, poolActive bool) *decode.Registry {
+func nativeAttributionRegistry(t *testing.T, input nativeAttributionProducer, origin bool, poolActive bool) *decode.Registry {
 	t.Helper()
 	var catalog decode.Catalog
 	if err := json.Unmarshal(input.Options.CatalogJSON, &catalog); err != nil {
@@ -319,11 +319,11 @@ func repair995Registry(t *testing.T, input repair995Producer, origin bool, poolA
 	return r
 }
 
-func repair995Markets(input repair995Producer) []decode.ActorMarketBinding {
+func nativeAttributionMarkets(input nativeAttributionProducer) []decode.ActorMarketBinding {
 	return []decode.ActorMarketBinding{{Pool: input.Markets[0].Pool, Token: input.Markets[0].Token, Settlement: common.HexToAddress(input.Options.Manifest.Roles["USDL"].Address)}}
 }
 
-func repair995Swap(t *testing.T, envelopes []*decode.DecodedEnvelope) *decode.DecodedEnvelope {
+func nativeAttributionSwap(t *testing.T, envelopes []*decode.DecodedEnvelope) *decode.DecodedEnvelope {
 	t.Helper()
 	var swap *decode.DecodedEnvelope
 	for _, env := range envelopes {
@@ -340,7 +340,7 @@ func repair995Swap(t *testing.T, envelopes []*decode.DecodedEnvelope) *decode.De
 	return swap
 }
 
-func repair995AssertActors(t *testing.T, swap *decode.DecodedEnvelope, tx *types.Transaction, rec *types.Receipt) {
+func nativeAttributionAssertActors(t *testing.T, swap *decode.DecodedEnvelope, tx *types.Transaction, rec *types.Receipt) {
 	t.Helper()
 	sender, err := types.Sender(types.LatestSignerForChainID(big.NewInt(125)), tx)
 	if err != nil {
@@ -358,11 +358,11 @@ func repair995AssertActors(t *testing.T, swap *decode.DecodedEnvelope, tx *types
 	}
 }
 
-func TestRepairM_995_NativeReceiptAttribution(t *testing.T) {
-	input := repair995Load(t)
+func TestNativeAttributionNativeReceiptAttribution(t *testing.T) {
+	input := nativeAttributionLoad(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	client, closeClient, err := receipt.NewBoundedRPCClient(ctx, repair995Replay(t, input), "")
+	client, closeClient, err := receipt.NewBoundedRPCClient(ctx, nativeAttributionReplay(t, input), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -392,11 +392,11 @@ func TestRepairM_995_NativeReceiptAttribution(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	swap := repair995Swap(t, envelopes)
+	swap := nativeAttributionSwap(t, envelopes)
 	if swap.Raw.Emitter != strings.ToLower(decode.LaunchpadPrecompileAddress.Hex()) || (swap.EmitterRole != decode.LaunchpadPrecompileRole && swap.EmitterRole != "SidioraPool") {
 		t.Fatal("actual native emission did not reach qualified consumer")
 	}
-	repair995AssertActors(t, swap, bundle.Transaction, bundle.Receipt)
+	nativeAttributionAssertActors(t, swap, bundle.Transaction, bundle.Receipt)
 	fills, err := qualified[0].Fills(ctx)
 	if err != nil || len(fills) != 1 || fills[0].ActualEmitter != swap.Raw.Emitter || fills[0].Position.TransactionHash != input.NativeSwap.Hex() || fills[0].TokenAmountRaw != swap.Event.Args["amountOut"] {
 		t.Fatalf("qualified accounting consumer lost the native fill: %+v, %v", fills, err)
@@ -407,36 +407,36 @@ func TestRepairM_995_NativeReceiptAttribution(t *testing.T) {
 	}
 }
 
-func TestRepairM_995_NativeRoleProvenance(t *testing.T) {
-	input := repair995Load(t)
-	tx, rec := repair995Bundle(t, input)
+func TestNativeAttributionNativeRoleProvenance(t *testing.T) {
+	input := nativeAttributionLoad(t)
+	tx, rec := nativeAttributionBundle(t, input)
 	for _, origin := range []bool{false, true} {
 		role := decode.LaunchpadPrecompileRole
 		if origin {
 			role = "SidioraPool"
 		}
 		t.Run(role, func(t *testing.T) {
-			r := repair995Registry(t, input, origin, true)
-			envelopes, err := r.DecodeTransactionReceipt(tx, rec, repair995Markets(input))
+			r := nativeAttributionRegistry(t, input, origin, true)
+			envelopes, err := r.DecodeTransactionReceipt(tx, rec, nativeAttributionMarkets(input))
 			if err != nil {
 				t.Fatal(err)
 			}
-			swap := repair995Swap(t, envelopes)
+			swap := nativeAttributionSwap(t, envelopes)
 			if swap.EmitterRole != role {
 				t.Fatalf("verified native role changed: %s", swap.EmitterRole)
 			}
-			repair995AssertActors(t, swap, tx, rec)
+			nativeAttributionAssertActors(t, swap, tx, rec)
 		})
 	}
 }
 
-func TestRepairM_995_ConservativeEvidence(t *testing.T) {
-	input := repair995Load(t)
+func TestNativeAttributionConservativeEvidence(t *testing.T) {
+	input := nativeAttributionLoad(t)
 	for _, name := range []string{"absent", "ambiguous", "wrong_asset", "wrong_pool", "wrong_amount", "after_swap", "zero_recipient", "malformed_transfer", "unattested_pool", "missing_market"} {
 		t.Run(name, func(t *testing.T) {
-			tx, rec := repair995Bundle(t, input)
+			tx, rec := nativeAttributionBundle(t, input)
 			output := rec.Logs[1]
-			markets := repair995Markets(input)
+			markets := nativeAttributionMarkets(input)
 			switch name {
 			case "absent":
 				rec.Logs = append(rec.Logs[:1], rec.Logs[2:]...)
@@ -462,12 +462,12 @@ func TestRepairM_995_ConservativeEvidence(t *testing.T) {
 			case "missing_market":
 				markets = nil
 			}
-			r := repair995Registry(t, input, false, name != "unattested_pool")
+			r := nativeAttributionRegistry(t, input, false, name != "unattested_pool")
 			envelopes, err := r.DecodeTransactionReceipt(tx, rec, markets)
 			if err != nil {
 				t.Fatal(err)
 			}
-			swap := repair995Swap(t, envelopes)
+			swap := nativeAttributionSwap(t, envelopes)
 			actor := swap.Actors
 			if actor.Recipient != nil || actor.Beneficiary != nil || actor.AttributionConfidence != "unknown" || actor.AttributionMethod != "unavailable" || !reflect.DeepEqual(actor.EvidenceIdentity, []decode.RawIdentity{swap.Raw.Identity}) {
 				t.Fatalf("%s produced unsupported attribution: %+v", name, actor)
@@ -479,12 +479,12 @@ func TestRepairM_995_ConservativeEvidence(t *testing.T) {
 	}
 }
 
-func TestRepairM_995_ReceiptIdentity(t *testing.T) {
-	input := repair995Load(t)
-	r := repair995Registry(t, input, false, true)
+func TestNativeAttributionReceiptIdentity(t *testing.T) {
+	input := nativeAttributionLoad(t)
+	r := nativeAttributionRegistry(t, input, false, true)
 	for _, name := range []string{"transaction", "block_hash", "block_number", "transaction_index", "receipt_transaction", "failed_receipt", "conflicting_duplicate"} {
 		t.Run(name, func(t *testing.T) {
-			tx, rec := repair995Bundle(t, input)
+			tx, rec := nativeAttributionBundle(t, input)
 			switch name {
 			case "transaction":
 				rec.Logs[1].TxHash = common.HexToHash("0x1234")
@@ -503,17 +503,17 @@ func TestRepairM_995_ReceiptIdentity(t *testing.T) {
 				duplicate.Data = common.LeftPadBytes(big.NewInt(1).Bytes(), 32)
 				rec.Logs = append(rec.Logs, &duplicate)
 			}
-			if _, err := r.DecodeTransactionReceipt(tx, rec, repair995Markets(input)); err == nil {
+			if _, err := r.DecodeTransactionReceipt(tx, rec, nativeAttributionMarkets(input)); err == nil {
 				t.Fatalf("accepted mismatched receipt evidence: %s", name)
 			}
 		})
 	}
 	// An identical replay of one raw identity is one transfer, not ambiguity.
-	tx, rec := repair995Bundle(t, input)
+	tx, rec := nativeAttributionBundle(t, input)
 	rec.Logs = append(rec.Logs, rec.Logs[1])
-	envelopes, err := r.DecodeTransactionReceipt(tx, rec, repair995Markets(input))
+	envelopes, err := r.DecodeTransactionReceipt(tx, rec, nativeAttributionMarkets(input))
 	if err != nil {
 		t.Fatal(err)
 	}
-	repair995AssertActors(t, repair995Swap(t, envelopes), tx, rec)
+	nativeAttributionAssertActors(t, nativeAttributionSwap(t, envelopes), tx, rec)
 }

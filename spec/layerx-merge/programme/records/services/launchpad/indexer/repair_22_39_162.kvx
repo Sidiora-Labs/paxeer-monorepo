@@ -26,31 +26,31 @@ observed = "All five cases refuse identically; retain v5.11.0 and type the share
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/app"
 test = "TestRenderedProductionDocumentsBoot"
 reason = "render_test.go line 111: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
-producer = "internal/app/repair_55_test.go:repair55Serve -> internal/runtimedocs/runtimedocs.go:ReceiptOptions -> internal/receipt/history.go:historicalEmitterEpochs; original chain-125 signed market receipts"
+producer = "internal/app/market_recovery_test.go:repair55Serve -> internal/runtimedocs/runtimedocs.go:ReceiptOptions -> internal/receipt/history.go:historicalEmitterEpochs; original chain-125 signed market receipts"
 
 [repair.2]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/app"
 test = "TestRepair_55_RestartRecoversRealMarketBeyondLifetimeBounds"
-reason = "repair_55_test.go line 384: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
-producer = "internal/app/repair_55_test.go:repair55Serve -> internal/runtimedocs/runtimedocs.go:ReceiptOptions -> internal/receipt/history.go:historicalEmitterEpochs; original chain-125 signed market receipts"
+reason = "market_recovery_test.go line 384: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
+producer = "internal/app/market_recovery_test.go:repair55Serve -> internal/runtimedocs/runtimedocs.go:ReceiptOptions -> internal/receipt/history.go:historicalEmitterEpochs; original chain-125 signed market receipts"
 
 [repair.3]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/app"
 test = "TestRepair_55_ReceiptHintsRejectTampering"
-reason = "repair_55_test.go line 628: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
-producer = "internal/app/repair_55_test.go:repair55Serve -> internal/runtimedocs/runtimedocs.go:ReceiptOptions -> internal/receipt/history.go:historicalEmitterEpochs; original chain-125 signed market receipts"
+reason = "market_recovery_test.go line 628: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
+producer = "internal/app/market_recovery_test.go:repair55Serve -> internal/runtimedocs/runtimedocs.go:ReceiptOptions -> internal/receipt/history.go:historicalEmitterEpochs; original chain-125 signed market receipts"
 
 [repair.4]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/config"
 test = "TestRepairM_999_ReceiptQualifiedBackfill"
-reason = "repair_m999_test.go line 304: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
-producer = "internal/config/repair_m999_test.go producer packet -> internal/receipt/testdata/repair53-producer.json -> internal/receipt/history.go:historicalEmitterEpochs"
+reason = "backfill_configuration_test.go line 304: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
+producer = "internal/config/backfill_configuration_test.go producer packet -> internal/receipt/testdata/producer_receipts.json -> internal/receipt/history.go:historicalEmitterEpochs"
 
 [repair.5]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 test = "TestRepairM_995_NativeReceiptAttribution"
-reason = "repair_m995_test.go line 254: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
-producer = "internal/receipt/testdata/repair53-producer.json: actual MigrateV6120 keeper and Router.buy executions via precompiles/launchpad/pool.go"
+reason = "native_attribution_test.go line 254: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
+producer = "internal/receipt/testdata/producer_receipts.json: actual MigrateV6120 keeper and Router.buy executions via precompiles/launchpad/pool.go"
 
 [repair.6]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/runtimedocs"
@@ -79,14 +79,14 @@ producer = "internal/runtimedocs/runtimedocs.go:TrimCatalog -> internal/receipt/
 [repair.10]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/source"
 test = "TestRepair_56_ExplorerDynamicDiscoveries"
-reason = "repair_56_test.go line 115: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
-producer = "internal/source/repair_56_postgres_test.go:repair56RPCSetup -> runtimedocs.ReceiptOptions -> receipt.historicalEmitterEpochs; original chain-125 RPC capture"
+reason = "explorer_discovery_test.go line 115: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
+producer = "internal/source/explorer_discovery_postgres_test.go:repair56RPCSetup -> runtimedocs.ReceiptOptions -> receipt.historicalEmitterEpochs; original chain-125 RPC capture"
 
 [repair.11]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/source"
 test = "TestRepair_56_DiscoveryEpochBounds"
-reason = "repair_56_test.go line 191: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
-producer = "internal/source/repair_56_postgres_test.go:repair56RPCSetup -> runtimedocs.ReceiptOptions -> receipt.historicalEmitterEpochs; original chain-125 RPC capture"
+reason = "explorer_discovery_test.go line 191: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
+producer = "internal/source/explorer_discovery_postgres_test.go:repair56RPCSetup -> runtimedocs.ReceiptOptions -> receipt.historicalEmitterEpochs; original chain-125 RPC capture"
 
 [repair.12]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/source"
@@ -104,7 +104,7 @@ repair = "Replace the obsolete 80,000 gas limit with the actual producer estimat
 [repair.14]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/httpapi"
 test = "TestRepairM_996_NoCompatibilityDeadLetterEscape"
-reason = "repair_m996_test.go line 534: publisher.New panics at publisher.go line 136 because the test constructs retired compatibility webhook delivery."
+reason = "durable_delivery_health_test.go line 534: publisher.New panics at publisher.go line 136 because the test constructs retired compatibility webhook delivery."
 producer = "internal/publisher/durable.go:DurableStager.Stage -> shared/delivery/store.go:Enqueue -> shared/delivery/webhook.go:WebhookBridge.StageTx and RunOnce; real PostgreSQL transaction and TLS rejection"
 
 [repair.15]
@@ -134,31 +134,31 @@ producer = "internal/receipt/history.go:historicalEmitterEpochs and internal/int
 [repair.19]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
 test = "TestRepair54Postgres_NativeReadModelProjection"
-reason = "repair_54_test.go line 232: HTTP consumer answers status unavailable with mode in the unavailable components; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+reason = "native_projection_test.go line 232: HTTP consumer answers status unavailable with mode in the unavailable components; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
 producer = "internal/httpapi/status.go:RegisterStatus requires explicit StatusCanonical, canonical stream, real delivery.Store health and lag budget; all typed SQL and rollback assertions retained."
 
 [repair.20]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
 test = "TestRepair_54_RecordedLiveQualification"
-reason = "repair_54_test.go line 309: receipt qualification rejected for recorded live ingestion; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+reason = "native_projection_test.go line 309: receipt qualification rejected for recorded live ingestion; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
 producer = "internal/receipt/history.go:historicalEmitterEpochs and internal/internaltest/chainfixture; original chain-125 market receipts"
 
 [repair.21]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
 test = "TestRepair54Postgres_AmbiguousCommitLiveRecovery"
-reason = "repair_54_test.go line 529: receipt qualification rejected for ambiguous commit recovery; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+reason = "native_projection_test.go line 529: receipt qualification rejected for ambiguous commit recovery; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
 producer = "internal/receipt/history.go:historicalEmitterEpochs and internal/internaltest/chainfixture; original chain-125 market receipts"
 
 [repair.22]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
 test = "TestRepair_54_NativeReadModelProjection"
-reason = "repair_54_test.go line 1165: HTTP consumer answers status unavailable with mode in the unavailable components; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+reason = "native_projection_test.go line 1165: HTTP consumer answers status unavailable with mode in the unavailable components; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
 producer = "internal/httpapi/status.go:RegisterStatus requires explicit StatusCanonical, canonical stream, real delivery.Store health and lag budget; all typed SQL and rollback assertions retained."
 
 [repair.23]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
 test = "TestRepair_54_AmbiguousCommitLiveRecovery"
-reason = "repair_54_test.go line 1274: receipt qualification rejected for ambiguous commit recovery; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+reason = "native_projection_test.go line 1274: receipt qualification rejected for ambiguous commit recovery; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
 producer = "internal/receipt/history.go:historicalEmitterEpochs and internal/internaltest/chainfixture; original chain-125 market receipts"
 
 [repair.24]
@@ -194,32 +194,32 @@ producer = "internal/store/replay.go:Store.AdmitReplay -> migrations/60001.sql b
 [repair.29]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
 test = "TestRepair_53_native_swap_qualification"
-reason = "repair_53_test.go line 451: receipt qualification rejected for the native swap producer; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
-producer = "internal/receipt/testdata/repair53-producer.json: MigrateV6120, Router.buy and tenant keeper; internal/receipt/identity.go:migratedRoleEpoch and historicalEmitterEpochs"
+reason = "producer_qualification_test.go line 451: receipt qualification rejected for the native swap producer; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+producer = "internal/receipt/testdata/producer_receipts.json: MigrateV6120, Router.buy and tenant keeper; internal/receipt/identity.go:migratedRoleEpoch and historicalEmitterEpochs"
 
 [repair.30]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
 test = "TestRepair_53_tenant_transaction_qualification"
-reason = "repair_53_test.go line 452: receipt qualification rejected for the tenant transaction producer; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
-producer = "internal/receipt/testdata/repair53-producer.json: MigrateV6120, Router.buy and tenant keeper; internal/receipt/identity.go:migratedRoleEpoch and historicalEmitterEpochs"
+reason = "producer_qualification_test.go line 452: receipt qualification rejected for the tenant transaction producer; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+producer = "internal/receipt/testdata/producer_receipts.json: MigrateV6120, Router.buy and tenant keeper; internal/receipt/identity.go:migratedRoleEpoch and historicalEmitterEpochs"
 
 [repair.31]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
 test = "TestRepair_53_approved_history_rehydration"
-reason = "repair_53_test.go line 492: receipt qualification rejected for approved historical provenance; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
-producer = "internal/receipt/testdata/repair53-producer.json: MigrateV6120, Router.buy and tenant keeper; internal/receipt/identity.go:migratedRoleEpoch and historicalEmitterEpochs"
+reason = "producer_qualification_test.go line 492: receipt qualification rejected for approved historical provenance; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+producer = "internal/receipt/testdata/producer_receipts.json: MigrateV6120, Router.buy and tenant keeper; internal/receipt/identity.go:migratedRoleEpoch and historicalEmitterEpochs"
 
 [repair.32]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/source"
 test = "TestRepair56Postgres_ExplorerDynamicDiscoveries"
-reason = "repair_56_postgres_test.go line 266: receipt qualification rejected during PostgreSQL-backed explorer qualification; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
-producer = "internal/source/repair_56_postgres_test.go:repair56RPCSetup -> runtimedocs.ReceiptOptions -> receipt.historicalEmitterEpochs; original chain-125 RPC capture"
+reason = "explorer_discovery_postgres_test.go line 266: receipt qualification rejected during PostgreSQL-backed explorer qualification; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+producer = "internal/source/explorer_discovery_postgres_test.go:repair56RPCSetup -> runtimedocs.ReceiptOptions -> receipt.historicalEmitterEpochs; original chain-125 RPC capture"
 
 [repair.33]
 package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/source"
 test = "TestRepair56Postgres_DiscoveryEpochBounds"
-reason = "repair_56_postgres_test.go line 333: receipt qualification rejected during PostgreSQL-backed explorer qualification; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
-producer = "internal/source/repair_56_postgres_test.go:repair56RPCSetup -> runtimedocs.ReceiptOptions -> receipt.historicalEmitterEpochs; original chain-125 RPC capture"
+reason = "explorer_discovery_postgres_test.go line 333: receipt qualification rejected during PostgreSQL-backed explorer qualification; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+producer = "internal/source/explorer_discovery_postgres_test.go:repair56RPCSetup -> runtimedocs.ReceiptOptions -> receipt.historicalEmitterEpochs; original chain-125 RPC capture"
 
 [qualification]
 build = "hf-build; exact candidate revision, command, exit and private log in /out/run/gates.jsonl build row and /out/logs/build-1.log (repair suffix increments on rerun)"
@@ -296,7 +296,7 @@ cases = [1, 2, 3, 6, 7, 8, 9, 10, 11, 18, 20, 21, 23, 32, 33]
 repair = "The manifest at activation 32226215 uses beacon pools; ReceiptOptions now emits beacon_proxy unless the manifest names the exact approved precompile identity. The generation at 37220320 retains surface discovery. No receipt or code identity is replaced or weakened."
 
 [receipt-repair.provenance]
-producer = "internal/receipt/qualified.go:Qualify and internal/receipt/rpc.go:SourceProvenance -> internal/receipt/identity.go:proveHistoricalMarket; landed producer 39967d3c307abdb373d629b47f7ea80594056ed1 uses Geth v1.17.3. internal/receipt/testdata/repair53-producer.json retains its immutable creation proof."
+producer = "internal/receipt/qualified.go:Qualify and internal/receipt/rpc.go:SourceProvenance -> internal/receipt/identity.go:proveHistoricalMarket; landed producer 39967d3c307abdb373d629b47f7ea80594056ed1 uses Geth v1.17.3. internal/receipt/testdata/producer_receipts.json retains its immutable creation proof."
 cases = [4, 5, 29, 30, 31]
 repair = "Preserve the established header digest codec: Geth v1.17.4 renamed balHash to blockAccessListHash without changing the value. Map that single required field name back before hashing; keep every value and exact persisted-proof comparison. Missing or duplicate codec fields fail qualification."
 frozen_creation_header_sha256 = "1b7f1e594d0e4acb937e4e4d368eff29440fd385c27a49f0bb932c83bccbb6ae"
@@ -318,7 +318,7 @@ reported_block_hash = "0x81a18d822e327fbcbfe2be91b7f666bfa043016cb0e3f094c5bbabe
 ethereum_header_hash = "0xe83bd786ee2456fe683b1cc6a7c4b9755783d09071d189ec20dc5a565c6f6292"
 matching_header_sha256 = "1b7f1e594d0e4acb937e4e4d368eff29440fd385c27a49f0bb932c83bccbb6ae"
 encoding = "Compact JSON in Geth v1.17.3 declared field order: parentHash,sha3Uncles,miner,stateRoot,transactionsRoot,receiptsRoot,logsBloom,difficulty,number,gasLimit,gasUsed,timestamp,extraData,mixHash,nonce,baseFeePerGas,withdrawalsRoot,blobGasUsed,excessBlobGas,parentBeaconBlockRoot,requestsHash,balHash,slotNumber,hash. Optional fields are explicit null; absent or null input blockAccessListHash becomes balHash:null. Hash is Header.Hash(), the Keccak of the Ethereum RLP header, rather than the reported chain-125 consensus hash. All nonnull field values remain bound."
-proof = "Independently derived from the recorded block response in internal/processor/testdata/repair_m1000_batches.json using ethers.encodeRlp/keccak256 and SHA256; matches the untouched provenance in pnl-tracker/internal/production/l16/testdata/indexer_real_market/creation.json. Twenty-four candidate encodings compared in /out/logs/launchpad162-header-derivation.log; exact matching bytes in /out/logs/launchpad162-matching-header.json. Renaming balHash with the reported hash yields c4f14db4cecfd19d023d87a633375655dac6e6aa8f539c8e13d059bc7a9b0782; current field name with computed hash yields 472cabba2d256eff4f23f613e5b9e48164ff1e01edac2e55ec864abf73d4bb2c."
+proof = "Independently derived from the recorded block response in internal/processor/testdata/native_accounting_batches.json using ethers.encodeRlp/keccak256 and SHA256; matches the untouched provenance in pnl-tracker/internal/production/l16/testdata/indexer_real_market/creation.json. Twenty-four candidate encodings compared in /out/logs/launchpad162-header-derivation.log; exact matching bytes in /out/logs/launchpad162-matching-header.json. Renaming balHash with the reported hash yields c4f14db4cecfd19d023d87a633375655dac6e6aa8f539c8e13d059bc7a9b0782; current field name with computed hash yields 472cabba2d256eff4f23f613e5b9e48164ff1e01edac2e55ec864abf73d4bb2c."
 repair = "Freeze the complete proven typed provenance codec independently of future RPC codec changes; retain exact historical-proof comparison. TestProvenanceHeaderDigestRecordedCreation reads the recorded header and original producer provenance, asserts the matching digest for absent and null access-list input, and proves nonnull access-list and slot values change it."
 
 [continuation-repair.historical-code]
@@ -337,14 +337,14 @@ record_log = "/out/logs/launchpad162-fixture-record.log"
 [continuation-repair.measurement]
 test = "TestRepairM_1000_MeasurementRefusals"
 producer = "internal/processor/measurement.go:validateMeasurementSource validates the candidate files, topology digest/region, profile and resource bounds; internal/source/committed.go:NewCommittedSource returns sourceError(IdentityError,pool,nil) only when no primary endpoint passes admitIdentity's eth_chainId and pinned anchor checks. SourceError.Error composes the source pool: identity text."
-pinned_evidence = "repairM1000MeasurementSpec pins measurement.go content and three-zone topology using delivery.Hash; repairM1000ReceiptOptions and runtimedocs.CommittedOptions pin anchor 33963715 / 0x82477110c5fc791f6bef5a7d96636dc457e83daf59c8b802e264bada02f13395, present in repair_m1000_batches.json with chain ID 0x7d. The admitted SQL pool is the real go-pglite engine; its tracer binding and all twelve omitted-provider exact refusals are checked."
+pinned_evidence = "repairM1000MeasurementSpec pins measurement.go content and three-zone topology using delivery.Hash; repairM1000ReceiptOptions and runtimedocs.CommittedOptions pin anchor 33963715 / 0x82477110c5fc791f6bef5a7d96636dc457e83daf59c8b802e264bada02f13395, present in native_accounting_batches.json with chain ID 0x7d. The admitted SQL pool is the real go-pglite engine; its tracer binding and all twelve omitted-provider exact refusals are checked."
 observed = "The requested standalone verbose reproduction passes on this supplied base and job environment with all twelve provider-refusal subtests; no incorrect producer or pinned value was reproduced, so no assertion or identity check was changed. The declared full module verification remains authoritative."
 command = "python3 /out/run/launchpad162-env.py bash -c 'cd services/launchpad/indexer && go test -count=1 -v -run ^TestRepairM_1000_MeasurementRefusals$ ./internal/processor'"
 exit = 0
 log = "/out/logs/launchpad162-measurement-refusals.log"
 
 [continuation.attempt-4]
-merge = "Resolved both repair_54_test.go conflict hunks in favor of the current side: its real durable projection producer, canonical status assertions, independent cursor/watermark and unsupported-query checks already integrate the seed intent; no assertion or newer change was removed."
+merge = "Resolved both native_projection_test.go conflict hunks in favor of the current side: its real durable projection producer, canonical status assertions, independent cursor/watermark and unsupported-query checks already integrate the seed intent; no assertion or newer change was removed."
 environment = "Verbatim job env loaded by /out/run/launchpad162-env.py; job Go 1.27.3, Foundry v1.7.1, postgres:16, redis:7 and NATS v2.11.6 recorded in /out/logs/launchpad162-environment.log. /out/run/launchpad162-fresh-db.sh recreates only the owned fixture PostgreSQL container and its four databases before every gate, per decision 2917."
 qualification = "Current final-candidate build and verification are recorded by reference to /out/run/gates.jsonl and the final hf-done evidence line; the ledger records the exact revision, command, exit and private log. No artifact edit follows successful verification."
 
@@ -426,7 +426,7 @@ repair = "Update the consumer test's exact expected surface runtime hash to the 
 
 [finding.native-capture-current-manifest]
 task = "22.39.162"
-file = "services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json"
+file = "services/launchpad/indexer/internal/receipt/testdata/producer_receipts.json"
 symbol = "repair53InputsFromProducer"
 observed = "At revision 8f7fdbed3f515fb63062ed6ca82206d8fd4ec3b8, cg spec done 22.39.162 -f layerx-merge --root /work/paxeer-monorepo exited 1 at /out/logs/verify-1.log: config M999, decode M995 and receipt Repair53 reject the capture's retired surface hashes; both capture and approved manifest are byte-for-byte unchanged from base eb14231acb56903efeabea4385e375d7726f7442."
 assumption = "The node-domain producer named by internal/receipt/repair_53.kvx:wiring.producer-transcript must issue an authentic current guarded-runtime capture before the strict current-manifest qualification can pass; recorded replies and manifest assertions remain unchanged."
@@ -434,7 +434,7 @@ severity = "blocker"
 
 [finding.source-m997-transport]
 task = "22.39.162"
-file = "services/launchpad/indexer/internal/source/repair_m997_test.go"
+file = "services/launchpad/indexer/internal/source/source_recovery_test.go"
 symbol = "TestRepairM_997_ArchiveCapacityBounds"
 observed = "At revision 8f7fdbed3f515fb63062ed6ca82206d8fd4ec3b8, cg spec done 22.39.162 -f layerx-merge --root /work/paxeer-monorepo exited 1 at /out/logs/verify-1.log: unchanged M997 archive capacity admits 21/24 and 33/96 requests, followed by identity timeouts in quarantine/recovery/incident cases and an RPC timeout in mixed-source selection."
 assumption = "The existing source transport/capacity failures are recorded without changing their bounds, fixtures or checks; the named saturation, explorer parity and replay continuation cases produced no failure."
@@ -452,7 +452,7 @@ repair = "Follow the landed producer for the exact runtime-options expectation, 
 [continuation.attempt-6]
 base_revision = "f738d3da03469c5e6080322b26260492a1879014"
 producer_revision = "dd3266dd91780417a402bd3af3d1bffe103c16fb"
-producer = "Task 22.39.242 re-recorded internal/receipt/testdata/repair53-producer.json Options.Manifest against deployment.Current(); its landed packet supersedes finding.native-capture-current-manifest. No recorded responses are rewritten by this continuation."
+producer = "Task 22.39.242 re-recorded internal/receipt/testdata/producer_receipts.json Options.Manifest against deployment.Current(); its landed packet supersedes finding.native-capture-current-manifest. No recorded responses are rewritten by this continuation."
 source = "Decision 3090 / gotcha 3902: internal/source/historical_integration_test.go and internal/source/capacity_integration_test.go are byte-for-byte the supplied main/base files. This supersedes the earlier gas-estimation, explorer-index/completeness, capacity-skip and saturation-identity edits described above; the other attempt-5 repairs remain applied."
 environment = "The current launchpad-go-test env is loaded verbatim by /out/run/launchpad162-env.py, including GOFLAGS=-p=1; exact tools/services are recorded in /out/logs/launchpad162-environment.log. Go 1.27.3, Foundry 1.8.1, PostgreSQL 16.15, Redis 7.4.12 and NATS 2.11.6; repository contract artifacts already compiled by the sandbox setup. /out/run/launchpad162-fresh-db.sh recreates only the task-owned postgres:16 service and its four databases before each gate."
 source_diagnostic_command = "python3 /out/run/launchpad162-env.py bash -c 'cd services/launchpad/indexer && go test -count=1 -v ./internal/source'"
@@ -542,7 +542,7 @@ log = "/out/logs/verify-1.log"
 observed = "All 42 wiring cases and the complete app, chainreader, httpapi and processor packages pass. The historical range/parity and saturation source cases produce no failure. Five receipt cases reject re-recorded historical header provenance; the carried precompile constant conflicts with the installed runtime; unchanged M997 transport/capacity cases reproduce their recorded failures."
 
 [continuation-repair.historical-provenance-codecs]
-producer = "dd3266dd91780417a402bd3af3d1bffe103c16fb (22.39.242), retained by 0910d66dc54ef25285f7760736826591130409b5 (22.39.328), re-recorded the historical creation in internal/receipt/testdata/repair53-producer.json using Geth 1.17.4's blockAccessListHash JSON field. The original durable creation under pnl-tracker/internal/production/l16/testdata/indexer_real_market/creation.json uses Geth 1.17.3's balHash field."
+producer = "dd3266dd91780417a402bd3af3d1bffe103c16fb (22.39.242), retained by 0910d66dc54ef25285f7760736826591130409b5 (22.39.328), re-recorded the historical creation in internal/receipt/testdata/producer_receipts.json using Geth 1.17.4's blockAccessListHash JSON field. The original durable creation under pnl-tracker/internal/production/l16/testdata/indexer_real_market/creation.json uses Geth 1.17.3's balHash field."
 proof = "Both immutable producer records name block 33963716 and have identical deploymentId, abiRevision, emitterCodeEpoch, poolCodeEpoch and receiptSHA256. Only headerSHA256 differs: 1b7f1e594d0e4acb937e4e4d368eff29440fd385c27a49f0bb932c83bccbb6ae for 1.17.3 and 472cabba2d256eff4f23f613e5b9e48164ff1e01edac2e55ec864abf73d4bb2c for 1.17.4."
 repair = "Freeze both explicitly named header codecs in provenanceHeaderDigestForCodec. Keep new provenance issuance on the established original codec. verifyHistoricalProvenance recomputes both full-header digests, identifies the recorded producer encoding by exact digest, refuses an unknown digest, and compares every provenance field exactly. No recorded response, catalogue or comparison helper changes."
 tests = ["TestHistoricalProvenanceRecordedCodecs", "TestProvenanceHeaderDigestRecordedCreation", "TestRepairM_999_ReceiptQualifiedBackfill", "TestRepairM_995_NativeReceiptAttribution", "TestRepair_53_native_swap_qualification", "TestRepair_53_tenant_transaction_qualification", "TestRepair_53_approved_history_rehydration"]
@@ -554,7 +554,7 @@ repair = "Restore the exact TestReceiptOptionsBindPrecompile constant to the ins
 
 [finding.attempt-7-recorded-source-transport]
 task = "22.39.162"
-file = "services/launchpad/indexer/internal/source/repair_m997_test.go"
+file = "services/launchpad/indexer/internal/source/source_recovery_test.go"
 symbol = "TestRepairM_997_ArchiveCapacityBounds; TestRepairM_997_RecoveryRotationAndDeadline; TestRepairM_997_AuthorizedIncidentSelection; TestRepairM_997_MixedRPCSourceSelection"
 observed = "Revision 9f2fc6e31e03c1d660e99b47a322130897d5d791, cg spec done 22.39.162 -f layerx-merge --root /work/paxeer-monorepo, exit 1, /out/logs/verify-1.log reproduces finding.source-m997-transport: capacity subtests concurrency_0 and concurrency_96 admit 29/48 and 31/96 requests, concurrency_24 and recovery/incident report source pool: identity, and mixed rpc reports an eth_getLogs timeout."
 assumption = "These unchanged previously recorded transport/capacity failures are not investigated or repaired; the required final full-module gate necessarily includes their cases."
