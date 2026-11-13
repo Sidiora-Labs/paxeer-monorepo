@@ -15,8 +15,8 @@ import (
 
 func TestReceiptAdmissionPinsPrepaymentReceiptsAndEveryCodeEpoch(t *testing.T) {
 	ctx := context.Background()
-	original := repair53InputsFromProducer(t)
-	base, closeBase := repair53Open(t, ctx, original)
+	original := receiptReplayInputsFromProducer(t)
+	base, closeBase := receiptReplayOpen(t, ctx, original)
 	defer closeBase()
 	if err := base.Rehydrate(ctx, original.Markets); err != nil {
 		t.Fatal(err)
@@ -46,7 +46,7 @@ func TestReceiptAdmissionPinsPrepaymentReceiptsAndEveryCodeEpoch(t *testing.T) {
 	}
 	for _, mode := range []string{"prepayment block", "prepayment receipt", "missing epoch", "untrusted signature", "code unavailable", "code changed"} {
 		t.Run(mode, func(t *testing.T) {
-			a, closeClient := repair53Open(t, ctx, original)
+			a, closeClient := receiptReplayOpen(t, ctx, original)
 			defer closeClient()
 			if err := a.Rehydrate(ctx, original.Markets); err != nil {
 				t.Fatal(err)
@@ -111,8 +111,8 @@ func TestReceiptAdmissionPinsPrepaymentReceiptsAndEveryCodeEpoch(t *testing.T) {
 				if count == 0 {
 					t.Fatal("pinned code evidence absent")
 				}
-				input = repair53Replay(t, input)
-				q, closeChanged := repair53Open(t, ctx, input)
+				input = receiptReplayReplay(t, input)
+				q, closeChanged := receiptReplayOpen(t, ctx, input)
 				defer closeChanged()
 				a.client = q.client
 			}
@@ -125,8 +125,8 @@ func TestReceiptAdmissionPinsPrepaymentReceiptsAndEveryCodeEpoch(t *testing.T) {
 
 func TestTenantAdmissionRequiresAvailableParentRegistryState(t *testing.T) {
 	ctx := context.Background()
-	original := repair53InputsFromProducer(t)
-	base, closeBase := repair53Open(t, ctx, original)
+	original := receiptReplayInputsFromProducer(t)
+	base, closeBase := receiptReplayOpen(t, ctx, original)
 	defer closeBase()
 	bundle, err := base.Bundle(ctx, original.TenantSwap)
 	if err != nil {
@@ -190,8 +190,8 @@ func TestTenantAdmissionRequiresAvailableParentRegistryState(t *testing.T) {
 			if mode != "header" && mode != "receipt" && changed == 0 {
 				t.Fatal("parent admission evidence absent")
 			}
-			input = repair53Replay(t, input)
-			a, closeClient := repair53Open(t, ctx, input)
+			input = receiptReplayReplay(t, input)
+			a, closeClient := receiptReplayOpen(t, ctx, input)
 			defer closeClient()
 			if err = a.ValidateSignedDomain(ctx, b); err == nil {
 				t.Fatal("unbound tenant domain admitted")

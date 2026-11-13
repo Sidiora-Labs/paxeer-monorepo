@@ -265,5 +265,5 @@ func TestProofLaunchpadSdkProtocolGoIndexerConsumer(t *testing.T) {
 }
 
 func TestAirdropNativeFeeFlowQualified(t *testing.T) {
-	repairM1000NativeFeeFlow(t)
+	nativeAccountingNativeFeeFlow(t)
 }

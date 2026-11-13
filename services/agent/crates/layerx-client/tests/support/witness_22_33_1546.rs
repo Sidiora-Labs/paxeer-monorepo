@@ -48,7 +48,7 @@ fn producer() -> &'static Value {
     static PRODUCER: OnceLock<Value> = OnceLock::new();
     PRODUCER.get_or_init(|| {
         must(serde_json::from_str(include_str!(
-            "../fixtures/repair_22_33_1546_node.json"
+            "../fixtures/node_committed_evidence.json"
         )))
     })
 }

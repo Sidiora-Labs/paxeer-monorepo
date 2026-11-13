@@ -37,10 +37,10 @@ The crate is a member of the [`platform`](../../Cargo.toml) Cargo workspace.
 
 ```sh
 cargo build --locked --manifest-path services/platform/hosted/authority/Cargo.toml --tests
-cargo test --locked --manifest-path services/platform/hosted/authority/Cargo.toml --test repair_22_33_1473
+cargo test --locked --manifest-path services/platform/hosted/authority/Cargo.toml --test documented_receipt_contract
 ```
 
-The focused [service configuration, receipt transport and protected key tests](tests/repair_22_33_1473.rs)
+The focused [service configuration, receipt transport and protected key tests](tests/documented_receipt_contract.rs)
 run production receipt lookup, protected key loading and TLS routing in-process
 with committed signed receipts and loopback peers. They require no environment variable, credential,
 live endpoint, external binary, subprocess toolchain, native artifact or device.
@@ -51,9 +51,9 @@ Other integration targets live in [`tests/`](tests):
 client against the binary with a private CA;
 [`budget_proof_exports.rs`](tests/budget_proof_exports.rs) covers budget exports;
 [`maintenance_identity.rs`](tests/maintenance_identity.rs) covers identity
-evidence. The [receipt key rotation, retention and replay tests](tests/repair_22_31_207.rs)
+evidence. The [receipt key rotation, retention and replay tests](tests/native_receipt_authority.rs)
 drive native execution and reopened committed state, while the
-[mixed receipt height, native proof and budget TLS tests](tests/repair_22_31_208.rs)
+[mixed receipt height, native proof and budget TLS tests](tests/native_budget_authority.rs)
 cover mixed receipt sequences and block heights, retained-state reopening,
 native proof refusals and budget
 export across TLS. Recorded inputs live in [`tests/fixtures`](tests/fixtures).

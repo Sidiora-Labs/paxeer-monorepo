@@ -15,8 +15,8 @@ import (
 
 func TestHistoricalProofRequiresOriginalCoordinatesAndProvenance(t *testing.T) {
 	ctx := context.Background()
-	input := repair53InputsFromProducer(t)
-	a, closeClient := repair53Open(t, ctx, input)
+	input := receiptReplayInputsFromProducer(t)
+	a, closeClient := receiptReplayOpen(t, ctx, input)
 	defer closeClient()
 	market := input.Markets[0]
 	historical, err := a.historicalAuthority(ctx, market.Height)
@@ -67,7 +67,7 @@ func TestHistoricalProofRequiresOriginalCoordinatesAndProvenance(t *testing.T) {
 	if count == 0 {
 		t.Fatal("recorded anchor response absent")
 	}
-	changed = repair53Replay(t, changed)
+	changed = receiptReplayReplay(t, changed)
 	client, closeChanged, err := NewBoundedRPCClient(ctx, changed.Endpoint, "")
 	if err != nil {
 		t.Fatal(err)
@@ -85,7 +85,7 @@ func TestHistoricalProofRequiresOriginalCoordinatesAndProvenance(t *testing.T) {
 }
 
 func TestHistoricalEmitterCatalogRequiresExactApprovedSource(t *testing.T) {
-	input := repair53InputsFromProducer(t)
+	input := receiptReplayInputsFromProducer(t)
 	manifest, err := approvedManifestAt(input.Markets[0].Height)
 	if err != nil {
 		t.Fatal(err)

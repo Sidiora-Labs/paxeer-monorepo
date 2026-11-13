@@ -2,7 +2,7 @@
 //! market is produced by the real F01/F02/F03/F06/F08/F09 producers, `OPEN_EPOCH` and the F01
 //! task-set lifecycle; `CommitScore` and `RevealScore` go through `commit_reveal::apply` with
 //! real envelopes, the canonical commitment digest and real ed25519 evaluator keys.
-#[path = "repair_22_33_260.rs"]
+#[path = "market_state_producers.rs"]
 mod repair;
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_programs_ai_market::{

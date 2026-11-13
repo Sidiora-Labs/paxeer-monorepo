@@ -44,15 +44,13 @@ fn prose(schema: &str, section: &str, key: &str) -> String {
 }
 
 fn transcript() -> Value {
-    serde_json::from_str(include_str!(
-        "../src/journeys/repair_22_31_153_transcript.json"
-    ))
-    .unwrap_or_else(|error| {
-        panic!(
-            "{}: {error:?}",
-            "committed node and consensus producer transcript"
-        )
-    })
+    serde_json::from_str(include_str!("../src/journeys/bank_commit_transcript.json"))
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "committed node and consensus producer transcript"
+            )
+        })
 }
 
 fn unhex(text: &str) -> Vec<u8> {

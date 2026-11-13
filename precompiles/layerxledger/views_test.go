@@ -317,7 +317,7 @@ func TestPrecompileViewsIgnorePause(t *testing.T) {
 }
 
 func TestPrecompileNextSequenceReopen(t *testing.T) {
-	f := newRepair144Fixture(t)
+	f := newLedgerAccountFixture(t)
 	f.sequence(t, f.from, 0)
 	f.sequence(t, f.to, 0)
 	f.refused(t, f.sender, "LXP_UNKNOWN_ACCOUNT_NAMESPACE", "nextSequence", [32]byte{}, f.asset)

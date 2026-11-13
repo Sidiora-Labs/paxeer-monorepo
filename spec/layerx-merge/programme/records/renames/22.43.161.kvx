@@ -1,0 +1,336 @@
+[manifest]
+task = "22.43.161"
+records_moved = 14
+files_renamed = 11
+
+[file.1]
+from = "services/launchpad/ranking-algo/internal/app/repair_m934_fixture_test.go"
+to = "services/launchpad/ranking-algo/internal/app/publication_recovery_fixture_test.go"
+
+[file.2]
+from = "services/launchpad/ranking-algo/internal/app/repair_m934_test.go"
+to = "services/launchpad/ranking-algo/internal/app/publication_recovery_test.go"
+
+[file.3]
+from = "services/launchpad/ranking-algo/internal/httpapi/repair_33_test.go"
+to = "services/launchpad/ranking-algo/internal/httpapi/snapshot_sdk_test.go"
+
+[file.4]
+from = "services/launchpad/ranking-algo/internal/httpapi/repair_m933_test.go"
+to = "services/launchpad/ranking-algo/internal/httpapi/snapshot_categories_test.go"
+
+[file.5]
+from = "services/launchpad/ranking-algo/internal/ranker/repair_m932_test.go"
+to = "services/launchpad/ranking-algo/internal/ranker/coordinator_category_count_test.go"
+
+[file.6]
+from = "services/launchpad/ranking-algo/internal/store/repair_32_test.go"
+to = "services/launchpad/ranking-algo/internal/store/publication_recovery_test.go"
+
+[file.7]
+from = "services/launchpad/ranking-algo/internal/store/repair_m931_test.go"
+to = "services/launchpad/ranking-algo/internal/store/canonical_publication_test.go"
+
+[file.8]
+from = "services/launchpad/security/control/repair_65_test.go"
+to = "services/launchpad/security/control/policy_recovery_test.go"
+
+[file.9]
+from = "services/launchpad/security/control/repair_m1020_test.go"
+to = "services/launchpad/security/control/workflow_recovery_test.go"
+
+[file.10]
+from = "services/launchpad/security/policy/test_repair_22_33_1021.py"
+to = "services/launchpad/security/policy/test_native_capture.py"
+
+[file.11]
+from = "services/launchpad/security/supplychain/test_repair_22_33_1025.py"
+to = "services/launchpad/security/supplychain/test_publication_authority.py"
+
+[file.12]
+from = "services/launchpad/ranking-algo/internal/app/repair_m934.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/ranking-algo/internal/app/repair_m934.kvx"
+
+[file.13]
+from = "services/launchpad/ranking-algo/internal/httpapi/repair_33.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/ranking-algo/internal/httpapi/repair_33.kvx"
+
+[file.14]
+from = "services/launchpad/ranking-algo/internal/httpapi/repair_m933.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/ranking-algo/internal/httpapi/repair_m933.kvx"
+
+[file.15]
+from = "services/launchpad/ranking-algo/internal/ranker/repair_m932.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/ranking-algo/internal/ranker/repair_m932.kvx"
+
+[file.16]
+from = "services/launchpad/ranking-algo/internal/store/repair_32.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/ranking-algo/internal/store/repair_32.kvx"
+
+[file.17]
+from = "services/launchpad/ranking-algo/internal/store/repair_m931.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/ranking-algo/internal/store/repair_m931.kvx"
+
+[file.18]
+from = "services/launchpad/ranking-algo/repair_22_39_464.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/ranking-algo/repair_22_39_464.kvx"
+
+[file.19]
+from = "services/launchpad/ranking-algo/repair_22_39_480.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/ranking-algo/repair_22_39_480.kvx"
+
+[file.20]
+from = "services/launchpad/security/control/repair_65.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/security/control/repair_65.kvx"
+
+[file.21]
+from = "services/launchpad/security/control/repair_m1020.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/security/control/repair_m1020.kvx"
+
+[file.22]
+from = "services/launchpad/security/policy/repair_22_33_1021.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/security/policy/repair_22_33_1021.kvx"
+
+[file.23]
+from = "services/launchpad/security/repair_22_39_474.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/security/repair_22_39_474.kvx"
+
+[file.24]
+from = "services/launchpad/security/repair_22_39_490.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/security/repair_22_39_490.kvx"
+
+[file.25]
+from = "services/launchpad/security/supplychain/repair_22_33_1025.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/security/supplychain/repair_22_33_1025.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "TestRepairM_934_PublicationEveryCategoryAndRestartRecovery"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "repair_m934_test.go"
+
+[reference.3]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepairM_934_PublicationEveryCategoryAndRestartRecovery"
+
+[reference.4]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepair_65_RoutingRestart"
+
+[reference.5]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "repair_65_test.go"
+
+[reference.6]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "TestRepair_65_RoutingRestart"
+
+[reference.7]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "repair_65_test.go"
+
+[reference.8]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "repair_m934_test.go"
+
+[reference.9]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "repair_32_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "repair_33_test.go"
+
+[reference.11]
+file = "spec/layerx-merge/programme/issues/1591.kvx"
+name = "repair_m1020.kvx"
+
+[reference.12]
+file = "spec/layerx-merge/qualification.kvx"
+name = "TestRepairM_934_PublicationEveryCategoryAndRestartRecovery"
+
+[reference.13]
+file = "spec/layerx-merge/qualification.kvx"
+name = "TestRepair_33_SuccessAndContinuation"
+
+[reference.14]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_32_test.go"
+
+[reference.15]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_33_test.go"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_934_PublicationEveryCategoryAndRestartRecovery"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_464.kvx"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_474.kvx"
+
+[reference.19]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_480.kvx"
+
+[reference.20]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_490.kvx"
+
+[reference.21]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_32_test.go"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_33_test.go"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_65_test.go"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1020_test.go"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m931_test.go"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m932_test.go"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m933_test.go"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m934_test.go"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_1021.py"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_1025.py"
+
+[reference.31]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_932_CoordinatorCategoryCount"
+
+[reference.32]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_933_FrozenCategoryRouting"
+
+[reference.33]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_933_SnapshotQueryContract"
+
+[reference.34]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_933_UnknownCategoryGuidance"
+
+[reference.35]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_934_NoAuthorityRefusesPublicationAndReads"
+
+[reference.36]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_934_PublicationEveryCategoryAndRestartRecovery"
+
+[reference.37]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_934_VisibilityRequiresMutualTLSAndPinnedIdentity"
+
+[reference.38]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_32_CoordinatorDurableStreamAndHTTPAcrossRestart"
+
+[reference.39]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_32_HeavyRunRollbackAndEmptyCompletion"
+
+[reference.40]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_32_ProducerRunsReachTransaction"
+
+[reference.41]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_32_RejectIncompleteOrMismatchedHeavyRuns"
+
+[reference.42]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_33_EmptyAndStale"
+
+[reference.43]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_33_Expiry"
+
+[reference.44]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_33_SuccessAndContinuation"
+
+[reference.45]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_33_UnavailableAndInvalidRequests"
+
+[reference.46]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_65_PolicyRejectsMalformedBeforeCommit"
+
+[reference.47]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_65_PolicyWriteReadShape"
+
+[reference.48]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_65_RecoveryMarkerFailsClosed"
+
+[reference.49]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_65_RecoveryPreservesNewerQuarantine"
+
+[reference.50]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_65_RecoveryWithProductionGrants"
+
+[reference.51]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_65_RoutingRestart"
+
+[reference.52]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_32_test.go"
+
+[reference.53]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_33_test.go"
+
+[reference.54]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_65_test.go"
+
+[reference.55]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_m932_test.go"
+
+[reference.56]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_m933_test.go"
+
+[reference.57]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_m934_fixture_test.go"
+
+[reference.58]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_m934_test.go"
