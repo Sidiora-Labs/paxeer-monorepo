@@ -24,7 +24,7 @@ The [chain definition](../../../apps/perps/src/core/chain.ts) supplies chain ID 
 
 ## Spot tokens and markets
 
-The [spot registry](../../../apps/perps/src/core/spot/addresses.ts) contains USDL, PAX and SID at six decimals. USDL is the only stable quote token. [SPOT_MARKETS](../../../apps/perps/src/core/spot/config.ts) contains PAX/USDL and SID/USDL and derives each base address and decimal count from that registry. [Stable selection](../../../apps/perps/src/core/spot/stableSelector.ts) selects USDL.
+The [spot registry](../../../apps/perps/src/core/spot/addresses.ts) contains fixed USDL, PAX-pointer and SID-pointer addresses at six decimals. USDL is the only stable quote token. [SPOT_MARKETS](../../../apps/perps/src/core/spot/config.ts) contains PAX/USDL and SID/USDL and derives each base address and decimal count from that registry. [Stable selection](../../../apps/perps/src/core/spot/stableSelector.ts) selects USDL.
 
 The PAX pointer balance and native wei balance represent the same coin with different scales: one `uhpx` base unit corresponds to `10^12` wei. A one-PAX spot amount is `1000000` pointer units.
 
@@ -183,13 +183,13 @@ The wallet client is reused for the same API and authentication configuration. T
 |---|---|
 | `NEXT_PUBLIC_PERPS_GATEWAY_URL` | Required gateway origin |
 | `NEXT_PUBLIC_MARKET_PROXY_HOST` | Reference feed host or bare origin |
-| `NEXT_PUBLIC_PAXEER_RPC_URLS` | Comma-separated RPC override list |
-| `NEXT_PUBLIC_PAXEER_RPC_URL` | Preferred RPC URL followed by configured defaults |
+| `NEXT_PUBLIC_PAXEER_RPC_URLS` | Comma-separated RPC override list; duplicates, empty entries and excluded legacy endpoints are removed |
+| `NEXT_PUBLIC_PAXEER_RPC_URL` | Preferred RPC URL followed by defaults when the override list has no usable entries |
 | Precompile overrides in the address table | Optional address selection |
 | `NEXT_PUBLIC_RELEASE_SPOT_OPEN` | Set to `1` to open the spot route |
 | Embedded-wallet variables above | Optional wallet configuration |
 
-The [application package](../../../apps/perps/package.json) pins pnpm 10.34.9. Run its `dev`, `build`, `start`, `typecheck` and `test` scripts from `apps/perps/`. Deployment supplies public browser configuration at build time.
+The [RPC resolver](../../../apps/perps/src/core/rpc.ts) uses the default list when neither override supplies a usable endpoint. The [application package](../../../apps/perps/package.json) pins pnpm 10.34.9. Run its `dev`, `build`, `start`, `typecheck` and `test` scripts from `apps/perps/`. Deployment supplies public browser configuration at build time.
 
 ## Errors
 

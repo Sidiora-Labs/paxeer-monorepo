@@ -5,7 +5,7 @@ These contracts describe the native market interfaces, application and data serv
 ## Contract files
 
 - [README.md](README.md): this index, the file list and the reading order.
-- [address-table.md](address-table.md): every precompile address, module account and token of the release, with constructor, module, activation rule and owning contract file.
+- [address-table.md](address-table.md): the native market precompiles, module accounts and tokens, with constructors, modules, activation rules and owning contract files.
 - [pricefeed.md](pricefeed.md): the pricefeed module and the precompile at 0x1020, its markets, feed keys, submission message, aggregation, read API, activation and price sidecar.
 - [perps.md](perps.md): the perpetuals precompile interface at 0x1015, its units, events, storage, activation and versioning and EndBlock.
 - [perps-parameters.md](perps-parameters.md): the perpetuals parameter sheet, trading fees, margin, funding, liquidation, insurance fund and the spot fee schedule.
@@ -19,7 +19,7 @@ These contracts describe the native market interfaces, application and data serv
 
 ## Address table
 
-address-table.md is the single list of addresses, module accounts and tokens. The table links each address, account and denom to its owning contract and implementation.
+[address-table.md](address-table.md) lists the native market addresses, module accounts and tokens. The table links each address, account and denom to its owning contract and implementation.
 
 ## Reading order
 
