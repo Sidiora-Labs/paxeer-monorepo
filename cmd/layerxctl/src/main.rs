@@ -418,7 +418,8 @@ fn submit(client: &SequencerEndpoint, raw: &[u8]) -> Result<(String, ExitCode), 
 /// pinned DER certificate files use a separate 65,536-byte bound. HTTPS requires
 /// that certificate. Production uses the client, proof, types, crypto, SHA-256
 /// and libc dependencies; layerx-wire is a dev dependency for receipt fixtures.
-/// Domain 5 registry wiring is tracked in `src/repair_22_33_1078.kvx`.
+/// Receipt verification and read-state contracts are recorded in
+/// `spec/layerx-merge/programme/records/cmd/layerxctl/src/repair_22_33_1078.kvx`.
 pub(crate) fn run(arguments: &[String]) -> Result<(String, ExitCode), String> {
     let Some(command) = arguments.first() else {
         return Err(USAGE.to_owned());

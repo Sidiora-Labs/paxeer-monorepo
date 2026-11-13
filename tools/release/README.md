@@ -23,7 +23,7 @@ This directory holds the reproducible `paxd` release builder, artifact and check
 - `upgrade_info.py` writes release and node upgrade metadata.
 - `version.json` records the release version and upgrade plan identity.
 - `toolchain.env` records the C/C++ compiler version required by the release build.
-- `repair_m890_test.go` tests compiler selection, source provenance, process ownership, swapping, and rollback.
+- `release_integrity_test.go` tests compiler selection, source provenance, process ownership, swapping, and rollback.
 
 ## Build and test
 
