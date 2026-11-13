@@ -14056,6 +14056,12 @@ value = "The rule of decisions 3484 and 3485 holds for every page of the reposit
 basis = "Gotcha 4403, decisions 3484 and 3485."
 affects = []
 
+[decision.3491]
+title = "Each marked case gets a task that brings its file to the present tree and takes the mark off"
+value = "One task per group of files. The task changes the file the case reads so that the case passes as written, and then takes the mark of expected failure off. A record under spec/layerx-merge/programme/records is a statement of its day and is not rewritten: a case that compares such a record with a present file checks the form of the record. A finding record of the ledger whose severity is outside the four values takes blocker where its observed sentence states a command that ended with a nonzero code, and suspect otherwise. The planning files of the feature grow with every round and are listed among the large files without a growth budget. A wallet repair record that names its suites by path stands on those suites. The packages of the documentation site take the first-party version 0.1.0."
+basis = "Gotcha 4404, decision 3478."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43716,6 +43722,159 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.43.320]
+title = "Give the fixture answers of the wallet live check the block and application hashes"
+reqs = ["22998.1"]
+touches = ["tests/wallet/check-live.test.sh", "tools/qualification/audit_repairs/test_wallet_root_rpc_endpoints.py"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' tools/qualification/audit_repairs/test_wallet_root_rpc_endpoints.py && test $(git grep -c -F 'xfail' -- tools/qualification/audit_repairs/test_wallet_root_rpc_endpoints.py | wc -l) -eq 0"
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_015_existing_endpoint_cases_reach_real_embedded_consumer of tools/qualification/audit_repairs/test_wallet_root_rpc_endpoints.py waits on tests/wallet/check-live.test.sh, whose fixture answers lack the block hash and the application hash of the consensus answer that the present checker reads. Run the case by hand without its mark and write down what it reports before changing anything."
+symbols = []
+
+[capability.22.43.319]
+title = "Bring the rows of the inference interfaces and the contract page of the inference market to the present sources"
+reqs = ["22998.1"]
+touches = ["spec/layerx-merge/interfaces.kvx", "spec/layerx-merge/contracts/inference-market.md", "tools/qualification/audit_repairs/test_inference_market_interfaces.py"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' tools/qualification/audit_repairs/test_inference_market_interfaces.py && test $(git grep -c -F 'xfail' -- tools/qualification/audit_repairs/test_inference_market_interfaces.py | wc -l) -eq 0"
+do_1 = "do_1 Decision 3491, gotcha 4404. Three cases of tools/qualification/audit_repairs/test_inference_market_interfaces.py wait: test_inference_interface_is_served_at_its_declaration on rows of spec/layerx-merge/interfaces.kvx whose line value is behind the declaration, test_contract_matches_the_served_registry on spec/layerx-merge/contracts/inference-market.md, which lacks the line that names the revision of the repository it was read at, and test_series_manifest_lists_qualified_tasks on the record repair_22_38_39.kvx. Run the case by hand without its mark and write down what it reports before changing anything."
+symbols = []
+
+[capability.22.43.318]
+title = "State on the HTTP transport conformance page which cases are for review only"
+reqs = ["22998.1"]
+touches = ["services/interop/specs/conformance/transport-http/README.md", "tools/qualification/audit_repairs/test_http_payment_profile_fixtures.py"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' tools/qualification/audit_repairs/test_http_payment_profile_fixtures.py && test $(git grep -c -F 'xfail' -- tools/qualification/audit_repairs/test_http_payment_profile_fixtures.py | wc -l) -eq 0"
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_http_profile_fixture_mounted_ingress_contract_and_proof_boundary of tools/qualification/audit_repairs/test_http_payment_profile_fixtures.py reads on services/interop/specs/conformance/transport-http/README.md a note that the semantic cases of the directory are for review only, and the page does not hold it. Find the exact name of the case in the file by its mark. Run the case by hand without its mark and write down what it reports before changing anything."
+symbols = []
+
+[capability.22.43.317]
+title = "State on the release page that earlier release packages may hold retired components"
+reqs = ["22998.1"]
+touches = ["RELEASE.md", "tools/qualification/audit_repairs/test_guest_build_and_release_contracts.py"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' tools/qualification/audit_repairs/test_guest_build_and_release_contracts.py && test $(git grep -c -F 'xfail' -- tools/qualification/audit_repairs/test_guest_build_and_release_contracts.py | wc -l) -eq 0"
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_finding_22_guide_matches_builder_verification_and_recovery of tools/qualification/audit_repairs/test_guest_build_and_release_contracts.py reads in RELEASE.md a sentence that a release package of an earlier version may hold components the present tree retired, and the page does not hold it. Run the case by hand without its mark and write down what it reports before changing anything."
+symbols = []
+
+[capability.22.43.316]
+title = "Bring the clock source pins of the agent to the present Rust sources"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs/fixtures/python_sdk_and_clock_source_pins.json", "tools/qualification/audit_repairs/test_agent_documentation_and_clock_policy.py"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' tools/qualification/audit_repairs/test_agent_documentation_and_clock_policy.py && test $(git grep -c -F 'xfail' -- tools/qualification/audit_repairs/test_agent_documentation_and_clock_policy.py | wc -l) -eq 0"
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_clock_scanner_violations_have_exact_out_of_scope_owner_requests of tools/qualification/audit_repairs/test_agent_documentation_and_clock_policy.py waits on tools/qualification/audit_repairs/fixtures/python_sdk_and_clock_source_pins.json, whose clock paths differ from the present Rust sources of the agent. Run the case by hand without its mark and write down what it reports before changing anything."
+symbols = []
+
+[capability.22.43.315]
+title = "Let a wallet repair record that names its suites by path stand on those suites"
+reqs = ["22998.1"]
+touches = ["tests/ci/test_wallet_repair_suites_listed.py"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' tests/ci/test_wallet_repair_suites_listed.py && test $(git grep -c -F 'xfail' -- tests/ci/test_wallet_repair_suites_listed.py | wc -l) -eq 0"
+do_1 = "do_1 Decision 3491, gotcha 4404. The cases test_wallet_repair_suites_exist and test_wallet_repair_suites_named_in_workflow_scope of tests/ci/test_wallet_repair_suites_listed.py wait on the record repair-22-39-346.kvx under spec/layerx-merge/programme/records/apps/wallet/src/wallet, which names component suites by path and has no suite beside it. Run the case by hand without its mark and write down what it reports before changing anything."
+symbols = []
+
+[capability.22.43.314]
+title = "List every large tracked file and take the planning files out of the growth budget"
+reqs = ["22998.1"]
+touches = ["tests/ci/data/large_file_allowlist.txt", "tests/ci/test_tracked_file_size_budget.py"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' tests/ci/test_tracked_file_size_budget.py && test $(git grep -c -F 'xfail' -- tests/ci/test_tracked_file_size_budget.py | wc -l) -eq 0"
+do_1 = "do_1 Decision 3491, gotcha 4404. The cases test_no_unlisted_tracked_file_over_2mb and test_allowlisted_files_have_not_grown of tests/ci/test_tracked_file_size_budget.py wait on tests/ci/data/large_file_allowlist.txt: the list lacks tracked files over 2 MB, GOTCHA.kvx and docs/site/image.png among them, and the sizes it records for spec/layerx-merge/spec.kvx and spec/layerx-merge/qualification.kvx are behind the files. Run the case by hand without its mark and write down what it reports before changing anything."
+symbols = []
+
+[capability.22.43.313]
+title = "Give the packages of the documentation site the first-party version"
+reqs = ["22998.1"]
+touches = ["docs/site/docs-assistant/package.json", "docs/site/paxeer-docs/package.json", "docs/site/paxeer-docs/package-lock.json", "tests/ci/test_sdk_app_versions.py"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' tests/ci/test_sdk_app_versions.py && test $(git grep -c -F 'xfail' -- tests/ci/test_sdk_app_versions.py | wc -l) -eq 0"
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_first_party_app_versions_are_0_1_0 of tests/ci/test_sdk_app_versions.py waits on docs/site/docs-assistant/package.json and docs/site/paxeer-docs/package.json, which state the version 1.0.0. Run the case by hand without its mark and write down what it reports before changing anything."
+symbols = []
+
+[capability.22.43.312]
+title = "Take the retired finality vector out of the ledger fixture of the evidence tool"
+reqs = ["22998.1"]
+touches = ["tools/jev/tests/fixtures/ledger/beta-qualification.kvx", "tests/ci/test_retired_finality_vector.py"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' tests/ci/test_retired_finality_vector.py && test $(git grep -c -F 'xfail' -- tests/ci/test_retired_finality_vector.py | wc -l) -eq 0"
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_finality_vector_retired of tests/ci/test_retired_finality_vector.py waits on tools/jev/tests/fixtures/ledger/beta-qualification.kvx, which names tests/vectors/finality_evidence_v1.vec, a vector the tree retired. Run the case by hand without its mark and write down what it reports before changing anything."
+symbols = []
+
+[capability.22.43.311]
+title = "Bring the receipt case of the Python kit to the receipt the node returns for a native transfer without balance"
+reqs = ["22998.1"]
+touches = ["tests/agent/sdk/python/test_receipt_fixture.py", "tests/ci/test_receipt_fixture_readers.py"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' tests/ci/test_receipt_fixture_readers.py && test $(git grep -c -F 'xfail' -- tests/ci/test_receipt_fixture_readers.py | wc -l) -eq 0"
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_sdk_tests_read_sequencer_receipt_vectors of tests/ci/test_receipt_fixture_readers.py waits on tests/agent/sdk/python/test_receipt_fixture.py, which expects for the receipt of a native transfer with insufficient balance the revert of a program call, while the vector gives that receipt with empty return data. Run the case by hand without its mark and write down what it reports before changing anything."
+symbols = []
+
+[capability.22.43.310]
+title = "Bring four qualification test modules to the present fixture and helper paths"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs/test_gateway_receipt_key_provisioning.py", "tools/qualification/audit_repairs/test_kernel_backend_readiness.py", "tools/qualification/audit_repairs/test_kernel_container_state_and_identity.py", "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py", "tests/ci/test_qualification_suites_collect.py"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' tests/ci/test_qualification_suites_collect.py && test $(git grep -c -F 'xfail' -- tests/ci/test_qualification_suites_collect.py | wc -l) -eq 0"
+do_1 = "do_1 Decision 3491, gotcha 4404. The cases test_qualification_modules_collect and test_gateway_env_items_are_read_by_name of tests/ci/test_qualification_suites_collect.py wait on four test modules that name fixture or helper paths the tree no longer holds: test_gateway_receipt_key_provisioning.py, test_kernel_backend_readiness.py and test_kernel_container_state_and_identity.py under tools/qualification/audit_repairs, and tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py. Run the case by hand without its mark and write down what it reports before changing anything."
+symbols = []
+
+[capability.22.43.309]
+title = "Bring the severity values of the ledger to the four values its checker reads"
+reqs = ["22998.1"]
+touches = ["spec/layerx-merge/qualification.kvx", "tests/ci/test_qualification_ledger_parses.py"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' tests/ci/test_qualification_ledger_parses.py && test $(git grep -c -F 'xfail' -- tests/ci/test_qualification_ledger_parses.py | wc -l) -eq 0"
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_beta_ledger_check_passes of tests/ci/test_qualification_ledger_parses.py runs scripts/ci/beta-ledger-check.sh over spec/layerx-merge/qualification.kvx. The checker reads the severity values blocker, suspect, assumption and note, and finding records of the ledger carry a value outside them. Run the case by hand without its mark and write down what it reports before changing anything."
+symbols = []
+
+[capability.22.43.308]
+title = "Bring the test data path of the launchpad workflow to the present directory"
+reqs = ["22998.1"]
+touches = [".github/workflows/launchpad-test.yml", "tests/ci/test_pnpm_workspace_roots.py"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' tests/ci/test_pnpm_workspace_roots.py && test $(git grep -c -F 'xfail' -- tests/ci/test_pnpm_workspace_roots.py | wc -l) -eq 0"
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_pnpm_steps_resolve_a_pnpm_workspace_root of tests/ci/test_pnpm_workspace_roots.py waits on .github/workflows/launchpad-test.yml, which names the directory testdata/repair29 where the tree holds testdata/reward_schema. Run the case by hand without its mark and write down what it reports before changing anything."
+symbols = []
+
+[capability.22.43.307]
+title = "Run the static test script of the documentation site in its workflow"
+reqs = ["22998.1"]
+touches = [".github/workflows/docs-site.yml", "tests/ci/test_js_suites_have_runner.py"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' tests/ci/test_js_suites_have_runner.py && test $(git grep -c -F 'xfail' -- tests/ci/test_js_suites_have_runner.py | wc -l) -eq 0"
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_js_test_scripts_have_runner of tests/ci/test_js_suites_have_runner.py waits on .github/workflows/docs-site.yml: the package docs/site/paxeer-docs has a script test:static and the workflow has no step that runs it. Run the case by hand without its mark and write down what it reports before changing anything."
+symbols = []
+
+[capability.22.43.306]
+title = "Bring the checksum file of the vendored wasmi crate to its present sources"
+reqs = ["22998.1"]
+touches = ["programs/vendor/wasmi-0.31.2/.cargo-checksum.json", "tests/ci/test_image_copy_sources_in_context.py", "tests/ci/test_vendored_checksums.py"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' tests/ci/test_image_copy_sources_in_context.py tests/ci/test_vendored_checksums.py && test $(git grep -c -F 'xfail' -- tests/ci/test_image_copy_sources_in_context.py tests/ci/test_vendored_checksums.py | wc -l) -eq 0"
+do_1 = "do_1 Decision 3491, gotcha 4404. Three cases wait on programs/vendor/wasmi-0.31.2/.cargo-checksum.json: test_table_image_copy_sources_exist and test_table_image_copy_sources_not_ignored of tests/ci/test_image_copy_sources_in_context.py and test_every_vendored_crate_matches_its_manifest of tests/ci/test_vendored_checksums.py. The crate carries local changes, which its PATCHES.md lists, and the digests of PATCHES.md and of the sources of the replay execution in the checksum file are behind the files. Run the case by hand without its mark and write down what it reports before changing anything."
+symbols = []
+
+[capability.22.43.305]
+title = "Bring the asset record of the launchpad web application to its present files"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/asset-renames.kvx", "tests/ci/test_frontend_asset_names.py"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' tests/ci/test_frontend_asset_names.py && test $(git grep -c -F 'xfail' -- tests/ci/test_frontend_asset_names.py | wc -l) -eq 0"
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_no_duplicate_assets_within_an_app of tests/ci/test_frontend_asset_names.py waits on apps/launchpad/web/asset-renames.kvx, whose digest for public/icons/logo.svg differs from the file. Run the case by hand without its mark and write down what it reports before changing anything."
+symbols = []
+
+[capability.22.43.304]
+title = "Say what the history data of the RPC tests is without a planning number"
+reqs = ["22998.1"]
+touches = ["rpc/testdata/px-history/README.md", "tests/ci/test_docs_free_of_process_numbering.py"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' tests/ci/test_docs_free_of_process_numbering.py && test $(git grep -c -F 'xfail' -- tests/ci/test_docs_free_of_process_numbering.py | wc -l) -eq 0"
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_docs_have_no_task_numbers of tests/ci/test_docs_free_of_process_numbering.py waits on rpc/testdata/px-history/README.md, which names a task of the planning by its number. Run the case by hand without its mark and write down what it reports before changing anything."
+symbols = []
 
 [capability.22.43.303]
 title = "Bring the pages of the documentation site to the kernel sentence"
@@ -195200,6 +195359,126 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.320]
+title = "Give the fixture answers of the wallet live check the block and application hashes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.320"]
+interfaces = []
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_015_existing_endpoint_cases_reach_real_embedded_consumer of tools/qualification/audit_repairs/test_wallet_root_rpc_endpoints.py waits on tests/wallet/check-live.test.sh, whose fixture answers lack the block hash and the application hash of the consensus answer that the present checker reads. Run the case by hand without its mark and write down what it reports before changing anything."
+do_2 = "do_2 Read the checker the script runs and add to the fixture answers the fields it reads, in the form a node returns them. Change no line of the checker. Run tests/wallet/check-live.test.sh by hand to its end and give its last lines in the final message."
+do_3 = "do_3 Take the mark of expected failure off a case only when the case passes without it, and change no assertion to get there unless an item of this task says so. A record under spec/layerx-merge/programme/records is a statement of its day and is not rewritten. Change no file outside the paths of this task; where the repair needs one, leave the mark as it is and name the file and the cause in the final message. Before each commit read the output of git status. Run the test files of this task by hand as the verification does until they pass. Then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tests/wallet/check-live.test.sh", "tools/qualification/audit_repairs/test_wallet_root_rpc_endpoints.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' tools/qualification/audit_repairs/test_wallet_root_rpc_endpoints.py && test $(git grep -c -F 'xfail' -- tools/qualification/audit_repairs/test_wallet_root_rpc_endpoints.py | wc -l) -eq 0"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.313]
+title = "Give the packages of the documentation site the first-party version"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.313"]
+interfaces = []
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_first_party_app_versions_are_0_1_0 of tests/ci/test_sdk_app_versions.py waits on docs/site/docs-assistant/package.json and docs/site/paxeer-docs/package.json, which state the version 1.0.0. Run the case by hand without its mark and write down what it reports before changing anything."
+do_2 = "do_2 Set the version of both packages to 0.1.0: in each package.json, and in the lock file of paxeer-docs in the two places that carry the version of the root package. Change no dependency entry of the lock file; the diff of the lock file holds the two version lines and nothing else. Search docs/site for another file that states the version of one of the two packages and name it in the final message."
+do_3 = "do_3 Take the mark of expected failure off a case only when the case passes without it, and change no assertion to get there unless an item of this task says so. A record under spec/layerx-merge/programme/records is a statement of its day and is not rewritten. Change no file outside the paths of this task; where the repair needs one, leave the mark as it is and name the file and the cause in the final message. Before each commit read the output of git status. Run the test files of this task by hand as the verification does until they pass. Then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site/docs-assistant/package.json", "docs/site/paxeer-docs/package.json", "docs/site/paxeer-docs/package-lock.json", "tests/ci/test_sdk_app_versions.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' tests/ci/test_sdk_app_versions.py && test $(git grep -c -F 'xfail' -- tests/ci/test_sdk_app_versions.py | wc -l) -eq 0"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.307]
+title = "Run the static test script of the documentation site in its workflow"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.307"]
+interfaces = []
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_js_test_scripts_have_runner of tests/ci/test_js_suites_have_runner.py waits on .github/workflows/docs-site.yml: the package docs/site/paxeer-docs has a script test:static and the workflow has no step that runs it. Run the case by hand without its mark and write down what it reports before changing anything."
+do_2 = "do_2 Run the script by hand first in docs/site/paxeer-docs; it must pass on the present tree. Then give the workflow a step that runs it, in the job that installs the package, after the install step and before the build, with the working directory and the package manager the job already uses. Change no trigger, no permission and no other step. Where the script does not pass on the present tree, add no step, and name the script and what it reports in the final message."
+do_3 = "do_3 Take the mark of expected failure off a case only when the case passes without it, and change no assertion to get there unless an item of this task says so. A record under spec/layerx-merge/programme/records is a statement of its day and is not rewritten. Change no file outside the paths of this task; where the repair needs one, leave the mark as it is and name the file and the cause in the final message. Before each commit read the output of git status. Run the test files of this task by hand as the verification does until they pass. Then run the build once and the verification once at the final revision."
+symbols = []
+touches = [".github/workflows/docs-site.yml", "tests/ci/test_js_suites_have_runner.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' tests/ci/test_js_suites_have_runner.py && test $(git grep -c -F 'xfail' -- tests/ci/test_js_suites_have_runner.py | wc -l) -eq 0"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.306]
+title = "Bring the checksum file of the vendored wasmi crate to its present sources"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.306"]
+interfaces = []
+do_1 = "do_1 Decision 3491, gotcha 4404. Three cases wait on programs/vendor/wasmi-0.31.2/.cargo-checksum.json: test_table_image_copy_sources_exist and test_table_image_copy_sources_not_ignored of tests/ci/test_image_copy_sources_in_context.py and test_every_vendored_crate_matches_its_manifest of tests/ci/test_vendored_checksums.py. The crate carries local changes, which its PATCHES.md lists, and the digests of PATCHES.md and of the sources of the replay execution in the checksum file are behind the files. Run the case by hand without its mark and write down what it reports before changing anything."
+do_2 = "do_2 Bring the digest of each listed file of the crate to the present file with a small script over sha256sum. Change the digests of files only: the package digest stays, and no source of the crate changes. Then run the lightest cargo command of the programs workspace that reads the vendored crate, cargo metadata or a check of one member that depends on it, and see that cargo takes the file."
+do_3 = "do_3 Take the mark of expected failure off a case only when the case passes without it, and change no assertion to get there unless an item of this task says so. A record under spec/layerx-merge/programme/records is a statement of its day and is not rewritten. Change no file outside the paths of this task; where the repair needs one, leave the mark as it is and name the file and the cause in the final message. Before each commit read the output of git status. Run the test files of this task by hand as the verification does until they pass. Then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["programs/vendor/wasmi-0.31.2/.cargo-checksum.json", "tests/ci/test_image_copy_sources_in_context.py", "tests/ci/test_vendored_checksums.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' tests/ci/test_image_copy_sources_in_context.py tests/ci/test_vendored_checksums.py && test $(git grep -c -F 'xfail' -- tests/ci/test_image_copy_sources_in_context.py tests/ci/test_vendored_checksums.py | wc -l) -eq 0"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -374054,6 +374333,396 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.43.319]
+title = "Bring the rows of the inference interfaces and the contract page of the inference market to the present sources"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.319"]
+interfaces = []
+do_1 = "do_1 Decision 3491, gotcha 4404. Three cases of tools/qualification/audit_repairs/test_inference_market_interfaces.py wait: test_inference_interface_is_served_at_its_declaration on rows of spec/layerx-merge/interfaces.kvx whose line value is behind the declaration, test_contract_matches_the_served_registry on spec/layerx-merge/contracts/inference-market.md, which lacks the line that names the revision of the repository it was read at, and test_series_manifest_lists_qualified_tasks on the record repair_22_38_39.kvx. Run the case by hand without its mark and write down what it reports before changing anything."
+do_2 = "do_2 In the rows of the inference interfaces bring each line value to the present line of the declaration, found by the search the case itself makes; change no other key of a row and no other row of the file. Give the contract page the revision line in the form the case reads and change nothing else on it. The record is a statement of its day and stays: the case on its task list checks the form of the list, and that change of the case is part of the task."
+do_3 = "do_3 Take the mark of expected failure off a case only when the case passes without it, and change no assertion to get there unless an item of this task says so. A record under spec/layerx-merge/programme/records is a statement of its day and is not rewritten. Change no file outside the paths of this task; where the repair needs one, leave the mark as it is and name the file and the cause in the final message. Before each commit read the output of git status. Run the test files of this task by hand as the verification does until they pass. Then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["spec/layerx-merge/interfaces.kvx", "spec/layerx-merge/contracts/inference-market.md", "tools/qualification/audit_repairs/test_inference_market_interfaces.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' tools/qualification/audit_repairs/test_inference_market_interfaces.py && test $(git grep -c -F 'xfail' -- tools/qualification/audit_repairs/test_inference_market_interfaces.py | wc -l) -eq 0"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.318]
+title = "State on the HTTP transport conformance page which cases are for review only"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.318"]
+interfaces = []
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_http_profile_fixture_mounted_ingress_contract_and_proof_boundary of tools/qualification/audit_repairs/test_http_payment_profile_fixtures.py reads on services/interop/specs/conformance/transport-http/README.md a note that the semantic cases of the directory are for review only, and the page does not hold it. Find the exact name of the case in the file by its mark. Run the case by hand without its mark and write down what it reports before changing anything."
+do_2 = "do_2 Check the note against the conformance runner of services/interop: which files of the directory it runs and which it does not. Where the note holds, put it on the page in one sentence in the words the case reads, and change nothing else on the page. Where the runner runs those cases today, change nothing, and say in the final message what the runner does."
+do_3 = "do_3 Take the mark of expected failure off a case only when the case passes without it, and change no assertion to get there unless an item of this task says so. A record under spec/layerx-merge/programme/records is a statement of its day and is not rewritten. Change no file outside the paths of this task; where the repair needs one, leave the mark as it is and name the file and the cause in the final message. Before each commit read the output of git status. Run the test files of this task by hand as the verification does until they pass. Then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/specs/conformance/transport-http/README.md", "tools/qualification/audit_repairs/test_http_payment_profile_fixtures.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' tools/qualification/audit_repairs/test_http_payment_profile_fixtures.py && test $(git grep -c -F 'xfail' -- tools/qualification/audit_repairs/test_http_payment_profile_fixtures.py | wc -l) -eq 0"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.317]
+title = "State on the release page that earlier release packages may hold retired components"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.317"]
+interfaces = []
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_finding_22_guide_matches_builder_verification_and_recovery of tools/qualification/audit_repairs/test_guest_build_and_release_contracts.py reads in RELEASE.md a sentence that a release package of an earlier version may hold components the present tree retired, and the page does not hold it. Run the case by hand without its mark and write down what it reports before changing anything."
+do_2 = "do_2 Check the sentence against the tree and the release files under docs/release. Where it holds, put it into the part of RELEASE.md that speaks of earlier packages, in one sentence and in the words the case reads, and change nothing else on the page. Where it does not hold, change nothing, and say in the final message what the tree shows."
+do_3 = "do_3 Take the mark of expected failure off a case only when the case passes without it, and change no assertion to get there unless an item of this task says so. A record under spec/layerx-merge/programme/records is a statement of its day and is not rewritten. Change no file outside the paths of this task; where the repair needs one, leave the mark as it is and name the file and the cause in the final message. Before each commit read the output of git status. Run the test files of this task by hand as the verification does until they pass. Then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["RELEASE.md", "tools/qualification/audit_repairs/test_guest_build_and_release_contracts.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' tools/qualification/audit_repairs/test_guest_build_and_release_contracts.py && test $(git grep -c -F 'xfail' -- tools/qualification/audit_repairs/test_guest_build_and_release_contracts.py | wc -l) -eq 0"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.316]
+title = "Bring the clock source pins of the agent to the present Rust sources"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.316"]
+interfaces = []
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_clock_scanner_violations_have_exact_out_of_scope_owner_requests of tools/qualification/audit_repairs/test_agent_documentation_and_clock_policy.py waits on tools/qualification/audit_repairs/fixtures/python_sdk_and_clock_source_pins.json, whose clock paths differ from the present Rust sources of the agent. Run the case by hand without its mark and write down what it reports before changing anything."
+do_2 = "do_2 Run the scanner the case runs and bring the paths of the fixture, and the lines or digests it pins with them, to the present sources. Change no Rust source. Where the case compares the record repair_22_33_1565.kvx with the present sources, the record stays: the case checks the form of the record and reads the present paths from the fixture, and that change of the case is part of the task."
+do_3 = "do_3 Take the mark of expected failure off a case only when the case passes without it, and change no assertion to get there unless an item of this task says so. A record under spec/layerx-merge/programme/records is a statement of its day and is not rewritten. Change no file outside the paths of this task; where the repair needs one, leave the mark as it is and name the file and the cause in the final message. Before each commit read the output of git status. Run the test files of this task by hand as the verification does until they pass. Then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/qualification/audit_repairs/fixtures/python_sdk_and_clock_source_pins.json", "tools/qualification/audit_repairs/test_agent_documentation_and_clock_policy.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' tools/qualification/audit_repairs/test_agent_documentation_and_clock_policy.py && test $(git grep -c -F 'xfail' -- tools/qualification/audit_repairs/test_agent_documentation_and_clock_policy.py | wc -l) -eq 0"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.315]
+title = "Let a wallet repair record that names its suites by path stand on those suites"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.315"]
+interfaces = []
+do_1 = "do_1 Decision 3491, gotcha 4404. The cases test_wallet_repair_suites_exist and test_wallet_repair_suites_named_in_workflow_scope of tests/ci/test_wallet_repair_suites_listed.py wait on the record repair-22-39-346.kvx under spec/layerx-merge/programme/records/apps/wallet/src/wallet, which names component suites by path and has no suite beside it. Run the case by hand without its mark and write down what it reports before changing anything."
+do_2 = "do_2 The record is a statement of its day and stays. By decision 3491 a record that names its suites by path stands on those suites: in the function repair_suites the assertion that one suite sits beside the record holds only for a record that names no suite by path. Make that one change in the function; the two cases keep every assertion, and each suite a record names must still be a file under the sources of the wallet."
+do_3 = "do_3 Take the mark of expected failure off a case only when the case passes without it, and change no assertion to get there unless an item of this task says so. A record under spec/layerx-merge/programme/records is a statement of its day and is not rewritten. Change no file outside the paths of this task; where the repair needs one, leave the mark as it is and name the file and the cause in the final message. Before each commit read the output of git status. Run the test files of this task by hand as the verification does until they pass. Then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tests/ci/test_wallet_repair_suites_listed.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' tests/ci/test_wallet_repair_suites_listed.py && test $(git grep -c -F 'xfail' -- tests/ci/test_wallet_repair_suites_listed.py | wc -l) -eq 0"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.314]
+title = "List every large tracked file and take the planning files out of the growth budget"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.314"]
+interfaces = []
+do_1 = "do_1 Decision 3491, gotcha 4404. The cases test_no_unlisted_tracked_file_over_2mb and test_allowlisted_files_have_not_grown of tests/ci/test_tracked_file_size_budget.py wait on tests/ci/data/large_file_allowlist.txt: the list lacks tracked files over 2 MB, GOTCHA.kvx and docs/site/image.png among them, and the sizes it records for spec/layerx-merge/spec.kvx and spec/layerx-merge/qualification.kvx are behind the files. Run the case by hand without its mark and write down what it reports before changing anything."
+do_2 = "do_2 List every tracked file over 2 MB with its present size; the first case prints the missing ones. By decision 3491 the planning files GOTCHA.kvx, spec/layerx-merge/spec.kvx and spec/layerx-merge/qualification.kvx grow with every round: mark them in the list in a form the test reads, and let the growth case leave the marked rows out, so that the budget holds for every other listed file as before. This one change of the test is part of the task. Keep the format of every other row."
+do_3 = "do_3 Take the mark of expected failure off a case only when the case passes without it, and change no assertion to get there unless an item of this task says so. A record under spec/layerx-merge/programme/records is a statement of its day and is not rewritten. Change no file outside the paths of this task; where the repair needs one, leave the mark as it is and name the file and the cause in the final message. Before each commit read the output of git status. Run the test files of this task by hand as the verification does until they pass. Then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tests/ci/data/large_file_allowlist.txt", "tests/ci/test_tracked_file_size_budget.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' tests/ci/test_tracked_file_size_budget.py && test $(git grep -c -F 'xfail' -- tests/ci/test_tracked_file_size_budget.py | wc -l) -eq 0"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.312]
+title = "Take the retired finality vector out of the ledger fixture of the evidence tool"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.312"]
+interfaces = []
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_finality_vector_retired of tests/ci/test_retired_finality_vector.py waits on tools/jev/tests/fixtures/ledger/beta-qualification.kvx, which names tests/vectors/finality_evidence_v1.vec, a vector the tree retired. Run the case by hand without its mark and write down what it reports before changing anything."
+do_2 = "do_2 Find the tests under tools/jev that read the fixture and what they need from the record that names the vector. Where a test needs the record, bring it to a file the tree holds today that serves the same check; where no test needs it, take the record out of the fixture. Run the tests of tools/jev that read the fixture by hand and give their names and results in the final message."
+do_3 = "do_3 Take the mark of expected failure off a case only when the case passes without it, and change no assertion to get there unless an item of this task says so. A record under spec/layerx-merge/programme/records is a statement of its day and is not rewritten. Change no file outside the paths of this task; where the repair needs one, leave the mark as it is and name the file and the cause in the final message. Before each commit read the output of git status. Run the test files of this task by hand as the verification does until they pass. Then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/jev/tests/fixtures/ledger/beta-qualification.kvx", "tests/ci/test_retired_finality_vector.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' tests/ci/test_retired_finality_vector.py && test $(git grep -c -F 'xfail' -- tests/ci/test_retired_finality_vector.py | wc -l) -eq 0"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.311]
+title = "Bring the receipt case of the Python kit to the receipt the node returns for a native transfer without balance"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.311"]
+interfaces = []
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_sdk_tests_read_sequencer_receipt_vectors of tests/ci/test_receipt_fixture_readers.py waits on tests/agent/sdk/python/test_receipt_fixture.py, which expects for the receipt of a native transfer with insufficient balance the revert of a program call, while the vector gives that receipt with empty return data. Run the case by hand without its mark and write down what it reports before changing anything."
+do_2 = "do_2 Read the vector, the receipt code in rpc/sequencer_receipt.go and the decoder of the Python kit of the agent. The node and the vector are the source: bring the expectation of the case to what the node returns for that receipt and to what the kit decodes from it, and keep every other case of the file as it is. Where the kit decodes the vector wrongly, change nothing in the kit, and name the function and the difference in the final message."
+do_3 = "do_3 Take the mark of expected failure off a case only when the case passes without it, and change no assertion to get there unless an item of this task says so. A record under spec/layerx-merge/programme/records is a statement of its day and is not rewritten. Change no file outside the paths of this task; where the repair needs one, leave the mark as it is and name the file and the cause in the final message. Before each commit read the output of git status. Run the test files of this task by hand as the verification does until they pass. Then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tests/agent/sdk/python/test_receipt_fixture.py", "tests/ci/test_receipt_fixture_readers.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' tests/ci/test_receipt_fixture_readers.py && test $(git grep -c -F 'xfail' -- tests/ci/test_receipt_fixture_readers.py | wc -l) -eq 0"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.310]
+title = "Bring four qualification test modules to the present fixture and helper paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.310"]
+interfaces = []
+do_1 = "do_1 Decision 3491, gotcha 4404. The cases test_qualification_modules_collect and test_gateway_env_items_are_read_by_name of tests/ci/test_qualification_suites_collect.py wait on four test modules that name fixture or helper paths the tree no longer holds: test_gateway_receipt_key_provisioning.py, test_kernel_backend_readiness.py and test_kernel_container_state_and_identity.py under tools/qualification/audit_repairs, and tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py. Run the case by hand without its mark and write down what it reports before changing anything."
+do_2 = "do_2 In each module bring every path to the file the tree holds today; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path, and the first module names repair_22_33_1335_committed.json where the file is committed_evidence.json. Change paths and names only, no assertion. Collect each of the four modules by hand with the collect option of pytest. Where a file a module reads left the tree and nothing took its place, change nothing in that module and name the module, the path and the commit that removed the file in the final message."
+do_3 = "do_3 Take the mark of expected failure off a case only when the case passes without it, and change no assertion to get there unless an item of this task says so. A record under spec/layerx-merge/programme/records is a statement of its day and is not rewritten. Change no file outside the paths of this task; where the repair needs one, leave the mark as it is and name the file and the cause in the final message. Before each commit read the output of git status. Run the test files of this task by hand as the verification does until they pass. Then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/qualification/audit_repairs/test_gateway_receipt_key_provisioning.py", "tools/qualification/audit_repairs/test_kernel_backend_readiness.py", "tools/qualification/audit_repairs/test_kernel_container_state_and_identity.py", "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py", "tests/ci/test_qualification_suites_collect.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' tests/ci/test_qualification_suites_collect.py && test $(git grep -c -F 'xfail' -- tests/ci/test_qualification_suites_collect.py | wc -l) -eq 0"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.309]
+title = "Bring the severity values of the ledger to the four values its checker reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.309"]
+interfaces = []
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_beta_ledger_check_passes of tests/ci/test_qualification_ledger_parses.py runs scripts/ci/beta-ledger-check.sh over spec/layerx-merge/qualification.kvx. The checker reads the severity values blocker, suspect, assumption and note, and finding records of the ledger carry a value outside them. Run the case by hand without its mark and write down what it reports before changing anything."
+do_2 = "do_2 By the rule of decision 3491 such a record takes blocker where its observed sentence states a command that ended with a nonzero code, and suspect otherwise. Apply the rule with a small script, change the severity line of those records only and keep every other byte of the file; read the diff, which holds severity lines and nothing else. Then run the checker as the case does and read every line it reports. A further line that is a matter of form of one key of the ledger is repaired the same way, by script and on that key only. A line that asks for a change of the checker, of the feature file or of any other file is not repaired here: name it in the final message."
+do_3 = "do_3 Take the mark of expected failure off a case only when the case passes without it, and change no assertion to get there unless an item of this task says so. A record under spec/layerx-merge/programme/records is a statement of its day and is not rewritten. Change no file outside the paths of this task; where the repair needs one, leave the mark as it is and name the file and the cause in the final message. Before each commit read the output of git status. Run the test files of this task by hand as the verification does until they pass. Then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["spec/layerx-merge/qualification.kvx", "tests/ci/test_qualification_ledger_parses.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' tests/ci/test_qualification_ledger_parses.py && test $(git grep -c -F 'xfail' -- tests/ci/test_qualification_ledger_parses.py | wc -l) -eq 0"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.308]
+title = "Bring the test data path of the launchpad workflow to the present directory"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.308"]
+interfaces = []
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_pnpm_steps_resolve_a_pnpm_workspace_root of tests/ci/test_pnpm_workspace_roots.py waits on .github/workflows/launchpad-test.yml, which names the directory testdata/repair29 where the tree holds testdata/reward_schema. Run the case by hand without its mark and write down what it reports before changing anything."
+do_2 = "do_2 Bring each mention in the workflow to the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path. Check every other path the workflow names the same way and bring each that a rename moved. Change no trigger, no permission and no command beyond its paths."
+do_3 = "do_3 Take the mark of expected failure off a case only when the case passes without it, and change no assertion to get there unless an item of this task says so. A record under spec/layerx-merge/programme/records is a statement of its day and is not rewritten. Change no file outside the paths of this task; where the repair needs one, leave the mark as it is and name the file and the cause in the final message. Before each commit read the output of git status. Run the test files of this task by hand as the verification does until they pass. Then run the build once and the verification once at the final revision."
+symbols = []
+touches = [".github/workflows/launchpad-test.yml", "tests/ci/test_pnpm_workspace_roots.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' tests/ci/test_pnpm_workspace_roots.py && test $(git grep -c -F 'xfail' -- tests/ci/test_pnpm_workspace_roots.py | wc -l) -eq 0"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.305]
+title = "Bring the asset record of the launchpad web application to its present files"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.305"]
+interfaces = []
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_no_duplicate_assets_within_an_app of tests/ci/test_frontend_asset_names.py waits on apps/launchpad/web/asset-renames.kvx, whose digest for public/icons/logo.svg differs from the file. Run the case by hand without its mark and write down what it reports before changing anything."
+do_2 = "do_2 The file is the source and the record follows it. Compute the digest of public/icons/logo.svg with sha256sum and bring the row of the record to it. Check every other row of the record the same way and bring each row whose file moved on. Change no asset."
+do_3 = "do_3 Take the mark of expected failure off a case only when the case passes without it, and change no assertion to get there unless an item of this task says so. A record under spec/layerx-merge/programme/records is a statement of its day and is not rewritten. Change no file outside the paths of this task; where the repair needs one, leave the mark as it is and name the file and the cause in the final message. Before each commit read the output of git status. Run the test files of this task by hand as the verification does until they pass. Then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/asset-renames.kvx", "tests/ci/test_frontend_asset_names.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' tests/ci/test_frontend_asset_names.py && test $(git grep -c -F 'xfail' -- tests/ci/test_frontend_asset_names.py | wc -l) -eq 0"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.304]
+title = "Say what the history data of the RPC tests is without a planning number"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.304"]
+interfaces = []
+do_1 = "do_1 Decision 3491, gotcha 4404. The case test_docs_have_no_task_numbers of tests/ci/test_docs_free_of_process_numbering.py waits on rpc/testdata/px-history/README.md, which names a task of the planning by its number. Run the case by hand without its mark and write down what it reports before changing anything."
+do_2 = "do_2 Say on the page the same in words of the product: what the data under the directory is, which cases of the RPC read it and how it is produced. Before changing a sentence search rpc for a test or a build step that reads the page; a reader that pins the old words is named in the final message with its file and line."
+do_3 = "do_3 Take the mark of expected failure off a case only when the case passes without it, and change no assertion to get there unless an item of this task says so. A record under spec/layerx-merge/programme/records is a statement of its day and is not rewritten. Change no file outside the paths of this task; where the repair needs one, leave the mark as it is and name the file and the cause in the final message. Before each commit read the output of git status. Run the test files of this task by hand as the verification does until they pass. Then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["rpc/testdata/px-history/README.md", "tests/ci/test_docs_free_of_process_numbering.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' tests/ci/test_docs_free_of_process_numbering.py && test $(git grep -c -F 'xfail' -- tests/ci/test_docs_free_of_process_numbering.py | wc -l) -eq 0"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.43.302]
 title = "Bring the pages of the node, the modules, the RPC and the storage to the kernel sentence"
