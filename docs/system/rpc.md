@@ -1,7 +1,7 @@
 # EVM JSON-RPC methods
 
-Paxeer mainnet-beta is one BFT network running `paxd`, with the kernel inside
-the network proposing blocks. The EVM chain ID is **125** (`0x7d`); a transaction
+Paxeer mainnet-beta uses EVM chain ID **125** (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators check and commit it. A transaction
 is final once its block is committed.
 
 Public JSON-RPC uses a node's root path. Use the node's root WebSocket URL for
