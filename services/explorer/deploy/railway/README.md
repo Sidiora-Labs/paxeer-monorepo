@@ -2,10 +2,9 @@
 
 The explorer runs on Railway as services in one project: a Postgres
 database, the Blockscout backend, the Next.js frontend, and optionally the
-two Rust microservices under `services/explorer/services`. No service builds from this
-repository any more: each runs the image `.github/workflows/explorer-images.yml`
-publishes. The two JSON files beside this one hold the deploy configuration for
-the backend and the frontend; everything else is a per-service setting or a
+two Rust microservices under `services/explorer/services`. Each service runs the
+image published by `.github/workflows/explorer-images.yml`. The two JSON files
+beside this one hold the deploy configuration for the backend and the frontend; everything else is a per-service setting or a
 variable and is listed below.
 
 ## Images
@@ -54,7 +53,7 @@ the container port and the service's target port agree.
 
 `backend.railway.json` starts the published backend image with
 
-```
+```sh
 /bin/sh -c "bin/blockscout eval 'Elixir.Explorer.ReleaseTasks.create_and_migrate()' && bin/blockscout start"
 ```
 
@@ -81,12 +80,20 @@ deployment involved. It waits for `GET /api/health/liveness`, then asserts that
 `GET /api/v2/paxeer-x/capabilities` answers
 
 ```json
-{"addr":false,"custody":false,"anchor":false,"exchange":false,"bridge":false,"launchpad":false}
+{
+  "addr": false,
+  "exchange": false,
+  "bridge": false,
+  "launchpad": false,
+  "checked_at": "2026-01-01T00:00:00Z"
+}
 ```
 
-which is the body the endpoint owes for the chain as recorded: the addr
-precompile reverts `getUnifiedAccount` and the five surface precompiles carry no
-code, so every surface reads as absent. The run turns the capability probe on
+The `checked_at` value above is illustrative. The smoke test requires an actual
+ISO 8601 timestamp from the completed probe. In the bundled responses the addr
+precompile refuses `getUnifiedAccount` and the exchange, bridge and launchpad
+view calls are unavailable, so the four surface flags are false. The run turns
+the capability probe on
 (`PAXEER_X_CAPABILITIES_ENABLED=true`, off by default in
 `../env/backend.example.env`) and checks the fixture server's journal, so the
 answer is a probe that ran against the recorded chain rather than the
@@ -95,8 +102,10 @@ never-probed default.
 ## Database
 
 Use a Railway Postgres service and give the backend its connection string in
-`DATABASE_URL`. The backend release has no `sslmode` default of its own, so set
-`ECTO_USE_SSL` to match how the database service is reached.
+`DATABASE_URL`. `ECTO_USE_SSL` defaults to `true`. Database TLS verifies the
+server certificate and hostname. Set `DATABASE_SSL_CA_CERT_FILE` to an absolute PEM CA bundle path
+when the database uses a private CA; otherwise the system CA bundle supplies
+trust roots. See the [database TLS guide](../../backend/apps/explorer/config/repair_22_33_471/README.md).
 
 ## Microservices
 
@@ -116,18 +125,20 @@ placeholder form is `<...>`.
 
 ### Backend
 
-All of these names appear in
-`services/explorer/backend/docker-compose/envs/common-blockscout.env`, which is the
-complete upstream catalogue of backend variables.
+Backend variables are read by `services/explorer/backend/config/runtime.exs`
+and its runtime profiles. The
+`services/explorer/backend/docker-compose/envs/common-blockscout.env` file lists
+example settings; it is not the complete configuration schema.
 
-Connection and identity — no default, the deployment must supply each one:
+Connection and identity — set values for the deployment:
 
 | Name | What it selects |
 | --- | --- |
 | `DATABASE_URL` | Postgres connection string for the indexer and the API |
 | `SECRET_KEY_BASE` | Phoenix signing secret, at least 64 bytes |
+| `DATABASE_SSL_CA_CERT_FILE` | Absolute PEM CA bundle path for database TLS |
 | `PORT` | port the release listens on |
-| `CHAIN_ID` | EIP-155 chain id of the indexed network |
+| `CHAIN_ID` | EIP-155 chain ID, `125` for Paxeer mainnet-beta |
 | `ETHEREUM_JSONRPC_HTTP_URL` | JSON-RPC HTTP endpoint of the node |
 | `ETHEREUM_JSONRPC_TRACE_URL` | endpoint used for tracing calls |
 | `ETHEREUM_JSONRPC_ETH_CALL_URL` | endpoint used for `eth_call` |
@@ -181,8 +192,8 @@ growing with the chain.
 | `PAXEER_X_PRICE_FEED_RETENTION_DAYS` | days a submission and its observations are kept, unset keeps them for good; must be a positive integer when set |
 
 Without `API_RATE_LIMIT_HAMMER_REDIS_URL` the rate limiter falls back to an
-in-process ETS table, which is correct for a single replica and wrong for
-several; add Redis before scaling the backend out.
+in-process ETS table, which shares counters within one replica. Configure Redis
+to share rate-limit counters across multiple backend replicas.
 
 ### Frontend
 

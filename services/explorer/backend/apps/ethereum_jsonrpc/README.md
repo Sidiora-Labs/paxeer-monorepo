@@ -223,9 +223,8 @@ WebSocket cases also compare the same block over HTTP and WebSocket. Keep
 HTTP and WebSocket endpoints on the same node host and supply no embedded
 credentials.
 
-The documentation repair gate needs no supplied node or credentials. From the
-repository root, the bounded task runner uses `hf-build` then `hf-done`; the
-latter runs this focused test through the builder:
+From the repository root, this focused transport test runs through the builder
+without a supplied node or credentials:
 
 ```sh
 services/explorer/deploy/tools/mix-in-builder.sh test apps/ethereum_jsonrpc/test/repair/repair_22_33_445_test.exs

@@ -10,11 +10,17 @@ The JSON configuration is a map where:
 
 ### Example Configuration
 ```json
-"api/account/v2/send_otp": {
-  "recaptcha_to_bypass_429": true,
-  "ip": {
-    "period": "1h",
-    "limit": 1
+{
+  "api/account/v2/send_otp": {
+    "recaptcha_to_bypass_429": true,
+    "ip": {
+      "period": "1h",
+      "limit": 1
+    },
+    "isolate_rate_limit?": true
+  },
+  "default": {
+    "ip": true
   }
 }
 ```
@@ -23,7 +29,7 @@ The JSON configuration is a map where:
 - Paths should not contain query parameters
 - Paths should not contain trailing slashes
 - Paths can contain:
-  - `*` - Works as a wildcard (matches any path starting from the asterisk)
+  - `*` - Matches the preceding path segments and any remaining segments
     - Example: `api/v2/*` matches `api/v2` and `api/v2/addresses`
     - ⚠️ Wildcard `*` allowed only at the end of the path
   - `:param` - Represents a variable parameter in the endpoint path

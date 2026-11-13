@@ -5,11 +5,7 @@ BlockScoutWeb is the API and presentation layer of BlockScout built on the Phoen
 ## Machine Requirements
 
 * Erlang/OTP and Elixir at the versions pinned in `../../.tool-versions`
-* PostgreSQL (the explorer's own Docker setups run version 16)
-
-## Required Accounts
-
-* Github for code storage
+* PostgreSQL (the maintained Paxeer local stack uses version 16; generic Compose presets use version 17)
 
 ## Setup Instructions
 
@@ -17,7 +13,11 @@ BlockScoutWeb is the API and presentation layer of BlockScout built on the Phoen
 
 To get BlockScout Web interface up and running locally:
 
-* Setup `../explorer`
+Run these commands from this application directory after following the
+[Explorer setup](../explorer/README.md#development). Install the umbrella Mix
+dependencies first; the asset package uses Phoenix from `../../deps`.
+
+* Use the Node.js version pinned in `../../.tool-versions`.
 * Install Node.js dependencies with `$ cd assets && npm install && cd ..`
 * Start Phoenix with `$ mix phx.server` (This can be run from this directory or the project root: the project root is recommended.)
 

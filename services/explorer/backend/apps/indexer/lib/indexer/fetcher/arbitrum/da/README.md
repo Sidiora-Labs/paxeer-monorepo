@@ -340,7 +340,7 @@ This interconnected architecture explains why implementing a new DA solution req
 ### Phase 1: Basic Support (No Exception)
 - Add method selector support in `contracts.ex`
 - Update `parse_calldata_of_add_sequencer_l2_batch` in `rpc.ex`
-- Return placeholder data to prevent indexing failures
+- Decode the supported calldata and propagate unsupported or malformed inputs as errors
 
 ### Phase 2: Database Schema Extension
 - Create migration to add new DA container type to enum
@@ -527,7 +527,7 @@ New DA solutions may require:
 
 ## Implementation Example
 
-The EigenDA implementation ([PR #12915](https://github.com/blockscout/blockscout/pull/12915)) serves as a concrete example of following this systematic approach. The implementation demonstrates:
+The [EigenDA module](eigenda.ex) demonstrates these integration points:
 
 - **Multi-phase rollout**: From basic method support to full API integration
 - **Complex ABI handling**: Nested structures with BlobVerificationProof and BlobHeader

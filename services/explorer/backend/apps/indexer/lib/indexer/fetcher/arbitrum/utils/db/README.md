@@ -19,19 +19,3 @@ This directory contains modules that provide structured database access and mani
 3. Apply additional data transformation to maintain consistency with structures used for data import
 
 4. Implement proper error handling when database queries return `nil`
-
-## Module Organization 
-
-The database functionality is split across multiple modules rather than maintained in a single monolithic file for two primary reasons:
-
-### 1. Collaborative Development
-
-Splitting functionality across multiple files significantly reduces the likelihood of merge conflicts when multiple developers are working on different features simultaneously. Each module can be modified independently without affecting other parts of the codebase.
-
-### 2. LLM-Based Development Optimization
-
-The modular structure is specifically designed to work better with Large Language Model (LLM) based coding assistants:
-
-- **Output Token Efficiency**: While modern LLMs can handle large files in their input context, they still have limitations on output tokens. Smaller files make it easier for AI assistants to propose and explain changes within these limits.
-
-- **Focus Window Management**: Smaller, focused modules help maintain a clear context window when working with AI assistants, making it easier to discuss and modify specific functionality without the noise of unrelated code.

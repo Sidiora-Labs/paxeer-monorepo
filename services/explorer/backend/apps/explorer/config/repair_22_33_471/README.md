@@ -1,3 +1,5 @@
+# Database TLS
+
 Database TLS authenticates each server before Postgrex sends its startup message,
 credentials or explorer data. The primary, replica and auxiliary repositories all
 use `verify_peer` and HTTPS hostname matching. Postgrex derives SNI and the expected

@@ -1,4 +1,4 @@
-# <h1 align="center"> Sig-provider </h1>
+# Sig-provider
 
 **Sig-provider** aggregates function and event signatures and returns candidate
 decodings for transaction input and logs. Blockscout uses it to display decoded

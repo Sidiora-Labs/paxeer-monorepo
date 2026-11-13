@@ -1,28 +1,37 @@
-# Explorer database at 500k+ blocks per day
+# Explorer database storage and replication
 
-Operational notes for the Paxeer X Network explorer's PostgreSQL 16 instance: what the new
-migrations change, why range partitioning of `logs` and `token_transfers` cannot be delivered
-without application changes, and how the read-only API endpoint is wired.
+The Paxeer X Network explorer uses PostgreSQL 16 in its local deployment. This
+guide describes storage migrations, the table keys used by the importers,
+read-only API connections and database copying.
 
-## 1. The hot tables as they actually are
+## 1. Hot-table keys and indexes
 
 | table | primary key | foreign keys | access path on block number |
 |---|---|---|---|
 | `blocks` | `(hash)` | — | `blocks_number_index`; `one_consensus_block_at_height` unique on `number` where `consensus` |
 | `transactions` | `(hash)` | `block_hash → blocks(hash)` cascade | `transactions_block_number_index`, `transactions_recent_collated_index (block_number DESC, index DESC)`, four `(address, block_number, index, inserted_at, hash)` composites |
-| `logs` | `(transaction_hash, block_hash, index)` | `block_hash → blocks(hash)`, `transaction_hash → transactions(hash)` cascade | `logs_block_number_ASC__index_ASC_index`, `logs_block_number_DESC__index_DESC_index` |
-| `token_transfers` | `(transaction_hash, block_hash, log_index)` | `block_hash → blocks(hash)`, `transaction_hash → transactions(hash)` cascade | `token_transfers_block_number_index` plus ASC/DESC `(block_number, log_index)` pairs |
-| `internal_transactions` | `(block_hash, block_index)` | `block_hash → blocks(hash)`, `transaction_hash → transactions(hash)` cascade | **none** — the ordering index was dropped upstream and the three surviving `block_number DESC` indexes are all partial and lead with an address column |
+| `logs` | `(transaction_hash, block_hash, index)` | `block_hash → blocks(hash)`, `transaction_hash → transactions(hash)` cascade | `logs_block_number_DESC__index_DESC_index` |
+| `token_transfers` | `(transaction_hash, block_hash, log_index)` | `block_hash → blocks(hash)`, `transaction_hash → transactions(hash)` cascade | `token_transfers_block_number_DESC_log_index_DESC_index` |
+| `internal_transactions` | `(block_number, transaction_index, index)` | `block_hash → blocks(hash)`, `transaction_hash → transactions(hash)` cascade | `internal_transactions_block_number_brin_index` and `internal_transactions_block_number_DESC_transaction_index_DESC_index_DESC_index`; address-specific indexes cover additional queries |
 | `address_coin_balances` | `(address_hash, block_number)` | — | `address_coin_balances_block_number_index` |
 
+The table describes the schema after the background index and key migrations
+complete. Those migrations remove the ascending block-number indexes on `logs`
+and `token_transfers`, remove the single-column token-transfer block-number index,
+and replace the internal-transaction primary key `(block_hash, block_index)`.
+A database still running these migrations can retain the earlier keys and indexes.
+
 Nothing references `logs`, `token_transfers` or `internal_transactions` by foreign key.
-`block_number` is `NOT NULL` only on `address_coin_balances`; on `transactions`, `logs`,
-`token_transfers` and `internal_transactions` it is nullable `integer`.
+`block_number` is `NOT NULL` on `address_coin_balances` and, after the background
+key migration, `internal_transactions`. It remains nullable `integer` on
+`transactions`, `logs` and `token_transfers`.
 
 ## 2. Storage migrations
 
-Three migrations under `backend/apps/explorer/priv/repo/migrations/`, all idempotent and all with a real `down`. None of them takes a lock
-stronger than `SHARE UPDATE EXCLUSIVE`, so they can run against a live indexer.
+Three migrations under `services/explorer/backend/apps/explorer/priv/repo/migrations/`
+provide storage parameters, a BRIN index and statistics targets, each with a
+`down` implementation. They use `SHARE UPDATE EXCLUSIVE` table locks and
+concurrent index operations; run only one migrator against the database.
 
 ### `..._hot_tables_storage_parameters`
 
@@ -54,9 +63,9 @@ stronger than `SHARE UPDATE EXCLUSIVE`, so they can run against a live indexer.
 
 ### `..._internal_transactions_block_number_brin_index`
 
-`internal_transactions` is the one hot table with no access path on `block_number` alone.
-Block-range work — reorg cleanup, the internal-transaction delete queue, re-fetching traces
-for a range — therefore sequentially scans one of the largest tables in the database.
+The migration creates a BRIN access path on `internal_transactions.block_number`
+for block-range queries, including reorganization cleanup, the internal-transaction
+delete queue and trace refetching.
 
 BRIN is the right shape here rather than a btree. Rows arrive in block order, so the physical
 correlation is close to 1 and a summary of a few hundred kilobytes covers a table of hundreds
@@ -65,9 +74,10 @@ whereas a btree on `block_number` would add a page write to every trace inserted
 `pages_per_range = 128` trades some scan precision for a smaller index; `autosummarize = on`
 summarizes new ranges without waiting for a manual `brin_summarize_new_values`.
 
-The index is built `CONCURRENTLY` outside a migration transaction, so the migration never
-blocks writers. If the build is interrupted PostgreSQL leaves an invalid index behind; drop it
-by name and re-run.
+The index is built `CONCURRENTLY` outside a migration transaction, avoiding a
+writer-blocking lock for the full duration of the index build. If the build is interrupted,
+rerunning the migration drops an invalid index with this name before rebuilding
+it and checks that the resulting index is valid.
 
 No BRIN index is added on `logs`, `token_transfers`, `transactions` or `blocks` — each already
 has a btree covering the block number, and a second overlapping access path would buy nothing
@@ -85,7 +95,8 @@ A larger histogram costs a slower `ANALYZE` and nothing else.
 
 **Use a tuning-only migration directory, not a rollback count or a historical target.**
 On a fully migrated database the newest migrations include application and pricefeed schema;
-rolling back three steps in the normal directory selects those, not the March tuning.
+rolling back three steps in the normal directory can select application schema
+instead of these storage migrations.
 `--to` and `--to-exclusive` against that directory also traverse newer migrations and can
 delete indexed application data. Neither is a tuning rollback.
 
@@ -100,8 +111,8 @@ This procedure uses the three existing `down` implementations, in this order:
 #### Prerequisites and before-state
 
 1. Obtain approval for this maintenance operation, a recoverable backup, and a successful
-   rehearsal on an isolated restored database with the same migration state. This runbook's
-   selection has been checked statically; that is not a production rollback rehearsal.
+   rehearsal on an isolated restored database with the same migration state.
+   Verify the selected migration versions and object changes there.
 2. Use the matching, reviewed source release and installed dependencies from
    `services/explorer/backend`, with `MIX_ENV=prod` and the intended primary database
    configuration already set. Confirm the effective `Explorer.Repo` connection, database,
@@ -121,7 +132,7 @@ This procedure uses the three existing `down` implementations, in this order:
    mix ecto.migrations -r Explorer.Repo --prefix public
    ```
 
-   **All three March versions above must be `up` on the initial attempt.** Later versions may
+   **All three storage migration versions above must be `up` on the initial attempt.** Later versions may
    also be `up`; they must remain unchanged. Stop on missing versions, unexplained migration
    history, or a partially applied tuning migration. A known interruption of this procedure
    is handled below, not by guessing a new step count.
@@ -130,7 +141,7 @@ This procedure uses the three existing `down` implementations, in this order:
    and the BRIN index definition/validity. Compare them with the three reviewed migration
    files. Confirm that no subsequent migration or manual tuning repurposed that index,
    changed the affected objects, or introduced a dependency requiring it. These `down`
-   functions reset to defaults, **not to captured pre-March custom values**. If any affected
+   functions reset to defaults, **not to captured previous custom values**. If any affected
    setting must retain a later/custom value, stop and obtain a setting-specific plan instead.
 
 #### Execute only the three tuning downs
@@ -171,7 +182,7 @@ migrations are applied. Recheck this behavior before using a different dependenc
 #### Verify, handle interruption, and keep the rollback in effect
 
 Run the same full `mix ecto.migrations -r Explorer.Repo --prefix public` status command again
-and compare it with the before-state. Exactly the three March versions must change from
+and compare it with the before-state. Exactly the three storage migration versions must change from
 `up` to `down`; every other version must retain its status. Verify the database objects too:
 
 * The seven statistics targets are `-1` (`default_statistics_target`).
@@ -198,16 +209,19 @@ not change deployment defaults or install a new automatically applied migration.
 
 ### Applying to a live database
 
-Use a short `lock_timeout` so a migration can never queue behind a long-running read:
+From `services/explorer/backend`, with the intended production database configured:
 
+```sh
+MIX_ENV=prod mix ecto.migrate
 ```
-PGOPTIONS='-c lock_timeout=5s' mix ecto.migrate
-```
 
-The BRIN migration sets `@disable_ddl_transaction` and `@disable_migration_lock`, so it must
-not be run at the same time as another migrator against the same database.
+The storage-parameter and statistics migrations set `SET LOCAL lock_timeout = '5s'`
+on their own Postgrex transaction connections. A lock timeout aborts the transaction.
+The BRIN migration runs outside a DDL transaction and disables the migration lock;
+configure any required session timeout on its actual migrator connection and
+exclude other migrators for the entire operation.
 
-## 3. Range partitioning of `logs` and `token_transfers`: blocked
+## 3. Table keys and range partitioning
 
 Moving either table to `PARTITION BY RANGE (block_number)` is not possible without changing
 application code: the ORM and the existing unique constraints do not allow it. The blockers are
@@ -217,7 +231,7 @@ structural.
 constraint on a partitioned table to include all partition key columns, so PostgreSQL refuses
 it against this schema:
 
-```
+```text
 CREATE TABLE logs_partitioned (LIKE logs INCLUDING ALL) PARTITION BY RANGE (block_number);
 ERROR:  unique constraint on partitioned table must include all partitioning columns
 DETAIL:  PRIMARY KEY constraint on table "logs_partitioned" lacks column "block_number"
@@ -234,7 +248,7 @@ DETAIL:  PRIMARY KEY constraint on table "logs_partitioned" lacks column "block_
 unique index on exactly those columns, and after (A) no such index can exist. Against a
 partitioned table whose key is widened as (A) demands, PostgreSQL answers:
 
-```
+```text
 INSERT INTO logs_part VALUES (...) ON CONFLICT (transaction_hash, index, block_hash) DO NOTHING;
 ERROR:  there is no unique or exclusion constraint matching the ON CONFLICT specification
 ```
@@ -255,7 +269,7 @@ schema changes the public shape of those structs and is, again, application code
 `NOT NULL` implicitly, which needs a validated backfill over the existing rows and a guarantee
 that no importer path ever writes NULL. Without that, rows are simply rejected:
 
-```
+```text
 ERROR:  no partition of relation "logs_part" found for row
 DETAIL:  Partition key of the failing row contains (block_number) = (null).
 ```
@@ -268,26 +282,12 @@ to keep appearing ahead of the chain head forever. At 500k blocks per day a 10-m
 partition is used up in under three weeks. That needs a scheduled maintenance job (pg_partman
 or an application-side task), which this deployment does not have and which is code as well.
 
-Only the storage migrations of section 2 are in the tree. Partitioning remains a deliberate
-fork-level change to `apps/explorer/lib/explorer/chain/{log,token_transfer}.ex` and
-`apps/explorer/lib/explorer/chain/import/runner/{logs,token_transfers}.ex`, with its own
-migration of the existing data. It should not be slipped in under a storage-tuning change.
-
-### The order to use if that work is taken on
-
-Add `block_number NOT NULL` to both tables behind a `NOT VALID` check validated in the
-background; change the two schemas and the four runner call sites to a key and conflict target
-that include `block_number`; create the partitioned table under a new name with the widened
-key; attach the existing table as the first partition after adding a check constraint matching
-its bounds, so the attach can skip validation; swap the names in one short transaction; then
-run a maintenance job that keeps creating the next partition. Every step before the swap is
-reversible; the swap is not. Note that the two foreign keys on each table point *out* at
-`blocks` and `transactions`, which a partitioned table may keep, and that nothing points back
-at either table — so the foreign keys are not an obstacle, only the keys and the code are.
+The storage migrations in section 2 do not create range partitions. The current
+schemas and importers use the keys described above.
 
 ## 4. Read-only API endpoint
 
-`DATABASE_READ_ONLY_API_URL` is wired end to end and needed no change. The path is:
+`DATABASE_READ_ONLY_API_URL` selects the API read connection through these components:
 
 * `Explorer.Repo.ConfigHelper.get_api_db_url/0` returns it, falling back to `DATABASE_URL`.
 * `config/runtime/prod.exs` feeds that into `Explorer.Repo.Replica1` together with

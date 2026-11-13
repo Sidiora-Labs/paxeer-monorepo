@@ -7,15 +7,13 @@ This blueprint describes the explorer's current account HTTP API. `HOST` is
 the default local backend origin from the explorer Compose stack. For another
 deployment, replace it with the configured explorer backend origin; command
 examples use `EXPLORER_ORIGIN`. Node JSON-RPC URLs are not account API hosts.
-The former account/v1 examples and their upstream POA host are retired.
 
 Paxeer mainnet-beta is one BFT `paxd` network on EVM chain id `125` (`0x7d`);
 its kernel participates in the network and proposes blocks. A receipt is final
 when its block is committed. These account APIs store explorer preferences,
 not chain accounts or finality evidence. Native identities and indexed chain
 APIs are described in the [backend overview](../../README.md#paxeer-x-additions).
-The [explorer overview](../../../README.md) covers deployment and node URLs,
-and [UPSTREAM.md](../../../../../docs/explorer/UPSTREAM.md) records the import provenance.
+The [explorer overview](../../../README.md) covers deployment and node URLs.
 
 Routes come from
 [`AccountRouter`](lib/block_scout_web/routers/account_router.ex), mounted by

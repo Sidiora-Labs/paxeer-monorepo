@@ -8,7 +8,7 @@ Runs Blockscout locally in Docker containers with [docker-compose](https://githu
 - Docker-compose 2.x.x+
 - Running Ethereum JSON RPC client
 
-This is upstream Blockscout's compose setup, kept with the imported backend. The stack this repository maintains for the Paxeer X Network explorer is `../../deploy/docker-compose.local.yml`, described in [the explorer README](../../README.md).
+These are the generic Blockscout Compose presets. The stack this repository maintains for the Paxeer X Network explorer is `../../deploy/docker-compose.local.yml`, described in [the explorer README](../../README.md).
 
 ## Building Docker containers from source
 
@@ -62,7 +62,10 @@ The repo contains built-in configs for different JSON RPC clients without need t
 - Running all microservices: `docker-compose -f microservices.yml up -d`
 - Running only explorer without microservices: `docker-compose -f no-services.yml up -d`
 
-All of the configs assume the Ethereum JSON RPC is running on port 8545 of the Docker host.
+The client presets configure node access through the Docker host. Inspect the
+selected YAML for its HTTP and WebSocket ports; the default preset uses 8545
+for both. It selects chain ID `1337` and the `geth` variant. For Paxeer chain
+125, use the maintained Paxeer stack linked above.
 
 In order to stop launched containers, run `docker-compose -f config_file.yml down`, replacing `config_file.yml` with the file name of the config which was previously launched.
 
@@ -83,14 +86,14 @@ Descriptions of the ENVs are available
 
 Prerequisites are the same, as for docker-compose setup.
 
-Start all containers:
+From `services/explorer/backend`, start all containers:
 
 ```bash
 cd ./docker
 make start
 ```
 
-Stop all containers:
+In a new shell starting at `services/explorer/backend`, stop the application containers:
 
 ```bash
 cd ./docker
@@ -98,3 +101,9 @@ make stop
 ```
 
 ***Note***: Makefile uses the same .env files since it is running docker-compose services inside.
+
+Stop the explorer database separately from `services/explorer/backend/docker`:
+
+```sh
+docker-compose -f ../docker-compose/services/db.yml down
+```
