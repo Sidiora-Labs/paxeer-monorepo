@@ -229,7 +229,7 @@
   },
   "/": {
     "title": "Applications. Payments. Programs. Build on Paxeer.",
-    "description": "Paxeer mainnet-beta runs EVM applications and the embedded LayerX kernel on one BFT network, with native payments, markets and deterministic programs."
+    "description": "The LayerX kernel inside every paxd node executes each transaction on arrival, orders it in one global sequence and returns a signed execution receipt; validators check and commit the blocks it builds."
   },
   "/paid-apis": {
     "title": "Paid APIs and x402",
