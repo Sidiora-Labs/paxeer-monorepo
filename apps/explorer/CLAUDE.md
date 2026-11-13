@@ -18,7 +18,8 @@ yarn lint:cspell            # Spell check
 yarn lint:envs-validator:test  # Validate environment variable schemas
 
 # Testing
-yarn test:vitest            # Unit tests (Vitest, matches **/*.spec.ts(x))
+yarn test:vitest            # Vitest watch mode (matches **/*.spec.ts(x))
+yarn test:vitest:ci         # Run unit tests once
 yarn test:pw                # Playwright component/E2E tests (matches *.pw.tsx)
 yarn test:pw:docker         # Playwright tests in Docker
 
@@ -34,6 +35,7 @@ yarn chakra:typegen         # Regenerate Chakra UI types
 **Stack:** Next.js 15 (Pages Router, not App Router), React 19, Chakra UI v3, React Query 5, Wagmi 2 / Viem 2, Valibot for schema validation, Vitest + Playwright for testing.
 
 **Key directories:**
+
 - `pages/` — Next.js page components (require default exports)
 - `ui/` — React UI components organized by feature (~65 subdirectories)
 - `lib/` — Business logic, API utilities, custom hooks, context providers
@@ -49,7 +51,8 @@ yarn chakra:typegen         # Regenerate Chakra UI types
 
 ## Design System Rules
 
-These are enforced by ESLint and must be followed:
+The component wrappers, imports and tokens are defined in `toolkit/` and
+[`eslint.config.mjs`](eslint.config.mjs):
 
 - **Always import from `toolkit/chakra/**`** before falling back to native Chakra UI. If a custom version exists in `toolkit/chakra/`, use it.
 - **Never use hardcoded colors** (RGB, hex). Use semantic color tokens from `toolkit/theme/foundations/semanticTokens.ts` and `toolkit/theme/foundations/colors.ts` (e.g., `text.secondary`, `border.divider`, `icon.secondary`).
@@ -86,7 +89,7 @@ When adding, renaming, or removing an environment variable, all of the following
 1. `../../docs/explorer/ENVS.md` — document name, type, whether required, default, and example
 2. `configs/app/` — add to the appropriate section (`features/`, `ui.ts`, `api.ts`, etc.)
 3. `deploy/tools/envs-validator/schema.ts` — add/update validation schema
-4. `deploy/tools/envs-validator/test/.env.base` — add to test presets
+4. `configs/envs/` — update the affected tracked deployment presets
 5. `nextjs/csp/policies/` — update CSP if the variable references an external (non-asset) URL
 6. `deploy/scripts/download_assets.sh` — add to `ASSETS_ENVS` if it's an asset URL
 7. If it's a JSON config URL: add example to `deploy/tools/envs-validator/test/assets/configs/` and extend `envsWithJsonConfig` in `deploy/tools/envs-validator/index.ts`
@@ -95,7 +98,11 @@ When adding, renaming, or removing an environment variable, all of the following
 
 **Vitest** (unit): Files named `*.spec.ts` / `*.spec.tsx`. Run a single file with `yarn test:vitest path/to/file.spec.ts`.
 
-**Playwright** (component/E2E): Files named `*.pw.tsx`. Three test projects run against each test: `default` (desktop Chrome 1200×750), `mobile` (iPhone 13 Pro), `dark-color-mode`. Tag tests with `@mobile` or `@dark-mode` to target specific projects; use `-@default` to exclude desktop.
+**Playwright** (component/E2E): Files named `*.pw.tsx`. The projects are
+`default` (desktop Chrome 1200×750), `mobile` (iPhone 13 Pro) and
+`dark-color-mode`. The mobile and dark projects select names containing
+`+@mobile` and `+@dark-mode`, respectively; `-@default` excludes the desktop
+project. See [playwright-ct.config.ts](playwright-ct.config.ts).
 
 - Use roles, test IDs, and text content as selectors — never CSS class selectors.
 - Import mock values from existing files in `mocks/` rather than hardcoding them.

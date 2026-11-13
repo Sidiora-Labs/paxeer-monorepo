@@ -15,7 +15,7 @@ finality.
 
 ## Getting Started
 
-Use the package's pinned package manager, `pnpm@12.15.0`, and run these commands
+Use the package's pinned package manager, `pnpm@10.34.9`, and run these commands
 from this directory:
 
 ```bash
@@ -134,11 +134,12 @@ Once ready, switch to Paxeer to claim a deposit or to the destination EVM chain
 to release a withdrawal. Missing or mismatched attestations must be resolved at
 the backend or deployment configuration before submission.
 
-A submitted claim or release hash is saved immediately and can make the local UI
-show completion before confirmation. Verify the destination receipt before
-treating a payout as complete. If it reverts or remains pending, inspect that
-transaction and the on-chain nullifier state before retrying. Importing an
-already tracked transfer preserves its existing local record.
+A submitted claim or release hash is saved immediately, and the transfer stays
+settling while its result is pending. Completion requires the destination
+nullifier or verified Solana release record. Reverted or dropped EVM attempts
+show a retry action; a transaction absent for two minutes is classified as
+dropped. Inspect the destination receipt and nullifier before retrying.
+Importing an already tracked transfer preserves its existing local record.
 
 ## Learn More
 

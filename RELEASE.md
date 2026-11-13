@@ -10,12 +10,8 @@ Applying a release to a running network requires the matching governance upgrade
 handler. The release tooling lives in [`tools/release`](tools/release). Release **v7.0.0** carries
 plan **v7.0**, registered as `MergeUpgrade` in [`node/upgrades.go`](node/upgrades.go).
 Use the [merged-network activation runbook](docs/runbooks/paxeer-x-fork.md) for that plan.
-The `v6.12.0` fleet scripts remain specific to their historical plan.
-
-The v6.12.0 migration includes the SID holder migration and SID mint-authority move
-as steps of the upgrade handler in [`node/upgrades_v6120.go`](node/upgrades_v6120.go).
-These steps migrate the legacy SID balances to usid and move its mint authority to the
-bridge module account; they ship together in the v6.12.0 release.
+The rehearsal and fleet tools read the release version and plan from
+`tools/release/version.json`.
 
 ## Release identity
 
@@ -29,20 +25,20 @@ bridge module account; they ship together in the v6.12.0 release.
   it.
 - The `Paxeer / Release Check` workflow ([`.github/workflows/paxeer-release-check.yml`](.github/workflows/paxeer-release-check.yml))
   runs on pull requests that touch the node, the release tooling or the price sidecar. For 7.0.0,
-  it must refuse a version that is not semantic, an `upgrade` name that is not a registered node plan,
+  it rejects a version that is not semantic, an `upgrade` name other than the declared
+  `MergeUpgrade`, `AnchorStoreDeleteUpgrade` or `V6120Upgrade`,
   a tag that already exists, or a version that is not newer than the latest `paxeer-network/v*` tag,
   and then runs the
   reproducibility check. On pull requests it also checks consensus-changing commits against
-  [the consensus commit policy](docs/release/consensus-commits.md). The identity check must
-  accept `MergeUpgrade` (`v7.0`) for this release; changing `version.json` alone
-  does not establish that the workflows and plan-info generation match the merge handler.
+  [the consensus commit policy](docs/release/consensus-commits.md).
 
 ## Building a release
 
 `tools/release/build-paxd.sh` builds the release from the current checkout. Its only flag is
 `--print-tag`; the merged package uses `PAXD_DIST_DIR` (output directory), `PAXD_COMMIT` (version
-metadata and commit-date source) and `SOURCE_DATE_EPOCH` from the environment. `PAXD_COMMIT` does
-not check out that revision: build from the intended tag's checkout.
+metadata and commit-date source) and `SOURCE_DATE_EPOCH` from the environment.
+`PAXD_COMMIT` must resolve to `HEAD`; the builder requires a clean checkout,
+including no untracked source files. Build from the intended tag's checkout.
 
 The kernel and program runtime are linked into `paxd`; no separate kernel-daemon artifact is
 built or published. Build the merged package:
@@ -53,7 +49,7 @@ tools/release/reproducible-check.sh
 ```
 
 - Toolchains are pinned and checked before anything builds: Go must equal the `go` line of `go.mod`
-  (`GOTOOLCHAIN=local`), `rustc` the channel of `rust-toolchain.toml`, and the C compiler the
+  (`GOTOOLCHAIN=local`), `rustc` the channel of `rust-toolchain.toml`, and both the C and C++ compilers the
   `CC_VERSION` of `tools/release/toolchain.env`.
 - The kernel and programs native libraries are built with `make paxd-native-libs` and their hashes
   recorded in `native-libs.sha256`.
@@ -74,6 +70,7 @@ Output goes to `dist/paxeer-network/vX.Y.Z/` (or `PAXD_DIST_DIR`):
 - `upgrade-info.json`, written by `tools/release/upgrade_info.py release`: the plan name and the
   download URL of the linux/amd64 `paxd` asset with its sha256, the document a governance upgrade
   proposal carries;
+- `source-revision.txt`, containing the full source commit;
 - `SHA256SUMS` over every other file.
 
 `tools/release/reproducible-check.sh` builds twice into separate directories, removes the kernel
@@ -85,8 +82,8 @@ linux/amd64 build host for the complete release package.
 
 ## Publishing
 
-1. Before publishing v7.0.0, require the release workflows and build tests to use the merged
-   package above, with plan `v7.0` and the genesis info required by `mergeUpgradePlan`.
+1. Prepare plan `v7.0` with the leader and receipt-key information required by
+   `mergeUpgradePlan` in [`node/upgrades.go`](node/upgrades.go).
 2. Open a pull request that sets `version` and `upgrade` in `tools/release/version.json`, with the
    upgrade handler registered under that name. `Paxeer / Release Check` validates the identity and
    runs the reproducibility check.
@@ -115,8 +112,7 @@ linux/amd64 build host for the complete release package.
 
 ## Verifying a published binary
 
-Anyone can rebuild a tag and compare the merged package. For a historical tag, inspect its build
-script and asset list first; its package may include retired components.
+Rebuild a tag with its build script and compare the resulting release package.
 
 ```sh
 git clone https://github.com/Sidiora-Labs/paxeer-monorepo.git
@@ -131,9 +127,27 @@ Build on linux/amd64 with the pinned Go, Rust and C toolchains. An empty diff me
 files are the ones the tag builds. To check downloaded files without rebuilding, run
 `sha256sum --check SHA256SUMS` in the download directory.
 
+## Merge plan information
+
+The builder's `upgrade-info.json` contains the plan name and a `binaries` map
+inside its JSON-encoded `info` field. The `v7.0` handler also requires leader
+public keys and receipt-key entries with height ranges.
+[`upgrade_info.py`](tools/release/upgrade_info.py) generates these fields with
+`plan-info --leader <public-key> --receipt-key <JSON-entry>`; repeat both flags
+as needed. Leader order is primary first. JSON byte fields use base64.
+`last_seq` and `last_seq_hash` start at zero, and the receipt keys must cover
+the first sequenced height. `--plan-height` validates coverage at that height
+plus one; `--activation-height` additionally checks the activation height.
+
+`plan-info --release-doc <release-document>` includes the published binary map.
+`release --plan-info <plan-file>` can include the validated plan fields in a
+release document. `node --plan-info <plan-file>` and `swap.sh --plan-info <plan-file>`
+consume them when the release document does not already carry them.
+The governance proposal and node configuration use matching plan information.
+
 ## Rehearsing the upgrade
 
-`tools/release/rehearse-v6120.sh` rehearses the v6.12.0 plan on a local four-validator network built
+`tools/release/rehearse-v6120.sh` rehearses the configured plan on a local four-validator network built
 from real chain state. It exports a stopped full node's data with the previous
 binary, rewrites the genesis to local validator keys, halts the network with `--halt-height`, archives
 every home with `snapshot.sh`, writes the node upgrade file and restarts on the release candidate. It
@@ -142,11 +156,13 @@ the feed keys and fresh sidecar prices, the programme checks and the block hashe
 and finally runs `rollback.sh --execute` and requires the restored chain to resume on the previous
 binary. Inputs come from flags or from a filled copy of
 [`tools/release/env/rehearsal.env.example`](tools/release/env/rehearsal.env.example) passed with
-`--env-file`; `--check` validates the inputs and touches nothing, and `--receipt` writes the receipt
+`--env-file`. Plan `v7.0` additionally requires `--plan-info <file>` with rehearsal
+leaders and receipt keys. `--check` validates inputs, syntax and required tools
+without starting the network; `--receipt` writes the receipt
 that `fleet_check.py` reads later. Run it with `--help` for every flag. The rollback leg runs on an
 isolated fork with a different consensus chain identity, fresh validator keys and loopback peers;
 it does not authorize restoring a live network to a pre-upgrade snapshot. Price sidecars still need
-their configured feed service. This rehearsal does not prove a different upgrade plan.
+their configured feed service. The result applies to the configured plan and binaries.
 
 ## Rolling out to a fleet
 
@@ -159,9 +175,9 @@ role-specific lists may be empty. `CHAIN_ID` is the Cosmos consensus chain ID, d
 EVM chain ID `125`.
 Each script takes `--env-file`, most take `--receipt <file>` to write a JSON receipt of the step, and
 `--service-manager systemd|foreground` where they start or stop nodes (default `systemd`). The
-complete step-by-step procedure, with the operator inputs and the checks after each step, is the
-[v6.12.0 rollout runbook](spec/release-v6-12-0/docs/rollout-runbook.md). These scripts carry the
-`v6.12.0` file names and plan name; use them only with that plan and its matching candidate.
+merge activation procedure is in the
+[merged-network runbook](docs/runbooks/paxeer-x-fork.md). Keep the input release
+identity, checksums and plan information consistent with the configured candidate.
 
 The order of a rollout:
 
@@ -186,8 +202,9 @@ The order of a rollout:
    `data/upgrade-info.json` into each home at upgrade height `H + 1` (through `upgrade_info.py node`),
    resets `halt-height` to `0`, swaps the binary after checksum and shared-library checks, starts
    the units and waits for each node to report ready. `--halt-height` and `--release-doc` select
-   the halt height and release document; `--verify`
-   re-checks a swapped host. `fleet_check.py --phase validators` follows.
+   the halt height and release document. For `v7.0`, pass `--plan-info <file>`
+   unless that document already contains the leader and receipt-key fields.
+   `--verify` re-checks the selected node homes. `fleet_check.py --phase validators` follows.
 6. **Price sidecars.** Each validator operator creates a feed key with
    `feed_key.py new --out <key file>`, registers it with the price feed precompile using the call data
    that `feed_key.py payload <public key>` prints, and starts its price sidecar from the unit and
@@ -235,12 +252,12 @@ the operator-input and receipt checks.
 - [ ] Release workflow and build-test configuration use only the merged artifact set, and the plan
       validation matches the intended upgrade handler.
 - [ ] `Paxeer / Release Publish` is green and the release carries `paxd`, the price sidecar,
-      the three linux/amd64 libwasmvm libraries, `native-libs.sha256`, `upgrade-info.json` and
-      `SHA256SUMS`.
+      the three linux/amd64 libwasmvm libraries, `native-libs.sha256`, `source-revision.txt`,
+      `upgrade-info.json` and `SHA256SUMS`.
 - [ ] `verify-release.sh` passed on the build host, and at least one maintainer rebuilt the tag and got
       the same `SHA256SUMS`.
 - [ ] The upgrade rehearsal passed on the release candidate and its receipt is kept for
       `fleet_check.py`.
-- [ ] The governance upgrade proposal names the `upgrade` plan and carries `upgrade-info.json`, and
-      validators had the release URL and hashes before the vote ended.
+- [ ] The governance upgrade proposal names the `upgrade` plan and carries the binary map and
+      validated merge plan information, and validators have the matching release URL and hashes.
 - [ ] The rollout pins the published `paxd` sha256.

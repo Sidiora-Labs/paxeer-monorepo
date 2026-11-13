@@ -3,24 +3,27 @@
 The header chooses an account UI or wallet UI from `config.features.account`
 and `config.features.blockchainInteraction`. Accounts can be used without a
 connected wallet. These are explorer account and wallet controls for the same
-Paxeer network described in the [release notes](../../../../../docs/explorer/RELEASE_NOTES.md).
+Paxeer network described in the [explorer guide](../../../README.md).
 
 ## Provider selection
 
 [UserProfileDesktop.tsx](./UserProfileDesktop.tsx), used by
-[HeaderDesktop](../header/HeaderDesktop.tsx), selects the desktop component.
-[HeaderMobile](../header/HeaderMobile.tsx) performs the same dispatch for mobile:
+[HeaderDesktop](../header/HeaderDesktop.tsx), selects the component.
+[HeaderMobile](../header/HeaderMobile.tsx) opens a menu through
+[Burger](../header/Burger.tsx); its
+[NavigationMobile](../navigation/mobile/NavigationMobile.tsx) uses the same
+`UserProfileDesktop` selector.
 
-| Account feature | Blockchain interaction | Desktop | Mobile |
-| --- | --- | --- | --- |
-| Enabled, `authProvider: 'auth0'` | Either | `profile/auth0/UserProfileDesktop` | `profile/auth0/UserProfileMobile` |
-| Enabled, `authProvider: 'dynamic'` | Either | `profile/dynamic/UserProfile` | `profile/dynamic/UserProfile` |
-| Disabled | Enabled | `wallet/UserWalletDesktop` | `wallet/UserWalletMobile` |
-| Disabled | Disabled | No user control | No user control |
+| Account feature | Blockchain interaction | Selected component |
+| --- | --- | --- |
+| Enabled, `authProvider: 'auth0'` | Either | `profile/auth0/UserProfileDesktop` |
+| Enabled, `authProvider: 'dynamic'` | Either | `profile/dynamic/UserProfile` |
+| Disabled | Enabled | `wallet/UserWalletDesktop` |
+| Disabled | Disabled | No user control |
 
 Account selection takes priority. An unrecognized account provider returns
 `null`; the wallet fallback is reached only when the account feature is disabled.
-Dynamic's component is loaded with `ssr: false` in both headers.
+Dynamic's component is loaded with `ssr: false` by that shared selector.
 
 ## Configuration
 
@@ -84,8 +87,8 @@ by Auth0 profile content when blockchain interaction is enabled and by the
 Dynamic wallet popover. It shows the connected address and wallet settings, or a
 Connect action when disconnected.
 
-The wallet-only [desktop](./wallet/UserWalletDesktop.tsx) and
-[mobile](./wallet/UserWalletMobile.tsx) components share
+The wallet-only [desktop](./wallet/UserWalletDesktop.tsx) component and the
+separate [mobile](./wallet/UserWalletMobile.tsx) component share
 [UserWalletMenuContent](./wallet/UserWalletMenuContent.tsx), which provides the
 address, wallet settings and disconnect action. They open the wallet connection
 UI when no wallet is connected. These components use the connector selected by

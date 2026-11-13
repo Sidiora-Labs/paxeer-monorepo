@@ -7,7 +7,9 @@ paths, queries and fragments are refused. This setting does not change the perps
 gateway or node RPC origin.
 
 The validated gateway catalog loaded by `loadPerpsMarkets` replaces the bootstrap
-chart symbol set through `registerVenueSymbols`. Chart search and UDF routing then
+chart symbol set through
+[`registerVenueSymbols`](net/venueStream.ts) and
+[`registerCandleFeedSymbols`](feeds.ts). Chart search and UDF routing then
 use that same catalog, including newly listed markets. Route symbols must contain
 only ASCII letters and digits; `PERP_<symbol>_USDC` and `<symbol>/USD` chart names
 are normalized before lookup. Catalog membership permits a request; the history
@@ -27,4 +29,4 @@ it makes no claim about live availability. `NEXT_PUBLIC_PAXEER_RPC_URLS` replace
 the set with a comma-separated operator list. `NEXT_PUBLIC_PAXEER_RPC_URL` puts
 one operator URL ahead of the defaults. Duplicates, empty entries and legacy
 hosts are filtered; a list containing only legacy hosts uses the existing
-single-URL/default selection. No live probe is needed to verify this contract.
+single-URL/default selection.
