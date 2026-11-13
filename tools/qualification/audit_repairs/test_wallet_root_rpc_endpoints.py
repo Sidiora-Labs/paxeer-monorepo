@@ -104,7 +104,7 @@ def test_015_shell_syntax_and_guarded_root_transport():
         'print(json.load(open(sys.argv[1]))["endpoints"][sys.argv[2]])',
         "printf 'http://127.0.0.1:%s/' \"$endpoint_port\"",
         'run_checker "$(endpoint_base "$profile")" endpoint',
-        'CHECK_LIVE_ENDPOINT_BASE="$1" CHECK_LIVE_TIMEOUT=5 "$checker" "${@:2}" 2>&1',
+        'CHECK_LIVE_NODE_RPC_URL="$1" CHECK_LIVE_TIMEOUT=5 "$checker" "${@:2}" 2>&1',
         '[ "$status" -eq "$want_status" ] || ok=0',
         'grep -qF -- "$line" <<<"$output" || ok=0',
         'failures=$((failures + 1))',
