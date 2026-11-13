@@ -34,9 +34,10 @@ The native Windows host is alpha. It runs from the Windows desktop installer or
 ## Mobile app
 
 [`apps/mobile`](../../../tools/hyperfide/apps/mobile) is the iOS and Android client for a hyperfide platform server.
-It runs no agents, host daemon, or plugins itself: it loads the server's web
-app and adds native screens for pairing, saved servers, device settings, and
-push registration. Install it from Settings → Mobile (iOS TestFlight or the
+It loads the server's web app, including plugin frontend components, in a
+WebView. Its native shell adds pairing, saved servers, device settings, and
+push registration; agents and host daemons run on enrolled hosts. Install it
+from Settings → Mobile (iOS TestFlight or the
 Android APK; see [configuration.md](configuration.md)).
 
 - **Direct** mode takes any `http(s)://` URL the phone can reach. It is

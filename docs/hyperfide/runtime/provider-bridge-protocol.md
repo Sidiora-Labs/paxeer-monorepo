@@ -40,12 +40,11 @@ spaces.
 
 Hygiene rules:
 
-- An undecodable or schema-invalid request is answered with
-  `INVALID_PARAMS (-32602)` carrying the validation issues. Never silently
-  dropped — a dropped request is an undebuggable 30-second timeout.
+- A recognized request with schema-invalid parameters is answered with
+  `INVALID_PARAMS (-32602)` carrying the validation issues.
 - An unrecognized method is answered with `METHOD_NOT_FOUND (-32601)`.
-- Anything written to stdout that is not protocol traffic is ignored by the
-  reader; bridges must guard stdout against stray writes.
+- Lines that cannot be parsed as JSON-RPC are ignored by the reader. Stdout
+  carries protocol traffic; diagnostic output belongs on stderr.
 
 ## Versioning and capabilities
 
@@ -129,7 +128,7 @@ shape, streamed text (`item.textDelta`/`item.textClose`), `usage`,
 `contextWindow`, errors/warnings, `unhandled` diagnostics, session lifecycle
 (`session.reset`, `session.ended`) — never a raw provider event and never a
 finished `ThreadEvent`. The schemas in
-`@hyperfide/provider-bridge-protocol/src/thread-delta.ts` are the source of truth
+`core/provider-bridge-protocol/src/thread-delta.ts` are the source of truth
 for the grammar.
 
 The runtime's **delta assembler** (one per bridge adapter) consumes the
@@ -235,8 +234,8 @@ reasoningSummary | plan, text }` synthesizes the channel's `item/started`
 The current grammar (`grammarVersions: [3, 3]`) includes:
 
 - **Core item shapes** `fileRead`, `search` (`mode: content | path | list`),
-  `imageGeneration` (`prompt`, `path`, optional retained `result`, `error`,
-  and `transparentBackground`), `delegation` (`childRef`, `label`,
+  `imageGeneration` (nullable `prompt`, `path`, and `error`, required
+  `transparentBackground`, and optional retained `result`), `delegation` (`childRef`, `label`,
   `background`, `summary?`; one shape for codex `spawnAgent`/`wait`, the
   Claude `Agent` tool, and backgrounded agents), and `planSteps` (a
   structured plan snapshot as an item).
@@ -623,12 +622,11 @@ recordings stay out of git.
 `core/provider-bridge-protocol/recordings/row-counts.json` pins each cell's
 event, row, `provider/unhandled`, and grammar-drop counts;
 `parity.self.test.ts` checks the pins and replays every cell through the
-current bridge on each commit, and `UPDATE_PARITY_ROW_COUNTS=1` rewrites the
-pins deliberately. `pnpm parity` compares two checkouts
-([debugging-and-qa.md](debugging-and-qa.md)); differences a migration PR
-intends go in `core/provider-bridge-protocol/recordings/parity-allowlist.json` with the PR and reason, and
-an entry that masks nothing fails the run. A recording is never rewritten:
-when a bridge change alters its output,
+current bridge. `UPDATE_PARITY_ROW_COUNTS=1` writes the counts from that run.
+`pnpm parity` compares two checkouts
+([debugging-and-qa.md](debugging-and-qa.md)) using
+`core/provider-bridge-protocol/recordings/parity-allowlist.json`;
+an entry that matches no difference fails the run.
 `pnpm --filter @hyperfide/provider-parity rerecord [--plan-with <checkout>]` writes
 `bridge→runtime.current.ndjson` beside the recorded lane, and the self-suite
 compares against that file when it exists. `pnpm parity --dump-dir <dir>`
