@@ -1,10 +1,8 @@
-//! Repair 22.33.1557. Finding/test mappings and out-of-scope wiring requests
-//! are recorded in `src/repair_22_33_1557.kvx`. Qualification evidence is supplied
-//! by the runner's gate ledger, including the exact candidate revision.
+//! Receipt and inclusion evidence retain their bounds through offline export codecs.
 
 // Preserve the existing real inclusion producer/consumer assertions for all
 // three retained constructors, including state evidence, in this focused gate.
-#[path = "repair_22_31_226.rs"]
+#[path = "certificate_retirement.rs"]
 mod retained_certificate_retirement;
 #[path = "export_complete.rs"]
 mod retained_complete_export;
@@ -53,7 +51,7 @@ const GENESIS: &[u8] = include_bytes!("fixtures/signed-authority/genesis.bin");
 const HEADERS: &[u8] = include_bytes!("fixtures/signed-authority/headers.bin");
 
 fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
-    result.unwrap_or_else(|error| panic!("repair 22.33.1557: {error:?}"))
+    result.unwrap_or_else(|error| panic!("receipt evidence: {error:?}"))
 }
 
 fn receipt_record() -> ReceiptRecord {

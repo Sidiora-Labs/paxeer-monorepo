@@ -18,7 +18,7 @@ assertions = "All ten ABI3/4 outcomes, signed activities, exact profiles, sequen
 qualification = "The verified candidate revision, exact command, exit code and private evidence path are recorded by hf-build and hf-done in /out/run/gates.jsonl."
 verified_revision_ref = "/out/run/gates.jsonl: final verify.revision"
 build_command = "cargo build --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --lib --tests"
-verify_command = "test -s services/agent/crates/layerx-sdk/repair_22_39_310.kvx && test -s services/agent/crates/layerx-sdk/tests/fixtures/program-terminal-v5-corpus.json && cargo test --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --lib -- --exact programs::http::source_contract::v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes"
+verify_command = "test -s spec/layerx-merge/programme/records/services/agent/crates/layerx-sdk/repair_22_39_310.kvx && test -s services/agent/crates/layerx-sdk/tests/fixtures/program-terminal-v5-corpus.json && cargo test --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --lib -- --exact programs::http::source_contract::v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes"
 
 [gotcha.recording]
 symptom = "The qualification producer requires an entirely clean checkout, including runner bookkeeping."

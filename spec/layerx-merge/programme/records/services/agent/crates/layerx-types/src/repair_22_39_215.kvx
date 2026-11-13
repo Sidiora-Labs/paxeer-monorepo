@@ -19,12 +19,12 @@ symptom = "The first tree-sitter binding version crashed during source traversal
 repair = "Use tree-sitter 0.25.2 for the local Rust grammar; continue the existing implementation without rerunning gates."
 
 [repair.fixture_conversions]
-files = ["tests/repair_22_33_1542.rs", "tests/support/recorded_commit.rs", "tests/support/rung_cases.rs"]
+files = ["tests/program_admission_chain_trust.rs", "tests/support/recorded_commit.rs", "tests/support/rung_cases.rs"]
 lints = ["clippy::cast_possible_truncation", "clippy::cast_lossless", "clippy::unwrap_used", "clippy::expect_used"]
 repair = "Use fallible bounded length/rank conversions, byte extraction for base64, and explicit failure diagnostics; assertion conditions stay intact."
 
 [repair.compatibility]
-files = ["src/verify.rs", "tests/repair_22_33_1542.rs", "tests/support/rung_cases.rs"]
+files = ["src/verify.rs", "tests/program_admission_chain_trust.rs", "tests/support/rung_cases.rs"]
 lint = "deprecated"
 repair = "Retain legacy decoding coverage with a reason on each compatibility test that uses the deprecated decoder."
 
@@ -3161,145 +3161,145 @@ lint = "clippy::unreadable_literal"
 repair = "Group numeric digits without changing their value."
 
 [inventory.523]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 44
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
 
 [inventory.524]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 45
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
 
 [inventory.525]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 47
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
 
 [inventory.526]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 65
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
 
 [inventory.527]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 67
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
 
 [inventory.528]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 69
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
 
 [inventory.529]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 92
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
 
 [inventory.530]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 128
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
 
 [inventory.531]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 130
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
 
 [inventory.532]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 132
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
 
 [inventory.533]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 148
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
 
 [inventory.534]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 165
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
 
 [inventory.535]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 166
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
 
 [inventory.536]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 168
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
 
 [inventory.537]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 169
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
 
 [inventory.538]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 185
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
 
 [inventory.539]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 189
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
 
 [inventory.540]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 195
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
 
 [inventory.541]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 230
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
 
 [inventory.542]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 256
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
 
 [inventory.543]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 264
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
 
 [inventory.544]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 279
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
 
 [inventory.545]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 280
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
 
 [inventory.546]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 68
 lint = "clippy::unwrap_used"
 repair = "Retain fail-fast behavior with an explicit panic diagnostic."
@@ -9460,7 +9460,7 @@ lint = "clippy::similar_names"
 repair = "Restore Fe::invert from the original independent verifier; remove the unused import, distinguish intermediate powers, return final expressions directly, split canonicalization from byte encoding and extract low limb/byte conversions. Retain the public borrowed encoding signature with one item-level allowance and a reason."
 
 [attempt_2.inventory.19]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 123
 lint = "clippy::large_stack_arrays"
 repair = "Allocate the 65535-byte hook fixture on the heap with identical bytes and length; every boundary assertion remains intact."
@@ -9658,13 +9658,13 @@ lint = "clippy::missing_errors_doc"
 repair = "Link the actual API crate as a dev dependency instead of compiling its modules inside the integration test; keep the same public consumer types and assertions."
 
 [attempt_2.inventory.52]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1548.rs"
+file = "services/agent/crates/layerx-types/tests/consumer_proof_rungs.rs"
 line = 1
 lint = "clippy::doc_markdown"
 repair = "Backtick Rust module names and the adjacent record filename in documentation."
 
 [attempt_2.inventory.53]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1548.rs"
+file = "services/agent/crates/layerx-types/tests/consumer_proof_rungs.rs"
 line = 2
 lint = "clippy::doc_markdown"
 repair = "Backtick Rust module names and the adjacent record filename in documentation."
@@ -9842,29 +9842,29 @@ command = "cargo clippy --locked --manifest-path services/agent/Cargo.toml -p la
 exit = 101
 log = "/out/logs/inventory-22.39.215-1.log"
 unique_diagnostic_count = 81
-counts_by_file = "services/agent/crates/layerx-agent-api/src/identity.rs: 26; services/agent/crates/layerx-agent-api/src/native_send.rs: 8; services/agent/crates/layerx-types/tests/errors.rs: 1; services/agent/crates/layerx-types/tests/repair_22_33_1542.rs: 1; services/agent/crates/layerx-types/tests/repair_22_33_1548.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/head_verify.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/header.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/merkle.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/tx.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/validators.rs: 1; services/agent/crates/layerx-types/tests/support/independent/edwards25519.rs: 14; services/agent/crates/layerx-types/tests/support/independent/field25519.rs: 18; services/agent/crates/layerx-types/tests/support/independent/mod.rs: 1; services/agent/crates/layerx-types/tests/support/independent/sha512.rs: 2; services/agent/crates/layerx-types/tests/support/proof_cases.rs: 1; services/agent/crates/layerx-types/tests/support/recorded_commit.rs: 1"
+counts_by_file = "services/agent/crates/layerx-agent-api/src/identity.rs: 26; services/agent/crates/layerx-agent-api/src/native_send.rs: 8; services/agent/crates/layerx-types/tests/errors.rs: 1; services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs: 1; services/agent/crates/layerx-types/tests/consumer_proof_rungs.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/head_verify.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/header.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/merkle.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/tx.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/validators.rs: 1; services/agent/crates/layerx-types/tests/support/independent/edwards25519.rs: 14; services/agent/crates/layerx-types/tests/support/independent/field25519.rs: 18; services/agent/crates/layerx-types/tests/support/independent/mod.rs: 1; services/agent/crates/layerx-types/tests/support/independent/sha512.rs: 2; services/agent/crates/layerx-types/tests/support/proof_cases.rs: 1; services/agent/crates/layerx-types/tests/support/recorded_commit.rs: 1"
 
 [attempt_2.measurement.2]
 command = "cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-types --no-deps --all-targets -- -D warnings"
 exit = 101
 log = "/out/logs/inventory-22.39.215-2.log"
 unique_diagnostic_count = 46
-counts_by_file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs: 1; services/agent/crates/layerx-types/tests/repair_22_33_1548.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/head_verify.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/header.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/merkle.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/tx.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/validators.rs: 1; services/agent/crates/layerx-types/tests/support/independent/edwards25519.rs: 14; services/agent/crates/layerx-types/tests/support/independent/field25519.rs: 18; services/agent/crates/layerx-types/tests/support/independent/mod.rs: 1; services/agent/crates/layerx-types/tests/support/independent/sha512.rs: 2; services/agent/crates/layerx-types/tests/support/proof_cases.rs: 1; services/agent/crates/layerx-types/tests/support/recorded_commit.rs: 1"
+counts_by_file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs: 1; services/agent/crates/layerx-types/tests/consumer_proof_rungs.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/head_verify.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/header.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/merkle.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/tx.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/validators.rs: 1; services/agent/crates/layerx-types/tests/support/independent/edwards25519.rs: 14; services/agent/crates/layerx-types/tests/support/independent/field25519.rs: 18; services/agent/crates/layerx-types/tests/support/independent/mod.rs: 1; services/agent/crates/layerx-types/tests/support/independent/sha512.rs: 2; services/agent/crates/layerx-types/tests/support/proof_cases.rs: 1; services/agent/crates/layerx-types/tests/support/recorded_commit.rs: 1"
 
 [attempt_2.refreshed_lint.2_1]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 123
 lint = "clippy::large_stack_arrays"
 repair = "Allocate the 65535-byte hook fixture on the heap with identical bytes and length; every boundary assertion remains intact."
 
 [attempt_2.refreshed_lint.2_2]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1548.rs"
+file = "services/agent/crates/layerx-types/tests/consumer_proof_rungs.rs"
 line = 1
 lint = "clippy::doc_markdown"
 repair = "Backtick Rust module names and the adjacent record filename in documentation."
 
 [attempt_2.refreshed_lint.2_3]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1548.rs"
+file = "services/agent/crates/layerx-types/tests/consumer_proof_rungs.rs"
 line = 2
 lint = "clippy::doc_markdown"
 repair = "Backtick Rust module names and the adjacent record filename in documentation."
@@ -10132,22 +10132,22 @@ command = "cargo clippy --locked --manifest-path services/agent/Cargo.toml -p la
 exit = 101
 log = "/out/logs/inventory-22.39.215-3.log"
 unique_diagnostic_count = 62
-counts_by_file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs: 1; services/agent/crates/layerx-types/tests/repair_22_33_1548.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/head_verify.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/header.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/merkle.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/tx.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/validators.rs: 1; services/agent/crates/layerx-types/tests/support/independent/edwards25519.rs: 30; services/agent/crates/layerx-types/tests/support/independent/field25519.rs: 18; services/agent/crates/layerx-types/tests/support/independent/mod.rs: 1; services/agent/crates/layerx-types/tests/support/independent/sha512.rs: 2; services/agent/crates/layerx-types/tests/support/proof_cases.rs: 1; services/agent/crates/layerx-types/tests/support/recorded_commit.rs: 1"
+counts_by_file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs: 1; services/agent/crates/layerx-types/tests/consumer_proof_rungs.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/head_verify.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/header.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/merkle.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/tx.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/validators.rs: 1; services/agent/crates/layerx-types/tests/support/independent/edwards25519.rs: 30; services/agent/crates/layerx-types/tests/support/independent/field25519.rs: 18; services/agent/crates/layerx-types/tests/support/independent/mod.rs: 1; services/agent/crates/layerx-types/tests/support/independent/sha512.rs: 2; services/agent/crates/layerx-types/tests/support/proof_cases.rs: 1; services/agent/crates/layerx-types/tests/support/recorded_commit.rs: 1"
 
 [attempt_2.refreshed_lint.3_1]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 123
 lint = "clippy::large_stack_arrays"
 repair = "Allocate the 65535-byte hook fixture on the heap with identical bytes and length; every boundary assertion remains intact."
 
 [attempt_2.refreshed_lint.3_2]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1548.rs"
+file = "services/agent/crates/layerx-types/tests/consumer_proof_rungs.rs"
 line = 1
 lint = "clippy::doc_markdown"
 repair = "Backtick Rust module names and the adjacent record filename in documentation."
 
 [attempt_2.refreshed_lint.3_3]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1548.rs"
+file = "services/agent/crates/layerx-types/tests/consumer_proof_rungs.rs"
 line = 2
 lint = "clippy::doc_markdown"
 repair = "Backtick Rust module names and the adjacent record filename in documentation."
@@ -10511,22 +10511,22 @@ command = "cargo clippy --locked --manifest-path services/agent/Cargo.toml -p la
 exit = 101
 log = "/out/logs/inventory-22.39.215-4.log"
 unique_diagnostic_count = 32
-counts_by_file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs: 1; services/agent/crates/layerx-types/tests/repair_22_33_1548.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/head_verify.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/header.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/merkle.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/tx.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/validators.rs: 1; services/agent/crates/layerx-types/tests/support/independent/field25519.rs: 18; services/agent/crates/layerx-types/tests/support/independent/mod.rs: 1; services/agent/crates/layerx-types/tests/support/independent/sha512.rs: 2; services/agent/crates/layerx-types/tests/support/proof_cases.rs: 1; services/agent/crates/layerx-types/tests/support/recorded_commit.rs: 1"
+counts_by_file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs: 1; services/agent/crates/layerx-types/tests/consumer_proof_rungs.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/head_verify.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/header.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/merkle.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/tx.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/validators.rs: 1; services/agent/crates/layerx-types/tests/support/independent/field25519.rs: 18; services/agent/crates/layerx-types/tests/support/independent/mod.rs: 1; services/agent/crates/layerx-types/tests/support/independent/sha512.rs: 2; services/agent/crates/layerx-types/tests/support/proof_cases.rs: 1; services/agent/crates/layerx-types/tests/support/recorded_commit.rs: 1"
 
 [attempt_2.refreshed_lint.4_1]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 123
 lint = "clippy::large_stack_arrays"
 repair = "Allocate the 65535-byte hook fixture on the heap with identical bytes and length; every boundary assertion remains intact."
 
 [attempt_2.refreshed_lint.4_2]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1548.rs"
+file = "services/agent/crates/layerx-types/tests/consumer_proof_rungs.rs"
 line = 1
 lint = "clippy::doc_markdown"
 repair = "Backtick Rust module names and the adjacent record filename in documentation."
 
 [attempt_2.refreshed_lint.4_3]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1548.rs"
+file = "services/agent/crates/layerx-types/tests/consumer_proof_rungs.rs"
 line = 2
 lint = "clippy::doc_markdown"
 repair = "Backtick Rust module names and the adjacent record filename in documentation."
@@ -10710,22 +10710,22 @@ command = "cargo clippy --locked --manifest-path services/agent/Cargo.toml -p la
 exit = 101
 log = "/out/logs/inventory-22.39.215-5.log"
 unique_diagnostic_count = 19
-counts_by_file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs: 1; services/agent/crates/layerx-types/tests/repair_22_33_1548.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/head_verify.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/header.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/merkle.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/tx.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/validators.rs: 1; services/agent/crates/layerx-types/tests/support/independent/field25519.rs: 5; services/agent/crates/layerx-types/tests/support/independent/mod.rs: 1; services/agent/crates/layerx-types/tests/support/independent/sha512.rs: 2; services/agent/crates/layerx-types/tests/support/proof_cases.rs: 1; services/agent/crates/layerx-types/tests/support/recorded_commit.rs: 1"
+counts_by_file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs: 1; services/agent/crates/layerx-types/tests/consumer_proof_rungs.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/head_verify.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/header.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/merkle.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/tx.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/validators.rs: 1; services/agent/crates/layerx-types/tests/support/independent/field25519.rs: 5; services/agent/crates/layerx-types/tests/support/independent/mod.rs: 1; services/agent/crates/layerx-types/tests/support/independent/sha512.rs: 2; services/agent/crates/layerx-types/tests/support/proof_cases.rs: 1; services/agent/crates/layerx-types/tests/support/recorded_commit.rs: 1"
 
 [attempt_2.refreshed_lint.5_1]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 123
 lint = "clippy::large_stack_arrays"
 repair = "Allocate the 65535-byte hook fixture on the heap with identical bytes and length; every boundary assertion remains intact."
 
 [attempt_2.refreshed_lint.5_2]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1548.rs"
+file = "services/agent/crates/layerx-types/tests/consumer_proof_rungs.rs"
 line = 1
 lint = "clippy::doc_markdown"
 repair = "Backtick Rust module names and the adjacent record filename in documentation."
 
 [attempt_2.refreshed_lint.5_3]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1548.rs"
+file = "services/agent/crates/layerx-types/tests/consumer_proof_rungs.rs"
 line = 2
 lint = "clippy::doc_markdown"
 repair = "Backtick Rust module names and the adjacent record filename in documentation."
@@ -10831,22 +10831,22 @@ command = "cargo clippy --locked --manifest-path services/agent/Cargo.toml -p la
 exit = 101
 log = "/out/logs/inventory-22.39.215-6.log"
 unique_diagnostic_count = 14
-counts_by_file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs: 1; services/agent/crates/layerx-types/tests/repair_22_33_1548.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/head_verify.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/header.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/merkle.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/tx.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/validators.rs: 1; services/agent/crates/layerx-types/tests/support/independent/mod.rs: 1; services/agent/crates/layerx-types/tests/support/independent/sha512.rs: 2; services/agent/crates/layerx-types/tests/support/proof_cases.rs: 1; services/agent/crates/layerx-types/tests/support/recorded_commit.rs: 1"
+counts_by_file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs: 1; services/agent/crates/layerx-types/tests/consumer_proof_rungs.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/head_verify.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/header.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/merkle.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/tx.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/validators.rs: 1; services/agent/crates/layerx-types/tests/support/independent/mod.rs: 1; services/agent/crates/layerx-types/tests/support/independent/sha512.rs: 2; services/agent/crates/layerx-types/tests/support/proof_cases.rs: 1; services/agent/crates/layerx-types/tests/support/recorded_commit.rs: 1"
 
 [attempt_2.refreshed_lint.6_1]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs"
+file = "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs"
 line = 123
 lint = "clippy::large_stack_arrays"
 repair = "Allocate the 65535-byte hook fixture on the heap with identical bytes and length; every boundary assertion remains intact."
 
 [attempt_2.refreshed_lint.6_2]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1548.rs"
+file = "services/agent/crates/layerx-types/tests/consumer_proof_rungs.rs"
 line = 1
 lint = "clippy::doc_markdown"
 repair = "Backtick Rust module names and the adjacent record filename in documentation."
 
 [attempt_2.refreshed_lint.6_3]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1548.rs"
+file = "services/agent/crates/layerx-types/tests/consumer_proof_rungs.rs"
 line = 2
 lint = "clippy::doc_markdown"
 repair = "Backtick Rust module names and the adjacent record filename in documentation."
@@ -10922,16 +10922,16 @@ command = "cargo clippy --locked --manifest-path services/agent/Cargo.toml -p la
 exit = 101
 log = "/out/logs/inventory-22.39.215-7.log"
 unique_diagnostic_count = 13
-counts_by_file = "services/agent/crates/layerx-types/tests/repair_22_33_1548.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/head_verify.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/header.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/merkle.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/tx.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/validators.rs: 1; services/agent/crates/layerx-types/tests/support/independent/mod.rs: 1; services/agent/crates/layerx-types/tests/support/independent/sha512.rs: 2; services/agent/crates/layerx-types/tests/support/proof_cases.rs: 1; services/agent/crates/layerx-types/tests/support/recorded_commit.rs: 1"
+counts_by_file = "services/agent/crates/layerx-types/tests/consumer_proof_rungs.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/head_verify.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/header.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/merkle.rs: 2; services/agent/crates/layerx-types/tests/support/independent/chain_proof/tx.rs: 1; services/agent/crates/layerx-types/tests/support/independent/chain_proof/validators.rs: 1; services/agent/crates/layerx-types/tests/support/independent/mod.rs: 1; services/agent/crates/layerx-types/tests/support/independent/sha512.rs: 2; services/agent/crates/layerx-types/tests/support/proof_cases.rs: 1; services/agent/crates/layerx-types/tests/support/recorded_commit.rs: 1"
 
 [attempt_2.refreshed_lint.7_1]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1548.rs"
+file = "services/agent/crates/layerx-types/tests/consumer_proof_rungs.rs"
 line = 1
 lint = "clippy::doc_markdown"
 repair = "Backtick Rust module names and the adjacent record filename in documentation."
 
 [attempt_2.refreshed_lint.7_2]
-file = "services/agent/crates/layerx-types/tests/repair_22_33_1548.rs"
+file = "services/agent/crates/layerx-types/tests/consumer_proof_rungs.rs"
 line = 2
 lint = "clippy::doc_markdown"
 repair = "Backtick Rust module names and the adjacent record filename in documentation."

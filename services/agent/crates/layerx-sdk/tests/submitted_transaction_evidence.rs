@@ -953,7 +953,7 @@ fn committed_lookup_keeps_its_verified_block_and_does_not_invent_batch_evidence(
     use layerx_sdk::rpc_verification::node_commit::NodeCommitAuthority;
     let node = Node::start(false);
     let record: Value = serde_json::from_str(include_str!(
-        "../src/repair_22_31_227_fixture/committed.json"
+        "../src/committed_receipt_fixture/committed.json"
     ))
     .unwrap_or_else(|error| panic!("existing real node and Comet transcript: {error:?}"));
     let hash_text = record["receiptJson"]["txHash"]

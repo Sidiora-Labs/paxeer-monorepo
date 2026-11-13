@@ -57,7 +57,7 @@ action = "Use bounded edits and inspect the resulting diff before qualification.
 [continuation.offline-peers]
 node = "The declared Rust integration target starts its own loopback JSON-RPC peer, uses production EIP-1559/disclosure/wire codecs and retains signed receipt transcripts in a reopened store; no environment, external endpoint, installed node, toolchain subprocess or device is read."
 owner = "A test-owned TLS peer uses committed CA/certificate fixtures, canonical owner-purpose and unsigned-call codecs, the actual SignatureBytes carrier and recoverable transaction assembly; fixture keys are public test inputs."
-committed = "repair_22_31_227_fixture/committed.json is copied byte-for-byte from the explorer recorded local-node/Comet transcript, preserving its source digest and provenance; the validator key is pinned independently in the test."
+committed = "committed_receipt_fixture/committed.json is copied byte-for-byte from the explorer recorded local-node/Comet transcript, preserving its source digest and provenance; the validator key is pinned independently in the test."
 
 [gotcha.merge-continuation]
 observed = "The seed overlapped a landed authenticated lifecycle transport and its connect_node API."
