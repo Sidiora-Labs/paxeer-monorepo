@@ -13618,6 +13618,18 @@ value = "The answer context of a canary stays as the host builds it: the frozen 
 basis = "Gotcha 4336. Decisions 3046 and 3169."
 affects = []
 
+[decision.3418]
+title = "The areas bring their own targets in line before the wave 6 gate runs"
+value = "The wave 6 gate task keeps its own paths: the gate test, the gate runner, the web client generator output and the entries it already holds. Every other target that the six wave commands run is brought in line by a task of the area that owns the files, tasks 22.39.497 to 22.39.511, each with the make target of its area as verification and a record file. The gate task requires those tasks. The gate runner admits the build directories that the AssemblyScript targets of the programs SDK write as outputs of the programs command."
+basis = "One task per area keeps the paths narrow and lets the areas proceed side by side, and the gate task then states the result of the whole wave at one revision."
+affects = ["17.5.7", "22.39.497", "22.39.498", "22.39.499", "22.39.500", "22.39.501", "22.39.502", "22.39.503", "22.39.504", "22.39.505", "22.39.506", "22.39.507", "22.39.508", "22.39.509", "22.39.510", "22.39.511"]
+
+[decision.3419]
+title = "How a dependency check and a format check are settled"
+value = "A finding of a dependency check is settled first by moving the dependency in the lock file to a release that the check accepts. Where no such release exists, or a duplicate version comes from a dependency that cannot move, the configuration of the check takes one entry for that finding with the identifier, the reason and the date of review, and no entry covers more than one finding. A crate that the dependency policy of an area forbids is removed from the dependency tree and is never allowed by an entry. A contract whose deployed bytecode is compared with its source keeps its source bytes and is left out of the format check through the ignore list of the format configuration; every other contract is formatted."
+basis = "The checks keep their meaning when every exception is single, dated and reasoned, and the source of a deployed contract stays byte for byte what was published."
+affects = ["22.39.500", "22.39.501", "22.39.503", "22.39.507"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43278,6 +43290,141 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.511]
+title = "Bring the Go format, lint and module commands of the repository in line"
+reqs = ["22998.1"]
+touches = ["go.mod", "go.sum", "tools/hpx/registry", "core/deps/cosmwasm/packages/go-gen", "tools/hyperfide/tests/fixtures", "services/platform/hosted/gateway/tests", "apps/launchpad/web/src/widgets/rewards", ".golangci.yml", "Makefile"]
+tests = []
+verification_contract = "test -s tools/hpx/registry/repair_22_39_511.kvx && make -s paxeer-manifest-lint && GOPROXY=off go mod tidy -diff && cd tools/hpx/registry && GOPROXY=off go build ./..."
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make paxeer-manifest-lint passes, the root module is tidy and the module of tools/hpx/registry builds. The Go format check and the Go lint run read Go source only: the generated type fragments under core/deps/cosmwasm/packages/go-gen/tests and the C fixture files of the vendored tree under tools are left out of both, by the exclusion lists of the checks or by a file form that is not read as a Go package, and their content stays byte for byte. The support file of services/platform/hosted/gateway/tests compiles against the names that the gateway member defines at the present revision. The reward handler case under apps/launchpad/web/src/widgets/rewards imports a package that exists in this repository, or moves next to the code it tests. The files go.mod and go.sum of the root and of tools/hpx/registry are tidy without a change of a dependency version beyond what tidying requires."
+symbols = []
+
+[capability.22.39.510]
+title = "Bring the inventory check of the repository in line"
+reqs = ["22998.1"]
+touches = ["scripts/workspace", "tools/workspace"]
+tests = []
+verification_contract = "test -s scripts/workspace/repair_22_39_510.kvx && make -s workspace-inventory-check"
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make workspace-inventory-check passes on a clean tree and on a tree in which the dashboard has been built. The manifest inventory that scripts/workspace/check-paxeer-manifests.sh compares equals the manifests of the repository at the present revision. The dependency root comparison of scripts/workspace/check-platform-dependencies.sh reads only files that are part of the source tree and leaves out the output directories that a build of the dashboard writes, and the root list under tools/workspace names every lock file of the platform examples."
+symbols = []
+
+[capability.22.39.509]
+title = "Let the binding cases of the Rust program SDK find the artifacts they read"
+reqs = ["22998.1"]
+touches = ["programs/sdk/rust", "Makefile"]
+tests = []
+verification_contract = "test -s programs/sdk/rust/repair_22_39_509.kvx && make -s programs-test"
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make programs-test passes from a clean tree. The two cases of programs/sdk/rust/tests/bindgen_conformance.rs that read built artifacts of the quickstart, the response fixture and the examples run after the step that builds those artifacts: either the cases build what they read through the build scripts of programs/sdk/rust, or the targets of the Makefile order the build scripts before the test run of the programs workspace. No case is removed or ignored, and the case that the SDK target runs by name keeps running."
+symbols = []
+
+[capability.22.39.508]
+title = "Bring the compile step of the integration test packages in line"
+reqs = ["22998.1"]
+touches = ["tests/integration/dapp_tests", "tests/integration/rpc_tests", "scripts/workspace/check-hardhat-compilers.mjs"]
+tests = []
+verification_contract = "test -s tests/integration/repair_22_39_508.kvx && cd tests/integration/dapp_tests && npx --no-install hardhat compile && cd ../rpc_tests && npm run compile"
+do_1 = "do_1 Gotcha 4337, decision 3418. The compile step of tests/integration/dapp_tests and of tests/integration/rpc_tests passes with the installed packages and without a download. The configuration of tests/integration/dapp_tests names a compiler version that satisfies the version pragma of every contract it compiles, including the library contracts, and that version is one of the compilers that scripts/workspace/check-hardhat-compilers.mjs holds ready. The compile script of tests/integration/rpc_tests produces its typed bindings with the package versions of its lock file."
+symbols = []
+
+[capability.22.39.507]
+title = "Bring the contract tests and the contract format check in line"
+reqs = ["22998.1"]
+touches = ["contracts/test", "contracts/src", "tests/solidity", "tools/benchmark/loadtest/contracts/evm", "foundry.paxeer.toml"]
+tests = []
+verification_contract = "test -s contracts/repair_22_39_507.kvx && FOUNDRY_CONFIG=foundry.paxeer.toml forge test --offline --root . && FOUNDRY_CONFIG=foundry.paxeer.toml forge fmt --check --root . && sh tools/benchmark/loadtest/contracts/evm/setup.sh && forge fmt --check --root tools/benchmark/loadtest/contracts/evm"
+do_1 = "do_1 Gotcha 4337, decisions 3418 and 3419. The contract test command and the two format commands of the Makefile pass. The set-up of contracts/test/SidioraNativeERC20Test.t.sol initialises the proxy the way the deployment does before the first call, and the governance case of tests/solidity/governance/SidioraProxyTimelock.t.sol names the artifact that the build writes for the contract it deploys. The format check passes for the contracts of the root configuration and for tools/benchmark/loadtest/contracts/evm under the rule of decision 3419: contracts/src/WPAX.sol keeps its source bytes and enters the ignore list of the format configuration, every other contract is formatted. No case is removed or ignored and no contract changes behaviour."
+symbols = []
+
+[capability.22.39.506]
+title = "Bring the example contracts and the contract runtime library in line with their lint and test commands"
+reqs = ["22998.1"]
+touches = ["tests/fixtures/example/cosmwasm", "tools/benchmark/loadtest/contracts/jupiter", "wasm-runtime/libwasmvm"]
+tests = []
+verification_contract = "test -s wasm-runtime/libwasmvm/repair_22_39_506.kvx && for m in tests/fixtures/example/cosmwasm/cw1155 tests/fixtures/example/cosmwasm/cw20 tests/fixtures/example/cosmwasm/cw721 tests/fixtures/example/cosmwasm/parallelization/wasm tools/benchmark/loadtest/contracts/jupiter wasm-runtime/libwasmvm; do cargo clippy --manifest-path $m/Cargo.toml --locked --offline --all-targets -- -D warnings || exit 1; done && cargo test --manifest-path wasm-runtime/libwasmvm/Cargo.toml --locked --offline"
+do_1 = "do_1 Gotcha 4337, decision 3418. The lint command of the Makefile for the locked Rust manifests passes for the example contracts under tests/fixtures/example/cosmwasm, for tools/benchmark/loadtest/contracts/jupiter and for wasm-runtime/libwasmvm, without a lint allowance and without a change of behaviour: empty checks use the empty test of the type, copies of copy types are plain, field initialisers use the short form, the multiple test uses the method of the integer type, and wasm-runtime/libwasmvm/src/cache.rs calls the present function of the virtual machine cache in place of the retired one with the same arguments of meaning. The library tests of wasm-runtime/libwasmvm link and pass with the linker of the gate environment."
+symbols = []
+
+[capability.22.39.505]
+title = "Bring the SDK verification target of the platform in line"
+reqs = ["22998.1"]
+touches = ["sdk/platform/conformance", "sdk/platform/conformance-runner", "sdk/platform/jvm", "sdk/platform/swift"]
+tests = []
+verification_contract = "test -s sdk/platform/repair_22_39_505.kvx && make -s platform-verify-sdks"
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make platform-verify-sdks passes. The native lifecycle fixtures under sdk/platform/conformance/fixtures equal the output of their generator at the present revision and are produced by it. The JVM conformance run reads the account sequence in the encoding that the producer of the fixture writes, and the SDK under sdk/platform/jvm accepts that encoding. The cases of the Swift SDK under sdk/platform/swift assert the receipt version that the producer writes at the present revision, and a case that needs the envelope case variable of the agent operation states that need through the make target, so that the target sets it. In each of the three the consumer follows the producer. No case is removed or ignored."
+symbols = []
+
+[capability.22.39.504]
+title = "Bring the test target of the platform workspaces in line"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/indexer/src", "sdk/platform/generators", "services/agent/sdk/typescript/src/generated"]
+tests = []
+verification_contract = "test -s services/platform/hosted/indexer/repair_22_39_504.kvx && make -s platform-test"
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make platform-test passes. The event count cases of services/platform/hosted/indexer/src/abi.rs assert the events that the loader reads from the interface files at the present revision, by name and by count, so that an event added to an interface is stated in the case. The drift cases of sdk/platform/generators/tests/drift.rs build their comparison tree with every generated file that the generators write, including the mirror file of the TypeScript SDK of the agent, and compare it with the committed output; where the committed output differs from the generator, it is produced again by the generator. No case is removed or ignored."
+symbols = []
+
+[capability.22.39.503]
+title = "Bring the lint target of the platform workspaces in line"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/indexer/tests/store_writers.rs", "services/platform/Cargo.toml", "services/platform/Cargo.lock", "services/platform/deny.toml", "tools/platform/Cargo.toml", "tools/platform/Cargo.lock", "tools/platform/deny.toml"]
+tests = []
+verification_contract = "test -s services/platform/repair_22_39_503.kvx && make -s platform-lint"
+do_1 = "do_1 Gotcha 4337, decisions 3418 and 3419. The command make platform-lint passes. The cases of services/platform/hosted/indexer/tests/store_writers.rs satisfy the lint configuration without an allowance and keep their assertions. The dependency checks of services/platform and tools/platform pass under the rule of decision 3419, with changes in the manifest, the lock file and the configuration of the check of each of the two workspaces only."
+symbols = []
+
+[capability.22.39.502]
+title = "Bring the test target of the interop workspace in line"
+reqs = ["22998.1"]
+touches = ["services/interop/crates/layerx-gas-station"]
+tests = []
+verification_contract = "test -s services/interop/crates/layerx-gas-station/repair_22_39_502.kvx && make -s interop-test"
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make interop-test passes. The journal cases of services/interop/crates/layerx-gas-station/src/journal.rs each open a journal directory of their own and release its lock before the next open of the same directory, so that the cases pass when they run side by side and in any order. The locking rule of the journal itself stays as it is. No case is removed or ignored."
+symbols = []
+
+[capability.22.39.501]
+title = "Bring the lint target of the interop workspace in line"
+reqs = ["22998.1"]
+touches = ["services/interop/Cargo.toml", "services/interop/Cargo.lock", "services/interop/deny.toml", "services/interop/crates"]
+tests = []
+verification_contract = "test -s services/interop/repair_22_39_501.kvx && make -s interop-lint"
+do_1 = "do_1 Gotcha 4337, decisions 3418 and 3419. The command make interop-lint passes. The crate that scripts/interop/dependency-policy.sh forbids leaves the dependency tree of services/interop through the feature selection or the version of the dependency that brings it in; the policy file keeps its list. The dependency check of services/interop passes under the rule of decision 3419."
+symbols = []
+
+[capability.22.39.500]
+title = "Bring the lint target of the human services in line"
+reqs = ["22998.1"]
+touches = ["services/human/tools/api-gen", "apps/web/src/api/generated", "services/human/Cargo.toml", "services/human/Cargo.lock", "services/human/deny.toml"]
+tests = []
+verification_contract = "test -s services/human/tools/api-gen/repair_22_39_500.kvx && make -s human-lint"
+do_1 = "do_1 Gotcha 4337, decisions 3418 and 3419. The command make human-lint passes. The web client generator under services/human/tools/api-gen/src writes the abort function of a request with a statement body, so that its output under apps/web/src/api/generated satisfies the lint rule on void expressions; the output is produced by the generator target of the Makefile and never edited by hand, and the cases of the generator follow the new form. The dependency check of services/human passes under the rule of decision 3419, with changes in services/human/Cargo.toml, services/human/Cargo.lock and services/human/deny.toml only."
+symbols = []
+
+[capability.22.39.499]
+title = "Bring the test target of the human services in line"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/human", "services/human/crates/layerx-human-identity-provider"]
+tests = []
+verification_contract = "test -s services/human/crates/layerx-human-identity-provider/repair_22_39_499.kvx && make -s human-test"
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make human-test passes. The program read refusal case of services/platform/hosted/human/test_repair_22_33_1402.py asserts the form in which the web client refuses at the present revision, a rejected promise, and keeps asserting that the refusal happens before any request leaves. The producer path case and the two account head cases of services/human/crates/layerx-human-identity-provider/tests pass against the recording that the producer writes at the present revision: where a recorded digest is derived from producer output, the recording is produced again by its own generator and never edited by hand, and the configuration that the account head cases give the identity provider is the one the provider accepts. No case is removed or ignored."
+symbols = []
+
+[capability.22.39.498]
+title = "Bring the test target of the agent workspace in line"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src", "services/agent/crates/layerx-sdk/tests", "services/agent/crates/layerx-sdk/src"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-sdk/repair_22_39_498.kvx && make -s agent-test"
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make agent-test passes on the whole agent workspace. The native terminal evidence cases of services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs each open a store root of their own, so that no case meets the writer of another case when the cases run side by side. The daemon disclosure case of services/agent/crates/layerx-sdk/tests/support/audit_22_30_99.rs asserts the operation names that the daemon produces at the present revision; where the daemon and the SDK differ on the name of the prepare operation, the consumer follows the producer and the case asserts the producer value. No case is removed or ignored."
+symbols = []
+
+[capability.22.39.497]
+title = "Bring the lint target of the agent workspace in line"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/tests/inference_deals.rs"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-agentd/repair_22_39_497.kvx && make -s agent-lint"
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make agent-lint passes on the whole agent workspace. The test function of services/agent/crates/layerx-agentd/tests/inference_deals.rs that is longer than the line limit of the lint configuration is divided into helper functions of the same file; every assertion of the case stays and no lint allowance is added. Any other point that the target reports in this file is settled the same way."
+symbols = []
 
 [capability.22.35.19]
 title = "Store the market value of every PAX price history point in the explorer backend"
@@ -164500,6 +164647,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.508]
+title = "Bring the compile step of the integration test packages in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.508"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decision 3418. The compile step of tests/integration/dapp_tests and of tests/integration/rpc_tests passes with the installed packages and without a download. The configuration of tests/integration/dapp_tests names a compiler version that satisfies the version pragma of every contract it compiles, including the library contracts, and that version is one of the compilers that scripts/workspace/check-hardhat-compilers.mjs holds ready. The compile script of tests/integration/rpc_tests produces its typed bindings with the package versions of its lock file."
+do_2 = "do_2 Record in tests/integration/repair_22_39_508.kvx the rule, the changed files and the commands. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tests/integration/dapp_tests", "tests/integration/rpc_tests", "scripts/workspace/check-hardhat-compilers.mjs"]
+tests = []
+planned_paths = ["tests/integration/repair_22_39_508.kvx"]
+build_cmd = "make -s paxeer-npm-install"
+verify_cmd = "test -s tests/integration/repair_22_39_508.kvx && cd tests/integration/dapp_tests && npx --no-install hardhat compile && cd ../rpc_tests && npm run compile"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.35.17]
 title = "Name the registered secondary coin chart resource in the statistics page charts of the explorer"
 status = "done"
@@ -187796,6 +187972,122 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.510]
+title = "Bring the inventory check of the repository in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.510"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make workspace-inventory-check passes on a clean tree and on a tree in which the dashboard has been built. The manifest inventory that scripts/workspace/check-paxeer-manifests.sh compares equals the manifests of the repository at the present revision. The dependency root comparison of scripts/workspace/check-platform-dependencies.sh reads only files that are part of the source tree and leaves out the output directories that a build of the dashboard writes, and the root list under tools/workspace names every lock file of the platform examples."
+do_2 = "do_2 Record in scripts/workspace/repair_22_39_510.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["scripts/workspace", "tools/workspace"]
+tests = []
+planned_paths = ["scripts/workspace/repair_22_39_510.kvx"]
+build_cmd = "sh scripts/workspace/check-core-gates.sh"
+verify_cmd = "test -s scripts/workspace/repair_22_39_510.kvx && make -s workspace-inventory-check"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.509]
+title = "Let the binding cases of the Rust program SDK find the artifacts they read"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.509"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make programs-test passes from a clean tree. The two cases of programs/sdk/rust/tests/bindgen_conformance.rs that read built artifacts of the quickstart, the response fixture and the examples run after the step that builds those artifacts: either the cases build what they read through the build scripts of programs/sdk/rust, or the targets of the Makefile order the build scripts before the test run of the programs workspace. No case is removed or ignored, and the case that the SDK target runs by name keeps running."
+do_2 = "do_2 Record in programs/sdk/rust/repair_22_39_509.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["programs/sdk/rust", "Makefile"]
+tests = []
+planned_paths = ["programs/sdk/rust/repair_22_39_509.kvx"]
+build_cmd = "make -s programs-build"
+verify_cmd = "test -s programs/sdk/rust/repair_22_39_509.kvx && make -s programs-test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.500]
+title = "Bring the lint target of the human services in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.500"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decisions 3418 and 3419. The command make human-lint passes. The web client generator under services/human/tools/api-gen/src writes the abort function of a request with a statement body, so that its output under apps/web/src/api/generated satisfies the lint rule on void expressions; the output is produced by the generator target of the Makefile and never edited by hand, and the cases of the generator follow the new form. The dependency check of services/human passes under the rule of decision 3419, with changes in services/human/Cargo.toml, services/human/Cargo.lock and services/human/deny.toml only."
+do_2 = "do_2 Record in services/human/tools/api-gen/repair_22_39_500.kvx the rule, the changed files, every entry added to the configuration of the dependency check with its reason, and the command. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/human/tools/api-gen", "apps/web/src/api/generated", "services/human/Cargo.toml", "services/human/Cargo.lock", "services/human/deny.toml"]
+tests = []
+planned_paths = ["services/human/tools/api-gen/repair_22_39_500.kvx"]
+build_cmd = "make -s human-build"
+verify_cmd = "test -s services/human/tools/api-gen/repair_22_39_500.kvx && make -s human-lint"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.499]
+title = "Bring the test target of the human services in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.499"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make human-test passes. The program read refusal case of services/platform/hosted/human/test_repair_22_33_1402.py asserts the form in which the web client refuses at the present revision, a rejected promise, and keeps asserting that the refusal happens before any request leaves. The producer path case and the two account head cases of services/human/crates/layerx-human-identity-provider/tests pass against the recording that the producer writes at the present revision: where a recorded digest is derived from producer output, the recording is produced again by its own generator and never edited by hand, and the configuration that the account head cases give the identity provider is the one the provider accepts. No case is removed or ignored."
+do_2 = "do_2 Record in services/human/crates/layerx-human-identity-provider/repair_22_39_499.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/human", "services/human/crates/layerx-human-identity-provider"]
+tests = []
+planned_paths = ["services/human/crates/layerx-human-identity-provider/repair_22_39_499.kvx"]
+build_cmd = "make -s human-build"
+verify_cmd = "test -s services/human/crates/layerx-human-identity-provider/repair_22_39_499.kvx && make -s human-test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.405]
 title = "Keep the terminal vectors of the program ABI in line with the receipt fixture they are taken from"
 status = "done"
@@ -197425,6 +197717,209 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.506]
+title = "Bring the example contracts and the contract runtime library in line with their lint and test commands"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.506"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decision 3418. The lint command of the Makefile for the locked Rust manifests passes for the example contracts under tests/fixtures/example/cosmwasm, for tools/benchmark/loadtest/contracts/jupiter and for wasm-runtime/libwasmvm, without a lint allowance and without a change of behaviour: empty checks use the empty test of the type, copies of copy types are plain, field initialisers use the short form, the multiple test uses the method of the integer type, and wasm-runtime/libwasmvm/src/cache.rs calls the present function of the virtual machine cache in place of the retired one with the same arguments of meaning. The library tests of wasm-runtime/libwasmvm link and pass with the linker of the gate environment."
+do_2 = "do_2 Record in wasm-runtime/libwasmvm/repair_22_39_506.kvx the rule, the changed files and the commands. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tests/fixtures/example/cosmwasm", "tools/benchmark/loadtest/contracts/jupiter", "wasm-runtime/libwasmvm"]
+tests = []
+planned_paths = ["wasm-runtime/libwasmvm/repair_22_39_506.kvx"]
+build_cmd = "cargo build --manifest-path wasm-runtime/libwasmvm/Cargo.toml --locked --offline"
+verify_cmd = "test -s wasm-runtime/libwasmvm/repair_22_39_506.kvx && for m in tests/fixtures/example/cosmwasm/cw1155 tests/fixtures/example/cosmwasm/cw20 tests/fixtures/example/cosmwasm/cw721 tests/fixtures/example/cosmwasm/parallelization/wasm tools/benchmark/loadtest/contracts/jupiter wasm-runtime/libwasmvm; do cargo clippy --manifest-path $m/Cargo.toml --locked --offline --all-targets -- -D warnings || exit 1; done && cargo test --manifest-path wasm-runtime/libwasmvm/Cargo.toml --locked --offline"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-cosmos-fork"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.504]
+title = "Bring the test target of the platform workspaces in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.504"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make platform-test passes. The event count cases of services/platform/hosted/indexer/src/abi.rs assert the events that the loader reads from the interface files at the present revision, by name and by count, so that an event added to an interface is stated in the case. The drift cases of sdk/platform/generators/tests/drift.rs build their comparison tree with every generated file that the generators write, including the mirror file of the TypeScript SDK of the agent, and compare it with the committed output; where the committed output differs from the generator, it is produced again by the generator. No case is removed or ignored."
+do_2 = "do_2 Record in services/platform/hosted/indexer/repair_22_39_504.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/indexer/src", "sdk/platform/generators", "services/agent/sdk/typescript/src/generated"]
+tests = []
+planned_paths = ["services/platform/hosted/indexer/repair_22_39_504.kvx"]
+build_cmd = "make -s platform-build"
+verify_cmd = "test -s services/platform/hosted/indexer/repair_22_39_504.kvx && make -s platform-test"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.503]
+title = "Bring the lint target of the platform workspaces in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.503"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decisions 3418 and 3419. The command make platform-lint passes. The cases of services/platform/hosted/indexer/tests/store_writers.rs satisfy the lint configuration without an allowance and keep their assertions. The dependency checks of services/platform and tools/platform pass under the rule of decision 3419, with changes in the manifest, the lock file and the configuration of the check of each of the two workspaces only."
+do_2 = "do_2 Record in services/platform/repair_22_39_503.kvx the rule, the changed files, every entry added to a configuration of the dependency check with its reason, and the command. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/indexer/tests/store_writers.rs", "services/platform/Cargo.toml", "services/platform/Cargo.lock", "services/platform/deny.toml", "tools/platform/Cargo.toml", "tools/platform/Cargo.lock", "tools/platform/deny.toml"]
+tests = []
+planned_paths = ["services/platform/repair_22_39_503.kvx"]
+build_cmd = "make -s platform-build"
+verify_cmd = "test -s services/platform/repair_22_39_503.kvx && make -s platform-lint"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.502]
+title = "Bring the test target of the interop workspace in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.502"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make interop-test passes. The journal cases of services/interop/crates/layerx-gas-station/src/journal.rs each open a journal directory of their own and release its lock before the next open of the same directory, so that the cases pass when they run side by side and in any order. The locking rule of the journal itself stays as it is. No case is removed or ignored."
+do_2 = "do_2 Record in services/interop/crates/layerx-gas-station/repair_22_39_502.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/crates/layerx-gas-station"]
+tests = []
+planned_paths = ["services/interop/crates/layerx-gas-station/repair_22_39_502.kvx"]
+build_cmd = "make -s interop-build"
+verify_cmd = "test -s services/interop/crates/layerx-gas-station/repair_22_39_502.kvx && make -s interop-test"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.501]
+title = "Bring the lint target of the interop workspace in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.501"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decisions 3418 and 3419. The command make interop-lint passes. The crate that scripts/interop/dependency-policy.sh forbids leaves the dependency tree of services/interop through the feature selection or the version of the dependency that brings it in; the policy file keeps its list. The dependency check of services/interop passes under the rule of decision 3419."
+do_2 = "do_2 Record in services/interop/repair_22_39_501.kvx the rule, the changed files, every entry added to the configuration of the dependency check with its reason, and the command. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/Cargo.toml", "services/interop/Cargo.lock", "services/interop/deny.toml", "services/interop/crates"]
+tests = []
+planned_paths = ["services/interop/repair_22_39_501.kvx"]
+build_cmd = "make -s interop-build"
+verify_cmd = "test -s services/interop/repair_22_39_501.kvx && make -s interop-lint"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.498]
+title = "Bring the test target of the agent workspace in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.498"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make agent-test passes on the whole agent workspace. The native terminal evidence cases of services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs each open a store root of their own, so that no case meets the writer of another case when the cases run side by side. The daemon disclosure case of services/agent/crates/layerx-sdk/tests/support/audit_22_30_99.rs asserts the operation names that the daemon produces at the present revision; where the daemon and the SDK differ on the name of the prepare operation, the consumer follows the producer and the case asserts the producer value. No case is removed or ignored."
+do_2 = "do_2 Record in services/agent/crates/layerx-sdk/repair_22_39_498.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src", "services/agent/crates/layerx-sdk/tests", "services/agent/crates/layerx-sdk/src"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-sdk/repair_22_39_498.kvx"]
+build_cmd = "make -s agent-build"
+verify_cmd = "test -s services/agent/crates/layerx-sdk/repair_22_39_498.kvx && make -s agent-test"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.497]
+title = "Bring the lint target of the agent workspace in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.497"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make agent-lint passes on the whole agent workspace. The test function of services/agent/crates/layerx-agentd/tests/inference_deals.rs that is longer than the line limit of the lint configuration is divided into helper functions of the same file; every assertion of the case stays and no lint allowance is added. Any other point that the target reports in this file is settled the same way."
+do_2 = "do_2 Record in services/agent/crates/layerx-agentd/repair_22_39_497.kvx the rule, the changed file and the command. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests/inference_deals.rs"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/repair_22_39_497.kvx"]
+build_cmd = "make -s agent-build"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/repair_22_39_497.kvx && make -s agent-lint"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -290696,6 +291191,37 @@ do_13 = "Decision 2117: delete the faucet.claim entry (the O28 group, sdk/platfo
 do_14 = "Decision 2118: this task requires 8.46.9, which first returns sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java to the generator's shape and moves the JVM verification enum to decision 2115. After do_10, run --write (do_1) and accept GeneratedContract.java and sdk/platform/conformance/jvm.kvx exactly as rendered; if the rendered GeneratedContract.java still differs from the 8.46.9 result, the difference is the generator's and the mvn test of the verify proves it compiles. Run the build and the verify once on the final revision."
 do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/cmd/conformance/main.go delete the PerLeg field of operationDescriptor (:25) and the `strings.HasPrefix(metadata.Method, 'eth_')` branch at :424-428, so the request-vector comparison at :429-431 runs for every human operation (intent.plan and intent.submit have POST vectors under services/human/schema/human-api/golden); drop the strings import only if nothing else uses it. Nothing else in attempt 6 changes. Build once and verify once."
 
+[task.22.39.505]
+title = "Bring the SDK verification target of the platform in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.498"]
+reqs = ["22998.1"]
+capabilities = ["22.39.505"]
+interfaces = []
+wiring = ["wiring.J42.1"]
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make platform-verify-sdks passes. The native lifecycle fixtures under sdk/platform/conformance/fixtures equal the output of their generator at the present revision and are produced by it. The JVM conformance run reads the account sequence in the encoding that the producer of the fixture writes, and the SDK under sdk/platform/jvm accepts that encoding. The cases of the Swift SDK under sdk/platform/swift assert the receipt version that the producer writes at the present revision, and a case that needs the envelope case variable of the agent operation states that need through the make target, so that the target sets it. In each of the three the consumer follows the producer. No case is removed or ignored."
+do_2 = "do_2 Record in sdk/platform/repair_22_39_505.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/platform/conformance", "sdk/platform/conformance-runner", "sdk/platform/jvm", "sdk/platform/swift"]
+tests = []
+planned_paths = ["sdk/platform/repair_22_39_505.kvx"]
+build_cmd = "make -s platform-build"
+verify_cmd = "test -s sdk/platform/repair_22_39_505.kvx && make -s platform-verify-sdks"
+gate_kind = "planned"
+sandbox_profile = "sdk-all"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+
 [task.22.39.454]
 title = "Bring the whole lint recipe of the programs workspace through"
 status = "done"
@@ -314488,6 +315014,35 @@ do_15 = "Attempt 32 (28dfb4c7c) reverts the funded sandboxExecute with LXP_SEQUE
 do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and sandboxExecute still reverted with a bare LXP_FATAL_INVARIANT returned by host Execute (not by the handler or a receipt code); the stored lease is Active with zero usage, the escrow funded 100000000 with nothing spent, and the ledger is the initial one. This task changes nothing further; it requires 13.27.7 (decision.1890), which fixes the -1001 site on the sandboxed SUCCESS path with an end-to-end SANDBOX_EXECUTE SUCCESS case in tests/codec/lxp_test_sandbox_lifecycle.c; then re-qualify ef3be2b2f unchanged."
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
+
+[task.22.39.511]
+title = "Bring the Go format, lint and module commands of the repository in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.506", "22.39.507", "22.39.510"]
+reqs = ["22998.1"]
+capabilities = ["22.39.511"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decision 3418. The command make paxeer-manifest-lint passes, the root module is tidy and the module of tools/hpx/registry builds. The Go format check and the Go lint run read Go source only: the generated type fragments under core/deps/cosmwasm/packages/go-gen/tests and the C fixture files of the vendored tree under tools are left out of both, by the exclusion lists of the checks or by a file form that is not read as a Go package, and their content stays byte for byte. The support file of services/platform/hosted/gateway/tests compiles against the names that the gateway member defines at the present revision. The reward handler case under apps/launchpad/web/src/widgets/rewards imports a package that exists in this repository, or moves next to the code it tests. The files go.mod and go.sum of the root and of tools/hpx/registry are tidy without a change of a dependency version beyond what tidying requires."
+do_2 = "do_2 Record in tools/hpx/registry/repair_22_39_511.kvx the rule, the changed files and the commands. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["go.mod", "go.sum", "tools/hpx/registry", "core/deps/cosmwasm/packages/go-gen", "tools/hyperfide/tests/fixtures", "services/platform/hosted/gateway/tests", "apps/launchpad/web/src/widgets/rewards", ".golangci.yml", "Makefile"]
+tests = []
+planned_paths = ["tools/hpx/registry/repair_22_39_511.kvx"]
+build_cmd = "make -s paxeer-tools-install"
+verify_cmd = "test -s tools/hpx/registry/repair_22_39_511.kvx && make -s paxeer-manifest-lint && GOPROXY=off go mod tidy -diff && cd tools/hpx/registry && GOPROXY=off go build ./..."
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-cosmos-fork"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.496]
 title = "Admit a call of another principal within the standing occupancy responsibility of the program owner"
@@ -341491,7 +342046,7 @@ title = "Run the wave 6 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 48
-requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335", "22.39.339", "22.39.350", "22.39.352", "22.39.353", "22.39.354", "22.39.358", "22.39.360", "22.39.361", "22.39.363", "22.39.366", "22.39.377", "22.39.378", "22.39.396", "22.39.397", "22.39.398", "22.39.400", "22.39.401", "22.39.402", "22.39.403", "22.39.404", "22.39.405", "22.39.406", "22.39.407", "22.39.408", "22.39.409", "22.39.410", "22.39.426", "22.39.427", "22.39.428", "22.39.429", "22.39.430", "22.39.431", "22.39.432", "22.39.433", "22.39.441", "22.39.454"]
+requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335", "22.39.339", "22.39.350", "22.39.352", "22.39.353", "22.39.354", "22.39.358", "22.39.360", "22.39.361", "22.39.363", "22.39.366", "22.39.377", "22.39.378", "22.39.396", "22.39.397", "22.39.398", "22.39.400", "22.39.401", "22.39.402", "22.39.403", "22.39.404", "22.39.405", "22.39.406", "22.39.407", "22.39.408", "22.39.409", "22.39.410", "22.39.426", "22.39.427", "22.39.428", "22.39.429", "22.39.430", "22.39.431", "22.39.432", "22.39.433", "22.39.441", "22.39.454", "22.39.497", "22.39.498", "22.39.499", "22.39.500", "22.39.501", "22.39.502", "22.39.503", "22.39.504", "22.39.505", "22.39.506", "22.39.507", "22.39.508", "22.39.509", "22.39.510", "22.39.511"]
 reqs = ["17060.1"]
 capabilities = ["17.5.7"]
 interfaces = []
@@ -341548,6 +342103,7 @@ do_32 = "do_32 Decisions 3331 to 3335: the task now requires tasks 22.39.400 to 
 do_33 = "do_33 Decision 3349: the task now requires tasks 22.39.426 to 22.39.433, 22.39.441 and 22.39.454, which own the parts of the workspace test and lint recipes. Change nothing for those parts in this task."
 do_34 = "do_34 Decision 3413, gotcha 4329. Add one row for each of the two Package.resolved files of the Swift samples to tools/workspace/platform-dependency-roots.txt in the form of the neighbouring rows, so that sh scripts/workspace/check-platform-dependencies.sh passes. Change nothing else in the inventory and nothing in the check script. Then run the install target of the workspace and go on with the wave commands."
 do_35 = "do_35 Decision 3415, gotchas 4332 to 4334. Run the generator target of the Makefile for the web client and commit its output under apps/web/src/api/generated without a hand edit, so that make human-check-api passes. Move the inputs of the function terms of services/agent/crates/layerx-agentd/src/main.rs into one parameter structure, without a lint allowance and without a change of behaviour, and run the lint recipe of the agent workspace. Add the two allowed references of decision 3415 to tools/paxeer-x/retired_callers.json in the form of the neighbouring entries and run python3 tools/paxeer-x/tests/retired_callers_test.py with the deleted option. Then go on with the wave commands."
+do_36 = "do_36 Decision 3418, gotcha 4337. Tasks 22.39.497 to 22.39.511 bring the targets of the areas in line; take their changes from the base revision and keep no second repair of the same point in this task. In scripts/gates/run_gate.py admit the build directories that the AssemblyScript targets of the programs SDK write, programs/sdk/assemblyscript/build and the build directory of each example under programs/sdk/assemblyscript/examples, as outputs of the programs command, with a case in scripts/gates/test_run_gate.py for an admitted directory and for a path outside it. Run the Go race and coverage steps of the test command package group by package group and clear the Go build cache between groups, so that the cache stays within its volume. Then run the six wave commands once each, and the build and the verification once at the final revision."
 
 [task.17.5.8]
 title = "Write the wave gate manifest over the domain-16 wave scripts"
@@ -343581,6 +344137,35 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.507]
+title = "Bring the contract tests and the contract format check in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.507"]
+interfaces = []
+do_1 = "do_1 Gotcha 4337, decisions 3418 and 3419. The contract test command and the two format commands of the Makefile pass. The set-up of contracts/test/SidioraNativeERC20Test.t.sol initialises the proxy the way the deployment does before the first call, and the governance case of tests/solidity/governance/SidioraProxyTimelock.t.sol names the artifact that the build writes for the contract it deploys. The format check passes for the contracts of the root configuration and for tools/benchmark/loadtest/contracts/evm under the rule of decision 3419: contracts/src/WPAX.sol keeps its source bytes and enters the ignore list of the format configuration, every other contract is formatted. No case is removed or ignored and no contract changes behaviour."
+do_2 = "do_2 Record in contracts/repair_22_39_507.kvx the rule, the changed files and the commands. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["contracts/test", "contracts/src", "tests/solidity", "tools/benchmark/loadtest/contracts/evm", "foundry.paxeer.toml"]
+tests = []
+planned_paths = ["contracts/repair_22_39_507.kvx"]
+build_cmd = "FOUNDRY_CONFIG=foundry.paxeer.toml forge build --offline --root ."
+verify_cmd = "test -s contracts/repair_22_39_507.kvx && FOUNDRY_CONFIG=foundry.paxeer.toml forge test --offline --root . && FOUNDRY_CONFIG=foundry.paxeer.toml forge fmt --check --root . && sh tools/benchmark/loadtest/contracts/evm/setup.sh && forge fmt --check --root tools/benchmark/loadtest/contracts/evm"
+gate_kind = "planned"
+sandbox_profile = "solidity"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."

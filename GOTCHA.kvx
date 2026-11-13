@@ -21505,3 +21505,8 @@ fix = "The measurement takes up to three samples at each point and uses the firs
 title = "The answer context of a canary carries the roster of the frozen binding and the deal carries the admission roster"
 symptom = "The host builds the answer context of a canary in services/agent/crates/layerx-agentd/src/inference_market/canary.rs from the frozen binding of the epoch, whose roster field is the digest of the captured roster. The deal frame carries the admission roster digest of the current epoch (decision 3169). The check of apps/inference-peer/src/canary.mjs compares the first 184 bytes of the context with the fields of its deal, and the cases of apps/inference-peer/test/canary.test.mjs build the context and the deal from one roster value."
 fix = "Decision 3417: the peer compares the fields of the context that its deal states, and its cases take the two roster values as two values."
+
+[gotcha.4337]
+title = "The aggregate commands of wave 6 span every area and each area keeps its own targets current"
+symptom = "The wave 6 gate runs the build, test and lint targets of every area of the repository in one pass. A lint limit, a dependency check, a generated file comparison or a test fixture of one area applies to files that lie outside the paths of the gate task."
+fix = "Each area brings its own make targets in line in a task of its own with the paths of that area, and the gate task requires those tasks and then runs the six wave commands once."
