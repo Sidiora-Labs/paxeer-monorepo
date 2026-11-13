@@ -46,19 +46,19 @@ struct OpticalMetadata {
 ### OpticalRegistered
 
 ```solidity
-event OpticalRegistered(address optical, string name, uint8 riskLevel, uint256 timestamp)
+event OpticalRegistered(address indexed optical, string name, uint8 riskLevel, uint256 timestamp)
 ```
 
 ### OpticalDeregistered
 
 ```solidity
-event OpticalDeregistered(address optical, uint256 timestamp)
+event OpticalDeregistered(address indexed optical, uint256 timestamp)
 ```
 
 ### OpticalMetadataUpdated
 
 ```solidity
-event OpticalMetadataUpdated(address optical, uint256 timestamp)
+event OpticalMetadataUpdated(address indexed optical, uint256 timestamp)
 ```
 
 ### eventEmitter

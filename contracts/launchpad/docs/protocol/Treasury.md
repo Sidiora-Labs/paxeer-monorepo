@@ -5,9 +5,9 @@ Source: [Treasury.sol](../../contracts/protocol/Treasury.sol).
 ## Treasury
 
 UUPS-upgradeable treasury with recorded token balances. `DEPOSITOR_ROLE` holders can deposit
-approved tokens or record tokens already transferred into custody. Deposits credit the actual amount
-received. Administrators withdraw recorded balances, recover unrecorded surplus and authorize
-upgrades.
+tokens using a token allowance or record tokens already transferred into custody. Deposits credit
+the actual amount received. Administrators withdraw recorded balances, recover unrecorded surplus
+and authorize upgrades.
 
 ### DEPOSITOR_ROLE
 
@@ -41,7 +41,8 @@ function deposit(address token, uint256 amount) external
 
 Deposit tokens into the treasury
 
-_Caller must have DEPOSITOR_ROLE. Tokens must be pre-approved._
+Caller must have `DEPOSITOR_ROLE` and give the treasury sufficient token allowance. The treasury
+records the positive increase in its token balance.
 
 ### withdraw
 

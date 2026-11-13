@@ -67,31 +67,31 @@ error NotTeam()
 ### PoolStartTimeRecorded
 
 ```solidity
-event PoolStartTimeRecorded(address pool, uint256 startTime)
+event PoolStartTimeRecorded(address indexed pool, uint256 startTime)
 ```
 
 ### SellBlockedCliff
 
 ```solidity
-event SellBlockedCliff(address pool, address sender, uint256 amountIn)
+event SellBlockedCliff(address indexed pool, address indexed sender, uint256 amountIn)
 ```
 
 ### SellBlockedVesting
 
 ```solidity
-event SellBlockedVesting(address pool, address sender, uint256 amountIn, uint256 maxSellable)
+event SellBlockedVesting(address indexed pool, address indexed sender, uint256 amountIn, uint256 maxSellable)
 ```
 
 ### CapitalRaiseAccumulated
 
 ```solidity
-event CapitalRaiseAccumulated(address pool, uint256 amount, uint256 totalRaisedAmount)
+event CapitalRaiseAccumulated(address indexed pool, uint256 amount, uint256 totalRaisedAmount)
 ```
 
 ### CapitalRaiseClaimed
 
 ```solidity
-event CapitalRaiseClaimed(address pool, uint256 amount, address recipient)
+event CapitalRaiseClaimed(address indexed pool, uint256 amount, address indexed recipient)
 ```
 
 ### MAX_CAPITAL_RAISE_BPS
@@ -186,7 +186,8 @@ How long the capital raise fee is active (in seconds)
 uint256 teamWalletCount
 ```
 
-Number of team wallets (excluding creator)
+Number of entries supplied in `_teamWallets`, including zero or repeated entries. The creator and
+each nonzero entry are marked as vested.
 
 ### isVested
 

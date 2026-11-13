@@ -81,31 +81,31 @@ error InvalidDelay()
 ### TransactionQueued
 
 ```solidity
-event TransactionQueued(bytes32 txHash, address target, uint256 value, bytes data, uint256 eta)
+event TransactionQueued(bytes32 indexed txHash, address indexed target, uint256 value, bytes data, uint256 eta)
 ```
 
 ### TransactionExecuted
 
 ```solidity
-event TransactionExecuted(bytes32 txHash, address target, uint256 value, bytes data, uint256 eta)
+event TransactionExecuted(bytes32 indexed txHash, address indexed target, uint256 value, bytes data, uint256 eta)
 ```
 
 ### TransactionCancelled
 
 ```solidity
-event TransactionCancelled(bytes32 txHash)
+event TransactionCancelled(bytes32 indexed txHash)
 ```
 
 ### ProposerChanged
 
 ```solidity
-event ProposerChanged(address oldProposer, address newProposer)
+event ProposerChanged(address indexed oldProposer, address indexed newProposer)
 ```
 
 ### GuardianChanged
 
 ```solidity
-event GuardianChanged(address oldGuardian, address newGuardian)
+event GuardianChanged(address indexed oldGuardian, address indexed newGuardian)
 ```
 
 ### onlyProposer
