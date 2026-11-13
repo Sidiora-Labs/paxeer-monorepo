@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repair189Config(t *testing.T) *Config {
+func selectionConfig(t *testing.T) *Config {
 	t.Helper()
 	cfg := &Config{Home: t.TempDir(), Name: "dummyd"}
 	for _, version := range []string{genesisDir, filepath.Join(upgradesDir, "chain2"), filepath.Join(upgradesDir, "chain3")} {
@@ -27,7 +27,7 @@ func repair189Config(t *testing.T) *Config {
 	return cfg
 }
 
-func repair189Reopen(t *testing.T, cfg *Config, upgrade string) {
+func requireReopenedSelection(t *testing.T, cfg *Config, upgrade string) {
 	t.Helper()
 	reopened := &Config{Home: cfg.Home, Name: cfg.Name}
 	bin, err := reopened.CurrentBin()
@@ -42,11 +42,11 @@ func repair189Reopen(t *testing.T, cfg *Config, upgrade string) {
 	require.Equal(t, want, string(output))
 }
 
-func TestRepair_189_InterruptedPublication(t *testing.T) {
+func TestSelectionPersistenceInterruptedPublication(t *testing.T) {
 	// The subprocess stops at the real staging boundary, or immediately after
 	// DoUpgrade has durably published the replacement. No cleanup runs on kill.
-	if phase := os.Getenv("COSMOVISOR_REPAIR_189_PHASE"); phase != "" {
-		cfg := &Config{Home: os.Getenv("COSMOVISOR_REPAIR_189_HOME"), Name: "dummyd"}
+	if phase := os.Getenv("COSMOVISOR_SELECTION_PHASE"); phase != "" {
+		cfg := &Config{Home: os.Getenv("COSMOVISOR_SELECTION_HOME"), Name: "dummyd"}
 		if phase == "staged" {
 			_, err := cfg.stageCurrentUpgrade("chain3")
 			require.NoError(t, err)
@@ -60,12 +60,12 @@ func TestRepair_189_InterruptedPublication(t *testing.T) {
 
 	for _, phase := range []string{"staged", "published"} {
 		t.Run(phase, func(t *testing.T) {
-			cfg := repair189Config(t)
+			cfg := selectionConfig(t)
 			require.NoError(t, DoUpgrade(cfg, &UpgradeInfo{Name: "chain2"}))
 			executable, err := os.Executable()
 			require.NoError(t, err)
-			child := exec.Command(executable, "-test.run=^TestRepair_189_InterruptedPublication$")
-			child.Env = append(os.Environ(), "COSMOVISOR_REPAIR_189_PHASE="+phase, "COSMOVISOR_REPAIR_189_HOME="+cfg.Home)
+			child := exec.Command(executable, "-test.run=^TestSelectionPersistenceInterruptedPublication$")
+			child.Env = append(os.Environ(), "COSMOVISOR_SELECTION_PHASE="+phase, "COSMOVISOR_SELECTION_HOME="+cfg.Home)
 			stdin, err := child.StdinPipe()
 			require.NoError(t, err)
 			defer stdin.Close()
@@ -103,17 +103,17 @@ func TestRepair_189_InterruptedPublication(t *testing.T) {
 				target, err := os.Readlink(staged[0])
 				require.NoError(t, err)
 				require.Equal(t, cfg.UpgradeDir("chain3"), target)
-				repair189Reopen(t, cfg, "chain2")
+				requireReopenedSelection(t, cfg, "chain2")
 				// An abandoned staging directory must not block the next upgrade.
 				require.NoError(t, DoUpgrade(cfg, &UpgradeInfo{Name: "chain3"}))
 			}
-			repair189Reopen(t, cfg, "chain3")
+			requireReopenedSelection(t, cfg, "chain3")
 		})
 	}
 }
 
-func TestRepair_189_AtomicSelection(t *testing.T) {
-	cfg := repair189Config(t)
+func TestSelectionPersistenceAtomicSelection(t *testing.T) {
+	cfg := selectionConfig(t)
 	require.NoError(t, DoUpgrade(cfg, &UpgradeInfo{Name: "chain2"}))
 	stop := make(chan struct{})
 	ready := make(chan struct{})
@@ -160,13 +160,13 @@ func TestRepair_189_AtomicSelection(t *testing.T) {
 	close(stop)
 	require.NoError(t, <-result)
 	require.NoError(t, upgradeErr)
-	repair189Reopen(t, cfg, "chain3")
+	requireReopenedSelection(t, cfg, "chain3")
 }
 
-func TestRepair_189_LostSelection(t *testing.T) {
+func TestSelectionPersistenceLostSelection(t *testing.T) {
 	for _, state := range []string{"genesis", "upgrade", "legacy-upgrade", "legacy-current"} {
 		t.Run(state, func(t *testing.T) {
-			cfg := repair189Config(t)
+			cfg := selectionConfig(t)
 			link := filepath.Join(cfg.Root(), currentLink)
 			switch state {
 			case "genesis":
@@ -206,10 +206,10 @@ func TestRepair_189_LostSelection(t *testing.T) {
 	}
 }
 
-func TestRepair_189_InvalidSelection(t *testing.T) {
+func TestSelectionPersistenceInvalidSelection(t *testing.T) {
 	for _, state := range []string{"file", "dangling", "parent-file"} {
 		t.Run(state, func(t *testing.T) {
-			cfg := repair189Config(t)
+			cfg := selectionConfig(t)
 			link := filepath.Join(cfg.Root(), currentLink)
 			switch state {
 			case "file":
@@ -234,8 +234,8 @@ func TestRepair_189_InvalidSelection(t *testing.T) {
 	}
 }
 
-func TestRepair_189_FirstInitialization(t *testing.T) {
-	cfg := repair189Config(t)
+func TestSelectionPersistenceFirstInitialization(t *testing.T) {
+	cfg := selectionConfig(t)
 	// Pre-staged upgrade binaries must not prevent the first genesis launch.
 	bin, err := cfg.CurrentBin()
 	require.NoError(t, err)
@@ -252,18 +252,18 @@ func TestRepair_189_FirstInitialization(t *testing.T) {
 	require.True(t, upgraded)
 	require.Equal(t, "Genesis initial\nUPGRADE \"chain2\" NEEDED at height: 49: {}\n", stdout.String())
 	require.Empty(t, stderr.String())
-	repair189Reopen(t, reopened, "chain2")
+	requireReopenedSelection(t, reopened, "chain2")
 }
 
-func TestRepair_189_PublicationFailure(t *testing.T) {
+func TestSelectionPersistencePublicationFailure(t *testing.T) {
 	t.Run("invalid-upgrade", func(t *testing.T) {
-		cfg := repair189Config(t)
+		cfg := selectionConfig(t)
 		require.NoError(t, DoUpgrade(cfg, &UpgradeInfo{Name: "chain2"}))
 		require.Error(t, cfg.SetCurrentUpgrade("missing"))
-		repair189Reopen(t, cfg, "chain2")
+		requireReopenedSelection(t, cfg, "chain2")
 	})
 	t.Run("current-directory", func(t *testing.T) {
-		cfg := repair189Config(t)
+		cfg := selectionConfig(t)
 		link := filepath.Join(cfg.Root(), currentLink)
 		require.NoError(t, os.Mkdir(link, 0755))
 		state := filepath.Join(link, "state")

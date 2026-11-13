@@ -23,10 +23,10 @@ import (
 )
 
 // The child is this gate's own executable, with no shell or installed daemon.
-func TestRepairM_1406_ChildProcess(t *testing.T) {
+func TestSupervisorLifecycleChildProcess(t *testing.T) {
 	mode := ""
 	for i, arg := range os.Args {
-		if arg == "--repair-m1406" && i+1 < len(os.Args) {
+		if arg == "--supervisor-child" && i+1 < len(os.Args) {
 			mode = os.Args[i+1]
 		}
 	}
@@ -71,7 +71,7 @@ func TestRepairM_1406_ChildProcess(t *testing.T) {
 	os.Exit(0)
 }
 
-func repairM1406Config(t *testing.T) *cosmovisor.Config {
+func supervisorConfig(t *testing.T) *cosmovisor.Config {
 	t.Helper()
 	cfg := &cosmovisor.Config{Home: t.TempDir(), Name: "paxd"}
 	executable, err := os.Executable()
@@ -83,60 +83,60 @@ func repairM1406Config(t *testing.T) *cosmovisor.Config {
 	return cfg
 }
 
-func repairM1406Args(mode string) []string {
-	return []string{"-test.run=^TestRepairM_1406_ChildProcess$", "--", "--repair-m1406", mode}
+func supervisorChildArgs(mode string) []string {
+	return []string{"-test.run=^TestSupervisorLifecycleChildProcess$", "--", "--supervisor-child", mode}
 }
 
-type repairM1406Result struct {
+type supervisorResult struct {
 	upgrade bool
 	err     error
 }
 
-func repairM1406Launch(t *testing.T, cfg *cosmovisor.Config, mode string, out, errOut io.Writer) <-chan repairM1406Result {
+func launchSupervisor(t *testing.T, cfg *cosmovisor.Config, mode string, out, errOut io.Writer) <-chan supervisorResult {
 	t.Helper()
-	result := make(chan repairM1406Result, 1)
+	result := make(chan supervisorResult, 1)
 	go func() {
-		upgrade, err := cosmovisor.LaunchProcess(cfg, repairM1406Args(mode), out, errOut)
-		result <- repairM1406Result{upgrade, err}
+		upgrade, err := cosmovisor.LaunchProcess(cfg, supervisorChildArgs(mode), out, errOut)
+		result <- supervisorResult{upgrade, err}
 	}()
 	return result
 }
 
-func repairM1406Await(t *testing.T, result <-chan repairM1406Result) repairM1406Result {
+func awaitSupervisor(t *testing.T, result <-chan supervisorResult) supervisorResult {
 	t.Helper()
 	select {
 	case res := <-result:
 		return res
 	case <-time.After(10 * time.Second):
 		t.Fatal("supervisor did not finish and join its workers")
-		return repairM1406Result{}
+		return supervisorResult{}
 	}
 }
 
-type repairM1406BlockedWriter struct {
+type blockedOutputWriter struct {
 	bytes.Buffer
 	entered chan struct{}
 	release chan struct{}
 	once    sync.Once
 }
 
-func (w *repairM1406BlockedWriter) Write(p []byte) (int, error) {
+func (w *blockedOutputWriter) Write(p []byte) (int, error) {
 	w.once.Do(func() { close(w.entered) })
 	<-w.release
 	return w.Buffer.Write(p)
 }
 
-func TestRepairM_1406_FinalUpgrade(t *testing.T) {
+func TestSupervisorLifecycleFinalUpgrade(t *testing.T) {
 	for _, mode := range []string{"stdout-upgrade", "stderr-upgrade", "error-upgrade"} {
 		t.Run(mode, func(t *testing.T) {
-			cfg := repairM1406Config(t)
+			cfg := supervisorConfig(t)
 			release := make(chan struct{})
 			var once sync.Once
 			unblock := func() { once.Do(func() { close(release) }) }
 			defer unblock()
-			out := &repairM1406BlockedWriter{entered: make(chan struct{}), release: release}
-			errOut := &repairM1406BlockedWriter{entered: make(chan struct{}), release: release}
-			result := repairM1406Launch(t, cfg, mode, out, errOut)
+			out := &blockedOutputWriter{entered: make(chan struct{}), release: release}
+			errOut := &blockedOutputWriter{entered: make(chan struct{}), release: release}
+			result := launchSupervisor(t, cfg, mode, out, errOut)
 			for _, entered := range []<-chan struct{}{out.entered, errOut.entered} {
 				select {
 				case <-entered:
@@ -150,7 +150,7 @@ func TestRepairM_1406_FinalUpgrade(t *testing.T) {
 			case <-time.After(100 * time.Millisecond):
 			}
 			unblock()
-			res := repairM1406Await(t, result)
+			res := awaitSupervisor(t, result)
 			require.NoError(t, res.err)
 			require.True(t, res.upgrade)
 			require.Contains(t, out.String()+errOut.String(), `UPGRADE "v2"`)
@@ -161,7 +161,7 @@ func TestRepairM_1406_FinalUpgrade(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, cfg.UpgradeBin("v2"), current)
 			var nextOut, nextErr bytes.Buffer
-			next := repairM1406Await(t, repairM1406Launch(t, reopened, "normal", &nextOut, &nextErr))
+			next := awaitSupervisor(t, launchSupervisor(t, reopened, "normal", &nextOut, &nextErr))
 			require.NoError(t, next.err)
 			require.False(t, next.upgrade)
 			require.Equal(t, "finished stdout\n", nextOut.String())
@@ -170,21 +170,21 @@ func TestRepairM_1406_FinalUpgrade(t *testing.T) {
 	}
 }
 
-func repairM1406Forwarders() int {
+func signalForwarderCount() int {
 	stack := make([]byte, 1<<20)
 	n := runtime.Stack(stack, true)
 	return strings.Count(string(stack[:n]), "cosmovisor.forwardSignals(") +
 		strings.Count(string(stack[:n]), "cosmovisor.LaunchProcess.func1(")
 }
 
-func TestRepairM_1406_SignalLifetime(t *testing.T) {
-	cfg := repairM1406Config(t)
-	before := repairM1406Forwarders()
+func TestSupervisorLifecycleSignalLifetime(t *testing.T) {
+	cfg := supervisorConfig(t)
+	before := signalForwarderCount()
 	for i := 0; i < 12; i++ {
-		res := repairM1406Await(t, repairM1406Launch(t, cfg, "normal", io.Discard, io.Discard))
+		res := awaitSupervisor(t, launchSupervisor(t, cfg, "normal", io.Discard, io.Discard))
 		require.NoError(t, res.err)
 		require.False(t, res.upgrade)
-		require.Equal(t, before, repairM1406Forwarders(), "launch retained a signal forwarder")
+		require.Equal(t, before, signalForwarderCount(), "launch retained a signal forwarder")
 	}
 	// Protect the gate while proving that completed launches no longer forward.
 	sigs := make(chan os.Signal, 1)
@@ -196,12 +196,12 @@ func TestRepairM_1406_SignalLifetime(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("shutdown signal was not delivered")
 	}
-	require.Equal(t, before, repairM1406Forwarders())
+	require.Equal(t, before, signalForwarderCount())
 }
 
-type repairM1406SignalWriter struct{ bytes.Buffer }
+type signalOutputWriter struct{ bytes.Buffer }
 
-func (w *repairM1406SignalWriter) Write(p []byte) (int, error) {
+func (w *signalOutputWriter) Write(p []byte) (int, error) {
 	n, err := w.Buffer.Write(p)
 	if bytes.Contains(p, []byte("ready\n")) || bytes.Contains(p, []byte("received first signal\n")) {
 		if signalErr := syscall.Kill(os.Getpid(), syscall.SIGTERM); signalErr != nil {
@@ -211,39 +211,39 @@ func (w *repairM1406SignalWriter) Write(p []byte) (int, error) {
 	return n, err
 }
 
-func TestRepairM_1406_SignalForwarding(t *testing.T) {
-	cfg := repairM1406Config(t)
-	var out repairM1406SignalWriter
-	res := repairM1406Await(t, repairM1406Launch(t, cfg, "signals", &out, io.Discard))
+func TestSupervisorLifecycleSignalForwarding(t *testing.T) {
+	cfg := supervisorConfig(t)
+	var out signalOutputWriter
+	res := awaitSupervisor(t, launchSupervisor(t, cfg, "signals", &out, io.Discard))
 	require.NoError(t, res.err)
 	require.False(t, res.upgrade)
 	require.Equal(t, "ready\nreceived first signal\nreceived second signal\n", out.String())
 }
 
-type repairM1406FailWriter struct{ err error }
+type failingOutputWriter struct{ err error }
 
-func (w repairM1406FailWriter) Write([]byte) (int, error) { return 0, w.err }
+func (w failingOutputWriter) Write([]byte) (int, error) { return 0, w.err }
 
-func TestRepairM_1406_ScannerFailureStopsChild(t *testing.T) {
+func TestSupervisorLifecycleScannerFailureStopsChild(t *testing.T) {
 	t.Run("oversize", func(t *testing.T) {
-		res := repairM1406Await(t, repairM1406Launch(t, repairM1406Config(t), "oversize", io.Discard, io.Discard))
+		res := awaitSupervisor(t, launchSupervisor(t, supervisorConfig(t), "oversize", io.Discard, io.Discard))
 		require.ErrorIs(t, res.err, bufio.ErrTooLong)
 		require.False(t, res.upgrade)
 	})
 	t.Run("writer failure", func(t *testing.T) {
 		writeErr := errors.New("output sink failed")
-		res := repairM1406Await(t, repairM1406Launch(t, repairM1406Config(t), "writer-error", repairM1406FailWriter{writeErr}, io.Discard))
+		res := awaitSupervisor(t, launchSupervisor(t, supervisorConfig(t), "writer-error", failingOutputWriter{writeErr}, io.Discard))
 		require.ErrorIs(t, res.err, writeErr)
 		require.False(t, res.upgrade)
 	})
 	t.Run("child failure", func(t *testing.T) {
-		res := repairM1406Await(t, repairM1406Launch(t, repairM1406Config(t), "exit-error", io.Discard, io.Discard))
+		res := awaitSupervisor(t, launchSupervisor(t, supervisorConfig(t), "exit-error", io.Discard, io.Discard))
 		require.ErrorContains(t, res.err, "exit status 7")
 		require.False(t, res.upgrade)
 	})
 }
 
-func TestRepairM_1406_SpacedJSONDownload(t *testing.T) {
+func TestSupervisorLifecycleSpacedJSONDownload(t *testing.T) {
 	binary, err := os.ReadFile("testdata/repo/raw_binary/autod")
 	require.NoError(t, err)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -274,7 +274,7 @@ func TestRepairM_1406_SpacedJSONDownload(t *testing.T) {
 	}
 }
 
-func TestRepairM_1406_ScannerCompatibility(t *testing.T) {
+func TestSupervisorLifecycleScannerCompatibility(t *testing.T) {
 	t.Run("original scanner table", TestWaitForInfo)
 	for _, tc := range []struct{ name, due, text, want string }{
 		{"full text", "height: 123", "DownloadData here!", "DownloadData here!"},
@@ -291,7 +291,7 @@ func TestRepairM_1406_ScannerCompatibility(t *testing.T) {
 	}
 }
 
-func TestRepairM_1406_DownloadCases(t *testing.T) {
+func TestSupervisorLifecycleDownloadCases(t *testing.T) {
 	var existing upgradeTestSuite
 	existing.SetT(t)
 	existing.TestDownloadBinary()
