@@ -2,9 +2,9 @@
 mode = "BUILD"
 base = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
 findings = ["12", "14", "15"]
-proof_12 = "repair-22-33-126.test.ts: finding12_preserves_large_balances_and_zero_decimals; finding12_rounds_once_at_each_currency_boundary"
-proof_14 = "repair-22-33-126.test.ts: finding14_distinguishes_partial_valuation_and_unknown_freshness; finding14_distinguishes_unavailable_prices_from_priced_zero; finding14_rejects_invalid_quotes_and_missing_balance_metadata"
-proof_15 = "repair-22-33-126.test.ts: finding15_propagates_structured_transfer_failure; finding15_retains_known_transfers_during_refresh_failure_and_retry; finding15_preserves_successful_empty_transfer_history"
+proof_12 = "wallet-valuation-and-transfers.test.ts: finding12_preserves_large_balances_and_zero_decimals; finding12_rounds_once_at_each_currency_boundary"
+proof_14 = "wallet-valuation-and-transfers.test.ts: finding14_distinguishes_partial_valuation_and_unknown_freshness; finding14_distinguishes_unavailable_prices_from_priced_zero; finding14_rejects_invalid_quotes_and_missing_balance_metadata"
+proof_15 = "wallet-valuation-and-transfers.test.ts: finding15_propagates_structured_transfer_failure; finding15_retains_known_transfers_during_refresh_failure_and_retry; finding15_preserves_successful_empty_transfer_history"
 baseline = "Not run: the explicit task order prohibits tests before the whole implementation and permits verification only through hf-done after hf-build; no pre-change failures are claimed."
 evidence = "The runner records the verified candidate revision, command, exit and private log in /out/run/gates.jsonl; the final response copies its last gate evidence."
 wiring_14_ui = "Domain 12: apps/wallet/src/widgets/portfolio/PortfolioWidget.tsx and apps/wallet/src/widgets/portfolio/HeroBalance.tsx must use valuation coverage to label incomplete valuation explicitly and use priced_value_usd only as a labeled subtotal."

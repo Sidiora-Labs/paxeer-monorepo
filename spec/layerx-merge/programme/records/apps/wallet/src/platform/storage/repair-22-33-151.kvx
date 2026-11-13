@@ -1,6 +1,6 @@
 [repair.22.33.151]
 audit = "22.30.116"
-test_file = "apps/wallet/src/platform/storage/repair-22-33-151.test.ts"
+test_file = "apps/wallet/src/platform/storage/storage-persistence-and-migration.test.ts"
 evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log; this record makes no qualification claim before that gate."
 baseline = "Not run: the ordered task instructions prohibit testing before complete implementation and prohibit running verify_cmd outside hf-done; no pre-change failures are claimed as measured."
 
