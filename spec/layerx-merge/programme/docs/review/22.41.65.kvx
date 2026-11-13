@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.65"
+pages = 20
+
+[page.1]
+path = "docs/site/docs/agents/sdk-verification.md"
+status = "corrected"
+
+[page.2]
+path = "docs/site/docs/agents/sdks.md"
+status = "corrected"
+
+[page.3]
+path = "docs/site/docs/concepts/accounts.md"
+status = "reviewed"
+
+[page.4]
+path = "docs/site/docs/concepts/activities.md"
+status = "reviewed"
+
+[page.5]
+path = "docs/site/docs/concepts/assets.md"
+status = "reviewed"
+
+[page.6]
+path = "docs/site/docs/concepts/checkpoints.md"
+status = "reviewed"
+
+[page.7]
+path = "docs/site/docs/concepts/identity.md"
+status = "reviewed"
+
+[page.8]
+path = "docs/site/docs/concepts/index.md"
+status = "reviewed"
+
+[page.9]
+path = "docs/site/docs/concepts/one-account.md"
+status = "reviewed"
+
+[page.10]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "reviewed"
+
+[page.11]
+path = "docs/site/docs/concepts/paxeer-settlement.md"
+status = "reviewed"
+
+[page.12]
+path = "docs/site/docs/concepts/receipts.md"
+status = "reviewed"
+
+[page.13]
+path = "docs/site/docs/human/custody.md"
+status = "reviewed"
+
+[page.14]
+path = "docs/site/docs/human/hosted.md"
+status = "reviewed"
+
+[page.15]
+path = "docs/site/docs/human/index.md"
+status = "reviewed"
+
+[page.16]
+path = "docs/site/docs/human/journeys.md"
+status = "reviewed"
+
+[page.17]
+path = "docs/site/docs/human/owner-registration-details.md"
+status = "reviewed"
+
+[page.18]
+path = "docs/site/docs/human/owner-registration.md"
+status = "reviewed"
+
+[page.19]
+path = "docs/site/docs/human/web-app.md"
+status = "reviewed"
+
+[page.20]
+path = "docs/site/docs/index.md"
+status = "reviewed"
