@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepair_338_GovernanceMerge(t *testing.T) {
+func TestGovernanceMergeReleasesCustody(t *testing.T) {
 	for _, authority := range []string{"", authtypes.NewModuleAddress(govtypes.ModuleName).String()} {
 		t.Run("authority="+authority, func(t *testing.T) {
 			e, queued, plan := prepareCustodyMerge(t)
@@ -35,12 +35,12 @@ func TestRepair_338_GovernanceMerge(t *testing.T) {
 	}
 }
 
-func TestRepair_338_ExternalAuthorityAndBlockedModule(t *testing.T) {
+func TestExternalAuthorityAndBlockedModuleRelease(t *testing.T) {
 	t.Run("external authority", TestMergePlanReleasesCustodyToTheAuthority)
 	t.Run("blocked module and atomic rollback", TestReleaseRetiredCancelsPendingClaims)
 }
 
-func TestRepair_338_RetirementRecovery(t *testing.T) {
+func TestRetirementLifecycleRecovery(t *testing.T) {
 	e, queued, plan := prepareCustodyMerge(t)
 	assertCustodyMergeRelease(t, e, queued, plan)
 	exported, err := e.k.ExportGenesisWithRetirement(e.ctx)
@@ -112,11 +112,11 @@ func TestRepair_338_RetirementRecovery(t *testing.T) {
 	}
 }
 
-func TestRepair_338_RestoredUpgradeBeforeHistoricalGenesis(t *testing.T) {
+func TestRestoredUpgradeLoadsHistoricalGenesis(t *testing.T) {
 	TestGenesisRoundTripAfterRetiredRelease(t)
 }
 
-func TestRepair_338_InvalidLifecycleIsAtomic(t *testing.T) {
+func TestInvalidRetirementLifecycleIsAtomic(t *testing.T) {
 	e := newEnv(t, 600)
 	e.deposit(e.withdrawal.Fields["asset"], 1_000)
 	live, err := e.k.ExportGenesisWithRetirement(e.ctx)
