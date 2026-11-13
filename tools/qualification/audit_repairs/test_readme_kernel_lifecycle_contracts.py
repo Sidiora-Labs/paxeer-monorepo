@@ -252,7 +252,7 @@ def test_repair_record_maps_the_audit_finding_to_all_proofs_and_limits():
         if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")
     }
     assert set(finding["tests"]) == declared
-    owner = tomllib.loads(source("tools/qualification/audit_repairs/repair_22_31_470.kvx"))
+    owner = tomllib.loads(source("spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_31_470.kvx"))
     coverage = owner["coverage"]["audit_22_30_180"]
     assert coverage["finding"] == FINDING and coverage["file"] == "README.md"
     assert "22.33.838" in coverage["consumer_tasks"]

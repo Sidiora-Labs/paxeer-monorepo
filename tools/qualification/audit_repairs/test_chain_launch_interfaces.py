@@ -101,7 +101,7 @@ def test_wallet_launchpad_abi_matches_precompile_bytes() -> None:
 
 
 def test_native_source_hash_tables_match_the_tree() -> None:
-    directory = ROOT / "sdk/launchpad/protocol/bindings/testdata/repair_m948"
+    directory = ROOT / "sdk/launchpad/protocol/bindings/testdata/recorded_events"
     for name in ("native-execution.json", "native-node-rpc.json"):
         hashes = json.loads((directory / name).read_text())["SourceHashes"]
         assert hashes, name

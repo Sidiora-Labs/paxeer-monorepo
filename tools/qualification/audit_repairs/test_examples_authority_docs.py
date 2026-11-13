@@ -187,11 +187,11 @@ def test_examples_authority_doc_repair_record_maps_proofs_and_evidence():
     assert task["wiring_requests"] == []
     assert "not executed" in task["proof_limit"]
     assert not (ROOT / "services/platform/tests/repair_22_33_1318.rs").exists()
-    examples_record = tomllib.loads(source("repair-22-33-1318.kvx"))["repair"]["22"]["33"]["1318"]
+    examples_record = tomllib.loads((ROOT / "spec/layerx-merge/programme/records/services/platform/examples/repair-22-33-1318.kvx").read_text(encoding="utf-8"))["repair"]["22"]["33"]["1318"]
     assert examples_record["proving_tests"] == [
-        "tools/qualification/audit_repairs/test_repair_22_33_1318.py"
+        "tools/qualification/audit_repairs/test_examples_authority_docs.py"
     ]
     assert examples_record["wiring_requests"] == []
-    supplemental = source("test/repair-22-33-1318.test.mjs")
+    supplemental = source("test/application-profiles.test.mjs")
     for name in ("examplesAuthorityDocMatchesApplicationProfiles", "examplesAuthorityDocProvesRootRpcAndReceiptStates"):
         assert f"function {name}(" in supplemental
