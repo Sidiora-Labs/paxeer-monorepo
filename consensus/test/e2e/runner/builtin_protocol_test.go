@@ -20,7 +20,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func repair123Testnet(t *testing.T, protocol string) *e2e.Testnet {
+func protocolTestnet(t *testing.T, protocol string) *e2e.Testnet {
 	t.Helper()
 	manifest := e2e.Manifest{
 		ABCIProtocol:    protocol,
@@ -39,7 +39,7 @@ func repair123Testnet(t *testing.T, protocol string) *e2e.Testnet {
 	return testnet
 }
 
-func TestRepair_123_GeneratedBuiltinConfigBootstrap(t *testing.T) {
+func TestGeneratedBuiltinConfigBootstrap(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		protocol string
@@ -48,7 +48,7 @@ func TestRepair_123_GeneratedBuiltinConfigBootstrap(t *testing.T) {
 		{name: "default"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			testnet := repair123Testnet(t, tc.protocol)
+			testnet := protocolTestnet(t, tc.protocol)
 			require.Equal(t, e2e.ProtocolBuiltin, testnet.ABCIProtocol)
 			require.NoError(t, Setup(testnet))
 			node := testnet.Nodes[0]
@@ -121,10 +121,10 @@ func TestRepair_123_GeneratedBuiltinConfigBootstrap(t *testing.T) {
 	}
 }
 
-func TestRepair_123_UnsupportedTransports(t *testing.T) {
+func TestUnsupportedTransports(t *testing.T) {
 	for _, protocol := range []string{"unix", "tcp", "grpc"} {
 		t.Run(protocol, func(t *testing.T) {
-			testnet := repair123Testnet(t, protocol)
+			testnet := protocolTestnet(t, protocol)
 			require.Equal(t, e2e.Protocol(protocol), testnet.ABCIProtocol)
 			for _, mode := range []e2e.Mode{e2e.ModeValidator, e2e.ModeFull, e2e.ModeSeed, e2e.ModeLight} {
 				t.Run(string(mode), func(t *testing.T) {
@@ -139,7 +139,7 @@ func TestRepair_123_UnsupportedTransports(t *testing.T) {
 	}
 	for _, protocol := range []e2e.Protocol{"socket", "file", "unknown", ""} {
 		t.Run(string(protocol), func(t *testing.T) {
-			testnet := repair123Testnet(t, "builtin")
+			testnet := protocolTestnet(t, "builtin")
 			testnet.ABCIProtocol = protocol
 			encoded, err := MakeAppConfig(testnet.Nodes[0])
 			require.Error(t, err)
@@ -148,10 +148,10 @@ func TestRepair_123_UnsupportedTransports(t *testing.T) {
 	}
 }
 
-func TestRepair_123_ConsumerRefusesUnsupportedTransports(t *testing.T) {
+func TestConsumerRefusesUnsupportedTransports(t *testing.T) {
 	for _, protocol := range []string{"unix", "tcp", "grpc", "socket", "file", "unknown", ""} {
 		t.Run(protocol, func(t *testing.T) {
-			testnet := repair123Testnet(t, "builtin")
+			testnet := protocolTestnet(t, "builtin")
 			encoded, err := MakeAppConfig(testnet.Nodes[0])
 			require.NoError(t, err)
 			var generated map[string]any

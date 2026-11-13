@@ -36,7 +36,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func repair1192Manifest(t *testing.T, manifest e2e.Manifest) *e2e.Testnet {
+func peerTestnet(t *testing.T, manifest e2e.Manifest) *e2e.Testnet {
 	t.Helper()
 	file := filepath.Join(t.TempDir(), "peers.toml")
 	require.NoError(t, manifest.Save(file))
@@ -45,7 +45,7 @@ func repair1192Manifest(t *testing.T, manifest e2e.Manifest) *e2e.Testnet {
 	return testnet
 }
 
-func repair1192Routers(t *testing.T, testnet *e2e.Testnet, discovery bool) (map[*e2e.Node]*p2p.Router, context.Context) {
+func peerRouters(t *testing.T, testnet *e2e.Testnet, discovery bool) (map[*e2e.Node]*p2p.Router, context.Context) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
 	t.Cleanup(cancel)
@@ -58,7 +58,7 @@ func repair1192Routers(t *testing.T, testnet *e2e.Testnet, discovery bool) (map[
 	for _, node := range testnet.Nodes {
 		key := p2p.NodeSecretKey(node.NodeKey)
 		endpoint := endpoints[node]
-		info := types.NodeInfo{NodeID: key.Public().NodeID(), Network: "repair1192", Moniker: node.Name, ListenAddr: endpoint.String()}
+		info := types.NodeInfo{NodeID: key.Public().NodeID(), Network: "peer-topology", Moniker: node.Name, ListenAddr: endpoint.String()}
 		options := &p2p.RouterOptions{
 			Endpoint: endpoint, SelfAddress: utils.Some(endpoint.NodeAddress(info.NodeID)),
 			Connection: conn.DefaultMConnConfig(), PexOnHandshake: discovery, MaxDialRate: utils.Some(rate.Inf), MaxAcceptRate: utils.Some(rate.Inf),
@@ -81,14 +81,14 @@ func repair1192Routers(t *testing.T, testnet *e2e.Testnet, discovery bool) (map[
 	return routers, ctx
 }
 
-func TestRepairM_1192_PeerTopology(t *testing.T) {
-	testnet := repair1192Manifest(t, e2e.Manifest{Nodes: map[string]*e2e.ManifestNode{
+func TestPeerTopology(t *testing.T) {
+	testnet := peerTestnet(t, e2e.Manifest{Nodes: map[string]*e2e.ManifestNode{
 		"a": {PersistentPeers: []string{"b"}},
 		"b": {PersistentPeers: []string{"a"}},
 		"c": {PersistentPeers: []string{"d"}},
 		"d": {PersistentPeers: []string{"c"}},
 	}})
-	routers, ctx := repair1192Routers(t, testnet, false)
+	routers, ctx := peerRouters(t, testnet, false)
 	a, b, c := testnet.LookupNode("a"), testnet.LookupNode("b"), testnet.LookupNode("c")
 	env := &core.Environment{Router: routers[a]}
 	mux := http.NewServeMux()
@@ -131,13 +131,13 @@ func TestRepairM_1192_PeerTopology(t *testing.T) {
 	b.Mode = e2e.ModeValidator
 }
 
-func TestRepairM_1192_PeerAddressBookIsNotConnectivity(t *testing.T) {
-	testnet := repair1192Manifest(t, e2e.Manifest{Nodes: map[string]*e2e.ManifestNode{"a": {}, "b": {}}})
+func TestPeerAddressBookIsNotConnectivity(t *testing.T) {
+	testnet := peerTestnet(t, e2e.Manifest{Nodes: map[string]*e2e.ManifestNode{"a": {}, "b": {}}})
 	a, b := testnet.LookupNode("a"), testnet.LookupNode("b")
 	a.IP, b.IP = net.ParseIP("127.0.0.1"), net.ParseIP("127.0.0.1")
 	peer := p2p.Endpoint{AddrPort: tcp.TestReserveAddr()}.NodeAddress(types.NodeIDFromPubKey(b.NodeKey.Public()))
 	key := p2p.NodeSecretKey(a.NodeKey)
-	info := types.NodeInfo{NodeID: key.Public().NodeID(), Network: "repair1192"}
+	info := types.NodeInfo{NodeID: key.Public().NodeID(), Network: "peer-topology"}
 	db := dbm.NewMemDB()
 	defer func() { require.NoError(t, db.Close()) }()
 	router, err := p2p.NewRouter(p2p.NopMetrics(), key, func() *types.NodeInfo { return &info }, db,
@@ -158,13 +158,13 @@ func TestRepairM_1192_PeerAddressBookIsNotConnectivity(t *testing.T) {
 	require.ErrorContains(t, checkPeerTopology(*a, result), "missing persistent connection to b")
 }
 
-func TestRepairM_1192_PeerDiscovery(t *testing.T) {
-	testnet := repair1192Manifest(t, e2e.Manifest{Nodes: map[string]*e2e.ManifestNode{
+func TestPeerDiscovery(t *testing.T) {
+	testnet := peerTestnet(t, e2e.Manifest{Nodes: map[string]*e2e.ManifestNode{
 		"a":    {Seeds: []string{"seed"}},
 		"b":    {Seeds: []string{"seed"}},
 		"seed": {Mode: string(e2e.ModeSeed)},
 	}})
-	routers, ctx := repair1192Routers(t, testnet, true)
+	routers, ctx := peerRouters(t, testnet, true)
 	a, b := testnet.LookupNode("a"), testnet.LookupNode("b")
 	env := &core.Environment{Router: routers[a]}
 	mux := http.NewServeMux()
@@ -183,7 +183,7 @@ func TestRepairM_1192_PeerDiscovery(t *testing.T) {
 
 // Starts the production runtime that the builtin E2E runner entrypoint calls.
 // Only addresses and directories are relocated to the local test fixture.
-func repair1192Sequencer(t *testing.T) (*e2e.Testnet, *rpchttp.HTTP, context.Context) {
+func sequencerTestnet(t *testing.T) (*e2e.Testnet, *rpchttp.HTTP, context.Context) {
 	t.Helper()
 	testnet, err := e2e.LoadTestnet("../networks/sequencer.toml")
 	require.NoError(t, err)
@@ -257,8 +257,8 @@ func repair1192Sequencer(t *testing.T) (*e2e.Testnet, *rpchttp.HTTP, context.Con
 	return testnet, firstClient, ctx
 }
 
-func TestRepairM_1192_SequencerProposals(t *testing.T) {
-	testnet, client, ctx := repair1192Sequencer(t)
+func TestSequencerProposals(t *testing.T) {
+	testnet, client, ctx := sequencerTestnet(t)
 	require.Equal(t, int64(3), testnet.LeaderPinHeight)
 	require.Len(t, testnet.Validators, 3)
 	require.Len(t, testnet.LeaderPin, 2)
@@ -309,7 +309,7 @@ func TestRepairM_1192_SequencerProposals(t *testing.T) {
 	}
 }
 
-func TestRepairM_1192_LeaderPolicyRounds(t *testing.T) {
+func TestLeaderPolicyRounds(t *testing.T) {
 	testnet, err := e2e.LoadTestnet("../networks/sequencer.toml")
 	require.NoError(t, err)
 	cfg := app.DefaultConfig(t.TempDir())

@@ -14,11 +14,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1189_Cardinalities(t *testing.T) {
+func TestChoiceCardinalities(t *testing.T) {
 	assertUniformSetChoiceCardinalities(t)
 }
 
-func TestRepairM_1189_SeededChoices(t *testing.T) {
+func TestSeededChoices(t *testing.T) {
 	probabilities := probSetChoice{"alpha": 0.1, "beta": 0.4, "delta": 0.7, "gamma": 1}
 	weights := weightedChoice{"alpha": 1, "beta": 1, "delta": 1, "gamma": 1}
 	for attempt := 0; attempt < 32; attempt++ {
@@ -43,7 +43,7 @@ func TestRepairM_1189_SeededChoices(t *testing.T) {
 	}
 }
 
-func TestRepairM_1189_ReproducibleManifests(t *testing.T) {
+func TestReproducibleManifests(t *testing.T) {
 	executable, err := os.Executable()
 	require.NoError(t, err)
 	var reference map[string][]byte
@@ -51,7 +51,7 @@ func TestRepairM_1189_ReproducibleManifests(t *testing.T) {
 		directory := t.TempDir()
 		ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
 		cmd := exec.CommandContext(ctx, executable,
-			"-test.run=^TestRepairM_1189_ManifestProcess$", "--", "repair-m1189-manifests", directory)
+			"-test.run=^TestManifestProcess$", "--", "generated-manifests", directory)
 		output, err := cmd.CombinedOutput()
 		cancel()
 		require.NoError(t, err, "process %d: %s", process, output)
@@ -79,10 +79,10 @@ func TestRepairM_1189_ReproducibleManifests(t *testing.T) {
 	}
 }
 
-func TestRepairM_1189_ManifestProcess(t *testing.T) {
+func TestManifestProcess(t *testing.T) {
 	directory := t.TempDir()
 	for i, arg := range os.Args {
-		if arg == "repair-m1189-manifests" {
+		if arg == "generated-manifests" {
 			require.Less(t, i+1, len(os.Args))
 			directory = os.Args[i+1]
 			break

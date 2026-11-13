@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepair_122_ValidatorPowerWidth(t *testing.T) {
+func TestValidatorPowerWidth(t *testing.T) {
 	root, err := filepath.Abs("../../../..")
 	require.NoError(t, err)
 	dir := t.TempDir()
@@ -31,7 +31,7 @@ func TestRepair_122_ValidatorPowerWidth(t *testing.T) {
 		args = append(args, target)
 	}
 	driver := filepath.Join(dir, "main.go")
-	require.NoError(t, os.WriteFile(driver, []byte(repair122Driver), 0600))
+	require.NoError(t, os.WriteFile(driver, []byte(validatorPowerDriver), 0600))
 	args = append(args, driver)
 
 	powers := []int64{0, 255, 256, types.MaxTotalVotingPower, math.MaxInt64}
@@ -88,7 +88,7 @@ func TestRepair_122_ValidatorPowerWidth(t *testing.T) {
 	}
 }
 
-const repair122Driver = `package main
+const validatorPowerDriver = `package main
 
 import (
 	"context"
@@ -106,7 +106,7 @@ import (
 	"github.com/paxeer-network/paxlog"
 )
 
-var logger = paxlog.NewLogger("repair122")
+var logger = paxlog.NewLogger("validator-power")
 const builtinProtocol = "builtin"
 
 type result struct {

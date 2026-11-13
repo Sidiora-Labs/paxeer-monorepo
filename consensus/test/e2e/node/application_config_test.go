@@ -18,16 +18,16 @@ import (
 	e2e "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/test/e2e/pkg"
 )
 
-func TestRepairM_1190_NodeDelayConfig(t *testing.T) {
+func TestNodeDelayConfig(t *testing.T) {
 	// The runner is a command, so compile its unchanged setup.go as a test-only
 	// source fixture. Check its identity before exercising the real producer;
 	// no copied serialization logic or subprocess toolchain is used.
 	producer, err := os.ReadFile(filepath.Join("..", "runner", "setup.go"))
 	require.NoError(t, err)
-	compiledProducer, err := os.ReadFile("repair_m1190_runner_test.go")
+	compiledProducer, err := os.ReadFile("runner_setup_test.go")
 	require.NoError(t, err)
 	require.Equal(t, string(producer), string(compiledProducer), "runner source fixture must match the production producer exactly")
-	network, err := e2e.LoadTestnet(filepath.Join("testdata", "repair_m1190_manifest.toml"))
+	network, err := e2e.LoadTestnet(filepath.Join("testdata", "application_delays.toml"))
 	require.NoError(t, err)
 	generated, err := MakeAppConfig(network.Nodes[0])
 	require.NoError(t, err)
@@ -67,7 +67,7 @@ func TestRepairM_1190_NodeDelayConfig(t *testing.T) {
 	// PrepareProposal is absent from the current ABCI Application interface;
 	// its retained configuration field is checked above (see the wiring record).
 	t.Run("process_proposal_elapsed", func(t *testing.T) {
-		repairM1190MeasureDelay(t, time.Duration(network.ProcessProposalDelayMS)*time.Millisecond, func() error {
+		measureApplicationDelay(t, time.Duration(network.ProcessProposalDelayMS)*time.Millisecond, func() error {
 			response, err := application.ProcessProposal(t.Context(), &abci.RequestProcessProposal{Txs: [][]byte{tx}})
 			if err != nil {
 				return err
@@ -79,7 +79,7 @@ func TestRepairM_1190_NodeDelayConfig(t *testing.T) {
 		})
 	})
 	t.Run("check_tx_elapsed", func(t *testing.T) {
-		repairM1190MeasureDelay(t, time.Duration(network.CheckTxDelayMS)*time.Millisecond, func() error {
+		measureApplicationDelay(t, time.Duration(network.CheckTxDelayMS)*time.Millisecond, func() error {
 			response := application.CheckTx(t.Context(), &abci.RequestCheckTxV2{Tx: tx})
 			if response == nil || response.ResponseCheckTx == nil || response.Code != abci.CodeTypeOK || response.GasWanted != 1 {
 				return fmt.Errorf("valid transaction was not accepted: %v", response)
@@ -88,7 +88,7 @@ func TestRepairM_1190_NodeDelayConfig(t *testing.T) {
 		})
 	})
 	t.Run("finalize_block_elapsed", func(t *testing.T) {
-		repairM1190MeasureDelay(t, time.Duration(network.FinalizeBlockDelayMS)*time.Millisecond, func() error {
+		measureApplicationDelay(t, time.Duration(network.FinalizeBlockDelayMS)*time.Millisecond, func() error {
 			response, err := application.FinalizeBlock(t.Context(), &abci.RequestFinalizeBlock{
 				Header: &tmproto.Header{Height: 1}, Txs: [][]byte{tx},
 			})
@@ -109,7 +109,7 @@ func TestRepairM_1190_NodeDelayConfig(t *testing.T) {
 	require.Equal(t, int64(1), response.Height)
 }
 
-func repairM1190MeasureDelay(t *testing.T, delay time.Duration, call func() error) {
+func measureApplicationDelay(t *testing.T, delay time.Duration, call func() error) {
 	t.Helper()
 	type result struct {
 		elapsed time.Duration
@@ -134,7 +134,7 @@ func repairM1190MeasureDelay(t *testing.T, delay time.Duration, call func() erro
 	}
 }
 
-func TestRepairM_1190_SocketExample(t *testing.T) {
+func TestBuiltinConfigExamples(t *testing.T) {
 	examples, err := filepath.Glob("*.toml")
 	require.NoError(t, err)
 	require.Contains(t, examples, "socket.toml")
