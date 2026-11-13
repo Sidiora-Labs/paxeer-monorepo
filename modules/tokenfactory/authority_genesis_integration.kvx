@@ -7,9 +7,9 @@ wiring_requests = "None; both repairs and their proofs are within modules/tokenf
 gotcha = "The guide predates the approved empty-admin validation repair already present in types/msgs.go; preserve that policy and prove it through the CLI, transaction codec and registered message handler."
 
 [finding.21]
-tests = ["TestRepairM_1226_DocumentedAuthorityLifecycle"]
+tests = ["TestDocumentedAuthorityLifecycle"]
 proof = "Real CLI renunciation, SDK transaction decoding, registered message/query routes, REST gateway and wasm queries prove the documented issuer/admin split, pause refusals and module-transfer exemption. Disk-store close/reopen and fresh module genesis import preserve renunciation, issuer binding, creator index and pause state; bank balances remain separate."
 
 [finding.3]
-tests = ["TestRepairM_1226_StreamSnapshotBeforeMutationAndClose", "TestRepairM_1226_StreamEmptyProducerClosed"]
+tests = ["TestGenesisStreamSnapshotBeforeMutationAndClose", "TestGenesisStreamEmptyProducerClosed"]
 proof = "Real AppModule and keeper exports synchronously capture exact JSON bytes into a single buffered message. Params, authority, pause and denom mutations precede producer-store closure and stream draining; finite receives prove exactly one message and closure. A fresh module validates and imports the emitted bytes and re-exports the exact original snapshot."

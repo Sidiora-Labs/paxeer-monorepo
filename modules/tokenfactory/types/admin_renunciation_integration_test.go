@@ -29,24 +29,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1229_IsolatedValidation(t *testing.T) {
+func TestBurnAndChangeAdminValidation(t *testing.T) {
 	// Execute the repaired original cases under the task's focused gate.
 	t.Run("burn", TestMsgBurn)
 	t.Run("change_admin", TestMsgChangeAdmin)
 }
 
-func TestRepairM_1229_RenunciationCLI(t *testing.T) {
-	repairM1229AdminLifecycle(t, "cli")
+func TestAdminRenunciationCLI(t *testing.T) {
+	assertAdminRenunciationLifecycle(t, "cli")
 }
 
-func TestRepairM_1229_RenunciationWasm(t *testing.T) {
-	repairM1229AdminLifecycle(t, "wasm")
+func TestAdminRenunciationWasm(t *testing.T) {
+	assertAdminRenunciationLifecycle(t, "wasm")
 }
 
 // Both producers feed the same SDK transaction codecs, signature verifier and
 // application module registration. The committed fixture supplies real keepers
 // and a disk store; no daemon, RPC endpoint or native runtime is involved.
-func repairM1229AdminLifecycle(t *testing.T, producer string) {
+func assertAdminRenunciationLifecycle(t *testing.T, producer string) {
 	t.Helper()
 	first := &secp256k1.PrivKey{Key: bytes.Repeat([]byte{1}, 32)}
 	second := &secp256k1.PrivKey{Key: bytes.Repeat([]byte{2}, 32)}

@@ -39,7 +39,7 @@ import (
 	tmdb "github.com/tendermint/tm-db"
 )
 
-type repairM1226Chain struct {
+type authorityGenesisChain struct {
 	store    storetypes.CommitMultiStore
 	ctx      sdk.Context
 	cdc      *codec.ProtoCodec
@@ -51,7 +51,7 @@ type repairM1226Chain struct {
 	closed   bool
 }
 
-func openRepairM1226Chain(t *testing.T, dir string) *repairM1226Chain {
+func openAuthorityGenesisChain(t *testing.T, dir string) *authorityGenesisChain {
 	t.Helper()
 	db, err := tmdb.NewGoLevelDB("repair", dir)
 	require.NoError(t, err)
@@ -76,13 +76,13 @@ func openRepairM1226Chain(t *testing.T, dir string) *repairM1226Chain {
 	bank := bankkeeper.NewBaseKeeper(cdc, keys[banktypes.StoreKey], accounts, subspace(banktypes.ModuleName), map[string]bool{})
 	factory := keeper.NewKeeper(cdc, keys[types.StoreKey], subspace(types.ModuleName), accounts, bank)
 	bank.RegisterSendEnabledChecker(factory.SendEnabledChecker)
-	s := &repairM1226Chain{store: ms, ctx: sdk.NewContext(ms, tmproto.Header{Height: 1}, false), cdc: cdc, registry: registry,
+	s := &authorityGenesisChain{store: ms, ctx: sdk.NewContext(ms, tmproto.Header{Height: 1}, false), cdc: cdc, registry: registry,
 		accounts: accounts, bank: bank, factory: factory, module: tokenfactory.NewAppModule(factory, accounts, bank)}
 	t.Cleanup(func() { s.close(t) })
 	return s
 }
 
-func (s *repairM1226Chain) close(t *testing.T) {
+func (s *authorityGenesisChain) close(t *testing.T) {
 	t.Helper()
 	if !s.closed {
 		require.NoError(t, s.store.Close())
@@ -90,13 +90,13 @@ func (s *repairM1226Chain) close(t *testing.T) {
 	}
 }
 
-func (s *repairM1226Chain) init() {
+func (s *authorityGenesisChain) init() {
 	s.accounts.SetParams(s.ctx, authtypes.DefaultParams())
 	s.bank.SetParams(s.ctx, banktypes.DefaultParams())
 	s.factory.InitGenesis(s.ctx, *types.DefaultGenesis())
 }
 
-func (s *repairM1226Chain) create(t *testing.T, admin sdk.AccAddress, subdenom string) string {
+func (s *authorityGenesisChain) create(t *testing.T, admin sdk.AccAddress, subdenom string) string {
 	t.Helper()
 	msg := types.NewMsgCreateDenom(admin.String(), subdenom)
 	require.NoError(t, msg.ValidateBasic())
@@ -105,7 +105,7 @@ func (s *repairM1226Chain) create(t *testing.T, admin sdk.AccAddress, subdenom s
 	return response.NewTokenDenom
 }
 
-func drainRepairM1226Stream(t *testing.T, stream <-chan json.RawMessage) json.RawMessage {
+func drainGenesisSnapshotStream(t *testing.T, stream <-chan json.RawMessage) json.RawMessage {
 	t.Helper()
 	timer := time.NewTimer(2 * time.Second)
 	defer timer.Stop()
@@ -126,8 +126,8 @@ func drainRepairM1226Stream(t *testing.T, stream <-chan json.RawMessage) json.Ra
 	return snapshot
 }
 
-func TestRepairM_1226_StreamSnapshotBeforeMutationAndClose(t *testing.T) {
-	s := openRepairM1226Chain(t, t.TempDir())
+func TestGenesisStreamSnapshotBeforeMutationAndClose(t *testing.T) {
+	s := openAuthorityGenesisChain(t, t.TempDir())
 	s.init()
 	admin := sdk.AccAddress(bytes.Repeat([]byte{0x41}, 20))
 	denom := s.create(t, admin, "snapshot")
@@ -151,11 +151,11 @@ func TestRepairM_1226_StreamSnapshotBeforeMutationAndClose(t *testing.T) {
 	second := s.module.ExportGenesisStream(s.ctx, s.cdc)
 	s.store.Commit(true)
 	s.close(t)
-	payload := drainRepairM1226Stream(t, stream)
+	payload := drainGenesisSnapshotStream(t, stream)
 	require.Equal(t, expected, payload, "snapshot bytes changed after producer mutation/closure")
-	require.Equal(t, changed, drainRepairM1226Stream(t, second))
+	require.Equal(t, changed, drainGenesisSnapshotStream(t, second))
 
-	consumer := openRepairM1226Chain(t, t.TempDir())
+	consumer := openAuthorityGenesisChain(t, t.TempDir())
 	consumer.init()
 	require.NoError(t, consumer.module.ValidateGenesis(consumer.cdc, nil, payload))
 	require.Empty(t, consumer.module.InitGenesis(consumer.ctx, consumer.cdc, payload))
@@ -167,30 +167,30 @@ func TestRepairM_1226_StreamSnapshotBeforeMutationAndClose(t *testing.T) {
 	require.Equal(t, uint32(17), consumer.factory.GetDenomAllowListMaxSize(consumer.ctx))
 }
 
-func TestRepairM_1226_StreamEmptyProducerClosed(t *testing.T) {
-	s := openRepairM1226Chain(t, t.TempDir())
+func TestGenesisStreamEmptyProducerClosed(t *testing.T) {
+	s := openAuthorityGenesisChain(t, t.TempDir())
 	s.init()
 	expected := s.module.ExportGenesis(s.ctx, s.cdc)
 	stream := s.module.ExportGenesisStream(s.ctx, s.cdc)
 	require.Equal(t, 1, len(stream))
 	s.close(t)
-	payload := drainRepairM1226Stream(t, stream)
+	payload := drainGenesisSnapshotStream(t, stream)
 	require.Equal(t, expected, payload)
 	require.NoError(t, s.module.ValidateGenesis(s.cdc, nil, payload))
-	consumer := openRepairM1226Chain(t, t.TempDir())
+	consumer := openAuthorityGenesisChain(t, t.TempDir())
 	consumer.init()
 	consumer.module.InitGenesis(consumer.ctx, consumer.cdc, payload)
 	require.Equal(t, expected, consumer.module.ExportGenesis(consumer.ctx, consumer.cdc))
 }
 
-func TestRepairM_1226_DocumentedAuthorityLifecycle(t *testing.T) {
+func TestDocumentedAuthorityLifecycle(t *testing.T) {
 	guide, err := os.ReadFile("README.md")
 	require.NoError(t, err)
 	for _, surface := range []string{"issuer_did", "renounces admin", "ErrIssuerMismatch", "ErrPauseUnchanged", "module-transfer", "gRPC", "REST", "CosmWasm", "paused_denoms", `change-admin "$DENOM" ""`} {
 		require.Contains(t, string(guide), surface)
 	}
 	dir := t.TempDir()
-	s := openRepairM1226Chain(t, dir)
+	s := openAuthorityGenesisChain(t, dir)
 	s.init()
 	admin := sdk.AccAddress(bytes.Repeat([]byte{0x42}, 20))
 	recipient := sdk.AccAddress(bytes.Repeat([]byte{0x43}, 20))
@@ -284,10 +284,10 @@ func TestRepairM_1226_DocumentedAuthorityLifecycle(t *testing.T) {
 	genesis := s.module.ExportGenesis(s.ctx, s.cdc)
 	commit := s.store.Commit(true)
 	s.close(t)
-	reopened := openRepairM1226Chain(t, dir)
+	reopened := openAuthorityGenesisChain(t, dir)
 	require.Equal(t, commit, reopened.store.LastCommitID())
 	require.Equal(t, genesis, reopened.module.ExportGenesis(reopened.ctx, reopened.cdc))
-	consumer := openRepairM1226Chain(t, t.TempDir())
+	consumer := openAuthorityGenesisChain(t, t.TempDir())
 	consumer.init()
 	require.NoError(t, consumer.module.ValidateGenesis(consumer.cdc, nil, genesis))
 	consumer.module.InitGenesis(consumer.ctx, consumer.cdc, genesis)

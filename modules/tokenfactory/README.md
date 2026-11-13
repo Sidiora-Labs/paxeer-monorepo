@@ -14,7 +14,7 @@ subdenoms. Creating a denom does not mint a balance.
 - [types/](types/) — Generated protobuf types, message validation, codecs, parameters, denom rules, store keys, events, errors, keeper interfaces and tests.
 - [module.go](module.go) — SDK module registration, services, migrations, invariants, genesis and simulation interfaces.
 - [handler.go](handler.go) — Governance proposal handler that rejects unrecognized tokenfactory proposal content.
-- [repair_m1226_test.go](repair_m1226_test.go) — Authority lifecycle, query transport, restart and genesis stream integration tests.
+- [authority_genesis_integration_test.go](authority_genesis_integration_test.go) — Authority lifecycle, query transport, restart and genesis stream integration tests.
 
 ## Build and test
 

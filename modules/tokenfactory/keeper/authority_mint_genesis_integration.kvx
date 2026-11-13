@@ -8,15 +8,15 @@ baseline = "No earlier gate ledger exists; baseline verification was not run bec
 evidence = "The runner's hf-build/hf-done ledger records the candidate revision, exact command, exit code and private log location."
 
 [finding.9]
-test = "TestRepairM_1227_ChangeAdminSignedTransaction"
+test = "TestAuthoritySignedTransactionRenunciation"
 implementation = "Retain keeper assertions and add production CLI-generated transactions signed with real account keys, encoded and decoded by the app codec, and delivered through app stateless checks, signature verification and message routing; assert authorized transfer and renunciation, unauthorized refusal, retained DID, balances and supply."
 
 [finding.4]
-test = "TestRepairM_1227_MintBlockedDestinationAtomic"
+test = "TestMintBlockedDestinationAtomic"
 implementation = "Cache mintTo and mint event emission; commit state and merge bank/tokenfactory events only on success. The real app BankKeeper refuses the valid blocked gov destination without changing existing supply, module/recipient balances or caller events; a subsequent valid mint commits its state and event."
 
 [finding.12]
-test = "TestRepairM_1227_TokenfactoryGenesisStreamRecovery"
+test = "TestTokenfactoryGenesisStreamRecovery"
 implementation = "Add tokenfactory AppModule to the listed stream cases and a disk-backed producer stop/reopen, parameter mutation before drain, close-before-consume, channel closure, consumer import and restart proof."
 wiring_request = "modules/tokenfactory/module.go, domain 6 (fm-chain-modules): ExportGenesisStream must synchronously capture genesis before returning and deliver only those captured bytes after producer mutation/shutdown; fulfilled on this continuation base by synchronous capture and a buffered, closed channel; no out-of-scope producer change is made here."
 
