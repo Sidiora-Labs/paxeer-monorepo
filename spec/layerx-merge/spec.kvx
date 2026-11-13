@@ -188057,7 +188057,7 @@ do_3 = "do_3 Decision 3421, gotcha 4339. The two cases of programs/sdk/rust/test
 
 [task.22.39.500]
 title = "Bring the lint target of the human services in line"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197864,7 +197864,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.501]
 title = "Bring the lint target of the interop workspace in line"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197923,7 +197923,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.497]
 title = "Bring the lint target of the agent workspace in line"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
