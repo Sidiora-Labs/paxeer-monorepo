@@ -1,33 +1,33 @@
-# Relay and archive migration contract
+# Chain history and archive access
 
-The standalone relay/archive service is **retired**. This page preserves contract anchors for migration; it does not describe a service to install. Paxeer is one BFT network: the kernel participates in `paxd` block proposal, and a receipt is final when its block commits. Full and archive `paxd` nodes provide chain history. Tenant domains do not require a relay process or another chain.
+Paxeer is one BFT network: the kernel participates in `paxd` block proposal, and a receipt is final when its block commits. Mainnet-beta uses EVM chain ID 125 (`0x7d`). Full and archive `paxd` nodes provide retained chain history. Tenant domains are database namespaces within the network.
 
-See [the retirement inventory](../spec/layerx-merge/programme/data/retired.kvx), component `replica`, for the deletion boundary. Use [hosted history and indexing](platform-hosted.md#indexer-http-routes) for application projections and [the gateway](platform-gateway.md#gateway-jsonrpc-methods) for hosted history methods. An indexer's completeness watermark and an archive node's retained state are different guarantees.
+Use [hosted history and indexing](platform-hosted.md#indexer-http-routes) for application projections and [the gateway](platform-gateway.md#gateway-jsonrpc-methods) for hosted history methods. An indexer's ingestion position and a node's retained state describe different data availability boundaries.
 
 ## Relay archive config keys
 
-The old relay/archive configuration schema and `config.example.json` are retired. No keys from that file configure the merged network. Configure the node's own retention and state services through its maintained node configuration; configure a hosted indexer independently. Copying the old replica, forwarder or archive settings does not enable either facility.
+Node history retention is configured in `config/app.toml`. [State-store configuration](../storage/config/ss_config.go) defines retained historical state; `state-store.ss-keep-recent` defaults to 100000 versions, and zero retains all versions. The emitted key names are declared in the [TOML template](../storage/config/toml.go). [Receipt-store configuration](../storage/config/receipt_config.go) selects the receipt database independently. Configure the hosted indexer through its own [configuration reader](../services/platform/hosted/indexer/src/config.rs).
 
 ## Relay archive CLI commands
 
-The old `install.sh` and `runtime.py` commands are retired. There is no supported relay/archive install, forward, replay or state-archive command at the deleted path. Use the native `paxd` lifecycle and operator procedures. The [hosted node wrapper](../services/platform/hosted/node/native_runtime.py) prepares and supervises a native node and checks committed health; it is not the removed relay/archive runtime.
+`paxd start` runs the native node. The [hosted node wrapper](../services/platform/hosted/node/native_runtime.py) prepares and supervises node generations and checks committed health. The hosted indexer also supports `backfill --cutover-height N`, with optional `--range-blocks N`, as described in [hosted indexing](platform-hosted.md#indexer-http-routes).
 
 ## Relay archive env vars
 
-The deleted installer and runtime's environment variables are retired. They are not aliases for [current hosted configuration](platform-hosted.md#env-vars). Do not carry old credentials or service origins into node or indexer configuration by renaming them mechanically.
+The hosted node reads `LAYERX_NODE_CONSENSUS_RPC_URL`, `LAYERX_NODE_RPC_URL` and `LAYERX_NODE_CHAIN_ID`. The consensus chain identifier is distinct from numeric EVM chain ID 125. Node and indexer configuration belong to separate processes; see [hosted configuration](platform-hosted.md#env-vars) and the linked readers for their required inputs.
 
 ## Relay archive error codes
 
-The deleted runtime, forwarder and state archive's error vocabulary is retired. New integrations handle the actual node JSON-RPC, gRPC or hosted API errors at the selected boundary. Missing history, an unavailable node and an incomplete indexer projection must remain distinguishable from a successful empty query.
+Handle node JSON-RPC errors according to the [RPC contract](rpc.md#public-json-rpc) and hosted history errors according to the [gateway contract](platform-gateway.md#gateway-error-codes). Indexer ingestion distinguishes `source_unavailable`, `source_decode_failed`, `store_unavailable`, `source_configuration_invalid`, `source_integrity_failed` and `reorg_beyond_finality`. Integrity and beyond-finality reorganization errors halt ingestion.
 
 ## Relay archive file formats
 
-The old relay store and state-archive formats are retired, including the files owned by `store.py` and `state_archive.py`. They are not native node snapshots or a supported import format. Preserve any historical material under the operator's retention policy; this page specifies no automatic conversion into trusted chain state. Native history must be read and verified through the maintained node interfaces.
+Node historical state and receipt databases use the backends selected by [storage configuration](../storage/config). The hosted indexer's [store](../services/platform/hosted/indexer/src/store.rs) owns its projection records and ingestion positions. Read chain data through node APIs and application projections through the indexer API.
 
 ## Relay archive HTTP routes
 
-The former runtime, forwarding and state-archive HTTP endpoints are retired. Public Ethereum JSON-RPC uses the HTTPS root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, or `api-mainnet-beta.paxeer.network`, with chain ID 125 (`0x7d`). The retired `/rpc` family is not a public network route. Hosted indexer HTTP reads are documented [separately](platform-hosted.md#indexer-http-routes); their deployment address is configuration, not a public node alias.
+Public Ethereum JSON-RPC uses the configured node HTTPS origin's root path. Hosted indexer HTTP reads include `/v1/chains`, `/v1/assets`, `/v1/history/…` and `/v1/holders/…`, as registered by [api.rs](../services/platform/hosted/indexer/src/api.rs). The indexer has its own configured listener; see [the route contract](platform-hosted.md#indexer-http-routes).
 
 ## Relay archive JSON-RPC methods
 
-The old relay/archive method registrations are retired. The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`; hosted `px_` methods belong to the [gateway contract](platform-gateway.md). For protobuf query and transaction services, use [the protobuf API contract](proto-api.md). `node.hyperpaxeer.com` is the library mirror, not an RPC endpoint or history service.
+Use node `eth_` methods for retained block, transaction, log and receipt data. Hosted `px_getHistory`, `px_getUnifiedHistory` and `px_listHolderRecords` are declared in [gateway OpenRPC](../services/platform/hosted/gateway/openrpc.json). History cursors are opaque: pass returned values through unchanged and preserve the indexer's ordering and completeness information. For protobuf query and transaction services, use [the protobuf API contract](proto-api.md).

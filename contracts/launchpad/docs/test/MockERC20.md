@@ -1,5 +1,7 @@
 # Solidity API
 
+Source: [MockERC20.sol](../../contracts/test/MockERC20.sol).
+
 ## MockERC20
 
 ### name
@@ -85,4 +87,3 @@ function transfer(address to, uint256 amount) external returns (bool)
 ```solidity
 function transferFrom(address from, address to, uint256 amount) external returns (bool)
 ```
-

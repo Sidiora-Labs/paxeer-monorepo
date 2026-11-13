@@ -1,8 +1,34 @@
 # Solidity API
 
+Source: [MockPoolForOptical.sol](../../contracts/test/MockPoolForOptical.sol).
+
 ## MockPoolForOptical
 
 Minimal mock pool that returns configurable reserves for optical testing
+
+### feeAccumulator
+
+```solidity
+address feeAccumulator
+```
+
+### opticalAddress
+
+```solidity
+address opticalAddress
+```
+
+### setFeeAccumulator
+
+```solidity
+function setFeeAccumulator(address value) external
+```
+
+### setOpticalAddress
+
+```solidity
+function setOpticalAddress(address value) external
+```
 
 ### setReserves
 
@@ -39,4 +65,3 @@ function tokenAddress() external view returns (address)
 ```solidity
 function creationTimestamp() external view returns (uint256)
 ```
-

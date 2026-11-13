@@ -1,5 +1,7 @@
 # Solidity API
 
+Source: [MockERC20Base.sol](../../contracts/test/MockERC20Base.sol).
+
 ## MockERC20Base
 
 ### constructor
@@ -19,4 +21,3 @@ function mint(address to, uint256 amount) external
 ```solidity
 function burn(address from, uint256 amount) external
 ```
-

@@ -10,11 +10,8 @@ infrastructure.
 
 ## Network and transport
 
-The EVM chain ID is **125** (`0x7d`). Public JSON-RPC uses the root of
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`, or
-`https://api-mainnet-beta.paxeer.network`. Configure the chosen node origin
-explicitly and check `eth_chainId` before signing. The node namespaces are
+The EVM chain ID is **125** (`0x7d`). Configure the node's HTTPS origin
+explicitly, use its root path for JSON-RPC and check `eth_chainId` before signing. The node namespaces are
 `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`.
 
 The `px` namespace answers from node state; `px_register` and
@@ -22,9 +19,7 @@ The `px` namespace answers from node state; `px_register` and
 services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json). Agent and
 human service operations also require their configured service origins and
 credentials; their generated catalogues do not promise that a public node
-implements those operations. The retired router and separate daemon are not
-required to access the merged network.
-`node.hyperpaxeer.com` is the hpx library mirror, not a JSON-RPC endpoint.
+implements those operations.
 
 ## SDK JVM
 

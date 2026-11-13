@@ -6,11 +6,11 @@ This page describes the tools-ops interfaces and preserves the anchors used by t
 
 Paxeer mainnet-beta is one BFT network. The kernel runs inside the node and proposes blocks, and receipts become final when their block is committed. Its EVM chain ID is `125` (`0x7d`). Sub-chains are tenant domains in the database, not additional node deployments.
 
-Public node JSON-RPC uses HTTPS at the root path of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, or `api-mainnet-beta.paxeer.network`. The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`, subject to node configuration. Use the [public endpoint reference](../docs/site/docs/reference/public-rpc.md) for the full list and WebSocket examples. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
+Public node JSON-RPC uses HTTPS at the configured node origin's root path. The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`, subject to node configuration. Use the [public endpoint reference](../docs/site/docs/reference/public-rpc.md) for the full list and WebSocket examples. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
 
-The pre-merge router, separate LayerX interface, sequencer service and `layerxd` runtime are retired. The former guarantor finality and custody-credit settlement model is retired; native bank balances and block commitment replace it. External bridge operations have their own [bridge contract](bridge/README.md).
+Native bank balances and block commitment govern network value and finality. External bridge operations have their own [bridge contract](bridge/README.md).
 
-`node.hyperpaxeer.com` is the hpx library mirror, never a JSON-RPC endpoint. A download mirror, a CometBFT endpoint, a gRPC address and an EVM JSON-RPC URL are different configuration inputs.
+A download mirror, a CometBFT endpoint, a gRPC address and an EVM JSON-RPC URL are different configuration inputs.
 
 Hosted-service dependency examples use `OPERATOR_HOST`, retaining the owning interface's scheme, port, path and method.
 Replace `OPERATOR_HOST` with the operator-supplied hostname of the hosted service or dependency being configured.
@@ -19,7 +19,7 @@ For a read-only identity check:
 
 ```bash
 curl --fail --silent --show-error --max-time 10 \
-  https://api1.mainnet-beta.paxeer.network \
+  "${RPC_URL:?Set RPC_URL to the node HTTPS root origin}" \
   -H 'content-type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
@@ -81,7 +81,7 @@ The benchmark JSON uses snake_case fields and native decimal strings as above. T
 
 ### Bench routes
 
-[`metrics.go`](../tools/benchmark/loadtest/metrics.go) registers `/healthz` and `/metrics` on the metrics HTTP server. It listens on `0.0.0.0` at `metrics_port`, falling back to 9696 when the value is zero; the checked-in sample selects 9695. These routes describe the load generator, not chain finality or readiness.
+[`metrics.go`](../tools/benchmark/loadtest/metrics.go) registers `/healthz` and `/metrics` on the metrics HTTP server. It listens on all IPv4 interfaces at `metrics_port`, falling back to 9696 when the value is zero; the checked-in sample selects 9695. These routes describe the load generator, not chain finality or readiness.
 
 ### Bench metrics
 
@@ -105,7 +105,7 @@ Profile `bounds` contains `minAverageTps`, `maxP99LatencyMs` and `minTotalTxs`. 
 
 ### Paxload routes
 
-The metrics server exposes `/metrics`; `--metricsListenAddr` defaults to `0.0.0.0:9090`. It is independent of both the node JSON-RPC server and the older benchmark metrics listener.
+The metrics server exposes `/metrics`; `--metricsListenAddr` defaults to all IPv4 interfaces on port 9090. It is independent of both the node JSON-RPC server and the older benchmark metrics listener.
 
 ### Paxload metrics
 
@@ -129,7 +129,7 @@ Each non-comment table row has four tab-separated columns: variable name, absolu
 
 ### Docker config
 
-[`docker/docker-compose.yml`](../docker/docker-compose.yml), [local node TOML](../docker/localnode/config/app.toml), [kernel environment example](../docker/kernel/kernel.env.example) and [systemd unit](../docker/kernel/layerx-kernel.service) have different scopes. Read the specific entry point before selecting environment keys or volume paths. Old topology references retained in deployment assets are pre-merge material, not current network architecture.
+[`docker/docker-compose.yml`](../docker/docker-compose.yml), [local node TOML](../docker/localnode/config/app.toml), [kernel environment example](../docker/kernel/kernel.env.example) and [systemd unit](../docker/kernel/layerx-kernel.service) have different scopes. Read the specific entry point before selecting environment keys or volume paths.
 
 ### Docker CLI
 
@@ -172,7 +172,7 @@ The CLI consumes native node configuration/genesis and sidecar task JSON. The ta
 
 ## Other tools and registered anchors
 
-The following source map preserves the remaining registry anchors. CLI rows identify entry points; environment/configuration rows identify input declarations; format rows identify serialized artifacts. These links define ownership, not a blanket instruction to run every historical deployment or qualification command.
+The following source map preserves the remaining registry anchors. CLI rows identify entry points; environment/configuration rows identify input declarations; format rows identify serialized artifacts. These links identify each tool’s owning implementation.
 
 | Interface | Owning sources and contract boundary |
 | --- | --- |
@@ -239,7 +239,7 @@ The following source map preserves the remaining registry anchors. CLI rows iden
 
 ## Retained qualification manifest contracts
 
-These contracts supplement [Qualification CLI](#qual-cli) and [Qualification env](#qual-env). The merged node executable is `paxd`. The root `make paxd-build` target builds the native kernel archive, the release Programs sandbox archive and the node through `chain.mk`. The CGO host links `build/liblayerx.a` and the Programs sandbox from `programs/target/release`; qualification must bind these exact archives together with the node executable. Historical standalone verifier and archive-codec make targets are not retained build inputs.
+These contracts supplement [Qualification CLI](#qual-cli) and [Qualification env](#qual-env). The merged node executable is `paxd`. The root `make paxd-build` target builds the native kernel archive, the release Programs sandbox archive and the node through `chain.mk`. The CGO host links `build/liblayerx.a` and the Programs sandbox from `programs/target/release`; qualification must bind these exact archives together with the node executable.
 
 Evidence belongs in a caller-owned private directory outside the checkout (directory mode `0700`, manifest mode `0600`). A successful build is an input to admission, not evidence that behavioral cases ran. Keep the revision, command, exit code, logs and manifest together. A changed source inventory, executable, archive, build log or required case inventory invalidates admission. Rebuild and publish a new manifest rather than editing a prior successful record. Missing inputs, malformed JSON, changed digests and failed or empty suites fail closed with a nonzero exit.
 
@@ -249,6 +249,6 @@ Evidence belongs in a caller-owned private directory outside the checkout (direc
 | [`native-terminal-outcome.py`](../tools/qualification/paxeer-x/native-terminal-outcome.py) | `--node-rpc URL --transactions FILE --receipt-keys FILE --output FILE` reads all four role names (`serial-empty-0`, `scheduled-0`, `scheduled-1`, `terminal-0`) from a transaction-hash map. `receipt_keys` is an array of pinned `key_id` and `public_key` hex strings without `0x`, plus numeric `first_height` and `last_height`. The `paxeer-x.committed-terminal-outcomes.v1` output contains `chain_id: 125` and captures with the original signed receipt, raw transaction, committed block, pins and terminal digest. | JSON-RPC 2.0 POST uses the root endpoint and `Content-Type: application/json`. The retained SDK verifies signed receipt bytes against the transaction, key pins, return data and logs. Finality admission requires `rung: committed`, matching nonzero block identity and transaction membership. Native terminal bytes in the ABI return value must match the committed `ProgramCallOutcome` digest. The refusal role preserves empty return data/logs and its signed execution failure. Submitted/receipted observations, signature changes and block substitutions are refused; separate signed-batch headers and maintenance proofs are not capture inputs. This is admission from a trusted node; it is not an independent BFT light client. |
 | [`native_send_purpose.py`](../tools/qualification/paxeer-x/native_send_purpose.py) | `--build` publishes `build.json` with schema `layerx-human-native-send-purpose-build.v1`, `source_files`, `source_revision`, `source_digest` and the `attestor`, `go_corpus`, `rust_corpus` artifacts. Production roots include `services/human`, `services/agent`, `services/wallet`, local Rust path dependencies and the root Go module's production trees. The sorted source digest includes path names and file digests, so additions, removals and uncommitted edits change it. | `--candidate-manifest` admits the immutable candidate and prebuilt artifacts selected by `PAXEER_X_NATIVE_SEND_BUILD_MANIFEST`; the original task deadline and candidate pin remain mandatory. It runs the existing native custody suites and checks required real-process result markers. Source and revision must remain unchanged through qualification. Cached artifacts from the former source roots cannot qualify. |
 | [`program-interface-producer.py`](../tools/qualification/paxeer-x/program-interface-producer.py) / [`program-interface.py`](../tools/qualification/paxeer-x/program-interface.py) | Producer `--output DIR` publishes `manifest.json` using `paxeer-x.program-interface-artifacts.v1`. The single inventory is four roles: `native-library`, `sandbox-staticlib`, `protocol-tests`, `legacy-tests`, and three explicit build logs. `source` contains `revision`, `tree`, `dirty: false`; required protocol/legacy cases, profiles and features are shared declarations. Artifact records have absolute `path`, `sha256` and `bytes`. | Consumer `--manifest FILE --native-fixtures FILE` admits producer output unchanged. Native fixtures remain separately mandatory under `paxeer-x.program-interface-native-evidence.v1`, with the same source identity and every `NATIVE_FIXTURE_CASES` entry's `module.wasm`, `interface.bin`, `evidence.kvx`. Missing native evidence never falls back to an empty suite. The producer refuses an incompatible required-case inventory before publication. |
-| [`router-authority-schema.py`](../tools/qualification/paxeer-x/router-authority-schema.py) | Despite its historical filename, this checks two separate surfaces: the maintained hosted gateway OpenRPC document and node `eth_`/`pax_` dispatch at `/`. `PAXEER_X_SCHEMA_BUILD_MANIFEST` supplies the revision/tree-bound successful gateway test artifact; `PAXEER_X_NODE_RPC_URL` supplies the node root URL. | The existing exact hosted schema test must run once. Hosted `px_` methods and the receipt relay are checked against their actual document. Node probes check `rpc_modules`, chain 125, `eth_call`, raw-transaction parameter rejection and the receipt lookup contract. The raw transaction probe sends empty invalid bytes and never broadcasts a valid transaction. A method-not-found response or a missing namespace fails qualification. |
+| [`router-authority-schema.py`](../tools/qualification/paxeer-x/router-authority-schema.py) | This checks two surfaces: the maintained hosted gateway OpenRPC document and node `eth_`/`pax_` dispatch at `/`. `PAXEER_X_SCHEMA_BUILD_MANIFEST` supplies the revision/tree-bound successful gateway test artifact; `PAXEER_X_NODE_RPC_URL` supplies the node root URL. | The existing exact hosted schema test must run once. Hosted `px_` methods and the receipt relay are checked against their actual document. Node probes check `rpc_modules`, chain 125, `eth_call`, raw-transaction parameter rejection and the receipt lookup contract. The raw transaction probe sends empty invalid bytes and never broadcasts a valid transaction. A method-not-found response or a missing namespace fails qualification. |
 | [`runtime-boundary-witness.py`](../tools/qualification/paxeer-x/runtime-boundary-witness.py) | `LAYERX_BOUNDARY_EVIDENCE` selects the directory containing `source.json`, schema `paxeer-x.runtime-boundary-artifacts.v1`. The build owner calls `publish_manifest` with `source: {revision, tree}`, exact `sources`, the executable, build log and `build_exit: 0`. The manifest binds both artifact digests and the complete `required_cases` list. Inventory includes the Programs workspace, SDK, patched vendor sources, toolchain pin, Cargo configuration and this consumer. | Admission compares the entire current inventory, not merely listed entries, and rejects stale revisions and changed binaries/logs. The executable is selected from the manifest, never parsed from build output. All eight declared boundary cases must report individual passes with one consistent successful summary: no failed, ignored, measured or filtered cases. Exit zero without those results cannot qualify. |
 | [`storage-recovery-producer.py`](../tools/qualification/paxeer-x/storage-recovery-producer.py) / [`storage-recovery.py`](../tools/qualification/paxeer-x/storage-recovery.py) | Producer `--output DIR` retains schema `paxeer-x.storage-recovery-artifacts.v1` and publishes the actual make command, source revision/tree, scoped source digests, build log digest and three suite artifacts. The retained inventory is `lxp_test_recovery`, `lxp_test_log_durability`, `lxp_test_rebuild`; it binds retained log, snapshot and projection implementations and the chain host/context and restart tests. | The real consumer derives its inventory and suite commands from the producer. It can reopen the manifest and recover identical admitted evidence. Native `lxp_test_recovery` owns canonical/activity log close-and-reopen, checkpoint replay and snapshot crash/retry cases; rebuild owns projection recovery. The retired feed store and daemon batch WAL cannot contribute release evidence. |

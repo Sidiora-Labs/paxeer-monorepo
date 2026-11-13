@@ -6,10 +6,11 @@ Paxeer mainnet-beta has EVM chain ID **125** (`0x7d`). Its kernel is part of the
 
 ## Gateway HTTP routes
 
-The current [HTTP dispatcher](../services/platform/hosted/gateway/src/main.rs) accepts JSON-RPC at `POST /`, with `Content-Type: application/json`. It returns 404 for the old activity and program ingress families before product dispatch. The retired `/rpc` and `/rpc/schema` paths are not the merged network's discovery or submission contract; use the checked-in [OpenRPC document](../services/platform/hosted/gateway/openrpc.json) for the hosted method schema.
+The current [HTTP dispatcher](../services/platform/hosted/gateway/src/main.rs) accepts JSON-RPC at `POST /`, with `Content-Type: application/json`. The hosted method schema is available at `GET /openrpc.json` and in the checked-in [OpenRPC document](../services/platform/hosted/gateway/openrpc.json).
 
 | Route | Meaning |
 | --- | --- |
+| `GET /openrpc.json` | Hosted JSON-RPC method schema |
 | `GET /livez` | Process liveness, service identifier and package version |
 | `GET /readyz` | Backend and product dependency readiness |
 | `GET /readyz/core` | Backend readiness without product route checks |
@@ -36,15 +37,15 @@ The OpenRPC contract declares these hosted methods:
 | History and holders | `px_getHistory`, `px_getUnifiedHistory`, `px_listHolderRecords` |
 | Discovery | `px_getNetwork`, `px_getCapabilities`, `px_getRouteCatalogue` |
 
-Submit native writes directly to the node with `eth_sendRawTransaction`; read precompile views with `eth_call`. Program state and balances use the native gRPC `Query/ProgramState` and `Query/ProgramBalances` services with ICS23 proofs at a committed height. Verify the block commit rather than relying on a separate checkpoint or settlement service.
+Submit native writes directly to the node with `eth_sendRawTransaction`; read precompile views with `eth_call`. Program reads use the [Programs precompile](programs.md#layerxprograms-0x101d). Proof-backed records follow the [registry evidence contract](programs.md#registry-evidence). Verify the block commit rather than relying on a separate checkpoint or settlement service.
 
 Preserve method-specific parameter and result types from OpenRPC. For example, registration takes `signer_public_key` and `registration_signature`; receipt lookup takes `txHash`; history requires `account` and accepts `cursor`, `limit` and `kind`. History uses the [indexer's position order](../services/platform/hosted/gateway/src/history.rs), `(blockHeight, txIndex, logIndex)`, with opaque 32-character lowercase hexadecimal cursors, a default limit of 50 and a maximum of 100. Pass returned cursors through unchanged.
 
-Public node JSON-RPC is available at the HTTPS **root** of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, and `api-mainnet-beta.paxeer.network`, for example `https://api5.mainnet-beta.paxeer.network`. Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in `services/platform/hosted/gateway/openrpc.json`. `node.hyperpaxeer.com` is only the build library mirror, not an RPC endpoint.
+Public node JSON-RPC uses HTTPS at the configured node origin's root path. Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in `services/platform/hosted/gateway/openrpc.json`.
 
 ## Gateway WS routes
 
-The retired `/rpc/ws` and `/rpc/evm/ws` spellings remain in compatibility branches of `exchange` and [ws.rs](../services/platform/hosted/gateway/src/ws.rs); they do not define a new public network endpoint. Public clients must use node transports actually enabled by the node operator. Product streams and explorer subscriptions are separate, configured service routes and must retain their authentication, origin and upstream readiness checks.
+Use the WebSocket transport enabled by the node operator for node subscriptions. [ws.rs](../services/platform/hosted/gateway/src/ws.rs) owns gateway forwarding. Product streams and explorer subscriptions are separate, configured service routes and must retain their authentication, origin and upstream readiness checks.
 
 ## Gateway config keys
 
@@ -56,7 +57,7 @@ The `LAYERX_` prefix remains a configuration spelling; it does not identify a se
 
 | Variable | Contract |
 | --- | --- |
-| `LAYERX_GATEWAY_LISTEN` | Listen address; otherwise `PORT` selects `[::]:PORT`, otherwise `[::]:9443` |
+| `LAYERX_GATEWAY_LISTEN` | Listen address; otherwise listens on all IPv6 interfaces at `PORT`, defaulting to 9443 |
 | `LAYERX_GATEWAY_LISTENER` | `tls` by default, or `plain`; plain mode rejects configured listener certificate variables |
 | `LAYERX_GATEWAY_TLS_CERT_DER`, `LAYERX_GATEWAY_TLS_KEY_DER` | TLS certificate and PKCS#8 key inputs for TLS mode |
 | `LAYERX_GATEWAY_OUTBOUND_CA_DER` | Required outbound trust root |

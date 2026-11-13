@@ -6,13 +6,10 @@ transaction receipt is final when its block commits. Perpetuals, spot and
 price feeds use chain state; the [data services](perps-data.md) index that
 state for the [trading client](perps-client.md).
 
-Public JSON-RPC uses HTTPS at the root of `api1.mainnet-beta.paxeer.network`
-through `api14.mainnet-beta.paxeer.network`, and
-`api-mainnet-beta.paxeer.network`. The node namespaces are `debug`, `echo`,
+Public node JSON-RPC uses HTTPS at the configured node origin's root path. The node namespaces are `debug`, `echo`,
 `eth`, `net`, `pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and
 `px_requestFunds` are operations of the hosted identity and faucet
 services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
-`node.hyperpaxeer.com` is the hpx library mirror, not an RPC endpoint.
 Sub-chains are tenant domains in the database.
 
 ## Addresses and ABI sources

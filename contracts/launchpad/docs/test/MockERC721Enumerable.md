@@ -1,5 +1,7 @@
 # Solidity API
 
+Source: [MockERC721Enumerable.sol](../../contracts/test/MockERC721Enumerable.sol).
+
 ## MockERC721Enumerable
 
 ### constructor
@@ -19,4 +21,3 @@ function mint(address to, uint256 tokenId) external
 ```solidity
 function burn(uint256 tokenId) external
 ```
-
