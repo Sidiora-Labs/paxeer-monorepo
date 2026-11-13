@@ -65,7 +65,7 @@ func TestEnforceBoundsReturnsErrPerformanceBounds(t *testing.T) {
 }
 
 func TestProofPaxloadBoundsShippedProfileMainExit(t *testing.T) {
-	if repair321CLIChild(t) {
+	if profileBoundsCLIChild(t) {
 		return
 	}
 	profile, err := cli.LoadConfig("profiles/evm_transfer.json")
@@ -81,7 +81,7 @@ func TestProofPaxloadBoundsShippedProfileMainExit(t *testing.T) {
 			if disable {
 				args = append(args, "--min-tps=0", "--max-p99-latency=0s", "--min-total-txs=0")
 			}
-			got := repair321RunCLI(t, *profile, args...)
+			got := profileBoundsRunCLI(t, *profile, args...)
 			require.Less(t, got.stats.OverallPerformance.AverageTPS, profile.Bounds.MinAverageTPS)
 			if disable {
 				require.Equal(t, 0, got.exit, "%s", got.output)

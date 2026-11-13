@@ -1,0 +1,16 @@
+[manifest]
+task = "22.43.225"
+records_moved = 1
+files_renamed = 1
+
+[file.1]
+from = "tools/spec/repair_22_33_781.kvx"
+to = "spec/layerx-merge/programme/records/tools/spec/repair_22_33_781.kvx"
+
+[file.2]
+from = "tools/spec/test_repair_22_33_781.py"
+to = "tools/spec/test_projection_json_numbers.py"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/spec/test_repair_22_33_781.py"
