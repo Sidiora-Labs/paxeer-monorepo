@@ -13,12 +13,12 @@ import (
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func repairM1071Update(key int, power int64) abci.ValidatorUpdate {
+func validatorUpdateForSort(key int, power int64) abci.ValidatorUpdate {
 	pub := ed25519.TestSecretKey([]byte(fmt.Sprintf("repair-m1071-key-%d", key))).Public()
 	return tmtypes.TM2PB.ValidatorUpdate(tmtypes.NewValidator(pub, power))
 }
 
-func repairM1071Transport(t *testing.T, updates []abci.ValidatorUpdate) abci.ValidatorUpdates {
+func transportValidatorUpdatesForSort(t *testing.T, updates []abci.ValidatorUpdate) abci.ValidatorUpdates {
 	t.Helper()
 	response := abci.ResponseFinalizeBlock{ValidatorUpdates: updates}
 	wire, err := response.Marshal()
@@ -33,12 +33,12 @@ func repairM1071Transport(t *testing.T, updates []abci.ValidatorUpdate) abci.Val
 	return abci.ValidatorUpdates(received.ValidatorUpdates)
 }
 
-func TestRepairM_1071_EqualKeys(t *testing.T) {
-	updates := repairM1071Transport(t, []abci.ValidatorUpdate{
-		repairM1071Update(0, 10),
-		repairM1071Update(0, 10),
-		repairM1071Update(0, 0),
-		repairM1071Update(0, 20),
+func TestValidatorUpdatesEqualKeys(t *testing.T) {
+	updates := transportValidatorUpdatesForSort(t, []abci.ValidatorUpdate{
+		validatorUpdateForSort(0, 10),
+		validatorUpdateForSort(0, 10),
+		validatorUpdateForSort(0, 0),
+		validatorUpdateForSort(0, 20),
 	})
 	for i := range updates {
 		for j := range updates {
@@ -50,7 +50,7 @@ func TestRepairM_1071_EqualKeys(t *testing.T) {
 	require.True(t, sort.IsSorted(updates))
 }
 
-func TestRepairM_1071_SortingCallers(t *testing.T) {
+func TestValidatorUpdatesSortingCallers(t *testing.T) {
 	for _, sorter := range []struct {
 		name string
 		run  func(sort.Interface)
@@ -72,9 +72,9 @@ func TestRepairM_1071_SortingCallers(t *testing.T) {
 			t.Run(sorter.name+"/"+fixture.name, func(t *testing.T) {
 				produced := make([]abci.ValidatorUpdate, fixture.size)
 				for i := range produced {
-					produced[i] = repairM1071Update((fixture.size-1-i)%fixture.keys, int64(i))
+					produced[i] = validatorUpdateForSort((fixture.size-1-i)%fixture.keys, int64(i))
 				}
-				updates := repairM1071Transport(t, produced)
+				updates := transportValidatorUpdatesForSort(t, produced)
 				sorter.run(updates)
 				require.True(t, sort.IsSorted(updates))
 				for i := range updates {
