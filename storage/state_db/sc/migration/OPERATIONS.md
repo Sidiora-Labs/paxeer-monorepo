@@ -127,7 +127,7 @@ Relevant implemented commands include:
 | [`dump-flatkv`](../../../tools/cmd/paxdb/operations/dump_flatkv.go) | Dumps physical flatkv buckets with `--db-dir`, `--output-dir`, `--height`, optional `--bucket`. |
 | [`state-size`](../../../tools/cmd/paxdb/operations/state_size.go) | Size analysis with `--db-dir`, `--height`, `--module` and optional `--flatkv-dir`; not a migration consistency check. |
 | [`prune`](../../../tools/cmd/paxdb/operations/prune.go) | Version pruning for SS; not source-module cleanup. |
-| [`replay-changelog`](../../../tools/cmd/paxdb/operations/replay_changelog.go) | memiavl changelog inspection/reapplication; not joint backend recovery. |
+| [`replay-changelog`](../../../tools/cmd/paxdb/operations/replay_changelog.go) | Scans the State Store changelog; `--no-dry-run` reapplies the selected offsets to the PebbleDB State Store. |
 | [`import-flatkv-from-memiavl`](../../../tools/cmd/paxdb/operations/import_flatkv_from_memiavl.go) | Restore-style EVM-only import; resets the destination, requires `--force` over committed flatkv data, and does not mark migration complete. |
 
 Flatkv size analysis is library code used by `state-size`. Snapshot export/import APIs exist in
@@ -147,7 +147,7 @@ optional `boundary_hex`, and optional `version_raw_hex`. Completion is computed
 as decoded migration version ≥ 1, so it does not distinguish V1 from later
 layouts. Absent version bytes produce zero; a present value of the wrong length
 also leaves decoded version zero but is included in `version_raw_hex`. Inspect
-the raw bytes before interpreting zero as healthy V0. The command panics on invalid arguments or an open error.
+the raw bytes before interpreting zero as V0. Missing `--db-dir`, an open error or a JSON output error causes a panic.
 
 The [flatkv tooling open path](../../../tools/cmd/paxdb/operations/flatkv_open.go)
 creates a temporary clone inside the database directory, hardlinks snapshot

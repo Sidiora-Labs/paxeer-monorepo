@@ -46,7 +46,7 @@ Perps uses `0x1015`; spot uses `0x1021`–`0x1025`. Height-dependent dispatch se
 | Agent | Rust, TypeScript and Python clients for agent operations, identity, transaction construction and receipt proofs | [Rust crates](../../../../services/agent/crates), [language SDKs](../../../../services/agent/sdk) |
 | Programs | Rust, C and AssemblyScript guest calls into versioned native host imports | [guest SDKs](../../../../programs/sdk), [ABI manifest](../../../../programs/sdk/abi-manifest.tsv) |
 
-The JavaScript Cosmos manifest declares distribution exports for `types/*`, `rest` and `encoding`; this checkout contains neither the distribution artifacts nor a source build tree.
+The JavaScript Cosmos package declares distribution exports for `types/*`, `rest` and `encoding`.
 
 Generated service operations describe client encodings, not deployment readiness. Launchpad transport checks capabilities and refuses unavailable operations. Service HTTP and WebSocket operations remain distinct from an EVM trade call.
 

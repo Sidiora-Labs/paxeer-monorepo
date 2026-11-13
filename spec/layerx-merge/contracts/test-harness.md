@@ -113,7 +113,7 @@ The tables identify code declarations and configuration names. Activation, authe
 
 | Kind | Declaration | Source |
 |---|---|---|
-| `go_exported` | `func evalExpr(expr string, envMap map[string]string) (bool, error)` | [tests/integration/runner/runner.go](../../../tests/integration/runner/runner.go) |
+| `go_internal` | `func evalExpr(expr string, envMap map[string]string) (bool, error)` | [tests/integration/runner/runner.go](../../../tests/integration/runner/runner.go) |
 | `go_exported` | `var ExcludedSuites = map[string]string{` | [tests/integration/runner/suites.go](../../../tests/integration/runner/suites.go) |
 | `go_exported` | `func RunFile(t *testing.T, path string, opts ...Option)` | [tests/integration/runner/runner.go](../../../tests/integration/runner/runner.go) |
 | `go_exported` | `var Suites = []Suite{` | [tests/integration/runner/suites.go](../../../tests/integration/runner/suites.go) |

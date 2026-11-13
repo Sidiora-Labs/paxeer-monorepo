@@ -20,13 +20,15 @@ The server inherits `blockscout-service-launcher` from the [workspace manifest](
 | `server.grpc.enabled` | `SMART_CONTRACT_VERIFIER__SERVER__GRPC__ENABLED` | `false` |
 | `server.grpc.addr` | `SMART_CONTRACT_VERIFIER__SERVER__GRPC__ADDR` | port `8051`, all interfaces |
 
-`solidity.enabled`, `vyper.enabled`, `sourcify.enabled` and `zksync_solidity.enabled` control their registrations on both transports; all default to `true`. Their environment variables follow the same spelling, for example `SMART_CONTRACT_VERIFIER__ZKSYNC_SOLIDITY__ENABLED`. Health is always registered on each enabled transport. Compiler service initialization precedes listener launch and can fail startup. The base config is not an exhaustive inventory: use the settings types for supported options, including ZkSync.
+`solidity.enabled`, `vyper.enabled`, `sourcify.enabled` and `zksync_solidity.enabled` control their registrations on both transports; all default to `true`. Their environment variables follow the same spelling, for example `SMART_CONTRACT_VERIFIER__ZKSYNC_SOLIDITY__ENABLED`. Health is always registered on each enabled transport. Enabled providers initialize concurrently, each with a ten-second deadline before listener launch. Their routes remain registered when initialization does not produce a provider; calls to that provider return gRPC `UNAVAILABLE`. The settings types define supported options, including ZkSync.
+
+`compilers.max_threads` (`SMART_CONTRACT_VERIFIER__COMPILERS__MAX_THREADS`) sets shared request concurrency, from 1 through 1024. It defaults to available parallelism, or 8 when that cannot be determined. Verification admits at most twice that many active and queued requests, waits at most two seconds for a running slot and bounds the worker response wait to thirty seconds. A full queue returns `RESOURCE_EXHAUSTED`; queue or response expiry returns `DEADLINE_EXCEEDED`. Running workers retain their slots until they finish. Version-list and method-lookup reads bypass this verification queue.
 
 ## grpc-health
 
 The service is `blockscout.smartContractVerifier.v2.Health`, with unary method `Check(HealthCheckRequest) -> HealthCheckResponse`, defined in [health.proto](../../../services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/proto/v2/health.proto). Its gRPC method path is `/blockscout.smartContractVerifier.v2.Health/Check`.
 
-The current [HealthService::check](../../../services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/health.rs) accepts an empty `service` or exactly `blockscout.smartContractVerifier.v2.Health` and returns `SERVING`. Other nonempty names return Tonic `NOT_FOUND` with message `unknown service`. This is a liveness response, not a probe of every compiler, upstream dependency or chain head. Streaming `Watch` is not implemented.
+[HealthService::check](../../../services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/health.rs) returns `SERVING` for an empty `service`, `blockscout.smartContractVerifier.v2.Health` or a successfully initialized compiler service's full name. The startup wrapper in [run.rs](../../../services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/run.rs) returns `NOT_SERVING` for an enabled provider that did not initialize. Disabled and unknown service names return Tonic `NOT_FOUND` with message `unknown service`. These responses describe process liveness and provider initialization; they do not probe upstream dependencies or chain head on each call. Streaming `Watch` is not implemented.
 
 ## grpc-solidityverifier
 
@@ -85,7 +87,7 @@ Verification takes `code`, optional `constructor_arguments`, `zk_compiler`, `sol
 |---|---|
 | `GET /health` | `Health.Check` |
 
-An omitted `service` query parameter defaults to the empty string. `GET /health` and `GET /health?service=blockscout.smartContractVerifier.v2.Health` return `{"status":"SERVING"}`. An unknown nonempty service returns HTTP `404` with JSON `{"code":5,"message":"unknown service"}`, corresponding to gRPC `NOT_FOUND`. Arbitrary compiler service names are not recognized health-query targets.
+An omitted `service` query parameter defaults to the empty string. `GET /health` and `GET /health?service=blockscout.smartContractVerifier.v2.Health` return `{"status":"SERVING"}`. Querying an enabled compiler service's full name returns `{"status":"SERVING"}` or `{"status":"NOT_SERVING"}` according to provider initialization. A disabled or unknown nonempty service returns HTTP `404` with JSON `{"code":5,"message":"unknown service"}`, corresponding to gRPC `NOT_FOUND`.
 
 Set `VERIFIER_ORIGIN` to the configured verifier HTTP origin before these requests:
 
@@ -142,4 +144,4 @@ The [Rust HTTP client](../../../services/explorer/services/smart-contract-verifi
 | `GET /api/v2/verifier/vyper/versions` | `VyperVerifier.ListCompilerVersions` | `compilerVersions` array |
 | `GET /api/v2/zksync-verifier/solidity/versions` | `ZkSyncSolidityVerifier.ListCompilers` | `zkCompilers` and `solcCompilers` arrays |
 
-Solidity and Vyper handlers sort available versions in descending version order through `versions_to_sorted_string` in `services/common.rs`. Lists reflect configured fetchers and pools, not a guarantee that any arbitrary version can be downloaded or run. Disabled families are not registered, even if their paths appear in the generated API contract.
+Solidity and Vyper handlers sort available versions in descending version order through `versions_to_sorted_string` in `services/common.rs`. Lists reflect configured fetchers and pools, not a guarantee that any arbitrary version can be downloaded or run. Enabled families whose providers did not initialize return `UNAVAILABLE`. Disabled families are not registered, even if their paths appear in the generated API contract.

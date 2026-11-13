@@ -1,6 +1,6 @@
 # System overview
 
-Paxeer mainnet-beta is one BFT network. The `paxd` node contains the EVM, native Go modules, the sequencer runtime and the LayerX kernel. EVM chain ID 125 is `0x7d`; the default chain name is `hyperpax_125-1` in [EVM configuration](../../../../modules/evm/config/config.go). A transaction is final when its block is committed.
+Paxeer mainnet-beta is one BFT network. The `paxd` node contains the EVM, native Go modules, the sequencer runtime and the LayerX kernel. [EVM configuration](../../../../modules/evm/config/config.go) maps the Cosmos chain ID `hyperpax_125-1` to EVM chain ID 125 (`0x7d`) and defaults unmapped Cosmos chain IDs to EVM chain ID 125. A transaction is final when its block is committed.
 
 ## Components and boundaries
 

@@ -70,7 +70,7 @@ Solidity, Vyper, Sourcify and Zksync Solidity default to enabled. Compiler direc
 
 `FetcherSettings` is an externally tagged enum: choose one `list` or `s3` table for each fetcher, rather than combining both variants. A list requires `list_url`; S3 requires `bucket` and has optional credential, region and endpoint strings. `Settings::validate` additionally requires at least one of `region` or `endpoint` for the **Solidity** S3 fetcher; it does not apply that check to the other fetchers. Default list URLs come from the constants imported by `settings.rs`.
 
-Sourcify defaults to `https://sourcify.dev/server/`, `verification_attempts = 3` and `request_timeout = 15`. The timeout is in seconds in [SourcifyApiClient][sourcify-client]; this setting is not an overall compilation timeout. The Zksync compiler settings select verification toolchains, not another Paxeer execution or settlement network. See [verifier HTTP methods](verifier-http.md) for the service API.
+Sourcify defaults to the URL in `DEFAULT_SOURCIFY_HOST`, `verification_attempts = 3` and `request_timeout = 15`. The timeout is in seconds in [SourcifyApiClient][sourcify-client]; this setting is not an overall compilation timeout. The Zksync compiler settings select verification toolchains, not another Paxeer execution or settlement network. See [verifier HTTP methods](verifier-http.md) for the service API.
 
 | Interface | Setting and Rust type | Definition |
 | --- | --- | --- |

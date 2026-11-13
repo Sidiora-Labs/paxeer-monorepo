@@ -92,7 +92,7 @@ Implementation: [services/platform/hosted/paxai-worker](../../../services/platfo
 
 ### platform-price-feeder
 
-Signs price observations and pushes them to pricefeed 0x1020 (decision.1702); the 0x1015 pushOracle path is void (decision.304).
+The `price-sidecar` reads Chainflow tickers and submits signed Cosmos `MsgSubmitPrices` transactions to the pricefeed module through consensus RPC. Pricefeed reads are exposed at precompile `0x1020`.
 
 Implementation: [services/platform/hosted/feeder](../../../services/platform/hosted/feeder).
 

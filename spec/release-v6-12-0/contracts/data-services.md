@@ -383,7 +383,7 @@ Rules:
 - --from is required; omitted --to resolves to the stored cursor. The range must be non-negative, ordered, within the stored cursor, and have to − from below 1000000; exit code 2 on refusal. See [replay.go](../../../services/platform/perps-data/internal/replay/replay.go).
 - It takes the writer lease, deletes facts and projections in the range, re-reads the range from the node (logs, synthetic receipts and `block_results` over PERPS_COMET_URLS), writes it and rebuilds projections; the indexer waits on the lease.
 - Messages reuse the event ids of the first index, so the stream and the inbox deduplicate them.
-- --dry-run prints per-table counts of rows that would change and writes nothing.
+- --dry-run prints per-table row and change counts and rolls back the replay batches. It uses the writer lease without committing changes to facts or projections.
 
 ## 8. Shared WebSocket protocol
 
@@ -768,12 +768,12 @@ Served by the gateway; fixed route names take precedence over the `/api/<symbol>
 
 ## 25. Spot user routes and socket
 
-The routes are served at the gateway origin with the paths exactly as the spot client of the application writes them, beginning with `/v1/users`; the client base is therefore the bare gateway origin. The address is lower-cased before lookup. Every amount is a decimal string of raw units; `*Usd` fields carry 6 decimals. Errors answer `{error: <message>}` with the HTTP status.
+The routes are served at the gateway origin with the paths exactly as the spot client of the application writes them, beginning with `/v1/users`; the client base is therefore the bare gateway origin. The address is lower-cased before lookup. Token quantities and balances are decimal strings in token-native units; USDL cost, proceeds and PnL use six decimals. Order and execution prices, `avgEntryPrice` and `avgExitPrice` use 18-decimal fixed point. Errors answer `{error: <message>}` with the HTTP status.
 
 | route | query | response |
 | --- | --- | --- |
 | GET /v1/users/<address>/holdings | none | {address, native: {symbol: PAX, decimals: 18, balance}, erc20: [{token, balance, blockNumber, symbol, name, decimals, holderCount, type}]}; balances read from the node at the latest height for every token of perps.spot_token_seen with a non-zero balance |
-| GET /v1/users/<address>/positions | none | {address, positions: [{token, symbol, name, decimals, isStablecoin, derived: {qty, avgEntryPrice, avgExitPrice, totalBought, totalSold, totalCostBasis, totalProceeds, realizedPnl, realizedPnlUsd, tradeCount, firstTradeAt, lastTradeAt}, paxscan: {qty}, externalActivity, externalQtyDelta}]}; derived is the average-cost fold over perps.spot_swaps, paxscan.qty the node balance, externalQtyDelta their difference |
+| GET /v1/users/<address>/positions | none | {address, positions: [{token, symbol, name, decimals, isStablecoin, derived: {qty, avgEntryPrice, avgExitPrice, totalBought, totalSold, totalCostBasis, totalProceeds, realizedPnl, realizedPnlUsd, tradeCount, firstTradeAt, lastTradeAt}, paxscan: {qty}, externalActivity, externalQtyDelta}]}; derived folds stablecoin trade legs from spot swaps and executed limit, stop-limit and stop-loss orders; paxscan.qty is the node balance and externalQtyDelta is node balance minus derived quantity |
 | GET /v1/users/<address>/orders | status (open or all), limit | {address, count, items: [{id, orderId, type (limit, stop_limit, stop_loss), status (open, executed, cancelled, activated, expired), token, stablecoin, amount, targetPrice, stopPrice, limitPrice, triggerPrice, executionPrice, isBuy, placedAt, executedAt, cancelledAt, placedTxHash, executedTxHash, symbol, decimals}]} from perps.spot_orders |
 | GET /v1/users/<address>/trades | limit, afterBlock, afterIndex | {address, count, limit, items: [{id, txHash, logIndex, blockNumber, blockTimestamp, user, tokenIn, tokenOut, amountIn, amountOut, executionPrice, volumeUsd, source, contract, createdAt, feeAmount, feeBps, hops, priceImpactAmount, priceImpactBps, routeAdapterId, twapPrice}], nextCursor: {afterBlock, afterIndex} or null} |
 | GET /v1/users/<address>/trades/stats | none | {address, totalTrades, bySource, byContract} |
@@ -783,6 +783,8 @@ The routes are served at the gateway origin with the paths exactly as the spot c
 | GET /v1/leaderboards/<kind> | kind pnl, volume or win-rate | {kind, as_of, omitted_accounts, items: [{rank, address, value}]}; items are read from persisted perps.spot_leaderboard, not folded at request time; as_of and omitted_accounts come from the persisted projection generation; an unknown kind answers 404 and an invalid limit answers 400 |
 
 The [leaderboard handler](../../../services/platform/perps-data/internal/rest/spotusers.go) reads ranks and generation metadata in one database snapshot. `perps.spot_board_generation` stores `generated_at` and `omitted_accounts`; `perps.spot_board_omissions` tracks accounts excluded from the fold. Before a generation is published, `as_of` is empty. Ranks are read from the persisted projection rather than folded at request time.
+
+The PnL summary omits `unrealizedUsd` and `totalUsd` when an open position has no usable mark. Nullable token metadata and order fields remain null. Closed-leg `entryPrice` and `exitPrice` use 18-decimal fixed point; `pnlPct` is a nullable percentage string.
 
 ### Spot user socket
 

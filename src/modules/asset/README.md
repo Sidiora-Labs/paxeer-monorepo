@@ -5,7 +5,7 @@ from `/v1/assets` on the indexer explicitly configured by `[evm].px_indexer_url`
 or `rpc.WithPxIndexerURL`. Each response joins at most sixteen records against
 one committed node height and returns `order: registration`, `joined_limit: 16`
 and `next_cursor`. Pass a non-null cursor to fetch the next page; cursors are
-canonical positive decimal row IDs.
+canonical positive signed 64-bit decimal row IDs (1 through 9223372036854775807).
 
 Bank denoms obtain metadata and exact supply through the bank precompile, with
 display decimals read from the bank metadata at the same height. Native ledger

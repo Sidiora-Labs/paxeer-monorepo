@@ -1,0 +1,51 @@
+[manifest]
+task = "22.41.98"
+pages = 12
+
+[page.1]
+path = "tools/loadtest/README.md"
+status = "corrected"
+
+[page.2]
+path = "tools/loadtest/profiles/README.md"
+status = "corrected"
+
+[page.3]
+path = "tools/paxctl/.agent/runbooks/seictl-smoke.md"
+status = "corrected"
+
+[page.4]
+path = "tools/paxctl/CLAUDE.md"
+status = "corrected"
+
+[page.5]
+path = "tools/paxctl/README.md"
+status = "corrected"
+
+[page.6]
+path = "tools/paxctl/sidecar/docs/authn.md"
+status = "corrected"
+
+[page.7]
+path = "tools/paxctl/sidecar/docs/keyring.md"
+status = "corrected"
+
+[page.8]
+path = "tools/paxctl/workflow/README.md"
+status = "corrected"
+
+[page.9]
+path = "tools/paxeer-x/gov/README.md"
+status = "corrected"
+
+[page.10]
+path = "tools/paxeer-x/sid-snapshot/README.md"
+status = "corrected"
+
+[page.11]
+path = "tools/platform/cli/README.md"
+status = "corrected"
+
+[page.12]
+path = "tools/qualification/audit_repairs/fixtures/px_node_root_inference.md"
+status = "corrected"

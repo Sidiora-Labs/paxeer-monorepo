@@ -31,7 +31,7 @@ Script knobs:
 
 The RPC URL must reach the same chain from both the host Go process and the container CLI/receipt queries. The Go package alone defaults to `http://127.0.0.1:8545`; the script uses `http://localhost:8545`.
 
-For extra `[DEBUG]` output, set `PAX_EVM_IO_DEBUG_FILES` to comma-separated fixture paths relative to `testdata/`, such as `eth_call/call-contract.io`. Every selected name must exist; unknown or duplicate names fail. Matching names restrict execution to an explicitly declared debug subset, which is not full-suite qualification. The full fixture inventory is validated before selection. An unset `PAX_EVM_IO_RUN_INTEGRATION` causes the integration test to skip when invoking the Go package directly.
+For extra `[DEBUG]` output, set `PAX_EVM_IO_DEBUG_FILES` to comma-separated fixture paths relative to `testdata/`, such as `eth_call/call-contract.io`. Every selected name must exist; unknown or duplicate names fail. Matching names restrict execution to the selected fixtures. The full fixture inventory is validated before selection. When invoking the Go package directly, `PAX_EVM_IO_RUN_INTEGRATION` must equal `1`; any other value skips the integration test.
 
 ### Legacy `pax_*` gating
 
@@ -155,7 +155,7 @@ requests at EOF, and orphan response markers fail parsing.
 ## Outcomes
 
 - **Pass** - every selected pair, declared expectation, binding and directive passes, and executed identities match the declared inventory exactly.
-- **Skip** - only the integration opt-in is unset. An enabled qualification never skips missing fixtures, empty files, required bindings or reverter setup.
+- **Skip** - the integration opt-in does not equal `1`. An enabled run rejects missing fixtures, empty files, required bindings or reverter setup.
 - **Fail** - inventory, setup, parsing, transport, HTTP status, schema, deterministic-value, reference or directive checks fail. Pair identities and the actual response accompany comparison failures.
 
 ### What "seed" means here

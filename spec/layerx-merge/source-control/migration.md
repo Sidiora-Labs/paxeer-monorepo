@@ -2,7 +2,7 @@
 
 ## 1. Existing source and scoped supersession
 
-The [migration service](../../../tools/hyperfide/core/control-plane/src/source_control/migration/) implements inventory, consolidation, parity and cutover. It uses explicit source formats and mappings for Git and legacy native snapshots. The [Git importer](../../../tools/hyperfide/core/control-plane/src/source_control/git/import.ts) admits imported history with provenance.
+The [migration service](../../../tools/hyperfide/core/control-plane/src/source_control/migration/) implements inventory, consolidation, parity and cutover. It consolidates pinned Git imports into native revisions and records the source-authority transition. The [Git importer](../../../tools/hyperfide/core/control-plane/src/source_control/git/import.ts) admits imported history with provenance.
 
 A source-authority transition is explicit. Legacy source remains authoritative until a cutover receipt pins the native repository, snapshot and authority epoch. Task ownership, qualification and remote publication retain their separate permissions.
 
@@ -10,58 +10,60 @@ A source-authority transition is explicit. Legacy source remains authoritative u
 
 The initial target is one large monorepo containing many independently owned projects. Large existing projects are ordinary subtrees of that shared namespace. Storage partitions distribute objects and metadata within that repository; a project root, an imported repository, a bucket prefix or a tenant is not assumed to fit on one server.
 
-A versioned consolidation manifest declares:
+The [consolidation parser](../../../tools/hyperfide/core/control-plane/src/source_control/migration/consolidation.ts) accepts these exact fields:
 
-- Input repository identities, source type, Git object format or legacy snapshot format, reachable reference selection, immutable source tips and history retention policy.
-- Stable target project identities, target path mappings, dependency/cross-project ownership changes and the resulting native repository identity.
-- Handling of path collisions, case/Unicode collisions, prohibited paths, executable modes, symlinks, gitlinks/submodules, LFS payloads, signatures, tags and large objects.
-- Import policy version, authorization domain, source and destination content digests, resumable batch checkpoints, verifier version and evidence locations.
-- Future public projection mappings and the original repository/commit identities that external consumers need to resolve.
+| Field | Meaning |
+|---|---|
+| `schema_version` | `1` |
+| `migration_id`, `base_revision_id` | Migration UUID and immutable native base |
+| `projects` | Between 2 and 128 project records |
+| `legacy_writer_ids` | Between 1 and 128 distinct writer identities |
+| `legacy_source_epoch` | Legacy epoch UUID or `null` |
+| `provenance` | Public author, message and timestamp |
+| `workflow_transition` | Native source mode and the named source mechanics being replaced |
 
-The manifest resolves overlapping target paths before ingestion. No last-writer-wins merge, case folding or path replacement is permitted. Inputs with non-UTF-8 or otherwise unsupported names remain archived and blocked from activation until an explicit reversible mapping or rejection policy is selected. Symlink targets are stored as source bytes and never traversed during import.
+Each project record contains `project_id`, `import_id`, `source_id`, `source_ref`, `tip_oid` and `target_path`. Project identities are unique, source refs name heads or tags, and tips use `git:sha1:` identities. Target roots cannot overlap, including after case folding and Unicode normalization.
 
-Submodules/gitlinks require a pinned decision: keep a typed external revision reference with a qualified resolver, or expand a specific external tree into a mapped project path with provenance. LFS pointers require their named payloads or a declared unresolved status that blocks affected checkout/qualification; the importer never silently treats an unavailable pointer payload as ordinary complete source. Native unsupported object/header features are recorded as explicit import exceptions.
+Consolidation requires completed imports matching the pinned source, tip and base. It composes their target subtrees into a new native revision with ordered unique imported parents. A target already present in the base is rejected.
+
+Git import supports regular files, executable files, directories and symlink target bytes. Unsupported modes, including gitlinks, are rejected. LFS pointers require payload resolution before import. Non-UTF-8 paths or metadata are rejected rather than converted.
 
 ## 3. History and provenance without mandatory clones
 
 Import workers stream source objects or bounded batches from an authorized repository endpoint or supplied archive. Native output is content-addressed; duplicate file bytes may reuse storage within the permitted authorization domain. Deduplication is not proof that histories, authorship or project identities are equivalent.
 
-For each input commit, retain `(source_repository_identity, git_object_format, source_commit_oid)` mapped to the native revision/tree, original parent order, tree digest, imported headers/provenance artifact and policy version. Legacy native snapshots use their explicit format and digest namespace. Imported authors, timestamps, messages and signatures are preserved as historical data without conferring current authorization or claiming that signatures survive reconstruction. Original signature validation observations identify the exact original bytes, verifier and time.
+The importer records each configured repository identity and Git object identity alongside its native revision mapping. It archives original Git objects and retains author, committer, message and parent observations. Signed input is either rejected by policy or retained as `PRESERVED_UNVERIFIED` alongside the archived original object.
 
-History import produces immutable native revisions and source maps, not fabricated agent attempts or newly authored commits. Metrics report imported historical revisions, newly authored revisions, accepted changes and remotely published Git commits separately. Stable source maps support old issue links, bisects, blame and audit references; APIs expose historical provenance with the same source-access policy as current code.
+Imported revisions preserve source history without acquiring task or acceptance authority. Source-map lookup exposes the retained import mappings under the same repository/security scope.
 
 The importer traverses only selected reachable history with bounded memory, disk, pagination and checkpoint state. A full import may read all selected history over time; no worker needs a full checkout or full history on local disk. Failed batches leave discoverable staged objects protected by upload/import leases and are resumed idempotently. Partially imported roots are invisible to ordinary accepted-source readers until their completeness checks pass.
 
-After per-project histories are available, an immutable consolidation revision composes target project subtrees. It retains each project's original ancestry through source maps and, where representable, explicit native parent edges. It never pretends independent repository histories originally shared a parent. Cross-project import manifests and parent fan-in are paginated/bounded so one consolidation record does not become an unbounded hot row.
+After per-project histories are available, an immutable consolidation revision composes target project subtrees. It retains each project's original ancestry through source maps and, where representable, explicit native parent edges. It never pretends independent repository histories originally shared a parent. The consolidation manifest bounds the project list and resulting parent fan-in.
 
 ## 4. Pilot and parity
 
-A pilot reads the old source authority and writes only a quarantined native destination. The old source remains the sole source writer. Shadow reads compare the same pinned source trees, path entry types/modes, content digests, selected history ancestry, representative blame/diffs, source-access decisions and public projection output. Exhaustive tree/content parity is required for selected cutover roots; bounded samples of metadata supplement it but cannot establish complete content parity.
+Parity compares each pinned source ref with its imported and consolidated native tree. It reads selected file bytes, modes and symlink targets, checks path mappings and retained evidence/access digests, and returns a `MATCHED` receipt bound to the manifest and consolidated revision. A source ref that has moved from its pinned tip is rejected.
 
-Pilot acceptance also exercises actual Hyperfide assignment, sparse materialization, immutable checkpoint, interrupted submission, qualification, native candidate acceptance and queued remote export. It must show that missing out-of-scope files are not inferred deletions, stale attempts cannot mutate adopted workspaces, the source ID in evidence matches the actual inputs, and post-merge validation binds the resulting candidate. Component tests do not substitute for this end-to-end path.
-
-A rehearsal records source bytes, file counts, historical object counts, hot directories, import progress, transfer volume and reconciliation debt. Initial history ingestion and live agent traffic receive separate concurrency and I/O budgets. A bulk migration cannot consume lease/acceptance service capacity or force ordinary client operations to walk imported history. Provider/account settings, bucket topology and exact production SLOs remain deployment inputs to qualify.
+Activation requires an authorized pilot acceptance naming the exact consolidated revision and root. Open workspaces, pending uploads, incomplete imports and unresolved publication effects prevent quiescence and activation.
 
 ## 5. Single-writer cutover protocol
 
 The [cutover service](../../../tools/hyperfide/core/control-plane/src/source_control/migration/cutover.ts) records `SHADOW`, `READY`, `QUIESCED`, `NATIVE` and `ABORTED` states. Routing is recorded separately as `LEGACY`, `CLOSED` or `NATIVE`. Every transition is an idempotent metadata operation carrying operation identity, expected state/generation, source and target epochs, and immutable input manifest digest.
 
-1. Inventory all legacy writers: agent workspaces, local snapshot commands, integration managers, publication gateways, scheduled jobs, CI and humans with direct source write access. Record a controllable admission boundary and physical source destination for each. An unknown writer blocks cutover.
-2. Stop new legacy assignments/source mutations and drain or explicitly transfer active work. Reconcile uncertain remote pushes and in-flight submissions. Checkpoint dirty work under its original source format and preserve its custody; do not discard it because a task worker exited.
-3. Establish the final immutable legacy high-water source tips after the writer fence is effective. Import the delta, bind the complete consolidation manifest, run parity and verify every selected reachable source object is available under the destination durability policy.
-4. Commit a cutover receipt naming the fenced legacy authority, native repository/snapshot, import/source-map digests, checks and new authority epoch. Change assignment, query, graph/evidence and publication routes through one source-authority selector. No data copy or external provider call runs inside this short transaction.
-5. Start new native work only after the new authority epoch is readable and old writer probes fail. In-flight legacy attempts are rejected or converted through an explicit immutable import proposal with current authority; credentials, a surviving process or an old task label cannot bypass the fence.
-6. Reconcile events, workspaces, source maps, indexes, retention roots and export checkpoints. Keep legacy stores read-only for the declared recovery window. Retire them only after their evidence references and rollback obligations have a qualified retained destination.
+1. Prepare the manifest against completed imports with the exact pinned source, tip and native base. The resulting migration starts in `SHADOW`.
+2. Consolidate the project subtrees and compare parity. Matching parity advances the migration to `READY`.
+3. Quiesce at the expected generation. The service checks drained work, isolates configured legacy writers, repeats final parity, and records fresh isolation receipts with state `QUIESCED` and route `CLOSED`.
+4. Activate at the expected generation with the pilot acceptance identity. The service repeats isolation, parity and drain checks, verifies the pilot's revision/root, advances the source-authority epoch and records state and route `NATIVE`.
 
-A transaction cannot atomically reconfigure all existing external clients. Therefore activation requires independently verified fencing of old write endpoints before opening the new one. If isolation cannot be established, native admission remains closed; only one source authority can accept writes. Graph or UI observations cannot override the source-authority epoch.
+Transitions retain operation identities, canonical input digests and replayable results. External writer isolation and source comparisons run outside the final metadata transaction; the transaction rechecks generation, authority and isolation freshness before committing.
 
 ## 6. Recovery and rollback
 
-Before any native writes have been acknowledged, a failed cutover can return to the final fenced legacy snapshot only after proving that native assignment/mutation admissions are closed and no new source or external publication effects occurred. The receipt records that proof and reopens exactly one writer epoch.
+Abort is available in `SHADOW`, `READY` or `QUIESCED` at the expected generation when work is drained and no native revisions have been acknowledged. It records `ABORTED` with route `LEGACY` and restores admission through the configured legacy writer controls.
 
-After acknowledged native writes, recovery is a new forward-reconciliation procedure. Freeze affected admissions, retain all new revisions/checkpoints/acceptance and remote-export receipts, reconcile uncertain effects, then either repair the native authority or export/map all acknowledged changes into a qualified successor source store. Only after parity and writer fencing can a new authority epoch open. Pointing clients to an older writable Git/local store would lose acknowledged work and is prohibited.
+After activation, recovery requires the current `NATIVE` generation and drained work. It advances the authority epoch, adopts retained source bindings, and returns the preserved migration inventory. Existing native source and publication records remain retained.
 
-Backup restoration introduces a new non-reused authority epoch and reconciles storage object availability, import maps, task/custody references and external remote effects before mutation admission. Historical signed or published identities remain immutable even if the current store is repaired. Cleanup records retention debt and cannot delete source required by active workspaces, pending imports/exports, uncertain outcomes or evidence retention policy.
+The [backup](../../../tools/hyperfide/core/control-plane/src/source_control/backup.ts) and [recovery](../../../tools/hyperfide/core/control-plane/src/source_control/recovery.ts) services provide separate source-closure verification and restore-authority operations.
 
 ## 7. Migration interfaces
 

@@ -12,7 +12,7 @@ This contract binds modules/pricefeed, its precompile precompiles/pricefeed at 0
 
 ## Markets and Chainflow symbols
 
-The market id is the id the Hyperpax application already uses for the perpetual market (Hyperpax:src/core/perps/config.ts:168-185). The symbol set is the application's feed symbol set (Hyperpax:src/core/feeds.ts:4). The Chainflow feed names a market three ways: the request symbol of the ticker route `/api/markets/ticker/{symbol}`, the response symbol `PERP_<SYMBOL>_USDC` that the application strips with `normalizeFeedSymbol` (Hyperpax:src/core/feeds.ts:5-7), and the lower-case path name of the per-market routes (Hyperpax:src/core/feeds.ts:13). The sidecar sends the request symbol and accepts a ticker only when its `symbol` field equals the response symbol.
+The market id is the id the Hyperpax application already uses for the perpetual market (apps/perps/src/core/perps/config.ts). The symbol set is the application's feed symbol set (apps/perps/src/core/feeds.ts). The Chainflow feed names a market three ways: the request symbol of the ticker route `/api/markets/ticker/{symbol}`, the response symbol `PERP_<SYMBOL>_USDC` that the application strips with `normalizeFeedSymbol` (apps/perps/src/core/feeds.ts), and the lower-case path name of the per-market routes (apps/perps/src/core/feeds.ts). The sidecar sends the request symbol and accepts a ticker only when its `symbol` field equals the response symbol.
 
 | Market id | Symbol | Name | Chainflow request symbol | Chainflow response symbol | Chainflow path name |
 |---|---|---|---|---|---|
@@ -37,12 +37,12 @@ The market id is the id the Hyperpax application already uses for the perpetual 
 
 1. The table is the Go value `types.Markets` in `modules/pricefeed/types/market.go`. `InitV6120` seeds exactly these eighteen entries, all enabled.
 2. Market ids are dense from 0; `getMarketCount()` returns 18 after activation. A listing adds the next id through `MsgSetParams`; an id is never reused for another symbol.
-3. `marketIdOf(symbol)` and `GetPriceBySymbol` match the symbol case-sensitively in upper case, as `FEED_SYMBOLS` spells it (Hyperpax:src/core/feeds.ts:4).
+3. `marketIdOf(symbol)` and `GetPriceBySymbol` match the symbol case-sensitively in upper case, as `FEED_SYMBOLS` spells it (apps/perps/src/core/feeds.ts).
 
 ## Price representation
 
 1. Every price is an unsigned integer with 18 decimals: 1 USDC per unit of the base asset is `1000000000000000000`. In Go it is `sdk.Int`; in the ABI it is `uint256`; in `MsgSubmitPrices` it is a decimal integer string.
-2. Chainflow sends `index_price` and `mark_price` as JSON numbers, not strings (chainflow/go/market.go:387-390 declares them `float64`), so a value may arrive in exponent form such as `1.234e-5`. The sidecar reads each field as the raw JSON number token (`serde_json::value::RawValue`; the `raw_value` feature of the workspace pin `serde_json = "=1.0.151"`, services/platform/Cargo.toml, is already enabled by services/platform/hosted/paxeer/Cargo.toml) and converts the token with `parse_json_number_fixed(token, 18)` in `services/platform/hosted/feeder/src/chainflow.rs`. The function accepts the full JSON number grammar including `e`/`E` exponents, computes the value exactly in integer arithmetic, truncates digits beyond 18 decimal places toward zero, and refuses a negative value, a zero result, a result over `2^256 - 1`, and any token that is not a JSON number. Vectors: `65000.5` gives `65000500000000000000000`; `1.234e-5` gives `12340000000000`; `2.5e16` gives `25000000000000000000000000000000000`; `1e-19` is refused as zero; `-1` is refused.
+2. Chainflow sends `index_price` and `mark_price` as JSON numbers, not strings (sdk/chainflow/go/market.go declares them `float64`), so a value may arrive in exponent form such as `1.234e-5`. The sidecar reads each field as the raw JSON number token (`serde_json::value::RawValue`; the `raw_value` feature of the workspace pin `serde_json = "=1.0.151"`, services/platform/Cargo.toml, is already enabled by services/platform/hosted/paxeer/Cargo.toml) and converts the token with `parse_json_number_fixed(token, 18)` in `services/platform/hosted/feeder/src/chainflow.rs`. The function accepts the full JSON number grammar including `e`/`E` exponents, computes the value exactly in integer arithmetic, truncates digits beyond 18 decimal places toward zero, and refuses a negative value, a zero result, a result over `2^256 - 1`, and any token that is not a JSON number. Vectors: `65000.5` gives `65000500000000000000000`; `1.234e-5` gives `12340000000000`; `2.5e16` gives `25000000000000000000000000000000000`; `1e-19` is refused as zero; `-1` is refused.
 3. Each market carries `min_price` and `max_price` bounds. An observation outside them is refused with reason `bounds`, as the kernel oracle bounds check refuses (src/modules/perps/lx_oracle_checks.c).
 
 ## Feed key registry
@@ -339,9 +339,9 @@ The sidecar is the price-sidecar binary of the layerx-oracle-feeder crate (servi
 
 `tools/price-sidecar/` holds:
 
-1. `price-sidecar.service`, a systemd unit on the model of interop/deploy/x-websearch/x-websearch.service:1-51: a dedicated user and group, `LoadCredential` for the feed key and the Chainflow key (`feed.key` holds the 32-byte secp256k1 secret as 64 hex characters, the file format `load_key` reads in services/platform/hosted/feeder/src/lib.rs, written by tools/release/feed_key.py of the release runbook), `Environment=` lines that pass `%d/<name>` paths, `Restart=on-failure`, `StateDirectory` with mode 0700, `UMask=0077` and the same sandbox directives.
+1. `price-sidecar.service`, a systemd unit with a dedicated user and group, `LoadCredential` for the feed key and the Chainflow key (`feed.key` holds the 32-byte secp256k1 secret as 64 hex characters, the file format `load_key` reads in services/platform/hosted/feeder/src/lib.rs, written by tools/release/feed_key.py of the release runbook), `Environment=` lines that pass `%d/<name>` paths, `Restart=on-failure`, `StateDirectory` with mode 0700, `UMask=0077` and process, filesystem and network-family sandbox directives.
 2. config.template.json contains sidecar configuration and blank endpoint and account values. The Chainflow api_key_env field names its API key variable. The systemd unit reads endpoint overrides from /etc/price-sidecar/endpoints.env and supplies credential-file paths and the state directory through environment variables.
-3. `tests/packaging-check.sh`, an offline check on the model of interop/deploy/x-websearch/tests/packaging-check.sh:1-30 that asserts the unit's directives and proves the sidecar config loader refuses every empty field of the template.
+3. `tools/price-sidecar/tests/packaging-check.sh`, an offline check that asserts the unit's directives and proves the sidecar config loader refuses every empty field of the template.
 
 ## Invariants
 

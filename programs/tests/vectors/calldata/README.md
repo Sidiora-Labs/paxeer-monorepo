@@ -28,13 +28,16 @@ Each `.json` file is an array of vectors:
 
 `expected` is either `pass` or `reject`; `error` and `note` are optional.
 Each vector supplies exactly one of `hex` and `hex_generator`. The runner
+removes spaces from literal `hex` strings before decoding them. It
 expands `hex_generator` and executes the resulting bytes. Its supported form is
 `layerx_convention + bytes_tag + length(4096) + repeat(0x42, 4096)`;
 unrecognized generators are rejected by the runner.
 
 ## Conventions
 
-1. **Canonical requirement**: only one valid encoding exists per logical value
+1. **Canonical serialization**: LayerX values use convention tag `0x01`;
+   EVM head-only values use `0x02`. Empty input is accepted and serializes as
+   the tag-only LayerX encoding `01`.
 2. **Nesting limit**: maximum depth of 16 nested structures (`MAX_NESTING_DEPTH`)
 3. **Size limits**: input ≤ 1 MiB (`MAX_CALLDATA_BYTES`), decoded ≤ 16 MiB
    (`DECODED_SIZE_LIMIT`)

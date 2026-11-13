@@ -6,11 +6,11 @@ Agent applications use the merged Paxeer BFT network, EVM chain ID `125` (`0x7d`
 
 ## AI market EIP-1559 preparation
 
-`ai_market::NativeTerms` retains `network_id: u32`, `actor_did: &[u8]`,
+`ai_market::NativeTerms` contains `network_id: u32`, `actor_did: &[u8]`,
 `owner_public_key: [u8; 32]`, `account_sequence: u64`, `idempotency_key: [u8; 32]`,
 `not_before: u64`, `not_after: u64`, `fee_limit: u128`, `capabilities: &[u8]`,
 `access_declaration: &[u8]`, `response_capacity: u32`, and `resources: Resources`,
-and adds `gas_limit: u64`, `max_fee_per_gas: u128`, and
+plus `gas_limit: u64`, `max_fee_per_gas: u128`, and
 `max_priority_fee_per_gas: u128`. As in the Python SDK, preparation requires
 network 125, zero `not_before`, positive gas, priority fee at most maximum fee,
 `not_after` equal to the PAXAI expiry and `idempotency_key` equal to its request ID.
@@ -45,7 +45,7 @@ calls, offsets, padding, truncation and trailing bytes. `ConstructMethod::Progra
 exposes the decoded native call and Programs fee budget; its disclosure uses
 Programs ordinal 3 and carries the PAXAI envelope's request ID and expiry.
 
-`OperationRecord::from_signed_transaction(signed_bytes, intent, not_after)` remains
+`OperationRecord::from_signed_transaction(signed_bytes, intent, not_after)` is
 the durable record producer. Its identity and idempotency key are the signed
 transaction hash, protocol version is 2, network ID is the transaction chain ID,
 and `signer_public_key` stores the recovered 20-byte sender left-padded to 32 bytes.
@@ -1406,8 +1406,8 @@ identity; submissions retain the exact signed bytes across restart and resend.
 |---|---|
 | interface | the agent daemon's node JSON-RPC client over LAYERX_AGENT_NODE_RPC_URL |
 | storage | none beyond the agentd store |
-| errors | JSON-RPC error codes are surfaced as NodeUnavailable or ProtocolIncompatibility |
-| events | eth_subscribe logs |
+| errors | NodeRpcError reports unavailable transport, chain-ID mismatch and wrapped SequencerError values (services/agent/crates/layerx-agentd/src/node_rpc.rs) |
+| events | The node RPC client emits no events. |
 | gas | none |
 | invariants | eth_chainId equals LAYERX_AGENT_NODE_CHAIN_ID before serving |
 | pause | none |
@@ -1573,31 +1573,30 @@ identity; submissions retain the exact signed bytes across restart and resend.
 | Requirement | Behavior |
 | --- | --- |
 | <code>req.9241</code> | SequencerEndpoint::chain_id returns the eth_chainId quantity as u64 and refuses a non-quantity answer as Malformed (services/agent/crates/layerx-client/src/sequencer.rs). |
-| <code>req.9241</code> | SequencerEndpoint::balance sends eth_getBalance with the address and the pending tag and returns the 32-byte big-endian quantity (spec/layerx-merge/contracts/clients.md:200). |
-| <code>req.9242</code> | SequencerEndpoint::account_proof sends eth_getProof with the address, the slots and the hex height and decodes balance, nonce, code hash, storage hash and every proof node (spec/layerx-merge/contracts/clients.md:206). |
-| <code>req.9242</code> | SequencerEndpoint::history sends px_getHistory with the account, a 32-hex cursor and the limit and refuses the 112-hex cursor form before sending (spec/layerx-merge/contracts/clients.md:89). |
-| <code>req.9243</code> | subscribe sends eth_subscribe with ["logs", filter] and NodeSubscription::next yields each eth_subscription result for the returned id (spec/layerx-merge/contracts/clients.md:216). |
-| <code>req.9243</code> | NodeSubscription::close sends eth_unsubscribe with the subscription id for a newHeads subscription (spec/layerx-merge/contracts/clients.md:217). |
-| <code>req.9244</code> | PxEndpoint::account and PxEndpoint::balances send px_getAccount and px_getBalances with the account and decode every served field (spec/layerx-merge/contracts/clients.md:199). |
-| <code>req.9244</code> | PxEndpoint::network refuses a px_getNetwork answer that carries an anchor member and list_assets decodes the asset table (spec/layerx-merge/contracts/clients.md:90). |
-| <code>req.9245</code> | SequencerEndpoint::transaction_receipt decodes status, block number, transaction index, gas used and every log of eth_getTransactionReceipt (spec/layerx-merge/contracts/clients.md:169). |
+| <code>req.9241</code> | SequencerEndpoint::balance sends eth_getBalance with the address and the pending tag and returns the 32-byte big-endian quantity (services/agent/crates/layerx-client/src/sequencer.rs). |
+| <code>req.9242</code> | SequencerEndpoint::account_proof sends eth_getProof with the address, the slots and the hex height and decodes balance, nonce, code hash, storage hash and every proof node (services/agent/crates/layerx-client/src/sequencer.rs). |
+| <code>req.9242</code> | SequencerEndpoint::history sends px_getHistory with the account, a 32-hex cursor and the limit and refuses the 112-hex cursor form before sending (services/agent/crates/layerx-client/src/sequencer.rs). |
+| <code>req.9243</code> | subscribe sends eth_subscribe with ["logs", filter] and NodeSubscription::next yields each eth_subscription result for the returned id (services/agent/crates/layerx-client/src/subscription.rs). |
+| <code>req.9243</code> | NodeSubscription::close sends eth_unsubscribe with the subscription id for a newHeads subscription (services/agent/crates/layerx-client/src/subscription.rs). |
+| <code>req.9244</code> | PxEndpoint::account and PxEndpoint::balances send px_getAccount and px_getBalances with the account and decode every served field (services/agent/crates/layerx-client/src/px.rs). |
+| <code>req.9244</code> | PxEndpoint::network refuses a px_getNetwork answer that carries an anchor member and list_assets decodes the asset table (services/agent/crates/layerx-client/src/px.rs). |
+| <code>req.9245</code> | SequencerEndpoint::transaction_receipt decodes status, block number, transaction index, gas used and every log of eth_getTransactionReceipt (services/agent/crates/layerx-client/src/sequencer.rs). |
 | <code>req.9245</code> | A null eth_getTransactionReceipt answer is Ok(None) and a status of 0x2 is SequencerError::Malformed. |
-| <code>req.9251</code> | read::balance issues eth_call of layerxledger balanceOf (0xb1ffc03e) at the committed height and returns the uint128 amount (spec/layerx-merge/contracts/clients.md:51). |
-| <code>req.9251</code> | read::account refuses an eth_getProof answer whose address is not the requested address with ReadError::SelectorMismatch. |
-| <code>req.9252</code> | read::module_state reads the storage proof of the module slot at the committed height and returns the slot value bytes. |
-| <code>req.9252</code> | read::module_state_with_history refuses a storage proof whose key is not the derived module slot. |
-| <code>req.9253</code> | read::history returns the px_getHistory items and the next 32-hex cursor (spec/layerx-merge/contracts/clients.md:213). |
-| <code>req.9253</code> | read::did_accounts sends px_getAccount with the DID and returns the served account rows. |
+| <code>req.9251</code> | account::balance issues eth_call of layerxledger balanceOf (0xb1ffc03e) at the committed height and returns the uint128 amount (services/agent/crates/layerx-client/src/rpc/account.rs). |
+| <code>req.9252</code> | module_state::module_state authenticates the derived module slot and its storage witness under a pinned committed header and returns the value bytes (services/agent/crates/layerx-client/src/rpc/module_state.rs). |
+| <code>req.9252</code> | module_state::module_state_with_history uses the same witness checks; a mismatched witness address or slot returns ModuleReadError::CommittedChanged (services/agent/crates/layerx-client/src/rpc/module_state.rs). |
+| <code>req.9253</code> | history::history returns the px_getHistory page with its next 32-hex cursor (services/agent/crates/layerx-client/src/rpc/history.rs). |
+| <code>req.9253</code> | history::did_accounts sends px_getAccount with the DID and returns one account row only when the account is bound to that DID and has an EVM address; otherwise it returns an empty list (services/agent/crates/layerx-client/src/rpc/history.rs). |
 | <code>req.9254</code> | payments::list_assets and get_asset decode the px_listAssets table and get_asset refuses an asset id absent from it. |
 | <code>req.9254</code> | payments::estimate_fee returns the eth_estimateGas quantity for the call. |
 | <code>req.9255</code> | withdrawal::registry builds the module registry from the JSON-RPC fee estimate and asset rows and refuses an absent custody asset with AssetUnavailable. |
 | <code>req.9261</code> | submit::submit_signed sends eth_sendRawTransaction with the raw bytes and returns the served hash at rung submitted. |
 | <code>req.9261</code> | submit::submit_signed maps a refusal whose data is an LXP_ revert reason to SubmitError with that registry code. |
 | <code>req.9262</code> | receipt::lookup_authenticated returns Rung::Receipted for a pax_sequencerReceipt signed by a pinned receipt key. |
-| <code>req.9262</code> | receipt::lookup_authenticated returns Rung::Committed only when eth_getTransactionReceipt answers at a block at or above the receipt height with equal status. |
+| <code>req.9262</code> | receipt::lookup_authenticated reports Rung::Receipted after signature and execution-field checks. receipt::lookup_authenticated_with_commit reports Rung::Committed only after verifying the committed header and receipt coverage against supplied trust and proof evidence (services/agent/crates/layerx-client/src/rpc/receipt.rs). |
 | <code>req.9263</code> | stream::subscribe yields one StreamItem::Event per eth_subscription log in order and reports an out-of-order log as a Gap. |
 | <code>req.9264</code> | batch::lookup returns the eth_getBlockByNumber block for the height and refuses a null answer. |
-| <code>req.9265</code> | evidence::proof_bundle carries the eth_getProof account proof and the landing block of the requested height. |
+| <code>req.9265</code> | evidence::proof_bundle requires a verified committed header to return the landing block, header and verified storage witnesses; a height-only target returns EvidenceError::MissingCommittedHeader (services/agent/crates/layerx-client/src/rpc/evidence.rs). |
 | <code>req.9265</code> | evidence::verification_label returns submitted, receipted and committed for the three rungs and no retired level name. |
 | <code>req.9266</code> | OperationJournal::submit sends the journalled raw bytes through eth_sendRawTransaction exactly once and resend_exact sends the identical bytes. |
 | <code>req.9266</code> | OperationJournal::resolve records Rung::Receipted from the pax_sequencerReceipt answer. |
@@ -1620,7 +1619,7 @@ identity; submissions retain the exact signed bytes across restart and resend.
 | Interface | Kind | Source | Declaration |
 | --- | --- | --- | --- |
 | <code>interface.9.rs-crypto-account-derivation-bip32-secp256k1-j44</code> | <code>rust_pub_item</code> | <code>services/agent/crates/layerx-crypto/src/account_derivation.rs</code> | <code>pub fn bip32_secp256k1(seed: &amp;[u8], path: &amp;[u32]) -&gt; Result&lt;Zeroizing&lt;[u8; 32]&gt;, DerivationError&gt;</code> |
-| <code>interface.9.rs-crypto-account-derivation-canonical-origin-j44</code> | <code>rust_pub_item</code> | <code>services/agent/crates/layerx-crypto/src/account_derivation.rs</code> | <code>pub const CANONICAL_ORIGIN: &amp;str = "https://paxportwallet.com";</code> |
+| <code>interface.9.rs-crypto-account-derivation-canonical-origin-j44</code> | <code>rust_pub_item</code> | <code>services/agent/crates/layerx-crypto/src/account_derivation.rs</code> | <code>pub const CANONICAL_ORIGIN: &amp;str</code> |
 | <code>interface.9.rs-crypto-account-derivation-checksum-address-j44</code> | <code>rust_pub_item</code> | <code>services/agent/crates/layerx-crypto/src/account_derivation.rs</code> | <code>pub fn checksum_address(address: &amp;[u8; 20]) -&gt; String</code> |
 | <code>interface.9.rs-crypto-account-derivation-derivation-version-j44</code> | <code>rust_pub_item</code> | <code>services/agent/crates/layerx-crypto/src/account_derivation.rs</code> | <code>pub const DERIVATION_VERSION: u32 = 1;</code> |
 | <code>interface.9.rs-crypto-account-derivation-derivationerror-j44</code> | <code>rust_pub_item</code> | <code>services/agent/crates/layerx-crypto/src/account_derivation.rs</code> | <code>pub enum DerivationError</code> |
@@ -1980,7 +1979,7 @@ identity; submissions retain the exact signed bytes across restart and resend.
 
 | Requirement | Behavior |
 | --- | --- |
-| <code>req.9306</code> | The agent workspace builds with --locked and the agentd host runtime mode test passes with no layerx-paxeer-verifier member or dependency (services/agent/Cargo.toml:7). |
+| <code>req.9306</code> | The agent workspace members and dependencies are declared in services/agent/Cargo.toml. |
 
 ## proof
 
@@ -2499,7 +2498,7 @@ identity; submissions retain the exact signed bytes across restart and resend.
 
 | Requirement | Behavior |
 | --- | --- |
-| <code>req.9331</code> | Every RpcClient read sends only eth_ or px_ method names. |
+| <code>req.9331</code> | RpcClient uses eth_ and hosted px_ methods for state reads and pax_sequencerReceipt for signed execution receipts (services/agent/crates/layerx-sdk/src/rpc.rs). |
 | <code>req.9331</code> | send_raw_transaction sends eth_sendRawTransaction with the 0x-prefixed raw bytes and returns the 32-byte hash. |
 | <code>req.9331</code> | get_identity_sequence returns the pending transaction count of the address. |
 | <code>req.9332</code> | Wallet::send submits one raw EIP-1559 transaction to 0x101A carrying send(bytes) and a 65-byte signature recovering to the wallet address. |

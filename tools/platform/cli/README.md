@@ -13,7 +13,6 @@ The top-level commands are `chains`, `wallet`, `token`, `new`, `workspace`,
 ([command declarations](src/main.rs)). The
 [payment walkthrough](../../../docs/wiki/PaymentsQuickstart.md) provides related
 context; hosted documentation lives at [docs.paxeer.app](https://docs.paxeer.app/).
-The command behavior and limitations below follow this checkout's implementation.
 
 `--json` emits a JSON result. The global `--rpc` override and
 `--gateway-credential` alias apply to wallet, chains, token, program and
@@ -55,15 +54,14 @@ are operations of the hosted identity and faucet services declared in
 [the gateway OpenRPC contract](../../../services/platform/hosted/gateway/openrpc.json).
 `node.hyperpaxeer.com` is only the library mirror used by build scripts.
 
-For node operations, the `--rpc` override must be an HTTP(S)
-origin at the root path (`/`); the CLI refuses any other path, including the
-retired `/rpc` route, which the hosted gateway answers with HTTP 404. `--rpc`
-names a node root for node operations; hosted wallet balance and write-account
-queries travel through `--gateway-rpc` with the operator's explicit hosted service
-URL and a gateway credential. Hosted service URLs can include a service path.
-Token info and list select the hosted service through `--rpc` instead. Bind and program
-commands additionally depend on their methods being admitted by the CLI allowlist;
-the examples here do not qualify those paths.
+Wallet reads and writes use the supplied node or hosted service URL without
+adding a router suffix. Their SDK transport preserves explicit service paths
+and rejects URL credentials, queries, fragments and non-loopback HTTP.
+Public node URLs use the root path. Hosted wallet balance and write-account
+queries use `--gateway-rpc` with the operator's explicit hosted service URL
+and a gateway credential. Token info and list select that service through
+`--rpc` instead. The bind, fee-estimate and wallet-watch handlers use the CLI
+RPC transport; bind and fee-estimate require a node URL at the root path.
 
 An operator must supply the hosted service base URL, an independently trusted
 receipt-key anchor, a bearer identity session for faucet/REST calls and a stored
@@ -83,8 +81,7 @@ layerx auth set --environment beta
 `auth set` reads the identity token from stdin. Public nodes do not supply this
 hosted identity service. The RPC examples below require this compatible hosted
 deployment and existing funded, bound accounts; they are not public-node
-onboarding commands. The bounded integration test uses loopback peers and
-committed node transcripts; it does not certify a live deployment.
+onboarding commands.
 
 ## Wallet quickstart
 
@@ -185,7 +182,9 @@ layerx key default payments
 
 `MNEMONIC_FILE` must name your existing private phrase file. Derivation and import
 alone do not create an on-chain binding or asset account. The optional `--bind`
-path needs RPC and is subject to the transport and allowlist limits above.
+path reads the address precompile through RPC and submits a signed binding
+transaction when needed. It requires a funded EVM address and a node URL at
+the root path.
 The write handler rejects an export that is not an owner-only regular file or
 whose DID and derived Ed25519 public key do not match the selected wallet
 ([derivation](src/wallet_derive.rs), [key validation](src/wallet_signing.rs)).
@@ -226,31 +225,31 @@ layerx --rpc "$CLI_RPC_URL" --gateway-credential beta token create \
   --decimals 6 --supply-cap 1000000000 --salt "$(openssl rand -hex 32)" \
   --gateway-rpc "$HOSTED_SERVICE_URL/" \
   --evm-key-file "$EVM_KEY_FILE" --receipt-policy "$RECEIPT_POLICY" \
-  --fee-limit "$FEE_LIMIT" --wait batched
+  --fee-limit "$FEE_LIMIT" --wait committed
 layerx --rpc "$CLI_RPC_URL" --gateway-credential beta wallet open-account \
   --key payments --asset "$ASSET_ID" --evm-key-file "$EVM_KEY_FILE" \
   --gateway-rpc "$HOSTED_SERVICE_URL/" \
-  --receipt-policy "$RECEIPT_POLICY" --fee-limit "$FEE_LIMIT" --wait batched
+  --receipt-policy "$RECEIPT_POLICY" --fee-limit "$FEE_LIMIT" --wait committed
 layerx --rpc "$CLI_RPC_URL" --gateway-credential beta token mint \
   --key payments --asset "$ASSET_ID" --to "$RECIPIENT_ACCOUNT" --amount 100 \
   --gateway-rpc "$HOSTED_SERVICE_URL/" \
   --evm-key-file "$EVM_KEY_FILE" --receipt-policy "$RECEIPT_POLICY" \
-  --fee-limit "$FEE_LIMIT" --wait batched
+  --fee-limit "$FEE_LIMIT" --wait committed
 layerx --rpc "$CLI_RPC_URL" --gateway-credential beta token burn \
   --key payments --asset "$ASSET_ID" --amount 1 \
   --gateway-rpc "$HOSTED_SERVICE_URL/" \
   --evm-key-file "$EVM_KEY_FILE" --receipt-policy "$RECEIPT_POLICY" \
-  --fee-limit "$FEE_LIMIT" --wait batched
+  --fee-limit "$FEE_LIMIT" --wait committed
 layerx --rpc "$CLI_RPC_URL" --gateway-credential beta wallet send \
   --key payments --to "$RECIPIENT_ACCOUNT" --asset "$ASSET_ID" --amount 100 \
   --gateway-rpc "$HOSTED_SERVICE_URL/" \
   --evm-key-file "$EVM_KEY_FILE" --receipt-policy "$RECEIPT_POLICY" \
-  --fee-limit "$FEE_LIMIT" --wait batched
+  --fee-limit "$FEE_LIMIT" --wait committed
 layerx --rpc "$CLI_RPC_URL" --gateway-credential beta token transfer \
   --key payments --to "$RECIPIENT_ACCOUNT" --asset "$ASSET_ID" --amount 10 \
   --gateway-rpc "$HOSTED_SERVICE_URL/" \
   --evm-key-file "$EVM_KEY_FILE" --receipt-policy "$RECEIPT_POLICY" \
-  --fee-limit "$FEE_LIMIT" --wait batched
+  --fee-limit "$FEE_LIMIT" --wait committed
 ```
 
 Token creation discloses the derived asset ID; use it as `ASSET_ID` in subsequent
@@ -271,13 +270,20 @@ with `eth_sendRawTransaction` and checks the returned hash against the locally
 computed hash. Disclosures go to stderr. A submission acknowledgement is not
 execution evidence. The returned identifier is a `0x`-prefixed transaction hash.
 
+Before submission, the wallet records the transaction hash, nonce and state
+under the configuration path with its extension replaced by `wallet-submissions`,
+in a file named `<hash>.json`. A matching acknowledgement changes the state to
+`submitted`. An uncertain transport outcome returns `transaction_indeterminate`
+with the retained hash; reconcile it with `wallet receipt` before creating
+another payment.
+
 | CLI `--wait` value | Current behavior |
 | --- | --- |
-| `executed` (default) | Verifies the signed receipt and bound execution/log fields; returns rung `receipted` |
-| `batched` | Also matches the committed block hash, number, status and transaction index to `eth_getTransactionReceipt`; returns rung `committed` |
-| `finalised` | Alias of `committed`; verifies the same receipt and committed-block evidence as `batched` |
+| `submitted` | Returns the acknowledged transaction hash without verifying execution |
+| `receipted` (default), alias `executed` | Verifies the signed receipt and bound execution/log fields; returns at least rung `receipted` |
+| `committed`, aliases `batched` and `finalised` | Also matches the committed block hash, number, status and transaction index to `eth_getTransactionReceipt`; returns rung `committed` |
 
-Use `batched` to request committed-block evidence. Commitment is finality on
+Use `committed` to request committed-block evidence. Commitment is finality on
 this BFT network; it does not require another certificate. Receipt reads use
 `pax_sequencerReceipt`. Signature, transaction hash, nonce, log or execution
 mismatches fail verification; a reverted transaction exits nonzero.
@@ -289,7 +295,7 @@ Retrieve and verify the result later:
 
 ```bash
 layerx --rpc "$CLI_RPC_URL" --gateway-credential beta wallet receipt "$TX_HASH" \
-  --receipt-policy "$RECEIPT_POLICY" --wait batched
+  --receipt-policy "$RECEIPT_POLICY" --wait committed
 ```
 
 This command has a fixed 60-second wait budget. `receipt get "$TX_HASH"` fetches
@@ -300,7 +306,7 @@ verification described above.
 
 `wallet estimate-fee --from "$FROM_ADDRESS" "$UNSIGNED_TX_HEX"` decodes an
 unsigned type-2 transaction with nine RLP fields, estimates gas at `pending`
-and multiplies it by `eth_gasPrice`. It is subject to the CLI transport limits.
+and multiplies it by `eth_gasPrice`. It requires a node URL at the root path.
 `FROM_ADDRESS` is a `0x`-prefixed 20-byte EVM address.
 
 Watch the account-log selector through the operator's hosted subscription
@@ -351,14 +357,12 @@ neither requires nor claims a native state proof. Token listing uses
 from the previous page and a `--limit` of 1–16; the default page size is 16.
 Pages follow registration order, not lexical asset-ID order. Bank custody
 metadata and committed observations are not authenticated native state proofs.
-Unknown methods, malformed responses and unavailable account evidence exit nonzero. Retired `lx_` methods are
-explicitly refused by the CLI RPC allowlist.
+Malformed responses and unavailable account evidence exit nonzero.
 
 EVM sender nonces come from `eth_getTransactionCount [address, "pending"]`.
-Program event readers use node `eth_getLogs` for PLX and xweb events, or the
-chain's LXP Query/ProgramEvents interface. The CLI RPC allowlist does not yet
-admit those event queries. Its inline RPC tests retain negative coverage for
-retired methods; those literals do not enable a transport path.
+The program registry reader uses node `eth_getLogs` to enumerate deployment
+events. It scans committed history in bounded windows and reports whether the
+available history reaches block zero ([implementation](src/programs.rs)).
 
 ## MCP payment surface
 
@@ -372,10 +376,11 @@ the served catalogue; `--read-only` narrows it. CLI burn, open-account, token in
 and token list are not exposed under those names by this catalogue.
 
 A2A uses a different tool surface. Its `activity.submit` accepts a signed
-EIP-1559 `raw_transaction` and returns a transaction hash with rung `submitted`;
-it does not accept the CLI wallet transfer arguments or establish commitment.
-Use a subsequent receipt lookup to reconcile the result
-([A2A tool implementation](src/toolset.rs)).
+EIP-1559 `raw_transaction` and returns the transaction hash with rung `submitted`
+on acknowledgement or `unknown` on an uncertain transport or response outcome.
+It persists the submission identity in its task ledger. Use a subsequent receipt
+lookup to reconcile the hash. This tool does not accept the CLI wallet transfer
+arguments or establish commitment ([A2A implementation](src/a2a.rs)).
 
 ## Credential integration tests
 

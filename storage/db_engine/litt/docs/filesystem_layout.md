@@ -91,7 +91,8 @@ In the example below, the rolling snapshot is stored in the `root/rolling_snapsh
 
 The data in the rolling snapshot directory are symlinks. This is needed since LittDB data may be spread across
 multiple physical volumes, and we really don't want to do a deep copy of the data in order to create a snapshot.
-LittDB files are immutable, so there is no risk of the data being "pulled out from under" the snapshot.
+Snapshots include sealed, immutable segment files. The active mutable segment is excluded;
+the hard links retain the sealed files even when garbage collection removes their live names.
 
 The snapshot files point to hard linked copies of the segment files. For each volume, there is a directory named
 `snapshot` that contains these hard linked files. The reason for this is to protect the snapshot data from being

@@ -30,7 +30,7 @@ The virtual mapping is limited to nonzero `uint32` IDs; every other value is unk
 The sum of active gas allowances never exceeds `MaxTotalGasAllowance`. Defaults are `MinBond = 100 PAX`, `CreationFee = 10 PAX`, gas range 250000 to 4000000, total gas allowance 6250000, byte range 16384 to 1048576, `MaxChains = 1024`, and `MaxFeeShareBps = 5000`. Monetary parameters use base units. Live parameters govern admission and payment; defaults are not a fixed launch quote.
 The keeper stores `MinBond` and `CreationFee` in bank base units (10^6 per PAX), and the precompile reports them in wei.
 
-Genesis imports and exports parameters, all records, the next ID and next base fees. Validation rejects duplicate IDs or names, a next ID not above every record, and excessive active allowance. Genesis retains retired records as well as active ones.
+The [registry genesis schema](../../../modules/layerxchains/types/genesis.go) carries parameters, all records, the next ID and next base fees. Validation rejects duplicate IDs or names, a next ID not above every record, and excessive active allowance. Genesis retains retired records as well as active ones. The keeper's [history schema](../../../modules/layerxchains/keeper/genesis_history.go) additionally carries per-domain, per-height transaction hashes and gas usage through `ExportGenesisWithHistory` and `InitGenesisWithHistory`. Registry-only export accepts state without transaction history; module genesis entry points use that registry-only schema.
 
 ## wiring
 
@@ -96,13 +96,15 @@ On `/chain/1`, `eth_chainId` reports hexadecimal `0x7735941` and `net_version` r
 
 The hosted indexer loads the four registry events from the precompile address; `LAYERX_INDEXER_CHAINS_PRECOMPILE` defaults to that address. Creation inserts a chain; status, funding and operator events update it. The `chains` table retains ID, unique name, operator, status, derived chain ID, creation height, bond, gas allowance, byte allowance and fee share. Status strings are `active`, `paused`, `governance_paused` and `retired`.
 
+The [event decoder](../../../services/platform/hosted/indexer/src/chains.rs) initializes a creation projection with bond `"0"`, gas allowance `500000`, byte allowance `65536` and fee share `100`. Funding events add their wei amount to the projected bond. Read the precompile's `getChain` for the registry's bond, allowances and fee share.
+
 `GET /v1/chains` returns records sorted by ID in this shape:
 
 ```json
-{"chains":[{"id":1,"name":"demo","operator":"0x1111111111111111111111111111111111111111","status":"active","chain_id":125000001,"created_height":42,"bond":"100000000000000000000","gas_allowance":500000,"byte_allowance":65536,"fee_share_bps":100}]}
+{"chains":[{"id":1,"name":"demo","operator":"0x1111111111111111111111111111111111111111","status":"active","chain_id":125000001,"created_height":42,"bond":"0","gas_allowance":500000,"byte_allowance":65536,"fee_share_bps":100}]}
 ```
 
-`GET /v1/chains/{id}` and `GET /v1/chains/by-name/{name}` return one record or 404 `{"error":"unknown_chain"}`. Bond uses a base-unit decimal string. The signed transaction chain ID determines `pax:<id>` on transfers and events; root rows keep their existing chain value. Receipt gas usage feeds per-chain activity accounting.
+`GET /v1/chains/{id}` and `GET /v1/chains/by-name/{name}` return one record or 404 `{"error":"unknown_chain"}`. The projected bond is a decimal string in wei. The signed transaction chain ID determines `pax:<id>` on transfers and events; root rows keep their existing chain value. Receipt gas usage feeds per-chain activity accounting.
 
 `GET /v1/chains/{id}/summary` returns `{"id":1,"tx_count":N,"gas_used":N,"last_height":N}` with numeric values in place of `N`. `/v1/chains/{id}/transfers` and `/v1/chains/{id}/events` return pages with the `/v1/history` shape restricted to `pax:<id>`. Unknown chain summaries return 404.
 

@@ -6,133 +6,133 @@ The explorer serves HTTP routes through the [Phoenix routers](../../../services/
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-delete-account-api-key-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>DELETE /account/api_key/:id -&gt; Account.ApiKeyController.resources</code> |
-| <code>interface.14.http-get-account-api-key</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/api_key -&gt; Account.ApiKeyController.resources</code> |
-| <code>interface.14.http-patch-put-account-api-key-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>PATCH&#124;PUT /account/api_key/:id -&gt; Account.ApiKeyController.resources</code> |
-| <code>interface.14.http-post-account-api-key</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>POST /account/api_key -&gt; Account.ApiKeyController.resources</code> |
+| <code>interface.14.http-delete-account-api-key-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>DELETE /account/api_key/:id -&gt; Account.ApiKeyController.delete</code> |
+| <code>interface.14.http-get-account-api-key</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/api_key -&gt; Account.ApiKeyController.index</code> |
+| <code>interface.14.http-patch-put-account-api-key-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>PATCH&#124;PUT /account/api_key/:id -&gt; Account.ApiKeyController.update</code> |
+| <code>interface.14.http-post-account-api-key</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>POST /account/api_key -&gt; Account.ApiKeyController.create</code> |
 
 ## account-api-key-edit
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-account-api-key-id-edit</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/api_key/:id/edit -&gt; Account.ApiKeyController.resources</code> |
+| <code>interface.14.http-get-account-api-key-id-edit</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/api_key/:id/edit -&gt; Account.ApiKeyController.edit</code> |
 
 ## account-api-key-new
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-account-api-key-new</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/api_key/new -&gt; Account.ApiKeyController.resources</code> |
+| <code>interface.14.http-get-account-api-key-new</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/api_key/new -&gt; Account.ApiKeyController.new</code> |
 
 ## account-custom-abi
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-delete-account-custom-abi-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>DELETE /account/custom_abi/:id -&gt; Account.CustomABIController.resources</code> |
-| <code>interface.14.http-get-account-custom-abi</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/custom_abi -&gt; Account.CustomABIController.resources</code> |
-| <code>interface.14.http-patch-put-account-custom-abi-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>PATCH&#124;PUT /account/custom_abi/:id -&gt; Account.CustomABIController.resources</code> |
-| <code>interface.14.http-post-account-custom-abi</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>POST /account/custom_abi -&gt; Account.CustomABIController.resources</code> |
+| <code>interface.14.http-delete-account-custom-abi-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>DELETE /account/custom_abi/:id -&gt; Account.CustomABIController.delete</code> |
+| <code>interface.14.http-get-account-custom-abi</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/custom_abi -&gt; Account.CustomABIController.index</code> |
+| <code>interface.14.http-patch-put-account-custom-abi-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>PATCH&#124;PUT /account/custom_abi/:id -&gt; Account.CustomABIController.update</code> |
+| <code>interface.14.http-post-account-custom-abi</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>POST /account/custom_abi -&gt; Account.CustomABIController.create</code> |
 
 ## account-custom-abi-edit
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-account-custom-abi-id-edit</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/custom_abi/:id/edit -&gt; Account.CustomABIController.resources</code> |
+| <code>interface.14.http-get-account-custom-abi-id-edit</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/custom_abi/:id/edit -&gt; Account.CustomABIController.edit</code> |
 
 ## account-custom-abi-new
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-account-custom-abi-new</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/custom_abi/new -&gt; Account.CustomABIController.resources</code> |
+| <code>interface.14.http-get-account-custom-abi-new</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/custom_abi/new -&gt; Account.CustomABIController.new</code> |
 
 ## account-tag-address
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-delete-account-tag-address-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>DELETE /account/tag_address/:id -&gt; Account.TagAddressController.resources</code> |
-| <code>interface.14.http-get-account-tag-address</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/tag_address -&gt; Account.TagAddressController.resources</code> |
-| <code>interface.14.http-post-account-tag-address</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>POST /account/tag_address -&gt; Account.TagAddressController.resources</code> |
+| <code>interface.14.http-delete-account-tag-address-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>DELETE /account/tag_address/:id -&gt; Account.TagAddressController.delete</code> |
+| <code>interface.14.http-get-account-tag-address</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/tag_address -&gt; Account.TagAddressController.index</code> |
+| <code>interface.14.http-post-account-tag-address</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>POST /account/tag_address -&gt; Account.TagAddressController.create</code> |
 
 ## account-tag-address-new
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-account-tag-address-new</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/tag_address/new -&gt; Account.TagAddressController.resources</code> |
+| <code>interface.14.http-get-account-tag-address-new</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/tag_address/new -&gt; Account.TagAddressController.new</code> |
 
 ## account-tag-transaction
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-delete-account-tag-transaction-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>DELETE /account/tag_transaction/:id -&gt; Account.TagTransactionController.resources</code> |
-| <code>interface.14.http-get-account-tag-transaction</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/tag_transaction -&gt; Account.TagTransactionController.resources</code> |
-| <code>interface.14.http-post-account-tag-transaction</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>POST /account/tag_transaction -&gt; Account.TagTransactionController.resources</code> |
+| <code>interface.14.http-delete-account-tag-transaction-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>DELETE /account/tag_transaction/:id -&gt; Account.TagTransactionController.delete</code> |
+| <code>interface.14.http-get-account-tag-transaction</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/tag_transaction -&gt; Account.TagTransactionController.index</code> |
+| <code>interface.14.http-post-account-tag-transaction</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>POST /account/tag_transaction -&gt; Account.TagTransactionController.create</code> |
 
 ## account-tag-transaction-new
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-account-tag-transaction-new</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/tag_transaction/new -&gt; Account.TagTransactionController.resources</code> |
+| <code>interface.14.http-get-account-tag-transaction-new</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/tag_transaction/new -&gt; Account.TagTransactionController.new</code> |
 
 ## account-watchlist
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-account-watchlist</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/watchlist -&gt; Account.WatchlistController.resources</code> |
+| <code>interface.14.http-get-account-watchlist</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/watchlist -&gt; Account.WatchlistController.show</code> |
 
 ## account-watchlist-address
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-delete-account-watchlist-address-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>DELETE /account/watchlist_address/:id -&gt; Account.WatchlistAddressController.resources</code> |
-| <code>interface.14.http-patch-put-account-watchlist-address-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>PATCH&#124;PUT /account/watchlist_address/:id -&gt; Account.WatchlistAddressController.resources</code> |
-| <code>interface.14.http-post-account-watchlist-address</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>POST /account/watchlist_address -&gt; Account.WatchlistAddressController.resources</code> |
+| <code>interface.14.http-delete-account-watchlist-address-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>DELETE /account/watchlist_address/:id -&gt; Account.WatchlistAddressController.delete</code> |
+| <code>interface.14.http-patch-put-account-watchlist-address-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>PATCH&#124;PUT /account/watchlist_address/:id -&gt; Account.WatchlistAddressController.update</code> |
+| <code>interface.14.http-post-account-watchlist-address</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>POST /account/watchlist_address -&gt; Account.WatchlistAddressController.create</code> |
 
 ## account-watchlist-address-edit
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-account-watchlist-address-id-edit</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/watchlist_address/:id/edit -&gt; Account.WatchlistAddressController.resources</code> |
+| <code>interface.14.http-get-account-watchlist-address-id-edit</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/watchlist_address/:id/edit -&gt; Account.WatchlistAddressController.edit</code> |
 
 ## account-watchlist-address-new
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-account-watchlist-address-new</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/watchlist_address/new -&gt; Account.WatchlistAddressController.resources</code> |
+| <code>interface.14.http-get-account-watchlist-address-new</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/account_router.ex) | <code>GET /account/watchlist_address/new -&gt; Account.WatchlistAddressController.new</code> |
 
 ## accounts
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-accounts</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /accounts -&gt; AddressController.resources</code> |
+| <code>interface.14.http-get-accounts</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /accounts -&gt; AddressController.index</code> |
 
 ## address
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-address-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:id -&gt; AddressController.resources</code> |
+| <code>interface.14.http-get-address-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:id -&gt; AddressController.show</code> |
 
 ## address-coin-balances
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-address-address-id-coin-balances</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/coin-balances -&gt; AddressCoinBalanceController.resources</code> |
+| <code>interface.14.http-get-address-address-id-coin-balances</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/coin-balances -&gt; AddressCoinBalanceController.index</code> |
 
 ## address-coin-balances-by-day
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-address-address-id-coin-balances-by-day</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/coin-balances/by-day -&gt; AddressCoinBalanceByDayController.resources</code> |
+| <code>interface.14.http-get-address-address-id-coin-balances-by-day</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/coin-balances/by-day -&gt; AddressCoinBalanceByDayController.index</code> |
 
 ## address-contract-verifications-new
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-address-address-id-contract-verifications-new</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/contract_verifications/new -&gt; AddressContractVerificationController.resources</code> |
+| <code>interface.14.http-get-address-address-id-contract-verifications-new</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/contract_verifications/new -&gt; AddressContractVerificationController.new</code> |
 
 ## address-contracts
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-address-address-id-contracts</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/contracts -&gt; AddressContractController.resources</code> |
+| <code>interface.14.http-get-address-address-id-contracts</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/contracts -&gt; AddressContractController.index</code> |
 
 ## address-counters
 
@@ -144,113 +144,109 @@ The explorer serves HTTP routes through the [Phoenix routers](../../../services/
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-address-address-id-internal-transactions</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/internal-transactions -&gt; AddressInternalTransactionController.resources</code> |
+| <code>interface.14.http-get-address-address-id-internal-transactions</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/internal-transactions -&gt; AddressInternalTransactionController.index</code> |
 
 ## address-logs
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-address-address-id-logs</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/logs -&gt; AddressLogsController.resources</code> |
+| <code>interface.14.http-get-address-address-id-logs</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/logs -&gt; AddressLogsController.index</code> |
 
 ## address-read-contract
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-address-address-id-read-contract</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/read-contract -&gt; AddressReadContractController.resources</code> |
-| <code>interface.14.http-get-address-address-id-read-contract-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/read-contract/:id -&gt; AddressReadContractController.resources</code> |
+| <code>interface.14.http-get-address-address-id-read-contract</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/read-contract -&gt; AddressReadContractController.index</code> |
 
 ## address-read-proxy
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-address-address-id-read-proxy</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/read-proxy -&gt; AddressReadProxyController.resources</code> |
-| <code>interface.14.http-get-address-address-id-read-proxy-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/read-proxy/:id -&gt; AddressReadProxyController.resources</code> |
+| <code>interface.14.http-get-address-address-id-read-proxy</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/read-proxy -&gt; AddressReadProxyController.index</code> |
 
 ## address-token-balances
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-address-address-id-token-balances</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/token-balances -&gt; AddressTokenBalanceController.resources</code> |
+| <code>interface.14.http-get-address-address-id-token-balances</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/token-balances -&gt; AddressTokenBalanceController.index</code> |
 
 ## address-token-transfers
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-address-address-id-token-transfers</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/token-transfers -&gt; AddressTokenTransferController.resources</code> |
+| <code>interface.14.http-get-address-address-id-token-transfers</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/token-transfers -&gt; AddressTokenTransferController.index</code> |
 
 ## address-tokens
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-address-address-id-tokens</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/tokens -&gt; AddressTokenController.resources</code> |
+| <code>interface.14.http-get-address-address-id-tokens</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/tokens -&gt; AddressTokenController.index</code> |
 
 ## address-tokens-token-transfers
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-address-address-id-tokens-address-token-id-token-transfers</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/tokens/:address_token_id/token-transfers -&gt; AddressTokenTransferController.resources</code> |
+| <code>interface.14.http-get-address-address-id-tokens-address-token-id-token-transfers</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/tokens/:address_token_id/token-transfers -&gt; AddressTokenTransferController.index</code> |
 
 ## address-transactions
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-address-address-id-transactions</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/transactions -&gt; AddressTransactionController.resources</code> |
+| <code>interface.14.http-get-address-address-id-transactions</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/transactions -&gt; AddressTransactionController.index</code> |
 
 ## address-validations
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-address-address-id-validations</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/validations -&gt; AddressValidationController.resources</code> |
+| <code>interface.14.http-get-address-address-id-validations</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/validations -&gt; AddressValidationController.index</code> |
 
 ## address-verify-via-flattened-code-new
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-address-address-id-verify-via-flattened-code-new</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/verify-via-flattened-code/new -&gt; AddressContractVerificationViaFlattenedCodeController.resources</code> |
+| <code>interface.14.http-get-address-address-id-verify-via-flattened-code-new</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/verify-via-flattened-code/new -&gt; AddressContractVerificationViaFlattenedCodeController.new</code> |
 
 ## address-verify-via-metadata-json-new
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-address-address-id-verify-via-metadata-json-new</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/verify-via-metadata-json/new -&gt; AddressContractVerificationViaJsonController.resources</code> |
+| <code>interface.14.http-get-address-address-id-verify-via-metadata-json-new</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/verify-via-metadata-json/new -&gt; AddressContractVerificationViaJsonController.new</code> |
 
 ## address-verify-via-multi-part-files-new
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-address-address-id-verify-via-multi-part-files-new</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/verify-via-multi-part-files/new -&gt; AddressContractVerificationViaMultiPartFilesController.resources</code> |
+| <code>interface.14.http-get-address-address-id-verify-via-multi-part-files-new</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/verify-via-multi-part-files/new -&gt; AddressContractVerificationViaMultiPartFilesController.new</code> |
 
 ## address-verify-via-standard-json-input-new
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-address-address-id-verify-via-standard-json-input-new</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/verify-via-standard-json-input/new -&gt; AddressContractVerificationViaStandardJsonInputController.resources</code> |
+| <code>interface.14.http-get-address-address-id-verify-via-standard-json-input-new</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/verify-via-standard-json-input/new -&gt; AddressContractVerificationViaStandardJsonInputController.new</code> |
 
 ## address-verify-vyper-contract-new
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-address-address-id-verify-vyper-contract-new</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/verify-vyper-contract/new -&gt; AddressContractVerificationVyperController.resources</code> |
+| <code>interface.14.http-get-address-address-id-verify-vyper-contract-new</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/verify-vyper-contract/new -&gt; AddressContractVerificationVyperController.new</code> |
 
 ## address-withdrawals
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-address-address-id-withdrawals</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/withdrawals -&gt; AddressWithdrawalController.resources</code> |
+| <code>interface.14.http-get-address-address-id-withdrawals</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/withdrawals -&gt; AddressWithdrawalController.index</code> |
 
 ## address-write-contract
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-address-address-id-write-contract</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/write-contract -&gt; AddressWriteContractController.resources</code> |
-| <code>interface.14.http-get-address-address-id-write-contract-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/write-contract/:id -&gt; AddressWriteContractController.resources</code> |
+| <code>interface.14.http-get-address-address-id-write-contract</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/write-contract -&gt; AddressWriteContractController.index</code> |
 
 ## address-write-proxy
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-address-address-id-write-proxy</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/write-proxy -&gt; AddressWriteProxyController.resources</code> |
-| <code>interface.14.http-get-address-address-id-write-proxy-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/write-proxy/:id -&gt; AddressWriteProxyController.resources</code> |
+| <code>interface.14.http-get-address-address-id-write-proxy</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /address/:address_id/write-proxy -&gt; AddressWriteProxyController.index</code> |
 
 ## admin
 
@@ -553,7 +549,7 @@ The explorer serves HTTP routes through the [Phoenix routers](../../../services/
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-api-v2-openapi</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex) | <code>GET /api/v2/openapi -&gt; OpenApiSpex.Plug.RenderSpec.[]</code> |
+| <code>interface.14.http-get-api-v2-openapi</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex) | <code>GET /api/v2/openapi -&gt; OpenApiSpex.Plug.RenderSpec</code> |
 
 ## api-v2-optimism
 
@@ -580,7 +576,7 @@ The explorer serves HTTP routes through the [Phoenix routers](../../../services/
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-api-v2-path</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex) | <code>GET /api/v2/*path -&gt; BlockScoutWeb.API.V2.FallbackController.unknown_action</code> |
+| <code>interface.14.http-get-api-v2-path</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex) | <code>GET /api/v2/*path -&gt; BlockScoutWeb.API.V2.FallbackController.call(conn, :unknown_action)</code> |
 
 ## api-v2-paxeer-x
 
@@ -823,38 +819,38 @@ The explorer serves HTTP routes through the [Phoenix routers](../../../services/
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-block-hash-or-number</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /block/:hash_or_number -&gt; BlockController.resources</code> |
+| <code>interface.14.http-get-block-hash-or-number</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /block/:hash_or_number -&gt; BlockController.show</code> |
 
 ## block-transactions
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-block-block-hash-or-number-transactions</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /block/:block_hash_or_number/transactions -&gt; BlockTransactionController.resources</code> |
+| <code>interface.14.http-get-block-block-hash-or-number-transactions</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /block/:block_hash_or_number/transactions -&gt; BlockTransactionController.index</code> |
 
 ## block-withdrawals
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-block-block-hash-or-number-withdrawals</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /block/:block_hash_or_number/withdrawals -&gt; BlockWithdrawalController.resources</code> |
+| <code>interface.14.http-get-block-block-hash-or-number-withdrawals</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /block/:block_hash_or_number/withdrawals -&gt; BlockWithdrawalController.index</code> |
 
 ## blocks
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-blocks</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /blocks -&gt; BlockController.resources</code> |
-| <code>interface.14.http-get-blocks-hash-or-number</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /blocks/:hash_or_number -&gt; BlockController.resources</code> |
+| <code>interface.14.http-get-blocks</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /blocks -&gt; BlockController.index</code> |
+| <code>interface.14.http-get-blocks-hash-or-number</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /blocks/:hash_or_number -&gt; BlockController.show</code> |
 
 ## blocks-transactions
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-blocks-block-hash-or-number-transactions</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /blocks/:block_hash_or_number/transactions -&gt; BlockTransactionController.resources</code> |
+| <code>interface.14.http-get-blocks-block-hash-or-number-transactions</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /blocks/:block_hash_or_number/transactions -&gt; BlockTransactionController.index</code> |
 
 ## blocks-withdrawals
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-blocks-block-hash-or-number-withdrawals</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /blocks/:block_hash_or_number/withdrawals -&gt; BlockWithdrawalController.resources</code> |
+| <code>interface.14.http-get-blocks-block-hash-or-number-withdrawals</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /blocks/:block_hash_or_number/withdrawals -&gt; BlockWithdrawalController.index</code> |
 
 ## chain-blocks
 
@@ -896,7 +892,7 @@ The explorer serves HTTP routes through the [Phoenix routers](../../../services/
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-market-history-chart</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /market-history-chart -&gt; Chain.MarketHistoryChartController.resources</code> |
+| <code>interface.14.http-get-market-history-chart</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /market-history-chart -&gt; Chain.MarketHistoryChartController.show</code> |
 
 ## path
 
@@ -908,13 +904,13 @@ The explorer serves HTTP routes through the [Phoenix routers](../../../services/
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-pending-transactions</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /pending-transactions -&gt; PendingTransactionController.resources</code> |
+| <code>interface.14.http-get-pending-transactions</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /pending-transactions -&gt; PendingTransactionController.index</code> |
 
 ## recent-transactions
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-recent-transactions</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /recent-transactions -&gt; RecentTransactionsController.resources</code> |
+| <code>interface.14.http-get-recent-transactions</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /recent-transactions -&gt; RecentTransactionsController.index</code> |
 
 ## reorgs
 
@@ -932,7 +928,7 @@ The explorer serves HTTP routes through the [Phoenix routers](../../../services/
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET / -&gt; ChainController.resources</code> |
+| <code>interface.14.http-get</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET / -&gt; ChainController.show</code> |
 
 ## rpc-module-account
 
@@ -1061,14 +1057,14 @@ The explorer serves HTTP routes through the [Phoenix routers](../../../services/
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-smart-contracts</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /smart-contracts -&gt; SmartContractController.resources</code> |
-| <code>interface.14.http-get-smart-contracts-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /smart-contracts/:id -&gt; SmartContractController.resources</code> |
+| <code>interface.14.http-get-smart-contracts</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /smart-contracts -&gt; SmartContractController.index</code> |
+| <code>interface.14.http-get-smart-contracts-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /smart-contracts/:id -&gt; SmartContractController.show</code> |
 
 ## token
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-token-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:id -&gt; Tokens.TokenController.resources</code> |
+| <code>interface.14.http-get-token-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:id -&gt; Tokens.TokenController.show</code> |
 
 ## token-autocomplete
 
@@ -1086,182 +1082,182 @@ The explorer serves HTTP routes through the [Phoenix routers](../../../services/
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-token-token-id-instance-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:token_id/instance/:id -&gt; Tokens.InstanceController.resources</code> |
+| <code>interface.14.http-get-token-token-id-instance-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:token_id/instance/:id -&gt; Tokens.InstanceController.show</code> |
 
 ## token-instance-metadata
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-token-token-id-instance-instance-id-metadata</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:token_id/instance/:instance_id/metadata -&gt; Tokens.Instance.MetadataController.resources</code> |
+| <code>interface.14.http-get-token-token-id-instance-instance-id-metadata</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:token_id/instance/:instance_id/metadata -&gt; Tokens.Instance.MetadataController.index</code> |
 
 ## token-instance-token-holders
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-token-token-id-instance-instance-id-token-holders</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:token_id/instance/:instance_id/token-holders -&gt; Tokens.Instance.HolderController.resources</code> |
+| <code>interface.14.http-get-token-token-id-instance-instance-id-token-holders</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:token_id/instance/:instance_id/token-holders -&gt; Tokens.Instance.HolderController.index</code> |
 
 ## token-instance-token-transfers
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-token-token-id-instance-instance-id-token-transfers</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:token_id/instance/:instance_id/token-transfers -&gt; Tokens.Instance.TransferController.resources</code> |
+| <code>interface.14.http-get-token-token-id-instance-instance-id-token-transfers</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:token_id/instance/:instance_id/token-transfers -&gt; Tokens.Instance.TransferController.index</code> |
 
 ## token-inventory
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-token-token-id-inventory</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:token_id/inventory -&gt; Tokens.InventoryController.resources</code> |
+| <code>interface.14.http-get-token-token-id-inventory</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:token_id/inventory -&gt; Tokens.InventoryController.index</code> |
 
 ## token-read-contract
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-token-token-id-read-contract</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:token_id/read-contract -&gt; Tokens.ContractController.resources</code> |
+| <code>interface.14.http-get-token-token-id-read-contract</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:token_id/read-contract -&gt; Tokens.ContractController.index</code> |
 
 ## token-read-proxy
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-token-token-id-read-proxy</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:token_id/read-proxy -&gt; Tokens.ContractController.resources</code> |
+| <code>interface.14.http-get-token-token-id-read-proxy</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:token_id/read-proxy -&gt; Tokens.ContractController.index</code> |
 
 ## token-token-holders
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-token-token-id-token-holders</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:token_id/token-holders -&gt; Tokens.HolderController.resources</code> |
+| <code>interface.14.http-get-token-token-id-token-holders</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:token_id/token-holders -&gt; Tokens.HolderController.index</code> |
 
 ## token-token-transfers
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-token-token-id-token-transfers</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:token_id/token-transfers -&gt; Tokens.TransferController.resources</code> |
+| <code>interface.14.http-get-token-token-id-token-transfers</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:token_id/token-transfers -&gt; Tokens.TransferController.index</code> |
 
 ## token-write-contract
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-token-token-id-write-contract</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:token_id/write-contract -&gt; Tokens.ContractController.resources</code> |
+| <code>interface.14.http-get-token-token-id-write-contract</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:token_id/write-contract -&gt; Tokens.ContractController.index</code> |
 
 ## token-write-proxy
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-token-token-id-write-proxy</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:token_id/write-proxy -&gt; Tokens.ContractController.resources</code> |
+| <code>interface.14.http-get-token-token-id-write-proxy</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /token/:token_id/write-proxy -&gt; Tokens.ContractController.index</code> |
 
 ## tokens
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-tokens</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens -&gt; TokensController.resources</code> |
-| <code>interface.14.http-get-tokens-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:id -&gt; Tokens.TokenController.resources</code> |
+| <code>interface.14.http-get-tokens</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens -&gt; TokensController.index</code> |
+| <code>interface.14.http-get-tokens-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:id -&gt; Tokens.TokenController.show</code> |
 
 ## tokens-instance
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-tokens-token-id-instance-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:token_id/instance/:id -&gt; Tokens.InstanceController.resources</code> |
+| <code>interface.14.http-get-tokens-token-id-instance-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:token_id/instance/:id -&gt; Tokens.InstanceController.show</code> |
 
 ## tokens-instance-metadata
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-tokens-token-id-instance-instance-id-metadata</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:token_id/instance/:instance_id/metadata -&gt; Tokens.Instance.MetadataController.resources</code> |
+| <code>interface.14.http-get-tokens-token-id-instance-instance-id-metadata</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:token_id/instance/:instance_id/metadata -&gt; Tokens.Instance.MetadataController.index</code> |
 
 ## tokens-instance-token-holders
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-tokens-token-id-instance-instance-id-token-holders</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:token_id/instance/:instance_id/token-holders -&gt; Tokens.Instance.HolderController.resources</code> |
+| <code>interface.14.http-get-tokens-token-id-instance-instance-id-token-holders</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:token_id/instance/:instance_id/token-holders -&gt; Tokens.Instance.HolderController.index</code> |
 
 ## tokens-instance-token-transfers
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-tokens-token-id-instance-instance-id-token-transfers</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:token_id/instance/:instance_id/token-transfers -&gt; Tokens.Instance.TransferController.resources</code> |
+| <code>interface.14.http-get-tokens-token-id-instance-instance-id-token-transfers</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:token_id/instance/:instance_id/token-transfers -&gt; Tokens.Instance.TransferController.index</code> |
 
 ## tokens-inventory
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-tokens-token-id-inventory</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:token_id/inventory -&gt; Tokens.InventoryController.resources</code> |
+| <code>interface.14.http-get-tokens-token-id-inventory</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:token_id/inventory -&gt; Tokens.InventoryController.index</code> |
 
 ## tokens-read-contract
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-tokens-token-id-read-contract</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:token_id/read-contract -&gt; Tokens.ContractController.resources</code> |
+| <code>interface.14.http-get-tokens-token-id-read-contract</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:token_id/read-contract -&gt; Tokens.ContractController.index</code> |
 
 ## tokens-read-proxy
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-tokens-token-id-read-proxy</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:token_id/read-proxy -&gt; Tokens.ContractController.resources</code> |
+| <code>interface.14.http-get-tokens-token-id-read-proxy</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:token_id/read-proxy -&gt; Tokens.ContractController.index</code> |
 
 ## tokens-token-holders
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-tokens-token-id-token-holders</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:token_id/token-holders -&gt; Tokens.HolderController.resources</code> |
+| <code>interface.14.http-get-tokens-token-id-token-holders</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:token_id/token-holders -&gt; Tokens.HolderController.index</code> |
 
 ## tokens-token-transfers
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-tokens-token-id-token-transfers</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:token_id/token-transfers -&gt; Tokens.TransferController.resources</code> |
+| <code>interface.14.http-get-tokens-token-id-token-transfers</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:token_id/token-transfers -&gt; Tokens.TransferController.index</code> |
 
 ## tokens-write-contract
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-tokens-token-id-write-contract</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:token_id/write-contract -&gt; Tokens.ContractController.resources</code> |
+| <code>interface.14.http-get-tokens-token-id-write-contract</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:token_id/write-contract -&gt; Tokens.ContractController.index</code> |
 
 ## tokens-write-proxy
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-tokens-token-id-write-proxy</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:token_id/write-proxy -&gt; Tokens.ContractController.resources</code> |
+| <code>interface.14.http-get-tokens-token-id-write-proxy</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tokens/:token_id/write-proxy -&gt; Tokens.ContractController.index</code> |
 
 ## transaction-history-chart
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-transaction-history-chart</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /transaction-history-chart -&gt; Chain.TransactionHistoryChartController.resources</code> |
+| <code>interface.14.http-get-transaction-history-chart</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /transaction-history-chart -&gt; Chain.TransactionHistoryChartController.show</code> |
 
 ## tx
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-tx-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tx/:id -&gt; TransactionController.resources</code> |
+| <code>interface.14.http-get-tx-id</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tx/:id -&gt; TransactionController.show</code> |
 
 ## tx-internal-transactions
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-tx-transaction-id-internal-transactions</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tx/:transaction_id/internal-transactions -&gt; TransactionInternalTransactionController.resources</code> |
+| <code>interface.14.http-get-tx-transaction-id-internal-transactions</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tx/:transaction_id/internal-transactions -&gt; TransactionInternalTransactionController.index</code> |
 
 ## tx-logs
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-tx-transaction-id-logs</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tx/:transaction_id/logs -&gt; TransactionLogController.resources</code> |
+| <code>interface.14.http-get-tx-transaction-id-logs</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tx/:transaction_id/logs -&gt; TransactionLogController.index</code> |
 
 ## tx-raw-trace
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-tx-transaction-id-raw-trace</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tx/:transaction_id/raw-trace -&gt; TransactionRawTraceController.resources</code> |
+| <code>interface.14.http-get-tx-transaction-id-raw-trace</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tx/:transaction_id/raw-trace -&gt; TransactionRawTraceController.index</code> |
 
 ## tx-state
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-tx-transaction-id-state</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tx/:transaction_id/state -&gt; TransactionStateController.resources</code> |
+| <code>interface.14.http-get-tx-transaction-id-state</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tx/:transaction_id/state -&gt; TransactionStateController.index</code> |
 
 ## tx-token-transfers
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-tx-transaction-id-token-transfers</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tx/:transaction_id/token-transfers -&gt; TransactionTokenTransferController.resources</code> |
+| <code>interface.14.http-get-tx-transaction-id-token-transfers</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /tx/:transaction_id/token-transfers -&gt; TransactionTokenTransferController.index</code> |
 
 ## txs
 
@@ -1279,8 +1275,8 @@ The explorer serves HTTP routes through the [Phoenix routers](../../../services/
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-api-v2-paxeer-x-archive-anchors</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/archive_controller.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/archive_controller.ex) | <code>GET /api/v2/paxeer-x/archive/anchors -&gt; V2.PaxeerX.ArchiveController</code> |
-| <code>interface.14.http-get-api-v2-paxeer-x-archive-receipts</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/archive_controller.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/archive_controller.ex) | <code>GET /api/v2/paxeer-x/archive/receipts -&gt; V2.PaxeerX.ArchiveController</code> |
+| <code>interface.14.http-get-api-v2-paxeer-x-archive-anchors</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/archive_controller.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/archive_controller.ex) | <code>GET /api/v2/paxeer-x/archive/anchors -&gt; V2.PaxeerX.ArchiveController.anchors</code> |
+| <code>interface.14.http-get-api-v2-paxeer-x-archive-receipts</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/archive_controller.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/archive_controller.ex) | <code>GET /api/v2/paxeer-x/archive/receipts -&gt; V2.PaxeerX.ArchiveController.receipts</code> |
 | <code>interface.14.http-get-api-v2-paxeer-x-path-not-found</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex) | <code>GET /api/v2/paxeer-x/*path -&gt; 404</code> |
 
 | Field | Rule |
@@ -1313,7 +1309,7 @@ The explorer serves HTTP routes through the [Phoenix routers](../../../services/
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-verified-contracts</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /verified-contracts -&gt; VerifiedContractsController.resources</code> |
+| <code>interface.14.http-get-verified-contracts</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /verified-contracts -&gt; VerifiedContractsController.index</code> |
 
 ## verify-smart-contract-contract-verifications
 
@@ -1331,4 +1327,4 @@ The explorer serves HTTP routes through the [Phoenix routers](../../../services/
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.14.http-get-withdrawals</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /withdrawals -&gt; WithdrawalController.resources</code> |
+| <code>interface.14.http-get-withdrawals</code> | <code>http_route</code> | [services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/web_router.ex) | <code>GET /withdrawals -&gt; WithdrawalController.index</code> |

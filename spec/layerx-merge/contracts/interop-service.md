@@ -390,7 +390,7 @@ The [interop service](../../../services/interop/crates/layerx-interop-service/sr
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.env-svc-layerx-interop-allow-hosted-private-network</code> | <code>env_var</code> | [services/interop/crates/layerx-interop-service/src/config.rs](../../../services/interop/crates/layerx-interop-service/src/config.rs) | <code>LAYERX_INTEROP_ALLOW_&lt;PLATFORM&gt;_PRIVATE_NETWORK: 0&#124;1; allows the plain-HTTP node endpoint on the hosted platform private network; optional, default 0</code> |
+| <code>interface.11.env-svc-layerx-interop-allow-hosted-private-network</code> | <code>env_var</code> | [services/interop/crates/layerx-interop-service/src/config.rs](../../../services/interop/crates/layerx-interop-service/src/config.rs) | <code>LAYERX_INTEROP_ALLOW_RAILWAY_PRIVATE_NETWORK: 0&#124;1; allows the plain-HTTP node endpoint on the hosted platform private network; optional, default 0</code> |
 
 ## env-svc-layerx-interop-chain-id
 
@@ -510,7 +510,7 @@ The [interop service](../../../services/interop/crates/layerx-interop-service/sr
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.env-svc-layerx-interop-wire-version</code> | <code>env_var</code> | [services/interop/crates/layerx-interop-service/src/config.rs](../../../services/interop/crates/layerx-interop-service/src/config.rs) | <code>LAYERX_INTEROP_WIRE_VERSION: wire version label (&lt;= 64 bytes); required</code> |
+| <code>interface.11.env-svc-layerx-interop-wire-version</code> | <code>env_var</code> | [services/interop/crates/layerx-interop-service/src/config.rs](../../../services/interop/crates/layerx-interop-service/src/config.rs) | <code>LAYERX_INTEROP_WIRE_VERSION: numeric protocol version using occupancy, supplied as a label of at most 64 bytes; required</code> |
 
 ## err-svc-account-binding-invalid
 
@@ -1061,7 +1061,7 @@ inputs, all with the `LAYERX_INTEROP_` prefix:
 | `RECEIPT_KEYS_FILE` | Nonempty JSON array of `{keyId, publicKey, firstHeight, lastHeight}`; 0x-prefixed 32-byte identifiers and keys, inclusive nonoverlapping numeric height windows; startup compares every pin with `px_getReceiptKeys` |
 | `OUTBOUND_CA_DER`, `CLIENT_IDENTITY_PKCS12`, `CLIENT_IDENTITY_PASSWORD_FILE` | Outbound CA, mTLS identity and private password file |
 | `REDIS_URL`, `REDIS_USERNAME_FILE`, `REDIS_PASSWORD_FILE` | TLS Redis endpoint and private credential files |
-| `NETWORK_ID`, `WIRE_VERSION`, `PROTOCOL_NETWORK_ID` | Network label, current numeric protocol version (3), nonzero protocol network identifier |
+| `NETWORK_ID`, `WIRE_VERSION`, `PROTOCOL_NETWORK_ID` | Network label, occupancy protocol version (2 or 3), nonzero protocol network identifier |
 | `CHAIN_ID`, `READINESS_MAX_AGE_MS`, `MODULE_REGISTRY_FILE`, `TAP_CLOCK_SKEW_SECONDS` | 125; 1..=30000; module registry JSON; 0..=300 seconds |
 | `AP2_RECEIPT_SIGNERS_FILE` (required for AP2 execution/readiness) | Private (mode 0600 or stricter), at most 4096-byte JSON file; `payment` and `checkout` each contain `issuer`, `key_id`, `private_key_hex` (32-byte ES256 private scalar, lowercase hexadecimal without 0x); pin each issuer public key independently at the consumer |
 | `IDEMPOTENCY_SECONDS` (optional) | 1..=2592000 seconds, default 604800; also bounds finalized relay raw-byte retention |

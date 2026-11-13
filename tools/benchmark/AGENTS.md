@@ -32,7 +32,7 @@ BENCHMARK_CONFIG=tools/benchmark/scenarios/erc20.json tools/benchmark/benchmark.
 | `PAX_HOME` | `$HOME/.pax-benchmark` | Absolute dedicated benchmark data directory, initialized in place |
 | `BENCHMARK_RESET_HOME` | Empty | Exact benchmark path confirming a reset of an existing marked benchmark home |
 | `PORT_OFFSET` | `0` | Added to all ports (RPC, P2P, pprof, gRPC, etc.) |
-| `PAXD_BIN` | `""` | Pre-built binary path. If set, skip build + copy to ~/go/bin/paxd |
+| `PAXD_BIN` | `""` | Pre-built binary path; initialization skips compilation and copies it to `~/go/bin/paxd`, while node startup uses the supplied path |
 | `LOG_FILE` | `""` | Redirect paxd output to file |
 | `BENCHMARK_CONFIG` | `$SCRIPT_DIR/scenarios/evm.json` | Default resolves from the script directory; an explicit relative path resolves from the working directory |
 | `BENCHMARK_TXS_PER_BATCH` | `1000` | Transactions per batch |
@@ -47,8 +47,8 @@ BENCHMARK_CONFIG=tools/benchmark/scenarios/erc20.json tools/benchmark/benchmark.
 
 Delegates initialization and node startup to `benchmark.sh`, forwarding its
 scenario, executor, database and batch settings. It assigns per-run homes,
-ports, binaries and log paths, and sets mock balances and indexer disabling to
-`true`. Additional settings:
+ports, binaries and log paths. It builds binaries with the `mock_balances` tag
+and initializes them with `DISABLE_INDEXER=true`. Additional settings:
 
 | Var | Default | Purpose |
 |-----|---------|---------|

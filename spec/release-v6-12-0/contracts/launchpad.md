@@ -1,39 +1,39 @@
 # Launchpad contract: the launchpad precompile at 0x1017 in release v6.12.0
 
-Version 1.1.0. This file binds the launchpad of the Paxeer X Network to the interface of the Launch-x contracts (github.com/Sidiora-Labs/Launch-x, commit c5eb7c7) of the manifest-active generation 2, served by the precompile at 0x1017 and its surfaces at the generation 2 role addresses and every pool address. USDL stays the ERC20 contract and the launchpad holds it in custody at the launchpad module EVM address through nested ERC20 calls; pool tokens stay the deployed SidioraERC20 contracts; opticals, ERC721 fee rights and the Treasury are served as the contracts define them; and the v6.12.0 migration brings every generation 1 and generation 2 pool into generation 2.
+This page describes the launchpad of the Paxeer X Network using the contracts in `contracts/launchpad` for the manifest-active generation 2, served by the precompile at 0x1017 and its surfaces at the generation 2 role addresses and every pool address. USDL stays the ERC20 contract and the launchpad holds it in custody at the launchpad module EVM address through nested ERC20 calls; pool tokens stay the deployed SidioraERC20 contracts; opticals, ERC721 fee rights and the Treasury are served as the contracts define them; and the v6.12.0 migration brings every generation 1 and generation 2 pool into generation 2.
 
-External citations use `Launch-x:path:line`. Local paths refer to the current repository. The launchpad backend binds the precompile by manifest role.
+Source paths refer to this repository. The launchpad backend binds the precompile by manifest role.
 
 
 ## 1. Scope and addresses
 
 | Role | Generation 1 (retired, section 21) | Generation 2 (served by 0x1017) |
 |---|---|---|
-| SidioraFactory | `0x8a1A09CEe72c1D39dF33B8284E38baeF8371f465` (Launch-x:protocol/addresses.go:22) | `0x3993D004166738d1069B5C4e0a923f7B9D5D8830` (Launch-x:shared/config/deployment/current.json:37) |
-| Router | `0xCC7298801112682e10ee14b8a520309caD80336d` (Launch-x:protocol/addresses.go:23) | `0x78FB06f525cD964388f2305A489035263E31C6e4` (Launch-x:shared/config/deployment/current.json:23) |
-| Quoter | `0xB768e183b6EfDeDf8b2AA7af732039D1C3c452d0` (Launch-x:protocol/addresses.go:24) | `0x793006f4F321b8863F26DBD75b11bAa01DA181dc` (Launch-x:shared/config/deployment/current.json:30) |
-| FeesRouter | `0x02Df12a44F2658080E76fbcF7D6B34Baa97843b6` (Launch-x:protocol/addresses.go:28) | `0x05681dA6f611C2dfFD3E92611F6dE2d247647927` (Launch-x:shared/config/deployment/current.json:65) |
-| FeeAccumulator | `0x50C69dF6637b3DCE6a7407C5A4b4F99E68514A76` (Launch-x:protocol/addresses.go:26) | `0x7b14808b72f61664cDb79D25E6d1587655571a66` (Launch-x:shared/config/deployment/current.json:51) |
-| PoolRegistry | `0x7684382c89f79104574D8EF9b31eFf2eD2C2BA0b` (Launch-x:protocol/addresses.go:21) | `0x1dC357d2B7B850332a91F06A9E66634F46fC4Ba7` (Launch-x:shared/config/deployment/current.json:44) |
-| ProtocolConfig | `0xEeDF5409cFD30bd14D0399318c7d2150265575e5` (Launch-x:protocol/addresses.go:25) | `0xF3669eDc475Cb6E1F0d7635240ABD8e8FB7E20C6` (Launch-x:shared/config/deployment/current.json:16) |
-| SidioraNFT | `0xDF73b354ed9dcB473cc9D01541c46f507591e190` (Launch-x:protocol/addresses.go:27) | `0xe8DcC844a8006dbf64f5Bb851bCad90292a6409B` (Launch-x:shared/config/deployment/current.json:58) |
-| Treasury | `0x15405D535ce533BfFb98c83e42f4DD242AA5e079` (Launch-x:protocol/addresses.go:84) | read from SidioraFactory slot 6 (Launch-x:contracts/contracts/core/SidioraFactory.sol:30), recorded in modules/launchpad/keeper/testdata/v6120/layout.json |
-| OpticalRegistry | `0x4CdA6e48632d51Ee4Fa735D81BF09F7543f644a1` (Launch-x:protocol/addresses.go:95) | `0x0FB5E510372Bd3EddFED16A5Dd766d4473CffcF0` (Launch-x:shared/config/deployment/current.json:72), retained contract (section 22) |
-| EventEmitter | `0x0E10286EE51F99c666CDcAb52451e58AbdA4048F` (Launch-x:protocol/addresses.go:20), keeps its code | `0x622E1bb90E0E2B6E6e5e9e2DbE1555389E8A3EF6` (Launch-x:shared/config/deployment/current.json:9), retained contract (section 22) |
-| PoolBeacon | `0xf11f08afe33e020Cab22bCaffBbAfC471c75E9d4` (Launch-x:protocol/addresses.go:29), keeps its code | `0x0c60Ea33B1DD602A17E1EF1875eE912F3fad71BE` (Launch-x:shared/config/deployment/current.json:79), retained contract (section 22) |
+| SidioraFactory | `0x8a1A09CEe72c1D39dF33B8284E38baeF8371f465` (sdk/launchpad/protocol/addresses.go) | `0x3993D004166738d1069B5C4e0a923f7B9D5D8830` (sdk/launchpad/shared/config/deployment/current.json) |
+| Router | `0xCC7298801112682e10ee14b8a520309caD80336d` (sdk/launchpad/protocol/addresses.go) | `0x78FB06f525cD964388f2305A489035263E31C6e4` (sdk/launchpad/shared/config/deployment/current.json) |
+| Quoter | `0xB768e183b6EfDeDf8b2AA7af732039D1C3c452d0` (sdk/launchpad/protocol/addresses.go) | `0x793006f4F321b8863F26DBD75b11bAa01DA181dc` (sdk/launchpad/shared/config/deployment/current.json) |
+| FeesRouter | `0x02Df12a44F2658080E76fbcF7D6B34Baa97843b6` (sdk/launchpad/protocol/addresses.go) | `0x05681dA6f611C2dfFD3E92611F6dE2d247647927` (sdk/launchpad/shared/config/deployment/current.json) |
+| FeeAccumulator | `0x50C69dF6637b3DCE6a7407C5A4b4F99E68514A76` (sdk/launchpad/protocol/addresses.go) | `0x7b14808b72f61664cDb79D25E6d1587655571a66` (sdk/launchpad/shared/config/deployment/current.json) |
+| PoolRegistry | `0x7684382c89f79104574D8EF9b31eFf2eD2C2BA0b` (sdk/launchpad/protocol/addresses.go) | `0x1dC357d2B7B850332a91F06A9E66634F46fC4Ba7` (sdk/launchpad/shared/config/deployment/current.json) |
+| ProtocolConfig | `0xEeDF5409cFD30bd14D0399318c7d2150265575e5` (sdk/launchpad/protocol/addresses.go) | `0xF3669eDc475Cb6E1F0d7635240ABD8e8FB7E20C6` (sdk/launchpad/shared/config/deployment/current.json) |
+| SidioraNFT | `0xDF73b354ed9dcB473cc9D01541c46f507591e190` (sdk/launchpad/protocol/addresses.go) | `0xe8DcC844a8006dbf64f5Bb851bCad90292a6409B` (sdk/launchpad/shared/config/deployment/current.json) |
+| Treasury | `0x15405D535ce533BfFb98c83e42f4DD242AA5e079` (sdk/launchpad/protocol/addresses.go) | read from SidioraFactory slot 6 (contracts/launchpad/contracts/core/SidioraFactory.sol), recorded in modules/launchpad/keeper/testdata/v6120/layout.json |
+| OpticalRegistry | `0x4CdA6e48632d51Ee4Fa735D81BF09F7543f644a1` (sdk/launchpad/protocol/addresses.go) | `0x0FB5E510372Bd3EddFED16A5Dd766d4473CffcF0` (sdk/launchpad/shared/config/deployment/current.json), retained contract (section 22) |
+| EventEmitter | `0x0E10286EE51F99c666CDcAb52451e58AbdA4048F` (sdk/launchpad/protocol/addresses.go), keeps its code | `0x622E1bb90E0E2B6E6e5e9e2DbE1555389E8A3EF6` (sdk/launchpad/shared/config/deployment/current.json), retained contract (section 22) |
+| PoolBeacon | `0xf11f08afe33e020Cab22bCaffBbAfC471c75E9d4` (sdk/launchpad/protocol/addresses.go), keeps its code | `0x0c60Ea33B1DD602A17E1EF1875eE912F3fad71BE` (sdk/launchpad/shared/config/deployment/current.json), retained contract (section 22) |
 
-USDL: `0x85FcD13735F4309833A503EE804ea32395851479` (Launch-x:shared/config/deployment/current.json:86) stays the ERC20 contract with its code and storage; there is no bank denom, no mint and no native pointer for it. The launchpad holds its USDL as the ERC20 balance of the launchpad module EVM address (GetEVMAddressOrDefault, modules/evm/keeper/address.go, of authtypes.NewModuleAddress(ModuleName), modules/launchpad/keeper/keeper.go; spec/release-v6-12-0/contracts/address-table.md, module accounts) (section 5).
+USDL: `0x85FcD13735F4309833A503EE804ea32395851479` (sdk/launchpad/shared/config/deployment/current.json) stays the ERC20 contract with its code and storage; there is no bank denom, no mint and no native pointer for it. The launchpad holds its USDL as the ERC20 balance of the launchpad module EVM address (GetEVMAddressOrDefault, modules/evm/keeper/address.go, of authtypes.NewModuleAddress(ModuleName), modules/launchpad/keeper/keeper.go; spec/release-v6-12-0/contracts/address-table.md, module accounts) (section 5).
 
 - The launchpad is served at 0x0000000000000000000000000000000000001017 (modules/launchpad/types/keys.go), registered at precompiles/setup.go.
-- Ten contract roles are served with their Launch-x ABIs: SidioraPool 42 functions, SidioraFactory 23, SidioraNFT 37, Router 23, Quoter 19, FeesRouter 20, FeeAccumulator 54, PoolRegistry 22, ProtocolConfig 27 and Treasury 17 (Launch-x:contracts/contracts/protocol/Treasury.sol:13); the SidioraERC20 file (19 functions) encodes nested calls to the pool-token contracts, which stay deployed (the pool entry point at Launch-x:contracts/contracts/core/SidioraPool.sol:147).
+- Ten contract roles are served with their Launch-x ABIs: SidioraPool 42 functions, SidioraFactory 23, SidioraNFT 37, Router 23, Quoter 19, FeesRouter 20, FeeAccumulator 54, PoolRegistry 22, ProtocolConfig 27 and Treasury 17 (contracts/launchpad/contracts/protocol/Treasury.sol); the SidioraERC20 file (19 functions) encodes nested calls to the pool-token contracts, which stay deployed (the pool entry point at contracts/launchpad/contracts/core/SidioraPool.sol).
 - Direct calls to 0x1017 resolve through abi.json: 113 role selectors in Router, SidioraFactory, Quoter, PoolRegistry, FeesRouter, FeeAccumulator, ProtocolConfig order, followed by 13 chain-launch selectors, for 126 methods. The first role wins for the 21 shared signatures (precompiles/launchpad/run.go).
-- Every market reads generation 2 after the upgrade: the generation 2 role addresses of Launch-x:shared/config/deployment/current.json:9-79 (SidioraFactory at :37) serve every pool, those of generation 1 (Launch-x:protocol/addresses.go:20-29) are retired (requirement 2.36), and markets created after the upgrade join the same generation 2 set.
-- Fee rights are ERC721 tokens of the generation 2 collection 0xe8Dc…409B (Launch-x:shared/config/deployment/current.json:58); generation 1 rights are imported under new ids from nextTokenId with an id map, and markets created after the upgrade mint from nextTokenId (base Launch-x:contracts/contracts/base/ERC721Base.sol:11).
-- Pool tokens stay the deployed SidioraERC20 contracts with their code and storage; new markets deploy one by CREATE2 from the generation 2 SidioraFactory (Launch-x:contracts/contracts/core/SidioraFactory.sol:120-125).
+- Every market reads generation 2 after the upgrade: the generation 2 role addresses of sdk/launchpad/shared/config/deployment/current.json serve every pool, those of generation 1 (sdk/launchpad/protocol/addresses.go) are retired (requirement 2.36), and markets created after the upgrade join the same generation 2 set.
+- Fee rights are ERC721 tokens of the generation 2 collection 0xe8Dc…409B (sdk/launchpad/shared/config/deployment/current.json); generation 1 rights are imported under new ids from nextTokenId with an id map, and markets created after the upgrade mint from nextTokenId (base contracts/launchpad/contracts/base/ERC721Base.sol).
+- Pool tokens stay the deployed SidioraERC20 contracts with their code and storage; new markets deploy one by CREATE2 from the generation 2 SidioraFactory (contracts/launchpad/contracts/core/SidioraFactory.sol).
 
 ## 2. Interface by role
 
-Every function, event and custom error of each role, with its selector (function and error: 4 bytes; event: topic 0). The ABI golden file precompiles/launchpad/testdata/abi_golden.txt records the role tables and chain-launch extension.
+Every function, event and custom error of each role, with its selector (function and error: 4 bytes; event: topic 0). The ABI golden file precompiles/launchpad/testdata/abi_golden.txt records the served role tables and chain-launch extension. The retained EventEmitter and optical contract tables describe their Solidity interfaces.
 
 ### SidioraPool
 
@@ -41,79 +41,79 @@ Every function, event and custom error of each role, with its selector (function
 
 | Function | Selector | Mutability | Returns | Declared |
 |---|---|---|---|---|
-| `PAUSER_ROLE()` | `0xe63ab1e9` | view | `(bytes32)` | Launch-x:contracts/contracts/base/Pausable.sol:7 |
-| `SNAPSHOT_INTERVAL()` | `0x6d2beef1` | view | `(uint256)` | Launch-x:contracts/contracts/core/SidioraPool.sol:80 |
-| `SNAPSHOT_MIN_VOLUME_BPS()` | `0x923795a3` | view | `(uint256)` | Launch-x:contracts/contracts/core/SidioraPool.sol:81 |
-| `acceptGuardian()` | `0xa5f31d61` | nonpayable | `()` | Launch-x:contracts/contracts/core/SidioraPool.sol:314 |
-| `accumulatedTokenFees()` | `0x1e5a0998` | view | `(uint256)` | Launch-x:contracts/contracts/core/SidioraPool.sol:72 |
-| `accumulatedUsdlFees()` | `0x61f63bf5` | view | `(uint256)` | Launch-x:contracts/contracts/core/SidioraPool.sol:71 |
-| `creationTimestamp()` | `0xb3311086` | view | `(uint256)` | Launch-x:contracts/contracts/core/SidioraPool.sol:64 |
-| `cumulativeBuyUsdlVolume()` | `0x1aa6f435` | view | `(uint256)` | Launch-x:contracts/contracts/core/SidioraPool.sol:78 |
-| `cumulativeSellUsdlVolume()` | `0x00a8b4fe` | view | `(uint256)` | Launch-x:contracts/contracts/core/SidioraPool.sol:79 |
-| `cumulativeVolume()` | `0xf4dd4156` | view | `(uint256)` | Launch-x:contracts/contracts/core/SidioraPool.sol:65 |
-| `currentFeeBps()` | `0x975f8f46` | view | `(uint256)` | Launch-x:contracts/contracts/core/SidioraPool.sol:404 |
-| `emergencyPaused()` | `0x27c830a9` | view | `(bool)` | Launch-x:contracts/contracts/base/Pausable.sol:10 |
-| `eventEmitter()` | `0x9ff78c30` | view | `(address)` | Launch-x:contracts/contracts/core/SidioraPool.sol:57 |
-| `factory()` | `0xc45a0155` | view | `(address)` | Launch-x:contracts/contracts/core/SidioraPool.sol:75 |
-| `feeAccumulator()` | `0x5eaea35f` | view | `(address)` | Launch-x:contracts/contracts/core/SidioraPool.sol:56 |
-| `getEffectiveReserves()` | `0x6e7f1e46` | view | `(uint256,uint256)` | Launch-x:contracts/contracts/core/SidioraPool.sol:338 |
-| `getPoolInfo()` | `0x60246c88` | view | `((address,address,uint256,uint256,uint256,uint256,uint256))` | Launch-x:contracts/contracts/core/SidioraPool.sol:350 |
-| `getPrice()` | `0x98d5fdca` | view | `(uint256)` | Launch-x:contracts/contracts/core/SidioraPool.sol:346 |
-| `getPriceSnapshots()` | `0x680aef93` | view | `(uint256[8])` | Launch-x:contracts/contracts/core/SidioraPool.sol:362 |
-| `getReserves()` | `0x0902f1ac` | view | `(uint256,uint256,uint256)` | Launch-x:contracts/contracts/core/SidioraPool.sol:328 |
-| `guardian()` | `0x452a9320` | view | `(address)` | Launch-x:contracts/contracts/core/SidioraPool.sol:59 |
-| `initialize(address,address,address,address,address,address,address,uint256,uint256)` | `0x9bb725be` | nonpayable | `()` | Launch-x:contracts/contracts/core/SidioraPool.sol:88 |
-| `lastSnapshotTimestamp()` | `0x6f660492` | view | `(uint256)` | Launch-x:contracts/contracts/core/SidioraPool.sol:77 |
-| `migrateFactory(address)` | `0x308efad5` | nonpayable | `()` | Launch-x:contracts/contracts/core/SidioraPool.sol:127 |
-| `opticalAddress()` | `0xa2d02927` | view | `(address)` | Launch-x:contracts/contracts/core/SidioraPool.sol:55 |
-| `pause()` | `0x8456cb59` | nonpayable | `()` | Launch-x:contracts/contracts/core/SidioraPool.sol:296 |
-| `paused()` | `0x5c975abb` | view | `(bool)` | Launch-x:contracts/contracts/core/SidioraPool.sol:322 |
-| `pendingGuardian()` | `0x762c31ba` | view | `(address)` | Launch-x:contracts/contracts/core/SidioraPool.sol:76 |
-| `priceSnapshots(uint256)` | `0xcbd47f88` | view | `(uint256)` | Launch-x:contracts/contracts/core/SidioraPool.sol:67 |
-| `protocolConfig()` | `0xf5efbb4f` | view | `(address)` | Launch-x:contracts/contracts/core/SidioraPool.sol:58 |
-| `realUsdlBalance()` | `0xa8c98bde` | view | `(uint256)` | Launch-x:contracts/contracts/core/SidioraPool.sol:62 |
-| `snapshotCount()` | `0x098ab6a1` | view | `(uint256)` | Launch-x:contracts/contracts/core/SidioraPool.sol:69 |
-| `snapshotIndex()` | `0x234feaf2` | view | `(uint256)` | Launch-x:contracts/contracts/core/SidioraPool.sol:68 |
-| `swap(uint256,uint256,bool,address,uint256)` | `0x704c4536` | nonpayable | `(uint256)` | Launch-x:contracts/contracts/core/SidioraPool.sol:147 |
-| `swapFor(uint256,uint256,bool,address,address,uint256)` | `0x0602dc5b` | nonpayable | `(uint256)` | Launch-x:contracts/contracts/core/SidioraPool.sol:158 |
-| `syncReserves()` | `0x5249f13e` | nonpayable | `(uint256,uint256)` | Launch-x:contracts/contracts/core/SidioraPool.sol:279 |
-| `tokenAddress()` | `0x9d76ea58` | view | `(address)` | Launch-x:contracts/contracts/core/SidioraPool.sol:53 |
-| `tokenReserve()` | `0xcbcb3171` | view | `(uint256)` | Launch-x:contracts/contracts/core/SidioraPool.sol:63 |
-| `transferGuardian(address)` | `0x091954cd` | nonpayable | `()` | Launch-x:contracts/contracts/core/SidioraPool.sol:307 |
-| `unpause()` | `0x3f4ba83a` | nonpayable | `()` | Launch-x:contracts/contracts/core/SidioraPool.sol:301 |
-| `usdlAddress()` | `0x2e10f976` | view | `(address)` | Launch-x:contracts/contracts/core/SidioraPool.sol:54 |
-| `virtualUsdlReserve()` | `0xe87ca810` | view | `(uint256)` | Launch-x:contracts/contracts/core/SidioraPool.sol:61 |
+| `PAUSER_ROLE()` | `0xe63ab1e9` | view | `(bytes32)` | contracts/launchpad/contracts/base/Pausable.sol |
+| `SNAPSHOT_INTERVAL()` | `0x6d2beef1` | view | `(uint256)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `SNAPSHOT_MIN_VOLUME_BPS()` | `0x923795a3` | view | `(uint256)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `acceptGuardian()` | `0xa5f31d61` | nonpayable | `()` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `accumulatedTokenFees()` | `0x1e5a0998` | view | `(uint256)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `accumulatedUsdlFees()` | `0x61f63bf5` | view | `(uint256)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `creationTimestamp()` | `0xb3311086` | view | `(uint256)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `cumulativeBuyUsdlVolume()` | `0x1aa6f435` | view | `(uint256)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `cumulativeSellUsdlVolume()` | `0x00a8b4fe` | view | `(uint256)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `cumulativeVolume()` | `0xf4dd4156` | view | `(uint256)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `currentFeeBps()` | `0x975f8f46` | view | `(uint256)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `emergencyPaused()` | `0x27c830a9` | view | `(bool)` | contracts/launchpad/contracts/base/Pausable.sol |
+| `eventEmitter()` | `0x9ff78c30` | view | `(address)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `factory()` | `0xc45a0155` | view | `(address)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `feeAccumulator()` | `0x5eaea35f` | view | `(address)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `getEffectiveReserves()` | `0x6e7f1e46` | view | `(uint256,uint256)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `getPoolInfo()` | `0x60246c88` | view | `((address,address,uint256,uint256,uint256,uint256,uint256))` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `getPrice()` | `0x98d5fdca` | view | `(uint256)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `getPriceSnapshots()` | `0x680aef93` | view | `(uint256[8])` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `getReserves()` | `0x0902f1ac` | view | `(uint256,uint256,uint256)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `guardian()` | `0x452a9320` | view | `(address)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `initialize(address,address,address,address,address,address,address,uint256,uint256)` | `0x9bb725be` | nonpayable | `()` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `lastSnapshotTimestamp()` | `0x6f660492` | view | `(uint256)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `migrateFactory(address)` | `0x308efad5` | nonpayable | `()` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `opticalAddress()` | `0xa2d02927` | view | `(address)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `pause()` | `0x8456cb59` | nonpayable | `()` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `paused()` | `0x5c975abb` | view | `(bool)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `pendingGuardian()` | `0x762c31ba` | view | `(address)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `priceSnapshots(uint256)` | `0xcbd47f88` | view | `(uint256)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `protocolConfig()` | `0xf5efbb4f` | view | `(address)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `realUsdlBalance()` | `0xa8c98bde` | view | `(uint256)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `snapshotCount()` | `0x098ab6a1` | view | `(uint256)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `snapshotIndex()` | `0x234feaf2` | view | `(uint256)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `swap(uint256,uint256,bool,address,uint256)` | `0x704c4536` | nonpayable | `(uint256)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `swapFor(uint256,uint256,bool,address,address,uint256)` | `0x0602dc5b` | nonpayable | `(uint256)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `syncReserves()` | `0x5249f13e` | nonpayable | `(uint256,uint256)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `tokenAddress()` | `0x9d76ea58` | view | `(address)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `tokenReserve()` | `0xcbcb3171` | view | `(uint256)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `transferGuardian(address)` | `0x091954cd` | nonpayable | `()` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `unpause()` | `0x3f4ba83a` | nonpayable | `()` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `usdlAddress()` | `0x2e10f976` | view | `(address)` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `virtualUsdlReserve()` | `0xe87ca810` | view | `(uint256)` | contracts/launchpad/contracts/core/SidioraPool.sol |
 
 | Event | Topic 0 | Declared |
 |---|---|---|
-| `FactoryMigrated(address)` | `0xdc152171996ab31ea044d1f083998178a0515971a850651a133f8d13027bb277` | Launch-x:contracts/contracts/core/SidioraPool.sol:50 |
-| `GuardianTransferStarted(address,address)` | `0x112d7ce5d0717de1e8d403be44596423dc61e85438d8ba49eaf0d31b1992bce0` | Launch-x:contracts/contracts/core/SidioraPool.sol:47 |
-| `GuardianTransferred(address,address)` | `0x9fe65984b511eb7998b3cd481cfd80c807fcc7f28721a790d33c87dc9c879485` | Launch-x:contracts/contracts/core/SidioraPool.sol:48 |
-| `Initialized(uint64)` | `0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2` | Launch-x:contracts/contracts/base/Initializable.sol:21 |
-| `InputAdjustment(uint256,uint256)` | `0xc6dfd6050e713ed5ff35fd38843c7c60822498a3d56ae5dc062e563a5b157d5c` | Launch-x:contracts/contracts/core/SidioraPool.sol:49 |
-| `PauseToggled(bool)` | `0x9077d36bc00859b5c3f320310707208543dd35092cb0a0fe117d0c6a558b148b` | Launch-x:contracts/contracts/base/Pausable.sol:19 |
+| `FactoryMigrated(address)` | `0xdc152171996ab31ea044d1f083998178a0515971a850651a133f8d13027bb277` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `GuardianTransferStarted(address,address)` | `0x112d7ce5d0717de1e8d403be44596423dc61e85438d8ba49eaf0d31b1992bce0` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `GuardianTransferred(address,address)` | `0x9fe65984b511eb7998b3cd481cfd80c807fcc7f28721a790d33c87dc9c879485` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `Initialized(uint64)` | `0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2` | contracts/launchpad/contracts/base/Initializable.sol |
+| `InputAdjustment(uint256,uint256)` | `0xc6dfd6050e713ed5ff35fd38843c7c60822498a3d56ae5dc062e563a5b157d5c` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `PauseToggled(bool)` | `0x9077d36bc00859b5c3f320310707208543dd35092cb0a0fe117d0c6a558b148b` | contracts/launchpad/contracts/base/Pausable.sol |
 
 | Error | Selector | Declared |
 |---|---|---|
-| `AlreadyInitialized()` | `0x0dc149f0` | Launch-x:contracts/contracts/base/Initializable.sol:18 |
-| `DeadlineExpired()` | `0x1ab7da6b` | Launch-x:contracts/contracts/interfaces/ISidioraPool.sol:8 |
-| `DivisionByZero()` | `0x23d359a3` | Launch-x:contracts/contracts/libraries/SidioraMath.sol:9 |
-| `InsufficientInput()` | `0xf8b3bb61` | Launch-x:contracts/contracts/interfaces/ISidioraPool.sol:11 |
-| `InsufficientLiquidity()` | `0xbb55fd27` | Launch-x:contracts/contracts/interfaces/ISidioraPool.sol:10 |
-| `InvalidBalance()` | `0xc52e3eff` | Launch-x:contracts/contracts/core/SidioraPool.sol:45 |
-| `InvalidConfiguration()` | `0xc52a9bd3` | Launch-x:contracts/contracts/core/SidioraPool.sol:44 |
-| `InvalidHookResponse()` | `0x1e048e1d` | Launch-x:contracts/contracts/core/SidioraPool.sol:46 |
-| `NotInitializing()` | `0xd7e6bcf8` | Launch-x:contracts/contracts/base/Initializable.sol:19 |
-| `NotPaused()` | `0x6cd60201` | Launch-x:contracts/contracts/base/Pausable.sol:17 |
-| `Overflow()` | `0x35278d12` | Launch-x:contracts/contracts/libraries/SidioraMath.sol:8 |
-| `Paused()` | `0x9e87fac8` | Launch-x:contracts/contracts/base/Pausable.sol:16 |
-| `ReentrancyGuardReentrantCall()` | `0x3ee5aeb5` | Launch-x:contracts/contracts/base/ReentrancyGuard.sol:15 |
-| `SlippageExceeded()` | `0x8199f5f3` | Launch-x:contracts/contracts/interfaces/ISidioraPool.sol:9 |
-| `TransferFailed()` | `0x90b8ec18` | Launch-x:contracts/contracts/libraries/TransferHelper.sol:8 |
-| `Unauthorized()` | `0x82b42900` | Launch-x:contracts/contracts/core/SidioraPool.sol:43 |
-| `VirtualFloorBreached()` | `0x04af467f` | Launch-x:contracts/contracts/core/SidioraPool.sol:42 |
-| `ZeroAddress()` | `0xd92e233d` | Launch-x:contracts/contracts/interfaces/ISidioraPool.sol:12 |
-| `ZeroAmount()` | `0x1f2a2005` | Launch-x:contracts/contracts/interfaces/ISidioraPool.sol:13 |
+| `AlreadyInitialized()` | `0x0dc149f0` | contracts/launchpad/contracts/base/Initializable.sol |
+| `DeadlineExpired()` | `0x1ab7da6b` | contracts/launchpad/contracts/interfaces/ISidioraPool.sol |
+| `DivisionByZero()` | `0x23d359a3` | contracts/launchpad/contracts/libraries/SidioraMath.sol |
+| `InsufficientInput()` | `0xf8b3bb61` | contracts/launchpad/contracts/interfaces/ISidioraPool.sol |
+| `InsufficientLiquidity()` | `0xbb55fd27` | contracts/launchpad/contracts/interfaces/ISidioraPool.sol |
+| `InvalidBalance()` | `0xc52e3eff` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `InvalidConfiguration()` | `0xc52a9bd3` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `InvalidHookResponse()` | `0x1e048e1d` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `NotInitializing()` | `0xd7e6bcf8` | contracts/launchpad/contracts/base/Initializable.sol |
+| `NotPaused()` | `0x6cd60201` | contracts/launchpad/contracts/base/Pausable.sol |
+| `Overflow()` | `0x35278d12` | contracts/launchpad/contracts/libraries/SidioraMath.sol |
+| `Paused()` | `0x9e87fac8` | contracts/launchpad/contracts/base/Pausable.sol |
+| `ReentrancyGuardReentrantCall()` | `0x3ee5aeb5` | contracts/launchpad/contracts/base/ReentrancyGuard.sol |
+| `SlippageExceeded()` | `0x8199f5f3` | contracts/launchpad/contracts/interfaces/ISidioraPool.sol |
+| `TransferFailed()` | `0x90b8ec18` | contracts/launchpad/contracts/libraries/TransferHelper.sol |
+| `Unauthorized()` | `0x82b42900` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `VirtualFloorBreached()` | `0x04af467f` | contracts/launchpad/contracts/core/SidioraPool.sol |
+| `ZeroAddress()` | `0xd92e233d` | contracts/launchpad/contracts/interfaces/ISidioraPool.sol |
+| `ZeroAmount()` | `0x1f2a2005` | contracts/launchpad/contracts/interfaces/ISidioraPool.sol |
 
 ### SidioraFactory
 
@@ -121,57 +121,57 @@ Every function, event and custom error of each role, with its selector (function
 
 | Function | Selector | Mutability | Returns | Declared |
 |---|---|---|---|---|
-| `DEFAULT_ADMIN_ROLE()` | `0xa217fddf` | view | `(bytes32)` | Launch-x:contracts/contracts/base/AccessControl.sol:9 |
-| `ROUTER_ROLE()` | `0x30d643b5` | view | `(bytes32)` | Launch-x:contracts/contracts/core/SidioraFactory.sol:23 |
-| `createMarket(string,string,uint8,address)` | `0x57c0d7fd` | nonpayable | `(address,address,uint256)` | Launch-x:contracts/contracts/core/SidioraFactory.sol:72 |
-| `createMarketFor(address,string,string,uint8,address)` | `0x5db85915` | nonpayable | `(address,address,uint256)` | Launch-x:contracts/contracts/core/SidioraFactory.sol:88 |
-| `eventEmitter()` | `0x9ff78c30` | view | `(address)` | Launch-x:contracts/contracts/core/SidioraFactory.sol:28 |
-| `feeAccumulator()` | `0x5eaea35f` | view | `(address)` | Launch-x:contracts/contracts/core/SidioraFactory.sol:31 |
-| `getNonce(address)` | `0x2d0335ab` | view | `(uint256)` | Launch-x:contracts/contracts/core/SidioraFactory.sol:100 |
-| `getRoleAdmin(bytes32)` | `0x248a9ca3` | view | `(bytes32)` | Launch-x:contracts/contracts/base/AccessControl.sol:53 |
-| `grantRole(bytes32,address)` | `0x2f2ff15d` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:58 |
-| `hasRole(bytes32,address)` | `0x91d14854` | view | `(bool)` | Launch-x:contracts/contracts/base/AccessControl.sol:48 |
-| `initialize(address,address,address,address,address,address,address,address,address)` | `0xf5e95acb` | nonpayable | `()` | Launch-x:contracts/contracts/core/SidioraFactory.sol:41 |
-| `nftContract()` | `0xd56d229d` | view | `(address)` | Launch-x:contracts/contracts/core/SidioraFactory.sol:26 |
-| `poolBeacon()` | `0xc5a7b2ea` | view | `(address)` | Launch-x:contracts/contracts/core/SidioraFactory.sol:25 |
-| `poolRegistry()` | `0xafcff50f` | view | `(address)` | Launch-x:contracts/contracts/core/SidioraFactory.sol:27 |
-| `predictPoolAddress(address,address,address)` | `0x6992a1f5` | view | `(address)` | Launch-x:contracts/contracts/core/SidioraFactory.sol:167 |
-| `protocolConfig()` | `0xf5efbb4f` | view | `(address)` | Launch-x:contracts/contracts/core/SidioraFactory.sol:29 |
-| `proxiableUUID()` | `0x52d1902d` | view | `(bytes32)` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:41 |
-| `registeredDefaultAdminCount()` | `0xc0cb71b6` | view | `(uint256)` | Launch-x:contracts/contracts/base/AccessControl.sol:32 |
-| `renounceRole(bytes32,address)` | `0x36568abe` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:68 |
-| `revokeRole(bytes32,address)` | `0xd547741f` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:63 |
-| `treasury()` | `0x61d027b3` | view | `(address)` | Launch-x:contracts/contracts/core/SidioraFactory.sol:30 |
-| `upgradeToAndCall(address,bytes)` | `0x4f1ef286` | payable | `()` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:48 |
-| `usdlAddress()` | `0x2e10f976` | view | `(address)` | Launch-x:contracts/contracts/core/SidioraFactory.sol:32 |
+| `DEFAULT_ADMIN_ROLE()` | `0xa217fddf` | view | `(bytes32)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `ROUTER_ROLE()` | `0x30d643b5` | view | `(bytes32)` | contracts/launchpad/contracts/core/SidioraFactory.sol |
+| `createMarket(string,string,uint8,address)` | `0x57c0d7fd` | nonpayable | `(address,address,uint256)` | contracts/launchpad/contracts/core/SidioraFactory.sol |
+| `createMarketFor(address,string,string,uint8,address)` | `0x5db85915` | nonpayable | `(address,address,uint256)` | contracts/launchpad/contracts/core/SidioraFactory.sol |
+| `eventEmitter()` | `0x9ff78c30` | view | `(address)` | contracts/launchpad/contracts/core/SidioraFactory.sol |
+| `feeAccumulator()` | `0x5eaea35f` | view | `(address)` | contracts/launchpad/contracts/core/SidioraFactory.sol |
+| `getNonce(address)` | `0x2d0335ab` | view | `(uint256)` | contracts/launchpad/contracts/core/SidioraFactory.sol |
+| `getRoleAdmin(bytes32)` | `0x248a9ca3` | view | `(bytes32)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `grantRole(bytes32,address)` | `0x2f2ff15d` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `hasRole(bytes32,address)` | `0x91d14854` | view | `(bool)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `initialize(address,address,address,address,address,address,address,address,address)` | `0xf5e95acb` | nonpayable | `()` | contracts/launchpad/contracts/core/SidioraFactory.sol |
+| `nftContract()` | `0xd56d229d` | view | `(address)` | contracts/launchpad/contracts/core/SidioraFactory.sol |
+| `poolBeacon()` | `0xc5a7b2ea` | view | `(address)` | contracts/launchpad/contracts/core/SidioraFactory.sol |
+| `poolRegistry()` | `0xafcff50f` | view | `(address)` | contracts/launchpad/contracts/core/SidioraFactory.sol |
+| `predictPoolAddress(address,address,address)` | `0x6992a1f5` | view | `(address)` | contracts/launchpad/contracts/core/SidioraFactory.sol |
+| `protocolConfig()` | `0xf5efbb4f` | view | `(address)` | contracts/launchpad/contracts/core/SidioraFactory.sol |
+| `proxiableUUID()` | `0x52d1902d` | view | `(bytes32)` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `registeredDefaultAdminCount()` | `0xc0cb71b6` | view | `(uint256)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `renounceRole(bytes32,address)` | `0x36568abe` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `revokeRole(bytes32,address)` | `0xd547741f` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `treasury()` | `0x61d027b3` | view | `(address)` | contracts/launchpad/contracts/core/SidioraFactory.sol |
+| `upgradeToAndCall(address,bytes)` | `0x4f1ef286` | payable | `()` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `usdlAddress()` | `0x2e10f976` | view | `(address)` | contracts/launchpad/contracts/core/SidioraFactory.sol |
 
 | Event | Topic 0 | Declared |
 |---|---|---|
-| `Initialized(uint64)` | `0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2` | Launch-x:contracts/contracts/base/Initializable.sol:21 |
-| `MarketCreated(address,address,address,uint256,address)` | `0xde3c5cd27ce87044b7bc6c8182270f302e537f55f8c943271a34e5163ef2b284` | Launch-x:contracts/contracts/interfaces/ISidioraFactory.sol:13 |
-| `RoleAdminChanged(bytes32,bytes32,bytes32)` | `0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff` | Launch-x:contracts/contracts/base/AccessControl.sol:40 |
-| `RoleGranted(bytes32,address,address)` | `0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d` | Launch-x:contracts/contracts/base/AccessControl.sol:38 |
-| `RoleRevoked(bytes32,address,address)` | `0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b` | Launch-x:contracts/contracts/base/AccessControl.sol:39 |
-| `Upgraded(address)` | `0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b` | Launch-x:contracts/contracts/base/ERC1967Utils.sol:23 |
+| `Initialized(uint64)` | `0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2` | contracts/launchpad/contracts/base/Initializable.sol |
+| `MarketCreated(address,address,address,uint256,address)` | `0xde3c5cd27ce87044b7bc6c8182270f302e537f55f8c943271a34e5163ef2b284` | contracts/launchpad/contracts/interfaces/ISidioraFactory.sol |
+| `RoleAdminChanged(bytes32,bytes32,bytes32)` | `0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `RoleGranted(bytes32,address,address)` | `0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `RoleRevoked(bytes32,address,address)` | `0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `Upgraded(address)` | `0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b` | contracts/launchpad/contracts/base/ERC1967Utils.sol |
 
 | Error | Selector | Declared |
 |---|---|---|
-| `AlreadyInitialized()` | `0x0dc149f0` | Launch-x:contracts/contracts/base/Initializable.sol:18 |
-| `DuplicateToken()` | `0x464e3f6a` | Launch-x:contracts/contracts/interfaces/ISidioraFactory.sol:10 |
-| `InsufficientCreationFee()` | `0x535b7470` | Launch-x:contracts/contracts/interfaces/ISidioraFactory.sol:9 |
-| `InvalidImplementation()` | `0x68155f9a` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:19 |
-| `InvalidRoleAccount()` | `0xeccda526` | Launch-x:contracts/contracts/base/AccessControl.sol:23 |
-| `LastDefaultAdmin()` | `0x9c88180d` | Launch-x:contracts/contracts/base/AccessControl.sol:22 |
-| `MissingRole(address,bytes32)` | `0x0161a64a` | Launch-x:contracts/contracts/base/AccessControl.sol:36 |
-| `NonPayableUpgrade()` | `0x93738d49` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:20 |
-| `NotInitializing()` | `0xd7e6bcf8` | Launch-x:contracts/contracts/base/Initializable.sol:19 |
-| `TransferFailed()` | `0x90b8ec18` | Launch-x:contracts/contracts/libraries/TransferHelper.sol:8 |
-| `TransferFromFailed()` | `0x7939f424` | Launch-x:contracts/contracts/libraries/TransferHelper.sol:9 |
-| `UUPSNotThroughActiveProxy()` | `0x45a93fc9` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:18 |
-| `UUPSNotThroughProxy()` | `0x4f083858` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:17 |
-| `UnauthorizedUpgrade()` | `0x3a617a54` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:16 |
-| `UpgradeInitializationFailed()` | `0xcc1cf440` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:21 |
-| `ZeroAddress()` | `0xd92e233d` | Launch-x:contracts/contracts/interfaces/ISidioraFactory.sol:8 |
+| `AlreadyInitialized()` | `0x0dc149f0` | contracts/launchpad/contracts/base/Initializable.sol |
+| `DuplicateToken()` | `0x464e3f6a` | contracts/launchpad/contracts/interfaces/ISidioraFactory.sol |
+| `InsufficientCreationFee()` | `0x535b7470` | contracts/launchpad/contracts/interfaces/ISidioraFactory.sol |
+| `InvalidImplementation()` | `0x68155f9a` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `InvalidRoleAccount()` | `0xeccda526` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `LastDefaultAdmin()` | `0x9c88180d` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `MissingRole(address,bytes32)` | `0x0161a64a` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `NonPayableUpgrade()` | `0x93738d49` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `NotInitializing()` | `0xd7e6bcf8` | contracts/launchpad/contracts/base/Initializable.sol |
+| `TransferFailed()` | `0x90b8ec18` | contracts/launchpad/contracts/libraries/TransferHelper.sol |
+| `TransferFromFailed()` | `0x7939f424` | contracts/launchpad/contracts/libraries/TransferHelper.sol |
+| `UUPSNotThroughActiveProxy()` | `0x45a93fc9` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UUPSNotThroughProxy()` | `0x4f083858` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UnauthorizedUpgrade()` | `0x3a617a54` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UpgradeInitializationFailed()` | `0xcc1cf440` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `ZeroAddress()` | `0xd92e233d` | contracts/launchpad/contracts/interfaces/ISidioraFactory.sol |
 
 ### SidioraERC20
 
@@ -179,40 +179,40 @@ Every function, event and custom error of each role, with its selector (function
 
 | Function | Selector | Mutability | Returns | Declared |
 |---|---|---|---|---|
-| `DOMAIN_SEPARATOR()` | `0x3644e515` | view | `(bytes32)` | Launch-x:contracts/contracts/base/ERC20Base.sol:48 |
-| `PERMIT_TYPEHASH()` | `0x30adf81f` | view | `(bytes32)` | Launch-x:contracts/contracts/base/ERC20Base.sol:26 |
-| `allowance(address,address)` | `0xdd62ed3e` | view | `(uint256)` | Launch-x:contracts/contracts/base/ERC20Base.sol:14 |
-| `approve(address,uint256)` | `0x095ea7b3` | nonpayable | `(bool)` | Launch-x:contracts/contracts/base/ERC20Base.sol:93 |
-| `balanceOf(address)` | `0x70a08231` | view | `(uint256)` | Launch-x:contracts/contracts/base/ERC20Base.sol:13 |
-| `bindPool(address)` | `0x5a73fae2` | nonpayable | `()` | Launch-x:contracts/contracts/core/SidioraERC20.sol:21 |
-| `decimals()` | `0x313ce567` | view | `(uint8)` | Launch-x:contracts/contracts/base/ERC20Base.sol:10 |
-| `deploymentFactory()` | `0x8ea261cc` | view | `(address)` | Launch-x:contracts/contracts/core/SidioraERC20.sol:16 |
-| `getPastBalance(address,uint256)` | `0x0df86999` | view | `(uint256)` | Launch-x:contracts/contracts/base/ERC20Base.sol:60 |
-| `getPastTotalSupply(uint256)` | `0x8e539e8c` | view | `(uint256)` | Launch-x:contracts/contracts/base/ERC20Base.sol:68 |
-| `getPastVotes(address,uint256)` | `0x3a46b1a8` | view | `(uint256)` | Launch-x:contracts/contracts/base/ERC20Base.sol:64 |
-| `name()` | `0x06fdde03` | view | `(string)` | Launch-x:contracts/contracts/base/ERC20Base.sol:8 |
-| `nonces(address)` | `0x7ecebe00` | view | `(uint256)` | Launch-x:contracts/contracts/base/ERC20Base.sol:15 |
-| `permit(address,address,uint256,uint256,uint8,bytes32,bytes32)` | `0xd505accf` | nonpayable | `()` | Launch-x:contracts/contracts/base/ERC20Base.sol:116 |
-| `pool()` | `0x16f0115b` | view | `(address)` | Launch-x:contracts/contracts/core/SidioraERC20.sol:17 |
-| `symbol()` | `0x95d89b41` | view | `(string)` | Launch-x:contracts/contracts/base/ERC20Base.sol:9 |
-| `totalSupply()` | `0x18160ddd` | view | `(uint256)` | Launch-x:contracts/contracts/base/ERC20Base.sol:11 |
-| `transfer(address,uint256)` | `0xa9059cbb` | nonpayable | `(bool)` | Launch-x:contracts/contracts/base/ERC20Base.sol:98 |
-| `transferFrom(address,address,uint256)` | `0x23b872dd` | nonpayable | `(bool)` | Launch-x:contracts/contracts/base/ERC20Base.sol:103 |
+| `DOMAIN_SEPARATOR()` | `0x3644e515` | view | `(bytes32)` | contracts/launchpad/contracts/base/ERC20Base.sol |
+| `PERMIT_TYPEHASH()` | `0x30adf81f` | view | `(bytes32)` | contracts/launchpad/contracts/base/ERC20Base.sol |
+| `allowance(address,address)` | `0xdd62ed3e` | view | `(uint256)` | contracts/launchpad/contracts/base/ERC20Base.sol |
+| `approve(address,uint256)` | `0x095ea7b3` | nonpayable | `(bool)` | contracts/launchpad/contracts/base/ERC20Base.sol |
+| `balanceOf(address)` | `0x70a08231` | view | `(uint256)` | contracts/launchpad/contracts/base/ERC20Base.sol |
+| `bindPool(address)` | `0x5a73fae2` | nonpayable | `()` | contracts/launchpad/contracts/core/SidioraERC20.sol |
+| `decimals()` | `0x313ce567` | view | `(uint8)` | contracts/launchpad/contracts/base/ERC20Base.sol |
+| `deploymentFactory()` | `0x8ea261cc` | view | `(address)` | contracts/launchpad/contracts/core/SidioraERC20.sol |
+| `getPastBalance(address,uint256)` | `0x0df86999` | view | `(uint256)` | contracts/launchpad/contracts/base/ERC20Base.sol |
+| `getPastTotalSupply(uint256)` | `0x8e539e8c` | view | `(uint256)` | contracts/launchpad/contracts/base/ERC20Base.sol |
+| `getPastVotes(address,uint256)` | `0x3a46b1a8` | view | `(uint256)` | contracts/launchpad/contracts/base/ERC20Base.sol |
+| `name()` | `0x06fdde03` | view | `(string)` | contracts/launchpad/contracts/base/ERC20Base.sol |
+| `nonces(address)` | `0x7ecebe00` | view | `(uint256)` | contracts/launchpad/contracts/base/ERC20Base.sol |
+| `permit(address,address,uint256,uint256,uint8,bytes32,bytes32)` | `0xd505accf` | nonpayable | `()` | contracts/launchpad/contracts/base/ERC20Base.sol |
+| `pool()` | `0x16f0115b` | view | `(address)` | contracts/launchpad/contracts/core/SidioraERC20.sol |
+| `symbol()` | `0x95d89b41` | view | `(string)` | contracts/launchpad/contracts/base/ERC20Base.sol |
+| `totalSupply()` | `0x18160ddd` | view | `(uint256)` | contracts/launchpad/contracts/base/ERC20Base.sol |
+| `transfer(address,uint256)` | `0xa9059cbb` | nonpayable | `(bool)` | contracts/launchpad/contracts/base/ERC20Base.sol |
+| `transferFrom(address,address,uint256)` | `0x23b872dd` | nonpayable | `(bool)` | contracts/launchpad/contracts/base/ERC20Base.sol |
 
 | Event | Topic 0 | Declared |
 |---|---|---|
-| `Approval(address,address,uint256)` | `0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925` | Launch-x:contracts/contracts/base/ERC20Base.sol:36 |
-| `Transfer(address,address,uint256)` | `0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef` | Launch-x:contracts/contracts/base/ERC20Base.sol:35 |
+| `Approval(address,address,uint256)` | `0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925` | contracts/launchpad/contracts/base/ERC20Base.sol |
+| `Transfer(address,address,uint256)` | `0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef` | contracts/launchpad/contracts/base/ERC20Base.sol |
 
 | Error | Selector | Declared |
 |---|---|---|
-| `FutureLookup()` | `0x0297ecc2` | Launch-x:contracts/contracts/base/ERC20Base.sol:25 |
-| `InsufficientAllowance()` | `0x13be252b` | Launch-x:contracts/contracts/base/ERC20Base.sol:30 |
-| `InsufficientBalance()` | `0xf4d678b8` | Launch-x:contracts/contracts/base/ERC20Base.sol:29 |
-| `InvalidPermit()` | `0xddafbaef` | Launch-x:contracts/contracts/base/ERC20Base.sol:31 |
-| `InvalidPoolBinding()` | `0xf77cf96c` | Launch-x:contracts/contracts/core/SidioraERC20.sol:18 |
-| `PermitExpired()` | `0x1a15a3cc` | Launch-x:contracts/contracts/base/ERC20Base.sol:32 |
-| `ZeroAddress()` | `0xd92e233d` | Launch-x:contracts/contracts/base/ERC20Base.sol:33 |
+| `FutureLookup()` | `0x0297ecc2` | contracts/launchpad/contracts/base/ERC20Base.sol |
+| `InsufficientAllowance()` | `0x13be252b` | contracts/launchpad/contracts/base/ERC20Base.sol |
+| `InsufficientBalance()` | `0xf4d678b8` | contracts/launchpad/contracts/base/ERC20Base.sol |
+| `InvalidPermit()` | `0xddafbaef` | contracts/launchpad/contracts/base/ERC20Base.sol |
+| `InvalidPoolBinding()` | `0xf77cf96c` | contracts/launchpad/contracts/core/SidioraERC20.sol |
+| `PermitExpired()` | `0x1a15a3cc` | contracts/launchpad/contracts/base/ERC20Base.sol |
+| `ZeroAddress()` | `0xd92e233d` | contracts/launchpad/contracts/base/ERC20Base.sol |
 
 ### SidioraNFT
 
@@ -220,81 +220,81 @@ Every function, event and custom error of each role, with its selector (function
 
 | Function | Selector | Mutability | Returns | Declared |
 |---|---|---|---|---|
-| `DEFAULT_ADMIN_ROLE()` | `0xa217fddf` | view | `(bytes32)` | Launch-x:contracts/contracts/base/AccessControl.sol:9 |
-| `MINTER_ROLE()` | `0xd5391393` | view | `(bytes32)` | Launch-x:contracts/contracts/core/SidioraNFT.sol:15 |
-| `STRATEGY_SETTER_ROLE()` | `0x7bb5cc58` | view | `(bytes32)` | Launch-x:contracts/contracts/core/SidioraNFT.sol:16 |
-| `approve(address,uint256)` | `0x095ea7b3` | nonpayable | `()` | Launch-x:contracts/contracts/base/ERC721Base.sol:49 |
-| `balanceOf(address)` | `0x70a08231` | view | `(uint256)` | Launch-x:contracts/contracts/base/ERC721Base.sol:39 |
-| `eventEmitter()` | `0x9ff78c30` | view | `(address)` | Launch-x:contracts/contracts/core/SidioraNFT.sol:23 |
-| `getApproved(uint256)` | `0x081812fc` | view | `(address)` | Launch-x:contracts/contracts/base/ERC721Base.sol:58 |
-| `getFeeStrategy(uint256)` | `0xdea3579a` | view | `(uint8)` | Launch-x:contracts/contracts/core/SidioraNFT.sol:103 |
-| `getPoolAddress(uint256)` | `0x00a5ae21` | view | `(address)` | Launch-x:contracts/contracts/core/SidioraNFT.sol:128 |
-| `getRoleAdmin(bytes32)` | `0x248a9ca3` | view | `(bytes32)` | Launch-x:contracts/contracts/base/AccessControl.sol:53 |
-| `grantRole(bytes32,address)` | `0x2f2ff15d` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:58 |
-| `hasRole(bytes32,address)` | `0x91d14854` | view | `(bool)` | Launch-x:contracts/contracts/base/AccessControl.sol:48 |
-| `initialize(string,string,address,address)` | `0x8f15b414` | nonpayable | `()` | Launch-x:contracts/contracts/core/SidioraNFT.sol:37 |
-| `isApprovedForAll(address,address)` | `0xe985e9c5` | view | `(bool)` | Launch-x:contracts/contracts/base/ERC721Base.sol:68 |
-| `migratePoolIndex(uint256)` | `0x0270182d` | nonpayable | `()` | Launch-x:contracts/contracts/core/SidioraNFT.sol:86 |
-| `mint(address,address,uint8)` | `0xbd5a3396` | nonpayable | `(uint256)` | Launch-x:contracts/contracts/core/SidioraNFT.sol:53 |
-| `name()` | `0x06fdde03` | view | `(string)` | Launch-x:contracts/contracts/base/ERC721Base.sol:8 |
-| `nextTokenId()` | `0x75794a3c` | view | `(uint256)` | Launch-x:contracts/contracts/core/SidioraNFT.sol:18 |
-| `ownerOf(uint256)` | `0x6352211e` | view | `(address)` | Launch-x:contracts/contracts/base/ERC721Base.sol:44 |
-| `poolIndexMigrationCursor()` | `0xce808028` | view | `(uint256)` | Launch-x:contracts/contracts/core/SidioraNFT.sol:29 |
-| `poolIndexReady()` | `0x3e747982` | view | `(bool)` | Launch-x:contracts/contracts/core/SidioraNFT.sol:30 |
-| `poolTokenId(address)` | `0x8a5d6909` | view | `(uint256)` | Launch-x:contracts/contracts/core/SidioraNFT.sol:25 |
-| `proxiableUUID()` | `0x52d1902d` | view | `(bytes32)` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:41 |
-| `registeredDefaultAdminCount()` | `0xc0cb71b6` | view | `(uint256)` | Launch-x:contracts/contracts/base/AccessControl.sol:32 |
-| `renounceRole(bytes32,address)` | `0x36568abe` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:68 |
-| `revokeRole(bytes32,address)` | `0xd547741f` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:63 |
-| `safeTransferFrom(address,address,uint256)` | `0x42842e0e` | nonpayable | `()` | Launch-x:contracts/contracts/base/ERC721Base.sol:77 |
-| `safeTransferFrom(address,address,uint256,bytes)` | `0xb88d4fde` | nonpayable | `()` | Launch-x:contracts/contracts/base/ERC721Base.sol:77 |
-| `setApprovalForAll(address,bool)` | `0xa22cb465` | nonpayable | `()` | Launch-x:contracts/contracts/base/ERC721Base.sol:63 |
-| `setFeeStrategy(uint256,uint8)` | `0x9fcf8f62` | nonpayable | `()` | Launch-x:contracts/contracts/core/SidioraNFT.sol:109 |
-| `supportsInterface(bytes4)` | `0x01ffc9a7` | view | `(bool)` | Launch-x:contracts/contracts/core/SidioraNFT.sol:148 |
-| `symbol()` | `0x95d89b41` | view | `(string)` | Launch-x:contracts/contracts/base/ERC721Base.sol:9 |
-| `tokenByIndex(uint256)` | `0x4f6ccce7` | view | `(uint256)` | Launch-x:contracts/contracts/base/ERC721Enumerable.sol:29 |
-| `tokenOfOwnerByIndex(address,uint256)` | `0x2f745c59` | view | `(uint256)` | Launch-x:contracts/contracts/base/ERC721Enumerable.sol:35 |
-| `totalSupply()` | `0x18160ddd` | view | `(uint256)` | Launch-x:contracts/contracts/base/ERC721Enumerable.sol:24 |
-| `transferFrom(address,address,uint256)` | `0x23b872dd` | nonpayable | `()` | Launch-x:contracts/contracts/base/ERC721Base.sol:72 |
-| `upgradeToAndCall(address,bytes)` | `0x4f1ef286` | payable | `()` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:48 |
+| `DEFAULT_ADMIN_ROLE()` | `0xa217fddf` | view | `(bytes32)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `MINTER_ROLE()` | `0xd5391393` | view | `(bytes32)` | contracts/launchpad/contracts/core/SidioraNFT.sol |
+| `STRATEGY_SETTER_ROLE()` | `0x7bb5cc58` | view | `(bytes32)` | contracts/launchpad/contracts/core/SidioraNFT.sol |
+| `approve(address,uint256)` | `0x095ea7b3` | nonpayable | `()` | contracts/launchpad/contracts/base/ERC721Base.sol |
+| `balanceOf(address)` | `0x70a08231` | view | `(uint256)` | contracts/launchpad/contracts/base/ERC721Base.sol |
+| `eventEmitter()` | `0x9ff78c30` | view | `(address)` | contracts/launchpad/contracts/core/SidioraNFT.sol |
+| `getApproved(uint256)` | `0x081812fc` | view | `(address)` | contracts/launchpad/contracts/base/ERC721Base.sol |
+| `getFeeStrategy(uint256)` | `0xdea3579a` | view | `(uint8)` | contracts/launchpad/contracts/core/SidioraNFT.sol |
+| `getPoolAddress(uint256)` | `0x00a5ae21` | view | `(address)` | contracts/launchpad/contracts/core/SidioraNFT.sol |
+| `getRoleAdmin(bytes32)` | `0x248a9ca3` | view | `(bytes32)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `grantRole(bytes32,address)` | `0x2f2ff15d` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `hasRole(bytes32,address)` | `0x91d14854` | view | `(bool)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `initialize(string,string,address,address)` | `0x8f15b414` | nonpayable | `()` | contracts/launchpad/contracts/core/SidioraNFT.sol |
+| `isApprovedForAll(address,address)` | `0xe985e9c5` | view | `(bool)` | contracts/launchpad/contracts/base/ERC721Base.sol |
+| `migratePoolIndex(uint256)` | `0x0270182d` | nonpayable | `()` | contracts/launchpad/contracts/core/SidioraNFT.sol |
+| `mint(address,address,uint8)` | `0xbd5a3396` | nonpayable | `(uint256)` | contracts/launchpad/contracts/core/SidioraNFT.sol |
+| `name()` | `0x06fdde03` | view | `(string)` | contracts/launchpad/contracts/base/ERC721Base.sol |
+| `nextTokenId()` | `0x75794a3c` | view | `(uint256)` | contracts/launchpad/contracts/core/SidioraNFT.sol |
+| `ownerOf(uint256)` | `0x6352211e` | view | `(address)` | contracts/launchpad/contracts/base/ERC721Base.sol |
+| `poolIndexMigrationCursor()` | `0xce808028` | view | `(uint256)` | contracts/launchpad/contracts/core/SidioraNFT.sol |
+| `poolIndexReady()` | `0x3e747982` | view | `(bool)` | contracts/launchpad/contracts/core/SidioraNFT.sol |
+| `poolTokenId(address)` | `0x8a5d6909` | view | `(uint256)` | contracts/launchpad/contracts/core/SidioraNFT.sol |
+| `proxiableUUID()` | `0x52d1902d` | view | `(bytes32)` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `registeredDefaultAdminCount()` | `0xc0cb71b6` | view | `(uint256)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `renounceRole(bytes32,address)` | `0x36568abe` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `revokeRole(bytes32,address)` | `0xd547741f` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `safeTransferFrom(address,address,uint256)` | `0x42842e0e` | nonpayable | `()` | contracts/launchpad/contracts/base/ERC721Base.sol |
+| `safeTransferFrom(address,address,uint256,bytes)` | `0xb88d4fde` | nonpayable | `()` | contracts/launchpad/contracts/base/ERC721Base.sol |
+| `setApprovalForAll(address,bool)` | `0xa22cb465` | nonpayable | `()` | contracts/launchpad/contracts/base/ERC721Base.sol |
+| `setFeeStrategy(uint256,uint8)` | `0x9fcf8f62` | nonpayable | `()` | contracts/launchpad/contracts/core/SidioraNFT.sol |
+| `supportsInterface(bytes4)` | `0x01ffc9a7` | view | `(bool)` | contracts/launchpad/contracts/core/SidioraNFT.sol |
+| `symbol()` | `0x95d89b41` | view | `(string)` | contracts/launchpad/contracts/base/ERC721Base.sol |
+| `tokenByIndex(uint256)` | `0x4f6ccce7` | view | `(uint256)` | contracts/launchpad/contracts/base/ERC721Enumerable.sol |
+| `tokenOfOwnerByIndex(address,uint256)` | `0x2f745c59` | view | `(uint256)` | contracts/launchpad/contracts/base/ERC721Enumerable.sol |
+| `totalSupply()` | `0x18160ddd` | view | `(uint256)` | contracts/launchpad/contracts/base/ERC721Enumerable.sol |
+| `transferFrom(address,address,uint256)` | `0x23b872dd` | nonpayable | `()` | contracts/launchpad/contracts/base/ERC721Base.sol |
+| `upgradeToAndCall(address,bytes)` | `0x4f1ef286` | payable | `()` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
 
 | Event | Topic 0 | Declared |
 |---|---|---|
-| `Approval(address,address,uint256)` | `0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925` | Launch-x:contracts/contracts/base/ERC721Base.sol:24 |
-| `ApprovalForAll(address,address,bool)` | `0x17307eab39ab6107e8899845ad3d59bd9653f200f220920489ca2b5937696c31` | Launch-x:contracts/contracts/base/ERC721Base.sol:25 |
-| `FeeStrategyChanged(uint256,uint8,uint8)` | `0x773a9b32cf9f6ecdff8ee5e6f78159f15beb042f9da471ba934182412ea69568` | Launch-x:contracts/contracts/interfaces/ISidioraNFT.sol:11 |
-| `Initialized(uint64)` | `0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2` | Launch-x:contracts/contracts/base/Initializable.sol:21 |
-| `PoolNFTMinted(uint256,address,address)` | `0xa1ff1e0bedf4ae07c5f17ac3f0d64625d9c386b9681a705499c8595ebea1a732` | Launch-x:contracts/contracts/interfaces/ISidioraNFT.sol:12 |
-| `RoleAdminChanged(bytes32,bytes32,bytes32)` | `0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff` | Launch-x:contracts/contracts/base/AccessControl.sol:40 |
-| `RoleGranted(bytes32,address,address)` | `0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d` | Launch-x:contracts/contracts/base/AccessControl.sol:38 |
-| `RoleRevoked(bytes32,address,address)` | `0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b` | Launch-x:contracts/contracts/base/AccessControl.sol:39 |
-| `Transfer(address,address,uint256)` | `0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef` | Launch-x:contracts/contracts/base/ERC721Base.sol:23 |
-| `Upgraded(address)` | `0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b` | Launch-x:contracts/contracts/base/ERC1967Utils.sol:23 |
+| `Approval(address,address,uint256)` | `0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925` | contracts/launchpad/contracts/base/ERC721Base.sol |
+| `ApprovalForAll(address,address,bool)` | `0x17307eab39ab6107e8899845ad3d59bd9653f200f220920489ca2b5937696c31` | contracts/launchpad/contracts/base/ERC721Base.sol |
+| `FeeStrategyChanged(uint256,uint8,uint8)` | `0x773a9b32cf9f6ecdff8ee5e6f78159f15beb042f9da471ba934182412ea69568` | contracts/launchpad/contracts/interfaces/ISidioraNFT.sol |
+| `Initialized(uint64)` | `0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2` | contracts/launchpad/contracts/base/Initializable.sol |
+| `PoolNFTMinted(uint256,address,address)` | `0xa1ff1e0bedf4ae07c5f17ac3f0d64625d9c386b9681a705499c8595ebea1a732` | contracts/launchpad/contracts/interfaces/ISidioraNFT.sol |
+| `RoleAdminChanged(bytes32,bytes32,bytes32)` | `0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `RoleGranted(bytes32,address,address)` | `0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `RoleRevoked(bytes32,address,address)` | `0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `Transfer(address,address,uint256)` | `0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef` | contracts/launchpad/contracts/base/ERC721Base.sol |
+| `Upgraded(address)` | `0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b` | contracts/launchpad/contracts/base/ERC1967Utils.sol |
 
 | Error | Selector | Declared |
 |---|---|---|
-| `AlreadyInitialized()` | `0x0dc149f0` | Launch-x:contracts/contracts/base/Initializable.sol:18 |
-| `AlreadyMinted()` | `0xddefae28` | Launch-x:contracts/contracts/base/ERC721Base.sol:20 |
-| `DuplicatePool()` | `0xb82a4746` | Launch-x:contracts/contracts/core/SidioraNFT.sol:26 |
-| `IndexOutOfBounds()` | `0x4e23d035` | Launch-x:contracts/contracts/base/ERC721Enumerable.sol:14 |
-| `InvalidImplementation()` | `0x68155f9a` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:19 |
-| `InvalidRoleAccount()` | `0xeccda526` | Launch-x:contracts/contracts/base/AccessControl.sol:23 |
-| `InvalidStrategy()` | `0x4e236e9a` | Launch-x:contracts/contracts/interfaces/ISidioraNFT.sol:8 |
-| `LastDefaultAdmin()` | `0x9c88180d` | Launch-x:contracts/contracts/base/AccessControl.sol:22 |
-| `MissingRole(address,bytes32)` | `0x0161a64a` | Launch-x:contracts/contracts/base/AccessControl.sol:36 |
-| `NonERC721Receiver()` | `0x80526d0c` | Launch-x:contracts/contracts/base/ERC721Base.sol:21 |
-| `NonPayableUpgrade()` | `0x93738d49` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:20 |
-| `NotApproved()` | `0xc19f17a9` | Launch-x:contracts/contracts/base/ERC721Base.sol:18 |
-| `NotInitializing()` | `0xd7e6bcf8` | Launch-x:contracts/contracts/base/Initializable.sol:19 |
-| `NotTokenOwner()` | `0x59dc379f` | Launch-x:contracts/contracts/base/ERC721Base.sol:17 |
-| `PoolIndexMigrationRequired()` | `0x9aee8140` | Launch-x:contracts/contracts/core/SidioraNFT.sol:28 |
-| `TokenNotFound()` | `0xcbdb7b30` | Launch-x:contracts/contracts/base/ERC721Base.sol:16 |
-| `UUPSNotThroughActiveProxy()` | `0x45a93fc9` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:18 |
-| `UUPSNotThroughProxy()` | `0x4f083858` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:17 |
-| `UnauthorizedUpgrade()` | `0x3a617a54` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:16 |
-| `UnsupportedSnapshotToken()` | `0xe3aa7e40` | Launch-x:contracts/contracts/core/SidioraNFT.sol:27 |
-| `UpgradeInitializationFailed()` | `0xcc1cf440` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:21 |
-| `ZeroAddress()` | `0xd92e233d` | Launch-x:contracts/contracts/base/ERC721Base.sol:19 |
+| `AlreadyInitialized()` | `0x0dc149f0` | contracts/launchpad/contracts/base/Initializable.sol |
+| `AlreadyMinted()` | `0xddefae28` | contracts/launchpad/contracts/base/ERC721Base.sol |
+| `DuplicatePool()` | `0xb82a4746` | contracts/launchpad/contracts/core/SidioraNFT.sol |
+| `IndexOutOfBounds()` | `0x4e23d035` | contracts/launchpad/contracts/base/ERC721Enumerable.sol |
+| `InvalidImplementation()` | `0x68155f9a` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `InvalidRoleAccount()` | `0xeccda526` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `InvalidStrategy()` | `0x4e236e9a` | contracts/launchpad/contracts/interfaces/ISidioraNFT.sol |
+| `LastDefaultAdmin()` | `0x9c88180d` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `MissingRole(address,bytes32)` | `0x0161a64a` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `NonERC721Receiver()` | `0x80526d0c` | contracts/launchpad/contracts/base/ERC721Base.sol |
+| `NonPayableUpgrade()` | `0x93738d49` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `NotApproved()` | `0xc19f17a9` | contracts/launchpad/contracts/base/ERC721Base.sol |
+| `NotInitializing()` | `0xd7e6bcf8` | contracts/launchpad/contracts/base/Initializable.sol |
+| `NotTokenOwner()` | `0x59dc379f` | contracts/launchpad/contracts/base/ERC721Base.sol |
+| `PoolIndexMigrationRequired()` | `0x9aee8140` | contracts/launchpad/contracts/core/SidioraNFT.sol |
+| `TokenNotFound()` | `0xcbdb7b30` | contracts/launchpad/contracts/base/ERC721Base.sol |
+| `UUPSNotThroughActiveProxy()` | `0x45a93fc9` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UUPSNotThroughProxy()` | `0x4f083858` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UnauthorizedUpgrade()` | `0x3a617a54` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UnsupportedSnapshotToken()` | `0xe3aa7e40` | contracts/launchpad/contracts/core/SidioraNFT.sol |
+| `UpgradeInitializationFailed()` | `0xcc1cf440` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `ZeroAddress()` | `0xd92e233d` | contracts/launchpad/contracts/base/ERC721Base.sol |
 
 ### Router
 
@@ -302,65 +302,65 @@ Every function, event and custom error of each role, with its selector (function
 
 | Function | Selector | Mutability | Returns | Declared |
 |---|---|---|---|---|
-| `DEFAULT_ADMIN_ROLE()` | `0xa217fddf` | view | `(bytes32)` | Launch-x:contracts/contracts/base/AccessControl.sol:9 |
-| `buy(address,uint256,uint256,uint256)` | `0x1622dbe4` | nonpayable | `(uint256)` | Launch-x:contracts/contracts/periphery/Router.sol:68 |
-| `buyWithPermit(address,uint256,uint256,uint256,(uint256,uint256,uint8,bytes32,bytes32))` | `0xffafb569` | nonpayable | `(uint256)` | Launch-x:contracts/contracts/periphery/Router.sol:103 |
-| `createMarket(string,string,uint8,address)` | `0x57c0d7fd` | nonpayable | `(address,address,uint256)` | Launch-x:contracts/contracts/periphery/Router.sol:58 |
-| `createMarketWithPermit(string,string,uint8,address,(uint256,uint256,uint8,bytes32,bytes32))` | `0xdc614295` | nonpayable | `(address,address,uint256)` | Launch-x:contracts/contracts/periphery/Router.sol:142 |
-| `factory()` | `0xc45a0155` | view | `(address)` | Launch-x:contracts/contracts/periphery/Router.sol:24 |
-| `getRoleAdmin(bytes32)` | `0x248a9ca3` | view | `(bytes32)` | Launch-x:contracts/contracts/base/AccessControl.sol:53 |
-| `grantRole(bytes32,address)` | `0x2f2ff15d` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:58 |
-| `hasRole(bytes32,address)` | `0x91d14854` | view | `(bool)` | Launch-x:contracts/contracts/base/AccessControl.sol:48 |
-| `initialize(address,address,address,address,address)` | `0x1459457a` | nonpayable | `()` | Launch-x:contracts/contracts/periphery/Router.sol:34 |
-| `multicall(bytes[])` | `0xac9650d8` | nonpayable | `(bytes[])` | Launch-x:contracts/contracts/base/Multicall.sol:13 |
-| `poolRegistry()` | `0xafcff50f` | view | `(address)` | Launch-x:contracts/contracts/periphery/Router.sol:25 |
-| `protocolConfig()` | `0xf5efbb4f` | view | `(address)` | Launch-x:contracts/contracts/periphery/Router.sol:26 |
-| `proxiableUUID()` | `0x52d1902d` | view | `(bytes32)` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:41 |
-| `registeredDefaultAdminCount()` | `0xc0cb71b6` | view | `(uint256)` | Launch-x:contracts/contracts/base/AccessControl.sol:32 |
-| `renounceRole(bytes32,address)` | `0x36568abe` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:68 |
-| `revokeRole(bytes32,address)` | `0xd547741f` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:63 |
-| `sell(address,uint256,uint256,uint256)` | `0x92cdbac5` | nonpayable | `(uint256)` | Launch-x:contracts/contracts/periphery/Router.sol:78 |
-| `sellWithPermit(address,uint256,uint256,uint256,(uint256,uint256,uint8,bytes32,bytes32))` | `0x3aa73d77` | nonpayable | `(uint256)` | Launch-x:contracts/contracts/periphery/Router.sol:115 |
-| `swapTokenForToken(address,address,uint256,uint256,uint256)` | `0x8ef5184b` | nonpayable | `(uint256,uint256)` | Launch-x:contracts/contracts/periphery/Router.sol:90 |
-| `swapTokenForTokenWithPermit(address,address,uint256,uint256,uint256,(uint256,uint256,uint8,bytes32,bytes32))` | `0x1894fbf8` | nonpayable | `(uint256,uint256)` | Launch-x:contracts/contracts/periphery/Router.sol:129 |
-| `upgradeToAndCall(address,bytes)` | `0x4f1ef286` | payable | `()` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:48 |
-| `usdlAddress()` | `0x2e10f976` | view | `(address)` | Launch-x:contracts/contracts/periphery/Router.sol:27 |
+| `DEFAULT_ADMIN_ROLE()` | `0xa217fddf` | view | `(bytes32)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `buy(address,uint256,uint256,uint256)` | `0x1622dbe4` | nonpayable | `(uint256)` | contracts/launchpad/contracts/periphery/Router.sol |
+| `buyWithPermit(address,uint256,uint256,uint256,(uint256,uint256,uint8,bytes32,bytes32))` | `0xffafb569` | nonpayable | `(uint256)` | contracts/launchpad/contracts/periphery/Router.sol |
+| `createMarket(string,string,uint8,address)` | `0x57c0d7fd` | nonpayable | `(address,address,uint256)` | contracts/launchpad/contracts/periphery/Router.sol |
+| `createMarketWithPermit(string,string,uint8,address,(uint256,uint256,uint8,bytes32,bytes32))` | `0xdc614295` | nonpayable | `(address,address,uint256)` | contracts/launchpad/contracts/periphery/Router.sol |
+| `factory()` | `0xc45a0155` | view | `(address)` | contracts/launchpad/contracts/periphery/Router.sol |
+| `getRoleAdmin(bytes32)` | `0x248a9ca3` | view | `(bytes32)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `grantRole(bytes32,address)` | `0x2f2ff15d` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `hasRole(bytes32,address)` | `0x91d14854` | view | `(bool)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `initialize(address,address,address,address,address)` | `0x1459457a` | nonpayable | `()` | contracts/launchpad/contracts/periphery/Router.sol |
+| `multicall(bytes[])` | `0xac9650d8` | nonpayable | `(bytes[])` | contracts/launchpad/contracts/base/Multicall.sol |
+| `poolRegistry()` | `0xafcff50f` | view | `(address)` | contracts/launchpad/contracts/periphery/Router.sol |
+| `protocolConfig()` | `0xf5efbb4f` | view | `(address)` | contracts/launchpad/contracts/periphery/Router.sol |
+| `proxiableUUID()` | `0x52d1902d` | view | `(bytes32)` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `registeredDefaultAdminCount()` | `0xc0cb71b6` | view | `(uint256)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `renounceRole(bytes32,address)` | `0x36568abe` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `revokeRole(bytes32,address)` | `0xd547741f` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `sell(address,uint256,uint256,uint256)` | `0x92cdbac5` | nonpayable | `(uint256)` | contracts/launchpad/contracts/periphery/Router.sol |
+| `sellWithPermit(address,uint256,uint256,uint256,(uint256,uint256,uint8,bytes32,bytes32))` | `0x3aa73d77` | nonpayable | `(uint256)` | contracts/launchpad/contracts/periphery/Router.sol |
+| `swapTokenForToken(address,address,uint256,uint256,uint256)` | `0x8ef5184b` | nonpayable | `(uint256,uint256)` | contracts/launchpad/contracts/periphery/Router.sol |
+| `swapTokenForTokenWithPermit(address,address,uint256,uint256,uint256,(uint256,uint256,uint8,bytes32,bytes32))` | `0x1894fbf8` | nonpayable | `(uint256,uint256)` | contracts/launchpad/contracts/periphery/Router.sol |
+| `upgradeToAndCall(address,bytes)` | `0x4f1ef286` | payable | `()` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `usdlAddress()` | `0x2e10f976` | view | `(address)` | contracts/launchpad/contracts/periphery/Router.sol |
 
 | Event | Topic 0 | Declared |
 |---|---|---|
-| `Buy(address,address,uint256,uint256)` | `0x89f5adc174562e07c9c9b1cae7109bbecb21cf9d1b2847e550042b8653c54a0e` | Launch-x:contracts/contracts/interfaces/IRouter.sol:34 |
-| `Initialized(uint64)` | `0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2` | Launch-x:contracts/contracts/base/Initializable.sol:21 |
-| `MarketCreated(address,address,address,uint256)` | `0xfe7e33f239f268e882861cae62e631558d814973588d97738cc084b8b3489599` | Launch-x:contracts/contracts/interfaces/IRouter.sol:27 |
-| `MultihopSwap(address,address,address,uint256,uint256,uint256)` | `0xef2dce1faa347130cf25c6d059af1f6f181983e69a2fadd79ed8751a532d3d96` | Launch-x:contracts/contracts/interfaces/IRouter.sol:48 |
-| `RoleAdminChanged(bytes32,bytes32,bytes32)` | `0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff` | Launch-x:contracts/contracts/base/AccessControl.sol:40 |
-| `RoleGranted(bytes32,address,address)` | `0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d` | Launch-x:contracts/contracts/base/AccessControl.sol:38 |
-| `RoleRevoked(bytes32,address,address)` | `0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b` | Launch-x:contracts/contracts/base/AccessControl.sol:39 |
-| `Sell(address,address,uint256,uint256)` | `0xa082022e93cfcd9f1da5f9236718053910f7e840da080c789c7845698dc032ff` | Launch-x:contracts/contracts/interfaces/IRouter.sol:41 |
-| `Upgraded(address)` | `0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b` | Launch-x:contracts/contracts/base/ERC1967Utils.sol:23 |
+| `Buy(address,address,uint256,uint256)` | `0x89f5adc174562e07c9c9b1cae7109bbecb21cf9d1b2847e550042b8653c54a0e` | contracts/launchpad/contracts/interfaces/IRouter.sol |
+| `Initialized(uint64)` | `0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2` | contracts/launchpad/contracts/base/Initializable.sol |
+| `MarketCreated(address,address,address,uint256)` | `0xfe7e33f239f268e882861cae62e631558d814973588d97738cc084b8b3489599` | contracts/launchpad/contracts/interfaces/IRouter.sol |
+| `MultihopSwap(address,address,address,uint256,uint256,uint256)` | `0xef2dce1faa347130cf25c6d059af1f6f181983e69a2fadd79ed8751a532d3d96` | contracts/launchpad/contracts/interfaces/IRouter.sol |
+| `RoleAdminChanged(bytes32,bytes32,bytes32)` | `0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `RoleGranted(bytes32,address,address)` | `0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `RoleRevoked(bytes32,address,address)` | `0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `Sell(address,address,uint256,uint256)` | `0xa082022e93cfcd9f1da5f9236718053910f7e840da080c789c7845698dc032ff` | contracts/launchpad/contracts/interfaces/IRouter.sol |
+| `Upgraded(address)` | `0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b` | contracts/launchpad/contracts/base/ERC1967Utils.sol |
 
 | Error | Selector | Declared |
 |---|---|---|
-| `AlreadyInitialized()` | `0x0dc149f0` | Launch-x:contracts/contracts/base/Initializable.sol:18 |
-| `DeadlineExpired()` | `0x1ab7da6b` | Launch-x:contracts/contracts/interfaces/IRouter.sol:10 |
-| `InsufficientBalance()` | `0xf4d678b8` | Launch-x:contracts/contracts/interfaces/IRouter.sol:12 |
-| `InvalidImplementation()` | `0x68155f9a` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:19 |
-| `InvalidRoleAccount()` | `0xeccda526` | Launch-x:contracts/contracts/base/AccessControl.sol:23 |
-| `LastDefaultAdmin()` | `0x9c88180d` | Launch-x:contracts/contracts/base/AccessControl.sol:22 |
-| `MissingRole(address,bytes32)` | `0x0161a64a` | Launch-x:contracts/contracts/base/AccessControl.sol:36 |
-| `MulticallFailed(uint256,bytes)` | `0x6cf73d14` | Launch-x:contracts/contracts/base/Multicall.sol:8 |
-| `NonPayableUpgrade()` | `0x93738d49` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:20 |
-| `NotInitializing()` | `0xd7e6bcf8` | Launch-x:contracts/contracts/base/Initializable.sol:19 |
-| `PoolNotFound()` | `0x76ecffc0` | Launch-x:contracts/contracts/interfaces/IRouter.sol:11 |
-| `ReentrancyGuardReentrantCall()` | `0x3ee5aeb5` | Launch-x:contracts/contracts/base/ReentrancyGuard.sol:15 |
-| `SameToken()` | `0x201b580a` | Launch-x:contracts/contracts/interfaces/IRouter.sol:13 |
-| `TransferFailed()` | `0x90b8ec18` | Launch-x:contracts/contracts/libraries/TransferHelper.sol:8 |
-| `TransferFromFailed()` | `0x7939f424` | Launch-x:contracts/contracts/libraries/TransferHelper.sol:9 |
-| `UUPSNotThroughActiveProxy()` | `0x45a93fc9` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:18 |
-| `UUPSNotThroughProxy()` | `0x4f083858` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:17 |
-| `UnauthorizedUpgrade()` | `0x3a617a54` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:16 |
-| `UpgradeInitializationFailed()` | `0xcc1cf440` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:21 |
-| `ZeroAddress()` | `0xd92e233d` | Launch-x:contracts/contracts/interfaces/IRouter.sol:8 |
-| `ZeroAmount()` | `0x1f2a2005` | Launch-x:contracts/contracts/interfaces/IRouter.sol:9 |
+| `AlreadyInitialized()` | `0x0dc149f0` | contracts/launchpad/contracts/base/Initializable.sol |
+| `DeadlineExpired()` | `0x1ab7da6b` | contracts/launchpad/contracts/interfaces/IRouter.sol |
+| `InsufficientBalance()` | `0xf4d678b8` | contracts/launchpad/contracts/interfaces/IRouter.sol |
+| `InvalidImplementation()` | `0x68155f9a` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `InvalidRoleAccount()` | `0xeccda526` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `LastDefaultAdmin()` | `0x9c88180d` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `MissingRole(address,bytes32)` | `0x0161a64a` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `MulticallFailed(uint256,bytes)` | `0x6cf73d14` | contracts/launchpad/contracts/base/Multicall.sol |
+| `NonPayableUpgrade()` | `0x93738d49` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `NotInitializing()` | `0xd7e6bcf8` | contracts/launchpad/contracts/base/Initializable.sol |
+| `PoolNotFound()` | `0x76ecffc0` | contracts/launchpad/contracts/interfaces/IRouter.sol |
+| `ReentrancyGuardReentrantCall()` | `0x3ee5aeb5` | contracts/launchpad/contracts/base/ReentrancyGuard.sol |
+| `SameToken()` | `0x201b580a` | contracts/launchpad/contracts/interfaces/IRouter.sol |
+| `TransferFailed()` | `0x90b8ec18` | contracts/launchpad/contracts/libraries/TransferHelper.sol |
+| `TransferFromFailed()` | `0x7939f424` | contracts/launchpad/contracts/libraries/TransferHelper.sol |
+| `UUPSNotThroughActiveProxy()` | `0x45a93fc9` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UUPSNotThroughProxy()` | `0x4f083858` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UnauthorizedUpgrade()` | `0x3a617a54` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UpgradeInitializationFailed()` | `0xcc1cf440` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `ZeroAddress()` | `0xd92e233d` | contracts/launchpad/contracts/interfaces/IRouter.sol |
+| `ZeroAmount()` | `0x1f2a2005` | contracts/launchpad/contracts/interfaces/IRouter.sol |
 
 ### Quoter
 
@@ -368,54 +368,54 @@ Every function, event and custom error of each role, with its selector (function
 
 | Function | Selector | Mutability | Returns | Declared |
 |---|---|---|---|---|
-| `DEFAULT_ADMIN_ROLE()` | `0xa217fddf` | view | `(bytes32)` | Launch-x:contracts/contracts/base/AccessControl.sol:9 |
-| `getAllPools(uint256,uint256)` | `0xa7753f09` | view | `(address[])` | Launch-x:contracts/contracts/periphery/Quoter.sol:127 |
-| `getMarketCap(address)` | `0xd146d31d` | view | `(uint256)` | Launch-x:contracts/contracts/periphery/Quoter.sol:118 |
-| `getPoolPrice(address)` | `0x0a6de2c9` | view | `(uint256)` | Launch-x:contracts/contracts/periphery/Quoter.sol:95 |
-| `getPoolStats(address)` | `0x8ae97595` | view | `((uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256))` | Launch-x:contracts/contracts/periphery/Quoter.sol:100 |
-| `getPoolsByCreator(address)` | `0xc84728ef` | view | `(address[])` | Launch-x:contracts/contracts/periphery/Quoter.sol:132 |
-| `getRoleAdmin(bytes32)` | `0x248a9ca3` | view | `(bytes32)` | Launch-x:contracts/contracts/base/AccessControl.sol:53 |
-| `grantRole(bytes32,address)` | `0x2f2ff15d` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:58 |
-| `hasRole(bytes32,address)` | `0x91d14854` | view | `(bool)` | Launch-x:contracts/contracts/base/AccessControl.sol:48 |
-| `initialize(address,address,address)` | `0xc0c53b8b` | nonpayable | `()` | Launch-x:contracts/contracts/periphery/Quoter.sol:31 |
-| `poolRegistry()` | `0xafcff50f` | view | `(address)` | Launch-x:contracts/contracts/periphery/Quoter.sol:23 |
-| `protocolConfig()` | `0xf5efbb4f` | view | `(address)` | Launch-x:contracts/contracts/periphery/Quoter.sol:24 |
-| `proxiableUUID()` | `0x52d1902d` | view | `(bytes32)` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:41 |
-| `quoteExactInput(address,uint256,bool)` | `0x4d9f71e4` | view | `((uint256,uint256,uint256))` | Launch-x:contracts/contracts/periphery/Quoter.sol:46 |
-| `quoteMultihop(address,address,uint256)` | `0x7f1737ce` | view | `((uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,address))` | Launch-x:contracts/contracts/periphery/Quoter.sol:137 |
-| `registeredDefaultAdminCount()` | `0xc0cb71b6` | view | `(uint256)` | Launch-x:contracts/contracts/base/AccessControl.sol:32 |
-| `renounceRole(bytes32,address)` | `0x36568abe` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:68 |
-| `revokeRole(bytes32,address)` | `0xd547741f` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:63 |
-| `upgradeToAndCall(address,bytes)` | `0x4f1ef286` | payable | `()` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:48 |
+| `DEFAULT_ADMIN_ROLE()` | `0xa217fddf` | view | `(bytes32)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `getAllPools(uint256,uint256)` | `0xa7753f09` | view | `(address[])` | contracts/launchpad/contracts/periphery/Quoter.sol |
+| `getMarketCap(address)` | `0xd146d31d` | view | `(uint256)` | contracts/launchpad/contracts/periphery/Quoter.sol |
+| `getPoolPrice(address)` | `0x0a6de2c9` | view | `(uint256)` | contracts/launchpad/contracts/periphery/Quoter.sol |
+| `getPoolStats(address)` | `0x8ae97595` | view | `((uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256))` | contracts/launchpad/contracts/periphery/Quoter.sol |
+| `getPoolsByCreator(address)` | `0xc84728ef` | view | `(address[])` | contracts/launchpad/contracts/periphery/Quoter.sol |
+| `getRoleAdmin(bytes32)` | `0x248a9ca3` | view | `(bytes32)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `grantRole(bytes32,address)` | `0x2f2ff15d` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `hasRole(bytes32,address)` | `0x91d14854` | view | `(bool)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `initialize(address,address,address)` | `0xc0c53b8b` | nonpayable | `()` | contracts/launchpad/contracts/periphery/Quoter.sol |
+| `poolRegistry()` | `0xafcff50f` | view | `(address)` | contracts/launchpad/contracts/periphery/Quoter.sol |
+| `protocolConfig()` | `0xf5efbb4f` | view | `(address)` | contracts/launchpad/contracts/periphery/Quoter.sol |
+| `proxiableUUID()` | `0x52d1902d` | view | `(bytes32)` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `quoteExactInput(address,uint256,bool)` | `0x4d9f71e4` | view | `((uint256,uint256,uint256))` | contracts/launchpad/contracts/periphery/Quoter.sol |
+| `quoteMultihop(address,address,uint256)` | `0x7f1737ce` | view | `((uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,address))` | contracts/launchpad/contracts/periphery/Quoter.sol |
+| `registeredDefaultAdminCount()` | `0xc0cb71b6` | view | `(uint256)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `renounceRole(bytes32,address)` | `0x36568abe` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `revokeRole(bytes32,address)` | `0xd547741f` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `upgradeToAndCall(address,bytes)` | `0x4f1ef286` | payable | `()` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
 
 | Event | Topic 0 | Declared |
 |---|---|---|
-| `Initialized(uint64)` | `0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2` | Launch-x:contracts/contracts/base/Initializable.sol:21 |
-| `RoleAdminChanged(bytes32,bytes32,bytes32)` | `0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff` | Launch-x:contracts/contracts/base/AccessControl.sol:40 |
-| `RoleGranted(bytes32,address,address)` | `0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d` | Launch-x:contracts/contracts/base/AccessControl.sol:38 |
-| `RoleRevoked(bytes32,address,address)` | `0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b` | Launch-x:contracts/contracts/base/AccessControl.sol:39 |
-| `Upgraded(address)` | `0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b` | Launch-x:contracts/contracts/base/ERC1967Utils.sol:23 |
+| `Initialized(uint64)` | `0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2` | contracts/launchpad/contracts/base/Initializable.sol |
+| `RoleAdminChanged(bytes32,bytes32,bytes32)` | `0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `RoleGranted(bytes32,address,address)` | `0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `RoleRevoked(bytes32,address,address)` | `0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `Upgraded(address)` | `0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b` | contracts/launchpad/contracts/base/ERC1967Utils.sol |
 
 | Error | Selector | Declared |
 |---|---|---|
-| `AlreadyInitialized()` | `0x0dc149f0` | Launch-x:contracts/contracts/base/Initializable.sol:18 |
-| `DivisionByZero()` | `0x23d359a3` | Launch-x:contracts/contracts/libraries/SidioraMath.sol:9 |
-| `InsufficientInput()` | `0xf8b3bb61` | Launch-x:contracts/contracts/interfaces/ISidioraPool.sol:11 |
-| `InsufficientLiquidity()` | `0xbb55fd27` | Launch-x:contracts/contracts/interfaces/ISidioraPool.sol:10 |
-| `InvalidImplementation()` | `0x68155f9a` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:19 |
-| `InvalidRoleAccount()` | `0xeccda526` | Launch-x:contracts/contracts/base/AccessControl.sol:23 |
-| `LastDefaultAdmin()` | `0x9c88180d` | Launch-x:contracts/contracts/base/AccessControl.sol:22 |
-| `MissingRole(address,bytes32)` | `0x0161a64a` | Launch-x:contracts/contracts/base/AccessControl.sol:36 |
-| `NonPayableUpgrade()` | `0x93738d49` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:20 |
-| `NotInitializing()` | `0xd7e6bcf8` | Launch-x:contracts/contracts/base/Initializable.sol:19 |
-| `OpticalQuoteUnsupported()` | `0x41d4e1d1` | Launch-x:contracts/contracts/periphery/Quoter.sol:21 |
-| `Overflow()` | `0x35278d12` | Launch-x:contracts/contracts/libraries/SidioraMath.sol:8 |
-| `UUPSNotThroughActiveProxy()` | `0x45a93fc9` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:18 |
-| `UUPSNotThroughProxy()` | `0x4f083858` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:17 |
-| `UnauthorizedUpgrade()` | `0x3a617a54` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:16 |
-| `UnexecutableQuote()` | `0xc1becfdb` | Launch-x:contracts/contracts/periphery/Quoter.sol:20 |
-| `UpgradeInitializationFailed()` | `0xcc1cf440` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:21 |
-| `ZeroAddress()` | `0xd92e233d` | Launch-x:contracts/contracts/periphery/Quoter.sol:19 |
+| `AlreadyInitialized()` | `0x0dc149f0` | contracts/launchpad/contracts/base/Initializable.sol |
+| `DivisionByZero()` | `0x23d359a3` | contracts/launchpad/contracts/libraries/SidioraMath.sol |
+| `InsufficientInput()` | `0xf8b3bb61` | contracts/launchpad/contracts/interfaces/ISidioraPool.sol |
+| `InsufficientLiquidity()` | `0xbb55fd27` | contracts/launchpad/contracts/interfaces/ISidioraPool.sol |
+| `InvalidImplementation()` | `0x68155f9a` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `InvalidRoleAccount()` | `0xeccda526` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `LastDefaultAdmin()` | `0x9c88180d` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `MissingRole(address,bytes32)` | `0x0161a64a` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `NonPayableUpgrade()` | `0x93738d49` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `NotInitializing()` | `0xd7e6bcf8` | contracts/launchpad/contracts/base/Initializable.sol |
+| `OpticalQuoteUnsupported()` | `0x41d4e1d1` | contracts/launchpad/contracts/periphery/Quoter.sol |
+| `Overflow()` | `0x35278d12` | contracts/launchpad/contracts/libraries/SidioraMath.sol |
+| `UUPSNotThroughActiveProxy()` | `0x45a93fc9` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UUPSNotThroughProxy()` | `0x4f083858` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UnauthorizedUpgrade()` | `0x3a617a54` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UnexecutableQuote()` | `0xc1becfdb` | contracts/launchpad/contracts/periphery/Quoter.sol |
+| `UpgradeInitializationFailed()` | `0xcc1cf440` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `ZeroAddress()` | `0xd92e233d` | contracts/launchpad/contracts/periphery/Quoter.sol |
 
 ### FeesRouter
 
@@ -423,60 +423,60 @@ Every function, event and custom error of each role, with its selector (function
 
 | Function | Selector | Mutability | Returns | Declared |
 |---|---|---|---|---|
-| `DEFAULT_ADMIN_ROLE()` | `0xa217fddf` | view | `(bytes32)` | Launch-x:contracts/contracts/base/AccessControl.sol:9 |
-| `claimAirdrop(uint256)` | `0xe30d4440` | nonpayable | `(uint256)` | Launch-x:contracts/contracts/periphery/FeesRouter.sol:94 |
-| `claimAirdropEpoch(uint256,uint256)` | `0x13e615b9` | nonpayable | `(uint256)` | Launch-x:contracts/contracts/periphery/FeesRouter.sol:102 |
-| `claimFees(uint256)` | `0xac68a748` | nonpayable | `(uint256)` | Launch-x:contracts/contracts/periphery/FeesRouter.sol:58 |
-| `executeAirdrop(uint256)` | `0x9d4be5b2` | nonpayable | `(uint256)` | Launch-x:contracts/contracts/periphery/FeesRouter.sol:82 |
-| `executeBurn(uint256)` | `0x15dec3cf` | nonpayable | `(uint256)` | Launch-x:contracts/contracts/periphery/FeesRouter.sol:70 |
-| `executeLpRewards(uint256)` | `0x90d862a1` | nonpayable | `(uint256)` | Launch-x:contracts/contracts/periphery/FeesRouter.sol:109 |
-| `feeAccumulator()` | `0x5eaea35f` | view | `(address)` | Launch-x:contracts/contracts/periphery/FeesRouter.sol:21 |
-| `getRoleAdmin(bytes32)` | `0x248a9ca3` | view | `(bytes32)` | Launch-x:contracts/contracts/base/AccessControl.sol:53 |
-| `grantRole(bytes32,address)` | `0x2f2ff15d` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:58 |
-| `hasRole(bytes32,address)` | `0x91d14854` | view | `(bool)` | Launch-x:contracts/contracts/base/AccessControl.sol:48 |
-| `initialize(address,address,address,address)` | `0xf8c8765e` | nonpayable | `()` | Launch-x:contracts/contracts/periphery/FeesRouter.sol:29 |
-| `nftContract()` | `0xd56d229d` | view | `(address)` | Launch-x:contracts/contracts/periphery/FeesRouter.sol:20 |
-| `poolRegistry()` | `0xafcff50f` | view | `(address)` | Launch-x:contracts/contracts/periphery/FeesRouter.sol:22 |
-| `proxiableUUID()` | `0x52d1902d` | view | `(bytes32)` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:41 |
-| `registeredDefaultAdminCount()` | `0xc0cb71b6` | view | `(uint256)` | Launch-x:contracts/contracts/base/AccessControl.sol:32 |
-| `renounceRole(bytes32,address)` | `0x36568abe` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:68 |
-| `revokeRole(bytes32,address)` | `0xd547741f` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:63 |
-| `setFeeStrategy(uint256,uint8)` | `0x9fcf8f62` | nonpayable | `()` | Launch-x:contracts/contracts/periphery/FeesRouter.sol:48 |
-| `upgradeToAndCall(address,bytes)` | `0x4f1ef286` | payable | `()` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:48 |
+| `DEFAULT_ADMIN_ROLE()` | `0xa217fddf` | view | `(bytes32)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `claimAirdrop(uint256)` | `0xe30d4440` | nonpayable | `(uint256)` | contracts/launchpad/contracts/periphery/FeesRouter.sol |
+| `claimAirdropEpoch(uint256,uint256)` | `0x13e615b9` | nonpayable | `(uint256)` | contracts/launchpad/contracts/periphery/FeesRouter.sol |
+| `claimFees(uint256)` | `0xac68a748` | nonpayable | `(uint256)` | contracts/launchpad/contracts/periphery/FeesRouter.sol |
+| `executeAirdrop(uint256)` | `0x9d4be5b2` | nonpayable | `(uint256)` | contracts/launchpad/contracts/periphery/FeesRouter.sol |
+| `executeBurn(uint256)` | `0x15dec3cf` | nonpayable | `(uint256)` | contracts/launchpad/contracts/periphery/FeesRouter.sol |
+| `executeLpRewards(uint256)` | `0x90d862a1` | nonpayable | `(uint256)` | contracts/launchpad/contracts/periphery/FeesRouter.sol |
+| `feeAccumulator()` | `0x5eaea35f` | view | `(address)` | contracts/launchpad/contracts/periphery/FeesRouter.sol |
+| `getRoleAdmin(bytes32)` | `0x248a9ca3` | view | `(bytes32)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `grantRole(bytes32,address)` | `0x2f2ff15d` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `hasRole(bytes32,address)` | `0x91d14854` | view | `(bool)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `initialize(address,address,address,address)` | `0xf8c8765e` | nonpayable | `()` | contracts/launchpad/contracts/periphery/FeesRouter.sol |
+| `nftContract()` | `0xd56d229d` | view | `(address)` | contracts/launchpad/contracts/periphery/FeesRouter.sol |
+| `poolRegistry()` | `0xafcff50f` | view | `(address)` | contracts/launchpad/contracts/periphery/FeesRouter.sol |
+| `proxiableUUID()` | `0x52d1902d` | view | `(bytes32)` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `registeredDefaultAdminCount()` | `0xc0cb71b6` | view | `(uint256)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `renounceRole(bytes32,address)` | `0x36568abe` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `revokeRole(bytes32,address)` | `0xd547741f` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `setFeeStrategy(uint256,uint8)` | `0x9fcf8f62` | nonpayable | `()` | contracts/launchpad/contracts/periphery/FeesRouter.sol |
+| `upgradeToAndCall(address,bytes)` | `0x4f1ef286` | payable | `()` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
 
 | Event | Topic 0 | Declared |
 |---|---|---|
-| `AirdropClaimed(uint256,address,uint256)` | `0x752d3a5de250652e9111e24fea2886c837dadfe50c8479ad3b5511f4c36f20a2` | Launch-x:contracts/contracts/interfaces/IFeesRouter.sol:17 |
-| `AirdropExecuted(uint256,uint256)` | `0x0fa3c377438bb545a4c9ecaa3e574d96bb1b2c6416976df85919d2b83a57bd9f` | Launch-x:contracts/contracts/interfaces/IFeesRouter.sol:16 |
-| `FeeStrategyChanged(uint256,uint8,uint8)` | `0x773a9b32cf9f6ecdff8ee5e6f78159f15beb042f9da471ba934182412ea69568` | Launch-x:contracts/contracts/interfaces/IFeesRouter.sol:19 |
-| `FeesBurned(uint256,uint256)` | `0x9768e1fe058fe58a8022c0c5a88689f80a64c3a69cc5ba498c518407fc04ced5` | Launch-x:contracts/contracts/interfaces/IFeesRouter.sol:15 |
-| `FeesClaimed(uint256,address,uint256)` | `0x2227733fc4c8a9034cb58087dcf6995128b9c0233b038b03366aaf30c92b92d6` | Launch-x:contracts/contracts/interfaces/IFeesRouter.sol:14 |
-| `Initialized(uint64)` | `0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2` | Launch-x:contracts/contracts/base/Initializable.sol:21 |
-| `LpRewardsExecuted(uint256,uint256)` | `0xf831aaeb2aae759a8843e359900e1b8a3fe4cdefa90fc390825acb66a4374408` | Launch-x:contracts/contracts/interfaces/IFeesRouter.sol:18 |
-| `MirrorFailed(bytes4)` | `0x8694b6bbbf10ff6faa1b6ae45172474b03b0df0b4d87ac2113bbced3810eebdd` | Launch-x:contracts/contracts/periphery/FeesRouter.sol:19 |
-| `RoleAdminChanged(bytes32,bytes32,bytes32)` | `0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff` | Launch-x:contracts/contracts/base/AccessControl.sol:40 |
-| `RoleGranted(bytes32,address,address)` | `0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d` | Launch-x:contracts/contracts/base/AccessControl.sol:38 |
-| `RoleRevoked(bytes32,address,address)` | `0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b` | Launch-x:contracts/contracts/base/AccessControl.sol:39 |
-| `Upgraded(address)` | `0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b` | Launch-x:contracts/contracts/base/ERC1967Utils.sol:23 |
+| `AirdropClaimed(uint256,address,uint256)` | `0x752d3a5de250652e9111e24fea2886c837dadfe50c8479ad3b5511f4c36f20a2` | contracts/launchpad/contracts/interfaces/IFeesRouter.sol |
+| `AirdropExecuted(uint256,uint256)` | `0x0fa3c377438bb545a4c9ecaa3e574d96bb1b2c6416976df85919d2b83a57bd9f` | contracts/launchpad/contracts/interfaces/IFeesRouter.sol |
+| `FeeStrategyChanged(uint256,uint8,uint8)` | `0x773a9b32cf9f6ecdff8ee5e6f78159f15beb042f9da471ba934182412ea69568` | contracts/launchpad/contracts/interfaces/IFeesRouter.sol |
+| `FeesBurned(uint256,uint256)` | `0x9768e1fe058fe58a8022c0c5a88689f80a64c3a69cc5ba498c518407fc04ced5` | contracts/launchpad/contracts/interfaces/IFeesRouter.sol |
+| `FeesClaimed(uint256,address,uint256)` | `0x2227733fc4c8a9034cb58087dcf6995128b9c0233b038b03366aaf30c92b92d6` | contracts/launchpad/contracts/interfaces/IFeesRouter.sol |
+| `Initialized(uint64)` | `0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2` | contracts/launchpad/contracts/base/Initializable.sol |
+| `LpRewardsExecuted(uint256,uint256)` | `0xf831aaeb2aae759a8843e359900e1b8a3fe4cdefa90fc390825acb66a4374408` | contracts/launchpad/contracts/interfaces/IFeesRouter.sol |
+| `MirrorFailed(bytes4)` | `0x8694b6bbbf10ff6faa1b6ae45172474b03b0df0b4d87ac2113bbced3810eebdd` | contracts/launchpad/contracts/periphery/FeesRouter.sol |
+| `RoleAdminChanged(bytes32,bytes32,bytes32)` | `0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `RoleGranted(bytes32,address,address)` | `0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `RoleRevoked(bytes32,address,address)` | `0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `Upgraded(address)` | `0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b` | contracts/launchpad/contracts/base/ERC1967Utils.sol |
 
 | Error | Selector | Declared |
 |---|---|---|
-| `AlreadyInitialized()` | `0x0dc149f0` | Launch-x:contracts/contracts/base/Initializable.sol:18 |
-| `InvalidImplementation()` | `0x68155f9a` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:19 |
-| `InvalidRoleAccount()` | `0xeccda526` | Launch-x:contracts/contracts/base/AccessControl.sol:23 |
-| `LastDefaultAdmin()` | `0x9c88180d` | Launch-x:contracts/contracts/base/AccessControl.sol:22 |
-| `MissingRole(address,bytes32)` | `0x0161a64a` | Launch-x:contracts/contracts/base/AccessControl.sol:36 |
-| `NonPayableUpgrade()` | `0x93738d49` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:20 |
-| `NotInitializing()` | `0xd7e6bcf8` | Launch-x:contracts/contracts/base/Initializable.sol:19 |
-| `NotNftOwner()` | `0x4b64ae47` | Launch-x:contracts/contracts/interfaces/IFeesRouter.sol:9 |
-| `ReentrancyGuardReentrantCall()` | `0x3ee5aeb5` | Launch-x:contracts/contracts/base/ReentrancyGuard.sol:15 |
-| `UUPSNotThroughActiveProxy()` | `0x45a93fc9` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:18 |
-| `UUPSNotThroughProxy()` | `0x4f083858` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:17 |
-| `UnauthorizedUpgrade()` | `0x3a617a54` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:16 |
-| `UnsupportedSnapshotToken()` | `0xe3aa7e40` | Launch-x:contracts/contracts/interfaces/IFeesRouter.sol:7 |
-| `UpgradeInitializationFailed()` | `0xcc1cf440` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:21 |
-| `WrongStrategy()` | `0xe181295c` | Launch-x:contracts/contracts/interfaces/IFeesRouter.sol:10 |
-| `ZeroAddress()` | `0xd92e233d` | Launch-x:contracts/contracts/interfaces/IFeesRouter.sol:11 |
+| `AlreadyInitialized()` | `0x0dc149f0` | contracts/launchpad/contracts/base/Initializable.sol |
+| `InvalidImplementation()` | `0x68155f9a` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `InvalidRoleAccount()` | `0xeccda526` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `LastDefaultAdmin()` | `0x9c88180d` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `MissingRole(address,bytes32)` | `0x0161a64a` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `NonPayableUpgrade()` | `0x93738d49` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `NotInitializing()` | `0xd7e6bcf8` | contracts/launchpad/contracts/base/Initializable.sol |
+| `NotNftOwner()` | `0x4b64ae47` | contracts/launchpad/contracts/interfaces/IFeesRouter.sol |
+| `ReentrancyGuardReentrantCall()` | `0x3ee5aeb5` | contracts/launchpad/contracts/base/ReentrancyGuard.sol |
+| `UUPSNotThroughActiveProxy()` | `0x45a93fc9` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UUPSNotThroughProxy()` | `0x4f083858` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UnauthorizedUpgrade()` | `0x3a617a54` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UnsupportedSnapshotToken()` | `0xe3aa7e40` | contracts/launchpad/contracts/interfaces/IFeesRouter.sol |
+| `UpgradeInitializationFailed()` | `0xcc1cf440` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `WrongStrategy()` | `0xe181295c` | contracts/launchpad/contracts/interfaces/IFeesRouter.sol |
+| `ZeroAddress()` | `0xd92e233d` | contracts/launchpad/contracts/interfaces/IFeesRouter.sol |
 
 ### FeeAccumulator
 
@@ -484,106 +484,106 @@ Every function, event and custom error of each role, with its selector (function
 
 | Function | Selector | Mutability | Returns | Declared |
 |---|---|---|---|---|
-| `DEAD_ADDRESS()` | `0x4e6fd6c4` | view | `(address)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:44 |
-| `DEFAULT_ADMIN_ROLE()` | `0xa217fddf` | view | `(bytes32)` | Launch-x:contracts/contracts/base/AccessControl.sol:9 |
-| `FACTORY_ROLE()` | `0x04a0fb17` | view | `(bytes32)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:35 |
-| `FEES_ROUTER_ROLE()` | `0xdfb76d70` | view | `(bytes32)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:34 |
-| `OPTICAL_CLAIM_ROLE()` | `0x39df917a` | view | `(bytes32)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:36 |
-| `OPTICAL_GRANTER_ROLE()` | `0x85f3d987` | view | `(bytes32)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:37 |
-| `POOL_ROLE()` | `0x404ccd07` | view | `(bytes32)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:33 |
-| `accountingInitialized()` | `0x2a2593e7` | view | `(bool)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:74 |
-| `accountingMigrationCursor()` | `0xad37f674` | view | `(uint256)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:75 |
-| `airdropClaimedSupply(address,uint256)` | `0x9deb3b11` | view | `(uint256)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:72 |
-| `airdropEligibleSupply(address,uint256)` | `0xd71c7375` | view | `(uint256)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:70 |
-| `airdropEpochRemaining(address,uint256)` | `0x81de2866` | view | `(uint256)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:71 |
-| `airdropSnapshotBlock(address,uint256)` | `0xae1e143b` | view | `(uint256)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:69 |
-| `allocateLegacyAirdrop(address,uint256,bytes32,uint256)` | `0xb01b2210` | nonpayable | `()` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:436 |
-| `authorizeOptical(address)` | `0x610edef8` | nonpayable | `()` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:357 |
-| `authorizePool(address)` | `0x3059b7c6` | nonpayable | `()` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:40 |
-| `burn(address)` | `0x89afcb44` | nonpayable | `(uint256)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:187 |
-| `claim(address,address)` | `0x21c0b342` | nonpayable | `(uint256)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:169 |
-| `claimAirdrop(address,address)` | `0x66e1b755` | nonpayable | `(uint256)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:233 |
-| `claimAirdropEpoch(address,address,uint256)` | `0xd195ba7e` | nonpayable | `(uint256)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:241 |
-| `claimLegacyAirdrop(address,uint256,address,uint256,bytes32[])` | `0x05fb334e` | nonpayable | `()` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:448 |
-| `claimOpticalSurplus(address,uint256,address)` | `0x613022fd` | nonpayable | `()` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:376 |
-| `eventEmitter()` | `0x9ff78c30` | view | `(address)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:49 |
-| `getAccumulatedFees(address)` | `0x564201f9` | view | `(uint256)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:291 |
-| `getAirdropBalance(address)` | `0xefa94d49` | view | `(uint256)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:301 |
-| `getAirdropEpoch(address)` | `0x9eac5b39` | view | `(uint256)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:325 |
-| `getLpRewardsBalance(address)` | `0x81fa4ef7` | view | `(uint256)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:306 |
-| `getOpticalSurplus(address)` | `0xfc7ea90c` | view | `(uint256)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:396 |
-| `getProtocolFeesPending()` | `0x52b2a385` | view | `(uint256)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:296 |
-| `getRoleAdmin(bytes32)` | `0x248a9ca3` | view | `(bytes32)` | Launch-x:contracts/contracts/base/AccessControl.sol:53 |
-| `grantRole(bytes32,address)` | `0x2f2ff15d` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:58 |
-| `hasClaimedAirdrop(address,address,uint256)` | `0x2c959e18` | view | `(bool)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:330 |
-| `hasRole(bytes32,address)` | `0x91d14854` | view | `(bool)` | Launch-x:contracts/contracts/base/AccessControl.sol:48 |
-| `initialize(address,address,address,address,address,address)` | `0xcc2a9a5b` | nonpayable | `()` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:88 |
-| `legacyAirdropRemaining(address,uint256)` | `0xf10dec34` | view | `(uint256)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:79 |
-| `legacyAirdropRoot(address,uint256)` | `0x45f34775` | view | `(bytes32)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:78 |
-| `legacyAirdropUnallocated(address)` | `0x8e09d24b` | view | `(uint256)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:77 |
-| `migrateAccounting(uint256)` | `0x479db4fd` | nonpayable | `()` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:401 |
-| `migrateAdditionalAccounting(address[])` | `0xdb6087ea` | nonpayable | `()` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:421 |
-| `poolRegistry()` | `0xafcff50f` | view | `(address)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:48 |
-| `protocolConfig()` | `0xf5efbb4f` | view | `(address)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:46 |
-| `proxiableUUID()` | `0x52d1902d` | view | `(bytes32)` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:41 |
-| `recordFee(address,uint256)` | `0x0a6e0fd4` | nonpayable | `()` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:112 |
-| `recordOpticalSurplus(address,uint256)` | `0x9605d79b` | nonpayable | `()` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:364 |
-| `registeredDefaultAdminCount()` | `0xc0cb71b6` | view | `(uint256)` | Launch-x:contracts/contracts/base/AccessControl.sol:32 |
-| `renounceRole(bytes32,address)` | `0x36568abe` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:68 |
-| `revokeRole(bytes32,address)` | `0xd547741f` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:63 |
-| `sendLpRewards(address)` | `0xa48d7d07` | nonpayable | `(uint256)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:272 |
-| `supportsAirdrop(address)` | `0x8c61de83` | view | `(bool)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:312 |
-| `totalLiabilities()` | `0xf73579a9` | view | `(uint256)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:68 |
-| `treasury()` | `0x61d027b3` | view | `(address)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:47 |
-| `triggerAirdrop(address)` | `0xed374d4a` | nonpayable | `(uint256)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:203 |
-| `upgradeToAndCall(address,bytes)` | `0x4f1ef286` | payable | `()` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:48 |
-| `usdlAddress()` | `0x2e10f976` | view | `(address)` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:50 |
+| `DEAD_ADDRESS()` | `0x4e6fd6c4` | view | `(address)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `DEFAULT_ADMIN_ROLE()` | `0xa217fddf` | view | `(bytes32)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `FACTORY_ROLE()` | `0x04a0fb17` | view | `(bytes32)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `FEES_ROUTER_ROLE()` | `0xdfb76d70` | view | `(bytes32)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `OPTICAL_CLAIM_ROLE()` | `0x39df917a` | view | `(bytes32)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `OPTICAL_GRANTER_ROLE()` | `0x85f3d987` | view | `(bytes32)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `POOL_ROLE()` | `0x404ccd07` | view | `(bytes32)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `accountingInitialized()` | `0x2a2593e7` | view | `(bool)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `accountingMigrationCursor()` | `0xad37f674` | view | `(uint256)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `airdropClaimedSupply(address,uint256)` | `0x9deb3b11` | view | `(uint256)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `airdropEligibleSupply(address,uint256)` | `0xd71c7375` | view | `(uint256)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `airdropEpochRemaining(address,uint256)` | `0x81de2866` | view | `(uint256)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `airdropSnapshotBlock(address,uint256)` | `0xae1e143b` | view | `(uint256)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `allocateLegacyAirdrop(address,uint256,bytes32,uint256)` | `0xb01b2210` | nonpayable | `()` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `authorizeOptical(address)` | `0x610edef8` | nonpayable | `()` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `authorizePool(address)` | `0x3059b7c6` | nonpayable | `()` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `burn(address)` | `0x89afcb44` | nonpayable | `(uint256)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `claim(address,address)` | `0x21c0b342` | nonpayable | `(uint256)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `claimAirdrop(address,address)` | `0x66e1b755` | nonpayable | `(uint256)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `claimAirdropEpoch(address,address,uint256)` | `0xd195ba7e` | nonpayable | `(uint256)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `claimLegacyAirdrop(address,uint256,address,uint256,bytes32[])` | `0x05fb334e` | nonpayable | `()` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `claimOpticalSurplus(address,uint256,address)` | `0x613022fd` | nonpayable | `()` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `eventEmitter()` | `0x9ff78c30` | view | `(address)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `getAccumulatedFees(address)` | `0x564201f9` | view | `(uint256)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `getAirdropBalance(address)` | `0xefa94d49` | view | `(uint256)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `getAirdropEpoch(address)` | `0x9eac5b39` | view | `(uint256)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `getLpRewardsBalance(address)` | `0x81fa4ef7` | view | `(uint256)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `getOpticalSurplus(address)` | `0xfc7ea90c` | view | `(uint256)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `getProtocolFeesPending()` | `0x52b2a385` | view | `(uint256)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `getRoleAdmin(bytes32)` | `0x248a9ca3` | view | `(bytes32)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `grantRole(bytes32,address)` | `0x2f2ff15d` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `hasClaimedAirdrop(address,address,uint256)` | `0x2c959e18` | view | `(bool)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `hasRole(bytes32,address)` | `0x91d14854` | view | `(bool)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `initialize(address,address,address,address,address,address)` | `0xcc2a9a5b` | nonpayable | `()` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `legacyAirdropRemaining(address,uint256)` | `0xf10dec34` | view | `(uint256)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `legacyAirdropRoot(address,uint256)` | `0x45f34775` | view | `(bytes32)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `legacyAirdropUnallocated(address)` | `0x8e09d24b` | view | `(uint256)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `migrateAccounting(uint256)` | `0x479db4fd` | nonpayable | `()` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `migrateAdditionalAccounting(address[])` | `0xdb6087ea` | nonpayable | `()` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `poolRegistry()` | `0xafcff50f` | view | `(address)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `protocolConfig()` | `0xf5efbb4f` | view | `(address)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `proxiableUUID()` | `0x52d1902d` | view | `(bytes32)` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `recordFee(address,uint256)` | `0x0a6e0fd4` | nonpayable | `()` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `recordOpticalSurplus(address,uint256)` | `0x9605d79b` | nonpayable | `()` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `registeredDefaultAdminCount()` | `0xc0cb71b6` | view | `(uint256)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `renounceRole(bytes32,address)` | `0x36568abe` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `revokeRole(bytes32,address)` | `0xd547741f` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `sendLpRewards(address)` | `0xa48d7d07` | nonpayable | `(uint256)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `supportsAirdrop(address)` | `0x8c61de83` | view | `(bool)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `totalLiabilities()` | `0xf73579a9` | view | `(uint256)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `treasury()` | `0x61d027b3` | view | `(address)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `triggerAirdrop(address)` | `0xed374d4a` | nonpayable | `(uint256)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `upgradeToAndCall(address,bytes)` | `0x4f1ef286` | payable | `()` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `usdlAddress()` | `0x2e10f976` | view | `(address)` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
 
 | Event | Topic 0 | Declared |
 |---|---|---|
-| `AccountingMigrated(uint256)` | `0x75b17ca7274960709421f611b666d569ceebe0cbb24821254bfe2e5e4fce9df2` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:80 |
-| `AirdropClaimed(address,address,uint256,uint256)` | `0xd399c6e7fad358fc300beda3f056717c94a04c7233ce92683de6500ba509022e` | Launch-x:contracts/contracts/interfaces/IFeeAccumulator.sol:43 |
-| `AirdropTriggered(address,uint256,uint256)` | `0x8c39ea0d52c00d579184e8070640104228f1a618d77e55429e09cfbb049c2dc1` | Launch-x:contracts/contracts/interfaces/IFeeAccumulator.sol:37 |
-| `FeeRecorded(address,uint256,uint256,uint256)` | `0xb4d4d3bd2f97a7d6f1657ee69f7191d7aa7dbd5b6864a2d7a9d14efc1322552f` | Launch-x:contracts/contracts/interfaces/IFeeAccumulator.sol:19 |
-| `FeesBurned(address,uint256)` | `0x0d9575a73e2a7da16cfde907df749d23d901528ff2e7c832b731babdecca000b` | Launch-x:contracts/contracts/interfaces/IFeeAccumulator.sol:32 |
-| `FeesClaimed(address,address,uint256)` | `0xfe3464cd748424446c37877c28ce5b700222c5bc9f90d908afcc4e5cb22707ff` | Launch-x:contracts/contracts/interfaces/IFeeAccumulator.sol:26 |
-| `Initialized(uint64)` | `0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2` | Launch-x:contracts/contracts/base/Initializable.sol:21 |
-| `LegacyAirdropAllocated(address,uint256,bytes32,uint256)` | `0x66f288a74d4384624c871c51e16635a78cbc49fc5c471db184fae9b5860ee216` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:81 |
-| `LpRewardsSent(address,uint256)` | `0x86b634da567bed9efe3e74597f5b2f7c9a880ed2e05e28f4c7c2fae1f0a9cfdb` | Launch-x:contracts/contracts/interfaces/IFeeAccumulator.sol:50 |
-| `MirrorFailed(bytes4)` | `0x8694b6bbbf10ff6faa1b6ae45172474b03b0df0b4d87ac2113bbced3810eebdd` | Launch-x:contracts/contracts/data/FeeAccumulator.sol:32 |
-| `OpticalSurplusClaimed(address,address,uint256)` | `0x879606fa2db265e0664b2683c3e39e5ca7c90eae54628f7af6b70f239af8d0a6` | Launch-x:contracts/contracts/interfaces/IFeeAccumulator.sol:64 |
-| `OpticalSurplusRecorded(address,uint256)` | `0xc15bf759695c18fd9ddf60f8638036310ac80c3da55f86b717f102c53a44a9e3` | Launch-x:contracts/contracts/interfaces/IFeeAccumulator.sol:59 |
-| `ProtocolFeeSwept(uint256)` | `0xe50aaa1965bcc0030c0dedb0b575635e1da17cf4989a55fa0f691ab35ff7ff13` | Launch-x:contracts/contracts/interfaces/IFeeAccumulator.sol:55 |
-| `RoleAdminChanged(bytes32,bytes32,bytes32)` | `0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff` | Launch-x:contracts/contracts/base/AccessControl.sol:40 |
-| `RoleGranted(bytes32,address,address)` | `0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d` | Launch-x:contracts/contracts/base/AccessControl.sol:38 |
-| `RoleRevoked(bytes32,address,address)` | `0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b` | Launch-x:contracts/contracts/base/AccessControl.sol:39 |
-| `Upgraded(address)` | `0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b` | Launch-x:contracts/contracts/base/ERC1967Utils.sol:23 |
+| `AccountingMigrated(uint256)` | `0x75b17ca7274960709421f611b666d569ceebe0cbb24821254bfe2e5e4fce9df2` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `AirdropClaimed(address,address,uint256,uint256)` | `0xd399c6e7fad358fc300beda3f056717c94a04c7233ce92683de6500ba509022e` | contracts/launchpad/contracts/interfaces/IFeeAccumulator.sol |
+| `AirdropTriggered(address,uint256,uint256)` | `0x8c39ea0d52c00d579184e8070640104228f1a618d77e55429e09cfbb049c2dc1` | contracts/launchpad/contracts/interfaces/IFeeAccumulator.sol |
+| `FeeRecorded(address,uint256,uint256,uint256)` | `0xb4d4d3bd2f97a7d6f1657ee69f7191d7aa7dbd5b6864a2d7a9d14efc1322552f` | contracts/launchpad/contracts/interfaces/IFeeAccumulator.sol |
+| `FeesBurned(address,uint256)` | `0x0d9575a73e2a7da16cfde907df749d23d901528ff2e7c832b731babdecca000b` | contracts/launchpad/contracts/interfaces/IFeeAccumulator.sol |
+| `FeesClaimed(address,address,uint256)` | `0xfe3464cd748424446c37877c28ce5b700222c5bc9f90d908afcc4e5cb22707ff` | contracts/launchpad/contracts/interfaces/IFeeAccumulator.sol |
+| `Initialized(uint64)` | `0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2` | contracts/launchpad/contracts/base/Initializable.sol |
+| `LegacyAirdropAllocated(address,uint256,bytes32,uint256)` | `0x66f288a74d4384624c871c51e16635a78cbc49fc5c471db184fae9b5860ee216` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `LpRewardsSent(address,uint256)` | `0x86b634da567bed9efe3e74597f5b2f7c9a880ed2e05e28f4c7c2fae1f0a9cfdb` | contracts/launchpad/contracts/interfaces/IFeeAccumulator.sol |
+| `MirrorFailed(bytes4)` | `0x8694b6bbbf10ff6faa1b6ae45172474b03b0df0b4d87ac2113bbced3810eebdd` | contracts/launchpad/contracts/data/FeeAccumulator.sol |
+| `OpticalSurplusClaimed(address,address,uint256)` | `0x879606fa2db265e0664b2683c3e39e5ca7c90eae54628f7af6b70f239af8d0a6` | contracts/launchpad/contracts/interfaces/IFeeAccumulator.sol |
+| `OpticalSurplusRecorded(address,uint256)` | `0xc15bf759695c18fd9ddf60f8638036310ac80c3da55f86b717f102c53a44a9e3` | contracts/launchpad/contracts/interfaces/IFeeAccumulator.sol |
+| `ProtocolFeeSwept(uint256)` | `0xe50aaa1965bcc0030c0dedb0b575635e1da17cf4989a55fa0f691ab35ff7ff13` | contracts/launchpad/contracts/interfaces/IFeeAccumulator.sol |
+| `RoleAdminChanged(bytes32,bytes32,bytes32)` | `0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `RoleGranted(bytes32,address,address)` | `0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `RoleRevoked(bytes32,address,address)` | `0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `Upgraded(address)` | `0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b` | contracts/launchpad/contracts/base/ERC1967Utils.sol |
 
 | Error | Selector | Declared |
 |---|---|---|
-| `AirdropNotTriggered()` | `0xceadfa6d` | Launch-x:contracts/contracts/interfaces/IFeeAccumulator.sol:14 |
-| `AlreadyClaimed()` | `0x646cf558` | Launch-x:contracts/contracts/interfaces/IFeeAccumulator.sol:13 |
-| `AlreadyInitialized()` | `0x0dc149f0` | Launch-x:contracts/contracts/base/Initializable.sol:18 |
-| `ApproveFailed()` | `0x3e3f8f73` | Launch-x:contracts/contracts/libraries/TransferHelper.sol:10 |
-| `InsufficientSurplus()` | `0x94290ab9` | Launch-x:contracts/contracts/interfaces/IFeeAccumulator.sol:15 |
-| `InvalidImplementation()` | `0x68155f9a` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:19 |
-| `InvalidRoleAccount()` | `0xeccda526` | Launch-x:contracts/contracts/base/AccessControl.sol:23 |
-| `LastDefaultAdmin()` | `0x9c88180d` | Launch-x:contracts/contracts/base/AccessControl.sol:22 |
-| `MissingRole(address,bytes32)` | `0x0161a64a` | Launch-x:contracts/contracts/base/AccessControl.sol:36 |
-| `NoFeesAccumulated()` | `0xbe6fbbaf` | Launch-x:contracts/contracts/interfaces/IFeeAccumulator.sol:11 |
-| `NonPayableUpgrade()` | `0x93738d49` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:20 |
-| `NotInitializing()` | `0xd7e6bcf8` | Launch-x:contracts/contracts/base/Initializable.sol:19 |
-| `ReentrancyGuardReentrantCall()` | `0x3ee5aeb5` | Launch-x:contracts/contracts/base/ReentrancyGuard.sol:15 |
-| `TransferFailed()` | `0x90b8ec18` | Launch-x:contracts/contracts/libraries/TransferHelper.sol:8 |
-| `UUPSNotThroughActiveProxy()` | `0x45a93fc9` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:18 |
-| `UUPSNotThroughProxy()` | `0x4f083858` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:17 |
-| `Unauthorized()` | `0x82b42900` | Launch-x:contracts/contracts/interfaces/IFeeAccumulator.sol:8 |
-| `UnauthorizedUpgrade()` | `0x3a617a54` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:16 |
-| `UnsupportedSnapshotToken()` | `0xe3aa7e40` | Launch-x:contracts/contracts/interfaces/IFeeAccumulator.sol:16 |
-| `UpgradeInitializationFailed()` | `0xcc1cf440` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:21 |
-| `WrongStrategy()` | `0xe181295c` | Launch-x:contracts/contracts/interfaces/IFeeAccumulator.sol:12 |
-| `ZeroAddress()` | `0xd92e233d` | Launch-x:contracts/contracts/interfaces/IFeeAccumulator.sol:9 |
-| `ZeroAmount()` | `0x1f2a2005` | Launch-x:contracts/contracts/interfaces/IFeeAccumulator.sol:10 |
+| `AirdropNotTriggered()` | `0xceadfa6d` | contracts/launchpad/contracts/interfaces/IFeeAccumulator.sol |
+| `AlreadyClaimed()` | `0x646cf558` | contracts/launchpad/contracts/interfaces/IFeeAccumulator.sol |
+| `AlreadyInitialized()` | `0x0dc149f0` | contracts/launchpad/contracts/base/Initializable.sol |
+| `ApproveFailed()` | `0x3e3f8f73` | contracts/launchpad/contracts/libraries/TransferHelper.sol |
+| `InsufficientSurplus()` | `0x94290ab9` | contracts/launchpad/contracts/interfaces/IFeeAccumulator.sol |
+| `InvalidImplementation()` | `0x68155f9a` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `InvalidRoleAccount()` | `0xeccda526` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `LastDefaultAdmin()` | `0x9c88180d` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `MissingRole(address,bytes32)` | `0x0161a64a` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `NoFeesAccumulated()` | `0xbe6fbbaf` | contracts/launchpad/contracts/interfaces/IFeeAccumulator.sol |
+| `NonPayableUpgrade()` | `0x93738d49` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `NotInitializing()` | `0xd7e6bcf8` | contracts/launchpad/contracts/base/Initializable.sol |
+| `ReentrancyGuardReentrantCall()` | `0x3ee5aeb5` | contracts/launchpad/contracts/base/ReentrancyGuard.sol |
+| `TransferFailed()` | `0x90b8ec18` | contracts/launchpad/contracts/libraries/TransferHelper.sol |
+| `UUPSNotThroughActiveProxy()` | `0x45a93fc9` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UUPSNotThroughProxy()` | `0x4f083858` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `Unauthorized()` | `0x82b42900` | contracts/launchpad/contracts/interfaces/IFeeAccumulator.sol |
+| `UnauthorizedUpgrade()` | `0x3a617a54` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UnsupportedSnapshotToken()` | `0xe3aa7e40` | contracts/launchpad/contracts/interfaces/IFeeAccumulator.sol |
+| `UpgradeInitializationFailed()` | `0xcc1cf440` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `WrongStrategy()` | `0xe181295c` | contracts/launchpad/contracts/interfaces/IFeeAccumulator.sol |
+| `ZeroAddress()` | `0xd92e233d` | contracts/launchpad/contracts/interfaces/IFeeAccumulator.sol |
+| `ZeroAmount()` | `0x1f2a2005` | contracts/launchpad/contracts/interfaces/IFeeAccumulator.sol |
 
 ### PoolRegistry
 
@@ -591,57 +591,57 @@ Every function, event and custom error of each role, with its selector (function
 
 | Function | Selector | Mutability | Returns | Declared |
 |---|---|---|---|---|
-| `DEFAULT_ADMIN_ROLE()` | `0xa217fddf` | view | `(bytes32)` | Launch-x:contracts/contracts/base/AccessControl.sol:9 |
-| `FACTORY_ROLE()` | `0x04a0fb17` | view | `(bytes32)` | Launch-x:contracts/contracts/data/PoolRegistry.sol:15 |
-| `eventEmitter()` | `0x9ff78c30` | view | `(address)` | Launch-x:contracts/contracts/data/PoolRegistry.sol:25 |
-| `getAllPools(uint256,uint256)` | `0xa7753f09` | view | `(address[])` | Launch-x:contracts/contracts/data/PoolRegistry.sol:94 |
-| `getNftIdByPool(address)` | `0xd56ed6c4` | view | `(uint256)` | Launch-x:contracts/contracts/data/PoolRegistry.sol:84 |
-| `getPoolByToken(address)` | `0xbbadc03b` | view | `(address)` | Launch-x:contracts/contracts/data/PoolRegistry.sol:74 |
-| `getPoolCount()` | `0x8eec5d70` | view | `(uint256)` | Launch-x:contracts/contracts/data/PoolRegistry.sol:111 |
-| `getPoolCountByCreator(address)` | `0x4598ed01` | view | `(uint256)` | Launch-x:contracts/contracts/data/PoolRegistry.sol:120 |
-| `getPoolMetadata(address)` | `0x51de9d26` | view | `((address,address,address,uint256,uint256,uint256))` | Launch-x:contracts/contracts/data/PoolRegistry.sol:89 |
-| `getPoolsByCreator(address)` | `0xc84728ef` | view | `(address[])` | Launch-x:contracts/contracts/data/PoolRegistry.sol:79 |
-| `getPoolsByCreatorPage(address,uint256,uint256)` | `0xf27495af` | view | `(address[])` | Launch-x:contracts/contracts/data/PoolRegistry.sol:124 |
-| `getRoleAdmin(bytes32)` | `0x248a9ca3` | view | `(bytes32)` | Launch-x:contracts/contracts/base/AccessControl.sol:53 |
-| `grantRole(bytes32,address)` | `0x2f2ff15d` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:58 |
-| `hasRole(bytes32,address)` | `0x91d14854` | view | `(bool)` | Launch-x:contracts/contracts/base/AccessControl.sol:48 |
-| `initialize(address,address)` | `0x485cc955` | nonpayable | `()` | Launch-x:contracts/contracts/data/PoolRegistry.sol:32 |
-| `isRegisteredPool(address)` | `0xc699e633` | view | `(bool)` | Launch-x:contracts/contracts/data/PoolRegistry.sol:116 |
-| `proxiableUUID()` | `0x52d1902d` | view | `(bytes32)` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:41 |
-| `register(address,address,address,address,uint256)` | `0x43a6d1c3` | nonpayable | `()` | Launch-x:contracts/contracts/data/PoolRegistry.sol:39 |
-| `registeredDefaultAdminCount()` | `0xc0cb71b6` | view | `(uint256)` | Launch-x:contracts/contracts/base/AccessControl.sol:32 |
-| `renounceRole(bytes32,address)` | `0x36568abe` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:68 |
-| `revokeRole(bytes32,address)` | `0xd547741f` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:63 |
-| `upgradeToAndCall(address,bytes)` | `0x4f1ef286` | payable | `()` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:48 |
+| `DEFAULT_ADMIN_ROLE()` | `0xa217fddf` | view | `(bytes32)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `FACTORY_ROLE()` | `0x04a0fb17` | view | `(bytes32)` | contracts/launchpad/contracts/data/PoolRegistry.sol |
+| `eventEmitter()` | `0x9ff78c30` | view | `(address)` | contracts/launchpad/contracts/data/PoolRegistry.sol |
+| `getAllPools(uint256,uint256)` | `0xa7753f09` | view | `(address[])` | contracts/launchpad/contracts/data/PoolRegistry.sol |
+| `getNftIdByPool(address)` | `0xd56ed6c4` | view | `(uint256)` | contracts/launchpad/contracts/data/PoolRegistry.sol |
+| `getPoolByToken(address)` | `0xbbadc03b` | view | `(address)` | contracts/launchpad/contracts/data/PoolRegistry.sol |
+| `getPoolCount()` | `0x8eec5d70` | view | `(uint256)` | contracts/launchpad/contracts/data/PoolRegistry.sol |
+| `getPoolCountByCreator(address)` | `0x4598ed01` | view | `(uint256)` | contracts/launchpad/contracts/data/PoolRegistry.sol |
+| `getPoolMetadata(address)` | `0x51de9d26` | view | `((address,address,address,uint256,uint256,uint256))` | contracts/launchpad/contracts/data/PoolRegistry.sol |
+| `getPoolsByCreator(address)` | `0xc84728ef` | view | `(address[])` | contracts/launchpad/contracts/data/PoolRegistry.sol |
+| `getPoolsByCreatorPage(address,uint256,uint256)` | `0xf27495af` | view | `(address[])` | contracts/launchpad/contracts/data/PoolRegistry.sol |
+| `getRoleAdmin(bytes32)` | `0x248a9ca3` | view | `(bytes32)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `grantRole(bytes32,address)` | `0x2f2ff15d` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `hasRole(bytes32,address)` | `0x91d14854` | view | `(bool)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `initialize(address,address)` | `0x485cc955` | nonpayable | `()` | contracts/launchpad/contracts/data/PoolRegistry.sol |
+| `isRegisteredPool(address)` | `0xc699e633` | view | `(bool)` | contracts/launchpad/contracts/data/PoolRegistry.sol |
+| `proxiableUUID()` | `0x52d1902d` | view | `(bytes32)` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `register(address,address,address,address,uint256)` | `0x43a6d1c3` | nonpayable | `()` | contracts/launchpad/contracts/data/PoolRegistry.sol |
+| `registeredDefaultAdminCount()` | `0xc0cb71b6` | view | `(uint256)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `renounceRole(bytes32,address)` | `0x36568abe` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `revokeRole(bytes32,address)` | `0xd547741f` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `upgradeToAndCall(address,bytes)` | `0x4f1ef286` | payable | `()` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
 
 | Event | Topic 0 | Declared |
 |---|---|---|
-| `Initialized(uint64)` | `0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2` | Launch-x:contracts/contracts/base/Initializable.sol:21 |
-| `MirrorFailed(bytes4)` | `0x8694b6bbbf10ff6faa1b6ae45172474b03b0df0b4d87ac2113bbced3810eebdd` | Launch-x:contracts/contracts/data/PoolRegistry.sol:14 |
-| `PoolRegistered(address,address,address,address,uint256,uint256)` | `0xdd85b374a142757b7745e1d5957bddced32d0fae0d5a038c41e7f79dc162b5ce` | Launch-x:contracts/contracts/interfaces/IPoolRegistry.sol:25 |
-| `RoleAdminChanged(bytes32,bytes32,bytes32)` | `0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff` | Launch-x:contracts/contracts/base/AccessControl.sol:40 |
-| `RoleGranted(bytes32,address,address)` | `0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d` | Launch-x:contracts/contracts/base/AccessControl.sol:38 |
-| `RoleRevoked(bytes32,address,address)` | `0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b` | Launch-x:contracts/contracts/base/AccessControl.sol:39 |
-| `Upgraded(address)` | `0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b` | Launch-x:contracts/contracts/base/ERC1967Utils.sol:23 |
+| `Initialized(uint64)` | `0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2` | contracts/launchpad/contracts/base/Initializable.sol |
+| `MirrorFailed(bytes4)` | `0x8694b6bbbf10ff6faa1b6ae45172474b03b0df0b4d87ac2113bbced3810eebdd` | contracts/launchpad/contracts/data/PoolRegistry.sol |
+| `PoolRegistered(address,address,address,address,uint256,uint256)` | `0xdd85b374a142757b7745e1d5957bddced32d0fae0d5a038c41e7f79dc162b5ce` | contracts/launchpad/contracts/interfaces/IPoolRegistry.sol |
+| `RoleAdminChanged(bytes32,bytes32,bytes32)` | `0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `RoleGranted(bytes32,address,address)` | `0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `RoleRevoked(bytes32,address,address)` | `0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `Upgraded(address)` | `0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b` | contracts/launchpad/contracts/base/ERC1967Utils.sol |
 
 | Error | Selector | Declared |
 |---|---|---|
-| `AlreadyInitialized()` | `0x0dc149f0` | Launch-x:contracts/contracts/base/Initializable.sol:18 |
-| `DuplicatePool()` | `0xb82a4746` | Launch-x:contracts/contracts/interfaces/IPoolRegistry.sol:11 |
-| `DuplicateToken()` | `0x464e3f6a` | Launch-x:contracts/contracts/interfaces/IPoolRegistry.sol:10 |
-| `InvalidImplementation()` | `0x68155f9a` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:19 |
-| `InvalidRoleAccount()` | `0xeccda526` | Launch-x:contracts/contracts/base/AccessControl.sol:23 |
-| `LastDefaultAdmin()` | `0x9c88180d` | Launch-x:contracts/contracts/base/AccessControl.sol:22 |
-| `MissingRole(address,bytes32)` | `0x0161a64a` | Launch-x:contracts/contracts/base/AccessControl.sol:36 |
-| `NonPayableUpgrade()` | `0x93738d49` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:20 |
-| `NotInitializing()` | `0xd7e6bcf8` | Launch-x:contracts/contracts/base/Initializable.sol:19 |
-| `PoolNotFound()` | `0x76ecffc0` | Launch-x:contracts/contracts/interfaces/IPoolRegistry.sol:12 |
-| `UUPSNotThroughActiveProxy()` | `0x45a93fc9` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:18 |
-| `UUPSNotThroughProxy()` | `0x4f083858` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:17 |
-| `Unauthorized()` | `0x82b42900` | Launch-x:contracts/contracts/interfaces/IPoolRegistry.sol:8 |
-| `UnauthorizedUpgrade()` | `0x3a617a54` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:16 |
-| `UpgradeInitializationFailed()` | `0xcc1cf440` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:21 |
-| `ZeroAddress()` | `0xd92e233d` | Launch-x:contracts/contracts/interfaces/IPoolRegistry.sol:9 |
+| `AlreadyInitialized()` | `0x0dc149f0` | contracts/launchpad/contracts/base/Initializable.sol |
+| `DuplicatePool()` | `0xb82a4746` | contracts/launchpad/contracts/interfaces/IPoolRegistry.sol |
+| `DuplicateToken()` | `0x464e3f6a` | contracts/launchpad/contracts/interfaces/IPoolRegistry.sol |
+| `InvalidImplementation()` | `0x68155f9a` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `InvalidRoleAccount()` | `0xeccda526` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `LastDefaultAdmin()` | `0x9c88180d` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `MissingRole(address,bytes32)` | `0x0161a64a` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `NonPayableUpgrade()` | `0x93738d49` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `NotInitializing()` | `0xd7e6bcf8` | contracts/launchpad/contracts/base/Initializable.sol |
+| `PoolNotFound()` | `0x76ecffc0` | contracts/launchpad/contracts/interfaces/IPoolRegistry.sol |
+| `UUPSNotThroughActiveProxy()` | `0x45a93fc9` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UUPSNotThroughProxy()` | `0x4f083858` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `Unauthorized()` | `0x82b42900` | contracts/launchpad/contracts/interfaces/IPoolRegistry.sol |
+| `UnauthorizedUpgrade()` | `0x3a617a54` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UpgradeInitializationFailed()` | `0xcc1cf440` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `ZeroAddress()` | `0xd92e233d` | contracts/launchpad/contracts/interfaces/IPoolRegistry.sol |
 
 ### ProtocolConfig
 
@@ -649,58 +649,58 @@ Every function, event and custom error of each role, with its selector (function
 
 | Function | Selector | Mutability | Returns | Declared |
 |---|---|---|---|---|
-| `DEFAULT_ADMIN_ROLE()` | `0xa217fddf` | view | `(bytes32)` | Launch-x:contracts/contracts/base/AccessControl.sol:9 |
-| `baseFeeBps()` | `0xbf5a5940` | view | `(uint256)` | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:19 |
-| `concentrationWeight()` | `0x2006e14c` | view | `(uint256)` | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:23 |
-| `creationFee()` | `0xdce0b4e4` | view | `(uint256)` | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:24 |
-| `eventEmitter()` | `0x9ff78c30` | view | `(address)` | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:26 |
-| `feeDecayRate()` | `0x155d94c4` | view | `(uint256)` | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:21 |
-| `getRoleAdmin(bytes32)` | `0x248a9ca3` | view | `(bytes32)` | Launch-x:contracts/contracts/base/AccessControl.sol:53 |
-| `grantRole(bytes32,address)` | `0x2f2ff15d` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:58 |
-| `hasRole(bytes32,address)` | `0x91d14854` | view | `(bool)` | Launch-x:contracts/contracts/base/AccessControl.sol:48 |
-| `initialize(address,address,address)` | `0xc0c53b8b` | nonpayable | `()` | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:33 |
-| `maxFeeBps()` | `0xbf769a3f` | view | `(uint256)` | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:18 |
-| `minFeeBps()` | `0x071de20d` | view | `(uint256)` | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:17 |
-| `protocolFeeBps()` | `0x35659fb8` | view | `(uint256)` | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:20 |
-| `proxiableUUID()` | `0x52d1902d` | view | `(bytes32)` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:41 |
-| `registeredDefaultAdminCount()` | `0xc0cb71b6` | view | `(uint256)` | Launch-x:contracts/contracts/base/AccessControl.sol:32 |
-| `renounceRole(bytes32,address)` | `0x36568abe` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:68 |
-| `revokeRole(bytes32,address)` | `0xd547741f` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:63 |
-| `setBaseFeeBps(uint256)` | `0xa389301a` | nonpayable | `()` | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:59 |
-| `setCreationFee(uint256)` | `0xb7d86225` | nonpayable | `()` | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:73 |
-| `setFeeWeights(uint256,uint256,uint256)` | `0xf1726fe7` | nonpayable | `()` | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:79 |
-| `setProtocolFeeBps(uint256)` | `0xc0417e58` | nonpayable | `()` | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:66 |
-| `setVirtualDefaults(uint256,uint256)` | `0xa83f1b4a` | nonpayable | `()` | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:96 |
-| `upgradeToAndCall(address,bytes)` | `0x4f1ef286` | payable | `()` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:48 |
-| `usdlAddress()` | `0x2e10f976` | view | `(address)` | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:14 |
-| `virtualTokenDefault()` | `0xd9fce324` | view | `(uint256)` | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:16 |
-| `virtualUsdlDefault()` | `0x071ed6b5` | view | `(uint256)` | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:15 |
-| `volatilityWeight()` | `0x294ae7f9` | view | `(uint256)` | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:22 |
+| `DEFAULT_ADMIN_ROLE()` | `0xa217fddf` | view | `(bytes32)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `baseFeeBps()` | `0xbf5a5940` | view | `(uint256)` | contracts/launchpad/contracts/protocol/ProtocolConfig.sol |
+| `concentrationWeight()` | `0x2006e14c` | view | `(uint256)` | contracts/launchpad/contracts/protocol/ProtocolConfig.sol |
+| `creationFee()` | `0xdce0b4e4` | view | `(uint256)` | contracts/launchpad/contracts/protocol/ProtocolConfig.sol |
+| `eventEmitter()` | `0x9ff78c30` | view | `(address)` | contracts/launchpad/contracts/protocol/ProtocolConfig.sol |
+| `feeDecayRate()` | `0x155d94c4` | view | `(uint256)` | contracts/launchpad/contracts/protocol/ProtocolConfig.sol |
+| `getRoleAdmin(bytes32)` | `0x248a9ca3` | view | `(bytes32)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `grantRole(bytes32,address)` | `0x2f2ff15d` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `hasRole(bytes32,address)` | `0x91d14854` | view | `(bool)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `initialize(address,address,address)` | `0xc0c53b8b` | nonpayable | `()` | contracts/launchpad/contracts/protocol/ProtocolConfig.sol |
+| `maxFeeBps()` | `0xbf769a3f` | view | `(uint256)` | contracts/launchpad/contracts/protocol/ProtocolConfig.sol |
+| `minFeeBps()` | `0x071de20d` | view | `(uint256)` | contracts/launchpad/contracts/protocol/ProtocolConfig.sol |
+| `protocolFeeBps()` | `0x35659fb8` | view | `(uint256)` | contracts/launchpad/contracts/protocol/ProtocolConfig.sol |
+| `proxiableUUID()` | `0x52d1902d` | view | `(bytes32)` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `registeredDefaultAdminCount()` | `0xc0cb71b6` | view | `(uint256)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `renounceRole(bytes32,address)` | `0x36568abe` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `revokeRole(bytes32,address)` | `0xd547741f` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `setBaseFeeBps(uint256)` | `0xa389301a` | nonpayable | `()` | contracts/launchpad/contracts/protocol/ProtocolConfig.sol |
+| `setCreationFee(uint256)` | `0xb7d86225` | nonpayable | `()` | contracts/launchpad/contracts/protocol/ProtocolConfig.sol |
+| `setFeeWeights(uint256,uint256,uint256)` | `0xf1726fe7` | nonpayable | `()` | contracts/launchpad/contracts/protocol/ProtocolConfig.sol |
+| `setProtocolFeeBps(uint256)` | `0xc0417e58` | nonpayable | `()` | contracts/launchpad/contracts/protocol/ProtocolConfig.sol |
+| `setVirtualDefaults(uint256,uint256)` | `0xa83f1b4a` | nonpayable | `()` | contracts/launchpad/contracts/protocol/ProtocolConfig.sol |
+| `upgradeToAndCall(address,bytes)` | `0x4f1ef286` | payable | `()` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `usdlAddress()` | `0x2e10f976` | view | `(address)` | contracts/launchpad/contracts/protocol/ProtocolConfig.sol |
+| `virtualTokenDefault()` | `0xd9fce324` | view | `(uint256)` | contracts/launchpad/contracts/protocol/ProtocolConfig.sol |
+| `virtualUsdlDefault()` | `0x071ed6b5` | view | `(uint256)` | contracts/launchpad/contracts/protocol/ProtocolConfig.sol |
+| `volatilityWeight()` | `0x294ae7f9` | view | `(uint256)` | contracts/launchpad/contracts/protocol/ProtocolConfig.sol |
 
 | Event | Topic 0 | Declared |
 |---|---|---|
-| `ConfigUpdated(bytes32,uint256,uint256)` | `0xac2ccce3de9c0816ae772598f7f65fe69f9893b637f7c490497378cbb3ea043e` | Launch-x:contracts/contracts/interfaces/IProtocolConfig.sol:12 |
-| `Initialized(uint64)` | `0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2` | Launch-x:contracts/contracts/base/Initializable.sol:21 |
-| `RoleAdminChanged(bytes32,bytes32,bytes32)` | `0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff` | Launch-x:contracts/contracts/base/AccessControl.sol:40 |
-| `RoleGranted(bytes32,address,address)` | `0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d` | Launch-x:contracts/contracts/base/AccessControl.sol:38 |
-| `RoleRevoked(bytes32,address,address)` | `0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b` | Launch-x:contracts/contracts/base/AccessControl.sol:39 |
-| `Upgraded(address)` | `0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b` | Launch-x:contracts/contracts/base/ERC1967Utils.sol:23 |
+| `ConfigUpdated(bytes32,uint256,uint256)` | `0xac2ccce3de9c0816ae772598f7f65fe69f9893b637f7c490497378cbb3ea043e` | contracts/launchpad/contracts/interfaces/IProtocolConfig.sol |
+| `Initialized(uint64)` | `0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2` | contracts/launchpad/contracts/base/Initializable.sol |
+| `RoleAdminChanged(bytes32,bytes32,bytes32)` | `0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `RoleGranted(bytes32,address,address)` | `0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `RoleRevoked(bytes32,address,address)` | `0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `Upgraded(address)` | `0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b` | contracts/launchpad/contracts/base/ERC1967Utils.sol |
 
 | Error | Selector | Declared |
 |---|---|---|
-| `AlreadyInitialized()` | `0x0dc149f0` | Launch-x:contracts/contracts/base/Initializable.sol:18 |
-| `FeeOutOfRange()` | `0x0c8249ad` | Launch-x:contracts/contracts/interfaces/IProtocolConfig.sol:8 |
-| `InvalidImplementation()` | `0x68155f9a` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:19 |
-| `InvalidRoleAccount()` | `0xeccda526` | Launch-x:contracts/contracts/base/AccessControl.sol:23 |
-| `LastDefaultAdmin()` | `0x9c88180d` | Launch-x:contracts/contracts/base/AccessControl.sol:22 |
-| `MissingRole(address,bytes32)` | `0x0161a64a` | Launch-x:contracts/contracts/base/AccessControl.sol:36 |
-| `NonPayableUpgrade()` | `0x93738d49` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:20 |
-| `NotInitializing()` | `0xd7e6bcf8` | Launch-x:contracts/contracts/base/Initializable.sol:19 |
-| `UUPSNotThroughActiveProxy()` | `0x45a93fc9` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:18 |
-| `UUPSNotThroughProxy()` | `0x4f083858` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:17 |
-| `UnauthorizedUpgrade()` | `0x3a617a54` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:16 |
-| `UpgradeInitializationFailed()` | `0xcc1cf440` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:21 |
-| `ZeroAddress()` | `0xd92e233d` | Launch-x:contracts/contracts/interfaces/IProtocolConfig.sol:9 |
+| `AlreadyInitialized()` | `0x0dc149f0` | contracts/launchpad/contracts/base/Initializable.sol |
+| `FeeOutOfRange()` | `0x0c8249ad` | contracts/launchpad/contracts/interfaces/IProtocolConfig.sol |
+| `InvalidImplementation()` | `0x68155f9a` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `InvalidRoleAccount()` | `0xeccda526` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `LastDefaultAdmin()` | `0x9c88180d` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `MissingRole(address,bytes32)` | `0x0161a64a` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `NonPayableUpgrade()` | `0x93738d49` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `NotInitializing()` | `0xd7e6bcf8` | contracts/launchpad/contracts/base/Initializable.sol |
+| `UUPSNotThroughActiveProxy()` | `0x45a93fc9` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UUPSNotThroughProxy()` | `0x4f083858` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UnauthorizedUpgrade()` | `0x3a617a54` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UpgradeInitializationFailed()` | `0xcc1cf440` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `ZeroAddress()` | `0xd92e233d` | contracts/launchpad/contracts/interfaces/IProtocolConfig.sol |
 
 ### Treasury
 
@@ -708,56 +708,56 @@ Every function, event and custom error of each role, with its selector (function
 
 | Function | Selector | Mutability | Returns | Declared |
 |---|---|---|---|---|
-| `DEFAULT_ADMIN_ROLE()` | `0xa217fddf` | view | `(bytes32)` | Launch-x:contracts/contracts/base/AccessControl.sol:9 |
-| `DEPOSITOR_ROLE()` | `0xa3b0b5a3` | view | `(bytes32)` | Launch-x:contracts/contracts/protocol/Treasury.sol:14 |
-| `deposit(address,uint256)` | `0x47e7ef24` | nonpayable | `()` | Launch-x:contracts/contracts/protocol/Treasury.sol:46 |
-| `eventEmitter()` | `0x9ff78c30` | view | `(address)` | Launch-x:contracts/contracts/protocol/Treasury.sol:18 |
-| `getBalance(address)` | `0xf8b2cb4f` | view | `(uint256)` | Launch-x:contracts/contracts/protocol/Treasury.sol:73 |
-| `getRoleAdmin(bytes32)` | `0x248a9ca3` | view | `(bytes32)` | Launch-x:contracts/contracts/base/AccessControl.sol:53 |
-| `grantRole(bytes32,address)` | `0x2f2ff15d` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:58 |
-| `hasRole(bytes32,address)` | `0x91d14854` | view | `(bool)` | Launch-x:contracts/contracts/base/AccessControl.sol:48 |
-| `initialize(address,address)` | `0x485cc955` | nonpayable | `()` | Launch-x:contracts/contracts/protocol/Treasury.sol:38 |
-| `proxiableUUID()` | `0x52d1902d` | view | `(bytes32)` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:41 |
-| `recordDeposit(address,uint256)` | `0x1e578bae` | nonpayable | `()` | Launch-x:contracts/contracts/protocol/Treasury.sol:79 |
-| `recoverSurplus(address,address,uint256)` | `0x72df7f5b` | nonpayable | `()` | Launch-x:contracts/contracts/protocol/Treasury.sol:87 |
-| `registeredDefaultAdminCount()` | `0xc0cb71b6` | view | `(uint256)` | Launch-x:contracts/contracts/base/AccessControl.sol:32 |
-| `renounceRole(bytes32,address)` | `0x36568abe` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:68 |
-| `revokeRole(bytes32,address)` | `0xd547741f` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:63 |
-| `upgradeToAndCall(address,bytes)` | `0x4f1ef286` | payable | `()` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:48 |
-| `withdraw(address,address,uint256)` | `0xd9caed12` | nonpayable | `()` | Launch-x:contracts/contracts/protocol/Treasury.sol:58 |
+| `DEFAULT_ADMIN_ROLE()` | `0xa217fddf` | view | `(bytes32)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `DEPOSITOR_ROLE()` | `0xa3b0b5a3` | view | `(bytes32)` | contracts/launchpad/contracts/protocol/Treasury.sol |
+| `deposit(address,uint256)` | `0x47e7ef24` | nonpayable | `()` | contracts/launchpad/contracts/protocol/Treasury.sol |
+| `eventEmitter()` | `0x9ff78c30` | view | `(address)` | contracts/launchpad/contracts/protocol/Treasury.sol |
+| `getBalance(address)` | `0xf8b2cb4f` | view | `(uint256)` | contracts/launchpad/contracts/protocol/Treasury.sol |
+| `getRoleAdmin(bytes32)` | `0x248a9ca3` | view | `(bytes32)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `grantRole(bytes32,address)` | `0x2f2ff15d` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `hasRole(bytes32,address)` | `0x91d14854` | view | `(bool)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `initialize(address,address)` | `0x485cc955` | nonpayable | `()` | contracts/launchpad/contracts/protocol/Treasury.sol |
+| `proxiableUUID()` | `0x52d1902d` | view | `(bytes32)` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `recordDeposit(address,uint256)` | `0x1e578bae` | nonpayable | `()` | contracts/launchpad/contracts/protocol/Treasury.sol |
+| `recoverSurplus(address,address,uint256)` | `0x72df7f5b` | nonpayable | `()` | contracts/launchpad/contracts/protocol/Treasury.sol |
+| `registeredDefaultAdminCount()` | `0xc0cb71b6` | view | `(uint256)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `renounceRole(bytes32,address)` | `0x36568abe` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `revokeRole(bytes32,address)` | `0xd547741f` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `upgradeToAndCall(address,bytes)` | `0x4f1ef286` | payable | `()` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `withdraw(address,address,uint256)` | `0xd9caed12` | nonpayable | `()` | contracts/launchpad/contracts/protocol/Treasury.sol |
 
 | Event | Topic 0 | Declared |
 |---|---|---|
-| `Deposited(address,address,uint256)` | `0x8752a472e571a816aea92eec8dae9baf628e840f4929fbcc2d155e6233ff68a7` | Launch-x:contracts/contracts/interfaces/ITreasury.sol:14 |
-| `Initialized(uint64)` | `0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2` | Launch-x:contracts/contracts/base/Initializable.sol:21 |
-| `RoleAdminChanged(bytes32,bytes32,bytes32)` | `0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff` | Launch-x:contracts/contracts/base/AccessControl.sol:40 |
-| `RoleGranted(bytes32,address,address)` | `0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d` | Launch-x:contracts/contracts/base/AccessControl.sol:38 |
-| `RoleRevoked(bytes32,address,address)` | `0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b` | Launch-x:contracts/contracts/base/AccessControl.sol:39 |
-| `SurplusRecovered(address,address,uint256)` | `0x00c571bcd43634ce4043e2bd7088ab9a1d36bd5dc21f5f4246e9eddda3c222f6` | Launch-x:contracts/contracts/protocol/Treasury.sol:22 |
-| `Upgraded(address)` | `0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b` | Launch-x:contracts/contracts/base/ERC1967Utils.sol:23 |
-| `Withdrawn(address,address,uint256)` | `0xd1c19fbcd4551a5edfb66d43d2e337c04837afda3482b42bdf569a8fccdae5fb` | Launch-x:contracts/contracts/interfaces/ITreasury.sol:15 |
+| `Deposited(address,address,uint256)` | `0x8752a472e571a816aea92eec8dae9baf628e840f4929fbcc2d155e6233ff68a7` | contracts/launchpad/contracts/interfaces/ITreasury.sol |
+| `Initialized(uint64)` | `0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2` | contracts/launchpad/contracts/base/Initializable.sol |
+| `RoleAdminChanged(bytes32,bytes32,bytes32)` | `0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `RoleGranted(bytes32,address,address)` | `0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `RoleRevoked(bytes32,address,address)` | `0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `SurplusRecovered(address,address,uint256)` | `0x00c571bcd43634ce4043e2bd7088ab9a1d36bd5dc21f5f4246e9eddda3c222f6` | contracts/launchpad/contracts/protocol/Treasury.sol |
+| `Upgraded(address)` | `0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b` | contracts/launchpad/contracts/base/ERC1967Utils.sol |
+| `Withdrawn(address,address,uint256)` | `0xd1c19fbcd4551a5edfb66d43d2e337c04837afda3482b42bdf569a8fccdae5fb` | contracts/launchpad/contracts/interfaces/ITreasury.sol |
 
 | Error | Selector | Declared |
 |---|---|---|
-| `AlreadyInitialized()` | `0x0dc149f0` | Launch-x:contracts/contracts/base/Initializable.sol:18 |
-| `InsufficientBalance()` | `0xf4d678b8` | Launch-x:contracts/contracts/interfaces/ITreasury.sol:8 |
-| `InvalidImplementation()` | `0x68155f9a` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:19 |
-| `InvalidRoleAccount()` | `0xeccda526` | Launch-x:contracts/contracts/base/AccessControl.sol:23 |
-| `InvalidToken()` | `0xc1ab6dc1` | Launch-x:contracts/contracts/protocol/Treasury.sol:20 |
-| `LastDefaultAdmin()` | `0x9c88180d` | Launch-x:contracts/contracts/base/AccessControl.sol:22 |
-| `MissingRole(address,bytes32)` | `0x0161a64a` | Launch-x:contracts/contracts/base/AccessControl.sol:36 |
-| `NonPayableUpgrade()` | `0x93738d49` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:20 |
-| `NotInitializing()` | `0xd7e6bcf8` | Launch-x:contracts/contracts/base/Initializable.sol:19 |
-| `ReentrantCall()` | `0x37ed32e8` | Launch-x:contracts/contracts/protocol/Treasury.sol:21 |
-| `TransferFailed()` | `0x90b8ec18` | Launch-x:contracts/contracts/libraries/TransferHelper.sol:8 |
-| `TransferFromFailed()` | `0x7939f424` | Launch-x:contracts/contracts/libraries/TransferHelper.sol:9 |
-| `UUPSNotThroughActiveProxy()` | `0x45a93fc9` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:18 |
-| `UUPSNotThroughProxy()` | `0x4f083858` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:17 |
-| `Unauthorized()` | `0x82b42900` | Launch-x:contracts/contracts/interfaces/ITreasury.sol:9 |
-| `UnauthorizedUpgrade()` | `0x3a617a54` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:16 |
-| `UpgradeInitializationFailed()` | `0xcc1cf440` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:21 |
-| `ZeroAddress()` | `0xd92e233d` | Launch-x:contracts/contracts/interfaces/ITreasury.sol:10 |
-| `ZeroAmount()` | `0x1f2a2005` | Launch-x:contracts/contracts/interfaces/ITreasury.sol:11 |
+| `AlreadyInitialized()` | `0x0dc149f0` | contracts/launchpad/contracts/base/Initializable.sol |
+| `InsufficientBalance()` | `0xf4d678b8` | contracts/launchpad/contracts/interfaces/ITreasury.sol |
+| `InvalidImplementation()` | `0x68155f9a` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `InvalidRoleAccount()` | `0xeccda526` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `InvalidToken()` | `0xc1ab6dc1` | contracts/launchpad/contracts/protocol/Treasury.sol |
+| `LastDefaultAdmin()` | `0x9c88180d` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `MissingRole(address,bytes32)` | `0x0161a64a` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `NonPayableUpgrade()` | `0x93738d49` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `NotInitializing()` | `0xd7e6bcf8` | contracts/launchpad/contracts/base/Initializable.sol |
+| `ReentrantCall()` | `0x37ed32e8` | contracts/launchpad/contracts/protocol/Treasury.sol |
+| `TransferFailed()` | `0x90b8ec18` | contracts/launchpad/contracts/libraries/TransferHelper.sol |
+| `TransferFromFailed()` | `0x7939f424` | contracts/launchpad/contracts/libraries/TransferHelper.sol |
+| `UUPSNotThroughActiveProxy()` | `0x45a93fc9` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UUPSNotThroughProxy()` | `0x4f083858` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `Unauthorized()` | `0x82b42900` | contracts/launchpad/contracts/interfaces/ITreasury.sol |
+| `UnauthorizedUpgrade()` | `0x3a617a54` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UpgradeInitializationFailed()` | `0xcc1cf440` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `ZeroAddress()` | `0xd92e233d` | contracts/launchpad/contracts/interfaces/ITreasury.sol |
+| `ZeroAmount()` | `0x1f2a2005` | contracts/launchpad/contracts/interfaces/ITreasury.sol |
 
 ### EventEmitter
 
@@ -765,126 +765,126 @@ Every function, event and custom error of each role, with its selector (function
 
 | Function | Selector | Mutability | Returns | Declared |
 |---|---|---|---|---|
-| `DEFAULT_ADMIN_ROLE()` | `0xa217fddf` | view | `(bytes32)` | Launch-x:contracts/contracts/base/AccessControl.sol:9 |
-| `EMITTER_ADMIN_ROLE()` | `0xc2d11c38` | view | `(bytes32)` | Launch-x:contracts/contracts/data/EventEmitter.sol:54 |
-| `EVENT_EMITTER_ROLE()` | `0xd7056c20` | view | `(bytes32)` | Launch-x:contracts/contracts/data/EventEmitter.sol:59 |
-| `VERSION()` | `0xffa1ad74` | pure | `(string)` | Launch-x:contracts/contracts/data/EventEmitter.sol:341 |
-| `deregisterToken(address)` | `0xbab2af1d` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:326 |
-| `emitAssetApproval(address,address,address,uint256,bool)` | `0x4f2bdd09` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:710 |
-| `emitBestRouteSwap(address,address,address,bytes32,uint256,uint256,address[],uint256)` | `0xb3defa3c` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:555 |
-| `emitCircuitBreaker(address,bytes32,uint256,uint256,uint256)` | `0xd6278d9c` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:592 |
-| `emitConfigUpdated(bytes32,uint256,uint256)` | `0x85ceceb5` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:431 |
-| `emitEventLog(string,(((string,address)[],(string,address[])[]),((string,uint256)[],(string,uint256[])[]),((string,int256)[],(string,int256[])[]),((string,bool)[],(string,bool[])[]),((string,bytes32)[],(string,bytes32[])[]),((string,bytes)[],(string,bytes[])[]),((string,string)[],(string,string[])[])))` | `0x906c49f6` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:444 |
-| `emitEventLog1(string,bytes32,(((string,address)[],(string,address[])[]),((string,uint256)[],(string,uint256[])[]),((string,int256)[],(string,int256[])[]),((string,bool)[],(string,bool[])[]),((string,bytes32)[],(string,bytes32[])[]),((string,bytes)[],(string,bytes[])[]),((string,string)[],(string,string[])[])))` | `0x24de01e4` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:458 |
-| `emitEventLog2(string,bytes32,bytes32,(((string,address)[],(string,address[])[]),((string,uint256)[],(string,uint256[])[]),((string,int256)[],(string,int256[])[]),((string,bool)[],(string,bool[])[]),((string,bytes32)[],(string,bytes32[])[]),((string,bytes)[],(string,bytes[])[]),((string,string)[],(string,string[])[])))` | `0x63d16363` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:474 |
-| `emitFeeDistributed(bytes32,uint256,uint8,uint256,address)` | `0x06a7cedb` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:388 |
-| `emitFeeFlow(uint8,address,address,uint256,uint256,uint256,uint256)` | `0xfa2e1d5e` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:766 |
-| `emitFeeRecorded(bytes32,uint256,uint256,uint256)` | `0xd6d28200` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:378 |
-| `emitFeeStrategyChanged(bytes32,uint256,uint8,uint8)` | `0xb2c8dc72` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:399 |
-| `emitGovernance(uint8,bytes32,address,bytes)` | `0x98616097` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:641 |
-| `emitMarketCreated(bytes32,address,address,address,address)` | `0xe4617ca5` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:354 |
-| `emitNftMint(uint256,address,address,uint8)` | `0x75c48038` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:800 |
-| `emitNftTransfer(address,address,address,uint256)` | `0xeeaf8bcd` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:700 |
-| `emitOpticalExecuted(bytes32,address,string,bytes)` | `0xd4756325` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:420 |
-| `emitOpticalLifecycle(uint8,address,address,bytes32,bytes)` | `0x82b678c3` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:672 |
-| `emitOracleAdapterLifecycle(bytes32,address,uint8,uint256)` | `0x176af80c` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:606 |
-| `emitPauseToggle(address,bool)` | `0xd4925be5` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:754 |
-| `emitPecorOrderCreated(uint256,address,uint8,uint8,address,address,uint256,uint256,uint256,uint256)` | `0x7944994b` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:519 |
-| `emitPecorOrderLifecycle(uint256,address,uint8,uint8,uint256,bytes)` | `0x1a7a34ef` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:540 |
-| `emitPecorSwap(address,address,address,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint8)` | `0xa6df9eea` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:496 |
-| `emitPoolRegistered(address,address,address,address,uint256)` | `0x25b14c33` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:813 |
-| `emitPoolStateUpdated(bytes32,uint256,uint256,uint256,uint256)` | `0xfa78f4ca` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:409 |
-| `emitPriceUpdated(address,uint256,address,uint256,uint256,bytes32)` | `0xd08aa55f` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:577 |
-| `emitRoleChange(uint8,bytes32,address,address,bytes32)` | `0xcdc0fc61` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:728 |
-| `emitRouterTrade(uint8,address,address,address,address,uint256,uint256,uint256)` | `0xe3cdc125` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:782 |
-| `emitSwap(bytes32,address,bool,uint256,uint256,uint256,uint256)` | `0x100fca4f` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:365 |
-| `emitTokenDeployed(address,address,address,bytes32,string,string,uint8,uint256)` | `0x3cced653` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:831 |
-| `emitTokenTransfer(address,address,address,uint256)` | `0xc6770db6` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:690 |
-| `emitTreasuryFlow(uint8,address,address,uint256)` | `0x9de5933b` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:655 |
-| `emitUpgraded(address,address,uint8)` | `0x37114247` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:742 |
-| `emitVaultFlow(uint8,address,address,uint256,uint256)` | `0x9e4a40ca` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:623 |
-| `getRoleAdmin(bytes32)` | `0x248a9ca3` | view | `(bytes32)` | Launch-x:contracts/contracts/base/AccessControl.sol:53 |
-| `grantRole(bytes32,address)` | `0x2f2ff15d` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:58 |
-| `hasRole(bytes32,address)` | `0x91d14854` | view | `(bool)` | Launch-x:contracts/contracts/base/AccessControl.sol:48 |
-| `initialize(address)` | `0xc4d66de8` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:106 |
-| `isAuthorizedEmitter(address)` | `0x66706fd2` | view | `(bool)` | Launch-x:contracts/contracts/data/EventEmitter.sol:147 |
-| `isRegisteredToken(address)` | `0x7639a230` | view | `(bool)` | Launch-x:contracts/contracts/data/EventEmitter.sol:156 |
-| `isTypedEmitter(address,bytes4)` | `0x48c3830a` | view | `(bool)` | Launch-x:contracts/contracts/data/EventEmitter.sol:212 |
-| `metaAGRouter()` | `0xfa0dced9` | view | `(address)` | Launch-x:contracts/contracts/data/EventEmitter.sol:81 |
-| `opticalRegistry()` | `0x73b5708c` | view | `(address)` | Launch-x:contracts/contracts/data/EventEmitter.sol:79 |
-| `poolRegistry()` | `0xafcff50f` | view | `(address)` | Launch-x:contracts/contracts/data/EventEmitter.sol:75 |
-| `proxiableUUID()` | `0x52d1902d` | view | `(bytes32)` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:41 |
-| `registerToken(address,address)` | `0x4739f7e5` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:313 |
-| `registeredDefaultAdminCount()` | `0xc0cb71b6` | view | `(uint256)` | Launch-x:contracts/contracts/base/AccessControl.sol:32 |
-| `reinitializeV2(address)` | `0xbe6b99e3` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:118 |
-| `renounceRole(bytes32,address)` | `0x36568abe` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:68 |
-| `revokeRole(bytes32,address)` | `0xd547741f` | nonpayable | `()` | Launch-x:contracts/contracts/base/AccessControl.sol:63 |
-| `setAuthorizedEmitter(address,bool)` | `0x27b81718` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:249 |
-| `setMetaAGRouter(address)` | `0xf4795b26` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:272 |
-| `setOpticalRegistry(address)` | `0xde2b7764` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:261 |
-| `setPoolRegistry(address)` | `0x7b77cd6a` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:239 |
-| `setSidioraFactory(address)` | `0xe53122ec` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:283 |
-| `setTokenRegistry(address)` | `0x35a5af92` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:298 |
-| `setTypedEmitter(address,bytes4,bool)` | `0xb2473503` | nonpayable | `()` | Launch-x:contracts/contracts/data/EventEmitter.sol:204 |
-| `sidioraFactory()` | `0xb182ba64` | view | `(address)` | Launch-x:contracts/contracts/data/EventEmitter.sol:83 |
-| `upgradeToAndCall(address,bytes)` | `0x4f1ef286` | payable | `()` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:48 |
+| `DEFAULT_ADMIN_ROLE()` | `0xa217fddf` | view | `(bytes32)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `EMITTER_ADMIN_ROLE()` | `0xc2d11c38` | view | `(bytes32)` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `EVENT_EMITTER_ROLE()` | `0xd7056c20` | view | `(bytes32)` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `VERSION()` | `0xffa1ad74` | pure | `(string)` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `deregisterToken(address)` | `0xbab2af1d` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitAssetApproval(address,address,address,uint256,bool)` | `0x4f2bdd09` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitBestRouteSwap(address,address,address,bytes32,uint256,uint256,address[],uint256)` | `0xb3defa3c` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitCircuitBreaker(address,bytes32,uint256,uint256,uint256)` | `0xd6278d9c` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitConfigUpdated(bytes32,uint256,uint256)` | `0x85ceceb5` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitEventLog(string,(((string,address)[],(string,address[])[]),((string,uint256)[],(string,uint256[])[]),((string,int256)[],(string,int256[])[]),((string,bool)[],(string,bool[])[]),((string,bytes32)[],(string,bytes32[])[]),((string,bytes)[],(string,bytes[])[]),((string,string)[],(string,string[])[])))` | `0x906c49f6` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitEventLog1(string,bytes32,(((string,address)[],(string,address[])[]),((string,uint256)[],(string,uint256[])[]),((string,int256)[],(string,int256[])[]),((string,bool)[],(string,bool[])[]),((string,bytes32)[],(string,bytes32[])[]),((string,bytes)[],(string,bytes[])[]),((string,string)[],(string,string[])[])))` | `0x24de01e4` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitEventLog2(string,bytes32,bytes32,(((string,address)[],(string,address[])[]),((string,uint256)[],(string,uint256[])[]),((string,int256)[],(string,int256[])[]),((string,bool)[],(string,bool[])[]),((string,bytes32)[],(string,bytes32[])[]),((string,bytes)[],(string,bytes[])[]),((string,string)[],(string,string[])[])))` | `0x63d16363` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitFeeDistributed(bytes32,uint256,uint8,uint256,address)` | `0x06a7cedb` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitFeeFlow(uint8,address,address,uint256,uint256,uint256,uint256)` | `0xfa2e1d5e` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitFeeRecorded(bytes32,uint256,uint256,uint256)` | `0xd6d28200` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitFeeStrategyChanged(bytes32,uint256,uint8,uint8)` | `0xb2c8dc72` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitGovernance(uint8,bytes32,address,bytes)` | `0x98616097` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitMarketCreated(bytes32,address,address,address,address)` | `0xe4617ca5` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitNftMint(uint256,address,address,uint8)` | `0x75c48038` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitNftTransfer(address,address,address,uint256)` | `0xeeaf8bcd` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitOpticalExecuted(bytes32,address,string,bytes)` | `0xd4756325` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitOpticalLifecycle(uint8,address,address,bytes32,bytes)` | `0x82b678c3` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitOracleAdapterLifecycle(bytes32,address,uint8,uint256)` | `0x176af80c` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitPauseToggle(address,bool)` | `0xd4925be5` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitPecorOrderCreated(uint256,address,uint8,uint8,address,address,uint256,uint256,uint256,uint256)` | `0x7944994b` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitPecorOrderLifecycle(uint256,address,uint8,uint8,uint256,bytes)` | `0x1a7a34ef` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitPecorSwap(address,address,address,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint8)` | `0xa6df9eea` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitPoolRegistered(address,address,address,address,uint256)` | `0x25b14c33` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitPoolStateUpdated(bytes32,uint256,uint256,uint256,uint256)` | `0xfa78f4ca` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitPriceUpdated(address,uint256,address,uint256,uint256,bytes32)` | `0xd08aa55f` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitRoleChange(uint8,bytes32,address,address,bytes32)` | `0xcdc0fc61` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitRouterTrade(uint8,address,address,address,address,uint256,uint256,uint256)` | `0xe3cdc125` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitSwap(bytes32,address,bool,uint256,uint256,uint256,uint256)` | `0x100fca4f` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitTokenDeployed(address,address,address,bytes32,string,string,uint8,uint256)` | `0x3cced653` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitTokenTransfer(address,address,address,uint256)` | `0xc6770db6` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitTreasuryFlow(uint8,address,address,uint256)` | `0x9de5933b` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitUpgraded(address,address,uint8)` | `0x37114247` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `emitVaultFlow(uint8,address,address,uint256,uint256)` | `0x9e4a40ca` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `getRoleAdmin(bytes32)` | `0x248a9ca3` | view | `(bytes32)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `grantRole(bytes32,address)` | `0x2f2ff15d` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `hasRole(bytes32,address)` | `0x91d14854` | view | `(bool)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `initialize(address)` | `0xc4d66de8` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `isAuthorizedEmitter(address)` | `0x66706fd2` | view | `(bool)` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `isRegisteredToken(address)` | `0x7639a230` | view | `(bool)` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `isTypedEmitter(address,bytes4)` | `0x48c3830a` | view | `(bool)` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `metaAGRouter()` | `0xfa0dced9` | view | `(address)` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `opticalRegistry()` | `0x73b5708c` | view | `(address)` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `poolRegistry()` | `0xafcff50f` | view | `(address)` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `proxiableUUID()` | `0x52d1902d` | view | `(bytes32)` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `registerToken(address,address)` | `0x4739f7e5` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `registeredDefaultAdminCount()` | `0xc0cb71b6` | view | `(uint256)` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `reinitializeV2(address)` | `0xbe6b99e3` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `renounceRole(bytes32,address)` | `0x36568abe` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `revokeRole(bytes32,address)` | `0xd547741f` | nonpayable | `()` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `setAuthorizedEmitter(address,bool)` | `0x27b81718` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `setMetaAGRouter(address)` | `0xf4795b26` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `setOpticalRegistry(address)` | `0xde2b7764` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `setPoolRegistry(address)` | `0x7b77cd6a` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `setSidioraFactory(address)` | `0xe53122ec` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `setTokenRegistry(address)` | `0x35a5af92` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `setTypedEmitter(address,bytes4,bool)` | `0xb2473503` | nonpayable | `()` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `sidioraFactory()` | `0xb182ba64` | view | `(address)` | contracts/launchpad/contracts/data/EventEmitter.sol |
+| `upgradeToAndCall(address,bytes)` | `0x4f1ef286` | payable | `()` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
 
 | Event | Topic 0 | Declared |
 |---|---|---|
-| `AssetApproval(address,address,address,uint256,bool,uint256,uint256)` | `0xa9de58179a7ba626557514c856f27ad734eea61c56c3e9acb937f374ec63afe7` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:491 |
-| `BestRouteSwap(address,address,address,bytes32,uint256,uint256,address[],uint256,uint256,uint256)` | `0xf5041a4d1e1f497822428a20e208ea0ad2c90eb99518d0d9a1f598f8af04cd72` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:275 |
-| `CircuitBreakerTriggered(address,bytes32,uint256,uint256,uint256,uint256,uint256)` | `0xb08f12d79c5828345938b295337ebad6aa44441a33df36e9f766b0b7f253889b` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:349 |
-| `ConfigUpdated(bytes32,uint256,uint256,uint256,uint256)` | `0x2903b3642d2105b7fbd127326de888ab50e8d975bf819398337fb58407c1b10e` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:80 |
-| `ContractUpgraded(address,address,uint8,uint256,uint256)` | `0xb059389b6a1d06bc1833ca4b78798c2642d02b2d03d0f8fce5f4b8299737d3b7` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:535 |
-| `EventLog(address,bytes32,string,(((string,address)[],(string,address[])[]),((string,uint256)[],(string,uint256[])[]),((string,int256)[],(string,int256[])[]),((string,bool)[],(string,bool[])[]),((string,bytes32)[],(string,bytes32[])[]),((string,bytes)[],(string,bytes[])[]),((string,string)[],(string,string[])[])),uint256,uint256)` | `0x3f5c3dc69ea622ef6e129f03f630c1484849db8ae3e8f3d7fa164ca7fae08c27` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:180 |
-| `EventLog1(address,bytes32,bytes32,string,(((string,address)[],(string,address[])[]),((string,uint256)[],(string,uint256[])[]),((string,int256)[],(string,int256[])[]),((string,bool)[],(string,bool[])[]),((string,bytes32)[],(string,bytes32[])[]),((string,bytes)[],(string,bytes[])[]),((string,string)[],(string,string[])[])),uint256,uint256)` | `0xe67d7d5cff44135efdb2aa905b4fcd19c700c05482dd08ccb52a0b02b99f788a` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:190 |
-| `EventLog2(address,bytes32,bytes32,bytes32,string,(((string,address)[],(string,address[])[]),((string,uint256)[],(string,uint256[])[]),((string,int256)[],(string,int256[])[]),((string,bool)[],(string,bool[])[]),((string,bytes32)[],(string,bytes32[])[]),((string,bytes)[],(string,bytes[])[]),((string,string)[],(string,string[])[])),uint256,uint256)` | `0xfb0f08ac39934a2d9d9120c47f7079c97667c3a5495f5a6733b46b2c87cd2502` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:201 |
-| `FeeDistributed(bytes32,uint256,uint8,uint256,address,uint256,uint256)` | `0xf7ab826cedf9d005102eddf95e65f43597aef36a55ff09ee4f452204c83f4afc` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:42 |
-| `FeeFlow(uint8,address,address,uint256,uint256,uint256,uint256,uint256,uint256)` | `0x626e3fd5d9323ca4b7ffa3ca51c21c02766b638d15eb8896a36a4e0e97ae6de4` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:573 |
-| `FeeRecorded(bytes32,uint256,uint256,uint256,uint256,uint256)` | `0xe80e9e3e09460d716260f5ce6979a59f6cf4fbc1096e20f008d78b5cac7b7179` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:33 |
-| `FeeStrategyChanged(bytes32,uint256,uint8,uint8,uint256,uint256)` | `0x337fd9f9304e9da4c04886a5b8bf56e74032b459758212a860bc61d3544353dd` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:52 |
-| `Governance(uint8,bytes32,address,bytes,uint256,uint256)` | `0x637d9c5f725b51336e8338a6c85951604e8ee7bc041e8e2be8dc739abe9d2173` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:414 |
-| `Initialized(uint64)` | `0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2` | Launch-x:contracts/contracts/base/Initializable.sol:21 |
-| `MarketCreated(bytes32,address,address,address,address,uint256,uint256)` | `0xb0a9c7605389f1127c2299d4a3ed85f0b2fc19894ab5411d76b453bb29f9f47b` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:11 |
-| `NftMint(uint256,address,address,uint8,uint256,uint256)` | `0xd2917d37031c0dfe5016665c7a83360cbf2ff32063096b2caf61ba66c06832e5` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:600 |
-| `NftTransfer(address,address,address,uint256,uint256,uint256)` | `0x021f03e8a1315704c74c03e8c022c12bc80c4a2bd4fec8bd36b217322c340ad3` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:482 |
-| `OpticalExecuted(bytes32,address,string,bytes,uint256,uint256)` | `0xfdf5ccbb26a02ea4efd5415e00b1d7782ca04cbb6b33a0d0a0d549ba284f9e57` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:61 |
-| `OpticalLifecycle(uint8,address,address,bytes32,bytes,uint256,uint256)` | `0xa3faac07b1221710e43ca60800fc18acd83007ed48055def89c1e69b79ba44cb` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:452 |
-| `OracleAdapterLifecycle(bytes32,address,uint8,uint256,uint256,uint256)` | `0x9f8c04497ebc19f8f7de480e55fdfa3780212516de2d597e6f793d6629017cec` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:359 |
-| `PauseToggle(address,bool,uint256,uint256)` | `0xd079c1af4038467292233cbd5af2e60da5c45ea48670f905aff3da18b483973c` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:543 |
-| `PecorOrderCreated(uint256,address,uint8,uint8,address,address,uint256,uint256,uint256,uint256,uint256,uint256)` | `0xa24904fab3b2e5505845a72e1cd3b798ad4fbd48a7e6cb662de4b0d0d5abb298` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:249 |
-| `PecorOrderLifecycle(uint256,address,uint8,uint8,uint256,bytes,uint256,uint256)` | `0xdbbb8b49248d8ae078049644637ec9edf159baa1c653f8274ddf3fa26f358d26` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:264 |
-| `PecorSwap(address,address,address,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint8,uint256,uint256)` | `0x9b4f5f387e6b6c21cc8d67c37c41d9d7b8d8b3f16494c84db2dd1fca812a644f` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:232 |
-| `PoolRegistered(address,address,address,address,uint256,uint256,uint256)` | `0xda5568642b67660133b1de538c867c58f3037a5722b0e231a959ee8ca11b2ed7` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:609 |
-| `PoolStateUpdated(bytes32,uint256,uint256,uint256,uint256,uint256,uint256)` | `0x8155a4b38a877d212b271811786986f8f7d78074c82fce4526c58defcc6d7ebd` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:70 |
-| `PriceUpdated(address,uint256,address,uint256,uint256,bytes32,uint256,uint256)` | `0x8d99dbd92dc7116e69aa285daa09f2da514d6b2ca202545c3d9a0385982a7a69` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:338 |
-| `RoleAdminChanged(bytes32,bytes32,bytes32)` | `0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff` | Launch-x:contracts/contracts/base/AccessControl.sol:40 |
-| `RoleChange(uint8,bytes32,address,address,bytes32,uint256,uint256)` | `0xdcb006502b86d8ebfada5d7606648e10555d5df4a42fe9a8fcd00999c25faaf4` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:525 |
-| `RoleGranted(bytes32,address,address)` | `0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d` | Launch-x:contracts/contracts/base/AccessControl.sol:38 |
-| `RoleRevoked(bytes32,address,address)` | `0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b` | Launch-x:contracts/contracts/base/AccessControl.sol:39 |
-| `RouterTrade(uint8,address,address,address,address,uint256,uint256,uint256,uint256,uint256)` | `0x17c1899a3fd431f2b2200b90e738d270bb856a4222040c5650bfa208acb3b650` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:587 |
-| `Swap(bytes32,address,bool,uint256,uint256,uint256,uint256,uint256,uint256)` | `0xa234ab85728295548823d8a26077ecc77aa5815f9ed8f4c5e6fd390ac851d4cc` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:21 |
-| `TokenDeployed(address,address,address,bytes32,string,string,uint8,uint256,uint256,uint256)` | `0xad187874b793634c55d977f35d4828526eb48170a9531c71d88f8fd10cf9c237` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:619 |
-| `TokenTransfer(address,address,address,uint256,uint256,uint256)` | `0xd1630e8dfeca8f80cedf002590087ccd08ffc4a5a1860fc02892098e7aa92de1` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:473 |
-| `TreasuryFlow(uint8,address,address,uint256,uint256,uint256)` | `0x589609a9576cbe900d4afeecbd83764a5db719055826446f88c74bee62af7f81` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:434 |
-| `TypedEmitterPermission(address,bytes4,bool)` | `0xac8cad594581b394b23d152f0d6fe73d7d6611afa3458ccc51e4659ff7dbc844` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:681 |
-| `Upgraded(address)` | `0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b` | Launch-x:contracts/contracts/base/ERC1967Utils.sol:23 |
-| `VaultFlow(uint8,address,address,uint256,uint256,uint256,uint256)` | `0x4a928ce96ccd98c06c706d2dfc9e3be829d83d7df95db10dfe9d1c359ea54e78` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:394 |
+| `AssetApproval(address,address,address,uint256,bool,uint256,uint256)` | `0xa9de58179a7ba626557514c856f27ad734eea61c56c3e9acb937f374ec63afe7` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `BestRouteSwap(address,address,address,bytes32,uint256,uint256,address[],uint256,uint256,uint256)` | `0xf5041a4d1e1f497822428a20e208ea0ad2c90eb99518d0d9a1f598f8af04cd72` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `CircuitBreakerTriggered(address,bytes32,uint256,uint256,uint256,uint256,uint256)` | `0xb08f12d79c5828345938b295337ebad6aa44441a33df36e9f766b0b7f253889b` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `ConfigUpdated(bytes32,uint256,uint256,uint256,uint256)` | `0x2903b3642d2105b7fbd127326de888ab50e8d975bf819398337fb58407c1b10e` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `ContractUpgraded(address,address,uint8,uint256,uint256)` | `0xb059389b6a1d06bc1833ca4b78798c2642d02b2d03d0f8fce5f4b8299737d3b7` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `EventLog(address,bytes32,string,(((string,address)[],(string,address[])[]),((string,uint256)[],(string,uint256[])[]),((string,int256)[],(string,int256[])[]),((string,bool)[],(string,bool[])[]),((string,bytes32)[],(string,bytes32[])[]),((string,bytes)[],(string,bytes[])[]),((string,string)[],(string,string[])[])),uint256,uint256)` | `0x3f5c3dc69ea622ef6e129f03f630c1484849db8ae3e8f3d7fa164ca7fae08c27` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `EventLog1(address,bytes32,bytes32,string,(((string,address)[],(string,address[])[]),((string,uint256)[],(string,uint256[])[]),((string,int256)[],(string,int256[])[]),((string,bool)[],(string,bool[])[]),((string,bytes32)[],(string,bytes32[])[]),((string,bytes)[],(string,bytes[])[]),((string,string)[],(string,string[])[])),uint256,uint256)` | `0xe67d7d5cff44135efdb2aa905b4fcd19c700c05482dd08ccb52a0b02b99f788a` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `EventLog2(address,bytes32,bytes32,bytes32,string,(((string,address)[],(string,address[])[]),((string,uint256)[],(string,uint256[])[]),((string,int256)[],(string,int256[])[]),((string,bool)[],(string,bool[])[]),((string,bytes32)[],(string,bytes32[])[]),((string,bytes)[],(string,bytes[])[]),((string,string)[],(string,string[])[])),uint256,uint256)` | `0xfb0f08ac39934a2d9d9120c47f7079c97667c3a5495f5a6733b46b2c87cd2502` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `FeeDistributed(bytes32,uint256,uint8,uint256,address,uint256,uint256)` | `0xf7ab826cedf9d005102eddf95e65f43597aef36a55ff09ee4f452204c83f4afc` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `FeeFlow(uint8,address,address,uint256,uint256,uint256,uint256,uint256,uint256)` | `0x626e3fd5d9323ca4b7ffa3ca51c21c02766b638d15eb8896a36a4e0e97ae6de4` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `FeeRecorded(bytes32,uint256,uint256,uint256,uint256,uint256)` | `0xe80e9e3e09460d716260f5ce6979a59f6cf4fbc1096e20f008d78b5cac7b7179` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `FeeStrategyChanged(bytes32,uint256,uint8,uint8,uint256,uint256)` | `0x337fd9f9304e9da4c04886a5b8bf56e74032b459758212a860bc61d3544353dd` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `Governance(uint8,bytes32,address,bytes,uint256,uint256)` | `0x637d9c5f725b51336e8338a6c85951604e8ee7bc041e8e2be8dc739abe9d2173` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `Initialized(uint64)` | `0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2` | contracts/launchpad/contracts/base/Initializable.sol |
+| `MarketCreated(bytes32,address,address,address,address,uint256,uint256)` | `0xb0a9c7605389f1127c2299d4a3ed85f0b2fc19894ab5411d76b453bb29f9f47b` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `NftMint(uint256,address,address,uint8,uint256,uint256)` | `0xd2917d37031c0dfe5016665c7a83360cbf2ff32063096b2caf61ba66c06832e5` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `NftTransfer(address,address,address,uint256,uint256,uint256)` | `0x021f03e8a1315704c74c03e8c022c12bc80c4a2bd4fec8bd36b217322c340ad3` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `OpticalExecuted(bytes32,address,string,bytes,uint256,uint256)` | `0xfdf5ccbb26a02ea4efd5415e00b1d7782ca04cbb6b33a0d0a0d549ba284f9e57` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `OpticalLifecycle(uint8,address,address,bytes32,bytes,uint256,uint256)` | `0xa3faac07b1221710e43ca60800fc18acd83007ed48055def89c1e69b79ba44cb` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `OracleAdapterLifecycle(bytes32,address,uint8,uint256,uint256,uint256)` | `0x9f8c04497ebc19f8f7de480e55fdfa3780212516de2d597e6f793d6629017cec` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `PauseToggle(address,bool,uint256,uint256)` | `0xd079c1af4038467292233cbd5af2e60da5c45ea48670f905aff3da18b483973c` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `PecorOrderCreated(uint256,address,uint8,uint8,address,address,uint256,uint256,uint256,uint256,uint256,uint256)` | `0xa24904fab3b2e5505845a72e1cd3b798ad4fbd48a7e6cb662de4b0d0d5abb298` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `PecorOrderLifecycle(uint256,address,uint8,uint8,uint256,bytes,uint256,uint256)` | `0xdbbb8b49248d8ae078049644637ec9edf159baa1c653f8274ddf3fa26f358d26` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `PecorSwap(address,address,address,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint8,uint256,uint256)` | `0x9b4f5f387e6b6c21cc8d67c37c41d9d7b8d8b3f16494c84db2dd1fca812a644f` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `PoolRegistered(address,address,address,address,uint256,uint256,uint256)` | `0xda5568642b67660133b1de538c867c58f3037a5722b0e231a959ee8ca11b2ed7` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `PoolStateUpdated(bytes32,uint256,uint256,uint256,uint256,uint256,uint256)` | `0x8155a4b38a877d212b271811786986f8f7d78074c82fce4526c58defcc6d7ebd` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `PriceUpdated(address,uint256,address,uint256,uint256,bytes32,uint256,uint256)` | `0x8d99dbd92dc7116e69aa285daa09f2da514d6b2ca202545c3d9a0385982a7a69` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `RoleAdminChanged(bytes32,bytes32,bytes32)` | `0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `RoleChange(uint8,bytes32,address,address,bytes32,uint256,uint256)` | `0xdcb006502b86d8ebfada5d7606648e10555d5df4a42fe9a8fcd00999c25faaf4` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `RoleGranted(bytes32,address,address)` | `0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `RoleRevoked(bytes32,address,address)` | `0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `RouterTrade(uint8,address,address,address,address,uint256,uint256,uint256,uint256,uint256)` | `0x17c1899a3fd431f2b2200b90e738d270bb856a4222040c5650bfa208acb3b650` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `Swap(bytes32,address,bool,uint256,uint256,uint256,uint256,uint256,uint256)` | `0xa234ab85728295548823d8a26077ecc77aa5815f9ed8f4c5e6fd390ac851d4cc` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `TokenDeployed(address,address,address,bytes32,string,string,uint8,uint256,uint256,uint256)` | `0xad187874b793634c55d977f35d4828526eb48170a9531c71d88f8fd10cf9c237` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `TokenTransfer(address,address,address,uint256,uint256,uint256)` | `0xd1630e8dfeca8f80cedf002590087ccd08ffc4a5a1860fc02892098e7aa92de1` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `TreasuryFlow(uint8,address,address,uint256,uint256,uint256)` | `0x589609a9576cbe900d4afeecbd83764a5db719055826446f88c74bee62af7f81` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `TypedEmitterPermission(address,bytes4,bool)` | `0xac8cad594581b394b23d152f0d6fe73d7d6611afa3458ccc51e4659ff7dbc844` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `Upgraded(address)` | `0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b` | contracts/launchpad/contracts/base/ERC1967Utils.sol |
+| `VaultFlow(uint8,address,address,uint256,uint256,uint256,uint256)` | `0x4a928ce96ccd98c06c706d2dfc9e3be829d83d7df95db10dfe9d1c359ea54e78` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
 
 | Error | Selector | Declared |
 |---|---|---|
-| `AlreadyInitialized()` | `0x0dc149f0` | Launch-x:contracts/contracts/base/Initializable.sol:18 |
-| `InvalidImplementation()` | `0x68155f9a` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:19 |
-| `InvalidRoleAccount()` | `0xeccda526` | Launch-x:contracts/contracts/base/AccessControl.sol:23 |
-| `LastDefaultAdmin()` | `0x9c88180d` | Launch-x:contracts/contracts/base/AccessControl.sol:22 |
-| `MissingRole(address,bytes32)` | `0x0161a64a` | Launch-x:contracts/contracts/base/AccessControl.sol:36 |
-| `NonPayableUpgrade()` | `0x93738d49` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:20 |
-| `NotInitializing()` | `0xd7e6bcf8` | Launch-x:contracts/contracts/base/Initializable.sol:19 |
-| `UUPSNotThroughActiveProxy()` | `0x45a93fc9` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:18 |
-| `UUPSNotThroughProxy()` | `0x4f083858` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:17 |
-| `Unauthorized()` | `0x82b42900` | Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:8 |
-| `UnauthorizedUpgrade()` | `0x3a617a54` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:16 |
-| `UpgradeInitializationFailed()` | `0xcc1cf440` | Launch-x:contracts/contracts/base/UUPSUpgradeable.sol:21 |
+| `AlreadyInitialized()` | `0x0dc149f0` | contracts/launchpad/contracts/base/Initializable.sol |
+| `InvalidImplementation()` | `0x68155f9a` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `InvalidRoleAccount()` | `0xeccda526` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `LastDefaultAdmin()` | `0x9c88180d` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `MissingRole(address,bytes32)` | `0x0161a64a` | contracts/launchpad/contracts/base/AccessControl.sol |
+| `NonPayableUpgrade()` | `0x93738d49` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `NotInitializing()` | `0xd7e6bcf8` | contracts/launchpad/contracts/base/Initializable.sol |
+| `UUPSNotThroughActiveProxy()` | `0x45a93fc9` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UUPSNotThroughProxy()` | `0x4f083858` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `Unauthorized()` | `0x82b42900` | contracts/launchpad/contracts/interfaces/IEventEmitter.sol |
+| `UnauthorizedUpgrade()` | `0x3a617a54` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
+| `UpgradeInitializationFailed()` | `0xcc1cf440` | contracts/launchpad/contracts/base/UUPSUpgradeable.sol |
 
 ### LaunchpadOptical
 
@@ -892,61 +892,61 @@ Every function, event and custom error of each role, with its selector (function
 
 | Function | Selector | Mutability | Returns | Declared |
 |---|---|---|---|---|
-| `MAX_CAPITAL_RAISE_BPS()` | `0x87993a4e` | view | `(uint256)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:45 |
-| `MAX_CLIFF_DURATION()` | `0x5300a4a4` | view | `(uint256)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:46 |
-| `MAX_RAISE_DURATION()` | `0xf43ae507` | view | `(uint256)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:48 |
-| `MAX_TEAM_WALLETS()` | `0xd0fe7ca2` | view | `(uint256)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:49 |
-| `MAX_VESTING_DURATION()` | `0x7cd0814b` | view | `(uint256)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:47 |
-| `accumulatedUsdl(address)` | `0xa7746391` | view | `(uint256)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:90 |
-| `afterFeeDistribution(address,uint256)` | `0xae3bd4bd` | nonpayable | `(bytes4)` | Launch-x:contracts/contracts/opticals/BaseOptical.sol:72 |
-| `afterSwap(address,address,bool,uint256,uint256)` | `0xf74c1c1a` | nonpayable | `(bytes4)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:172 |
-| `beforeFeeDistribution(address,uint256)` | `0xf80d2cc7` | nonpayable | `(uint256)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:208 |
-| `beforeSwap(address,address,bool,uint256)` | `0xae7e71d9` | nonpayable | `(bool,int256)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:159 |
-| `beforeTokenTransfer(address,address,address,uint256)` | `0x37be75a0` | nonpayable | `()` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:179 |
-| `capitalRaiseBps()` | `0xc6532ff3` | view | `(uint256)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:69 |
-| `capitalRaiseDuration()` | `0x71f35332` | view | `(uint256)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:72 |
-| `claimCapital(address)` | `0xa9b00985` | nonpayable | `()` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:244 |
-| `cliffDuration()` | `0xd85349f7` | view | `(uint256)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:63 |
-| `creator()` | `0x02d05d3f` | view | `(address)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:54 |
-| `feeAccumulator()` | `0x5eaea35f` | view | `(address)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:60 |
-| `getCapitalRaiseInfo(address)` | `0x79ec5214` | view | `(uint256,uint256,uint256,bool)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:302 |
-| `getFlags()` | `0x6cc7149d` | pure | `(uint8)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:151 |
-| `getVestingInfo(address,address)` | `0xffc7b095` | view | `(bool,uint256,uint256,uint256,uint256,uint256)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:258 |
-| `isTeamWallet(address)` | `0x4a5ecb36` | view | `(bool)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:319 |
-| `isVested(address)` | `0x760a2e8a` | view | `(bool)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:80 |
-| `owner()` | `0x8da5cb5b` | view | `(address)` | Launch-x:contracts/contracts/opticals/BaseOptical.sol:20 |
-| `poolRegistry()` | `0xafcff50f` | view | `(address)` | Launch-x:contracts/contracts/opticals/BaseOptical.sol:17 |
-| `poolStartTime(address)` | `0x56fcdcb4` | view | `(uint256)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:83 |
-| `teamClaimAddress()` | `0x4ccb398e` | view | `(address)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:57 |
-| `teamWalletCount()` | `0x2c420122` | view | `(uint256)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:75 |
-| `tokensSold(address,address)` | `0x9f1245ad` | view | `(uint256)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:87 |
-| `totalRaised(address)` | `0x30d373f5` | view | `(uint256)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:93 |
-| `vestingDuration()` | `0x1514617e` | view | `(uint256)` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:66 |
+| `MAX_CAPITAL_RAISE_BPS()` | `0x87993a4e` | view | `(uint256)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `MAX_CLIFF_DURATION()` | `0x5300a4a4` | view | `(uint256)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `MAX_RAISE_DURATION()` | `0xf43ae507` | view | `(uint256)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `MAX_TEAM_WALLETS()` | `0xd0fe7ca2` | view | `(uint256)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `MAX_VESTING_DURATION()` | `0x7cd0814b` | view | `(uint256)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `accumulatedUsdl(address)` | `0xa7746391` | view | `(uint256)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `afterFeeDistribution(address,uint256)` | `0xae3bd4bd` | nonpayable | `(bytes4)` | contracts/launchpad/contracts/opticals/BaseOptical.sol |
+| `afterSwap(address,address,bool,uint256,uint256)` | `0xf74c1c1a` | nonpayable | `(bytes4)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `beforeFeeDistribution(address,uint256)` | `0xf80d2cc7` | nonpayable | `(uint256)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `beforeSwap(address,address,bool,uint256)` | `0xae7e71d9` | nonpayable | `(bool,int256)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `beforeTokenTransfer(address,address,address,uint256)` | `0x37be75a0` | nonpayable | `()` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `capitalRaiseBps()` | `0xc6532ff3` | view | `(uint256)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `capitalRaiseDuration()` | `0x71f35332` | view | `(uint256)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `claimCapital(address)` | `0xa9b00985` | nonpayable | `()` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `cliffDuration()` | `0xd85349f7` | view | `(uint256)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `creator()` | `0x02d05d3f` | view | `(address)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `feeAccumulator()` | `0x5eaea35f` | view | `(address)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `getCapitalRaiseInfo(address)` | `0x79ec5214` | view | `(uint256,uint256,uint256,bool)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `getFlags()` | `0x6cc7149d` | pure | `(uint8)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `getVestingInfo(address,address)` | `0xffc7b095` | view | `(bool,uint256,uint256,uint256,uint256,uint256)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `isTeamWallet(address)` | `0x4a5ecb36` | view | `(bool)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `isVested(address)` | `0x760a2e8a` | view | `(bool)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `owner()` | `0x8da5cb5b` | view | `(address)` | contracts/launchpad/contracts/opticals/BaseOptical.sol |
+| `poolRegistry()` | `0xafcff50f` | view | `(address)` | contracts/launchpad/contracts/opticals/BaseOptical.sol |
+| `poolStartTime(address)` | `0x56fcdcb4` | view | `(uint256)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `teamClaimAddress()` | `0x4ccb398e` | view | `(address)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `teamWalletCount()` | `0x2c420122` | view | `(uint256)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `tokensSold(address,address)` | `0x9f1245ad` | view | `(uint256)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `totalRaised(address)` | `0x30d373f5` | view | `(uint256)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `vestingDuration()` | `0x1514617e` | view | `(uint256)` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
 
 | Event | Topic 0 | Declared |
 |---|---|---|
-| `CapitalRaiseAccumulated(address,uint256,uint256)` | `0x48b3413afdad030150d68e8ed719b41dd32593b330f034158efe3134ffde0dae` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:40 |
-| `CapitalRaiseClaimed(address,uint256,address)` | `0xe8067320421baf056a2b16baecdc6fff89d3e90e2642fd0ab434b9845d8702c1` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:41 |
-| `PoolStartTimeRecorded(address,uint256)` | `0xe604181e9b1b472a9fd7581a81193c352a32c4a286112bcad619d427b19257c9` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:37 |
-| `SellBlockedCliff(address,address,uint256)` | `0x4acfead499d5bfd950d77435a2671732e5e612aba3b219ba1f129c48829b502b` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:38 |
-| `SellBlockedVesting(address,address,uint256,uint256)` | `0xb3966d45988315ed5a8dc1f14ca6aa97a4d2c0615f4a43cdc146990a715a4069` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:39 |
+| `CapitalRaiseAccumulated(address,uint256,uint256)` | `0x48b3413afdad030150d68e8ed719b41dd32593b330f034158efe3134ffde0dae` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `CapitalRaiseClaimed(address,uint256,address)` | `0xe8067320421baf056a2b16baecdc6fff89d3e90e2642fd0ab434b9845d8702c1` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `PoolStartTimeRecorded(address,uint256)` | `0xe604181e9b1b472a9fd7581a81193c352a32c4a286112bcad619d427b19257c9` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `SellBlockedCliff(address,address,uint256)` | `0x4acfead499d5bfd950d77435a2671732e5e612aba3b219ba1f129c48829b502b` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `SellBlockedVesting(address,address,uint256,uint256)` | `0xb3966d45988315ed5a8dc1f14ca6aa97a4d2c0615f4a43cdc146990a715a4069` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
 
 | Error | Selector | Declared |
 |---|---|---|
-| `CapitalRaiseTooHigh()` | `0xf7fc11bd` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:28 |
-| `CliffActive()` | `0x1392d261` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:26 |
-| `DurationTooLong()` | `0x9529f506` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:29 |
-| `NoTeamWallets()` | `0x1985bc9e` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:30 |
-| `NotOwner()` | `0x30cd7471` | Launch-x:contracts/contracts/opticals/BaseOptical.sol:14 |
-| `NotPool()` | `0x6f61f641` | Launch-x:contracts/contracts/opticals/BaseOptical.sol:13 |
-| `NotTeam()` | `0xe9f3e974` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:33 |
-| `NothingToClaim()` | `0x969bf728` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:32 |
-| `TooManyTeamWallets()` | `0x1f4941f9` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:31 |
-| `VestingExceeded()` | `0x45446fb4` | Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:27 |
+| `CapitalRaiseTooHigh()` | `0xf7fc11bd` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `CliffActive()` | `0x1392d261` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `DurationTooLong()` | `0x9529f506` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `NoTeamWallets()` | `0x1985bc9e` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `NotOwner()` | `0x30cd7471` | contracts/launchpad/contracts/opticals/BaseOptical.sol |
+| `NotPool()` | `0x6f61f641` | contracts/launchpad/contracts/opticals/BaseOptical.sol |
+| `NotTeam()` | `0xe9f3e974` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `NothingToClaim()` | `0x969bf728` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `TooManyTeamWallets()` | `0x1f4941f9` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
+| `VestingExceeded()` | `0x45446fb4` | contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol |
 
-Requirement 2.1, The interface is frozen as one ABI file per contract role with a golden selector file:
+The served interface uses one ABI file per contract role and a golden selector file:
 
-- precompiles/launchpad/abi/ holds the compiled ABI of eleven role files copied from the Launch-x build at c5eb7c7 (the sources of Launch-x:contracts/contracts): the ten served roles SidioraPool, SidioraFactory, SidioraNFT, Router, Quoter, FeesRouter, FeeAccumulator, PoolRegistry, ProtocolConfig and Treasury (Launch-x:contracts/contracts/protocol/Treasury.sol:13), and SidioraERC20, which is not served but encodes the nested calls the precompile makes to pool-token contracts; each file is loaded with MustGetABI (precompiles/common/precompiles.go) through the embed.FS of precompiles/launchpad/launchpad.go.
+- precompiles/launchpad/abi/ holds the compiled ABI of eleven role files whose sources are in `contracts/launchpad/contracts`: the ten served roles SidioraPool, SidioraFactory, SidioraNFT, Router, Quoter, FeesRouter, FeeAccumulator, PoolRegistry, ProtocolConfig and Treasury (contracts/launchpad/contracts/protocol/Treasury.sol), and SidioraERC20, which is not served but encodes the nested calls the precompile makes to pool-token contracts; each file is loaded with MustGetABI (precompiles/common/precompiles.go) through the embed.FS of precompiles/launchpad/launchpad.go.
 - precompiles/launchpad/testdata/abi_golden.txt records 612 lines: role methods, events and distinct errors, 16 EventEmitter events, 13 ChainLaunch methods and the two chain-defined errors. Treasury contributes 44 entries. Each method/error line includes its selector and each event its topic0.
 - precompiles/launchpad/abi.json serves direct calls to 0x1017. It combines the 113 distinct role selectors in section 3 with the 13 methods of precompiles/launchpad/abi/ChainLaunch.json. Event and error definitions are included in the ABI. The v6.10 interface is retained under precompiles/launchpad/legacy/v610.
 - Two signatures with one selector never appear in one role or at 0x1017; the golden test asserts the selector set of each role and of 0x1017 has no duplicate.
@@ -1005,78 +1005,76 @@ Direct calls also expose the chain-launch ABI in precompiles/launchpad/abi/Chain
 
 ## 4. Surfaces
 
-- Every generation 2 role address and every pool address holds the 41-byte runtime 0x363d3d373360601b36523d3d601436013d3d6110175af13d600060003e6024573d6000fd5b3d6000f3 after the upgrade, written with SetCode (modules/evm/keeper/code.go); retired generation 1 addresses hold the same runtime and revert Retired(address).
-- The precompile reads the original caller from the last 20 bytes only when its EVM caller is a registered surface, otherwise the EVM caller (precompiles/launchpad/launchpad.go).
-- Delegatecall reverts, writes under staticcall revert and value reverts (precompiles/common/precompiles.go).
-- An unknown selector reverts with empty revert data.
-- MigrateV6120 replaces the runtime code at every pool address of generations 1 and 2, at the generation 2 fee-right collection 0xe8Dc…409B (Launch-x:shared/config/deployment/current.json:58) and at the generation 2 SidioraFactory, Router, Quoter, FeesRouter, FeeAccumulator, PoolRegistry and ProtocolConfig addresses (Launch-x:shared/config/deployment/current.json:16-51, Launch-x:shared/config/deployment/current.json:65) and the generation 2 Treasury address read from SidioraFactory slot 6 (Launch-x:contracts/contracts/core/SidioraFactory.sol:30) and recorded in modules/launchpad/keeper/testdata/v6120/layout.json, with the 41-byte surface runtime 0x363d3d373360601b36523d3d601436013d3d6110175af13d600060003e6024573d6000fd5b3d6000f3, written with SetCode (modules/evm/keeper/code.go); the runtime copies calldata, appends CALLER and CALLs 0x1017 with all gas, returning or reverting with the callee data; pool-token contracts and USDL keep their code, and the generation 1 role addresses receive the retirement surface
-- The precompile treats the last 20 bytes of calldata as the original caller only when its own caller is a registered surface address (a keeper set written by MigrateV6120 and by market creation under a new prefix beside those of modules/launchpad/types/keys.go); for any other caller the calldata is decoded whole and the caller is the EVM caller, so no account can claim another caller by appending bytes.
-- A call arriving from a surface selects the role ABI of that surface (pool, the generation 2 collection, or the generation 2 role of the address), so the same selector resolves per role; the generation 2 role surfaces serve the markets of every generation, migrated generation 1 pools included; direct calls to 0x1017 resolve through abi.json in the order Router, SidioraFactory, Quoter, PoolRegistry, FeesRouter, FeeAccumulator, ProtocolConfig.
-- Delegatecall into 0x1017 reverts and a write under staticcall reverts, as precompiles/launchpad/launchpad.go does; a view selector under staticcall is served; value attached to a nonpayable method reverts, matching ValidateNonPayable (precompiles/common/precompiles.go) and the non-payable functions of the contracts (upgradeToAndCall reverts for every caller; launchChain and launchChainWithPermit accept native value).
-- An unknown selector at a surface or at 0x1017 reverts with empty revert data, as a contract without a fallback does; the registered surface set is exported and imported by genesis (modules/launchpad/keeper/genesis.go).
+- A registered surface selects its role ABI at 0x1017. The precompile accepts an appended original caller only from a surface registered in the keeper; other callers are decoded using their complete calldata and their EVM caller address (`precompiles/launchpad/run.go`).
+- `InstallRoleSurfaces` installs the nine generation 2 role addresses from `modules/launchpad/keeper/surfaces.go`. It writes the 51-byte `SurfaceRuntime` defined in `modules/launchpad/keeper/market.go`: `0x3415600957600080fd5b363d3d373360601b36523d3d601436013d3d6110175af13d600060003e602e573d6000fd5b3d6000f3`. This runtime rejects native value, copies calldata, appends CALLER and calls 0x1017, returning or reverting with its data. New market creation installs the same runtime at the pool address.
+- `MigrateV6120` installs the fixed 41-byte pool runtime `0x363d3d373360601b36523d3d601436013d3d6110175af13d600060003e6024573d6000fd5b3d6000f3` through `installPoolSurface` in `modules/launchpad/keeper/migrate_v6120.go`, then installs the generation 2 role surfaces. Pool-token contracts and USDL keep their code.
+- Retired generation 1 role addresses receive a separate runtime that reverts with `Retired(replacement)` for every call (`precompiles/launchpad/retired.go`). Generation 1 pool addresses remain registered pool surfaces.
+- A surface call resolves through its role ABI: pool, collection or the role of the registered address. Generation 2 role surfaces serve every generation's markets. Direct calls to 0x1017 resolve in Router, SidioraFactory, Quoter, PoolRegistry, FeesRouter, FeeAccumulator, ProtocolConfig order, followed by the chain-launch methods.
+- Delegatecall into 0x1017 and writes under staticcall revert. View selectors work under staticcall. Nonpayable methods reject attached value; direct `launchChain` and `launchChainWithPermit` calls accept native value (`precompiles/launchpad/run.go`).
+- An unknown selector at a surface or at 0x1017 reverts with empty data. Genesis exports and imports the registered surface set (`modules/launchpad/keeper/genesis.go`).
 
 ## 5. Quote asset
 
-- The quote asset is the USDL ERC20 contract at 0x85FcD13735F4309833A503EE804ea32395851479 (Launch-x:shared/config/deployment/current.json:86), six decimals (Launch-x:shared/config/deployment/current.json:98), named by Params.QuoteToken; it has no bank denom and no native pointer, and its code and storage stay the contract's.
+- The quote asset is the USDL ERC20 contract at 0x85FcD13735F4309833A503EE804ea32395851479 (sdk/launchpad/shared/config/deployment/current.json), six decimals (sdk/launchpad/shared/config/deployment/current.json), named by Params.QuoteToken; it has no bank denom and no native pointer, and its code and storage stay the contract's.
 - The launchpad module EVM address holds the launchpad USDL as an ERC20 balance, split in the keeper ledgers HeldQuote per pool, FeeHeld and TreasuryHeld; USDL.balanceOf(launchpad module EVM address) covers their sum.
 - USDL moves only by nested ERC20 calls: transferFrom(user, launchpad module EVM address, amount) and transfer(to, amount) with caller the launchpad module EVM address inside the precompile run through evm.Call (precompiles/xweb/xweb.go), and CallEVM (modules/evm/keeper/evm.go) in the upgrade handler; moves between ledgers write no log.
 - Router and Factory surfaces pull the caller's USDL with the allowance granted to 0x1017; allowances granted to the old Router contracts stay on USDL but are not spent, so a user grants a new allowance to 0x1017 once.
 - Params.QuoteToken (modules/launchpad/types/params.go), encoded as quote_token in api/launchpad/tx.proto, names the USDL contract 0x85FcD13735F4309833A503EE804ea32395851479. MigrateV6120 sets QuoteToken to this contract; USDL has no bank denom, bank metadata or native pointer.
 - USDL keeps its code, storage, six decimals, allowances and permit nonces; the launchpad never mints, burns or writes USDL storage, and every USDL movement is a call into the USDL contract: transferFrom(user, launchpad module EVM address, amount) with msg.sender 0x1017 against the allowance the user grants to 0x1017, and transfer(to, amount) with caller the launchpad module EVM address or a pool address, as nested calls of the precompile run (the nested-call form of precompiles/xweb/xweb.go) or through CallEVM in the upgrade handler (modules/evm/keeper/evm.go).
 - The keeper holds custody ledgers for the USDL at the launchpad module EVM address: HeldQuote per pool, FeeHeld for the generation 2 FeeAccumulator, and TreasuryLedger and TreasuryHeld per token for the Treasury; USDL.balanceOf(launchpad module EVM address) is at least the sum of every HeldQuote, FeeHeld and TreasuryHeld(USDL), and moves between a pool, the FeeAccumulator and the Treasury are ledger moves inside custody that emit no USDL Transfer log.
-- Pay-first input keeps working: before swap, swapFor and syncReserves the precompile sweeps the pool address with a nested call whose caller is the pool address, USDL.transfer(launchpad module EVM address, USDL.balanceOf(pool)) when the balance is nonzero, and adds the amount to HeldQuote(pool), so USDL sent straight to the pool address before a swap counts as prepaid input as at Launch-x:contracts/contracts/core/SidioraPool.sol:175-178; the generation 2 FeeAccumulator address and the Treasury address are swept the same way before every balance read of theirs.
-- Pool tokens stay at the pool address: sell input arrives by token.transferFrom(user, pool) or by a prior transfer to the pool, buy output leaves by token.transfer(recipient, amount) with caller the pool address (Launch-x:contracts/contracts/core/SidioraPool.sol:217), and the pool balance checks read token.balanceOf(pool) through a nested staticcall.
-- Router and Factory pulls use allowances to 0x1017: USDL.transferFrom(caller, launchpad module EVM address, amount) for buys and creation fees (Launch-x:contracts/contracts/periphery/Router.sol:188, Launch-x:contracts/contracts/periphery/Router.sol:165, Launch-x:contracts/contracts/core/SidioraFactory.sol:81) and token.transferFrom(caller, pool, amount) for sells and the first leg of a token-for-token swap (Launch-x:contracts/contracts/periphery/Router.sol:215, Launch-x:contracts/contracts/periphery/Router.sol:251); the *WithPermit variants call permit(holder, 0x1017, value, deadline, v, r, s) on the token contract through a nested call and ignore its failure as Launch-x:contracts/contracts/periphery/Router.sol:292-314 does, then pull; the intermediate USDL of a token-for-token swap (Launch-x:contracts/contracts/periphery/Router.sol:263) is a ledger move from HeldQuote of the first pool to HeldQuote of the second.
-- Pool and FeeAccumulator USDL payouts are real USDL.transfer calls from the launchpad module EVM address to the recipient: sell output (Launch-x:contracts/contracts/core/SidioraPool.sol:239), claim, burn to `0x000000000000000000000000000000000000dEaD`, airdrop claims, optical surplus claims and legacy airdrop claims (Launch-x:contracts/contracts/data/FeeAccumulator.sol:180, Launch-x:contracts/contracts/data/FeeAccumulator.sol:196, Launch-x:contracts/contracts/data/FeeAccumulator.sol:266, Launch-x:contracts/contracts/data/FeeAccumulator.sol:389, Launch-x:contracts/contracts/data/FeeAccumulator.sol:463); the buy fee is a ledger move from HeldQuote(pool) to FeeHeld (Launch-x:contracts/contracts/core/SidioraPool.sol:220-224) and sendLpRewards a ledger move from FeeHeld to HeldQuote(pool) (Launch-x:contracts/contracts/data/FeeAccumulator.sol:282).
+- Pay-first input keeps working: before swap, swapFor and syncReserves the precompile sweeps the pool address with a nested call whose caller is the pool address, USDL.transfer(launchpad module EVM address, USDL.balanceOf(pool)) when the balance is nonzero, and adds the amount to HeldQuote(pool), so USDL sent straight to the pool address before a swap counts as prepaid input as at contracts/launchpad/contracts/core/SidioraPool.sol; the generation 2 FeeAccumulator address and the Treasury address are swept the same way before every balance read of theirs.
+- Pool tokens stay at the pool address: sell input arrives by token.transferFrom(user, pool) or by a prior transfer to the pool, buy output leaves by token.transfer(recipient, amount) with caller the pool address (contracts/launchpad/contracts/core/SidioraPool.sol), and the pool balance checks read token.balanceOf(pool) through a nested staticcall.
+- Router and Factory pulls use allowances to 0x1017: USDL.transferFrom(caller, launchpad module EVM address, amount) for buys and creation fees (contracts/launchpad/contracts/periphery/Router.sol, contracts/launchpad/contracts/periphery/Router.sol, contracts/launchpad/contracts/core/SidioraFactory.sol) and token.transferFrom(caller, pool, amount) for sells and the first leg of a token-for-token swap (contracts/launchpad/contracts/periphery/Router.sol, contracts/launchpad/contracts/periphery/Router.sol); the *WithPermit variants call permit(holder, 0x1017, value, deadline, v, r, s) on the token contract through a nested call and ignore its failure as contracts/launchpad/contracts/periphery/Router.sol does, then pull; the intermediate USDL of a token-for-token swap (contracts/launchpad/contracts/periphery/Router.sol) is a ledger move from HeldQuote of the first pool to HeldQuote of the second.
+- Pool and FeeAccumulator USDL payouts are real USDL.transfer calls from the launchpad module EVM address to the recipient: sell output (contracts/launchpad/contracts/core/SidioraPool.sol), claim, burn to `0x000000000000000000000000000000000000dEaD`, airdrop claims, optical surplus claims and legacy airdrop claims (contracts/launchpad/contracts/data/FeeAccumulator.sol, contracts/launchpad/contracts/data/FeeAccumulator.sol, contracts/launchpad/contracts/data/FeeAccumulator.sol, contracts/launchpad/contracts/data/FeeAccumulator.sol, contracts/launchpad/contracts/data/FeeAccumulator.sol); the buy fee is a ledger move from HeldQuote(pool) to FeeHeld (contracts/launchpad/contracts/core/SidioraPool.sol) and sendLpRewards a ledger move from FeeHeld to HeldQuote(pool) (contracts/launchpad/contracts/data/FeeAccumulator.sol).
 
 ## 6. Swap
 
-- Swap checks in contract order: deadline (Launch-x:contracts/contracts/core/SidioraPool.sol:171), zero input (Launch-x:contracts/contracts/core/SidioraPool.sol:172), zero recipient (Launch-x:contracts/contracts/core/SidioraPool.sol:173), prepaid input (Launch-x:contracts/contracts/core/SidioraPool.sol:178), then the optical beforeSwap reduction rules (Launch-x:contracts/contracts/core/SidioraPool.sol:186-195), each reverting with the same custom error.
-- The fee is taken on the input with mulDiv(amountIn, feeBps, 10000) (Launch-x:contracts/contracts/core/SidioraPool.sol:201); a buy prices amountIn minus fee against virtual plus real USDL (Launch-x:contracts/contracts/core/SidioraPool.sol:208-213), moves the fee from HeldQuote(pool) to FeeHeld of the generation 2 FeeAccumulator and records it (Launch-x:contracts/contracts/core/SidioraPool.sol:220-224); a sell keeps fee tokens in the pool (Launch-x:contracts/contracts/core/SidioraPool.sol:241-244).
-- A sell whose output exceeds real USDL reverts VirtualFloorBreached() (Launch-x:contracts/contracts/core/SidioraPool.sol:232); a buy whose output exceeds the token reserve reverts InsufficientLiquidity() (Launch-x:contracts/contracts/core/SidioraPool.sol:211); zero output reverts InsufficientInput() and output below minAmountOut reverts SlippageExceeded() (Launch-x:contracts/contracts/core/SidioraPool.sol:247-248).
-- USDL volume is paidInput on buys and amountOut on sells, added to cumulativeVolume and to the buy or sell cumulative field (Launch-x:contracts/contracts/core/SidioraPool.sol:250-254); the price snapshot is taken only when volume is at least 1 bps of effective USDL and 60 seconds passed since the last snapshot (Launch-x:contracts/contracts/core/SidioraPool.sol:406-415), into an eight-slot ring.
-- After the swap the precompile emits InputAdjustment when paidInput differs from amountIn (Launch-x:contracts/contracts/core/SidioraPool.sol:257), calls afterSwap and requires its selector (Launch-x:contracts/contracts/core/SidioraPool.sol:259-263), reverts InvalidBalance() unless HeldQuote(pool) is at least realUsdlBalance and token.balanceOf(pool) is at least tokenReserve (Launch-x:contracts/contracts/core/SidioraPool.sol:268), and emits Swap at 0x1017 (Launch-x:contracts/contracts/core/SidioraPool.sol:273).
-- The dynamic fee uses ProtocolConfig parameters with the holder concentration term fixed at 0 (Launch-x:contracts/contracts/core/SidioraPool.sol:375-396) through FeeLib (Launch-x:contracts/contracts/libraries/FeeLib.sol:22), which the keeper implements in CalculateDynamicFee (modules/launchpad/types/math.go).
-- syncReserves sweeps the pool address, sets realUsdlBalance to HeldQuote(pool) and tokenReserve to token.balanceOf(pool), and emits PoolStateUpdated at 0x1017 (Launch-x:contracts/contracts/core/SidioraPool.sol:279-291).
+- Swap checks in contract order: deadline (contracts/launchpad/contracts/core/SidioraPool.sol), zero input (contracts/launchpad/contracts/core/SidioraPool.sol), zero recipient (contracts/launchpad/contracts/core/SidioraPool.sol), prepaid input (contracts/launchpad/contracts/core/SidioraPool.sol), then the optical beforeSwap reduction rules (contracts/launchpad/contracts/core/SidioraPool.sol), each reverting with the same custom error.
+- The fee is taken on the input with mulDiv(amountIn, feeBps, 10000) (contracts/launchpad/contracts/core/SidioraPool.sol); a buy prices amountIn minus fee against virtual plus real USDL (contracts/launchpad/contracts/core/SidioraPool.sol), moves the fee from HeldQuote(pool) to FeeHeld of the generation 2 FeeAccumulator and records it (contracts/launchpad/contracts/core/SidioraPool.sol); a sell keeps fee tokens in the pool (contracts/launchpad/contracts/core/SidioraPool.sol).
+- A sell whose output exceeds real USDL reverts VirtualFloorBreached() (contracts/launchpad/contracts/core/SidioraPool.sol); a buy whose output exceeds the token reserve reverts InsufficientLiquidity() (contracts/launchpad/contracts/core/SidioraPool.sol); zero output reverts InsufficientInput() and output below minAmountOut reverts SlippageExceeded() (contracts/launchpad/contracts/core/SidioraPool.sol).
+- USDL volume is paidInput on buys and amountOut on sells, added to cumulativeVolume and to the buy or sell cumulative field (contracts/launchpad/contracts/core/SidioraPool.sol); the price snapshot is taken only when volume is at least 1 bps of effective USDL and 60 seconds passed since the last snapshot (contracts/launchpad/contracts/core/SidioraPool.sol), into an eight-slot ring.
+- After the swap the precompile emits InputAdjustment when paidInput differs from amountIn (contracts/launchpad/contracts/core/SidioraPool.sol), calls afterSwap and requires its selector (contracts/launchpad/contracts/core/SidioraPool.sol), reverts InvalidBalance() unless HeldQuote(pool) is at least realUsdlBalance and token.balanceOf(pool) is at least tokenReserve (contracts/launchpad/contracts/core/SidioraPool.sol), and emits Swap at 0x1017 (contracts/launchpad/contracts/core/SidioraPool.sol).
+- The dynamic fee uses ProtocolConfig parameters with the holder concentration term fixed at 0 (contracts/launchpad/contracts/core/SidioraPool.sol) through FeeLib (contracts/launchpad/contracts/libraries/FeeLib.sol), which the keeper implements in CalculateDynamicFee (modules/launchpad/types/math.go).
+- syncReserves sweeps the pool address, sets realUsdlBalance to HeldQuote(pool) and tokenReserve to token.balanceOf(pool), and emits PoolStateUpdated at 0x1017 (contracts/launchpad/contracts/core/SidioraPool.sol).
 
 ## 7. Market creation
 
-- createMarket through the Router or Factory surface or 0x1017 validates name and symbol (modules/launchpad/types/market.go) and the virtual defaults, fee strategy and optical code as Launch-x:contracts/contracts/core/SidioraFactory.sol:115-117 does (reverting ZeroAddress()), and charges the creation fee by USDL.transferFrom(caller, launchpad module EVM address, creationFee) credited to TreasuryLedger and TreasuryHeld of the generation 2 Treasury address read from SidioraFactory slot 6 (Launch-x:contracts/contracts/core/SidioraFactory.sol:30) and recorded in modules/launchpad/keeper/testdata/v6120/layout.json, with Deposited(USDL, depositor, creationFee) emitted at the Treasury address (Launch-x:contracts/contracts/periphery/Router.sol:163-167, Launch-x:contracts/contracts/core/SidioraFactory.sol:79-83); a failed pull reverts with the USDL revert data wrapped as TransferFromFailed() as TransferHelper does.
-- The pool token is a real SidioraERC20 contract created by a nested CREATE2 with caller the generation 2 SidioraFactory address 0x3993…8830 (Launch-x:shared/config/deployment/current.json:37), salt keccak256(abi.encodePacked(creator, name, symbol, nonce)) with the per-creator nonce of Launch-x:contracts/contracts/core/SidioraFactory.sol:120-121, and init code SidioraERC20(name, symbol, virtualToken, factory) (Launch-x:contracts/contracts/core/SidioraFactory.sol:123-125), so its deploymentFactory is 0x3993…8830 (Launch-x:shared/config/deployment/current.json:37) and its whole supply starts at that address with six decimals (Launch-x:contracts/contracts/core/SidioraERC20.sol:40-49).
-- The pool address is the exact address predictPoolAddress(token, creator, optical) returns (Launch-x:contracts/contracts/core/SidioraFactory.sol:166-173): CREATE2 from 0x3993…8830 (Launch-x:shared/config/deployment/current.json:37) with salt keccak256(abi.encodePacked(token)) over the beacon proxy init code of 0x0c60…71BE (Launch-x:shared/config/deployment/current.json:79) and initialize calldata built with the generation 2 role addresses (Launch-x:contracts/contracts/core/SidioraFactory.sol:128-144); the precompile installs the 41-byte surface there with SetCode (modules/evm/keeper/code.go) and nonce 1, and when the address already holds code or a nonzero nonce the call reverts with empty revert data as Launch-x:contracts/contracts/core/SidioraFactory.sol:182 does.
-- In the contract order of Launch-x:contracts/contracts/core/SidioraFactory.sol:147-163 the precompile authorizes the pool at the generation 2 FeeAccumulator, mints the fee right in the generation 2 collection at nextTokenId (slot 11) with its strategy (slot 12) and pool (slot 13), writes the PoolRegistry metadata creator, token, optical, nftId, createdAt and createdBlock (Launch-x:contracts/contracts/interfaces/IPoolRegistry.sol:15) and the keeper market record, then runs bindPool(pool) and transfer(pool, virtualToken) on the token with caller 0x3993…8830 (Launch-x:shared/config/deployment/current.json:37) (Launch-x:contracts/contracts/core/SidioraFactory.sol:153-154), so the token transfer reads opticalAddress() from a pool that already exists (Launch-x:contracts/contracts/core/SidioraERC20.sol:26-34).
-- Market creation emits Initialized(1) at the pool address, PoolNFTMinted and Transfer at the collection, NftMint, PoolRegistered, TokenDeployed and MarketCreated of the EventEmitter family at 0x1017, and MarketCreated(address,address,address,uint256,address) at 0x3993…8830 (Launch-x:shared/config/deployment/current.json:37) (Launch-x:contracts/contracts/core/SidioraFactory.sol:159-163); the token contract emits its own ERC20 Transfer logs; no pointer is registered, so the pointer gas term is 0 for market creation.
+- createMarket through the Router or Factory surface or 0x1017 validates name and symbol (modules/launchpad/types/market.go) and the virtual defaults, fee strategy and optical code as contracts/launchpad/contracts/core/SidioraFactory.sol does (reverting ZeroAddress()), and charges the creation fee by USDL.transferFrom(caller, launchpad module EVM address, creationFee) credited to TreasuryLedger and TreasuryHeld of the generation 2 Treasury address read from SidioraFactory slot 6 (contracts/launchpad/contracts/core/SidioraFactory.sol) and recorded in modules/launchpad/keeper/testdata/v6120/layout.json, with Deposited(USDL, depositor, creationFee) emitted at the Treasury address (contracts/launchpad/contracts/periphery/Router.sol, contracts/launchpad/contracts/core/SidioraFactory.sol); a failed pull reverts with the USDL revert data wrapped as TransferFromFailed() as TransferHelper does.
+- The pool token is a real SidioraERC20 contract created by a nested CREATE2 with caller the generation 2 SidioraFactory address 0x3993…8830 (sdk/launchpad/shared/config/deployment/current.json), salt keccak256(abi.encodePacked(creator, name, symbol, nonce)) with the per-creator nonce of contracts/launchpad/contracts/core/SidioraFactory.sol, and init code SidioraERC20(name, symbol, virtualToken, factory) (contracts/launchpad/contracts/core/SidioraFactory.sol), so its deploymentFactory is 0x3993…8830 (sdk/launchpad/shared/config/deployment/current.json) and its whole supply starts at that address with six decimals (contracts/launchpad/contracts/core/SidioraERC20.sol).
+- The pool address is the exact address predictPoolAddress(token, creator, optical) returns (contracts/launchpad/contracts/core/SidioraFactory.sol): CREATE2 from 0x3993…8830 (sdk/launchpad/shared/config/deployment/current.json) with salt keccak256(abi.encodePacked(token)) over the beacon proxy init code of 0x0c60…71BE (sdk/launchpad/shared/config/deployment/current.json) and initialize calldata built with the generation 2 role addresses (contracts/launchpad/contracts/core/SidioraFactory.sol); the precompile installs the 51-byte SurfaceRuntime there with SetCode (modules/evm/keeper/code.go) and nonce 1, and when the address already holds code or a nonzero nonce the call reverts with empty revert data as contracts/launchpad/contracts/core/SidioraFactory.sol does.
+- In the contract order of contracts/launchpad/contracts/core/SidioraFactory.sol the precompile authorizes the pool at the generation 2 FeeAccumulator, mints the fee right in the generation 2 collection at nextTokenId (slot 11) with its strategy (slot 12) and pool (slot 13), writes the PoolRegistry metadata creator, token, optical, nftId, createdAt and createdBlock (contracts/launchpad/contracts/interfaces/IPoolRegistry.sol) and the keeper market record, then runs bindPool(pool) and transfer(pool, virtualToken) on the token with caller 0x3993…8830 (sdk/launchpad/shared/config/deployment/current.json) (contracts/launchpad/contracts/core/SidioraFactory.sol), so the token transfer reads opticalAddress() from a pool that already exists (contracts/launchpad/contracts/core/SidioraERC20.sol).
+- Market creation emits Initialized(1) at the pool address, PoolNFTMinted and Transfer at the collection, NftMint, PoolRegistered, TokenDeployed and MarketCreated of the EventEmitter family at 0x1017, and MarketCreated(address,address,address,uint256,address) at 0x3993…8830 (sdk/launchpad/shared/config/deployment/current.json) (contracts/launchpad/contracts/core/SidioraFactory.sol); the token contract emits its own ERC20 Transfer logs; no pointer is registered, so the pointer gas term is 0 for market creation.
 
 ## 8. Migration record
 
 - MigrateV6120 runs step 1 (USDL custody), step 2 (pools and pool tokens), step 3 (fee rights, roles, accounting, pause state) and step 4 (surfaces and retirement) in one cached context, once.
 - Step 1 moves the USDL of every pool and FeeAccumulator to the launchpad module EVM address by USDL.transfer through CallEVM from the holding address, drains both Treasuries by withdraw and recoverSurplus through CallEVM from the fixture admin, and credits the ledgers; USDL code and storage outside those balances are unchanged.
-- Step 2 enumerates pools from each PoolRegistry (Launch-x:contracts/contracts/data/PoolRegistry.sol:23), reads every pool slot, sets reserves to min(book, held) and records the book-held delta with no top-up.
+- Step 2 enumerates pools from each PoolRegistry (contracts/launchpad/contracts/data/PoolRegistry.sol), reads every pool slot, sets reserves to min(book, held) and records the book-held delta with no top-up.
 - DEFAULT_ADMIN_ROLE memberships, the factory link of migrateFactory and the old contract storage behind the surfaces are not carried; pool-token storage, USDL allowances and nonces stay in their contracts.
 
 ### Step 1, USDL custody
 
-- Step 1 reads USDL.balanceOf of every pool address of generations 1 and 2, of both FeeAccumulator addresses and of both Treasury addresses (0x15405D535ce533BfFb98c83e42f4DD242AA5e079 (Launch-x:protocol/addresses.go:84) and the generation 2 Treasury address read from SidioraFactory slot 6 (Launch-x:contracts/contracts/core/SidioraFactory.sol:30) and recorded in modules/launchpad/keeper/testdata/v6120/layout.json) by StaticCallEVM (modules/evm/keeper/evm.go) and refuses with "upgrade v6.12.0: launchpad: usdl balance differs from golden" when a balance differs from modules/launchpad/keeper/testdata/v6120/usdl.json.
-- For each pool and FeeAccumulator address with a nonzero balance the step calls CallEVM (modules/evm/keeper/evm.go) with from the holding contract and data USDL.transfer(launchpad module EVM address, balance), before any surface is installed, and credits HeldQuote(pool) or FeeHeld; the contracts have no withdraw function, which is why the transfer runs from their address (head decision 3).
-- For each Treasury the step calls withdraw(token, 0x1017, getBalance(token)) and then recoverSurplus(token, 0x1017, surplus) (Launch-x:contracts/contracts/protocol/Treasury.sol:58-70, Launch-x:contracts/contracts/protocol/Treasury.sol:87-94) through CallEVM from the DEFAULT_ADMIN_ROLE holder named in the fixture, after a hasRole(0x00, holder) staticcall confirms the holding, for every token the fixture lists; the withdrawn ledger amounts are credited to TreasuryLedger of the generation 2 Treasury and the full amounts to TreasuryHeld, so nothing stays behind a retired address.
+- Step 1 reads USDL.balanceOf of every pool address of generations 1 and 2, of both FeeAccumulator addresses and of both Treasury addresses (0x15405D535ce533BfFb98c83e42f4DD242AA5e079 (sdk/launchpad/protocol/addresses.go) and the generation 2 Treasury address read from SidioraFactory slot 6 (contracts/launchpad/contracts/core/SidioraFactory.sol) and recorded in modules/launchpad/keeper/testdata/v6120/layout.json) by StaticCallEVM (modules/evm/keeper/evm.go) and refuses with "upgrade v6.12.0: launchpad: usdl balance differs from golden" when a balance differs from modules/launchpad/keeper/testdata/v6120/usdl.json.
+- For each pool and FeeAccumulator address with a nonzero balance the step calls CallEVM (modules/evm/keeper/evm.go) with from the holding contract and data USDL.transfer(launchpad module EVM address, balance), before any surface is installed, and credits HeldQuote(pool) or FeeHeld; the contracts have no withdraw function, which is why the transfer runs from their address.
+- For each Treasury the step calls withdraw(token, 0x1017, getBalance(token)) and then recoverSurplus(token, 0x1017, surplus) (contracts/launchpad/contracts/protocol/Treasury.sol, contracts/launchpad/contracts/protocol/Treasury.sol) through CallEVM from the DEFAULT_ADMIN_ROLE holder named in the fixture, after a hasRole(0x00, holder) staticcall confirms the holding, for every token the fixture lists; the withdrawn ledger amounts are credited to TreasuryLedger of the generation 2 Treasury and the full amounts to TreasuryHeld, so nothing stays behind a retired address.
 - USDL allowances and permit nonces are untouched because USDL storage is untouched; users who traded through the Router grant a new allowance to 0x1017, the spender of the pulls, and the migration record of spec/release-v6-12-0/contracts/launchpad.md lists this.
 - Step 1 runs first inside MigrateV6120, needs no Minter permission and no MintCoins, and its result is checked: USDL.balanceOf(launchpad module EVM address) after the step equals its value before plus the sum moved, and the custody invariant holds.
 
 ### Step 2, pools and pool tokens
 
-- migratePools lists the pools of each generation from the PoolRegistry _allPools array (slot 6, Launch-x:contracts/contracts/data/PoolRegistry.sol:23) of 0x7684…BA0b and 0x1dC3…4Ba7 and refuses when a pool code hash is not the code hash of a generation pool proxy recorded in modules/launchpad/keeper/testdata/v6120/layout.json.
+- migratePools lists the pools of each generation from the PoolRegistry _allPools array (slot 6, contracts/launchpad/contracts/data/PoolRegistry.sol) of 0x7684…BA0b and 0x1dC3…4Ba7 and refuses when a pool code hash is not the code hash of a generation pool proxy recorded in modules/launchpad/keeper/testdata/v6120/layout.json.
 - Each pool state field is read from its slot (tokenAddress 0, usdlAddress 1, opticalAddress 2, feeAccumulator 3, eventEmitter 4, protocolConfig 5, guardian 6, virtualUsdlReserve 7, realUsdlBalance 8, tokenReserve 9, creationTimestamp 10, cumulativeVolume 11, priceSnapshots 12-19, snapshotIndex 20, snapshotCount 21, accumulatedUsdlFees 22, accumulatedTokenFees 23, factory 24, pendingGuardian 25, lastSnapshotTimestamp 26, cumulativeBuyUsdlVolume 27, cumulativeSellUsdlVolume 28) as layout.json records them for the generation implementation, into the keeper Market record.
 - Pool tokens stay the deployed SidioraERC20 contracts with code and storage unchanged; step 2 reads token.balanceOf(pool) and totalSupply by StaticCallEVM (modules/evm/keeper/evm.go), checks holders.json against balanceOf with their sum equal to totalSupply, and writes nothing at the token address.
-- For each pool the step sets RealQuote to min(realUsdlBalance, the USDL moved from the pool in step 1) and TokenReserve to min(tokenReserve, token.balanceOf(pool)), and records the book-held delta when book and held differ, so InvalidBalance (Launch-x:contracts/contracts/core/SidioraPool.sol:268) holds for every migrated pool.
-- Every migrated pool becomes a generation 2 pool: its factory, feeAccumulator, protocolConfig and eventEmitter fields are set to 0x3993…8830 (Launch-x:shared/config/deployment/current.json:37), 0x7b14…1a66 (Launch-x:shared/config/deployment/current.json:51), 0xF366…20C6 (Launch-x:shared/config/deployment/current.json:16) and 0x622E…3EF6 (Launch-x:shared/config/deployment/current.json:9), its fee right moves to the generation 2 collection, it is authorized at the generation 2 FeeAccumulator and registered at the generation 2 PoolRegistry, and the generation 1 ProtocolConfig values that differ from generation 2 are written to the migration log.
-- Pool-token allowances, permit nonces and checkpoints stay in the token contracts, so getPastBalance, getPastTotalSupply, getPastVotes, permit, nonces, DOMAIN_SEPARATOR and PERMIT_TYPEHASH keep answering at the token addresses; Paused (the Pausable slot of Launch-x:contracts/contracts/base/Pausable.sol:13) and guardian state of each pool migrate into the market record.
+- For each pool the step sets RealQuote to min(realUsdlBalance, the USDL moved from the pool in step 1) and TokenReserve to min(tokenReserve, token.balanceOf(pool)), and records the book-held delta when book and held differ, so InvalidBalance (contracts/launchpad/contracts/core/SidioraPool.sol) holds for every migrated pool.
+- Every migrated pool becomes a generation 2 pool: its factory, feeAccumulator, protocolConfig and eventEmitter fields are set to 0x3993…8830 (sdk/launchpad/shared/config/deployment/current.json), 0x7b14…1a66 (sdk/launchpad/shared/config/deployment/current.json), 0xF366…20C6 (sdk/launchpad/shared/config/deployment/current.json) and 0x622E…3EF6 (sdk/launchpad/shared/config/deployment/current.json), its fee right moves to the generation 2 collection, it is authorized at the generation 2 FeeAccumulator and registered at the generation 2 PoolRegistry, and the generation 1 ProtocolConfig values that differ from generation 2 are written to the migration log.
+- Pool-token allowances, permit nonces and checkpoints stay in the token contracts, so getPastBalance, getPastTotalSupply, getPastVotes, permit, nonces, DOMAIN_SEPARATOR and PERMIT_TYPEHASH keep answering at the token addresses; Paused (the Pausable slot of contracts/launchpad/contracts/base/Pausable.sol) and guardian state of each pool migrate into the market record.
 
 ### Step 3, fee rights, roles and accounting
 
-- Fee rights of the generation 2 collection keep their ids; fee rights of the generation 1 collection 0xDF73…e190 (Launch-x:protocol/addresses.go:27) are minted again in the generation 2 collection at nextTokenId in generation 1 id order, each with holder from _owners (slot 2), approval from _tokenApprovals (slot 4), operator approvals from _operatorApprovals (slot 5) for the fixture operators, strategy from _feeStrategy (slot 12) and pool from _poolAddress (slot 13), and the collection fields of slots 2-9, 11-13, 15 and 16-17 of Launch-x:contracts/contracts/core/SidioraNFT.sol:18-30 and Launch-x:contracts/contracts/base/ERC721Base.sol:11 migrate, among them the per-holder _balances (Launch-x:contracts/contracts/base/ERC721Base.sol:14), the enumeration arrays _allTokens, _allTokensIndex, _ownedTokens and _ownedTokensIndex (Launch-x:contracts/contracts/base/ERC721Enumerable.sol:9-12) rebuilt over the merged ids, poolTokenId per pool and poolIndexMigrationCursor (Launch-x:contracts/contracts/core/SidioraNFT.sol:25-29), and poolIndexReady set true once every pool is indexed (Launch-x:contracts/contracts/core/SidioraNFT.sol:30); the fee-right receiver hook is not called on import.
+- Fee rights of the generation 2 collection keep their ids; fee rights of the generation 1 collection 0xDF73…e190 (sdk/launchpad/protocol/addresses.go) are minted again in the generation 2 collection at nextTokenId in generation 1 id order, each with holder from _owners (slot 2), approval from _tokenApprovals (slot 4), operator approvals from _operatorApprovals (slot 5) for the fixture operators, strategy from _feeStrategy (slot 12) and pool from _poolAddress (slot 13), and the collection fields of slots 2-9, 11-13, 15 and 16-17 of contracts/launchpad/contracts/core/SidioraNFT.sol and contracts/launchpad/contracts/base/ERC721Base.sol migrate, among them the per-holder _balances (contracts/launchpad/contracts/base/ERC721Base.sol), the enumeration arrays _allTokens, _allTokensIndex, _ownedTokens and _ownedTokensIndex (contracts/launchpad/contracts/base/ERC721Enumerable.sol) rebuilt over the merged ids, poolTokenId per pool and poolIndexMigrationCursor (contracts/launchpad/contracts/core/SidioraNFT.sol), and poolIndexReady set true once every pool is indexed (contracts/launchpad/contracts/core/SidioraNFT.sol); the fee-right receiver hook is not called on import.
 - Role memberships other than DEFAULT_ADMIN_ROLE migrate from each role _roles mapping (slot 0, or slot 10 in the collection) for the accounts listed in the fixture and verified by storage read, generation 1 holders merged into the generation 2 role; DEFAULT_ADMIN_ROLE is not carried, so registeredDefaultAdminCount() returns 0 at every role address and administration runs through requirement 2.40.
 - FeeAccumulator accounting of both generations merges into the generation 2 FeeAccumulator: _accumulatedFees, _protocolFeesPending, _airdropBalance, _airdropEpoch, _airdropEpochAmount, _airdropClaimed (for the fixture claimants), _lpRewardsBalance, _opticalSurplus, totalLiabilities, the airdrop snapshot fields (slots 15 to 18), accountingInitialized and the legacy airdrop fields (slots 22 to 24).
-- Each pool keeps its optical address; optical contracts stay deployed and unchanged and are called by the precompile with the callers they accept (Launch-x:contracts/contracts/opticals/BaseOptical.sol:86), the PoolRegistry metadata (slot 4) of every pool migrates with nftId (the new id for a generation 1 fee right), createdAt and createdBlock, and OPTICAL_GRANTER_ROLE of LaunchpadOpticalFactory (Launch-x:contracts/contracts/opticals/LaunchpadOpticalFactory.sol:106) migrates to the generation 2 FeeAccumulator role table.
+- Each pool keeps its optical address; optical contracts stay deployed and unchanged and are called by the precompile with the callers they accept (contracts/launchpad/contracts/opticals/BaseOptical.sol), the PoolRegistry metadata (slot 4) of every pool migrates with nftId (the new id for a generation 1 fee right), createdAt and createdBlock, and OPTICAL_GRANTER_ROLE of LaunchpadOpticalFactory (contracts/launchpad/contracts/opticals/LaunchpadOpticalFactory.sol) migrates to the generation 2 FeeAccumulator role table.
 - MigrateV6120 returns its first error wrapped as "upgrade v6.12.0: launchpad: <error>" by the caller in the upgrade handler; it writes nothing outside the launchpad and EVM stores, USDL balances change only through the nested ERC20 calls of step 1, and the whole migration is one cached context committed only on success.
 - The map from each generation 1 fee-right id to its generation 2 id is written to the migration log and stored in the keeper, served by a keeper query, and exported and imported by genesis.
 
@@ -1089,7 +1087,7 @@ Direct calls also expose the chain-launch ABI in precompiles/launchpad/abi/Chain
 ### Guards, pause state and legacy replay
 
 - MigrateV6120 refuses with "upgrade v6.12.0: launchpad: native markets exist" when GetMarketCount (modules/launchpad/keeper/keeper.go) is above 0 at the halt height, so no native market created before the upgrade collides with the imported indexes.
-- The pause flag of every pool (the Pausable slot at Launch-x:contracts/contracts/base/Pausable.sol:13) and the guardian and pending guardian migrate into the market record, so paused() and emergencyPaused() return the halt-height values and a paused pool refuses swaps after the upgrade.
+- The pause flag of every pool (the Pausable slot at contracts/launchpad/contracts/base/Pausable.sol) and the guardian and pending guardian migrate into the market record, so paused() and emergencyPaused() return the halt-height values and a paused pool refuses swaps after the upgrade.
 - The v6.10 keeper and types remain under modules/launchpad/legacy/v610/keeper and modules/launchpad/legacy/v610/types over the same store key. The legacy precompile and keeper accessor replay heights below activation.
 
 ### Not migrated
@@ -1109,67 +1107,67 @@ Direct calls also expose the chain-launch ABI in precompiles/launchpad/abi/Chain
 
 ## 9. Fees and airdrops
 
-- recordFee splits the buy fee into protocol cut protocolFeeBps/10000 and pool cut, applies the optical beforeFeeDistribution adjustment with InsufficientSurplus when it raises the pool cut (Launch-x:contracts/contracts/data/FeeAccumulator.sol:135), moves the protocol cut from FeeHeld to TreasuryLedger and TreasuryHeld of the Treasury with Deposited(USDL, 0x7b14…1a66, cut) emitted at the Treasury address (Launch-x:contracts/contracts/data/FeeAccumulator.sol:150-155), calls afterFeeDistribution and requires its selector (Launch-x:contracts/contracts/data/FeeAccumulator.sol:161) and emits FeeRecorded (Launch-x:contracts/contracts/data/FeeAccumulator.sol:164) at the generation 2 FeeAccumulator address 0x7b14…1a66 (Launch-x:shared/config/deployment/current.json:51).
-- claim pays the accumulated pool fees to the recipient by USDL.transfer from the launchpad module EVM address and reverts NoFeesAccumulated() at zero (Launch-x:contracts/contracts/data/FeeAccumulator.sol:169-184); burn transfers them to `0x000000000000000000000000000000000000dEaD` (Launch-x:contracts/contracts/data/FeeAccumulator.sol:187-200); sendLpRewards moves them from FeeHeld to HeldQuote of the pool reserve (Launch-x:contracts/contracts/data/FeeAccumulator.sol:272-286).
-- The FeesRouter role checks the caller holds the fee right of the pool in the generation 2 collection (ownerOf) and the strategy of that fee right, and emits FeeDistributed at 0x1017 (Launch-x:contracts/contracts/periphery/FeesRouter.sol:124); the keeper requireFeeRightsHolder (modules/launchpad/keeper/fees.go) reads the fee-right store keyed by collection and id.
-- The FeeAccumulator keeps one totalLiabilities and requires FeeHeld to cover it plus the new amount (Launch-x:contracts/contracts/data/FeeAccumulator.sol:478-480); the mirror FeeFlow event is emitted at 0x1017 (Launch-x:contracts/contracts/data/FeeAccumulator.sol:470).
-- triggerAirdrop opens epoch e+1 for the pool with the airdrop balance, the eligible supply and the snapshot block block.number-1 as Launch-x:contracts/contracts/data/FeeAccumulator.sol:203-230 does, reading getPastTotalSupply and getPastBalance of the pool and dead addresses from the pool-token contract by nested staticcall; the keeper stores the epoch fields of FeeAccumulator slots 15 to 18 and no entitlement table.
-- claimAirdrop pays holder balance at the snapshot times the epoch amount over the eligible supply by USDL.transfer from the launchpad module EVM address, refuses the pool, the `0x000000000000000000000000000000000000dEaD` address and zero (Launch-x:contracts/contracts/data/FeeAccumulator.sol:250), refuses a second claim with AlreadyClaimed() (Launch-x:contracts/contracts/data/FeeAccumulator.sol:251) and gives the rounding residue to the final claimant (Launch-x:contracts/contracts/data/FeeAccumulator.sol:248-269); the holder balance at the snapshot is getPastBalance(holder, snapshotBlock) read from the pool-token contract by nested staticcall.
+- recordFee splits the buy fee into protocol cut protocolFeeBps/10000 and pool cut, applies the optical beforeFeeDistribution adjustment with InsufficientSurplus when it raises the pool cut (contracts/launchpad/contracts/data/FeeAccumulator.sol), moves the protocol cut from FeeHeld to TreasuryLedger and TreasuryHeld of the Treasury with Deposited(USDL, 0x7b14…1a66, cut) emitted at the Treasury address (contracts/launchpad/contracts/data/FeeAccumulator.sol), calls afterFeeDistribution and requires its selector (contracts/launchpad/contracts/data/FeeAccumulator.sol) and emits FeeRecorded (contracts/launchpad/contracts/data/FeeAccumulator.sol) at the generation 2 FeeAccumulator address 0x7b14…1a66 (sdk/launchpad/shared/config/deployment/current.json).
+- claim pays the accumulated pool fees to the recipient by USDL.transfer from the launchpad module EVM address and reverts NoFeesAccumulated() at zero (contracts/launchpad/contracts/data/FeeAccumulator.sol); burn transfers them to `0x000000000000000000000000000000000000dEaD` (contracts/launchpad/contracts/data/FeeAccumulator.sol); sendLpRewards moves them from FeeHeld to HeldQuote of the pool reserve (contracts/launchpad/contracts/data/FeeAccumulator.sol).
+- The FeesRouter role checks the caller holds the fee right of the pool in the generation 2 collection (ownerOf) and the strategy of that fee right, and emits FeeDistributed at 0x1017 (contracts/launchpad/contracts/periphery/FeesRouter.sol); the keeper requireFeeRightsHolder (modules/launchpad/keeper/fees.go) reads the fee-right store keyed by collection and id.
+- The FeeAccumulator keeps one totalLiabilities and requires FeeHeld to cover it plus the new amount (contracts/launchpad/contracts/data/FeeAccumulator.sol); the mirror FeeFlow event is emitted at 0x1017 (contracts/launchpad/contracts/data/FeeAccumulator.sol).
+- triggerAirdrop opens epoch e+1 for the pool with the airdrop balance, the eligible supply and the snapshot block block.number-1 as contracts/launchpad/contracts/data/FeeAccumulator.sol does, reading getPastTotalSupply and getPastBalance of the pool and dead addresses from the pool-token contract by nested staticcall; the keeper stores the epoch fields of FeeAccumulator slots 15 to 18 and no entitlement table.
+- claimAirdrop pays holder balance at the snapshot times the epoch amount over the eligible supply by USDL.transfer from the launchpad module EVM address, refuses the pool, the `0x000000000000000000000000000000000000dEaD` address and zero (contracts/launchpad/contracts/data/FeeAccumulator.sol), refuses a second claim with AlreadyClaimed() (contracts/launchpad/contracts/data/FeeAccumulator.sol) and gives the rounding residue to the final claimant (contracts/launchpad/contracts/data/FeeAccumulator.sol); the holder balance at the snapshot is getPastBalance(holder, snapshotBlock) read from the pool-token contract by nested staticcall.
 - Open airdrop epochs of migrated pools keep their snapshot: MigrateV6120 carries airdropSnapshotBlock and the epoch fields (FeeAccumulator slots 15 to 18), and a claim after the upgrade reads the same token checkpoints the contract read, so it pays what the contract would have paid.
-- claimLegacyAirdrop verifies the Merkle proof over keccak256(pool, epoch, holder, amount) (Launch-x:contracts/contracts/data/FeeAccumulator.sol:453) against legacyAirdropRoot (slot 23) and legacyAirdropRemaining (slot 24), both migrated.
+- claimLegacyAirdrop verifies the Merkle proof over keccak256(pool, epoch, holder, amount) (contracts/launchpad/contracts/data/FeeAccumulator.sol) against legacyAirdropRoot (slot 23) and legacyAirdropRemaining (slot 24), both migrated.
 
 ## 10. Parameters
 
-- Default parameters match ProtocolConfig.initialize (Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:45-54): ConcentrationWeight is 0, CreationFee is 1000000 and QuoteToken names USDL (modules/launchpad/types/params.go).
-- Validate enforces the ProtocolConfig setter bounds (Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:84, Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:100, Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:67).
+- Default parameters match ProtocolConfig.initialize (contracts/launchpad/contracts/protocol/ProtocolConfig.sol): ConcentrationWeight is 0, CreationFee is 1000000 and QuoteToken names USDL (modules/launchpad/types/params.go).
+- Validate enforces the ProtocolConfig setter bounds (contracts/launchpad/contracts/protocol/ProtocolConfig.sol, contracts/launchpad/contracts/protocol/ProtocolConfig.sol, contracts/launchpad/contracts/protocol/ProtocolConfig.sol).
 - Parameters, role grants and revokes change through MsgUpdateParams only (modules/launchpad/keeper/msg_server.go); Treasury payouts run through MsgTreasuryWithdraw.
 
 | Parameter | ProtocolConfig.initialize | DefaultParams | v6.12.0 |
 |---|---|---|---|
-| VirtualQuoteDefault | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:45 | modules/launchpad/types/params.go | 10000000000 |
-| VirtualTokenDefault | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:46 | modules/launchpad/types/params.go | 1000000000000000 |
-| MinFeeBps | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:47 | modules/launchpad/types/params.go | 10 |
-| MaxFeeBps | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:48 | modules/launchpad/types/params.go | 300 |
-| BaseFeeBps | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:49 | modules/launchpad/types/params.go | 30 |
-| ProtocolFeeBps | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:50 | modules/launchpad/types/params.go | 1000 |
-| FeeDecayRate | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:51 | modules/launchpad/types/params.go | 500 |
-| VolatilityWeight | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:52 | modules/launchpad/types/params.go | 100 |
-| ConcentrationWeight | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:53 | modules/launchpad/types/params.go | 0 |
-| CreationFee | Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:54 | modules/launchpad/types/params.go | 1000000 |
+| VirtualQuoteDefault | contracts/launchpad/contracts/protocol/ProtocolConfig.sol | modules/launchpad/types/params.go | 10000000000 |
+| VirtualTokenDefault | contracts/launchpad/contracts/protocol/ProtocolConfig.sol | modules/launchpad/types/params.go | 1000000000000000 |
+| MinFeeBps | contracts/launchpad/contracts/protocol/ProtocolConfig.sol | modules/launchpad/types/params.go | 10 |
+| MaxFeeBps | contracts/launchpad/contracts/protocol/ProtocolConfig.sol | modules/launchpad/types/params.go | 300 |
+| BaseFeeBps | contracts/launchpad/contracts/protocol/ProtocolConfig.sol | modules/launchpad/types/params.go | 30 |
+| ProtocolFeeBps | contracts/launchpad/contracts/protocol/ProtocolConfig.sol | modules/launchpad/types/params.go | 1000 |
+| FeeDecayRate | contracts/launchpad/contracts/protocol/ProtocolConfig.sol | modules/launchpad/types/params.go | 500 |
+| VolatilityWeight | contracts/launchpad/contracts/protocol/ProtocolConfig.sol | modules/launchpad/types/params.go | 100 |
+| ConcentrationWeight | contracts/launchpad/contracts/protocol/ProtocolConfig.sol | modules/launchpad/types/params.go | 0 |
+| CreationFee | contracts/launchpad/contracts/protocol/ProtocolConfig.sol | modules/launchpad/types/params.go | 1000000 |
 
-- DefaultParams (modules/launchpad/types/params.go) sets ConcentrationWeight 0 and CreationFee 1000000, the ProtocolConfig values (Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:45-54).
+- DefaultParams (modules/launchpad/types/params.go) sets ConcentrationWeight 0 and CreationFee 1000000, the ProtocolConfig values (contracts/launchpad/contracts/protocol/ProtocolConfig.sol).
 - MigrateV6120 writes one parameter set read from the generation 2 ProtocolConfig storage (slots 2 to 11) and refuses when it fails Validate (modules/launchpad/types/params.go); the generation 1 ProtocolConfig values that differ are written to the migration log and not applied.
-- Validate enforces the ProtocolConfig bounds: concentrationWeight must be 0 (Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:84), decay and volatility weights at most 10000 (Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:79-90), virtual defaults fit uint112 (Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:100), protocolFeeBps at most 5000 (modules/launchpad/types/params.go) and baseFeeBps within min and max (Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:60).
+- Validate enforces the ProtocolConfig bounds: concentrationWeight must be 0 (contracts/launchpad/contracts/protocol/ProtocolConfig.sol), decay and volatility weights at most 10000 (contracts/launchpad/contracts/protocol/ProtocolConfig.sol), virtual defaults fit uint112 (contracts/launchpad/contracts/protocol/ProtocolConfig.sol), protocolFeeBps at most 5000 (modules/launchpad/types/params.go) and baseFeeBps within min and max (contracts/launchpad/contracts/protocol/ProtocolConfig.sol).
 - Parameters change only through MsgUpdateParams from the governance authority (modules/launchpad/keeper/msg_server.go), which emits ConfigUpdated at 0x1017 for each changed key.
 
 ## 11. Events
 
 - Contract-native events are emitted at the generation 2 address of the role, or at the pool address, through EmitEVMLog (precompiles/common/evm_events.go); ERC20 logs of USDL and pool tokens come from those contracts.
-- The twelve EventEmitter launchpad events are emitted at 0x1017 with block timestamp and number appended (Launch-x:contracts/contracts/data/EventEmitter.sol:365); the EventEmitter contracts stay deployed for the other systems.
+- The twelve EventEmitter launchpad events are emitted at 0x1017 with block timestamp and number appended (contracts/launchpad/contracts/data/EventEmitter.sol); the EventEmitter contracts stay deployed for the other systems.
 - Logs of one call appear in the contract order of the call, nested contract logs included.
 - SidioraPool events are emitted at the pool address; Initialized only at pools created after the upgrade.
 - SidioraFactory events at 0x3993…8830; Router events at the address the caller called (0x78FB…C6e4 or 0x1017); FeesRouter events at the address the caller called (0x0568…7927 or 0x1017); FeeAccumulator events at 0x7b14…1a66; PoolRegistry events at 0x1dC3…4Ba7; ProtocolConfig events at 0x1017; SidioraNFT events at 0xe8Dc…409B; Treasury events at the generation 2 Treasury address.
 - RoleGranted and RoleRevoked are emitted at the surface of the role only from MsgUpdateParams administration and renounceRole; RoleAdminChanged, Upgraded and MirrorFailed are not emitted after the upgrade.
 - ERC20 Approval and Transfer logs of USDL and pool tokens come from those token contracts.
-- EventEmitter event `Swap(bytes32,address,bool,uint256,uint256,uint256,uint256,uint256,uint256)` (topic0 0xa234ab85728295548823d8a26077ecc77aa5815f9ed8f4c5e6fd390ac851d4cc, declared at Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:21) is emitted at 0x1017 by the precompile wherever the contract flow called emitSwap (Launch-x:contracts/contracts/core/SidioraPool.sol:273), with the arguments emitSwap adds (block.timestamp and block.number, Launch-x:contracts/contracts/data/EventEmitter.sol:365); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
-- EventEmitter event `PoolStateUpdated(bytes32,uint256,uint256,uint256,uint256,uint256,uint256)` (topic0 0x8155a4b38a877d212b271811786986f8f7d78074c82fce4526c58defcc6d7ebd, declared at Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:70) is emitted at 0x1017 by the precompile wherever the contract flow called emitPoolStateUpdated (Launch-x:contracts/contracts/core/SidioraPool.sol:288), with the arguments emitPoolStateUpdated adds (block.timestamp and block.number, Launch-x:contracts/contracts/data/EventEmitter.sol:409); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
-- EventEmitter event `TokenDeployed(address,address,address,bytes32,string,string,uint8,uint256,uint256,uint256)` (topic0 0xad187874b793634c55d977f35d4828526eb48170a9531c71d88f8fd10cf9c237, declared at Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:619) is emitted at 0x1017 by the precompile wherever the contract flow called emitTokenDeployed (Launch-x:contracts/contracts/core/SidioraFactory.sol:159), with the arguments emitTokenDeployed adds (block.timestamp and block.number, Launch-x:contracts/contracts/data/EventEmitter.sol:831); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
-- EventEmitter event `MarketCreated(bytes32,address,address,address,address,uint256,uint256)` (topic0 0xb0a9c7605389f1127c2299d4a3ed85f0b2fc19894ab5411d76b453bb29f9f47b, declared at Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:11) is emitted at 0x1017 by the precompile wherever the contract flow called emitMarketCreated (Launch-x:contracts/contracts/core/SidioraFactory.sol:160), with the arguments emitMarketCreated adds (block.timestamp and block.number, Launch-x:contracts/contracts/data/EventEmitter.sol:354); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
-- EventEmitter event `NftMint(uint256,address,address,uint8,uint256,uint256)` (topic0 0xd2917d37031c0dfe5016665c7a83360cbf2ff32063096b2caf61ba66c06832e5, declared at Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:600) is emitted at 0x1017 by the precompile wherever the contract flow called emitNftMint (Launch-x:contracts/contracts/core/SidioraNFT.sol:81), with the arguments emitNftMint adds (block.timestamp and block.number, Launch-x:contracts/contracts/data/EventEmitter.sol:800); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
-- EventEmitter event `FeeStrategyChanged(bytes32,uint256,uint8,uint8,uint256,uint256)` (topic0 0x337fd9f9304e9da4c04886a5b8bf56e74032b459758212a860bc61d3544353dd, declared at Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:52) is emitted at 0x1017 by the precompile wherever the contract flow called emitFeeStrategyChanged (Launch-x:contracts/contracts/core/SidioraNFT.sol:123), with the arguments emitFeeStrategyChanged adds (block.timestamp and block.number, Launch-x:contracts/contracts/data/EventEmitter.sol:399); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
-- EventEmitter event `NftTransfer(address,address,address,uint256,uint256,uint256)` (topic0 0x021f03e8a1315704c74c03e8c022c12bc80c4a2bd4fec8bd36b217322c340ad3, declared at Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:482) is emitted at 0x1017 by the precompile wherever the contract flow called emitNftTransfer (Launch-x:contracts/contracts/core/SidioraNFT.sol:144), with the arguments emitNftTransfer adds (block.timestamp and block.number, Launch-x:contracts/contracts/data/EventEmitter.sol:700); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
-- EventEmitter event `PoolRegistered(address,address,address,address,uint256,uint256,uint256)` (topic0 0xda5568642b67660133b1de538c867c58f3037a5722b0e231a959ee8ca11b2ed7, declared at Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:609) is emitted at 0x1017 by the precompile wherever the contract flow called emitPoolRegistered (Launch-x:contracts/contracts/data/PoolRegistry.sol:68), with the arguments emitPoolRegistered adds (block.timestamp and block.number, Launch-x:contracts/contracts/data/EventEmitter.sol:813); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
-- EventEmitter event `RouterTrade(uint8,address,address,address,address,uint256,uint256,uint256,uint256,uint256)` (topic0 0x17c1899a3fd431f2b2200b90e738d270bb856a4222040c5650bfa208acb3b650, declared at Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:587) is emitted at 0x1017 by the precompile wherever the contract flow called emitRouterTrade (Launch-x:contracts/contracts/periphery/Router.sol:282), with the arguments emitRouterTrade adds (block.timestamp and block.number, Launch-x:contracts/contracts/data/EventEmitter.sol:782); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
-- EventEmitter event `ConfigUpdated(bytes32,uint256,uint256,uint256,uint256)` (topic0 0x2903b3642d2105b7fbd127326de888ab50e8d975bf819398337fb58407c1b10e, declared at Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:80) is emitted at 0x1017 by the precompile wherever the contract flow called emitConfigUpdated (Launch-x:contracts/contracts/protocol/ProtocolConfig.sol:63), with the arguments emitConfigUpdated adds (block.timestamp and block.number, Launch-x:contracts/contracts/data/EventEmitter.sol:431); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
-- EventEmitter event `FeeFlow(uint8,address,address,uint256,uint256,uint256,uint256,uint256,uint256)` (topic0 0x626e3fd5d9323ca4b7ffa3ca51c21c02766b638d15eb8896a36a4e0e97ae6de4, declared at Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:573) is emitted at 0x1017 by the precompile wherever the contract flow called emitFeeFlow (Launch-x:contracts/contracts/data/FeeAccumulator.sol:470), with the arguments emitFeeFlow adds (block.timestamp and block.number, Launch-x:contracts/contracts/data/EventEmitter.sol:766); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
-- EventEmitter event `FeeDistributed(bytes32,uint256,uint8,uint256,address,uint256,uint256)` (topic0 0xf7ab826cedf9d005102eddf95e65f43597aef36a55ff09ee4f452204c83f4afc, declared at Launch-x:contracts/contracts/interfaces/IEventEmitter.sol:42) is emitted at 0x1017 by the precompile wherever the contract flow called emitFeeDistributed (Launch-x:contracts/contracts/periphery/FeesRouter.sol:124), with the arguments emitFeeDistributed adds (block.timestamp and block.number, Launch-x:contracts/contracts/data/EventEmitter.sol:388); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
+- EventEmitter event `Swap(bytes32,address,bool,uint256,uint256,uint256,uint256,uint256,uint256)` (topic0 0xa234ab85728295548823d8a26077ecc77aa5815f9ed8f4c5e6fd390ac851d4cc, declared at contracts/launchpad/contracts/interfaces/IEventEmitter.sol) is emitted at 0x1017 by the precompile wherever the contract flow called emitSwap (contracts/launchpad/contracts/core/SidioraPool.sol), with the arguments emitSwap adds (block.timestamp and block.number, contracts/launchpad/contracts/data/EventEmitter.sol); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
+- EventEmitter event `PoolStateUpdated(bytes32,uint256,uint256,uint256,uint256,uint256,uint256)` (topic0 0x8155a4b38a877d212b271811786986f8f7d78074c82fce4526c58defcc6d7ebd, declared at contracts/launchpad/contracts/interfaces/IEventEmitter.sol) is emitted at 0x1017 by the precompile wherever the contract flow called emitPoolStateUpdated (contracts/launchpad/contracts/core/SidioraPool.sol), with the arguments emitPoolStateUpdated adds (block.timestamp and block.number, contracts/launchpad/contracts/data/EventEmitter.sol); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
+- EventEmitter event `TokenDeployed(address,address,address,bytes32,string,string,uint8,uint256,uint256,uint256)` (topic0 0xad187874b793634c55d977f35d4828526eb48170a9531c71d88f8fd10cf9c237, declared at contracts/launchpad/contracts/interfaces/IEventEmitter.sol) is emitted at 0x1017 by the precompile wherever the contract flow called emitTokenDeployed (contracts/launchpad/contracts/core/SidioraFactory.sol), with the arguments emitTokenDeployed adds (block.timestamp and block.number, contracts/launchpad/contracts/data/EventEmitter.sol); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
+- EventEmitter event `MarketCreated(bytes32,address,address,address,address,uint256,uint256)` (topic0 0xb0a9c7605389f1127c2299d4a3ed85f0b2fc19894ab5411d76b453bb29f9f47b, declared at contracts/launchpad/contracts/interfaces/IEventEmitter.sol) is emitted at 0x1017 by the precompile wherever the contract flow called emitMarketCreated (contracts/launchpad/contracts/core/SidioraFactory.sol), with the arguments emitMarketCreated adds (block.timestamp and block.number, contracts/launchpad/contracts/data/EventEmitter.sol); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
+- EventEmitter event `NftMint(uint256,address,address,uint8,uint256,uint256)` (topic0 0xd2917d37031c0dfe5016665c7a83360cbf2ff32063096b2caf61ba66c06832e5, declared at contracts/launchpad/contracts/interfaces/IEventEmitter.sol) is emitted at 0x1017 by the precompile wherever the contract flow called emitNftMint (contracts/launchpad/contracts/core/SidioraNFT.sol), with the arguments emitNftMint adds (block.timestamp and block.number, contracts/launchpad/contracts/data/EventEmitter.sol); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
+- EventEmitter event `FeeStrategyChanged(bytes32,uint256,uint8,uint8,uint256,uint256)` (topic0 0x337fd9f9304e9da4c04886a5b8bf56e74032b459758212a860bc61d3544353dd, declared at contracts/launchpad/contracts/interfaces/IEventEmitter.sol) is emitted at 0x1017 by the precompile wherever the contract flow called emitFeeStrategyChanged (contracts/launchpad/contracts/core/SidioraNFT.sol), with the arguments emitFeeStrategyChanged adds (block.timestamp and block.number, contracts/launchpad/contracts/data/EventEmitter.sol); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
+- EventEmitter event `NftTransfer(address,address,address,uint256,uint256,uint256)` (topic0 0x021f03e8a1315704c74c03e8c022c12bc80c4a2bd4fec8bd36b217322c340ad3, declared at contracts/launchpad/contracts/interfaces/IEventEmitter.sol) is emitted at 0x1017 by the precompile wherever the contract flow called emitNftTransfer (contracts/launchpad/contracts/core/SidioraNFT.sol), with the arguments emitNftTransfer adds (block.timestamp and block.number, contracts/launchpad/contracts/data/EventEmitter.sol); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
+- EventEmitter event `PoolRegistered(address,address,address,address,uint256,uint256,uint256)` (topic0 0xda5568642b67660133b1de538c867c58f3037a5722b0e231a959ee8ca11b2ed7, declared at contracts/launchpad/contracts/interfaces/IEventEmitter.sol) is emitted at 0x1017 by the precompile wherever the contract flow called emitPoolRegistered (contracts/launchpad/contracts/data/PoolRegistry.sol), with the arguments emitPoolRegistered adds (block.timestamp and block.number, contracts/launchpad/contracts/data/EventEmitter.sol); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
+- EventEmitter event `RouterTrade(uint8,address,address,address,address,uint256,uint256,uint256,uint256,uint256)` (topic0 0x17c1899a3fd431f2b2200b90e738d270bb856a4222040c5650bfa208acb3b650, declared at contracts/launchpad/contracts/interfaces/IEventEmitter.sol) is emitted at 0x1017 by the precompile wherever the contract flow called emitRouterTrade (contracts/launchpad/contracts/periphery/Router.sol), with the arguments emitRouterTrade adds (block.timestamp and block.number, contracts/launchpad/contracts/data/EventEmitter.sol); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
+- EventEmitter event `ConfigUpdated(bytes32,uint256,uint256,uint256,uint256)` (topic0 0x2903b3642d2105b7fbd127326de888ab50e8d975bf819398337fb58407c1b10e, declared at contracts/launchpad/contracts/interfaces/IEventEmitter.sol) is emitted at 0x1017 by the precompile wherever the contract flow called emitConfigUpdated (contracts/launchpad/contracts/protocol/ProtocolConfig.sol), with the arguments emitConfigUpdated adds (block.timestamp and block.number, contracts/launchpad/contracts/data/EventEmitter.sol); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
+- EventEmitter event `FeeFlow(uint8,address,address,uint256,uint256,uint256,uint256,uint256,uint256)` (topic0 0x626e3fd5d9323ca4b7ffa3ca51c21c02766b638d15eb8896a36a4e0e97ae6de4, declared at contracts/launchpad/contracts/interfaces/IEventEmitter.sol) is emitted at 0x1017 by the precompile wherever the contract flow called emitFeeFlow (contracts/launchpad/contracts/data/FeeAccumulator.sol), with the arguments emitFeeFlow adds (block.timestamp and block.number, contracts/launchpad/contracts/data/EventEmitter.sol); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
+- EventEmitter event `FeeDistributed(bytes32,uint256,uint8,uint256,address,uint256,uint256)` (topic0 0xf7ab826cedf9d005102eddf95e65f43597aef36a55ff09ee4f452204c83f4afc, declared at contracts/launchpad/contracts/interfaces/IEventEmitter.sol) is emitted at 0x1017 by the precompile wherever the contract flow called emitFeeDistributed (contracts/launchpad/contracts/periphery/FeesRouter.sol), with the arguments emitFeeDistributed adds (block.timestamp and block.number, contracts/launchpad/contracts/data/EventEmitter.sol); the EventEmitter contracts stay deployed and unchanged for the other systems that use them.
 
 ## 12. Errors
 
 - Every refusal returns the contract custom error selector and ABI arguments as revert data; keeper errors keep their LXP_LAUNCHPAD_ codes (modules/launchpad/types/errors.go).
-- DEFAULT_ADMIN_ROLE methods (grantRole, revokeRole, upgradeToAndCall and every admin setter) revert `AccessControlUnauthorizedAccount(address,bytes32)` (0xe2517d3f) carrying the caller and 0x00; non-admin role checks revert MissingRole(caller, role) (0x0161a64a, Launch-x:contracts/contracts/base/AccessControl.sol:73); initialize reverts AlreadyInitialized() (0x0dc149f0).
-- Guardian functions revert Unauthorized() (0x82b42900, Launch-x:contracts/contracts/core/SidioraPool.sol:43) for other callers, and migrateFactory reverts it for every caller (Launch-x:contracts/contracts/core/SidioraPool.sol:126-129).
-- A pool-token or USDL error raised inside a TransferHelper call of a surface is wrapped as TransferFromFailed() (0x7939f424) or TransferFailed() (0x90b8ec18) (Launch-x:contracts/contracts/libraries/TransferHelper.sol:8-9); a direct interface call returns it unchanged.
+- DEFAULT_ADMIN_ROLE methods (grantRole, revokeRole, upgradeToAndCall and every admin setter) revert `AccessControlUnauthorizedAccount(address,bytes32)` (0xe2517d3f) carrying the caller and 0x00; non-admin role checks revert MissingRole(caller, role) (0x0161a64a, contracts/launchpad/contracts/base/AccessControl.sol); initialize reverts AlreadyInitialized() (0x0dc149f0).
+- Guardian functions revert Unauthorized() (0x82b42900, contracts/launchpad/contracts/core/SidioraPool.sol) for other callers, and migrateFactory reverts it for every caller (contracts/launchpad/contracts/core/SidioraPool.sol).
+- A pool-token or USDL error raised inside a TransferHelper call of a surface is wrapped as TransferFromFailed() (0x7939f424) or TransferFailed() (0x90b8ec18) (contracts/launchpad/contracts/libraries/TransferHelper.sol); a direct interface call returns it unchanged.
 
 Chain-defined errors (no Launch-x declaration):
 
@@ -1182,19 +1180,19 @@ Errors added by the custody and Treasury model:
 
 | Error | Selector | Declared | Raised |
 |---|---|---|---|
-| `ReentrancyGuardReentrantCall()` | `0x3ee5aeb5` | Launch-x:contracts/contracts/base/ReentrancyGuard.sol:15 | a second entry while a pool or role lock is held (section 19) |
-| `ReentrantCall()` | `0x37ed32e8` | Launch-x:contracts/contracts/protocol/Treasury.sol:21 | a second entry while the Treasury lock is held |
-| `InvalidToken()` | `0xc1ab6dc1` | Launch-x:contracts/contracts/protocol/Treasury.sol:20 | a token without code, or whose balanceOf staticcall fails, at the Treasury |
-| `NonERC721Receiver()` | `0x80526d0c` | Launch-x:contracts/contracts/base/ERC721Base.sol:28 | a fee-right receiver that does not return 0x150b7a02 |
+| `ReentrancyGuardReentrantCall()` | `0x3ee5aeb5` | contracts/launchpad/contracts/base/ReentrancyGuard.sol | a second entry while a pool or role lock is held (section 19) |
+| `ReentrantCall()` | `0x37ed32e8` | contracts/launchpad/contracts/protocol/Treasury.sol | a second entry while the Treasury lock is held |
+| `InvalidToken()` | `0xc1ab6dc1` | contracts/launchpad/contracts/protocol/Treasury.sol | a token without code, or whose balanceOf staticcall fails, at the Treasury |
+| `NonERC721Receiver()` | `0x80526d0c` | contracts/launchpad/contracts/base/ERC721Base.sol | a fee-right receiver that does not return 0x150b7a02 |
 
 ## 13. Optical hooks
 
-- The precompile calls `getFlags()` (selector 0x6cc7149d, implemented at Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:151) on the market optical through evm.Call with caller the pool address, at the point of the contract flow Launch-x:contracts/contracts/core/SidioraPool.sol:179, only when the optical flags carry every flag (Launch-x:contracts/contracts/libraries/BitFlag.sol:16); the optical code stays deployed unchanged and its sender checks pass (Launch-x:contracts/contracts/opticals/BaseOptical.sol:86).
-- The precompile calls `beforeSwap(address,address,bool,uint256)` (selector 0xae7e71d9, implemented at Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:159) on the market optical through evm.Call with caller the pool address, at the point of the contract flow Launch-x:contracts/contracts/core/SidioraPool.sol:188, only when the optical flags carry BEFORE_SWAP (1) (Launch-x:contracts/contracts/libraries/BitFlag.sol:16); the optical code stays deployed unchanged and its sender checks pass (Launch-x:contracts/contracts/opticals/BaseOptical.sol:86).
-- The precompile calls `afterSwap(address,address,bool,uint256,uint256)` (selector 0xf74c1c1a, implemented at Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:172) on the market optical through evm.Call with caller the pool address, at the point of the contract flow Launch-x:contracts/contracts/core/SidioraPool.sol:262, only when the optical flags carry AFTER_SWAP (2) (Launch-x:contracts/contracts/libraries/BitFlag.sol:16); the optical code stays deployed unchanged and its sender checks pass (Launch-x:contracts/contracts/opticals/BaseOptical.sol:86).
-- The precompile calls `beforeFeeDistribution(address,uint256)` (selector 0xf80d2cc7, implemented at Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:208) on the market optical through evm.Call with caller the generation 2 FeeAccumulator address 0x7b14…1a66 (Launch-x:shared/config/deployment/current.json:51), which serves the markets of every generation, at the point of the contract flow Launch-x:contracts/contracts/data/FeeAccumulator.sol:134, only when the optical flags carry BEFORE_FEE_DISTRIBUTION (4) (Launch-x:contracts/contracts/libraries/BitFlag.sol:16); the optical code stays deployed unchanged and its sender checks pass (Launch-x:contracts/contracts/opticals/BaseOptical.sol:86).
-- The precompile calls `afterFeeDistribution(address,uint256)` (selector 0xae3bd4bd, implemented at Launch-x:contracts/contracts/opticals/BaseOptical.sol:72) on the market optical through evm.Call with caller the generation 2 FeeAccumulator address 0x7b14…1a66 (Launch-x:shared/config/deployment/current.json:51), at the point of the contract flow Launch-x:contracts/contracts/data/FeeAccumulator.sol:161, only when the optical flags carry AFTER_FEE_DISTRIBUTION (8) (Launch-x:contracts/contracts/libraries/BitFlag.sol:16); the optical code stays deployed unchanged and its sender checks pass (Launch-x:contracts/contracts/opticals/BaseOptical.sol:86).
-- `beforeTokenTransfer(address,address,address,uint256)` (selector 0x37be75a0, implemented at Launch-x:contracts/contracts/opticals/presets/LaunchpadOptical.sol:179) is called by the pool-token contract itself at Launch-x:contracts/contracts/core/SidioraERC20.sol:26-34, unchanged, when the optical flags carry BEFORE_TOKEN_TRANSFER (16); the token reads opticalAddress() from the pool surface, which the precompile answers from the keeper market record, so every pool-token transfer, the nested ones the precompile makes included, runs the hook with the token contract as caller and the optical sender checks pass (Launch-x:contracts/contracts/opticals/BaseOptical.sol:86).
+- The precompile calls `getFlags()` (selector 0x6cc7149d, implemented at contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol) on the market optical through evm.Call with caller the pool address, at the point of the contract flow contracts/launchpad/contracts/core/SidioraPool.sol, only when the optical flags carry every flag (contracts/launchpad/contracts/libraries/BitFlag.sol); the optical code stays deployed unchanged and its sender checks pass (contracts/launchpad/contracts/opticals/BaseOptical.sol).
+- The precompile calls `beforeSwap(address,address,bool,uint256)` (selector 0xae7e71d9, implemented at contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol) on the market optical through evm.Call with caller the pool address, at the point of the contract flow contracts/launchpad/contracts/core/SidioraPool.sol, only when the optical flags carry BEFORE_SWAP (1) (contracts/launchpad/contracts/libraries/BitFlag.sol); the optical code stays deployed unchanged and its sender checks pass (contracts/launchpad/contracts/opticals/BaseOptical.sol).
+- The precompile calls `afterSwap(address,address,bool,uint256,uint256)` (selector 0xf74c1c1a, implemented at contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol) on the market optical through evm.Call with caller the pool address, at the point of the contract flow contracts/launchpad/contracts/core/SidioraPool.sol, only when the optical flags carry AFTER_SWAP (2) (contracts/launchpad/contracts/libraries/BitFlag.sol); the optical code stays deployed unchanged and its sender checks pass (contracts/launchpad/contracts/opticals/BaseOptical.sol).
+- The precompile calls `beforeFeeDistribution(address,uint256)` (selector 0xf80d2cc7, implemented at contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol) on the market optical through evm.Call with caller the generation 2 FeeAccumulator address 0x7b14…1a66 (sdk/launchpad/shared/config/deployment/current.json), which serves the markets of every generation, at the point of the contract flow contracts/launchpad/contracts/data/FeeAccumulator.sol, only when the optical flags carry BEFORE_FEE_DISTRIBUTION (4) (contracts/launchpad/contracts/libraries/BitFlag.sol); the optical code stays deployed unchanged and its sender checks pass (contracts/launchpad/contracts/opticals/BaseOptical.sol).
+- The precompile calls `afterFeeDistribution(address,uint256)` (selector 0xae3bd4bd, implemented at contracts/launchpad/contracts/opticals/BaseOptical.sol) on the market optical through evm.Call with caller the generation 2 FeeAccumulator address 0x7b14…1a66 (sdk/launchpad/shared/config/deployment/current.json), at the point of the contract flow contracts/launchpad/contracts/data/FeeAccumulator.sol, only when the optical flags carry AFTER_FEE_DISTRIBUTION (8) (contracts/launchpad/contracts/libraries/BitFlag.sol); the optical code stays deployed unchanged and its sender checks pass (contracts/launchpad/contracts/opticals/BaseOptical.sol).
+- `beforeTokenTransfer(address,address,address,uint256)` (selector 0x37be75a0, implemented at contracts/launchpad/contracts/opticals/presets/LaunchpadOptical.sol) is called by the pool-token contract itself at contracts/launchpad/contracts/core/SidioraERC20.sol, unchanged, when the optical flags carry BEFORE_TOKEN_TRANSFER (16); the token reads opticalAddress() from the pool surface, which the precompile answers from the keeper market record, so every pool-token transfer, the nested ones the precompile makes included, runs the hook with the token contract as caller and the optical sender checks pass (contracts/launchpad/contracts/opticals/BaseOptical.sol).
 
 ## 14. Storage
 
@@ -1225,7 +1223,7 @@ Storage slots of the generation 2 implementations read by the migration (slot, f
 
 - ProtocolConfig: 0 `_roles`, 1 `usdlAddress`, 2 `virtualUsdlDefault`, 3 `virtualTokenDefault`, 4 `minFeeBps`, 5 `maxFeeBps`, 6 `baseFeeBps`, 7 `protocolFeeBps`, 8 `feeDecayRate`, 9 `volatilityWeight`, 10 `concentrationWeight`, 11 `creationFee`, 12 `eventEmitter`.
 
-- Treasury: 0 `_roles`, 1 `_balances`, 2 `eventEmitter` (Launch-x:contracts/storage-layout/core/Treasury.json).
+- Treasury: 0 `_roles`, 1 `_balances`, 2 `eventEmitter` (contracts/launchpad/storage-layout/core/Treasury.json).
 
 The generation 1 layout is a release input in modules/launchpad/keeper/testdata/v6120/layout.json; the migration refuses a pool whose code hash is not listed there.
 
@@ -1245,11 +1243,11 @@ The generation 1 layout is a release input in modules/launchpad/keeper/testdata/
 
 ## 17. Invariants
 
-- HeldQuote(pool) covers realUsdlBalance and token.balanceOf(pool) covers tokenReserve (Launch-x:contracts/contracts/core/SidioraPool.sol:268, modules/launchpad/keeper/invariants.go).
-- FeeHeld covers totalLiabilities (Launch-x:contracts/contracts/data/FeeAccumulator.sol:478-480) and TreasuryHeld covers the Treasury ledger.
+- HeldQuote(pool) covers realUsdlBalance and token.balanceOf(pool) covers tokenReserve (contracts/launchpad/contracts/core/SidioraPool.sol, modules/launchpad/keeper/invariants.go).
+- FeeHeld covers totalLiabilities (contracts/launchpad/contracts/data/FeeAccumulator.sol) and TreasuryHeld covers the Treasury ledger.
 - USDL.balanceOf(launchpad module EVM address) covers the sum of HeldQuote, FeeHeld and TreasuryHeld(USDL); USDL totalSupply is unchanged by the upgrade.
-- SolvencyInvariant (modules/launchpad/keeper/invariants.go) checks, for every market, that HeldQuote(pool) is at least realUsdlBalance and token.balanceOf(pool) is at least tokenReserve, the condition of Launch-x:contracts/contracts/core/SidioraPool.sol:268.
-- LiabilitiesInvariant checks that FeeHeld is at least totalLiabilities (Launch-x:contracts/contracts/data/FeeAccumulator.sol:478-480) and that TreasuryHeld is at least TreasuryLedger for every token, and is registered in RegisterInvariants (modules/launchpad/keeper/invariants.go).
+- SolvencyInvariant (modules/launchpad/keeper/invariants.go) checks, for every market, that HeldQuote(pool) is at least realUsdlBalance and token.balanceOf(pool) is at least tokenReserve, the condition of contracts/launchpad/contracts/core/SidioraPool.sol.
+- LiabilitiesInvariant checks that FeeHeld is at least totalLiabilities (contracts/launchpad/contracts/data/FeeAccumulator.sol) and that TreasuryHeld is at least TreasuryLedger for every token, and is registered in RegisterInvariants (modules/launchpad/keeper/invariants.go).
 - CustodyInvariant checks that USDL.balanceOf(launchpad module EVM address), read by StaticCallEVM, is at least the sum of every HeldQuote, FeeHeld and TreasuryHeld(USDL), and that the custody ledgers change only by sweeps, pulls, payouts and the ledger moves
 
 ## 18. Dependents and backend binding
@@ -1257,56 +1255,56 @@ The generation 1 layout is a release input in modules/launchpad/keeper/testdata/
 - The hosted indexer registry entry ("launchpad", 0x1017) (services/platform/hosted/indexer/src/abi.rs) loads precompiles/launchpad/abi.json, and signatures_and_topics_match_solidity (services/platform/hosted/indexer/src/abi.rs) covers the twelve launchpad events.
 - The gateway launchpad probe sends getPoolCount(), selector 0x8eec5d70, to LAUNCHPAD_PRECOMPILE and decodes one word (services/platform/hosted/gateway/src/capabilities.rs, services/platform/hosted/gateway/src/evm.rs).
 - The indexer ingest test replays a Swap and a MarketCreated log at 0x1017 and stores one row each.
-- The deployment manifest accepts role kind "surface" for the mandatory roles and adds role LaunchpadPrecompile at 0x0000000000000000000000000000000000001017 with kind "precompile": Validate (Launch-x:shared/config/deployment/manifest.go:113) accepts both kinds, exempts them from the runtime hash check and requires the implementation fields to be empty as for "direct" (Launch-x:shared/config/deployment/manifest.go:177).
-- current.json keeps one generation: every role keeps its generation 2 address with kind "surface" (the SidioraPool family served by the pool surfaces, SidioraNFT at the generation 2 collection), USDL stays at 0x85FcD13735F4309833A503EE804ea32395851479 kind "direct" (Launch-x:shared/config/deployment/current.json:86), LaunchpadPrecompile is added, deploymentVersion and activationHeight (Launch-x:shared/config/deployment/current.json:3-6) take the v6.12.0 values, settlement USDL six decimals stays, and the governance block (Launch-x:shared/config/deployment/current.json:101-107) stays.
-- The decode registry (Launch-x:core/indexer/internal/decode/registry.go:158) binds LaunchpadPrecompile at 0x1017 to the EventEmitter ABI and dispatches each log there by topic0 to its event, beside the generation 2 EventEmitter binding that keeps decoding the logs of other systems (Launch-x:core/indexer/internal/decode/registry.go:234).
-- parseContractAddresses (Launch-x:shared/chain/contracts.go:67) accepts kind "surface" and the LaunchpadPrecompile role, and CreateContracts (Launch-x:shared/chain/contracts.go:93) binds each role at its generation 2 address with its role ABI and binds the EventEmitter ABI at 0x1017 for the launchpad family events.
-- protocol/addresses.go keeps the generation 1 addresses (Launch-x:protocol/addresses.go:20-29) for historical decoding, marks them retired from the v6.12.0 height, and adds the precompile address 0x1017 and the generation 2 role addresses as the active set.
+- The deployment manifest defines surface roles and LaunchpadPrecompile at 0x0000000000000000000000000000000000001017 with kind "precompile". Surface roles have no implementation or beacon fields. The recorded surfaces carry runtime hashes, and `AcceptsRuntimeHash` accepts their installed hash or an explicitly declared staged hash with an upgrade name (`sdk/launchpad/shared/config/deployment/manifest.go`, `sdk/launchpad/shared/config/deployment/attest.go`).
+- `sdk/launchpad/shared/config/deployment/current.json` records nine generation 2 surface roles, the LaunchpadPrecompile, USDL as a direct contract, EventEmitter and OpticalRegistry as ERC1967 contracts, and PoolBeacon as a beacon. It records chain id 125, deploymentVersion `paxeer125-v6.12.0`, activationHeight 37220320, six-decimal USDL settlement and the governance configuration.
+- The decode registry (services/launchpad/indexer/internal/decode/registry.go) binds LaunchpadPrecompile at 0x1017 to the EventEmitter ABI and dispatches each log there by topic0 to its event, beside the generation 2 EventEmitter binding that keeps decoding the logs of other systems (services/launchpad/indexer/internal/decode/registry.go).
+- parseContractAddresses (sdk/launchpad/shared/chain/contracts.go) accepts kind "surface" and the LaunchpadPrecompile role, and CreateContracts (sdk/launchpad/shared/chain/contracts.go) binds each role at its generation 2 address with its role ABI and binds the EventEmitter ABI at 0x1017 for the launchpad family events.
+- sdk/launchpad/protocol/addresses.go keeps the generation 1 addresses (sdk/launchpad/protocol/addresses.go) for historical decoding, marks them retired from the v6.12.0 height, and adds the precompile address 0x1017 and the generation 2 role addresses as the active set.
 
 ## 19. Custody and re-entrancy
 
-- swap, swapFor and syncReserves of a pool run under a per-pool lock held in the transient store of the precompile run; a second state-changing entry for the same pool while the lock is held, from an optical hook, a token hook or any nested call, reverts ReentrancyGuardReentrantCall() (0x3ee5aeb5) as the nonReentrant guard of Launch-x:contracts/contracts/core/SidioraPool.sol:152, Launch-x:contracts/contracts/core/SidioraPool.sol:159 and Launch-x:contracts/contracts/core/SidioraPool.sol:279 does (Launch-x:contracts/contracts/base/ReentrancyGuard.sol:15).
-- The FeeAccumulator role holds one lock across recordFee, claim, burn, triggerAirdrop, claimAirdrop, claimAirdropEpoch, sendLpRewards, claimOpticalSurplus, claimLegacyAirdrop and allocateLegacyAirdrop as its nonReentrant functions do (Launch-x:contracts/contracts/data/FeeAccumulator.sol:112, :172, :189, :205, :236, :242, :274, :364, :380, :449), the Treasury role holds the lock of Launch-x:contracts/contracts/protocol/Treasury.sol:23-31 and reverts ReentrantCall() (0x37ed32e8), and the Router and FeesRouter roles hold the locks of their nonReentrant entry points.
+- swap, swapFor and syncReserves of a pool run under a per-pool lock held in the transient store of the precompile run; a second state-changing entry for the same pool while the lock is held, from an optical hook, a token hook or any nested call, reverts ReentrancyGuardReentrantCall() (0x3ee5aeb5) as the nonReentrant guard of contracts/launchpad/contracts/core/SidioraPool.sol, contracts/launchpad/contracts/core/SidioraPool.sol and contracts/launchpad/contracts/core/SidioraPool.sol does (contracts/launchpad/contracts/base/ReentrancyGuard.sol).
+- The FeeAccumulator role holds one lock across recordFee, claim, burn, triggerAirdrop, claimAirdrop, claimAirdropEpoch, sendLpRewards, claimOpticalSurplus, claimLegacyAirdrop and allocateLegacyAirdrop as its nonReentrant functions do (contracts/launchpad/contracts/data/FeeAccumulator.sol), the Treasury role holds the lock of contracts/launchpad/contracts/protocol/Treasury.sol and reverts ReentrantCall() (0x37ed32e8), and the Router and FeesRouter roles hold the locks of their nonReentrant entry points.
 - Locks live only for one precompile run and are released on return and on revert; view functions are answered while a lock is held, so the opticalAddress() read of a pool-token transfer and the getReserves() read of an optical hook succeed during a swap.
 - Before each nested call (optical hook, USDL or pool-token transfer, permit, fee-right receiver hook) the precompile writes every keeper change of the run so far, so the nested call and any view it makes see the committed outer state, in the order of the contract flow: reserves and snapshot before afterSwap, fee split before afterFeeDistribution.
-- A nested call that reverts reverts the whole precompile call with the nested revert data, except the permit of the *WithPermit variants, whose failure the contract ignores (Launch-x:contracts/contracts/periphery/Router.sol:292-314); the fee-right receiver hook follows the contract rule: a wrong return value or an empty revert gives NonERC721Receiver() (0x80526d0c) and any other revert data is returned unchanged (Launch-x:contracts/contracts/core/SidioraNFT.sol:71-77, Launch-x:contracts/contracts/base/ERC721Base.sol:81-92).
+- A nested call that reverts reverts the whole precompile call with the nested revert data, except the permit of the *WithPermit variants, whose failure the contract ignores (contracts/launchpad/contracts/periphery/Router.sol); the fee-right receiver hook follows the contract rule: a wrong return value or an empty revert gives NonERC721Receiver() (0x80526d0c) and any other revert data is returned unchanged (contracts/launchpad/contracts/core/SidioraNFT.sol, contracts/launchpad/contracts/base/ERC721Base.sol).
 
 ## 20. Treasury
 
-- The generation 2 Treasury address read from SidioraFactory slot 6 (Launch-x:contracts/contracts/core/SidioraFactory.sol:30) and recorded in modules/launchpad/keeper/testdata/v6120/layout.json holds the surface runtime and serves the Treasury ABI of Launch-x:contracts/contracts/protocol/Treasury.sol:13 (17 functions, 8 events, 19 errors, the eleventh role file) for the treasury of every generation, the generation 1 Treasury 0x15405D535ce533BfFb98c83e42f4DD242AA5e079 (Launch-x:protocol/addresses.go:84) being retired by requirement 2.36.
-- deposit(token, amount) (0x47e7ef24) pulls token.transferFrom(caller, launchpad module EVM address, amount) for a DEPOSITOR_ROLE caller, credits the received amount measured by balanceOf before and after to TreasuryLedger and TreasuryHeld and emits Deposited(token, caller, received) at the Treasury address (Launch-x:contracts/contracts/protocol/Treasury.sol:46-54, ITreasury.sol:14); recordDeposit(token, amount) (0x1e578bae) sweeps the Treasury address, requires amount at most TreasuryHeld minus TreasuryLedger and credits the ledger (Launch-x:contracts/contracts/protocol/Treasury.sol:79-85).
-- getBalance(token) (0xf8b2cb4f) returns TreasuryLedger(token) (Launch-x:contracts/contracts/protocol/Treasury.sol:73-75) and rises after every createMarket by the creation fee and after every recordFee by the protocol cut; eventEmitter() (0x9ff78c30) returns 0x622E…3EF6 (Launch-x:shared/config/deployment/current.json:9); DEPOSITOR_ROLE(), hasRole and getRoleAdmin answer from the migrated role table; a token address without code, or whose balanceOf staticcall fails or returns other than 32 bytes, reverts InvalidToken() (0xc1ab6dc1) as _actualBalance does (Launch-x:contracts/contracts/protocol/Treasury.sol:96-101).
-- withdraw (0xd9caed12, Launch-x:contracts/contracts/protocol/Treasury.sol:58-70) and recoverSurplus (0x72df7f5b, Launch-x:contracts/contracts/protocol/Treasury.sol:87-94) revert `AccessControlUnauthorizedAccount(address,bytes32)` (0xe2517d3f) with the caller and 0x00 at the surface and run only through MsgTreasuryWithdraw; initialize (0x485cc955, Launch-x:contracts/contracts/protocol/Treasury.sol:38-42) reverts AlreadyInitialized() and upgradeToAndCall reverts as in requirement 2.13.
-- MigrateV6120 carries the Treasury _balances ledger (Launch-x:contracts/contracts/protocol/Treasury.sol:16) of both generations per token listed in the fixture into TreasuryLedger, and the DEPOSITOR_ROLE members of both generations into the role table of the generation 2 Treasury.
+- The generation 2 Treasury address read from SidioraFactory slot 6 (contracts/launchpad/contracts/core/SidioraFactory.sol) and recorded in modules/launchpad/keeper/testdata/v6120/layout.json holds the surface runtime and serves the Treasury ABI of contracts/launchpad/contracts/protocol/Treasury.sol (17 functions, 8 events, 19 errors, the eleventh role file) for the treasury of every generation, the generation 1 Treasury 0x15405D535ce533BfFb98c83e42f4DD242AA5e079 (sdk/launchpad/protocol/addresses.go) being retired by requirement 2.36.
+- deposit(token, amount) (0x47e7ef24) pulls token.transferFrom(caller, launchpad module EVM address, amount) for a DEPOSITOR_ROLE caller, credits the received amount measured by balanceOf before and after to TreasuryLedger and TreasuryHeld and emits Deposited(token, caller, received) at the Treasury address (contracts/launchpad/contracts/protocol/Treasury.sol, ITreasury.sol:14); recordDeposit(token, amount) (0x1e578bae) sweeps the Treasury address, requires amount at most TreasuryHeld minus TreasuryLedger and credits the ledger (contracts/launchpad/contracts/protocol/Treasury.sol).
+- getBalance(token) (0xf8b2cb4f) returns TreasuryLedger(token) (contracts/launchpad/contracts/protocol/Treasury.sol) and rises after every createMarket by the creation fee and after every recordFee by the protocol cut; eventEmitter() (0x9ff78c30) returns 0x622E…3EF6 (sdk/launchpad/shared/config/deployment/current.json); DEPOSITOR_ROLE(), hasRole and getRoleAdmin answer from the migrated role table; a token address without code, or whose balanceOf staticcall fails or returns other than 32 bytes, reverts InvalidToken() (0xc1ab6dc1) as _actualBalance does (contracts/launchpad/contracts/protocol/Treasury.sol).
+- withdraw (0xd9caed12, contracts/launchpad/contracts/protocol/Treasury.sol) and recoverSurplus (0x72df7f5b, contracts/launchpad/contracts/protocol/Treasury.sol) revert `AccessControlUnauthorizedAccount(address,bytes32)` (0xe2517d3f) with the caller and 0x00 at the surface and run only through MsgTreasuryWithdraw; initialize (0x485cc955, contracts/launchpad/contracts/protocol/Treasury.sol) reverts AlreadyInitialized() and upgradeToAndCall reverts as in requirement 2.13.
+- MigrateV6120 carries the Treasury _balances ledger (contracts/launchpad/contracts/protocol/Treasury.sol) of both generations per token listed in the fixture into TreasuryLedger, and the DEPOSITOR_ROLE members of both generations into the role table of the generation 2 Treasury.
 
 ## 21. Retired addresses
 
 | Generation 1 address | Role | Replacement |
 |---|---|---|
-| `0x8a1A09CEe72c1D39dF33B8284E38baeF8371f465` (Launch-x:protocol/addresses.go:22) | SidioraFactory | `0x3993D004166738d1069B5C4e0a923f7B9D5D8830` |
-| `0xCC7298801112682e10ee14b8a520309caD80336d` (Launch-x:protocol/addresses.go:23) | Router | `0x78FB06f525cD964388f2305A489035263E31C6e4` |
-| `0xB768e183b6EfDeDf8b2AA7af732039D1C3c452d0` (Launch-x:protocol/addresses.go:24) | Quoter | `0x793006f4F321b8863F26DBD75b11bAa01DA181dc` |
-| `0xEeDF5409cFD30bd14D0399318c7d2150265575e5` (Launch-x:protocol/addresses.go:25) | ProtocolConfig | `0xF3669eDc475Cb6E1F0d7635240ABD8e8FB7E20C6` |
-| `0x50C69dF6637b3DCE6a7407C5A4b4F99E68514A76` (Launch-x:protocol/addresses.go:26) | FeeAccumulator | `0x7b14808b72f61664cDb79D25E6d1587655571a66` |
-| `0x7684382c89f79104574D8EF9b31eFf2eD2C2BA0b` (Launch-x:protocol/addresses.go:21) | PoolRegistry | `0x1dC357d2B7B850332a91F06A9E66634F46fC4Ba7` |
-| `0xDF73b354ed9dcB473cc9D01541c46f507591e190` (Launch-x:protocol/addresses.go:27) | SidioraNFT | `0xe8DcC844a8006dbf64f5Bb851bCad90292a6409B` |
-| `0x02Df12a44F2658080E76fbcF7D6B34Baa97843b6` (Launch-x:protocol/addresses.go:28) | FeesRouter | `0x05681dA6f611C2dfFD3E92611F6dE2d247647927` |
-| `0x15405D535ce533BfFb98c83e42f4DD242AA5e079` (Launch-x:protocol/addresses.go:84) | Treasury | read from SidioraFactory slot 6 (Launch-x:contracts/contracts/core/SidioraFactory.sol:30), recorded in modules/launchpad/keeper/testdata/v6120/layout.json |
-| `0x4CdA6e48632d51Ee4Fa735D81BF09F7543f644a1` (Launch-x:protocol/addresses.go:95) | OpticalRegistry | `0x0FB5E510372Bd3EddFED16A5Dd766d4473CffcF0` |
+| `0x8a1A09CEe72c1D39dF33B8284E38baeF8371f465` (sdk/launchpad/protocol/addresses.go) | SidioraFactory | `0x3993D004166738d1069B5C4e0a923f7B9D5D8830` |
+| `0xCC7298801112682e10ee14b8a520309caD80336d` (sdk/launchpad/protocol/addresses.go) | Router | `0x78FB06f525cD964388f2305A489035263E31C6e4` |
+| `0xB768e183b6EfDeDf8b2AA7af732039D1C3c452d0` (sdk/launchpad/protocol/addresses.go) | Quoter | `0x793006f4F321b8863F26DBD75b11bAa01DA181dc` |
+| `0xEeDF5409cFD30bd14D0399318c7d2150265575e5` (sdk/launchpad/protocol/addresses.go) | ProtocolConfig | `0xF3669eDc475Cb6E1F0d7635240ABD8e8FB7E20C6` |
+| `0x50C69dF6637b3DCE6a7407C5A4b4F99E68514A76` (sdk/launchpad/protocol/addresses.go) | FeeAccumulator | `0x7b14808b72f61664cDb79D25E6d1587655571a66` |
+| `0x7684382c89f79104574D8EF9b31eFf2eD2C2BA0b` (sdk/launchpad/protocol/addresses.go) | PoolRegistry | `0x1dC357d2B7B850332a91F06A9E66634F46fC4Ba7` |
+| `0xDF73b354ed9dcB473cc9D01541c46f507591e190` (sdk/launchpad/protocol/addresses.go) | SidioraNFT | `0xe8DcC844a8006dbf64f5Bb851bCad90292a6409B` |
+| `0x02Df12a44F2658080E76fbcF7D6B34Baa97843b6` (sdk/launchpad/protocol/addresses.go) | FeesRouter | `0x05681dA6f611C2dfFD3E92611F6dE2d247647927` |
+| `0x15405D535ce533BfFb98c83e42f4DD242AA5e079` (sdk/launchpad/protocol/addresses.go) | Treasury | read from SidioraFactory slot 6 (contracts/launchpad/contracts/core/SidioraFactory.sol), recorded in modules/launchpad/keeper/testdata/v6120/layout.json |
+| `0x4CdA6e48632d51Ee4Fa735D81BF09F7543f644a1` (sdk/launchpad/protocol/addresses.go) | OpticalRegistry | `0x0FB5E510372Bd3EddFED16A5Dd766d4473CffcF0` |
 
-- MigrateV6120 installs at the generation 1 SidioraFactory, Router, Quoter, ProtocolConfig, FeeAccumulator, PoolRegistry, fee-right collection and FeesRouter addresses (Launch-x:protocol/addresses.go:20-29), the generation 1 Treasury 0x15405D535ce533BfFb98c83e42f4DD242AA5e079 (Launch-x:protocol/addresses.go:84) and the generation 1 OpticalRegistry (Launch-x:protocol/addresses.go:95) the fixed retirement runtime that reverts Retired(address) (0xda9d2e31) carrying the generation 2 address of the same role, for every selector, after their USDL is moved in step 1.
-- Storage at the retired addresses is left as it was at the halt height, the generation 1 EventEmitter (Launch-x:protocol/addresses.go:20) and PoolBeacon (Launch-x:protocol/addresses.go:29) keep their code, the Timelock and GovernanceModule (Launch-x:protocol/addresses.go:85-86) keep their code, and generation 1 pool addresses are not retired: they serve as generation 2 pools by requirement 2.24.
+- MigrateV6120 installs at the generation 1 SidioraFactory, Router, Quoter, ProtocolConfig, FeeAccumulator, PoolRegistry, fee-right collection and FeesRouter addresses (sdk/launchpad/protocol/addresses.go), the generation 1 Treasury 0x15405D535ce533BfFb98c83e42f4DD242AA5e079 (sdk/launchpad/protocol/addresses.go) and the generation 1 OpticalRegistry (sdk/launchpad/protocol/addresses.go) the fixed retirement runtime that reverts Retired(address) (0xda9d2e31) carrying the generation 2 address of the same role, for every selector, after their USDL is moved in step 1.
+- Storage at the retired addresses is left as it was at the halt height, the generation 1 EventEmitter (sdk/launchpad/protocol/addresses.go) and PoolBeacon (sdk/launchpad/protocol/addresses.go) keep their code, the Timelock and GovernanceModule (sdk/launchpad/protocol/addresses.go) keep their code, and generation 1 pool addresses are not retired: they serve as generation 2 pools by requirement 2.24.
 - The retired list (address, role, replacement) is written to the migration log, served by a keeper query and listed in spec/release-v6-12-0/contracts/launchpad.md section 21, and the release runbook announces it before the halt.
 
 ## 22. Retained contracts
 
-- The generation 2 EventEmitter 0x622E…3EF6 (Launch-x:shared/config/deployment/current.json:9) stays deployed and keeps serving the other systems; its authorization reads (_isAuthorized, _requireTyped and _requirePool at Launch-x:contracts/contracts/data/EventEmitter.sol:165-190 and Launch-x:contracts/contracts/data/EventEmitter.sol:216-227) go to the PoolRegistry, FeeAccumulator and Factory surfaces, which answer from the keeper, and the launchpad family events are emitted at 0x1017 by requirement 2.16, so MirrorFailed (Launch-x:contracts/contracts/data/FeeAccumulator.sol:471, Launch-x:contracts/contracts/data/PoolRegistry.sol:69, Launch-x:contracts/contracts/periphery/FeesRouter.sol:19) is never emitted after the upgrade.
-- The generation 2 OpticalRegistry 0x0FB5…fcF0 (Launch-x:shared/config/deployment/current.json:72), LaunchpadOpticalFactory and every optical keep their code; createLaunchpadOptical (Launch-x:contracts/contracts/opticals/LaunchpadOpticalFactory.sol:79) calls authorizeOptical (Launch-x:contracts/contracts/opticals/LaunchpadOpticalFactory.sol:106) at the generation 2 FeeAccumulator surface, which accepts it through the migrated OPTICAL_GRANTER_ROLE, and onlyAttachedPool (Launch-x:contracts/contracts/opticals/BaseOptical.sol:86) passes because isRegisteredPool at the generation 2 PoolRegistry surface answers for pools of every generation.
-- The generation 2 PoolBeacon 0x0c60…71BE (Launch-x:shared/config/deployment/current.json:79) keeps its code and is the beacon named in the predicted pool address; BeaconCallFailed and the beacon functions answer as the contract does.
-- Operations queued in the Timelock or GovernanceModule that call a DEFAULT_ADMIN_ROLE method at a surface revert `AccessControlUnauthorizedAccount(address,bytes32)` (0xe2517d3f) when executed; EmergencyPauseController.pauseTargets (Launch-x:contracts/contracts/protocol/EmergencyPauseController.sol:44, :87-95) calling pause() at a pool surface reverts Unauthorized() unless the controller is the pool guardian, exactly as at the halt height, within the 150000 and 30000 gas budgets of the controller.
-- The meta-ag SidioraAdapter reads the Router, Quoter and PoolRegistry addresses it holds (Launch-x:contracts/contracts/meta-ag/adapters/SidioraAdapter.sol:92), which are generation 2 surfaces, and approves its Router (Launch-x:contracts/contracts/meta-ag/adapters/SidioraAdapter.sol:257-258); since pulls run with spender 0x1017, the release runbook calls setSidioraRouter(0x0000000000000000000000000000000000001017) through its admin, and getPoolByToken answers for tokens of every generation.
+- The generation 2 EventEmitter 0x622E…3EF6 (sdk/launchpad/shared/config/deployment/current.json) stays deployed and keeps serving the other systems; its authorization reads (_isAuthorized, _requireTyped and _requirePool at contracts/launchpad/contracts/data/EventEmitter.sol and contracts/launchpad/contracts/data/EventEmitter.sol) go to the PoolRegistry, FeeAccumulator and Factory surfaces, which answer from the keeper, and the launchpad family events are emitted at 0x1017 by requirement 2.16, so MirrorFailed (contracts/launchpad/contracts/data/FeeAccumulator.sol, contracts/launchpad/contracts/data/PoolRegistry.sol, contracts/launchpad/contracts/periphery/FeesRouter.sol) is never emitted after the upgrade.
+- The generation 2 OpticalRegistry 0x0FB5…fcF0 (sdk/launchpad/shared/config/deployment/current.json), LaunchpadOpticalFactory and every optical keep their code; createLaunchpadOptical (contracts/launchpad/contracts/opticals/LaunchpadOpticalFactory.sol) calls authorizeOptical (contracts/launchpad/contracts/opticals/LaunchpadOpticalFactory.sol) at the generation 2 FeeAccumulator surface, which accepts it through the migrated OPTICAL_GRANTER_ROLE, and onlyAttachedPool (contracts/launchpad/contracts/opticals/BaseOptical.sol) passes because isRegisteredPool at the generation 2 PoolRegistry surface answers for pools of every generation.
+- The generation 2 PoolBeacon 0x0c60…71BE (sdk/launchpad/shared/config/deployment/current.json) keeps its code and is the beacon named in the predicted pool address; BeaconCallFailed and the beacon functions answer as the contract does.
+- Operations queued in the Timelock or GovernanceModule that call a DEFAULT_ADMIN_ROLE method at a surface revert `AccessControlUnauthorizedAccount(address,bytes32)` (0xe2517d3f) when executed; EmergencyPauseController.pauseTargets (contracts/launchpad/contracts/protocol/EmergencyPauseController.sol) calling pause() at a pool surface reverts Unauthorized() unless the controller is the pool guardian, exactly as at the halt height, within the 150000 and 30000 gas budgets of the controller.
+- The meta-ag SidioraAdapter reads the Router, Quoter and PoolRegistry addresses it holds (contracts/launchpad/contracts/meta-ag/adapters/SidioraAdapter.sol), which are generation 2 surfaces, and approves its Router (contracts/launchpad/contracts/meta-ag/adapters/SidioraAdapter.sol); since pulls run with spender 0x1017, the release runbook calls setSidioraRouter(0x0000000000000000000000000000000000001017) through its admin, and getPoolByToken answers for tokens of every generation.
 
 ## 23. Governance administration
 
 - MsgUpdateParams (modules/launchpad/keeper/msg_server.go) is the only path for role administration: its role_grants and role_revokes fields grant and revoke non-admin roles in the migrated role table under the governance authority and emit RoleGranted and RoleRevoked at the surface of the role, and every DEFAULT_ADMIN_ROLE method at a surface reverts `AccessControlUnauthorizedAccount(address,bytes32)` (0xe2517d3f), the single accepted divergence.
-- MsgTreasuryWithdraw (authority, token, to, amount, surplus flag), declared in api/launchpad/tx.proto and registered in modules/launchpad/types/codec.go beside MsgUpdateParams (modules/launchpad/types/codec.go, modules/launchpad/types/codec.go), runs only under the governance authority, pays out from TreasuryHeld by token.transfer from the launchpad module EVM address, debits TreasuryLedger for a withdraw and only the surplus for a recovery, and emits Withdrawn (Launch-x:contracts/contracts/interfaces/ITreasury.sol:15) or SurplusRecovered (Launch-x:contracts/contracts/protocol/Treasury.sol:22) at the Treasury address.
+- MsgTreasuryWithdraw (authority, token, to, amount, surplus flag), declared in api/launchpad/tx.proto and registered in modules/launchpad/types/codec.go beside MsgUpdateParams (modules/launchpad/types/codec.go, modules/launchpad/types/codec.go), runs only under the governance authority, pays out from TreasuryHeld by token.transfer from the launchpad module EVM address, debits TreasuryLedger for a withdraw and only the surplus for a recovery, and emits Withdrawn (contracts/launchpad/contracts/interfaces/ITreasury.sol) or SurplusRecovered (contracts/launchpad/contracts/protocol/Treasury.sol) at the Treasury address.

@@ -133,7 +133,7 @@ defines the merge entries and module gates.
 - `modules/layerxpay/keeper/service_views_test.go::TestServiceViewsReadKernelRecords`
 - `modules/layerxpay/keeper/service_views_test.go::TestServiceViewsUnknownEmpty`
 
-### Native perps, spot and oracle intake
+### Native perps markets, funding and liquidation
 
 - `modules/perps/keeper/msg_server_market_test.go::TestMsgSetMarketListsNewMarket`
 - `modules/perps/keeper/msg_server_market_test.go::TestMsgSetMarketRefusesUnlistedPricefeedMarket`
@@ -241,34 +241,31 @@ defines the merge entries and module gates.
 - `modules/layerxbridge/keeper/keeper_test.go::TestBridgeOutReleaseCapBoundary`
 - `modules/layerxbridge/keeper/attestation_test.go::TestDigestVectorsFromAttestationDoc`
 
-### Agent daemon, SDKs, MCP and CLI
+### Agent SDK native Programs requests
 
 - `services/agent/crates/layerx-sdk/tests/native_programs.rs::native_request_binds_real_signed_fixture`
 
-### Hosted gateway, authority and indexer
+### Hosted gateway chain and indexer reads
 
 - `services/platform/hosted/gateway/tests/one_source_reads.rs::px_get_balances_reads_bank_all_balances_at_one_height`
 - `services/platform/hosted/gateway/tests/one_source_reads.rs::px_get_account_reads_no_kernel_backend`
 - `services/platform/hosted/gateway/tests/one_source_reads.rs::px_list_assets_joins_indexer_assets_with_chain_metadata`
 - `services/platform/hosted/gateway/tests/one_source_reads.rs::px_get_network_reports_the_consensus_head`
 
-### Wallet, human service and explorer
+### Wallet receipt status
 
 - `apps/wallet/e2e/send.spec.ts::send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload`
-
-### Wallet, human service and explorer
-
 - `apps/wallet/src/surfaces/BridgeView.test.tsx::bridge_view_shows_the_receipted_rung_and_events_from_the_sequencer_receipt`
 - `apps/wallet/src/account/StatusLadder.test.tsx::status_ladder_labels_submitted_receipted_and_committed`
 - `apps/wallet/src/account/StatusLadder.test.tsx::transaction_ladder_reaches_receipted_from_the_sequencer_before_the_explorer`
 
-### Cut-over balances and genesis import
+### Custody balance release and claim cancellation
 
 - `modules/layerxcustody/keeper/release_test.go::TestReleaseRetiredMovesEveryCustodiedBalanceToTheAuthority`
 - `modules/layerxcustody/keeper/release_test.go::TestReleaseRetiredCancelsPendingClaims`
 - `modules/layerxcustody/keeper/release_test.go::TestReleaseRetiredIsRefusedBeforeTheMergePlanHeight`
 
-### Retired two-domain surfaces
+### Custody retirement responses
 
 - `precompiles/layerxcustody/retire_test.go::TestEveryCustodyMethodRevertsModuleDisabledFromTheMergePlanHeight`
 - `precompiles/layerxcustody/retire_test.go::TestCustodyRetiredGateRunsBeforeTheCallShapeChecks`
@@ -337,8 +334,11 @@ executor retained for retirement responses.
 - `node/sequencer/mixed_load_test.go::TestMixedLoadSealedEqualsProcessBlock`
 
 The signed receipt's full-block position includes the sequence batch at position
-zero. JSON-RPC exposes an EVM-only transaction index. The receipt equality tests
-compare those projections explicitly. See the
-[activation and migration page](../../docs/plans/activation-and-migration.md) for
+zero. For ordinary EVM transactions, [JSON-RPC](../../../../rpc/tx.go) projects
+that position to an EVM-only transaction index; synthetic venue receipts use
+reserved positions after the block's transactions.
+`TestReceiptEqualsCommittedReceipt` verifies receipt signatures and compares
+status, gas fields, contract addresses and log effects with committed execution.
+See the [activation and migration page](../../docs/plans/activation-and-migration.md) for
 height boundaries and the [test plan](../../docs/plans/test-plan.md) for focused
 runner examples and native-library dependencies.
