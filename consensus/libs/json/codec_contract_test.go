@@ -11,7 +11,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/json"
 )
 
-func TestRepairM_1091_ConcreteExample(t *testing.T) {
+func TestConcreteJSONExample(t *testing.T) {
 	type Record struct {
 		Height int64  `json:"height"`
 		Data   []byte `json:"data"`
@@ -37,7 +37,7 @@ func TestRepairM_1091_ConcreteExample(t *testing.T) {
 	require.Equal(t, wire, dynamicWire)
 }
 
-func TestRepairM_1091_EncodingRules(t *testing.T) {
+func TestJSONEncodingRules(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
 		input any
@@ -73,7 +73,7 @@ func TestRepairM_1091_EncodingRules(t *testing.T) {
 	}
 }
 
-func TestRepairM_1091_ConcreteOnly(t *testing.T) {
+func TestJSONConcreteOnly(t *testing.T) {
 	input := struct {
 		Wheels int64 `json:"wheels"`
 	}{Wheels: 4}
@@ -111,16 +111,16 @@ func TestRepairM_1091_ConcreteOnly(t *testing.T) {
 	require.Nil(t, output)
 }
 
-type repairM1091Car struct {
+type taggedCodecCar struct {
 	Wheels int64 `json:"wheels"`
 }
 
-func (*repairM1091Car) TypeTag() string { return "repair-m1091/car" }
+func (*taggedCodecCar) TypeTag() string { return "repair-m1091/car" }
 
-func init() { jsontypes.MustRegister(&repairM1091Car{}) }
+func init() { jsontypes.MustRegister(&taggedCodecCar{}) }
 
-func TestRepairM_1091_TaggedAlternative(t *testing.T) {
-	input := &repairM1091Car{Wheels: 4}
+func TestJSONTaggedAlternative(t *testing.T) {
+	input := &taggedCodecCar{Wheels: 4}
 	wire, err := jsontypes.Marshal(input)
 	require.NoError(t, err)
 	require.Equal(t, `{"type":"repair-m1091/car","value":{"wheels":4}}`, string(wire))
@@ -133,7 +133,7 @@ func TestRepairM_1091_TaggedAlternative(t *testing.T) {
 	concreteWire, err := json.Marshal(input)
 	require.NoError(t, err)
 	require.Equal(t, `{"wheels":"4"}`, string(concreteWire))
-	var concrete repairM1091Car
+	var concrete taggedCodecCar
 	require.NoError(t, json.Unmarshal(concreteWire, &concrete))
 	require.Equal(t, *input, concrete)
 	var unsupported jsontypes.Tagged
