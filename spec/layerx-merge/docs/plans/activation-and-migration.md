@@ -31,8 +31,10 @@ Ed25519 encodings. Merge input requires `last_seq = 0` with a zero hash.
 See [genesis validation](../../../../modules/sequencer/types/genesis.go) and the
 [merge handler](../../../../node/upgrades.go).
 
-A chain initialized from genesis uses the keeper's activation state directly.
-Export and import preserve the activation height and sequence position.
+A chain initialized from genesis uses the keeper's activation state. A zero
+genesis activation height resolves to the next block and must be covered by a
+receipt key before state is written. Export and import preserve the activation
+height and sequence position.
 
 ```mermaid
 flowchart LR
@@ -136,9 +138,10 @@ runs on a cache branch. The keeper verifies the receipt key, signature,
 See [batch verification](../../../../modules/sequencer/types/batch_verify.go) and
 [keeper delivery](../../../../modules/sequencer/keeper/keeper.go).
 
-The signed full-block position and the EVM-only `transactionIndex` exposed by
-[JSON-RPC receipts](../../../../rpc/tx.go) use different index domains. Receipt
-comparisons account for that projection.
+The signed receipt uses the full-block position. For ordinary EVM transactions,
+[JSON-RPC receipts](../../../../rpc/tx.go) project that position to the EVM-only
+`transactionIndex` and adjust log indexes for preceding EVM receipts. Synthetic
+venue receipts use reserved positions after the block's transactions.
 
 ## Rehearsal coverage
 

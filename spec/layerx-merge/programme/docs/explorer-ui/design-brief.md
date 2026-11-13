@@ -4,10 +4,11 @@ This brief describes the visual system in `apps/explorer`, the Blockscout-based
 Next.js frontend using Chakra UI v3. Its theme foundations, component recipes and
 page components define the palette, typography and layouts in both colour modes.
 
-The reference style is a contemporary market-data explorer: dark-first, dense, quiet surfaces,
-hairline dividers, uppercase micro-labels over every data group, tabular numerals, and a single
-prominent search field that reads like a prompt. The light mode is designed with the same care,
-not derived by inversion.
+The interface uses dense tables, quiet surfaces, hairline dividers, uppercase
+section labels, tabular numerals and a prominent search field. Light and dark
+modes have separate palette values.
+
+Component paths below are relative to `apps/explorer`.
 
 ## 1. Principles
 
@@ -15,13 +16,13 @@ not derived by inversion.
    absent, motion is minimal. Whitespace is spent between groups, not inside them.
 2. **One accent.** A single accent hue carries links, active tabs, focus rings and the search
    field. Positive and negative deltas use the semantic green and red only.
-3. **Labels above data.** Every data group and every table column is introduced by an uppercase
+3. **Labels above data.** Section groups and themed table headers use an uppercase
    11 px label with 0.08 em tracking in the muted text colour.
-4. **Numbers are monospaced.** Hashes, addresses, block numbers, amounts and percentages use the
-   mono family with `font-variant-numeric: tabular-nums` so columns align.
-5. **Data honesty.** A sparkline, price, market cap or change is drawn only from a real series or
-   field the backend already returns. Missing data renders as an em dash and a muted label,
-   never as a placeholder curve or a zero.
+4. **Monospaced data styles.** The number and stat value styles use the mono
+   family with `font-variant-numeric: tabular-nums`. List-table styles also apply
+   this formatting to numeric cells and address, transaction and block entities.
+5. **Data display.** History charts use API series and require at least two
+   points. Market tiles use API fields and display an em dash for absent values.
 6. **Both modes.** Semantic colour roles provide `_light` and `_dark` values for
    shared surfaces, text, borders, accents and chart colours.
 
@@ -81,8 +82,9 @@ the compatibility aliases in `palette.ts`.
 
 ## 4. Layout grammar
 
-- One top bar, no vertical sidebar on desktop (the horizontal navigation layout is the only
-  layout; the `NEXT_PUBLIC_NAVIGATION_LAYOUT` value `vertical` is accepted and ignored).
+- The main navigation uses a horizontal top bar on desktop. The
+  `NEXT_PUBLIC_NAVIGATION_LAYOUT` value `vertical` resolves to that layout too.
+  The statistics page has its own section navigation beside the charts.
 - Content column: 1280 px maximum by default. Setting
   `NEXT_PUBLIC_MAX_CONTENT_WIDTH_ENABLED=false` changes the maximum to 10000 px.
   The desktop header uses 24 px side gutters.
@@ -96,12 +98,13 @@ the compatibility aliases in `palette.ts`.
 
 ## 5. Components
 
-**Top bar** (56 px, sticky, header bar colour with blur). Left: network logo and name. Centre:
-primary groups rendered as text buttons with a chevron: *Explore* (Blocks, Transactions,
-Tokens, Accounts, Verified contracts), *Network* (Network stats, Validators, Epochs, Gas
-tracker), *Developers* (API docs, Contract verification, Charts). Right: compact search field
-(320 px pill, placeholder *Search or ask…*, shortcut hint `⌘K` / `Ctrl K`), colour-mode toggle,
-account button. Mobile: logo, search icon, burger; the groups become an accordion sheet.
+**Top bar** (56 px, sticky, header bar colour with blur). Left: network logo and
+name. Centre: *Explore*, *Network* and *Developers* groups rendered as text
+buttons with a chevron. Links such as Validators, Epochs, API docs and Charts
+depend on enabled features; a *Paxeer X* group appears when its links are
+available. Right: compact search field (320 px pill, placeholder *Search or
+ask…*, shortcut hint `⌘K` / `Ctrl K`), colour-mode toggle and account controls.
+Mobile: logo, search icon and burger; the groups become an accordion sheet.
 
 **Navigation panel** (dropdown under a group): raised surface, hairline border, 8 px radius,
 two columns of links, each link a 14 px title with a 12 px muted description line, hover wash
@@ -110,8 +113,10 @@ in accent soft.
 **Search as prompt.** The hero search on the home page is 640 px wide, 52 px tall, raised
 surface, strong border, accent border on focus, placeholder *Search or ask: a transaction,
 address, block or token*. Results open in a panel beneath with uppercase group labels
-(TRANSACTIONS, ADDRESSES, BLOCKS, TOKENS, APPS) and dense rows. The top-bar field opens the
-same panel. `⌘K` / `Ctrl K` focuses the field anywhere.
+(TRANSACTIONS, ADDRESSES, BLOCKS, TOKENS, APPS) and dense rows, with additional
+categories for supported result types. The top-bar field opens the same panel.
+`⌘K` / `Ctrl K` activates a visible search control; on mobile it opens the search
+drawer.
 
 **Ticker strip** (home, under the top bar): a single horizontally scrolling row of chips, each
 chip = token symbol, price in mono and 24 h change coloured positive / negative. Chips are
@@ -121,10 +126,11 @@ strip is not rendered.
 **Stat tile**: label (uppercase), value in the stat value style, an optional hint and
 a loading skeleton. `ui/shared/Page/StatTile.tsx` uses an 8 px radius and 16 px padding.
 
-**Table**: header row 36 px with uppercase labels, body rows 44 px, hairline rules, raised
-background on hover, first column sticky on narrow screens, numbers right-aligned in mono,
-hashes truncated in the middle with a copy affordance on hover. Mobile keeps the existing
-list-item fallback, restyled with the same tokens.
+**Table**: the shared recipe sets a 36 px header row with uppercase labels,
+44 px body rows, hairline rules and raised background on hover. List tables
+keep the first column sticky, align numbers to the right in mono and reveal
+copy controls on hover or keyboard focus; mobile copy controls stay visible.
+Pages also provide mobile list-item views.
 
 **Tabs** (under an entity header): text tabs with a 2 px accent underline on the active tab,
 counts in muted text, horizontal scroll on mobile. Tab content starts 24 px below.
@@ -156,11 +162,12 @@ all* link in the label row.
 **Blocks / Transactions / Accounts lists.** Page title as h1, filter row, table.
 
 **Tokens (markets view).** Columns: #, Token (logo, name, symbol), Price, Change 24 h, Market
-cap, Volume 24 h, Holders. Price, change, market cap and volume render only from the fields
-the token API returns (exchange rate, circulating market cap, 24 h volume, holders count);
-absent values show an em dash. Price, Market cap and Holders have sort controls when
-sorting is available. Category chips above the table (All, Fungible, NFT, Bridged)
-map to the existing token type filters.
+cap, Volume 24 h, Holders. Price, market cap, volume and holders read the token
+API's exchange rate, circulating market cap, 24 h volume and holders count;
+absent values show an em dash. The list's Change 24 h cells display an em dash.
+Price, Market cap and Holders have sort controls when sorting is available.
+Category chips select All, Fungible or NFT token types. The Bridged chip appears
+when that feature is enabled and selects the bridged-token endpoint.
 
 **Transaction detail.** Entity header (TRANSACTION, hash, status pill, method tag); core tabs
 *Overview*, *Token transfers*, *Internal*, *Logs*, *State*, *Raw*, with additional
@@ -181,16 +188,19 @@ NFTs with the coin balance history chart; Analytics = the existing counters and 
 transfers, gas used) in stat tiles; More = logs, withdrawals, blocks validated and the other
 existing tabs.
 
-**Token detail.** Entity header (TOKEN, name and symbol, type pill); tabs *Markets* (price,
-market cap, volume, holders tiles; a price chart only if the stats service exposes a series),
-*History* (transfers), *Holders*, *Metadata* (contract, decimals, supply, verified info),
-*Inventory* (NFT collections only).
+**Token detail.** Entity header (TOKEN, name and symbol, type pill); tabs
+*Markets* (price, market cap, volume and holders tiles), *History* (transfers),
+*Holders*, *Metadata* (token info and available contract or widget sub-tabs),
+and *Inventory* for NFT token types.
 
 **Network stats.** Hero tiles (transactions per second, active validators, current epoch,
 latest block); RECENT BLOCKS mini table; charts grid in the card style.
 
-**Validators / Epochs.** Table with Rank, Validator, Stake, Stake weight, Commission (fields the
-validators API provides); Epochs with Started, First block, Last block, Duration.
+**Validators / Epochs.** Validator tables depend on the configured API: Blackfort
+shows available stake, delegated amount and commission fields; Stability shows
+available status and block counts; Zilliqa shows available index and stake
+fields. Each table identifies the validator. Epochs uses the Celo epoch API and
+shows epoch, status, start time, first and last blocks, duration and reward totals.
 
 ## 7. Colour-mode rules
 
@@ -202,9 +212,12 @@ validators API provides); Epochs with Started, First block, Last block, Duration
 
 ## 8. Ask assistant
 
-The search panel includes an Ask row backed by `pages/api/assistant.ts` at
-`POST /api/assistant`. It accepts a nonempty `question` of at most 2000 characters
-and optional string context fields `route`, `entityKind` and `identifier`.
+When `NEXT_PUBLIC_ASSISTANT_ENABLED=true`, the search panel offers an Ask row
+for a nonempty question ending in `?` or a search with no matches. The row uses
+`pages/api/assistant.ts` at `POST /api/assistant`, under the configured app base
+path. The endpoint accepts a nonempty `question` of at most 2000 characters
+and an optional `context` object with string fields `route`, `entityKind` and
+`identifier`.
 
 The server reads `EXPLORER_ASSISTANT_BASE_URL`, `EXPLORER_ASSISTANT_MODEL` and
 `EXPLORER_ASSISTANT_API_KEY`. The default model is `xai/grok-4.7`; the configured

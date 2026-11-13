@@ -21,7 +21,9 @@ that exercise the native host require cgo and those libraries.
 
 The agent TypeScript SDK compiles its `src`, `test` and `examples` directories
 into `dist`; its example below builds that package before selecting compiled
-tests. The perps TypeScript example uses its declared `tsx` loader.
+tests. The seller middleware tests import `dist` as well; its example builds
+the middleware and its declared workspace dependencies first. The perps
+TypeScript example uses its declared `tsx` loader.
 
 The root `foundry.toml` and `foundry.paxeer.toml` select different Solidity test
 paths. Chain contract examples select `foundry.paxeer.toml` explicitly. The
@@ -163,7 +165,7 @@ cargo test --locked --manifest-path cmd/layerxctl/Cargo.toml --test files -- --e
 | Go | `go.mod` |
 | JS/TS | `contracts/package.json` |
 | Python | Python 3 |
-| Solidity | `foundry.toml` |
+| Solidity | `foundry.paxeer.toml` for chain contracts; `foundry.toml` for kernel contracts |
 
 Go example:
 
@@ -228,6 +230,7 @@ go -C sdk/platform/go test -count=1 . -run '^(TestSequencerReceiptV1CasesVerifyR
 JS/TS example:
 
 ```sh
+npm --prefix services/platform/middleware/seller run build
 node --test --test-name-pattern='^(encodesLedgerDrawCalldataWithDrawSelector|decodesPaymentExactLogFromLedgerPrecompile|refusesLedgerLogFromAnotherAddress)$' services/platform/middleware/seller/test/ledger.test.mjs
 ```
 
