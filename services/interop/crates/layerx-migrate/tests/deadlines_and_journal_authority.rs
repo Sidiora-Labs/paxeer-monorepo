@@ -45,9 +45,9 @@ use rustls::{
 use serde_json::{json, Value};
 use sha3::{Digest as _, Keccak256};
 
-const CERT: &[u8] = include_bytes!("fixtures/repair_22_31_163/tls-cert.der");
-const KEY: &[u8] = include_bytes!("fixtures/repair_22_31_163/tls-key.der");
-const CASE: &str = include_str!("fixtures/repair_22_31_163/history-case.json");
+const CERT: &[u8] = include_bytes!("fixtures/history_transfer/tls-cert.der");
+const KEY: &[u8] = include_bytes!("fixtures/history_transfer/tls-key.der");
+const CASE: &str = include_str!("fixtures/history_transfer/history-case.json");
 const TOKEN: &str = "public-repair-fixture-token";
 const BUDGET_MS: u64 = 300;
 const UPPER_BOUND: Duration = Duration::from_millis(450);

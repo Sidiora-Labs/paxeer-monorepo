@@ -16,7 +16,7 @@
 //! Wiring request (domain 11): services/interop/crates/layerx-migrate/OPERATIONS.md
 //! and spec/layerx-merge/interfaces.kvx must document that same pin format.
 //! The Ethereum peer transcript, authenticated v1 journal seed and public
-//! test-only TLS material are committed under `tests/fixtures/repair_22_31_163`.
+//! test-only TLS material are committed under `tests/fixtures/history_transfer`.
 //! The verifier, RPC quorum, history codec and durable journal run in-process;
 //! the two TLS peers replay the case and maintain independent journal heads.
 //! Wiring request (domain 8): services/platform/hosted/authority must provide
@@ -55,7 +55,7 @@ use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 use sha3::Keccak256;
 
-const PROGRAM_CAPTURE: &str = include_str!("../src/fixtures/repair_22_31_163_program_data.json");
+const PROGRAM_CAPTURE: &str = include_str!("../src/fixtures/solana_program_data.json");
 const DEPLOYED_CODE_PIN: &str = "31f0a627dba051a938de650464e55cc5397a4be0fd496929c1f9cf02fe5e9011";
 
 fn program_capture() -> (Value, Vec<u8>, u64) {
@@ -204,10 +204,10 @@ struct ExpectedRecord {
     distinct_log_indices: Vec<u64>,
 }
 
-const HISTORY_CASE: &str = include_str!("fixtures/repair_22_31_163/history-case.json");
-const JOURNAL_FIXTURE: &str = include_str!("fixtures/repair_22_31_163/journal.json");
-const TLS_CERT: &[u8] = include_bytes!("fixtures/repair_22_31_163/tls-cert.der");
-const TLS_KEY: &[u8] = include_bytes!("fixtures/repair_22_31_163/tls-key.der");
+const HISTORY_CASE: &str = include_str!("fixtures/history_transfer/history-case.json");
+const JOURNAL_FIXTURE: &str = include_str!("fixtures/history_transfer/journal.json");
+const TLS_CERT: &[u8] = include_bytes!("fixtures/history_transfer/tls-cert.der");
+const TLS_KEY: &[u8] = include_bytes!("fixtures/history_transfer/tls-key.der");
 static NEXT_FIXTURE: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Clone, Deserialize)]

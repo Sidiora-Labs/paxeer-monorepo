@@ -20,7 +20,7 @@ request = "spec/layerx-merge/interfaces.kvx — interop domain 11: retire hosted
 request = "services/interop/deploy/gateway — interop domain 11: remove retired hosted-gateway/receipt-authority/individual-sequencer-key inputs; provision private AP2 receipt signer configuration and independently publish its verification keys to AP2 consumers."
 
 [wiring.22.33.86.fixtures]
-request = "services/interop/crates/layerx-interop-service/tests/sequencer_start.rs and private_network.rs — interop domain 11: remove obsolete fixture environment inputs and adopt the minimal active startup/readiness and concrete proof workflow demonstrated by repair_22_33_86.rs."
+request = "services/interop/crates/layerx-interop-service/tests/sequencer_start.rs and private_network.rs — interop domain 11: remove obsolete fixture environment inputs and adopt the minimal active startup/readiness and concrete proof workflow demonstrated by mounted_payment_routes.rs."
 
 [wiring.22.33.86.ap2]
 request = "services/interop/crates/layerx-ap2/src/adapter.rs and lib.rs — interop domain 11: expose the private signing finalizer for already verified EVM settlement evidence so the hosted bridge can share its JWT payload assembly; the current public LayerXIntentPlane requires an unexported direct dependency type and the legacy CompiledIntent path, while this service relays real payer-signed EVM transactions."

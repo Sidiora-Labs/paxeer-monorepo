@@ -3,8 +3,8 @@ mod test_network {
 }
 
 // Task 22.33.101: finding/test mapping and out-of-scope wiring are recorded in
-// src/repair_22_33_101.kvx. The peer below is the committed Solana loopback
-// transcript used by repair_22_31_166; the component under repair is the real
+// spec/layerx-merge/programme/records/services/interop/crates/layerx-mirror/src/repair_22_33_101.kvx. The peer below is the committed Solana loopback
+// transcript used by publication_recovery; the component under repair is the real
 // publisher, journal, remote signer client, source reader and verifier.
 
 use layerx_mirror_signer as mirror_signer_service;

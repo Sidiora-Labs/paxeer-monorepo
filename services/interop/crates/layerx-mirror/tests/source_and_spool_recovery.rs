@@ -2,7 +2,7 @@ mod test_network {
     include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_network.rs"));
 }
 
-// Audit finding/test mapping and wiring requests: ../src/repair_22_33_100.kvx
+// Audit finding/test mapping and wiring requests: spec/layerx-merge/programme/records/services/interop/crates/layerx-mirror/src/repair_22_33_100.kvx
 
 mod peer {
     use super::OrPanic as _;
@@ -1115,7 +1115,7 @@ fn finding_25_and_21_rendered_native_configuration_loads_at_root_with_strict_key
 mod publication {
     // Reuse the committed chain and signer peers: signed transactions from the
     // concrete publisher populate the peer's manifest/chunk store unchanged.
-    include!("repair_22_31_166.rs");
+    include!("publication_recovery.rs");
 
     #[test]
     fn finding_11_real_publication_acknowledges_and_recovers_each_lane_cursor() {

@@ -2,7 +2,7 @@
 id = "22.33.103"
 audit = "22.30.111"
 base_revision = "2b502183a86af3a2498748de6572b1bde20e4768"
-verify_cmd = "cargo test --locked --manifest-path services/interop/crates/layerx-mirror/Cargo.toml --test repair_22_33_103"
+verify_cmd = "cargo test --locked --manifest-path services/interop/crates/layerx-mirror/Cargo.toml --test archive_consumer_paths"
 verified_revision_record = "The runner records the exact candidate revision, command, exit and private log in /out/run/gates.jsonl and the final gate JSON."
 baseline = "Not run: the ordered gate contract prohibits testing before complete implementation and direct verify invocations; this integration target did not exist on the unchanged tree, so no pre-change test failure is claimed."
 

@@ -45,7 +45,7 @@ proof = "A production-published archive crosses the pinned Solana RPC reader int
 wiring_request = "Domain 11 (interop), with registered SDK/explorer consumer owners: reconcile spec/layerx-merge/interfaces.kvx verifier rows/caller inventories and spec/layerx-merge/contracts/interop-mirror-contracts.md examples to from_committed_source(ObservedArchive), committed() and committed_receipt(index, &[SequencerAuthorization]) -> MirrorVerification<Receipt>; keep receipt authentication explicit and replace obsolete tx-hash/height/from_source examples."
 
 [constraints]
-scope = "Only layerx-mirror/src and tests/repair_22_33_101.rs changed; no specification, contract, manifest, unrelated source, commit or push is performed by this task."
+scope = "Only layerx-mirror/src and tests/signer_solana_and_journal.rs changed; no specification, contract, manifest, unrelated source, commit or push is performed by this task."
 peers = "The actual mirror-signer source is compiled as a test module because the crate manifest is out of scope; the Solana peer reuses the committed loopback transcript, with contextual account responses for the real read-only source. No external endpoint, credential, toolchain subprocess or device is required."
 
 [qualification_repair.1]

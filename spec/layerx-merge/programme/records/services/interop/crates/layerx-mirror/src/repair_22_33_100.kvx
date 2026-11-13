@@ -49,7 +49,7 @@ test = "finding_25_and_21_rendered_native_configuration_loads_at_root_with_stric
 wiring_request = "Domain 11 (interop deployment): keep services/interop/deploy/mirror/config.example.json native URLs at root paths (already correct in this base); retain Ethereum/Solana provider paths and keep renderer output aligned with the strict source loader."
 
 [constraints]
-scope = "Only layerx-mirror/src and tests/repair_22_33_100.rs are edited; no specification or external domain file is changed, and the runner owns publication."
+scope = "Only layerx-mirror/src and tests/source_and_spool_recovery.rs are edited; no specification or external domain file is changed, and the runner owns publication."
 peers = "Peers are recorded signed receipts, authenticated loopback TLS servers, a controlled blocking resolver delegating real system lookup, and existing committed chain/signer fixtures; no repaired production component is replaced. No live endpoint, credential, environment variable, external binary, subprocess toolchain or device is required by the focused test."
 
 [qualification_repair.1]

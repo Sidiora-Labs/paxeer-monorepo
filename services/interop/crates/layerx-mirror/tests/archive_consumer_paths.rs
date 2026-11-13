@@ -1,5 +1,5 @@
 // Audit 22.30.111 findings and the out-of-scope wiring request are recorded in
-// repair_22_33_103.kvx. Include the committed fixtures so this gate drives the
+// spec/layerx-merge/programme/records/services/interop/crates/layerx-mirror/tests/repair_22_33_103.kvx. Include the committed fixtures so this gate drives the
 // same native source, concrete clients, remote signer and durable journal.
 
 mod native {
@@ -103,7 +103,7 @@ mod native {
 }
 
 mod publication {
-    include!("repair_22_31_166.rs");
+    include!("publication_recovery.rs");
 
     fn recovered_record(
         fixture: &Fixture,
