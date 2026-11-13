@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repair714Read(t *testing.T, path string) string {
+func readContractFile(t *testing.T, path string) string {
 	t.Helper()
 	raw, err := os.ReadFile(filepath.Join("../../..", path))
 	require.NoError(t, err, path)
@@ -25,13 +25,13 @@ func repair714Read(t *testing.T, path string) string {
 
 // Follow every registry reference to these normative pages, including fragments.
 // Removing a page or its public anchor must fail even if another page still loads.
-func TestRepairM_714_RegistryContracts(t *testing.T) {
-	registry := repair714Read(t, "spec/layerx-merge/interfaces.kvx")
+func TestRegistryContracts(t *testing.T) {
+	registry := readContractFile(t, "spec/layerx-merge/interfaces.kvx")
 	references := regexp.MustCompile(`(?m)^contract\s*=\s*"(contracts/(?:markets|perps-data|perps-client)\.md)(?:#([^"]+))?"`).FindAllStringSubmatch(registry, -1)
 	require.NotEmpty(t, references)
 	seen := map[string]bool{}
 	for _, ref := range references {
-		page := repair714Read(t, ref[1])
+		page := readContractFile(t, ref[1])
 		require.NotEmpty(t, page)
 		seen[ref[1]] = true
 		if ref[2] == "" {
@@ -56,10 +56,10 @@ func TestRepairM_714_RegistryContracts(t *testing.T) {
 // The existing fixture opens real chain stores and deploys the keeper's native
 // pointer into the production EVM. Decode its actual return/log/error bytes with
 // the public ABI consumed by indexers, rather than constructing response fixtures.
-func TestRepairM_714_NativeShareContract(t *testing.T) {
-	e := newRepair19Env(t)
-	markets := repair714Read(t, "contracts/markets.md")
-	data := repair714Read(t, "contracts/perps-data.md")
+func TestNativeShareContract(t *testing.T) {
+	e := newNativeShareEnv(t)
+	markets := readContractFile(t, "contracts/markets.md")
+	data := readContractFile(t, "contracts/perps-data.md")
 	require.Contains(t, markets, "NativePaxTokensERC20")
 	require.Contains(t, markets, "share-deployment.kvx")
 	require.Contains(t, data, "deployed `Share()` ABI")
@@ -68,19 +68,19 @@ func TestRepairM_714_NativeShareContract(t *testing.T) {
 	for name := range e.contract.Methods {
 		require.Contains(t, markets, "`"+name+"`", "undocumented native method")
 	}
-	token := repair19Address(t.Name() + " underlying")
+	token := shareTestAddress(t.Name() + " underlying")
 	require.Equal(t, "spot/share/"+strings.ToLower(token.Hex()), e.denom)
 	pointer, _, exists := e.app.EvmKeeper.GetERC20NativePointer(e.ctx, e.denom)
 	require.True(t, exists)
 	require.Equal(t, e.pointer, pointer)
-	_, _, missing := e.app.EvmKeeper.GetERC20NativePointer(e.ctx, e.keeper.ShareDenom(repair19Address(t.Name()+" unknown")))
+	_, _, missing := e.app.EvmKeeper.GetERC20NativePointer(e.ctx, e.keeper.ShareDenom(shareTestAddress(t.Name()+" unknown")))
 	require.False(t, missing)
 	require.Equal(t, "Spot Vault Share USDL", e.view("name"))
 	require.Equal(t, "sUSDL", e.view("symbol"))
 	require.Equal(t, uint8(6), e.view("decimals"))
 	require.Equal(t, e.denom, e.view("denom"))
 	e.requireTransferLog(e.mint(100), common.Address{}, e.holder, 100)
-	receiver := repair19Address(t.Name() + " receiver")
+	receiver := shareTestAddress(t.Name() + " receiver")
 	ret, err := e.call(e.contract, e.holder, "transfer", receiver, big.NewInt(30))
 	require.NoError(t, err)
 	values, err := e.contract.Unpack("transfer", ret)
@@ -134,8 +134,8 @@ func TestRepairM_714_NativeShareContract(t *testing.T) {
 
 // Hook execution belongs to the client gate. Here pin the published return
 // descriptions to the committed consumers without invoking a JS toolchain.
-func TestRepairM_714_HookContracts(t *testing.T) {
-	page := repair714Read(t, "contracts/perps-client.md")
+func TestHookContracts(t *testing.T) {
+	page := readContractFile(t, "contracts/perps-client.md")
 	for _, pair := range []struct {
 		path          string
 		source        string
@@ -148,7 +148,7 @@ func TestRepairM_714_HookContracts(t *testing.T) {
 		{"hooks/perps/useMarketConfig.ts", "return { config, tiers };", "`{ config, tiers }`"},
 		{"hooks/spot/useSpotTokenState.ts", "state: query.isError ? null : (query.data ?? null),", "`{ state: SpotTokenState | null, error: string | null }`"},
 	} {
-		require.Contains(t, repair714Read(t, "apps/perps/src/"+pair.path), pair.source)
+		require.Contains(t, readContractFile(t, "apps/perps/src/"+pair.path), pair.source)
 		require.Contains(t, page, pair.documentation)
 		require.Contains(t, page, "../apps/perps/src/"+pair.path)
 	}
