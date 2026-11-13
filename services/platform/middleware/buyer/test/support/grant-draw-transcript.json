@@ -1,6 +1,6 @@
 {
   "provenance": {
-    "source": "services/platform/middleware/buyer/test/repair-22-31-436.test.mjs",
+    "source": "services/platform/middleware/buyer/test/draw-recipient.test.mjs",
     "kind": "committed signed conformance transcript; not a native draw execution",
     "payer": "1111111111111111111111111111111111111111111111111111111111111111",
     "recipient": "6666666666666666666666666666666666666666666666666666666666666666",

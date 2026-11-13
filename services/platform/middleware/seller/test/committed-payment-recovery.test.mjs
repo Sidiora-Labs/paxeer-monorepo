@@ -10,7 +10,7 @@ const {
   decodeSettlementHeader, encodePaymentPayloadHeader, verifyPaymentReceipt,
 } = await import("../src/index.ts");
 const { FileFulfillmentRepository, createPaidApiServer } = await import("../../../examples/paid-api/index.mjs");
-const { committedPaymentFixture, refusesUnboundCommitments } = await import("./repair-22-33-1478-support.mjs");
+const { committedPaymentFixture, refusesUnboundCommitments } = await import("./committed-payment-fixture.mjs");
 const { keccak256, SequencerReceiptVerificationError, verifySequencerReceipt } = await import("@sidiora/layerx-sdk");
 await import("./commitment-rungs.test.mjs");
 await import("./grant-draw.test.mjs");

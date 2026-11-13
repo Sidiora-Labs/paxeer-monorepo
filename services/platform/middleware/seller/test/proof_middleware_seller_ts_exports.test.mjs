@@ -39,7 +39,7 @@ registerHooks({
     return nextLoad(url, context);
   },
 });
-const { committedPaymentFixture, refusesUnboundCommitments } = await import("./repair-22-33-1478-support.mjs");
+const { committedPaymentFixture, refusesUnboundCommitments } = await import("./committed-payment-fixture.mjs");
 const { keccak256 } = await import("@sidiora/layerx-sdk");
 const seller = await import("@sidiora/layerx-seller-middleware");
 const express = await import(new URL("sdk/integrations/express/src/index.ts", root));

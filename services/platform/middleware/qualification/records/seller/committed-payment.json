@@ -124,7 +124,7 @@
     "recording": "sdk/platform/conformance/fixtures/vector-v4-committed.json:positive.receiptInclusion.NextCommit.Signatures[1].Signature",
     "recordedValue": null,
     "blockIdFlag": 1,
-    "decoder": "services/platform/middleware/seller/test/repair-22-33-1478-support.mjs:commit",
+    "decoder": "services/platform/middleware/seller/test/committed-payment-fixture.mjs:commit",
     "repair": "Decode null vote signatures as empty Uint8Arrays while retaining BlockIDFlag and ValidatorAddress. All other recording decoders are unchanged; the scoped support adapter leaves the out-of-scope shared committed-fixture.mjs untouched.",
     "test": "recordedNodePaymentCrossesExampleAndRecovers",
     "inheritedResult": "Attempt 8: 18/20 passed; recordedNodePaymentCrossesExampleAndRecovers and receiptAuthorityPreservesSdkRefusal failed decoding the absent vote signature with ERR_INVALID_ARG_TYPE (gotcha 3082, decision 2568).",
