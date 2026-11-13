@@ -374082,7 +374082,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.162]
 title = "Write the page of the directory tests/bridge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374112,7 +374112,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.161]
 title = "Write the page of the directory tests/agent"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374142,7 +374142,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.160]
 title = "Write the page of the directory programs/tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374172,7 +374172,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.159]
 title = "Write the page of the directory programs/sdk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374202,7 +374202,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.158]
 title = "Write the page of the directory programs/porting"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374232,7 +374232,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.157]
 title = "Write the page of the directory programs/fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374262,7 +374262,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.156]
 title = "Write the page of the directory programs/crates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374292,7 +374292,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.155]
 title = "Write the page of the directory sdk/wallet"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374322,7 +374322,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.154]
 title = "Write the page of the directory sdk/platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374352,7 +374352,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.153]
 title = "Write the page of the directory sdk/launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374382,7 +374382,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.152]
 title = "Write the page of the directory sdk/js"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374412,7 +374412,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.151]
 title = "Write the page of the directory sdk/integrations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374442,7 +374442,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.150]
 title = "Write the page of the directory sdk/chainflow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374472,7 +374472,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.149]
 title = "Write the page of the directory tools/uci"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374502,7 +374502,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.148]
 title = "Write the page of the directory tools/release"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374532,7 +374532,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.147]
 title = "Write the page of the directory tools/qualification"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374562,7 +374562,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.146]
 title = "Write the page of the directory tools/platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374592,7 +374592,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.145]
 title = "Write the page of the directory tools/paxeer-x"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374622,7 +374622,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.144]
 title = "Write the page of the directory tools/paxctl"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374652,7 +374652,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.143]
 title = "Write the page of the directory tools/ops"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374682,7 +374682,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.142]
 title = "Write the page of the directory tools/loadtest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374712,7 +374712,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.141]
 title = "Write the page of the directory tools/launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
