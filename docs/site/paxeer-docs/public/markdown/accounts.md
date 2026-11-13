@@ -2,9 +2,9 @@
 
 # Accounts & Unified Identity
 
-One user account across Paxeer EVM and LayerX, with explicit asset accounts and protocol-owned financial subaccounts.
+An EVM address bound to a native identity on Paxeer mainnet-beta, with explicit asset accounts and financial subaccounts.
 
-Paxeer X presents a unified account while preserving the two execution systems’ cryptographic roles. An EVM account uses secp256k1. A LayerX identity uses Ed25519 and the key-derived identifier `did:layerx:<64 hex characters of the public key>`. An on-chain binding connects the two, and named LayerX accounts hold native assets, issued assets, escrow, budgets, streams, and margin.
+Paxeer X presents a unified account while preserving distinct cryptographic roles on one network. An EVM account uses secp256k1. A LayerX identity uses Ed25519 and the key-derived identifier `did:layerx:<64 hex characters of the public key>`. An on-chain binding connects the two, and named LayerX accounts hold native assets, issued assets, escrow, budgets, streams, and margin.
 
 ## One secret, two keys
 
@@ -30,7 +30,7 @@ Derivation prints the EVM address and DID. Private-key export requires the expli
 
 ### External-wallet derivation
 
-A browser wallet that retains its seed can derive the LayerX key from a fixed EIP-712 signature. The domain is `Paxeer X Network`, version `1`, with the connected chain identifier. The primary type is `LayerXKeyDerivation`; the message binds purpose, warning, address, index, and version.
+A browser wallet that keeps its seed private can derive the LayerX key from a fixed EIP-712 signature. The domain is `Paxeer X Network`, version `1`, with the connected chain identifier. The primary type is `LayerXKeyDerivation`; the message binds purpose, warning, address, index, and version.
 
 ```
 seed = HKDF-SHA256(
@@ -44,16 +44,16 @@ seed = HKDF-SHA256(
 
 The SDK normalizes the signature to low-s form with v equal to 27 or 28, verifies that it recovers the requested signing address, asks the wallet twice, and compares the canonical signatures. A mismatch refuses derivation with `wallet_signature_not_deterministic`. A signer mismatch refuses with `wallet_signer_mismatch`.
 
-The derivation signature is itself secret: anyone holding it can derive the LayerX key. The message names the authorized origin, with `https://paxportwallet.com` as the SDK default. Applications never log, transmit, or retain the signature. A self-hosted origin changes the message and the resulting key, so the chosen origin remains stable for recovery.
+The derivation signature is itself secret: anyone holding it can derive the LayerX key. The message names the authorized origin, selected by `ACCOUNT_DERIVATION_ORIGIN` in the TypeScript SDK. Keep the signature out of application logs and storage. A self-hosted origin changes the message and the resulting key, so the chosen origin remains stable for recovery.
 
 ```
-import { deriveFromBrowserWallet, autoBindLayerX } from '@sidiora/layerx-sdk'
+import { deriveFromBrowserWallet, autoBindLayerX } from '@sidiora/layerx-sdk/browser'
 
 const account = await deriveFromBrowserWallet(window.ethereum, {
-  chainId,
+  chainId: 125,
   address,
 })
-await autoBindLayerX(window.ethereum, account, chainId)
+await autoBindLayerX(window.ethereum, account, 125)
 ```
 
 ## Binding both identities
@@ -66,11 +66,11 @@ The address precompile at `0x0000000000000000000000000000000000001004` records m
 4. Sign the domain-separated `LX:PAXEER-BIND:v1` preimage containing chain identifier, EVM address, and nonce with the LayerX key.
 5. Call `bindLayerX(didPublicKey, signature)` from the EVM address. The transaction supplies EVM consent and the Ed25519 signature supplies LayerX consent.
 
-After binding, the hosted gateway method `px_resolveAccount` resolves the EVM address and DID to the same unified account. It is part of the gateway's `px_` API, defined by its OpenRPC contract. It is not a public-node method. Obtain the gateway URL and credentials from the operator. The seed-based helpers construct a signed EIP-1559 transaction; browser-wallet binding uses `eth_sendTransaction`.
+After binding, the hosted gateway method `px_resolveAccount` resolves the EVM address and DID to the same unified account. It is part of the gateway's `px_` API, defined by its OpenRPC contract. Obtain the gateway URL and credentials from the operator. The CLI bind flow requires EVM chain ID 125. Seed-based helpers construct a signed EIP-1559 transaction; browser-wallet binding uses `eth_sendTransaction` with the pending EVM nonce on that chain.
 
 ## Named financial accounts
 
-Every locked or committed unit sits in a real account. Escrow, budget, margin, and stream value is not a reserved or pending number on the main account.
+Native escrow, budget, margin, and stream commitments hold value in separate accounts. Each module authorizes transfers from its own accounts.
 
 | Namespace | Role |
 | --- | --- |
@@ -83,7 +83,7 @@ Every locked or committed unit sits in a real account. Escrow, budget, margin, a
 | `system:liquidity:<market>` | Market liquidity. |
 | `system:funding:<market>:long\|short` | Protocol-3 market funding accounts. |
 | `system:insurance`, `system:fees` | Insurance pool and fee treasury. |
-| `system:paxeer-reserve`, `system:paxeer-withdrawals` | Reserve mirror and withdrawal staging. |
+| `system:paxeer-reserve`, `system:paxeer-withdrawals` | System reserve and withdrawal identifiers recognized by the account namespace decoder. |
 | `module:asset:value:<issuance-account-id>` | Asset issuance account records. |
 
 ### Canonical identifiers
@@ -94,7 +94,7 @@ account_id32 = SHA-256(
 )
 ```
 
-Hexadecimal identifiers in names use lowercase text; asset and protocol-3 object identifiers use 64 hex characters. Signed Escrow OPEN, Budget CREATE, and Stream OPEN derive subaccounts from the signed actor DID and object identifier. Signed Perps MARKET_CREATE derives market liquidity and funding accounts. System accounts are created by genesis or authorized governance.
+The hash above derives ordinary named accounts. A module value name ends in its existing 32-byte account ID as 64 lowercase hex characters, which is decoded directly. Hexadecimal identifiers in names use lowercase text; asset and protocol-3 object identifiers use 64 hex characters. Signed Escrow OPEN, Budget CREATE, and Stream OPEN derive subaccounts from the signed actor DID and object identifier. Signed Perps MARKET_CREATE derives market liquidity and funding accounts. System accounts are created by genesis or authorized governance.
 
 ## Authority and sequence ownership
 
@@ -104,9 +104,9 @@ An owner’s ordinary signature or session key cannot directly debit a budget, e
 | --- | --- |
 | Activity `account_sequence` | The actor DID’s identity counter. |
 | Transfer-set `actor_sequence` | The designated sequence account, normally the debited record and therefore per DID and asset. |
-| Receive, mint, and fee legs | Receive advances the recipient counter; mint advances issuance; protocol fees advance the treasury counter. |
+| Send, mint, and burn | Send advances the source account counter; mint uses the issuance account counter; burn uses the source asset account counter. |
 
-A new per-asset account starts at zero independently of the main account’s history. Account identifiers are protocol namespace values, not arbitrary application strings. Agent SDK type boundaries reject identifiers outside the supported namespace.
+An EVM transaction also carries its own sender nonce, read with eth_getTransactionCount at pending. A new per-asset account starts at zero independently of the main account’s counter. Account identifiers are protocol namespace values, not arbitrary application strings. Agent SDK type boundaries reject identifiers outside the supported namespace.
 
 ## Recovery and supported wallet paths
 

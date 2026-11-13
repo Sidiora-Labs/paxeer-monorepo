@@ -6,7 +6,7 @@ Build durable agent consumers with scoped visibility, acknowledged cursors, expl
 
 Paxeer X subscriptions let an agent observe activity without repeatedly rebuilding its view from individual queries. The contract persists the subscription definition, acknowledgement position, continuity state, and lifecycle controls in the agent daemon. An event carries its identity, bytes, deduplication identifier, cursor, and an optional verified receipt reference.
 
-Status: the Agent API contract marks `subscription.create`, `subscription.list` and `subscription.health` as *served adapter arms* with incomplete owner bodies. That status asserts only that a dispatch arm and adapter exist; it does not assert a completed real owner, working behaviour or qualification. Treat the interface below as the declared contract and verify behaviour against your daemon build before depending on it.
+The Agent API routes `subscription.create`, `subscription.list` and `subscription.health` to the daemon's durable subscription store. Creation uses an *idempotent mutation*; list and health reads require the authenticated session's operation permit.
 
 ## Choose the event interface
 
@@ -48,12 +48,14 @@ EventDelivery
   event_bytes
   deduplication_id
   cursor
-  receipt_reference: None | Verified { receipt_ref, verification_level }
+  receipt_reference: None | Verified { receipt_ref, rung }
+
+cursor = { block_height: "125", tx_index: "0", log_index: "0" }
 
 subscription.acknowledge(scope, subscription_id, cursor)
 ```
 
-Delivery is at least once. An acknowledgement records progress; it does not make a business handler transactional. If the process crashes after applying an effect but before acknowledging, the repeated delivery must find the completed deduplication record. Cursor values use canonical decimal strings and represent stream position rather than a locally inferred protocol sequence.
+Delivery is at least once. An acknowledgement records progress; it does not make a business handler transactional. If the process crashes after applying an effect but before acknowledging, the repeated delivery must find the completed deduplication record. Each cursor is an object with block_height, tx_index, and log_index fields encoded as canonical decimal strings. Preserve all three coordinates when saving or acknowledging progress.
 
 The daemon refuses acknowledgements for never-delivered cursors and rejects regressing positions. Keep processing and acknowledgement ordered for a subscription instead of advancing past unfinished work.
 
@@ -68,13 +70,13 @@ If retention no longer contains the requested interval, Truncated reports `reque
 | Operation | Required fields | Use |
 | --- | --- | --- |
 | `subscription.list` | scope | Find subscriptions visible to the authenticated owner. |
-| `subscription.health` | scope, subscription_id | Inspect acknowledged progress, last delivery time, and pending backfill. |
+| `subscription.health` | scope, subscription_id | Inspect acknowledged progress and pending backfill. |
 | `subscription.acknowledge` | scope, subscription_id, cursor | Persist completed delivery progress. |
 | `subscription.pause` | scope, subscription_id | Stop delivery temporarily while preserving position. |
 | `subscription.resume` | scope, subscription_id | Continue under current authorization and continuity controls. |
 | `subscription.delete` | scope, subscription_id | Terminate delivery while retaining its audit record. |
 
-Health returns the target, `last_acknowledged`, `last_delivery_at`, and `pending_backfill`. The delivery timestamp is a decimal-string timestamp or null. Pending backfill reports the missing range, including truncated continuity over the subscription's own coordinates.
+Health returns the target, `last_acknowledged`, `last_delivery_at`, and `pending_backfill`. The current daemon returns null for the delivery timestamp. Pending backfill reports the missing sequence range, including truncated continuity over the subscription's own coordinates.
 
 ## Revocation and restart safety
 
@@ -84,8 +86,8 @@ Restart restores definition, acknowledged position, unacknowledged deliveries, a
 
 ## Separate notification from proof
 
-An event may carry no receipt reference. A verified reference names its receipt and verification level with Paxeer as the settlement domain. Event arrival alone does not establish an economic outcome. For settlement-sensitive automation, retrieve the evidence and require the rung your policy needs: `submitted`, `receipted` or `committed` — the three rungs the Agent API reports on the wire.
+An event may carry no receipt reference. A verified reference names its receipt and rung with Paxeer as the settlement domain. Event arrival alone does not establish an economic outcome. The Agent API reports `submitted`, `receipted` and `committed`; a verified receipt reference requires at least receipted. For settlement-sensitive automation, retrieve the evidence and require committed block evidence.
 
 Keep local approval and policy notifications distinguishable from protocol receipts. See [Agents on Paxeer X](https://docs.paxeer.app/agents) for the write lifecycle and [Agent runtime](https://docs.paxeer.app/agent-runtime) for capability, readiness, and recovery controls.
 
-**Reference:** `services/agent/schema/agent-api/stream.kvx` and `v1.kvx`; `services/agent/crates/layerx-agentd/src/events/subscription.rs` in the monorepo.
+**Reference:** `services/agent/crates/layerx-agent-api/src/stream.rs` and `services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs`; `services/agent/crates/layerx-agentd/src/events/subscription.rs` in the monorepo.

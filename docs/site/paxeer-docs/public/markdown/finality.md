@@ -2,63 +2,63 @@
 
 # Finality & Commitment
 
-Follow an activity from execution into a sealed batch, and request the evidence your application needs.
+Follow a transaction from submission through verified execution to BFT block commitment.
 
-## One history, increasing assurance
+## Transaction progress on one network
 
-Paxeer X combines the fast LayerX activity path with Paxeer custody. Activities are ordered into sealed batches and replicas preserve the history for replay. The layerx-merge upgrade (`v7.0`) retired the separate guarantor and checkpoint settlement plane: checkpoint submission to the Paxeer anchor returns a module-retired error, so applications must not require anchor registration as a live step. See [Checkpoints](https://docs.paxeer.app/checkpoints).
+Paxeer is one BFT network. Its kernel participates in block production, and an execution receipt becomes final when its block is committed. EVM chain ID is `125`. The node implementation lives in `node/`; receipt progress is exposed by `rpc/sequencer_receipt.go`. See [Commitment evidence](https://docs.paxeer.app/checkpoints).
 
 | Stage | Name | Evidence and responsibility |
 | --- | --- | --- |
-| L0 | Accepted | The activity is ordered into the current batch and issued a state-root-bound receipt. |
-| L1 | Sealed | Batch ordering is fixed by the signed canonical header. Replicas retain sealed bytes. |
-| L2 | Distributed | The sealed batch and availability bundle are retrievable for independent replay. |
+| Submission | Submitted | The node holds the transaction; no execution receipt is attached. |
+| Execution | Receipted | A signed receipt records the outcome before block commitment. |
+| Commitment | Committed | A committed block covers the receipt sequence. |
 
-Earlier designs added bonded guarantor attestation and Paxeer checkpoint registration as further stages. That plane is retired. A receipt proves execution at its declared evidence level; it does not by itself prove settlement. Before using evidence to release value, apply the configured settlement and withdrawal rules for the relevant network.
+A submission acknowledgement establishes that the transaction was received. A signed receipt establishes its execution outcome. Committed block evidence establishes finality on the same network.
 
-## Public commitment levels
+## Receipt commitment rungs
 
-Activity submission and payment middleware expose three exact commitment names. These are evidence requirements rather than interchangeable progress labels. They do not replace the lifecycle stages.
+`pax_sequencerReceipt` reports three exact `rung` values. The hosted gateway relays this node method without promoting its evidence level.
 
-| Commitment | Required evidence | Application decision |
+| Rung | Required evidence | Application decision |
 | --- | --- | --- |
-| `executed` | A verified canonical receipt for the submitted activity | Inspect the authenticated outcome and its payment or program effects. |
-| `batched` | Executed evidence plus an authenticated receipt proof naming the same activity and carrying byte-identical canonical receipt bytes | Require signed-batch inclusion before releasing a resource. |
-| `finalised` | Batched evidence plus finalised checkpoint evidence whose canonical header exactly equals the proof's signed batch header | Require the checkpoint evidence bound to that exact batch. |
+| `submitted` | Transaction hash and nonce without a receipt | Track the existing submission. |
+| `receipted` | Signed execution receipt and consistent decoded fields | Inspect success or failure and the recorded effects. |
+| `committed` | Receipt covered by a committed block | Treat the verified outcome as final. |
 
-`batch_evidence` carries the authenticated receipt proof and `checkpoint_evidence` carries the checkpoint. A different checkpoint or a newer head cannot substitute for the exact required header. Admission acknowledgements, queue entries, activity IDs and HTTP 202 responses do not establish execution.
+A submitted result contains `txHash` and `nonce`. Receipted results add signed receipt bytes and their decoded fields. Committed results also contain `blockNumber` and `blockHash` for the block covering the receipt sequence.
 
 ### Use the exact wire vocabulary
 
-The spelling is `finalised`, alongside `executed` and `batched`. Do not substitute other spellings or progress labels.
+The current names are `submitted`, `receipted`, and `committed`. In the Human API, their verification labels are `unverified`, `receipt-verified`, and `checkpoint-finalised`.
 
-## Recover a pending commitment
+## Recover an unknown outcome
 
-When a bounded wait cannot establish the requested evidence, the gateway returns an error rather than silently returning a weaker success. Recover the existing outcome instead of submitting a duplicate:
+If the outcome is unknown, track the existing transaction and obtain its evidence before taking another economic action:
 
-1. Keep the original signed activity and activity ID.
-2. Read `lx_getActivityStatus` and `lx_getReceipt` to recover the existing outcome.
-3. Retrieve the required authenticated receipt and batch evidence.
-4. Verify exact activity, canonical receipt and signed-header bindings before satisfying your release policy.
+1. Keep the signed transaction, hash, and nonce.
+2. Read `pax_sequencerReceipt` for that transaction hash.
+3. Verify the signed receipt against the governed receipt keys from `px_getReceiptKeys`.
+4. Check the covering committed block before treating the outcome as final.
 
-Creating another activity to escape an unknown result can duplicate the economic action.
+A new transaction can repeat the intended payment. Retain the original transaction hash and reconcile that transaction first.
 
 ## Payment release policies
 
-An x402 offer's LayerX terms under `extra.layerx` carry the payer `account` reference and `currency` code; the offer model has no LayerX commitment field. Choose the evidence your release policy requires at the application layer and verify it before releasing the resource.
+Release a paid resource only after checking the receipt against the expected payer, recipient, asset, amount, and execution result, together with the block commitment required by your application.
 
-A successful settlement reference is `lxp:<receipt_digest>`. Validate the receipt, payment facts, configured authority and commitment evidence together. The reference or an HTTP success is insufficient on its own.
+A payment reference identifies an outcome; it does not establish the signer's authority or block inclusion. Verify the signed material and trusted receipt-key configuration as well as the response fields.
 
-## Replay covers the whole economic system
+## Replay and execution
 
-Replay covers payments, program calls, program-owned transfers and storage occupancy settlement from the same ordered history. Program monetary effects are explicit transfer sets applied through the kernel's single module-to-ledger entry, while occupancy charges remain replay-checkable batch evidence. Deterministic execution excludes local clocks, floating point and unstable iteration from consensus decisions.
+The kernel executes canonical activities, program calls, program transfers, and storage occupancy accounting. Replay checks deterministic state changes and receipts against the same ordered history.
 
-## Checkpoint finalisation checks (retired submission)
+## Verify receipt and block evidence
 
-Checkpoint submission is retired and unconditionally returns a module-retired error. For historical checkpoints, the anchor keeper's finalisable check covers checkpoint status, the declared threshold, the bonded guarantor count, open challenges, the challenge window, and that the batch is exactly the latest finalised batch plus one. Do not build new flows on checkpoint registration.
+`SequencerReceiptResult.Verify` checks the signed receipt against its decoded fields and output digests. Supply trusted receipt-key pins; a signing key returned beside a receipt is insufficient to establish authority. Committed results must identify the covering block.
 
-## Liveness and exits
+## Pending transactions
 
-If the ordinary activity path stalls, the last accepted history remains the replay anchor. Custody release on Paxeer remains governed by its applicable evidence, timing, limit, and eligibility rules; see [Custody](https://docs.paxeer.app/custody).
+If a transaction remains submitted or receipted, retain that state until commitment evidence is available. A timeout does not establish failure or finality. See [Account and custody boundaries](https://docs.paxeer.app/custody).
 
 Continue with [Receipts & Proofs](https://docs.paxeer.app/proofs), [Data Availability](https://docs.paxeer.app/data-availability) and [Consensus](https://docs.paxeer.app/consensus).

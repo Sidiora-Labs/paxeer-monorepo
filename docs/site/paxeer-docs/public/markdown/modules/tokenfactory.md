@@ -4,7 +4,7 @@
 
 Creation and admin management of native token denominations with creator-namespaced denoms.
 
-**Source:** `Paxeer-X-Network/modules/tokenfactory/`
+**Source:** `modules/tokenfactory/`
 
 ## Overview
 
@@ -23,7 +23,7 @@ factory/{creator_address}/{subdenom}
 Example:
 
 ```
-factory/pax166vhptur29s3gw5qr6dm30s06gej6pr4zevkqk/ufoo
+factory/{creator_address}/ufoo
 ```
 
 - **Prefix:** Always `factory` (7 bytes)
@@ -62,7 +62,7 @@ State modifications:
 
 - Add denom to `CreatorPrefixStore`
 
-Creation fails if the subdenom equals an existing native denom or the resulting denom already has bank metadata.
+Replace angle-bracketed arguments with your denom or file path. Creation fails if the subdenom already has bank supply or the resulting denom already has bank metadata.
 
 ### Mint
 
@@ -78,7 +78,7 @@ message MsgMint {
 CLI:
 
 ```
-paxd tx tokenfactory mint 100000000000factory/pax166vh.../ufoo --from mylocalwallet
+paxd tx tokenfactory mint 100000000000<factory-denom> --from mylocalwallet
 ```
 
 Checks: the denom was created via tokenfactory, the sender is the admin, and the denom is not paused. The amount is minted via the bank module to the sender's account; distributing it further is a separate bank send.
@@ -108,7 +108,7 @@ message MsgChangeAdmin {
 }
 ```
 
-The sender must be the current admin, and `newAdmin` must differ from the current admin. `ValidateBasic` requires `newAdmin` to be a valid, non-empty bech32 address, so admin cannot be renounced by setting it to `""` through this message; an empty admin can only exist in stored or genesis authority metadata.
+The sender must be the current admin, and `newAdmin` must differ from the current admin. `ValidateBasic` accepts either a valid bech32 address or `""` to renounce admin authority. Renouncing leaves no admin able to perform these operations.
 
 ### UpdateDenom
 
@@ -123,10 +123,10 @@ message MsgUpdateDenom {
 ```
 
 ```
-paxd tx tokenfactory update-denom <denom> --from mylocalwallet
+paxd tx tokenfactory update-denom <denom> --allow-list <allow-list-file> --from mylocalwallet
 ```
 
-The allow list must be defined, contain only valid bech32 addresses, and not exceed the `denom_allowlist_max_size` parameter (default `2000`).
+The allow-list file is a JSON object with an addresses array; an empty array clears the list. The stored allow list must be defined, contain only valid bech32 addresses, and not exceed the `denom_allowlist_max_size` parameter (default `2000`).
 
 ### SetDenomMetadata
 
@@ -144,7 +144,7 @@ Pause or unpause a denom:
 paxd tx tokenfactory set-denom-paused <denom> true --from mylocalwallet
 ```
 
-While a denom is paused, tokenfactory mint and burn reject with `ErrDenomPaused`.
+While a denom is paused, tokenfactory mint and burn reject with `ErrDenomPaused`. This CLI message applies to denoms without an issuer DID; issuer-bound denoms use the issuer authorization path.
 
 ## Admin Capabilities
 
@@ -166,10 +166,10 @@ There is no force-transfer message in this module: the admin cannot move or burn
 paxd query tokenfactory params
 paxd query tokenfactory denom-authority-metadata <denom>
 paxd query tokenfactory denom-paused <denom>
-paxd query tokenfactory denoms-from-creator pax166vhptur29s3gw5qr6dm30s06gej6pr4zevkqk
+paxd query tokenfactory denoms-from-creator <creator-address>
 paxd query tokenfactory denom-metadata <denom>
 paxd query tokenfactory denom-allow-list <denom>
-paxd query bank denom-metadata --denom factory/pax166vh.../ufoo
+paxd query bank denom-metadata --denom <factory-denom>
 ```
 
 ## Parameters
@@ -180,9 +180,9 @@ paxd query bank denom-metadata --denom factory/pax166vh.../ufoo
 
 To fit within the 128-byte Cosmos SDK denom limit:
 
-- **Max subdenom length:** 44 characters
+- **Max subdenom length:** 44 bytes
 
-- **Max creator address length:** 75 characters (bech32 prefix ≤ 16 chars)
+- **Max creator address length:** 75 bytes (bech32 prefix ≤ 16 chars)
 
 Calculation:
 

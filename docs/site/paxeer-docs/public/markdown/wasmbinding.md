@@ -4,7 +4,7 @@
 
 Use Paxeer custom messages and queries from CosmWasm, including token creation, EVM calls, address association, and native module reads.
 
-**Source:** `Paxeer-X-Network/node/wasmbinding/` and each module's `client/wasm/` package.
+**Source:** `node/wasmbinding/` at the repository root and each module's `client/wasm/` package.
 
 ## How bindings are registered
 
@@ -24,7 +24,7 @@ Contract-side types must serialize to the JSON forms below and implement the app
 | `change_admin` | `denom` and `new_admin_address`; requires the current denomination administrator. |
 | `set_metadata` | Bank `metadata` object for the denomination. |
 | `set_denom_paused` | `denom` and an explicit `paused` boolean; a missing or null boolean is refused. |
-| `call_evm` | `to`, integer `value`, and base64 `data`; dispatches an internal EVM call. |
+| `call_evm` | `to`, decimal-string integer `value`, and base64 `data`; dispatches an internal EVM call. |
 | `delegate_call_evm` | `to` and base64 `data`; carries calling-contract and code-hash context into the EVM delegate-call path. |
 
 ```
@@ -32,7 +32,7 @@ Contract-side types must serialize to the JSON forms below and implement the app
 { "create_denom": { "subdenom": "credits" } }
 ```
 
-The tokenfactory encoder supplies the contract as sender. An EVM call likewise derives its sender from the actual execution context; it does not accept an arbitrary wallet address as authority. ABI calldata bytes are base64 in the custom-message JSON, rather than an Ethereum `0x` hex string.
+The tokenfactory encoder and ordinary EVM-call encoder supply the contract as sender. The delegate-call encoder uses the incoming message sender when it is a valid Paxeer address and carries the emitting contract and code hash separately. ABI calldata bytes use base64 in the custom-message JSON; Ethereum `0x` hex strings must be decoded and re-encoded before use.
 
 ## Custom queries
 
@@ -68,7 +68,7 @@ Keep native coin integers, ERC token decimals, and EVM wei values separate. Do n
 
 CosmWasm-to-EVM calls are implemented. The corresponding [wasmd precompile](https://docs.paxeer.app/wasm) supports EVM-to-CosmWasm calls, with context and pointer checks. A non-query CosmWasm → EVM → CosmWasm loop is rejected; delegate-call messages should not be treated as unrestricted arbitrary execution.
 
-The native Oracle querier remains available through this route, while the EVM Oracle precompile is retired. Check available denominations and observation freshness before using price data. See the [Oracle module guide](https://docs.paxeer.app/modules/oracle).
+The native Oracle querier exposes exchange rates and time-weighted prices through this route. Check available denominations and observation freshness before using price data. See the [Oracle module guide](https://docs.paxeer.app/modules/oracle).
 
 ## Implementation references
 

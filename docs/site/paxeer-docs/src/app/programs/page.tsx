@@ -13,7 +13,7 @@ export default function ProgramsPage() {
     </div>
     <h2>One execution surface, explicit authority</h2>
     <p>Programs extend the LayerX kernel domain of Paxeer X with application logic. A program executes a validated WebAssembly artifact under the identity, capability grants, access declarations, and resource ceilings of its invoking activity. The interpreter removes floating-point nondeterminism and enforces structural limits before execution. The same admitted activity and state produce replayable results.</p>
-    <p>Programs dispatch through kernel module 9. They do not become economic modules and never write balances directly. All monetary effects compile to authenticated <code>402LXP</code> transfer sets applied by the kernel. LayerX orders and executes activities; checkpoints settle on the Paxeer X chain, whose EVM chain ID is <code>125</code>.</p>
+    <p>Programs dispatch through kernel module 9. They do not become economic modules and never write balances directly. All monetary effects compile to authenticated <code>402LXP</code> transfer sets applied by the kernel. The kernel executes within the Paxeer BFT node on EVM chain ID <code>125</code>. A receipt is final when its covering block is committed.</p>
     <h2>Application building blocks</h2>
     <table><thead><tr><th>Capability</th><th>Application behavior</th></tr></thead><tbody>
       <tr><td>Namespaced storage</td><td>Read, write, delete, and scan bounded program state; distinguish principal-scoped state from explicitly granted shared state.</td></tr>
@@ -53,7 +53,7 @@ export default function ProgramsPage() {
     <pre><code>{`byte_batches = recorded_bytes × (to_batch − from_batch)
 accrued_fee = byte_batches × occupancy_byte_batch_price
 amount_due = prior_arrears + accrued_fee`}</code></pre>
-    <p>Occupancy settlement becomes receipt evidence at batch finality and uses the same native transfer primitive. Confirm payer assignment and charge-ceiling dispositions in the runtime occupancy source before relying on them in an application.</p>
+    <p>Occupancy settlement becomes final with its covering block commitment and uses the same native transfer primitive. Confirm payer assignment and charge-ceiling dispositions in the runtime occupancy source before relying on them in an application.</p>
     <h2>Versioned guest interfaces</h2>
     <p>Guest ABI, kernel module ABI, and wire protocol are independent version numbers. Select the guest ABI required by the artifact and its imports rather than assuming that the kernel module version describes the guest interface.</p>
     <table><thead><tr><th>Guest ABI</th><th>Host surface added</th></tr></thead><tbody>
@@ -84,7 +84,7 @@ amount_due = prior_arrears + accrued_fee`}</code></pre>
 4c581400012000000000
 
 # Build a Rust guest from the Programs workspace
-cargo build --manifest-path sdk/rust/examples/token-lxt20/Cargo.toml \\
+cargo build --manifest-path programs/sdk/rust/examples/token-lxt20/Cargo.toml \\
   --target wasm32-unknown-unknown --release`}</code></pre>
     <p>Continue with <Link href="/sandbox">bounded sandbox execution</Link>, <Link href="/assets">native Assets</Link>, and <Link href="/payments">payments</Link>.</p>
     <div className="source-note"><strong>Technical references:</strong> Paxeer X Programs workspace and guest SDKs; Programs and Sandbox protocol documentation; runtime ABI policy, capability encoding, metering, and receipt-bound registry.</div>

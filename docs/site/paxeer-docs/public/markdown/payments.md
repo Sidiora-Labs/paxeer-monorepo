@@ -6,7 +6,7 @@ Build transfers, paid APIs, merchant checkout, metered usage, and subscriptions 
 
 ## One payment lifecycle
 
-Paxeer X combines native Asset settlement with the LayerX payment platform. Applications quote a move, commit the accepted quote under a stable idempotency key, and track a journey whose outcome is backed by evidence. Native integrations prepare canonical activities, disclose their exact terms, sign, submit, and verify the requested commitment.
+Paxeer X settles native Asset payments on one BFT chain. Applications quote a move, commit the accepted quote under a stable idempotency key, and track a journey whose outcome is backed by evidence. The native wallet prepares a ledger precompile call, discloses its terms, signs an EIP-1559 transaction, submits it to the node and verifies receipt progress.
 
 1. **Quote:** identify payer, recipient, Asset or currency, amount, mechanism, fee ceiling, expected arrival, and irreversible legs.
 2. **Approve and commit:** bind approval to those terms. An expired quote returns `quote-expired` rather than silently changing the payment.
@@ -17,11 +17,11 @@ Paxeer X combines native Asset settlement with the LayerX payment platform. Appl
 
 | Experience | Flow | Settlement rule |
 | --- | --- | --- |
-| Wallet or application transfer | Quote and commit a move, or sign a native Asset SEND | Verify the receipt and selected commitment |
+| Wallet or application transfer | Quote and commit a move, or sign a ledger payment transaction | Verify the receipt and selected commitment |
 | Paid HTTP resource | x402 exact offer and receipt-backed retry | Release only after the offer is paid and verified |
 | Merchant cart | Catalog quote, persistent order, payment, fulfilment | Bind order and settlement to the same request digest |
-| Metered usage | Non-recurring grant and authorized receiver draws | Validate purpose, allowance, expiry, and each receive |
-| Subscription | Recurring grant with a declared billing window | New receive and distinct period key for every renewal |
+| Metered usage | Ledger grant and authorized executor draws | Validate purpose, grant limits, expiry, and each draw |
+| Subscription | Recurring grant with a declared billing window | Signed draw and distinct period key for every renewal |
 
 ## Journey states
 
@@ -33,10 +33,10 @@ Paxeer X combines native Asset settlement with the LayerX payment platform. Appl
 | `processing` | The payment is submitted and settling. |
 | `still-checking` | The outcome is unknown. Keep duplicate-capable controls locked and resolve the original payment. |
 | `done` | Settlement is backed by a verified receipt or finality proof. |
-| `done-finalised` | The receipt-backed outcome has committed evidence, represented by `checkpoint-finalised` verification. This retained label is not required for every committed journey: EVM-intent and native journey projections render `done` and expose evidence separately. |
+| `done-finalised` | The human API uses this label for receipt-backed completion with committed evidence. Inspect the evidence as well as the journey state; a `done` journey can also carry committed evidence. |
 | `refused` | Inspect `refused_by` and `money_left` before reporting the result. |
 | `awaiting-approval` | The native engine exposes its awaiting-approval leg phase while the journey awaits approval. It is not receipt-backed completion. |
-| `closed` | Retained wallet-binding, deposit, withdraw, and exit history reads as closed. Closed history cannot resume signing or execution and does not assert a successful movement. |
+| `closed` | A closed journey is read-only and cannot resume signing or execution. Inspect its evidence to determine the movement outcome. |
 
 ## Merchant checkout
 
@@ -65,31 +65,31 @@ Late settlement uses verified webhooks. The merchant checks signature, freshness
 
 ## Metered payments and subscriptions
 
-A metered or subscription challenge binds `extra.layerx.payer`, `purposeHash`, and `commitment`; subscriptions also bind `windowSeconds`. The payer signs an ordinal-7 grant. Each draw uses a receiver-signed ordinal-6 receive with its own idempotency key. Before submission, the seller checks payer, recipient, Asset, amount, purpose, grant limits, expiry, network, and receiver authority.
+A metered or subscription challenge binds `extra.layerx.payer`, `purposeHash`, and `commitment`; subscriptions also bind `windowSeconds`. A payer authorizes a ledger grant for a specific executor. The executor signs an EIP-1559 `draw` call to `0x101A` for each charge. The seller checks the active grant, executor, source account, recipient, Asset, amount, purpose and network against the offer, then verifies the receipt and payment log.
 
-Metered grants are non-recurring with a zero window. Subscription grants recur with the exact offered window. Every renewal uses current sequences and a distinct period key: an allowance alone does not establish one renewal per period. Pending draws return HTTP 202 without resource release; persistent draw recovery resolves the original activity identifier.
+Grant limits and expiry are enforced by the ledger. Keep one persistent idempotency key for each usage charge or subscription period. The middleware binds that key to the signed draw. A pending payment returns HTTP 202 while the original transaction is tracked; release the resource after the required evidence is verified.
 
 ## Commitments and evidence
 
 | Commitment | Required evidence |
 | --- | --- |
-| `executed` | Verified canonical receipt for the submitted activity. |
-| `batched` | Execution plus an authenticated receipt proof whose canonical value equals the receipt byte for byte. |
-| `finalised` | Batch evidence plus finalised checkpoint evidence whose canonical header equals the proof's signed batch header. |
+| `submitted` | An accepted transaction hash; execution is not yet established. |
+| `receipted` | A verified signed protocol receipt bound to the transaction, successful result and expected payment log. |
+| `committed` | Receipt inclusion in a committed block, its signed consensus commit and a validator set matched to an independently trusted validator hash. |
 
-A stronger requested commitment is never downgraded to a weaker success. HTTP 202, admission acknowledgements, and activity identifiers alone do not establish execution. Successful x402 settlement references `lxp:<receipt_digest>`, with the digest computed from the canonical receipt and the protocol Merkle-leaf domain. Verify configured authority, protocol/network, receipt facts, and commitment evidence together.
+x402 accepts `receipted` or `committed` in `extra.layerx.commitment`; it defaults to `receipted` when the LayerX terms are absent. Only committed block evidence establishes finality. Successful settlement uses the `lxp:<receipt_digest>` reference. The middleware verifies the signed raw transaction, receipt signature, receipt digest and payment facts, plus consensus evidence when committed settlement is requested.
 
 ## Retries, sequences, and unknown outcomes
 
-Choose one stable key per purchase or order. Repeating a human-plane mutation under that key returns its original journey; a different body under the same key is `idempotency-conflict`. Native activities also consume identity and account sequences, preventing replay. Retain signed bytes and the activity identifier when a response is lost. Resolve the original through receipt and status reads instead of generating another debit.
+Choose one stable key per purchase or order. Repeating a human-plane mutation under that key returns its original journey; a different body under the same key is `idempotency-conflict`. Native wallet sends consume the EVM sender nonce and bind debit authorization to payment account state. Retain the signed transaction and its hash when a response is lost. Recover its receipt and journaled submission before creating a new payment.
 
 On the human plane, retriabilities are `retriable`, `retriable-after`, `structural`, and `final`. The SDK `ProductionClient` reports its own retry classes: `never`, `safe`, `after`, and `unknown-outcome`. Map between the two vocabularies explicitly rather than treating them as one list. Respect carried rate-limit timing. An `unknown-outcome` result or human-plane `still-checking` requires tracking and evidence recovery, with duplicate controls locked.
 
 ## Fees and refusal
 
-The committed schedule prices activity type, encoded bytes, execution, storage, Asset operations, and module operations, then applies its basis-point multiplier with ceiling rounding. Fee estimates expose their schedule and snapshot but reserve nothing. Set an integer `fee_limit` and maintain spendable fee balance for that limit.
+EVM payment transactions pay gas in the native asset. The CLI queries gas prices and estimates the exact ledger call at pending state, then checks the estimate against `--fee-limit` in wei. Keep enough native balance for gas as well as enough Asset balance for the transfer.
 
-An admission refusal consumes no sequence and charges no fee. An admitted activity that fails consumes its sequence, emits a failure receipt, rolls back module effects, and may charge up to the fee limit. Protocol fees go to `system:fees`; Programs occupancy rent is a separate batch settlement.
+A transaction hash or pending response does not establish a successful debit. Inspect the execution result, payment event and requested receipt rung. An executed EVM transaction can consume its nonce and gas even when its call reverts. Program fees and occupancy charges have their own accounting rules; see the fee guide.
 
 ## Continue building
 

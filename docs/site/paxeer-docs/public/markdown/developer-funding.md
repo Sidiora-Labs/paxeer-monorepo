@@ -2,7 +2,7 @@
 
 # Developer funding and allocations
 
-Request a bounded development allocation, track its signed treasury transfer, and verify the funded account before your first Paxeer X payment.
+Request a bounded development allocation, track its signed treasury transfer, and verify the funded account before your first Paxeer payment.
 
 ## Choose the right funding path
 
@@ -10,18 +10,18 @@ The hosted allocation service distributes operator-approved development funds in
 
 | Funding need | Mechanism | What the result establishes |
 | --- | --- | --- |
-| Approved developer allocation | Authenticated claim backed by a signed treasury SEND | The configured environment allocated funds to the named identity |
-| User deposit | Custody deposit evidence and authenticated custody credit | A deposit-backed credit for its beneficiary |
-| Market-maker inventory | Inventory and liquidity arrangements for the selected venue and Asset | The balance and obligations of that arrangement |
-| Fiat purchase or conversion | The selected provider and payment rail | The provider-specific funded or converted outcome |
+| Approved developer allocation | Authenticated claim backed by a signed native EVM transfer | The configured environment allocated funds to the named identity |
+| Native account funding | Native transfer to the recipient EVM address | The transaction receipt and recipient balance |
+| External-chain transfer | Governed bridge with configured chains, attestors and caps | The bridge transfer evidence for the selected chain and asset |
+| Local account setup | Emulator prefunding | A local development balance for inspection scenarios |
 
-A development allocation is scoped to its environment and policy. It does not establish a general entitlement to free real-value Assets, fiat conversion, or unlimited liquidity. Public account deposit funding uses the custody credit path. Use the allocation endpoint supplied for your approved development environment rather than assuming a public faucet hostname.
+A development allocation is scoped to its environment and policy. Funding uses the recipient's DID-to-EVM address binding and requires that binding to resolve before transfer. Use the configured hosted gateway for allocation requests; its availability is separate from the public node JSON-RPC.
 
 ## Developer journey
 
 1. Obtain access to the configured allocation environment and an active hosted identity session.
-2. Create or select a recipient signing identity. Record its public DID and 64-hex Ed25519 public key without exposing the seed.
-3. Choose and persist an idempotency key for this allocation request.
+2. Create or select a recipient signing identity. Record its public DID and 64-hex Ed25519 public key, and bind that key to the recipient EVM address through the address precompile.
+3. For a direct HTTP claim, choose and persist an idempotency key. Gateway claims bind idempotency to the principal and starter-credit grant.
 4. Submit the claim and retain the funding identifier and transaction identifier.
 5. Resolve pending outcomes under the same request key.
 6. Verify the transfer receipt and recipient balance before sending a payment.
@@ -34,7 +34,7 @@ A development allocation is scoped to its environment and policy. It does not es
 | Gateway service | Dedicated service-claim Bearer | Submit a claim naming the authenticated principal |
 | Allocation service | Identity introspection service credential | Validate the session and resolve its active principal |
 | Funding controller | Control-admin credential | Authorize the funding operation against the configured treasury |
-| Treasury owner | Treasury signing authority | Sign the canonical transfer and its owner authorization |
+| Funding signers | EVM sender and treasury attestation authority | Sign the native EVM transaction and attest the durable funding intent |
 
 The caller's session token is introspected as request data; it is never reused as an upstream service authorization credential. The direct claim resolves an active session subject. The service claim accepts its separate configured credential and supplies a principal explicitly. Keep service and treasury credentials on trusted servers.
 
@@ -67,18 +67,18 @@ A configured service caller uses `POST /v1/faucet/service-claims` with the same 
 }
 ```
 
-The configured gateway proxies this method to the service-claim flow. The `layerx faucet` CLI command and the `faucet.request` tool use the same allocation capability. Note: Rust `RpcClient::request_funds` currently still calls the retired `lx_requestFunds` name, which the gateway refuses with `-32601`; call `px_requestFunds` directly until the SDK is updated. Gateway and environment eligibility still apply.
+The configured hosted gateway checks that the session authorizes the signer, obtains the principal's starter-credit grant, and submits a service claim. It requires the funded amount to match the grant before settling it. The `layerx faucet` CLI command, `faucet.request` tool and Rust `RpcClient::request_funds` call `px_requestFunds`. This is a hosted method rather than a public node method.
 
 ## Amounts and configurable ceilings
 
-Amounts are integer base units of the configured treasury Asset. Interpret them using that Asset's decimals and metadata; do not assume an allocation amount is a fiat amount or a whole-token count. Responses encode amounts as decimal strings.
+The native funding path places the integer amount directly in the EVM transaction value, in wei. The response encodes the amount as a decimal string; the default claim is not a whole-PAX amount.
 
 | Configuration | Default | Meaning |
 | --- | --- | --- |
-| `LAYERX_FAUCET_CLAIM_AMOUNT` | 1,000,000 base units | Positive allocation size per accepted claim |
-| `LAYERX_FAUCET_IDENTITY_LIMIT` | 10,000,000 base units | Principal total per quota window |
-| `LAYERX_FAUCET_ADDRESS_LIMIT` | 10,000,000 base units | Recipient public-key total per quota window |
-| `LAYERX_FAUCET_NETWORK_LIMIT` | 50,000,000 base units | Network bucket total per quota window |
+| `LAYERX_FAUCET_CLAIM_AMOUNT` | 1,000,000 wei | Positive allocation size per accepted claim |
+| `LAYERX_FAUCET_IDENTITY_LIMIT` | 10,000,000 wei | Principal total per quota window |
+| `LAYERX_FAUCET_ADDRESS_LIMIT` | 10,000,000 wei | Recipient public-key total per quota window |
+| `LAYERX_FAUCET_NETWORK_LIMIT` | 50,000,000 wei | Network bucket total per quota window |
 | `LAYERX_FAUCET_WINDOW_SECONDS` | 86,400 seconds | Allocation quota window |
 | `LAYERX_FAUCET_NETWORK_REQUEST_LIMIT` | 60 requests | Network admission ceiling |
 | `LAYERX_FAUCET_NETWORK_REQUEST_WINDOW_SECONDS` | 60 seconds | Admission-count window |
@@ -88,11 +88,11 @@ These are service configuration defaults, not a promised allowance for every dep
 
 ## Signed canonical funding
 
-The allocation service reserves quota and an idempotency record atomically, then sends its controller a funding command containing `funding_id`, `did`, `public_key`, and `amount`. The controller constructs an owner-authorized native Asset SEND from the treasury main account to the recipient main account.
+The allocation service reserves quota and an idempotency record atomically, then sends its controller a funding command containing `funding_id`, `did`, `public_key`, and `amount`. The core constructs an EIP-1559 native transfer from its configured EVM sender to the address bound to the recipient public key on chain ID 125.
 
-Preparation reads the treasury identity sequence separately from its state-proven source-account sequence and verifies sufficient treasury Asset balance. The signing disclosure binds the canonical envelope, debit authorization, recipient, amount, validity interval, fee limit, and idempotency key. The transfer uses current sequences and the validity interval set at preparation.
+Preparation reads the sender's pending nonce, gas price and priority-fee estimate, then estimates transfer gas. The signed funding record binds the raw transaction, hash, sender, recipient, amount and chain ID. The core persists a treasury-authorized intent before broadcasting, so recovery can reuse the signed transaction.
 
-The core submission follows the ordinary signed activity and receipt verification path. Result code zero produces a funded result. A refused transfer produces a refusal, and a receipt timeout remains pending. Allocation does not mint arbitrary supply or bypass normal transfer authorization.
+The core broadcasts with `eth_sendRawTransaction` and reads `eth_getTransactionReceipt`. It checks the confirmation against the saved transfer before returning a funded result. A failed receipt produces a refusal; an unavailable receipt remains pending. The source account must hold the transferred value and gas funds.
 
 ## Response verification and recovery
 
@@ -106,9 +106,9 @@ The core submission follows the ordinary signed activity and receipt verificatio
 }
 ```
 
-This illustrates the default claim amount and the allocation response's environment label. Direct HTTP success is an unwrapped body rather than an `ok` envelope; its transaction identifier is optional at that layer. The gateway additionally requires a transaction identifier and a complete funded response before returning JSON-RPC success.
+This illustrates the default claim amount and the service's fixed `layerx-testnet` response label. Verify the transfer's chain ID separately; the label does not select a chain. Direct HTTP success is an unwrapped body rather than an `ok` envelope; its transaction identifier is optional at that layer. The gateway additionally requires a transaction identifier and a complete funded response before returning JSON-RPC success.
 
-Retain the returned identifiers and verify the transaction's canonical receipt, recipient, Asset, amount, result code, network authority, and requested commitment. Confirm the recipient account with `px_getAccount` or `px_getBalances`. The retired `lx_*` names return `-32601`. A funding identifier is a correlation reference, not an independent finality proof.
+Retain the returned identifiers and verify the transaction receipt, recipient, value, status and chain ID. Confirm the recipient's native balance with `eth_getBalance` at the node; hosted `px_getAccount` and `px_getBalances` provide account views. A receipt is final once its block is committed. A funding identifier is a correlation reference.
 
 ```
 HTTP/1.1 202 Accepted
@@ -137,7 +137,7 @@ Repeat the original claim with the same idempotency key and unchanged body after
 
 ## Owner operations
 
-Configure the allocation amount and caps, supply a funded treasury with fee balance, and provision separate identity, service-claim, and control credentials. Persist quota and idempotency state in the configured TLS Redis service. Keep the funding journal durable across controller restarts and retain its request digest bindings.
+Configure the allocation amount and caps, supply a funded EVM sender with gas balance, and provision separate identity, service-claim, and control credentials. Persist quota and idempotency state in the configured TLS Redis service. Keep the funding journal durable across controller restarts and retain its request digest bindings.
 
 The service exposes `GET /livez` for process liveness and `GET /readyz` for Redis readiness. A ready response establishes Redis availability; independently monitor identity introspection, controller connectivity, treasury balances, and receipt recovery. Its hash-chained allocation audit records event, result, and funding reference without recording authentication values.
 
@@ -145,7 +145,7 @@ The service exposes `GET /livez` for process liveness and `GET /readyz` for Redi
 
 - [Send your first payment](https://docs.paxeer.app/payments-quickstart)
 
-- [Deposit-backed custody funding](https://docs.paxeer.app/custody)
+- [Account funding and key custody](https://docs.paxeer.app/custody)
 
 - [Asset metadata and account balances](https://docs.paxeer.app/assets)
 

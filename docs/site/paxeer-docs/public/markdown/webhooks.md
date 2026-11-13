@@ -17,7 +17,7 @@ Idempotency-Key: <stable-registration-key>
 Content-Type: application/json
 
 {
-  "url": "https://merchant.example.com/events/paxeer",
+  "url": "<public-https-receiver-url>",
   "kinds": ["payment", "approval"],
   "minimum_verification": "unverified"
 }
@@ -34,7 +34,7 @@ The URL uses a canonical DNS name and resolves exclusively to public addresses. 
 | `approval` | Approval identity, agent, state, creation time. | Source facts with optional activity receipt binding. |
 | `program` | Program identity, lifecycle, version, code hash, receipt digest. | Source facts with optional activity receipt binding. |
 
-Webhook verification levels are `unverified`, `receipt-verified` and `block-committed`. Registering an endpoint with any other `minimum_verification` value is rejected as an invalid request; the legacy stored words `checkpoint-finalised` and `paxeer-finalised` are read back as `block-committed` but cannot be registered. Each fact retains its own level; the event header uses the weakest fact. A payment event can therefore have an unverified header while its settled-state fact carries receipt evidence. A minimum-verification filter applies to that aggregate header. Inspect and verify the facts your decision uses.
+Webhook verification levels are `unverified`, `receipt-verified` and `block-committed`. Registering an endpoint with any other `minimum_verification` value is rejected as an invalid request. Each fact retains its own level; the event's aggregate verification uses the weakest fact. A payment event can therefore be unverified in aggregate while its settled-state fact carries receipt evidence. A minimum-verification filter applies to that aggregate level. Inspect and verify the facts your decision uses.
 
 ## Verify the raw delivery
 
@@ -87,7 +87,7 @@ Backoff doubles up to its bound. Redirects are refused; HTTP 410 is a permanent 
 | `POST /v1/webhooks/endpoints/{id}/redeliveries` | Enqueue replay from a signed cursor with an idempotency key. |
 | `POST /v1/webhooks/endpoints/{id}/suspensions` | Suspend an endpoint with a reason. |
 | `POST /v1/webhooks/endpoints/{id}/resumptions` | Resume delivery and clear consecutive dead-letter accounting. |
-| `GET /v1/webhooks/events`, `/deliveries`, `/dead-letters` | Inspect events and operational outcomes. |
+| `GET /v1/webhooks/events`, `GET /v1/webhooks/deliveries`, `GET /v1/webhooks/dead-letters` | Inspect events and operational outcomes. |
 | `POST /v1/webhooks/dead-letters/{id}/replay` | Retry a dead letter with an idempotency key. |
 
 Pagination defaults to 50 items with a maximum of 200. Preserve cursors as opaque signed values. Expired retention returns `410 cursor_expired`; repair continuity using retained event and receipt history rather than silently assuming all events were delivered. Replay keeps the original event identifier and body digest.
@@ -98,4 +98,4 @@ Key rotation announces a pending public key before activation; the default overl
 
 Monitor delivery latency, retry age, dead letters, suspension, and receiver signature failures. Return 2xx after durable acceptance. For long processing jobs, commit an inbox record and process it asynchronously. Use [agent subscriptions](https://docs.paxeer.app/subscriptions) for tenant-scoped streams with explicit acknowledgement and gap recovery.
 
-**Reference:** `services/platform/hosted/webhooks/src/main.rs`, `hosted.rs`, `scheme.rs`, `events.rs`, `endpoints.rs` in the monorepo.
+**Reference:** `services/platform/hosted/webhooks/src/main.rs` and its sibling files `hosted.rs`, `scheme.rs`, `events.rs`, `endpoints.rs`; endpoint management routes are in routes.rs in the same directory.

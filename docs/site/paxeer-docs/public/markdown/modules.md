@@ -4,7 +4,7 @@
 
 Native execution, markets, issuance, and data modules in `modules/`, including retired settlement-compatibility directories.
 
-**Source:** `Paxeer-X-Network/modules/README.md`
+**Source:** `modules/README.md`
 
 ## Unified Paxeer X modules
 
@@ -41,7 +41,7 @@ These directories retain legacy types, historical state handling, and retirement
 
 ## Module Overview
 
-Paxeer X-specific chain modules live under `Paxeer-X-Network/modules/`. These extend the Cosmos SDK with functionality unique to Paxeer X’s EVM L1 design. The pages in this section document `epoch`, `mint`, `oracle`, `store`, and `tokenfactory` in detail; the modules above are documented in their own sections or in `modules/README.md`.
+Paxeer X-specific chain modules live under `modules/`. These extend the Cosmos SDK with functionality unique to Paxeer X’s EVM L1 design. The pages in this section document `epoch`, `mint`, `oracle`, `store`, and `tokenfactory` in detail; the modules above are documented in their own sections or in `modules/README.md`.
 
 ## Module List
 
@@ -62,7 +62,7 @@ Framework-provided modules (bank, staking, distribution, governance, etc.) remai
 
 The `evm` module is Paxeer X’s core EVM execution layer:
 
-- **EVM execution:** Runs Ethereum transactions with full opcode compatibility
+- **EVM execution:** Runs Ethereum transactions through the configured EVM and upgrade rules
 
 - **Address association:** Maps Cosmos addresses to EVM addresses
 
@@ -104,7 +104,7 @@ The `oracle` module enables validator-based price feeds on native interfaces:
 
 - **Aggregation:** Weighted-median computation in the mid-blocker at the last block of each vote period
 
-- **Penalties:** Miss/abstain counters are processed at each slash window; this is not a check on whether a submitted price was "bad data"
+- **Penalties:** The end-blocker processes miss/abstain counters at each slash window; counters reflect participation and in-range votes
 
 - **EVM access:** The oracle precompile at `0x…1008` is retired and reverts; use native or CosmWasm queries
 

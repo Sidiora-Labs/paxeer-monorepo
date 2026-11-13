@@ -8,7 +8,7 @@ Deploy and call deterministic Paxeer X programs with scoped capabilities, metere
 
 Programs extend the LayerX kernel domain of Paxeer X with application logic. A program executes a validated WebAssembly artifact under the identity, capability grants, access declarations, and resource ceilings of its invoking activity. The interpreter removes floating-point nondeterminism and enforces structural limits before execution. The same admitted activity and state produce replayable results.
 
-Programs dispatch through kernel module 9. They do not become economic modules and never write balances directly. All monetary effects compile to authenticated `402LXP` transfer sets applied by the kernel. LayerX orders and executes activities; checkpoints settle on the Paxeer X chain, whose EVM chain ID is `125`.
+Programs dispatch through kernel module 9. They do not become economic modules and never write balances directly. All monetary effects compile to authenticated `402LXP` transfer sets applied by the kernel. The kernel executes within the Paxeer BFT node on EVM chain ID `125`. A receipt is final when its covering block is committed.
 
 ## Application building blocks
 
@@ -74,7 +74,7 @@ accrued_fee = byte_batches × occupancy_byte_batch_price
 amount_due = prior_arrears + accrued_fee
 ```
 
-Occupancy settlement becomes receipt evidence at batch finality and uses the same native transfer primitive. Confirm payer assignment and charge-ceiling dispositions in the runtime occupancy source before relying on them in an application.
+Occupancy settlement becomes final with its covering block commitment and uses the same native transfer primitive. Confirm payer assignment and charge-ceiling dispositions in the runtime occupancy source before relying on them in an application.
 
 ## Versioned guest interfaces
 
@@ -116,7 +116,7 @@ The LXT-20 reference is an ABI-2 program backed by one native Asset. It exposes 
 4c581400012000000000
 
 # Build a Rust guest from the Programs workspace
-cargo build --manifest-path sdk/rust/examples/token-lxt20/Cargo.toml \
+cargo build --manifest-path programs/sdk/rust/examples/token-lxt20/Cargo.toml \
   --target wasm32-unknown-unknown --release
 ```
 

@@ -1,55 +1,55 @@
 <!-- Source: https://docs.paxeer.app/guarantors/ -->
 
-# Guarantors
+# Validators and commitment
 
-Independent batch replay, bonded attestations, checkpoint certificates, and settlement accountability.
+BFT block commitment, signed execution receipts, and independent evidence verification.
 
-Guarantors connect Layer X execution to Paxeer settlement. Each guarantor retrieves sealed batch data, independently executes it, compares the committed results, and signs an attestation only after verification. The certificate aggregates the required eligible attestations into evidence that the settlement registry can check.
+Paxeer validators commit blocks on one network. The kernel participates in block production. Applications verify execution receipts and the committed blocks covering them; finality comes from BFT commitment.
 
-## Replay before signing
+## Verify the execution outcome
 
-1. Pin the network, sequencer identity and key, and authorized batch range.
-2. Retrieve the signed candidate header and its availability chunks.
-3. Verify request correlation, chunk indices, hashes, Merkle proofs, the terminating response, and the reconstructed availability root.
-4. Load the verified genesis and registration state, validate actor signatures and authority, and replay the kernel and Programs runtime.
-5. Compare receipts, state diffs, recovery metadata, and committed roots before retaining or signing evidence.
+1. Confirm the chain ID and retain the signed transaction.
+2. Retrieve the transaction receipt and its progress rung.
+3. Obtain the governed receipt keys and check their authorized height ranges.
+4. Verify the receipt signature, decoded fields, and output digests.
+5. Verify the committed block covering the receipt sequence.
 
-The producer verifies receipt signatures with the sequencer public key; it does not need the sequencer private key. Deterministic program calls, program-owned transfers, and storage-occupancy charges participate in the same replay. Replay failure stops attestation production.
+A receipt signature authenticates execution only when its signing key is authorized for the receipt height. The node exposes the governed key ranges through `px_getReceiptKeys`, implemented in `rpc/sequencer_receipt.go`.
 
-### Data availability is part of verification
+### Exact evidence bindings
 
-Candidate retrieval is bounded, and reconstruction must reproduce the signed header's availability root before signing. A missing terminator, unavailable data, or a root mismatch is a refusal to sign. Specific chunk-count, chunk-size, and availability-class limits were not verified against a live producer in the monorepo (the former C/Python guarantor paths are retired) and are not specified here.
+Verification checks the exact signed bytes and their bindings. Receipt output data must reproduce the digests in the signed receipt. Missing evidence leaves the outcome at its observed progress level.
 
-## Attestations and certificates
+## Receipt and commitment evidence
 
-Guarantors exchange canonical attestations through authenticated peer connections. An incoming attestation must pass signature and recovery verification, bonded-membership checks, and checkpoint-identifier recomputation from a locally verified header. The certificate assembler sorts guarantor identifiers and requires the configured threshold.
+`pax_sequencerReceipt` exposes the transaction hash, nonce, progress rung, and available receipt material. Its committed result identifies the block whose sequence batch covers the receipt.
 
 | Evidence | Meaning |
 | --- | --- |
-| Signed batch header | Sequencer commitment to batch ordering and roots. |
-| Guarantor attestation | A bonded signer's statement about a verified checkpoint. |
-| Checkpoint certificate | Canonical aggregation of the required eligible attestations. |
-| Settlement registration | The registry accepts the certificate under the deployed domain and contract rules. |
+| Submission acknowledgement | The node holds the transaction. |
+| Signed execution receipt | The authorized signer records the execution outcome. |
+| Receipt-key range | Governance authorizes a receipt key over stated heights. |
+| Committed block | BFT commitment makes the included outcome final. |
 
-Checkpoint-certificate and guarantor-attestation signatures use distinct domain separators: `LXP/v2/checkpoint-certificate` and `LXP/v2/guarantor-attestation`, each followed by a null byte. Certificates carry an empty validity-proof field. An attestation is bonded re-execution evidence, not a zero-knowledge validity proof.
+`SequencerReceiptResult.Verify` checks receipt signatures, decoded fields, output digests, and required block fields. Pass the trusted receipt keys to authenticate signing authority. Consistency under an untrusted supplied key is insufficient.
 
-## Bonded membership
+## Consensus membership
 
-The live implementation is the Go Cosmos module `modules/layerxanchor`, not a GuarantorBond contract; no `GuarantorBond.sol` exists in the monorepo. The module records guarantors with a signer and bond, and eligibility is narrow: a guarantor is eligible when its status is active and its bond is at least the module's `MinBond` parameter (default `1000000` in the bond denomination). Depositing tokens alone does not create membership authority.
+Validator membership is part of the BFT network. The hosted gateway declares `px_getValidators` and `px_getCommit` in `services/platform/hosted/gateway/openrpc.json`; use their verified chain data when inspecting consensus evidence.
 
-Older descriptions of a minimum bond computed as custodied value times a basis-point requirement, epoch/jail/ejection/unresolved-slashing eligibility checks, and a minimum one-day unbonding delay describe the retired contract narrative and were not found in the live module. Unbonding delay, equivocation/slashing paths, and peer-transport (mTLS) details were not verified in a live replacement producer and are not specified here.
+The public EVM chain ID is `125`. Bind transaction signatures and receipt verification to the intended chain and obtain current consensus state from that network.
 
-## Settlement confirmation
+## Block confirmation
 
-The submitter validates the deployed chain and registry binding, encodes the certificate, and submits a settlement transaction. Registration is confirmed against successful receipt status, transaction identity, the canonical block, and every checkpoint-registration event field. An existing registration is accepted only when it records the exact certificate.
+The `committed` rung means the receipt sequence is covered by a committed block. Its `blockNumber` and `blockHash` identify that block. Verify these bindings together with the execution result.
 
-The node independently verifies the finality bundle returned to it. The producer then compares the node's stored finality evidence with the submitted bundle. These checks connect locally verified execution, the registered certificate, and the evidence applications subsequently consume.
+A successful submission response is an acknowledgement. A receipt may record a reverted execution. Check status and effects before presenting a committed outcome as a successful payment.
 
-## Operator responsibilities
+## Application responsibilities
 
-Maintain a distinct signing identity, exclusive persistent-state ownership, durable availability data, and retained attestations. Reuse stored attestations for a previously signed batch rather than generating replacement signatures. Peer-transport details were not verified in a live producer and are not specified here. Organizational and infrastructure independence require separate operator arrangements; two different keys alone do not establish that independence.
+Retain the original signed transaction, its hash, receipt bytes, trusted receipt-key ranges, and covering block evidence. These records let an application verify the outcome independently of a progress indicator.
 
-Replay supports the direct-owner authority path and explicitly refuses unsupported oracle inputs or incomplete rotated-signer history. Treat these refusals as verification boundaries. A guarantor must obtain sufficient replay evidence before attesting.
+If evidence is unavailable, keep the transaction pending and reconcile its existing hash. Reissuing a payment with another transaction can create a second economic effect.
 
 ## Continue
 

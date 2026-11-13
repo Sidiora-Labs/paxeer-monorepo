@@ -2,7 +2,7 @@
 
 # Fees and payment costs
 
-Understand Paxeer X EVM gas, kernel execution fees, program occupancy, merchant pricing, spending ceilings and fee estimation.
+Understand EVM gas, canonical kernel fee schedules, program occupancy, merchant prices, and fee ceilings on Paxeer.
 
 ## Identify the charge you are approving
 
@@ -21,7 +21,7 @@ A purchase amount and its network execution cost are separate terms. A merchant 
 
 EVM transactions use Ethereum-style gas accounting. Dynamic-fee transactions carry maximum fee and priority fee fields; execution receipts report gas used and effective gas price. Query the current network settings when preparing a transaction rather than assuming fixed base-fee bounds.
 
-Use the EVM RPC and wallet fee controls for an EVM transfer or contract call. Native LayerX activity fee estimates apply to canonical activities rather than arbitrary EVM transactions. A workflow spanning both execution planes should expose the costs and evidence of its individual legs.
+EVM transfers and contract calls use the node's EVM fee estimates. The kernel's canonical activity schedule is implemented in `src/protocol/lxp_fee.c`; it prices activity bytes and resource meters. Display each charge against the operation that incurs it.
 
 ## The native committed schedule
 
@@ -75,11 +75,11 @@ Version 4 module parameters are `fee.module.escrow`, `fee.module.budget`, `fee.m
 
 ## Estimate before signing
 
-There is no public `lx_estimateFee` JSON-RPC method in this checkout. The hosted gateway refuses every `lx_*` method name with JSON-RPC `-32601` (`Method not found`). Do not present an `lx_estimateFee` request, or response fields such as `observed_head_sequence`, `state_root`, or `verification: "authenticated_committed_snapshot"`, as a public estimation contract.
+Estimate EVM gas through `eth_estimateGas` at the node's root JSON-RPC endpoint and review the fee fields before signing. Check `services/platform/hosted/gateway/openrpc.json` for the hosted gateway's declared methods.
 
-The hosted core fee estimate that does exist prices an EVM transaction: it computes `gas_limit × max_fee_per_gas` and returns only `fee` (decimal string), `parameter_version: 0`, an empty `canonical_schedule`, and `canonical_bytes`. For native activities, price the exact canonical bytes against the committed schedule described above and set the signed `fee_limit` from that calculation.
+The hosted core estimate in `services/platform/hosted/core/src/public_reads.rs` decodes an unsigned EVM transaction for chain ID `125`. It computes `gas_limit × max_fee_per_gas` and returns `fee` as a decimal string, `parameter_version: 0`, an empty `canonical_schedule`, and `canonical_bytes`. This is the transaction fee ceiling derived from its supplied fields.
 
-An estimate reserves no balance, locks no schedule, and proves no execution. When the schedule needs execution or storage meters that estimation cannot establish, the estimator refuses instead of treating the missing meters as zero. LNI `fee_estimate` and `session_fee_state` expose the committed schedule projection with the same non-reservation semantics.
+An estimate reserves no balance and proves no execution. Canonical kernel pricing requires the applicable schedule and actual encoded-byte, execution-unit, and storage-unit meters. Compare the charged fee in the resulting receipt with the authorized limit.
 
 ## Set and fund the fee ceiling
 
@@ -91,19 +91,19 @@ An estimate reserves no balance, locks no schedule, and proves no execution. Whe
 
 | Outcome | Sequence and fee behavior | Module effects |
 | --- | --- | --- |
-| Admission refused | No global sequence, no consumed account sequence, no fee | None |
+| Submission refused | No global sequence, no consumed account sequence, no fee | None |
 | Insufficient spendable balance for the limit | `LXP_ERR_FEE_UNPAYABLE`; refused before sequence assignment | None |
 | Admitted execution succeeds | Sequence consumed and computed fee charged within the limit | Committed |
 | Admitted execution fails | Sequence consumed; fee charged within the limit; failure receipt emitted | Rolled back |
 | Computed fee exceeds the signed limit | `LXP_ERR_FEE_LIMIT`; charge capped at the limit | Rolled back |
 
-Protocol fee charges settle as `402LXP` transfer legs with reason `LXP_REASON_PROTOCOL_FEE` to treasury account `system:fees`. Replay verifies the recorded charge, actor debit, treasury credit, schedule version, and resulting state. A failed payment can therefore have a fee-bearing receipt even when its requested transfer did not apply.
+The kernel fee policy in `src/protocol/lxp_fee_policy.c` charges admitted execution within its signed limit and rolls back failed module effects. `lxp_fee_charge` records a conserved transfer with reason `LXP_REASON_PROTOCOL_FEE` to treasury account `system:fees`. Replay checks the charge, actor debit, treasury credit, schedule version, and resulting state.
 
 ## Programs occupancy and persistent storage
 
-Occupancy charges for namespace bytes held across protocol batches. Its time unit is the batch number, not elapsed wall-clock time. The CALL flow prices its execution budget and carves authorized occupancy out of the signed fee limit. Due maintenance transfers settle as ordinary `402LXP` legs.
+Program occupancy prices persistent namespace bytes in byte-batches. Its time unit is the protocol batch number. The program fee schedule and occupancy accounting are implemented in `src/modules/programs/fees.c`.
 
-Occupancy is a separate batch settlement. A CALL that writes persistent storage is not fully settled until occupancy settlement for its containing batch completes. Program outcomes carry occupancy byte-batches, fee units, Asset identifier, evidence digest, and transfer root. Preserve the outcome and batch evidence when reconciling persistent storage costs; simulation alone does not perform batch occupancy settlement.
+Program outcomes include occupancy byte-batches, fee units, asset identifier, evidence digest, and transfer root, as defined in `include/layerx/lxp_receipt.h`. Use these fields and the corresponding batch evidence to reconcile persistent storage charges.
 
 ## Merchant, metered, and subscription pricing
 
@@ -113,7 +113,7 @@ Metered and subscription grants authorize bounded future draws with explicit pur
 
 ## Governance and parameter changes
 
-Governance controls `fee.base`, `fee.activity`, `fee.byte`, `fee.exec`, `fee.storage`, `fee.multiplier_bps`, and `fee.encoding`, together with the named Asset and module prices. Committed schedule bytes are stored under `fee.schedule`; version 4 also uses `fee.module-prices`. Read the active committed schedule when estimating instead of copying fixed prices into application code.
+Governance controls `fee.base`, `fee.activity`, `fee.byte`, `fee.exec`, `fee.storage`, and `fee.multiplier_bps`. `fee.encoding` selects the schedule encoding and its named Asset and module prices. `src/modules/governance/lxp_fee_params.c` resolves these parameters and reads stored schedules from `fee.schedule` and, for version 4, `fee.module-prices`.
 
 ## Related guides
 

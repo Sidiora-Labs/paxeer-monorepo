@@ -8,7 +8,7 @@ Trade asset pairs on Paxeer X with deterministic order books, price-time matchin
 
 The LayerX spot module gives each market a base asset, quote asset, tick size, lot size, and administrator. A bid buys the base asset with quote units; an ask sells base units for quote units. Market identifiers, asset identifiers, account identifiers, and order identifiers are 32-byte values. Prices and quantities use unsigned 128-bit integer values: integrations apply the assets' unit conventions before constructing an activity.
 
-Spot runs in the LayerX execution kernel as module `10`. It settles through the asset module and uses the same deterministic price-time book engine as perpetuals. Native spot activities and the EVM exchange intent interface are distinct integration surfaces within Paxeer X. A separate Cosmos Go spot module (`modules/spot`, with swap, vault, shares, stop-order, and TWAP keepers behind `precompiles/spot`) is a third surface; this page covers the native kernel book and the EVM intent interface.
+Spot runs in the LayerX execution kernel as module `10`. It settles through the asset module and uses the same deterministic price-time book engine as perpetuals. The Cosmos Go spot module (`modules/spot`) exposes swap, order, vault, share, and quote operations through `precompiles/spot`. Its EVM rails use their own ABIs; the native book encoding below applies to kernel spot activities.
 
 ## Choose an order
 
@@ -60,17 +60,17 @@ Market creation uses a 160-byte payload; halt and resume use 32 bytes. Escrow id
 1. Resolve the market's base and quote assets, trading increments, and halted state.
 2. Check the strategy's authorized accounts and available asset balances.
 3. Choose a price boundary, quantity, order kind, and time in force; allocate and persist an order identifier.
-4. Submit the canonical native activity through the LayerX client and retain its activity identifier.
+4. Submit the signed transaction carrying the native operation and retain its transaction hash.
 5. Verify the receipt, account changes, fills, and residual order state before updating inventory.
 6. Cancel a residual quote using its market and order identifiers. Reconcile the cancellation result before treating its reserved inventory as available for another order.
 
 Market-making agents can quote both sides, cancel stale quotes, and adjust inventory using the same accounts and matching rules as other principals. Strategy decisions remain outside consensus; order authorization, matching, and settlement follow deterministic protocol rules.
 
-## EVM exchange intents
+## EVM spot interfaces
 
-Contracts use `ILayerXExchange` at `0x0000000000000000000000000000000000001015` to deposit or withdraw margin, place or cancel orders, request settlement, and inspect intents. These calls record pending exchange intents for LayerX routing. Their EVM events are submission evidence; LayerX executes the corresponding trading operation.
+Contracts use the PECOR swap rail implemented by `precompiles/spot/pecor.go` at `0x0000000000000000000000000000000000001021`. Separate rails provide limit orders, stop orders, quotes, and vault operations. These calls execute through the Cosmos spot keeper within the same chain.
 
-The interface's state views require a batch number and native state witness. They verify the witness against the batch's finalized anchored state root. Its order interface uses its own time-in-force encoding: `0` GTC, `1` IOC, `2` fill or kill, and `3` post-only. Preserve each surface's encoding when building an adapter; do not copy native spot enum values into this ABI.
+The order rail is at `0x1022`, stop-order rail at `0x1023`, quoter at `0x1024`, and vault at `0x1025`, each left-padded to a 20-byte address. Their ABI definitions are in precompiles/spot/abi. Use each rail's published function parameters and integer units when constructing an EVM call.
 
 ## Capacity and operational refusals
 
@@ -82,4 +82,4 @@ A duplicate market returns `LXP_ERR_MARKET_ALREADY_EXISTS`; order placement on a
 
 See [Market Makers](https://docs.paxeer.app/market-makers) for quoting and ramp inventory workflows, [Precompiles](https://docs.paxeer.app/precompiles) for contract integration, and [Modules](https://docs.paxeer.app/modules) for execution capabilities.
 
-**Protocol references:** `include/layerx/lx_spot.h`, `src/modules/spot/lx_spot_market.c`, `src/modules/spot/lx_spot_book.c`, `src/modules/spot/lx_spot_dispatch.c`, and `precompiles/layerxexchange/LayerXExchange.sol`.
+**Protocol references:** `include/layerx/lx_spot.h`, `src/modules/spot/lx_spot_market.c`, `src/modules/spot/lx_spot_book.c`, `src/modules/spot/lx_spot_dispatch.c`, and `precompiles/spot/spot.go`.

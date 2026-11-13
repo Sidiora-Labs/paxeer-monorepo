@@ -6,7 +6,7 @@ Connect human ownership, agent identities, hosted sessions and scoped signing au
 
 ## One owner, explicit authority
 
-Paxeer X connects an owner to an agent DID, a signing authority, an account and a recovery policy. These bindings make responsibility explicit when an agent prepares an activity, requests approval, delegates work or spends from a budget. A hosted login authenticates a principal; an activity signature authorizes a particular protocol action.
+Paxeer X connects an owner to an agent DID, a signing authority, an account and a recovery policy. The identity provider exports a principal DID, while the node binds an EVM address to a DID derived from an Ed25519 public key. Preserve each identity with its own registration evidence. A hosted login authenticates a principal; a protocol signature authorizes a particular action.
 
 | Identity surface | What it establishes | What to retain |
 | --- | --- | --- |
@@ -18,23 +18,23 @@ Paxeer X connects an owner to an agent DID, a signing authority, an account and 
 
 ## Register an owner
 
-Registration, funding, and recovery are transactions on the merged network (EVM chain ID 125). The pre-merge custody-credit bootstrap through the `0x1013` precompile is retired and is not a prerequisite; see [custody](https://docs.paxeer.app/custody).
+Registration, funding, and recovery are transactions on the network (EVM chain ID 125). The kernel runs inside the node, and a receipt is final when its block commits; see [custody](https://docs.paxeer.app/custody).
 
-1. Provision the owner DID and recovery policy through the identity flow, and generate and protect the owner signing key.
-2. Bind the DID to the owner EVM address: read `layerXBindNonce(address)` from the address precompile at `0x…1004`, have the Ed25519 DID key sign the bind message, and call `bindLayerX(bytes32, bytes)` from that address. The binding is one EVM address per DID and one DID per address.
-3. Verify the committed transaction and `LayerXBound` event, then query `getUnifiedAccount(address)` for the main account ID. A successful query alone is insufficient, because an unbound address returns zero fields.
-4. Register identity and recovery state through LayerXAuth at `0x…101C`: `recordLifecycle(bytes payload, bytes32 idempotencyKey)` executes Governance module 7 for the bound caller. Identity registration is ordinal 1 (`71 01 00 02 || did_id32 || primary_key32`); the recovery commitment is ordinal 3, with an optional five-field form carrying delay bounds. Rotation (ordinal 2) is not exposed through `recordLifecycle`.
+1. Provision the owner principal and recovery policy, and separately generate and protect the signing key. Provisioning a principal alone does not register an on-chain identity.
+2. For a key-derived node DID, read `layerXBindNonce(address)` from the address precompile at `0x0000000000000000000000000000000000001004`. Have the Ed25519 key sign `"LX:PAXEER-BIND:v1" || chain_id:uint256be || evm_address:20 bytes || nonce:u64be`, then call `bindLayerX(bytes32, bytes)` from that EVM address. The binding is one EVM address per DID and one DID per address.
+3. Verify the committed transaction and `LayerXBound` event, then query `getUnifiedAccount(address)` for the main account ID. A successful query alone is insufficient, because an unbound address returns zero DID and account fields.
+4. Register identity and recovery state through LayerXAuth at `0x000000000000000000000000000000000000101C`: `recordLifecycle(bytes payload, bytes32 idempotencyKey)` executes Governance module 7 for the bound caller. Identity registration is ordinal 1 (`71 01 00 02 || did_id32 || primary_key32`); the recovery commitment is ordinal 3, with an optional five-field form carrying delay bounds. Derive the DID identifier with the protocol codec and use big-endian integers.
 5. Fund the intended account with the correct native asset, keeping EVM gas funding distinct from the kernel account balance. Retain the activity IDs and receipt evidence.
 
 An account name such as `agent:<actor-DID>:main` identifies the intended account. Its account ID is derived by the protocol account codec, not by interpreting the DID as an address. Session authorization uses the dedicated `grantSession` and `revokeGrant` methods rather than the lifecycle payload.
 
 ### Key and account representations
 
-The Human authority reference accepts a lowercase 64-character public-key hex string or `did:layerx:` followed by the same key hex. The owner actor is the exact generated DID. The recovery root is unpadded base64url of the registered 32-byte commitment. Preserve these values exactly; whitespace, uppercase key hex, `0x` prefixes and DID fragments are refused.
+The node binding uses `did:layerx:` followed by the lowercase 64-character Ed25519 public-key hex. The Human sponsor configuration compares its authority reference to the resolved owner's lowercase public-key hex, and its actor to the exact exported DID. The recovery root is unpadded base64url of the registered 32-byte commitment. Preserve the representation required by each interface.
 
 ## Hosted principals and sessions
 
-The hosted identity API uses HTTPS and service Bearer authentication. The Provisioning service manages principals and sessions; the Registrar service can also create principals but cannot manage sessions. Consumer services introspect a user session using their own service credential, keeping user tokens separate from service authority.
+The hosted identity API serves HTTPS with service Bearer authentication. The Provisioning service manages principals and sessions; the Registrar service can also create principals but cannot manage sessions. Consumer services introspect a user session using their own service credential, keeping user tokens separate from service authority.
 
 | Method and path | Purpose |
 | --- | --- |
@@ -80,7 +80,7 @@ Use `capability.create` to establish authority, `capability.attenuate` to narrow
 
 ## Rotation, revocation and recovery
 
-Session grants are authorized through `grantSession(bytes, uint64, bytes32)` and withdrawn through `revokeGrant(bytes32, uint8, uint64)`. The version-1 session payload carries the canonical grant, its expiry sequence, and a 32-byte action key. Key rotation is not exposed through `recordLifecycle`; use the dedicated ABI methods and verify scope and revocation state before authorizing a spend.
+Session grants are authorized through `grantSession(bytes, uint64, bytes32)` and withdrawn through `revokeGrant(bytes32, uint8, uint64)`. The arguments carry the canonical grant, its expiry sequence, and a 32-byte action key. Rotation announcements use `recordLifecycle` with the 92-byte ordinal-2 form: `71 02 00 04 || did_id32 || next_key32 || begin_ms:u64 || end_ms:u64 || effective_sequence:u64`. Check committed identity, scope and revocation state before authorizing a spend.
 
 Recovery uses the registered guardian commitment and threshold from the ordinal-3 lifecycle payload. Keep recovery material exercisable and separate from the primary owner key, and maintain the registered delay policy alongside that commitment.
 

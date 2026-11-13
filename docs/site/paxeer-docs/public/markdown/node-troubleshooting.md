@@ -8,32 +8,32 @@ Collect a small set of evidence before changing configuration: the running binar
 
 ## Diagnose kernel and application dependencies
 
-A healthy EVM RPC confirms one execution surface. Trace the affected Paxeer X operation across ingress, identity, kernel execution, receipt verification, checkpoint authority, and chain settlement. Keep the activity ID, receipt identity, batch number, checkpoint ID, and chain transaction hash correlated.
+Paxeer mainnet-beta runs kernel execution inside `paxd`. A healthy EVM RPC confirms one access surface. Trace an affected operation through its gateway or Human API, chain submission, execution receipt, and committed block. Keep the operation ID, transaction hash, receipt digest, and block height together.
 
 | Symptom | Evidence to inspect | Recovery direction |
 | --- | --- | --- |
 | Gateway rejects a request | Public method, authentication, registry route, dependency readiness, and receipt verification error | Correct the failing authorization or upstream dependency |
-| Node or hosted service fails startup | Generated configuration, signed genesis, network identity, state-directory ownership and lock. The former `layerxd --check-config` path is retired | Use the matching artifacts and one process per state directory |
-| Sequencer advances, replica lags | Replica input history, retained logs, connectivity, receipt and root agreement | Restore the replica path from its verified history |
-| Checkpoint awaits attestations | Availability retrieval, replay errors, authorized sequencer range, guarantor membership and threshold | Restore verification and attestor connectivity before publication |
-| Checkpoint registered, publication pending | Publication authorization, owner signatures, registered certificate, and finality evidence | Supply the required valid authorization through its protected signing path |
+| Node or hosted service fails startup | Node configuration, genesis, chain identity, state-directory ownership, and store lock | Use the matching artifacts and one process per state directory |
+| One node falls behind | Committed height, peers, storage latency, and the earliest sync error | Restore connectivity or recover from a matching verified snapshot |
+| Transaction remains pending | Original transaction hash, mempool admission, nonce, fees, and block progress | Resolve the original transaction before submitting another payment |
+| Committed payment proof fails verification | Transaction binding, receipt digest, block headers, commit signatures, and trusted validator set | Use matching proof material and the configured chain trust anchor |
 | Human or agent operation stalls | Identity, owner approval, provider readiness, key-management channel, and canonical receipt | Repair the responsible service boundary and resume the recorded operation |
-| Relay/archive falls behind | Relay/archive is retired (see [relay/archive status](https://docs.paxeer.app/relay-archive)); for chain history lag, use the `paxd` sync checks below | Diagnose the `paxd` node's sync state instead |
+| Historical state is unavailable | Requested height, configured retention, and node profile; see [history access](https://docs.paxeer.app/relay-archive) and the `paxd` sync checks below | Use an endpoint retaining the required state |
 
-A failed guarantor replay stops signing; preserve that evidence and resolve the disagreement. A refused or invalid publication signature is different from a missing authorization that remains pending. Do not substitute a transaction receipt for proof of checkpoint finality or a completed withdrawal. Continue with [settlement](https://docs.paxeer.app/settlement) and [operator responsibilities](https://docs.paxeer.app/operators).
+A receipt is final when its block is committed. Verify application evidence against the intended chain and transaction. Distinguish a pending submission from a rejected transaction or a receipt-verification error. Continue with [settlement](https://docs.paxeer.app/settlement) and [operator responsibilities](https://docs.paxeer.app/operators).
 
 ## Confirm the process and endpoints
 
-The following examples assume a Linux systemd service named `paxd` and default local ports. Substitute your service name and bound ports if they differ.
+The examples use the systemd service named `paxd` installed by HPX. Set `CONSENSUS_HTTP_URL` to the consensus HTTP origin and `EVM_RPC_URL` to the EVM JSON-RPC URL for your node. Substitute your service name when using another deployment.
 
 ```
 paxd version --long
 systemctl status paxd --no-pager
 systemctl show paxd -p ExecStart -p User
 ss -lntp
-curl --fail --silent --show-error http://127.0.0.1:26657/status | jq '.result | {node_info, sync_info}'
-curl --fail --silent --show-error http://127.0.0.1:26657/net_info | jq '.result.n_peers'
-curl --fail-with-body --silent --show-error http://127.0.0.1:8545   -H 'Content-Type: application/json'   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
+curl --fail --silent --show-error "${CONSENSUS_HTTP_URL:?Set the consensus HTTP origin}/status" | jq '.result | {node_info, sync_info}'
+curl --fail --silent --show-error "${CONSENSUS_HTTP_URL:?Set the consensus HTTP origin}/net_info" | jq '.result.n_peers'
+curl --fail-with-body --silent --show-error "${EVM_RPC_URL:?Set the EVM JSON-RPC URL}"   -H 'Content-Type: application/json'   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
 
 For the Paxeer X network documented here, compare the Cosmos network with `hyperpax_125-1` and the EVM result with `0x7d`. A local development cluster can use a different identifier. The binary found in your shell can differ from the absolute path in the service’s `ExecStart`.
@@ -53,7 +53,7 @@ For the Paxeer X network documented here, compare the Cosmos network with `hyper
 Capture the height and latest block time twice, a short interval apart. Compare both samples with a known-good node on the same network. A changing height with increasing lag points toward throughput; an unchanged height with a repeating error points toward a specific blocker.
 
 ```
-curl --fail --silent --show-error http://127.0.0.1:26657/status   | jq '.result.sync_info | {latest_block_height, latest_block_time, catching_up}'
+curl --fail --silent --show-error "${CONSENSUS_HTTP_URL:?Set the consensus HTTP origin}/status"   | jq '.result.sync_info | {latest_block_height, latest_block_time, catching_up}'
 journalctl -u paxd --since '15 minutes ago' --no-pager -o short-iso
 df -h
 df -i
