@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM1310ReadConfig(t *testing.T, document string) *viper.Viper {
+func readConfigDocument(t *testing.T, document string) *viper.Viper {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "app.toml")
 	require.NoError(t, os.WriteFile(path, []byte(document), 0600))
@@ -23,7 +23,7 @@ func repairM1310ReadConfig(t *testing.T, document string) *viper.Viper {
 	return v
 }
 
-func TestRepairM_1310_LabelValidation(t *testing.T) {
+func TestTelemetryLabelValidation(t *testing.T) {
 	cases := []struct {
 		name  string
 		label string
@@ -42,7 +42,7 @@ func TestRepairM_1310_LabelValidation(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			v := repairM1310ReadConfig(t, fmt.Sprintf(`[telemetry]
+			v := readConfigDocument(t, fmt.Sprintf(`[telemetry]
 global-labels = [["network", "paxeer"], %s, ["node", "validator"]]
 `, tc.label))
 			cfg, err := GetConfig(v)
@@ -52,7 +52,7 @@ global-labels = [["network", "paxeer"], %s, ["node", "validator"]]
 	}
 }
 
-func TestRepairM_1310_ValidLabelsRoundtrip(t *testing.T) {
+func TestTelemetryLabelsRoundtrip(t *testing.T) {
 	for _, labels := range [][][]string{
 		{},
 		{{"chain_id", "125"}, {"network", "paxeer"}, {"empty", ""}},
@@ -74,7 +74,7 @@ func TestRepairM_1310_ValidLabelsRoundtrip(t *testing.T) {
 	}
 }
 
-func TestRepairM_1310_PruningRoundtrip(t *testing.T) {
+func TestPruningConfigRoundtrip(t *testing.T) {
 	cases := []struct {
 		name             string
 		strategy         string
@@ -94,7 +94,7 @@ func TestRepairM_1310_PruningRoundtrip(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			v := repairM1310ReadConfig(t, fmt.Sprintf(`minimum-gas-prices = "0.025uhpx"
+			v := readConfigDocument(t, fmt.Sprintf(`minimum-gas-prices = "0.025uhpx"
 inter-block-cache = true
 concurrency-workers = 17
 occ-enabled = true

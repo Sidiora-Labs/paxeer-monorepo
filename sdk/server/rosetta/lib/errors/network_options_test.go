@@ -14,11 +14,11 @@ import (
 	"github.com/coinbase/rosetta-sdk-go/types"
 )
 
-func TestRepairM_1314_RegistrySnapshots(t *testing.T) {
+func TestErrorRegistrySnapshots(t *testing.T) {
 	TestRegisterError(t)
 }
 
-func TestRepairM_1314_NetworkOptionsVocabulary(t *testing.T) {
+func TestNetworkOptionsErrorVocabulary(t *testing.T) {
 	isolateErrorRegistry(t)
 	registered := []*Error{
 		ErrUnknown, ErrOffline, ErrNetworkNotSupported, ErrCodec,

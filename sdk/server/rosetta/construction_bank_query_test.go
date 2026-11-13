@@ -48,12 +48,12 @@ import (
 	paramtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types"
 )
 
-type repairM1312Query struct {
+type bankPaginationQuery struct {
 	method string
 	key    []byte
 	height []string
 }
-type repairM1312Harness struct {
+type constructionBankQueryNetwork struct {
 	client      *rosetta.Client
 	converter   rosetta.Converter
 	txConfig    client.TxConfig
@@ -65,7 +65,7 @@ type repairM1312Harness struct {
 	url         string
 	network     *ros.NetworkIdentifier
 	mu          sync.Mutex
-	queries     []repairM1312Query
+	queries     []bankPaginationQuery
 	fault       atomic.Int32
 	supplyCalls atomic.Int32
 	statusCalls atomic.Int32
@@ -73,12 +73,12 @@ type repairM1312Harness struct {
 
 // The bank/auth producer is a real keeper over an in-memory multistore. Only
 // consensus status is a recorded wire transcript; no consensus node is needed.
-func repairM1312Start(t *testing.T) *repairM1312Harness {
+func startConstructionBankQueryNetwork(t *testing.T) *constructionBankQueryNetwork {
 	t.Helper()
 	cdc, ir := rosetta.MakeCodec()
 	sdk.RegisterInterfaces(ir)
 	cfg := authtx.NewTxConfig(cdc, authtx.DefaultSignModes)
-	h := &repairM1312Harness{txConfig: cfg, converter: rosetta.NewConverter(cdc, ir, cfg), network: &ros.NetworkIdentifier{Blockchain: "paxeer", Network: "repair-m1312"}}
+	h := &constructionBankQueryNetwork{txConfig: cfg, converter: rosetta.NewConverter(cdc, ir, cfg), network: &ros.NetworkIdentifier{Blockchain: "paxeer", Network: "repair-m1312"}}
 	db := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	ms := store.NewCommitMultiStore(db)
@@ -120,7 +120,7 @@ func repairM1312Start(t *testing.T) *repairM1312Harness {
 		if page != nil {
 			md, _ := metadata.FromIncomingContext(ctx)
 			h.mu.Lock()
-			h.queries = append(h.queries, repairM1312Query{method: info.FullMethod, key: bytes.Clone(page.Key), height: append([]string(nil), md.Get(grpctypes.GRPCBlockHeightHeader)...)})
+			h.queries = append(h.queries, bankPaginationQuery{method: info.FullMethod, key: bytes.Clone(page.Key), height: append([]string(nil), md.Get(grpctypes.GRPCBlockHeightHeader)...)})
 			h.mu.Unlock()
 		}
 		response, err := handler(sdk.WrapSDKContext(h.ctx.WithContext(ctx)), req)
@@ -199,7 +199,7 @@ func repairM1312Start(t *testing.T) *repairM1312Harness {
 	return h
 }
 
-func (h *repairM1312Harness) post(t *testing.T, path string, request, response interface{}) int {
+func (h *constructionBankQueryNetwork) post(t *testing.T, path string, request, response interface{}) int {
 	t.Helper()
 	data, err := json.Marshal(request)
 	require.NoError(t, err)
@@ -216,7 +216,7 @@ func (h *repairM1312Harness) post(t *testing.T, path string, request, response i
 	return resp.StatusCode
 }
 
-func (h *repairM1312Harness) operations(t *testing.T, n int) []*ros.Operation {
+func (h *constructionBankQueryNetwork) operations(t *testing.T, n int) []*ros.Operation {
 	t.Helper()
 	var inputs []bank.Input
 	for i := 0; i < n; i++ {
@@ -231,7 +231,7 @@ func (h *repairM1312Harness) operations(t *testing.T, n int) []*ros.Operation {
 	return rosetta.AddOperationIndexes(ops, nil)
 }
 
-func (h *repairM1312Harness) payloads(t *testing.T, n int, gas uint64) (*ros.ConstructionPayloadsResponse, *rosetta.ConstructionMetadata) {
+func (h *constructionBankQueryNetwork) payloads(t *testing.T, n int, gas uint64) (*ros.ConstructionPayloadsResponse, *rosetta.ConstructionMetadata) {
 	t.Helper()
 	var pre ros.ConstructionPreprocessResponse
 	require.Equal(t, http.StatusOK, h.post(t, "/construction/preprocess", &ros.ConstructionPreprocessRequest{NetworkIdentifier: h.network, Operations: h.operations(t, n), Metadata: map[string]interface{}{"gas_limit": strconv.FormatUint(gas, 10), "gas_price": "1asset0000", "memo": "exact metadata"}}, &pre))
@@ -258,7 +258,7 @@ func (h *repairM1312Harness) payloads(t *testing.T, n int, gas uint64) (*ros.Con
 	return &payloads, &meta
 }
 
-func (h *repairM1312Harness) signatures(t *testing.T, payloads *ros.ConstructionPayloadsResponse) []*ros.Signature {
+func (h *constructionBankQueryNetwork) signatures(t *testing.T, payloads *ros.ConstructionPayloadsResponse) []*ros.Signature {
 	t.Helper()
 	sigs := make([]*ros.Signature, len(payloads.Payloads))
 	for i, payload := range payloads.Payloads {
@@ -268,8 +268,8 @@ func (h *repairM1312Harness) signatures(t *testing.T, payloads *ros.Construction
 	return sigs
 }
 
-func TestRepairM_1312_BankPagination(t *testing.T) {
-	h := repairM1312Start(t)
+func TestBankQueryPagination(t *testing.T) {
+	h := startConstructionBankQueryNetwork(t)
 	for _, latest := range []bool{false, true} {
 		t.Run(fmt.Sprintf("latest=%t", latest), func(t *testing.T) {
 			h.mu.Lock()
@@ -292,7 +292,7 @@ func TestRepairM_1312_BankPagination(t *testing.T) {
 			require.Equal(t, "zeroasset", amounts[len(expected)].Currency.Symbol)
 			require.Equal(t, "0", amounts[len(expected)].Value)
 			h.mu.Lock()
-			queries := append([]repairM1312Query(nil), h.queries...)
+			queries := append([]bankPaginationQuery(nil), h.queries...)
 			h.mu.Unlock()
 			require.Len(t, queries, 6)
 			for i, q := range queries {
@@ -323,8 +323,8 @@ func TestRepairM_1312_BankPagination(t *testing.T) {
 	}
 }
 
-func TestRepairM_1312_OperationIndex(t *testing.T) {
-	h := repairM1312Start(t)
+func TestConstructionOperationIndexes(t *testing.T) {
+	h := startConstructionBankQueryNetwork(t)
 	for _, n := range []int{2, 3, 4} {
 		t.Run(fmt.Sprintf("signers-%d", n), func(t *testing.T) {
 			ops := h.operations(t, n)
@@ -372,8 +372,8 @@ func TestRepairM_1312_OperationIndex(t *testing.T) {
 	}
 }
 
-func TestRepairM_1312_CombineIdentity(t *testing.T) {
-	h := repairM1312Start(t)
+func TestConstructionCombineIdentity(t *testing.T) {
+	h := startConstructionBankQueryNetwork(t)
 	payloads, meta := h.payloads(t, 2, 1000000)
 	combine := func(t *testing.T, sigs []*ros.Signature, valid bool) {
 		t.Helper()
@@ -448,8 +448,8 @@ func TestRepairM_1312_CombineIdentity(t *testing.T) {
 	require.Len(t, parsed.Operations, 2)
 }
 
-func TestRepairM_1312_MetadataPrecision(t *testing.T) {
-	h := repairM1312Start(t)
+func TestConstructionMetadataPrecision(t *testing.T) {
+	h := startConstructionBankQueryNetwork(t)
 	for _, value := range []uint64{0, 1<<53 - 1, 1 << 53, 1<<53 + 1, math.MaxUint64} {
 		t.Run(strconv.FormatUint(value, 10), func(t *testing.T) {
 			// Production auth query packs and unpacks the persisted account with exact values.
@@ -500,4 +500,4 @@ func TestRepairM_1312_MetadataPrecision(t *testing.T) {
 	}
 }
 
-func TestRepairM_1312_PreservedSuite(t *testing.T) { TestConverterTestSuite(t) }
+func TestConstructionConverterSuite(t *testing.T) { TestConverterTestSuite(t) }

@@ -17,7 +17,7 @@ import (
 	crgtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/rosetta/lib/types"
 )
 
-func TestRepairM_1315_NetworkOptions(t *testing.T) {
+func TestNetworkOptionsSpecVersion(t *testing.T) {
 	if crgtypes.SpecVersion != types.RosettaAPIVersion {
 		t.Fatalf("supported specification %q differs from installed SDK specification %q", crgtypes.SpecVersion, types.RosettaAPIVersion)
 	}

@@ -32,7 +32,7 @@ import (
 	paramtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types"
 )
 
-func repairM1316Bank(t *testing.T) (network.Config, sdk.Context, bankkeeper.BaseKeeper, sdk.Coins) {
+func newBankQueryState(t *testing.T) (network.Config, sdk.Context, bankkeeper.BaseKeeper, sdk.Coins) {
 	t.Helper()
 	cfg := network.DefaultConfig(t)
 	db := dbm.NewMemDB()
@@ -62,7 +62,7 @@ func repairM1316Bank(t *testing.T) (network.Config, sdk.Context, bankkeeper.Base
 	return cfg, ctx, bk, expected
 }
 
-func repairM1316Server(t *testing.T, ctx sdk.Context, bk bankkeeper.BaseKeeper) *grpc.Server {
+func newBankQueryServer(t *testing.T, ctx sdk.Context, bk bankkeeper.BaseKeeper) *grpc.Server {
 	t.Helper()
 	server := grpc.NewServer(grpc.UnaryInterceptor(func(callCtx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		return handler(sdk.WrapSDKContext(ctx.WithContext(callCtx)), req)
@@ -73,9 +73,9 @@ func repairM1316Server(t *testing.T, ctx sdk.Context, bk bankkeeper.BaseKeeper) 
 	return server
 }
 
-func TestRepairM_1316_GRPCWebSupply(t *testing.T) {
-	cfg, ctx, bk, expected := repairM1316Bank(t)
-	server := repairM1316Server(t, ctx, bk)
+func TestGRPCWebBankSupply(t *testing.T) {
+	cfg, ctx, bk, expected := newBankQueryState(t)
+	server := newBankQueryServer(t, ctx, bk)
 	web := httptest.NewServer(grpcweb.WrapServer(server))
 	t.Cleanup(web.Close)
 	webCfg := config.DefaultConfig()
@@ -100,13 +100,13 @@ func TestRepairM_1316_GRPCWebSupply(t *testing.T) {
 	require.Error(t, s.protoCdc.Unmarshal(messages[0][:len(messages[0])-1], &banktypes.QueryTotalSupplyResponse{}))
 }
 
-func TestRepairM_1316_GRPCConstructorsAndCredentials(t *testing.T) {
-	cfg, ctx, bk, expected := repairM1316Bank(t)
+func TestGRPCConstructorsAndCredentials(t *testing.T) {
+	cfg, ctx, bk, expected := newBankQueryState(t)
 	require.NotNil(t, cfg.AppConstructor)
 	app := cfg.AppConstructor(network.Validator{})
 	require.NotNil(t, app)
 	t.Cleanup(func() { require.NoError(t, app.Close()) })
-	server := repairM1316Server(t, ctx, bk)
+	server := newBankQueryServer(t, ctx, bk)
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	served := make(chan error, 1)

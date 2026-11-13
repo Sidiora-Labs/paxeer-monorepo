@@ -26,7 +26,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repair186App(t *testing.T, dir string, withParams bool) (*baseapp.BaseApp, paramstypes.Subspace) {
+func newConsensusExportApp(t *testing.T, dir string, withParams bool) (*baseapp.BaseApp, paramstypes.Subspace) {
 	t.Helper()
 	db, err := dbm.NewDB("application", dbm.GoLevelDBBackend, dir)
 	require.NoError(t, err)
@@ -46,7 +46,7 @@ func repair186App(t *testing.T, dir string, withParams bool) (*baseapp.BaseApp, 
 	return app, space
 }
 
-func repair186Export(t *testing.T, app *baseapp.BaseApp, streaming bool) *tmtypes.GenesisDoc {
+func exportConsensusGenesis(t *testing.T, app *baseapp.BaseApp, streaming bool) *tmtypes.GenesisDoc {
 	t.Helper()
 	home := t.TempDir()
 	cfg := tmconfig.DefaultConfig().SetRoot(home)
@@ -95,13 +95,13 @@ func repair186Export(t *testing.T, app *baseapp.BaseApp, streaming bool) *tmtype
 	return doc
 }
 
-func repair186ImportAndReopen(t *testing.T, doc *tmtypes.GenesisDoc, expected *tmtypes.ConsensusParams) {
+func importAndReopenConsensusGenesis(t *testing.T, doc *tmtypes.GenesisDoc, expected *tmtypes.ConsensusParams) {
 	t.Helper()
 	require.Equal(t, expected, doc.ConsensusParams)
 	request := doc.ToRequestInitChain()
 	require.Equal(t, expected.ToProto(), *request.ConsensusParams)
 	dir := t.TempDir()
-	app, _ := repair186App(t, dir, true)
+	app, _ := newConsensusExportApp(t, dir, true)
 	_, err := app.InitChain(context.Background(), request)
 	require.NoError(t, err)
 	require.Equal(t, expected.ToProto(), *app.GetConsensusParamsForStateToCommit())
@@ -109,7 +109,7 @@ func repair186ImportAndReopen(t *testing.T, doc *tmtypes.GenesisDoc, expected *t
 	require.NoError(t, err)
 	height := app.LastBlockHeight()
 	require.NoError(t, app.CommitMultiStore().Close())
-	app, _ = repair186App(t, dir, true)
+	app, _ = newConsensusExportApp(t, dir, true)
 	defer func() { require.NoError(t, app.CommitMultiStore().Close()) }()
 	require.Equal(t, height, app.LastBlockHeight())
 	recovered := app.GetConsensusParams(app.NewContext(true, tmproto.Header{}))
@@ -121,7 +121,7 @@ func repair186ImportAndReopen(t *testing.T, doc *tmtypes.GenesisDoc, expected *t
 	require.Equal(t, doc.GenesisTime.Add(expected.Timeout.Commit), params.Timeout.CommitTime(doc.GenesisTime))
 }
 
-func TestRepair_186_ExportConsensusRoundTrip(t *testing.T) {
+func TestExportConsensusRoundTrip(t *testing.T) {
 	for _, streaming := range []bool{false, true} {
 		name := "json"
 		if streaming {
@@ -139,7 +139,7 @@ func TestRepair_186_ExportConsensusRoundTrip(t *testing.T) {
 				Commit: 560 * time.Millisecond, BypassCommitTimeout: true,
 			}
 			expected.ABCI = tmtypes.ABCIParams{VoteExtensionsEnableHeight: 17, RecheckTx: true}
-			app, _ := repair186App(t, t.TempDir(), true)
+			app, _ := newConsensusExportApp(t, t.TempDir(), true)
 			defer func() { require.NoError(t, app.CommitMultiStore().Close()) }()
 			doc := &tmtypes.GenesisDoc{
 				ChainID: "repair-186", GenesisTime: time.Unix(1700000000, 0).UTC(),
@@ -149,12 +149,12 @@ func TestRepair_186_ExportConsensusRoundTrip(t *testing.T) {
 			require.NoError(t, err)
 			_, err = app.Commit(context.Background())
 			require.NoError(t, err)
-			repair186ImportAndReopen(t, repair186Export(t, app, streaming), expected)
+			importAndReopenConsensusGenesis(t, exportConsensusGenesis(t, app, streaming), expected)
 		})
 	}
 }
 
-func TestRepair_186_ExportConsensusNilAware(t *testing.T) {
+func TestExportConsensusNilAware(t *testing.T) {
 	for _, streaming := range []bool{false, true} {
 		for _, name := range []string{"nil", "empty", "legacy", "partial_timing"} {
 			mode := "json/"
@@ -162,7 +162,7 @@ func TestRepair_186_ExportConsensusNilAware(t *testing.T) {
 				mode = "streaming/"
 			}
 			t.Run(mode+name, func(t *testing.T) {
-				app, space := repair186App(t, t.TempDir(), name != "nil")
+				app, space := newConsensusExportApp(t, t.TempDir(), name != "nil")
 				defer func() { require.NoError(t, app.CommitMultiStore().Close()) }()
 				ctx := sdk.NewContext(app.CommitMultiStore(), tmproto.Header{ChainID: "repair-186"}, false)
 				expected := tmtypes.DefaultConsensusParams()
@@ -181,7 +181,7 @@ func TestRepair_186_ExportConsensusNilAware(t *testing.T) {
 					space.Set(ctx, baseapp.ParamStoreKeyTimeoutParams, tmproto.TimeoutParams{Vote: &expected.Timeout.Vote, BypassCommitTimeout: true})
 				}
 				app.CommitMultiStore().Commit(true)
-				repair186ImportAndReopen(t, repair186Export(t, app, streaming), expected)
+				importAndReopenConsensusGenesis(t, exportConsensusGenesis(t, app, streaming), expected)
 			})
 		}
 	}
