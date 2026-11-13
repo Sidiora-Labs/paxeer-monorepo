@@ -518,11 +518,9 @@ A table in LittDB is a unique namespace. Two [keys](#key) with identical values 
 long as they are in different tables.
 
 Each table has its own [TTL](#ttl), and all data in the table is subject to that [TTL](#ttl). Each table has its
-own [keymap](#keymap) and its own set of [segments](#segment). [Flushing](#flushing) one table does not affect
-any other table. Aside from hardware, tables do not share any resources.
-
-In many ways, a table is a stand-alone database. The higher level [API](#api) that works with multiple tables is
-provided as a convenience, but does not enhance the performance of the DB in any way.
+own [keymap](#keymap) and its own set of [segments](#segment). [Flushing](#flushing) a table flushes
+that table's data. Tables in one database share database configuration, root-directory locks, logging,
+metrics and hardware resources. The database [API](#api) manages their common lifecycle.
 
 Each table is configured via a `TableConfig` supplied at [build time](#api) (TTL, sharding factor, cache sizes).
 With the exception of the table name, these settings are held in memory only and are not persisted to disk, so they
