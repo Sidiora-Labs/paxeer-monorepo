@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func TestRepairM_1186_InputDir(t *testing.T) {
+func TestMetricsGenerationInputDir(t *testing.T) {
 	fixtureRoot, err := filepath.Abs("testdata")
 	if err != nil {
 		t.Fatal(err)
