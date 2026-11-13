@@ -67,7 +67,7 @@ func main() {
 
 async function f038SpotUsersRestRowsRenderNativeUnitsAndExecutionPrice() {
   const root = resolve("../..");
-  const work = mkdtempSync(join(tmpdir(), "repair-22-31-9-"));
+  const work = mkdtempSync(join(tmpdir(), "spot-trade-history-native-units-"));
   const pgBin = execFileSync("pg_config", ["--bindir"], { encoding: "utf8" }).trim();
   const asPostgres = userInfo().uid === 0;
   if (asPostgres) {

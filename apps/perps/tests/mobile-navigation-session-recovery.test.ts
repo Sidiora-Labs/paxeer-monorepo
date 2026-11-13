@@ -99,7 +99,7 @@ async function renderer() {
     // Bootstrap the real pages router from an in-memory Next page transcript.
     // SSR reads route state without a browser page loader or navigation.
     Object.defineProperty(globalThis, "self", { configurable: true, value: {
-      __NEXT_DATA__: { props: { pageProps: {} }, page: "/perps", query: {}, buildId: "repair-22-33-12", gssp: true },
+      __NEXT_DATA__: { props: { pageProps: {} }, page: "/perps", query: {}, buildId: "mobile-navigation-session-recovery", gssp: true },
       location: new URL(`${origin}/perps`),
     } });
     pagesRouter = new NextPagesRouter("/perps", {}, "/perps", {
