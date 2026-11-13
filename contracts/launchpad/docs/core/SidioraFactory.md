@@ -6,7 +6,8 @@ Source: [SidioraFactory.sol](../../contracts/core/SidioraFactory.sol).
 
 Market creation orchestrator. One transaction creates token + pool + NFT.
 
-_UUPS proxy. CREATE2 deploys SidioraERC20, BeaconProxy deploys SidioraPool._
+_UUPS proxy. CREATE2 deploys SidioraERC20 and BeaconProxyDeployer; the pool proxy delegates to
+the SidioraPool implementation selected by poolBeacon._
 
 ### ROUTER_ROLE
 
@@ -92,7 +93,8 @@ function initialize( address _poolBeacon, address _nftContract, address _poolReg
 function createMarket( string calldata name, string calldata symbol, uint8 feeStrategy, address optical ) external override returns (address tokenAddr, address poolAddr, uint256 nftId)
 ```
 
-Create a new market (token + pool + NFT)
+Creates a token, pool and NFT for the caller. A nonzero configured creation fee is transferred
+from the caller to the treasury in USDL before market creation.
 
 #### Parameters
 
@@ -117,7 +119,8 @@ Create a new market (token + pool + NFT)
 function createMarketFor( address creator, string calldata name, string calldata symbol, uint8 feeStrategy, address optical ) external override onlyRole(ROUTER_ROLE) returns (address tokenAddr, address poolAddr, uint256 nftId)
 ```
 
-Create a new market on behalf of a creator (Router-only via ROUTER_ROLE)
+Creates a market for a nonzero creator. Requires `ROUTER_ROLE`; this entry point delegates market
+creation without collecting the creation fee itself.
 
 #### Parameters
 

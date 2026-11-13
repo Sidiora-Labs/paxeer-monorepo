@@ -14,9 +14,8 @@ function isApproved(address optical) external view returns (bool)
 
 ## IMetaAGRouterMinimal
 
-Minimal interface for the optional Meta-AG router auth path. Adapter authorization is keyed by
-`bytes32 adapterId`. The declaration is `isAdapterActive`; generic router authorization uses
-`setAuthorizedEmitter`.
+Declares the adapter-status lookup keyed by `bytes32 adapterId`. Generic router authorization
+uses `setAuthorizedEmitter`.
 
 ### isAdapterActive
 
@@ -32,7 +31,7 @@ reports `VERSION()` as `"2.0.0"`.
 
 Generic log authorization accepts explicitly authorized emitters, the pool registry, registered
 pools, approved opticals, the configured factory and registered pool tokens. Typed events also
-enforce their selector-specific permission or their canonical pool, factory or token identity.
+check selector permissions or caller identity for the event being emitted.
 Generic logs include caller provenance. `DEFAULT_ADMIN_ROLE` configures typed permissions and
 authorizes upgrades; `EVENT_EMITTER_ROLE` manages supported emitter and registry settings.
 
@@ -42,7 +41,7 @@ authorizes upgrades; `EVENT_EMITTER_ROLE` manages supported emitter and registry
 bytes32 EMITTER_ADMIN_ROLE
 ```
 
-Retained ABI constant; emitter authorization uses the permissions described above.
+This constant grants no emitter permission; authorization uses the permissions described above.
 
 ### EVENT_EMITTER_ROLE
 
@@ -199,11 +198,8 @@ the local mapping through `registerToken`.
 function registerToken(address token, address ) external override
 ```
 
-Register a pool-token deployed by the SidioraFactory so it can mirror Transfer / Approval through
-this emitter.
-
-_Callable by the wired factory itself (auto-registration on market creation) or by
-EVENT_EMITTER_ROLE / DEFAULT_ADMIN_ROLE._
+Marks a nonzero token in the local authorization mapping. Callable by the configured factory or
+an account with `EVENT_EMITTER_ROLE` or `DEFAULT_ADMIN_ROLE`.
 
 ### deregisterToken
 
@@ -420,7 +416,7 @@ function emitTokenDeployed( address token, address pool, address creator, bytes3
 ### setTypedEmitter
 
 ```solidity
-function setTypedEmitter(address emitter, bytes4 selector, bool allowed) external onlyRole(DEFAULT_ADMIN_ROLE)
+function setTypedEmitter(address emitter, bytes4 selector, bool allowed) external override onlyRole(DEFAULT_ADMIN_ROLE)
 ```
 
 Sets a selector-specific permission and emits `TypedEmitterPermission`.

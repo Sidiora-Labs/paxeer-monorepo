@@ -116,7 +116,7 @@ Get the pool's creation timestamp
 uint256 cumulativeVolume
 ```
 
-Get cumulative volume
+Returns cumulative USDL volume: paid input on buys plus output on sells.
 
 ### priceSnapshots
 
@@ -168,7 +168,9 @@ Initialize pool state (called once by factory via beacon proxy)
 function swap( uint256 amountIn, uint256 minAmountOut, bool isBuy, address recipient, uint256 deadline ) external override nonReentrant whenNotPaused returns (uint256 amountOut)
 ```
 
-Execute a swap
+Executes a swap using input already transferred to the pool. The input balance must cover
+`amountIn` above the booked reserve. Direct calls identify `msg.sender` as the trader; the
+recipient receives the output.
 
 #### Parameters
 
@@ -207,11 +209,15 @@ Re-read actual token balances (used by LP_REWARDS strategy)
 function pause() external
 ```
 
+Only the current guardian can pause swaps.
+
 ### unpause
 
 ```solidity
 function unpause() external
 ```
+
+Only the current guardian can resume swaps.
 
 ### paused
 
@@ -241,7 +247,9 @@ Get effective reserves (virtual + real USDL, token)
 function getPrice() external view override returns (uint256)
 ```
 
-Get current token price in USDL (Q128 fixed-point)
+Returns the current token price in USDL with 18 decimal places:
+`(virtualUsdlReserve + realUsdlBalance) * 1e18 / tokenReserve`. Returns zero when the token reserve
+is zero.
 
 ### getPoolInfo
 
@@ -257,7 +265,7 @@ Get full pool info struct
 function getPriceSnapshots() external view override returns (uint256[8] memory)
 ```
 
-Get price snapshots for volatility calculation
+Returns up to eight price snapshots in chronological order, with unused entries zero-filled.
 
 ### \_calculateFee
 

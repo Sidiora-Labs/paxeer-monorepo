@@ -6,7 +6,7 @@ Source: [ERC721Base.sol](../../contracts/base/ERC721Base.sol).
 
 Minimal ERC721 implementation with ERC165 introspection
 
-_Supports transfer, safeTransfer, approve, setApprovalForAll, supportsInterface_
+_Supports transferFrom, safeTransferFrom, approve, setApprovalForAll, supportsInterface_
 
 ### name
 

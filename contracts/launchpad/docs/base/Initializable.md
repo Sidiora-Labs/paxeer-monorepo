@@ -6,7 +6,7 @@ Source: [Initializable.sol](../../contracts/base/Initializable.sol).
 
 Initialization guard for proxied contracts. Replaces constructors.
 
-_Supports versioned reinitializers and disableInitializers for implementations._
+_Supports versioned reinitializers and \_disableInitializers for implementations._
 
 ### InitializableStorage
 
