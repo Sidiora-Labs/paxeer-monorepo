@@ -205207,7 +205207,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.128]
 title = "Move the task records and name the files after what they hold in services/agent/crates/layerx-agentd/src"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238813,7 +238813,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.204]
 title = "Move the task records and name the files after what they hold in tools/benchmark"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239260,7 +239260,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.164]
 title = "Move the task records and name the files after what they hold in services/launchpad/user"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239356,7 +239356,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.161]
 title = "Move the task records and name the files after what they hold in services/launchpad/ranking-algo and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326404,7 +326404,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.85]
 title = "Move the task records and name the files after what they hold in precompiles/pointer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373025,7 +373025,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.124]
 title = "Link the pages of apps, contracts, deploy, modules, rpc and programs to the node inventory page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.41.119"]
@@ -373055,7 +373055,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.122]
 title = "Take the earlier translation directory out of the documentation check of tools/jev"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373911,7 +373911,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.211]
 title = "Move the task records and name the files after what they hold in tools/deps"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374006,7 +374006,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.207]
 title = "Move the task records and name the files after what they hold in tools/ci"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
