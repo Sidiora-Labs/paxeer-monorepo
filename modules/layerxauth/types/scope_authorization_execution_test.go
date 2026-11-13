@@ -36,9 +36,9 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-const repair193Now = int64(1700000000000)
+const scopeAuthorizationNow = int64(1700000000000)
 
-type repair193Chain struct {
+type scopeAuthorizationChain struct {
 	t                           *testing.T
 	ctx                         sdk.Context
 	store                       sdk.CommitMultiStore
@@ -56,8 +56,8 @@ type repair193Chain struct {
 	asset                       [32]byte
 }
 
-func newRepair193Chain(t *testing.T) *repair193Chain {
-	f := &repair193Chain{t: t}
+func newScopeAuthorizationChain(t *testing.T) *scopeAuthorizationChain {
+	f := &scopeAuthorizationChain{t: t}
 	f.registry = cdctypes.NewInterfaceRegistry()
 	cryptocodec.RegisterInterfaces(f.registry)
 	authtypes.RegisterInterfaces(f.registry)
@@ -96,7 +96,7 @@ func newRepair193Chain(t *testing.T) *repair193Chain {
 	return f
 }
 
-func (f *repair193Chain) open() {
+func (f *scopeAuthorizationChain) open() {
 	cms := store.NewCommitMultiStore(f.db)
 	for _, key := range f.keys {
 		cms.MountStoreWithDB(key, sdk.StoreTypeIAVL, f.db)
@@ -104,10 +104,10 @@ func (f *repair193Chain) open() {
 	cms.MountStoreWithDB(f.transient, sdk.StoreTypeTransient, f.db)
 	require.NoError(f.t, cms.LoadLatestVersion())
 	f.store = cms
-	f.ctx = sdk.NewContext(cms, tmproto.Header{ChainID: "repair193", Height: 1, Time: time.UnixMilli(repair193Now)}, false)
+	f.ctx = sdk.NewContext(cms, tmproto.Header{ChainID: "repair193", Height: 1, Time: time.UnixMilli(scopeAuthorizationNow)}, false)
 }
 
-func (f *repair193Chain) reopen() {
+func (f *scopeAuthorizationChain) reopen() {
 	committed := f.store.Commit(true)
 	require.Positive(f.t, committed.Version)
 	require.NoError(f.t, f.db.Close())
@@ -119,21 +119,21 @@ func (f *repair193Chain) reopen() {
 	f.keeper = authzkeeper.NewKeeper(f.keys[0], f.cdc, f.router)
 }
 
-func (f *repair193Chain) authorization() types.LayerXScopeAuthorization {
+func (f *scopeAuthorizationChain) authorization() types.LayerXScopeAuthorization {
 	return types.LayerXScopeAuthorization{
 		ModuleMask: 1 << types.BankScopeModule, OrdinalMin: uint32(types.BankScopeOrdinal), OrdinalMax: uint32(types.BankScopeOrdinal),
 		AssetId: f.asset[:], MaxPerActivity: "10", MaxTotal: "20", RevocationEpoch: 41, GrantId: bytes.Repeat([]byte{0x33}, 32),
-		MsgTypeUrl: sdk.MsgTypeURL(&banktypes.MsgSend{}), Kind: 3, NotBefore: uint64(repair193Now), NotAfter: uint64(repair193Now + 1000),
+		MsgTypeUrl: sdk.MsgTypeURL(&banktypes.MsgSend{}), Kind: 3, NotBefore: uint64(scopeAuthorizationNow), NotAfter: uint64(scopeAuthorizationNow + 1000),
 	}
 }
 
-func (f *repair193Chain) send(amount int64) *banktypes.MsgSend {
+func (f *scopeAuthorizationChain) send(amount int64) *banktypes.MsgSend {
 	return banktypes.NewMsgSend(f.granter, f.recipient, sdk.NewCoins(sdk.NewInt64Coin(ledgertypes.MirrorDenom(f.asset), amount)))
 }
 
 // signed transports the actual protobuf transaction, verifies its signature, and
 // returns the decoded message that the real authz service consumes.
-func (f *repair193Chain) signed(msg sdk.Msg, private *secp256k1.PrivKey) sdk.Msg {
+func (f *scopeAuthorizationChain) signed(msg sdk.Msg, private *secp256k1.PrivKey) sdk.Msg {
 	f.t.Helper()
 	cfg := authtx.NewTxConfig(f.cdc, []signing.SignMode{signing.SignMode_SIGN_MODE_DIRECT})
 	builder := cfg.NewTxBuilder()
@@ -159,7 +159,7 @@ func (f *repair193Chain) signed(msg sdk.Msg, private *secp256k1.PrivKey) sdk.Msg
 	return messages[0]
 }
 
-func (f *repair193Chain) grant(a types.LayerXScopeAuthorization) {
+func (f *scopeAuthorizationChain) grant(a types.LayerXScopeAuthorization) {
 	f.t.Helper()
 	require.NoError(f.t, a.ValidateBasic())
 	msg, err := authz.NewMsgGrant(f.granter, f.grantee, &a, time.UnixMilli(int64(a.NotAfter)))
@@ -170,7 +170,7 @@ func (f *repair193Chain) grant(a types.LayerXScopeAuthorization) {
 	require.NoError(f.t, err)
 }
 
-func (f *repair193Chain) exec(msgs ...sdk.Msg) error {
+func (f *scopeAuthorizationChain) exec(msgs ...sdk.Msg) error {
 	f.t.Helper()
 	exec := authz.NewMsgExec(f.grantee, msgs)
 	decoded := f.signed(&exec, f.granteeKey).(*authz.MsgExec)
@@ -182,14 +182,14 @@ func (f *repair193Chain) exec(msgs ...sdk.Msg) error {
 	return err
 }
 
-func (f *repair193Chain) stored() *types.LayerXScopeAuthorization {
+func (f *scopeAuthorizationChain) stored() *types.LayerXScopeAuthorization {
 	a, _ := f.keeper.GetCleanAuthorization(f.ctx, f.grantee, f.granter, sdk.MsgTypeURL(&banktypes.MsgSend{}))
 	require.NotNil(f.t, a)
 	return a.(*types.LayerXScopeAuthorization)
 }
 
-func TestRepair_193_unscoped_message_bypasses_policy(t *testing.T) {
-	f := newRepair193Chain(t)
+func TestScopeAuthorizationUnscopedMessagePolicy(t *testing.T) {
+	f := newScopeAuthorizationChain(t)
 	base := f.authorization()
 	cases := []struct {
 		name   string
@@ -223,15 +223,15 @@ func TestRepair_193_unscoped_message_bypasses_policy(t *testing.T) {
 	require.Equal(t, "5", f.stored().SpentTotal)
 }
 
-func TestRepair_193_grant_validity_not_enforced(t *testing.T) {
-	f := newRepair193Chain(t)
+func TestScopeAuthorizationGrantValidity(t *testing.T) {
+	f := newScopeAuthorizationChain(t)
 	a := f.authorization()
 	f.grant(a)
 	for _, tc := range []struct {
 		offset  int64
 		allowed bool
 	}{{-1, false}, {0, true}, {999, true}, {1000, false}} {
-		f.ctx = f.ctx.WithBlockTime(time.UnixMilli(repair193Now + tc.offset))
+		f.ctx = f.ctx.WithBlockTime(time.UnixMilli(scopeAuthorizationNow + tc.offset))
 		err := f.exec(f.send(1))
 		if tc.allowed {
 			require.NoError(t, err)
@@ -241,12 +241,12 @@ func TestRepair_193_grant_validity_not_enforced(t *testing.T) {
 	}
 	require.Equal(t, "2", f.stored().SpentTotal)
 	// Even a separately stored SDK expiration beyond NotAfter cannot extend authority.
-	require.NoError(t, f.keeper.SaveGrant(f.ctx, f.grantee, f.granter, &a, time.UnixMilli(repair193Now+2000)))
+	require.NoError(t, f.keeper.SaveGrant(f.ctx, f.grantee, f.granter, &a, time.UnixMilli(scopeAuthorizationNow+2000)))
 	require.ErrorIs(t, f.exec(f.send(1)), types.ErrAuthScope)
 }
 
-func TestRepair_193_period_budget_not_enforced(t *testing.T) {
-	f := newRepair193Chain(t)
+func TestScopeAuthorizationPeriodBudget(t *testing.T) {
+	f := newScopeAuthorizationChain(t)
 	a := f.authorization()
 	a.PeriodLength = 100
 	a.PeriodStart = a.NotBefore
@@ -267,9 +267,9 @@ func TestRepair_193_period_budget_not_enforced(t *testing.T) {
 	require.Equal(t, "6", f.stored().SpentThisPeriod)
 	require.Equal(t, a.PeriodStart, f.stored().PeriodStart)
 	require.ErrorIs(t, f.exec(f.send(6)), types.ErrAuthScope)
-	f.ctx = f.ctx.WithBlockTime(time.UnixMilli(repair193Now + 99))
+	f.ctx = f.ctx.WithBlockTime(time.UnixMilli(scopeAuthorizationNow + 99))
 	require.ErrorIs(t, f.exec(f.send(6)), types.ErrAuthScope)
-	f.ctx = f.ctx.WithBlockTime(time.UnixMilli(repair193Now + 100))
+	f.ctx = f.ctx.WithBlockTime(time.UnixMilli(scopeAuthorizationNow + 100))
 	require.NoError(t, f.exec(f.send(6)))
 	require.Equal(t, "12", f.stored().SpentTotal)
 	require.Equal(t, "6", f.stored().SpentThisPeriod)
@@ -294,7 +294,7 @@ func TestRepair_193_period_budget_not_enforced(t *testing.T) {
 
 // issueKernelGrant submits a signed registration and capability activity to the
 // real kernel, then reads back its canonical persisted grant for both consumers.
-func (f *repair193Chain) issueKernelGrant(total uint64) (*lxphost.Host, lxphost.AuthorityGrant) {
+func (f *scopeAuthorizationChain) issueKernelGrant(total uint64) (*lxphost.Host, lxphost.AuthorityGrant) {
 	host, err := lxphost.NewHost(lxphost.Config{StoreKey: f.keys[4], NetworkID: 1, ParameterVersion: 1, TimestampWindowMs: 60000, GasLimit: 10000000})
 	require.NoError(f.t, err)
 	f.t.Cleanup(host.Close)
@@ -306,7 +306,7 @@ func (f *repair193Chain) issueKernelGrant(total uint64) (*lxphost.Host, lxphost.
 	id, err := lxphost.DIDID(did)
 	require.NoError(f.t, err)
 	execute := func(typ uint32, accountSeq, globalSeq uint64, payload []byte) lxphost.Receipt {
-		activity := lxphost.Activity{ProtocolVersion: 3, Type: typ, ActorDID: did, AuthorityKey: public, AccountSequence: accountSeq, NotBefore: uint64(repair193Now - 1000), NotAfter: uint64(repair193Now + 1000), Payload: payload, IdempotencyKey: sha256.Sum256(payload)}
+		activity := lxphost.Activity{ProtocolVersion: 3, Type: typ, ActorDID: did, AuthorityKey: public, AccountSequence: accountSeq, NotBefore: uint64(scopeAuthorizationNow - 1000), NotAfter: uint64(scopeAuthorizationNow + 1000), Payload: payload, IdempotencyKey: sha256.Sum256(payload)}
 		hash, err := host.SigningHash(activity)
 		require.NoError(f.t, err)
 		activity.Signature = ed25519.Sign(private, hash[:])
@@ -334,12 +334,12 @@ func (f *repair193Chain) issueKernelGrant(total uint64) (*lxphost.Host, lxphost.
 	u64(100)
 	u128(15)
 	u128(0)
-	u64(uint64(repair193Now))
+	u64(uint64(scopeAuthorizationNow))
 	purpose, err := types.BankSendPurpose(f.send(5))
 	require.NoError(f.t, err)
 	field(purpose[:])
-	u64(uint64(repair193Now))
-	u64(uint64(repair193Now + 1000))
+	u64(uint64(scopeAuthorizationNow))
+	u64(uint64(scopeAuthorizationNow + 1000))
 	u64(41)
 	body = append(body, 0)
 	u64(0)
@@ -360,10 +360,10 @@ func (f *repair193Chain) issueKernelGrant(total uint64) (*lxphost.Host, lxphost.
 	return host, grant
 }
 
-func TestRepair_193_zero_total_disagrees_with_kernel(t *testing.T) {
+func TestScopeAuthorizationZeroTotalMatchesKernel(t *testing.T) {
 	for _, total := range []uint64{0, 20} {
 		t.Run(sdk.NewIntFromUint64(total).String(), func(t *testing.T) {
-			f := newRepair193Chain(t)
+			f := newScopeAuthorizationChain(t)
 			host, grant := f.issueKernelGrant(total)
 			scope := grant.Scope
 			a := f.authorization()

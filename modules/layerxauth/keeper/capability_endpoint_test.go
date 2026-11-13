@@ -22,17 +22,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1421_CapabilityEndpoint(t *testing.T) {
-	t.Run("per_activity_limit", func(t *testing.T) { repairM1421Endpoint(t, false, 11) })
-	repairM1421Endpoint(t, false, 5)
+func TestCapabilityEndpoint(t *testing.T) {
+	t.Run("per_activity_limit", func(t *testing.T) { capabilityEndpoint(t, false, 11) })
+	capabilityEndpoint(t, false, 5)
 }
 
-func TestRepairM_1421_AuthProofEndpoint(t *testing.T) {
-	t.Run("per_activity_limit", func(t *testing.T) { repairM1421Endpoint(t, true, 11) })
-	repairM1421Endpoint(t, true, 5)
+func TestCapabilityReceiptEndpoint(t *testing.T) {
+	t.Run("per_activity_limit", func(t *testing.T) { capabilityEndpoint(t, true, 11) })
+	capabilityEndpoint(t, true, 5)
 }
 
-func repairM1421Endpoint(t *testing.T, proveReceipt bool, paymentAmount int64) {
+func capabilityEndpoint(t *testing.T, proveReceipt bool, paymentAmount int64) {
 	t.Helper()
 	f := newAuthViewFixture(t)
 	actor := authExecuteActor(t, f)

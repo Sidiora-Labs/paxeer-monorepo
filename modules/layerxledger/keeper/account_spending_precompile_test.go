@@ -29,14 +29,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type repair195Keepers struct {
+type accountSpendingKeepers struct {
 	*app.PrecompileKeepers
 	ledger *ledgerkeeper.Keeper
 }
 
-func (k repair195Keepers) LayerXLedgerK() *ledgerkeeper.Keeper { return k.ledger }
+func (k accountSpendingKeepers) LayerXLedgerK() *ledgerkeeper.Keeper { return k.ledger }
 
-type repair195Fixture struct {
+type accountSpendingFixture struct {
 	*mirrorFixture
 	precompile                             *pcommon.Precompile
 	issuer, payer, payee                   ledgerkeeper.Actor
@@ -44,7 +44,7 @@ type repair195Fixture struct {
 	main, holding, to                      [32]byte
 }
 
-func (f *repair195Fixture) bind(t *testing.T, identity ledgerViewActor, caller common.Address) ledgerkeeper.Actor {
+func (f *accountSpendingFixture) bind(t *testing.T, identity ledgerViewActor, caller common.Address) ledgerkeeper.Actor {
 	t.Helper()
 	evmKeeper := &testkeeper.EVMTestApp.EvmKeeper
 	message, err := evmtypes.LayerXBindMessage(evmKeeper.ChainID(f.ctx), caller, 0)
@@ -59,7 +59,7 @@ func (f *repair195Fixture) bind(t *testing.T, identity ledgerViewActor, caller c
 	return actor
 }
 
-func (f *repair195Fixture) signed(t *testing.T, identity ledgerViewActor, sequence uint64, reference [32]byte, payload []byte) lxphost.Activity {
+func (f *accountSpendingFixture) signed(t *testing.T, identity ledgerViewActor, sequence uint64, reference [32]byte, payload []byte) lxphost.Activity {
 	t.Helper()
 	now := uint64(f.ctx.BlockTime().UnixMilli())
 	activity := lxphost.Activity{
@@ -73,7 +73,7 @@ func (f *repair195Fixture) signed(t *testing.T, identity ledgerViewActor, sequen
 	return activity
 }
 
-func (f *repair195Fixture) governance(t *testing.T, identity ledgerViewActor, payload []byte, reference [32]byte) {
+func (f *accountSpendingFixture) governance(t *testing.T, identity ledgerViewActor, payload []byte, reference [32]byte) {
 	t.Helper()
 	sequence, err := f.host.ReadIdentitySequence(f.ctx, identity.did)
 	require.NoError(t, err)
@@ -87,7 +87,7 @@ func (f *repair195Fixture) governance(t *testing.T, identity ledgerViewActor, pa
 	require.NotEmpty(t, receipt.Encoded)
 }
 
-func repair195Consent(t *testing.T, activity lxphost.Activity) []byte {
+func accountSpendingConsent(t *testing.T, activity lxphost.Activity) []byte {
 	t.Helper()
 	hash, err := codec.DomainHash(codec.DomainPayloadHash, activity.Payload)
 	require.NoError(t, err)
@@ -115,9 +115,9 @@ func repair195Consent(t *testing.T, activity lxphost.Activity) []byte {
 	return encoded
 }
 
-func newRepair195Fixture(t *testing.T, openHolding bool) *repair195Fixture {
+func newAccountSpendingFixture(t *testing.T, openHolding bool) *accountSpendingFixture {
 	t.Helper()
-	f := &repair195Fixture{mirrorFixture: newMirrorFixture(t, nil),
+	f := &accountSpendingFixture{mirrorFixture: newMirrorFixture(t, nil),
 		issuerCaller: common.Address{0x19, 0x5, 1}, payerCaller: common.Address{0x19, 0x5, 2},
 		payeeCaller: common.Address{0x19, 0x5, 3}}
 	f.ctx = f.ctx.WithChainID("hyperpax_125-1")
@@ -126,7 +126,7 @@ func newRepair195Fixture(t *testing.T, openHolding bool) *repair195Fixture {
 	f.payer = f.bind(t, payer, f.payerCaller)
 	f.payee = f.bind(t, newLedgerViewActor(t, 202), f.payeeCaller)
 	var err error
-	f.precompile, err = layerxledger.NewPrecompile(repair195Keepers{
+	f.precompile, err = layerxledger.NewPrecompile(accountSpendingKeepers{
 		PrecompileKeepers: testkeeper.EVMTestApp.GetPrecompileKeepers().(*app.PrecompileKeepers), ledger: f.keeper,
 	})
 	require.NoError(t, err)
@@ -160,7 +160,7 @@ func newRepair195Fixture(t *testing.T, openHolding bool) *repair195Fixture {
 	consent = append(consent, main[:]...)
 	consent = append(consent, reference[:]...)
 	consent = binary.BigEndian.AppendUint64(consent, uint64(f.ctx.BlockTime().UnixMilli())+1000)
-	encoded := repair195Consent(t, f.signed(t, payer, 0, reference, consent))
+	encoded := accountSpendingConsent(t, f.signed(t, payer, 0, reference, consent))
 	wrapper := binary.BigEndian.AppendUint32([]byte{0x71, 1, 2, 1}, uint32(len(encoded)))
 	f.governance(t, f.actor, append(wrapper, encoded...), reference)
 	account, err := f.host.ReadAccount(f.ctx, name, main)
@@ -190,7 +190,7 @@ func newRepair195Fixture(t *testing.T, openHolding bool) *repair195Fixture {
 	return f
 }
 
-func (f *repair195Fixture) call(t *testing.T, caller common.Address, method string, args ...interface{}) ([]byte, []*ethtypes.Log, error) {
+func (f *accountSpendingFixture) call(t *testing.T, caller common.Address, method string, args ...interface{}) ([]byte, []*ethtypes.Log, error) {
 	t.Helper()
 	input, err := f.precompile.GetABI().Pack(method, args...)
 	require.NoError(t, err)
@@ -215,7 +215,7 @@ func (f *repair195Fixture) call(t *testing.T, caller common.Address, method stri
 	return data, logs, err
 }
 
-func (f *repair195Fixture) success(t *testing.T, caller common.Address, method string, args ...interface{}) ([]interface{}, []*ethtypes.Log) {
+func (f *accountSpendingFixture) success(t *testing.T, caller common.Address, method string, args ...interface{}) ([]interface{}, []*ethtypes.Log) {
 	t.Helper()
 	data, logs, err := f.call(t, caller, method, args...)
 	require.NoError(t, err, "%s: %x", method, data)
@@ -224,7 +224,7 @@ func (f *repair195Fixture) success(t *testing.T, caller common.Address, method s
 	return values, logs
 }
 
-func (f *repair195Fixture) balance(t *testing.T, id [32]byte, want int64) {
+func (f *accountSpendingFixture) balance(t *testing.T, id [32]byte, want int64) {
 	t.Helper()
 	values, _ := f.success(t, f.payerCaller, "balanceOf", id, f.asset)
 	require.Zero(t, values[0].(*big.Int).Cmp(big.NewInt(want)))
@@ -234,13 +234,13 @@ func (f *repair195Fixture) balance(t *testing.T, id [32]byte, want int64) {
 	require.True(t, actual.Equal(f.bank.GetBalance(f.ctx, lxphost.BankAddress(id), types.MirrorDenom(f.asset)).Amount))
 }
 
-func (f *repair195Fixture) sequence(t *testing.T, id [32]byte, want uint64) {
+func (f *accountSpendingFixture) sequence(t *testing.T, id [32]byte, want uint64) {
 	t.Helper()
 	values, _ := f.success(t, f.payerCaller, "nextSequence", id, f.asset)
 	require.Equal(t, []interface{}{want}, values)
 }
 
-func (f *repair195Fixture) envelope(t *testing.T, actor ledgerkeeper.Actor, from, to [32]byte, asset [32]byte, sequence uint64, amount int64, reference byte) []byte {
+func (f *accountSpendingFixture) envelope(t *testing.T, actor ledgerkeeper.Actor, from, to [32]byte, asset [32]byte, sequence uint64, amount int64, reference byte) []byte {
 	t.Helper()
 	args := types.SendArgs{From: from, To: to, Asset: asset, Amount: sdk.NewInt(amount), Sequence: sequence,
 		IdempotencyKey: [32]byte{reference}, ExpiresAt: uint64(f.ctx.BlockTime().UnixMilli()) + 60_000,
@@ -255,7 +255,7 @@ func (f *repair195Fixture) envelope(t *testing.T, actor ledgerkeeper.Actor, from
 	return payload
 }
 
-func (f *repair195Fixture) log(t *testing.T, log *ethtypes.Log, name string, want map[string]interface{}) {
+func (f *accountSpendingFixture) log(t *testing.T, log *ethtypes.Log, name string, want map[string]interface{}) {
 	t.Helper()
 	definition := f.precompile.GetABI().Events[name]
 	require.Equal(t, f.precompile.Address(), log.Address)
@@ -272,7 +272,7 @@ func (f *repair195Fixture) log(t *testing.T, log *ethtypes.Log, name string, wan
 	require.Equal(t, want, values)
 }
 
-func (f *repair195Fixture) refused(t *testing.T, caller common.Address, reason, method string, args ...interface{}) {
+func (f *accountSpendingFixture) refused(t *testing.T, caller common.Address, reason, method string, args ...interface{}) {
 	t.Helper()
 	hostBefore := ledgerViewStore(t, f.ctx, f.hostKey)
 	ledgerBefore := ledgerViewStore(t, f.ctx, f.storeKey)
@@ -291,8 +291,8 @@ func (f *repair195Fixture) refused(t *testing.T, caller common.Address, reason, 
 	require.Equal(t, eventsBefore, f.ctx.EventManager().Events())
 }
 
-func TestRepair_195_SendOpenedAccount(t *testing.T) {
-	f := newRepair195Fixture(t, true)
+func TestAccountSpendingPrecompile_SendOpenedAccount(t *testing.T) {
+	f := newAccountSpendingFixture(t, true)
 	f.success(t, f.issuerCaller, "mint", f.asset, f.holding, big.NewInt(100))
 	f.balance(t, f.holding, 100)
 	f.sequence(t, f.holding, 0)
@@ -313,8 +313,8 @@ func TestRepair_195_SendOpenedAccount(t *testing.T) {
 	f.refused(t, f.payerCaller, "LXP_SEQUENCE_MISMATCH", "send", f.envelope(t, f.payer, f.holding, f.to, f.asset, 0, 1, 0xa3))
 }
 
-func TestRepair_195_PayExactSourceSequence(t *testing.T) {
-	f := newRepair195Fixture(t, true)
+func TestAccountSpendingPrecompile_PayExactSourceSequence(t *testing.T) {
+	f := newAccountSpendingFixture(t, true)
 	f.success(t, f.issuerCaller, "mint", f.asset, f.holding, big.NewInt(100))
 	f.success(t, f.payerCaller, "send", f.envelope(t, f.payer, f.holding, f.main, f.asset, 0, 60, 0xb1))
 	f.sequence(t, f.holding, 1)
@@ -349,8 +349,8 @@ func TestRepair_195_PayExactSourceSequence(t *testing.T) {
 	f.balance(t, f.to, 26)
 }
 
-func TestRepair_195_PayExactMainWithoutAssetAccount(t *testing.T) {
-	f := newRepair195Fixture(t, false)
+func TestAccountSpendingPrecompile_PayExactMainWithoutAssetAccount(t *testing.T) {
+	f := newAccountSpendingFixture(t, false)
 	_, err := f.keeper.NextSequence(f.ctx, f.payer.DIDKey, f.asset)
 	require.ErrorIs(t, err, lxphost.Code(-208))
 	// Mint accepts canonical asset accounts. Fund the main account through
