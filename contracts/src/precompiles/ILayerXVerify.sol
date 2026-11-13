@@ -65,18 +65,16 @@ interface ILayerXVerify {
     /// 0..19 (the LayerX hash-domain order), or over message itself for
     /// domain 255. Reverts for any other domain, a signature that is not 64
     /// bytes, or a message above 1 MiB.
-    function verifyEd25519(
-        bytes32 publicKey,
-        uint8 domain,
-        bytes calldata message,
-        bytes calldata signature
-    ) external pure returns (bool valid);
+    function verifyEd25519(bytes32 publicKey, uint8 domain, bytes calldata message, bytes calldata signature)
+        external
+        pure
+        returns (bool valid);
 
     /// Canonical receipt decode and the sequencer signature over its digest.
-    function verifyReceipt(
-        bytes calldata receipt,
-        bytes32 sequencerPublicKey
-    ) external pure returns (ReceiptFacts memory facts);
+    function verifyReceipt(bytes calldata receipt, bytes32 sequencerPublicKey)
+        external
+        pure
+        returns (ReceiptFacts memory facts);
 
     /// verifyReceipt plus a Merkle path to the receipt root of a batch header
     /// signed by the named sequencer inside the authorised batch range.
@@ -92,10 +90,10 @@ interface ILayerXVerify {
     ) external pure returns (ReceiptFacts memory facts, BatchFacts memory batch);
 
     /// A version-2 native state witness folded to stateRoot.
-    function verifyStateProof(
-        bytes calldata witness,
-        bytes32 stateRoot
-    ) external pure returns (uint16 moduleId, bytes memory key, bytes memory value);
+    function verifyStateProof(bytes calldata witness, bytes32 stateRoot)
+        external
+        pure
+        returns (uint16 moduleId, bytes memory key, bytes memory value);
 
     /// A sequencer program head attestation for programId whose validity
     /// window is exactly stalenessMs.
