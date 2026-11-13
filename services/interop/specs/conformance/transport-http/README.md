@@ -47,11 +47,10 @@ the gateway configuration declares from these files.
 The current production `LAYERX_NETWORK` is `eip155:125`.
 `PaymentRequirements::validate` requires `extra.layerx.account` and
 `extra.layerx.currency` on that network, and binds `payTo` to an account id
-derived from the account reference. Unlike the older audit observation, the
-current production transport encoders and decoders call semantic validation.
+derived from the account reference. The production transport encoders and
+decoders call semantic validation.
 The profile-free `eip155:125` cases therefore explicitly expect `ProfileMissing`;
 a LayerX profile on the foreign `eip155:1` network expects `ProfileMismatch`.
-Accepting profile-free offers requires a production change outside this suite.
 
 The original role documents remain transport compatibility fixtures. Their opaque
 `authorization` payloads have explicit payment refusal expectations:
@@ -70,12 +69,3 @@ payment-required 402 signal; refused profiles return HTTP 400. Settlement needs
 authenticated `/v1/http/x402/settle` ingress, the recorded
 `layerxIdempotencyKey`, and a relay. Replay uses the fixture's
 `recorded_payer.observed_at_ms`, before expiry, rather than the wall clock.
-
-`tools/qualification/audit_repairs/test_repair_22_33_96.py` parses these records,
-checks recorded transaction and ABI bytes against the committed producer corpus,
-and asserts the production codec, validator, router and settlement call sites.
-Those are source proofs. Rust execution, signature recovery, mounted ingress and
-relay settlement are **review-only** in this Python qualification environment.
-The existing Rust role readers consume the original top-level records; consuming
-`semantic_cases` and running the mounted cases is a pending domain 11 wiring
-request recorded in `tools/qualification/audit_repairs/repair_22_33_96.kvx`.

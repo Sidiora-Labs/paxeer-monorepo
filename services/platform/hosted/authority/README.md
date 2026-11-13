@@ -58,15 +58,9 @@ cover mixed receipt sequences and block heights, retained-state reopening,
 native proof refusals and budget
 export across TLS. Recorded inputs live in [`tests/fixtures`](tests/fixtures).
 
-Human integration evidence is mandatory before enabling human routes in a
-deployment. Retain the tested revision, exact command, exit code and private
-log location for the real `RemoteHumanAuthority` TLS client/server contract,
-native identity/capability/key-policy verification, retained-state restart and
-budget proof export. Include malformed-proof, wrong-key, out-of-range,
-unauthenticated and changed-block refusals. The targets above identify the
-relevant paths; a historical anchor fixture in `human_tls.rs` does not prove
-the current committed-state boundary. `/readyz` and the documentation gate do
-not supply this human integration evidence.
+Human routes require configured native identity, capability and key-policy
+evidence, retained-state recovery and budget proof export. `/readyz` reports
+dependency readiness separately from those per-request proof checks.
 
 ## Service routes and configuration
 
@@ -136,14 +130,6 @@ node JSON-RPC endpoint.
 `/readyz` returns 200 only when both chain and replica probes are ready, otherwise
 503 with retry guidance. It does not assert that all optional human-state proofs
 or downstream services are available.
-
-The focused target includes `readme_matches_service_sources_and_configuration`,
-which checks linked sources and documented settings;
-`documented_receipt_transport_and_tls_refusals`, which exercises receipt lookup
-and TLS refusal paths; and `documented_protected_key_list_and_restart_rules`,
-which checks protected key files and restart behavior. These checks cover the
-receipt-source configuration and transport described here. They do not replace
-the Human integration evidence required above.
 
 ## Human agent contract
 

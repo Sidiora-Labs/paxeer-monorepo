@@ -1,5 +1,8 @@
+# Launchpad clients
+
 <a id="launchpad-web-app"></a>
-# Launchpad web app
+
+## Launchpad web app
 
 The web consumes the frozen [API contract](services.md#launchpad-api) and
 [discovery workflows](services.md#launchpad-discovery). Account and wallet
@@ -15,12 +18,11 @@ public squad field. Unicode text limits match the service's 500-code-point
 description boundary. Alert creation displays the threshold denomination and
 source returned by the saved rule, including exact ratio and provenance.
 Account deletion must clear public attribution and respect removal fences even
-when an older event arrives after reconnect. Client generation and registry
-publication belong to Domain 4's web/SDK owners as recorded in the
-[wiring requests](../repair_m983.kvx).
+when an older event arrives after reconnect.
 
 <a id="launchpad-sdk-sdk"></a>
-# Launchpad SDK
+
+## Launchpad SDK
 
 The SDK validates frozen request and response schemas and consumes the
 [typed discovery adapters](services.md#launchpad-discovery). The served alert
@@ -34,5 +36,4 @@ returns the committed membership. Invitation replacements use the same revision
 fence as other member actions. Recovery reads current persisted state before
 another mutation; never fabricate a new revision or reuse an expired invitation.
 Handle authentication, conflict and dependency errors from the
-[API contract](services.md#launchpad-api). Publishing generated SDK artifacts and
-retargeting canonical contract links require the owning domain's wiring change.
+[API contract](services.md#launchpad-api).

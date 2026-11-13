@@ -2,9 +2,7 @@
 
 The owning control implementation is [providers.go](providers.go), with durable
 claims in [scheduling.go](scheduling.go), execution in [replay.go](replay.go) and
-public request/error types in [http_models.go](http_models.go). These links
-replace no foreign registry row; the domain-17 registry owner must retarget its
-existing row identities as recorded in [repair_m1020.kvx](repair_m1020.kvx).
+public request/error types in [http_models.go](http_models.go).
 
 All provider clients require HTTPS, verified TLS 1.2 or later, an explicit
 32–4096 byte bearer credential and a supplied transport. Redirects and proxy
@@ -67,19 +65,13 @@ rechecked before the final mutation. An expired or revoked approval cannot
 complete an action. Durable scheduling uses batches of at most 100 and
 per-key exponential backoff of 30 seconds through five minutes.
 
-The actual indexer request additionally requires source stream, target,
-generation, projection revision, authorization ID, mode and canonical
-checkpoint height/hash. Those bindings must be approved and implemented by the
-indexer owner before production admission. Control does not invent them from
-a projection name or claim that its loopback transcript qualifies indexer
-execution. See the explicit wiring request in the repair record.
+An indexer binding must supply approved source stream, target, generation,
+projection revision, authorization ID, mode and canonical checkpoint height/hash.
+A projection name alone does not provide those bindings.
 
-## Owning documentation
+## Related contracts
 
-Current chain contract authority is described by
+Chain contract authority is described by
 [the launchpad contract overview](../../../../contracts/launchpad/README.md) and
 [its operations documentation](../../../../contracts/launchpad/operations/README.md).
-Client wire shapes are described by the current shared documentation and the
-control request models linked above; the registry owner must choose exact
-existing owning pages for each affected row instead of pointing to missing
-generic contracts/services.md or contracts/clients.md pages.
+Control request and error shapes are declared in [http_models.go](http_models.go).

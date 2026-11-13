@@ -12,6 +12,7 @@ This directory contains golden vectors for AP2 mandate verification conformance 
 ## Vector Format
 
 Each vector is a JSON file containing:
+
 - `description`: Human-readable test case description
 - `generator`: Deterministic builder in `services/interop/crates/layerx-ap2/tests/mandates.rs`
 - fixed public test-key scalars or the semantic input/mutation for that case
@@ -22,8 +23,9 @@ Each vector is a JSON file containing:
 ## Conformance
 
 These vectors target the AP2 specification version pinned at:
+
 - Commit: e1ea56db72a6385bce3e5c1112b3a56ce60acb43
-- SHA-256 of docs/ap2/specification.md: 32c3be5011f481d2760e56e7b9935b0842c3da0d5f7d7b8a68402a599f1e6aa3
+- SHA-256 of [the vendored specification](../../vendor/ap2/specification.md): 32c3be5011f481d2760e56e7b9935b0842c3da0d5f7d7b8a68402a599f1e6aa3
 
 ## Generation
 

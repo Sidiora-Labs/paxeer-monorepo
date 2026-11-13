@@ -43,13 +43,9 @@ are expectation metadata, never caller-supplied settlement authority.
 lifetime; these historical bytes must not be tested against today's wall clock.
 Submission alone is pending; success requires verified matching receipt evidence.
 
-The `profile_free_*` records carry the same chain-125 offers without
-`extra.layerx`. At this revision they explicitly expect `ProfileMissing` and
-transport rejection. The audit proposal's claim that chain 125 forbids that
-profile conflicts with the current production validator, which defines
-`LAYERX_NETWORK` as `eip155:125` and requires `layerx_terms()`. These cases preserve
-that check until the owning domain resolves the policy; they are not labelled
-usable payments.
+The `profile_free_*` records carry chain-125 offers without `extra.layerx`
+and expect `ProfileMissing` and transport rejection. The production validator
+requires the account and currency profile on `eip155:125`.
 
 ## Conformance
 
@@ -57,17 +53,6 @@ usable payments.
 `include_str!` and runs every record through the production x402 model types
 and the production encoder and decoder for this transport, so the suite the
 deployment pins is the suite the tests exercise.
-
-`tools/qualification/audit_repairs/test_repair_22_33_98.py` checks the fixture
-facts against the real producer, codecs, mounted route dispatch and settlement
-guards without a native toolchain. It also executes the production deployment
-renderer in process to check this suite's count and digest. These Python source
-proofs do not execute Rust semantic validation or mounted HTTP requests.
-The additional expectation metadata is not consumed by the existing Rust
-round-trip harness. Runtime coverage must exercise those expectations through
-the model and mounted HTTP routes; the interop owner must resolve the
-profile-policy contradiction before profile-free records can describe usable
-payments.
 
 Ingress expectations apply after authentication and operation admission with a
 configured x402 adapter and supported kind. Each body is the record's document,
@@ -86,9 +71,13 @@ the gateway configuration declares from these files.
 ## LayerX Profile
 
 The native `eip155:125` requirements in these records carry the LayerX profile in
-`extra.layerx` — `commitment`, the `agent:<did>:main` `account` a payer quotes
-against, and the `CurrencyCode` of that quote — with `payTo` equal to the
+`extra.layerx` — the `agent:<did>:main` or
+`agent:<did>:asset:<asset>` `account` a payer quotes against, and the
+`CurrencyCode` of that quote — with `payTo` equal to the
 account id derived from `account`. `PaymentRequirements::validate`
 (`services/interop/crates/layerx-x402/src/model.rs`) enforces that binding on both
 sides of this transport, so a representation advertising an account that does
 not derive its `payTo` is refused before it is encoded or after it is decoded.
+
+`commitment` is optional extension data; it is not a profile requirement or
+a finality selector. Settlement evidence is verified separately.

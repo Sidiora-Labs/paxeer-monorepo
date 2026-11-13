@@ -2,8 +2,7 @@
 
 This directory contains Kubernetes manifests and provisioning helpers for the
 off-chain Human API, components, identity/security providers, KMS and owner
-agent, including retained adapters awaiting runtime migration. Service crates
-live under
+agent. Service crates live under
 [`services/human/crates`](../../../human/crates). Shell entry points are
 [`material.sh`](material.sh), [`provision.sh`](provision.sh) and
 [`onboarding_provision.sh`](onboarding_provision.sh), sourced by the
@@ -27,27 +26,22 @@ services declared in [the gateway OpenRPC contract](../gateway/openrpc.json). `n
 Sub-chains are tenant domains in the database, launchable without new chain
 infrastructure or a separate public endpoint.
 
-The checked-in [node manifest](../node/deployment.yaml) co-locates Human
-containers with the merged node. The [`layerx-human` Service](deployment.yaml)
-forwards HTTPS port `9443` to `human-https` (`9447`). Components and
-identity/security providers run as UID/GID `4020`; their local sockets are
-`/run/layerx/human/{identity,security}.sock`. The owner runs as UID
-`4021`, GID `4020`, with its socket under `/run/layerx/human/owner`; KMS uses UID
-`4026` and listens on `127.0.0.1:9450`. These sockets connect local services.
-The manifest sets `shareProcessNamespace: false`; it does not establish shared
-peer-PID visibility or successful owner transport admission.
+The [node manifest](../node/deployment.yaml) defines the `paxd` StatefulSet,
+with JSON-RPC on port `8545`, consensus RPC on `26657` and health on `9460`.
+The [`layerx-human` Service](deployment.yaml) selects node pods and forwards
+HTTPS port `9443` to the named `human-https` port. The Human runtime listener
+must be supplied by a workload matching that binding; the node manifest defines
+only the native node container. This directory also supplies an
+[owner provisioning Job](provision-owner-job.yaml) and the web Deployment.
 
-The retained `layerx-human-state` PVC holds separate process state subPaths.
-Runtime containers drop capabilities and use read-only root filesystems.
-Projected credentials are staged into private memory volumes as regular `0600`
-files. KMS separately pins its client and executor identities.
-Preserve the seal, keys, recovery policy and matching encrypted state together;
-regenerating bootstrap secrets is not a state or key migration.
+Owner provisioning mounts the `layerx-human-state` PVC's `identity` subPath.
+Preserve the provider state, seal, keys and recovery policy together. Projected
+credentials are copied into private regular files before use.
 
 See [HostedHuman.md](../../../../docs/wiki/HostedHuman.md) for related cluster
 material and [RegistryDeploymentJournal.md](../../../../docs/wiki/RegistryDeploymentJournal.md)
-for journal `pairs/`. The producer contracts below describe the merged owner
-path; remaining cluster integration limits are called out explicitly.
+for journal `pairs/`. The contracts below describe the merged owner
+provisioning path.
 
 Generated owner-agent settings publish `LAYERX_AGENT_NODE_RPC_URL` from the
 components' HTTPS `PAXEER_RPC_URL` and `LAYERX_AGENT_NODE_CHAIN_ID` from the
@@ -117,10 +111,8 @@ RPC or changed retained receipt refuses assembly.
 `human_policy_publish` uses
 `LAYERX_BETA_HUMAN_POLICY_FILE="$WORK_DIR/human-policy/policy.json"`, verifies the
 bundle, projects it into Secret `layerx-human-policy`, generates per-process
-configuration and applies the Human Secrets. [`bootstrap.py`](bootstrap.py)
-removes Human runtime containers and the optional authority configuration group
-from the initial node workload. An incomplete evidence set cannot produce a
-usable runtime policy.
+configuration and applies the Human Secrets. Bundle publication requires the
+complete evidence set and matching network, chain and owner bindings.
 
 ## Integrated evidence production
 
@@ -265,9 +257,8 @@ at `0x000000000000000000000000000000000000101b`.
 `human_evidence_provision` orders merged owner preparation and registration,
 authenticated ledger funding validation, naming/registry deployment and journal
 export, producer-manifest validation, evidence assembly and the policy graph
-input check. It runs before `human_policy_publish`. The remaining cluster
-migration barriers are listed below; applying manifests alone does not qualify
-the full Human service path.
+input check. It runs before `human_policy_publish`. Account observations bind
+the owner and asset to committed node state, as described below.
 
 The assembled `$WORK_DIR/human-evidence` set contains:
 
@@ -343,9 +334,9 @@ Pre-merge `trust-history`, `genesis-handover-trust.lxt`, `handover-finality.conf
 custody inputs and movement-source files are explicit migration cases. Their
 presence refuses current publication; no history is translated into receipt
 evidence. Preserve those originals with the seal, private keys, encrypted
-provider state, guardian bindings and recovery policy until the owning domains
-have reconciled them. Current material must be built in a separate protected
-location from authenticated chain evidence. A resumed secrets-generation call
+provider state, guardian bindings and recovery policy during reconciliation.
+Current material must be built in a separate protected location from
+authenticated chain evidence. A resumed secrets-generation call
 validates the full retained inventory and never regenerates the KMS seal.
 
 `owner_kms.prepare` gives its real `prepare` child ten seconds and at most
@@ -355,44 +346,22 @@ The error instructs the operator to retain custody and retry the same request.
 The KMS's private state and original idempotency key remain the recovery source;
 a timeout does not authorize a new owner or regenerated keys.
 
-## Remaining cluster migration barriers
+## Committed account observations
 
-The following retained paths require migration by their production owners;
-they are not a provisioning recipe for merged accounts. Do not deploy a
-separate sequencer, kernel daemon, movement custody service or guarantor to
-satisfy them. The [committed observation, receipt refusal, bank contract and
-migration barrier tests](test_repair_22_33_40.py) check the producer's receipt
-bindings and the retained configuration described here.
+`human_owner_provision` runs the offline identity and counterparty jobs with
+exclusive access to identity state. The merged owner producer then registers
+and funds the asset account. `human_account_head_observe` runs
+`validate-account-head` separately with the authenticated HTTPS RPC, CA,
+chain ID, owner DID, account, asset and maximum observation age.
 
-- [`provision-owner-job.yaml`](provision-owner-job.yaml) and
-  `human_owner_provision` still stage the offline identity Job and
-  `validate-account-head`. That validator requires a signed protocol-3
-  batch-number-one head and emits `consumed=0`; the evidence assembler still
-  requires its result. This legacy bootstrap restriction cannot describe an
-  existing merged account. Never synthesize the result from a balance, reset
-  consumed limits or replace missing evidence with zero. The Job uses the
-  identity state subPath and exclusive provider state; keep that state and the
-  original recovery binding during migration.
-- [`material.py`](material.py) still emits
-  `LAYERX_HUMAN_MOVEMENT_PROVIDER_` configuration and the
-  [node manifest](../node/deployment.yaml) still runs `human-movement` on
-  `/run/layerx/human/movement.sock`, with a separately pinned KMS executor.
-  These retained names do not establish support for retired deposit/withdraw
-  journeys. Remove the adapter instructions and projections together when
-  their runtime consumers migrate to current bank and receipt interfaces.
-- Generated owner-agent settings retain `HUMAN_NODE_LNI` pointing at
-  `/run/layerx/node/layerxd.lni.sock` for the retained-material migration
-  contract. The current agent uses the RPC settings described above; this
-  historical projection cannot establish merged node readiness. Removing it
-  requires migrating the assertion in `test_repair_22_33_40.py` that still
-  requires its exact name and contents.
-- `registry_kernel_material` validates an explicitly retained/imported signed
-  registry generation and its network and signer pins. It never executes a
-  separate daemon or edits genesis. Fresh registry generation remains an owning
-  domain integration requirement: the registry producer must supply an
-  authenticated signed generation with matching network and signer pins before
-  publication.
-- The node manifest's security provider still requests legacy trust history.
-  Its production owner must migrate that consumer to authenticated committed
-  receipts before deployment; the Human material producer no longer manufactures
-  or copies that history.
+The `layerx.human.account-head.v1` result contains `schema`, `chain_id`,
+`owner_did`, `account`, `asset_id`, `committed_height`, `block_hash`, `state_root`,
+`observed_at`, `balance` and `consumed`. Provisioning requires a positive
+committed height and `consumed = 0` for the initial limit. It retains the full
+observation in `account-observation.json` and its consumed result in
+`account-head-result.json`. A retained account's later observations must reflect
+its actual balance and usage.
+
+`registry_kernel_material` reads an authenticated signed registry generation
+and verifies its network, signer and replica bindings before publishing the
+registry Secret. The registry input is separate from owner account observation.

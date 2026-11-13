@@ -34,14 +34,8 @@ loader. When it is set, the beta buyer also requires the dedicated
 `LAYERX_TESTNET_HUMAN_URL`; the Human origin must differ from the resulting
 `rpcUrl`. Public beta node hostnames are always refused as Human origins.
 
-The repair integration test runs in-process against loopback Human HTTPS and
-node JSON-RPC fixtures, using the committed Human API transcript and the node's
-signed `payExact` receipt vector. It exercises the actual beta configuration
-loader, buyer, HTTP transport, paid API server, seller middleware and pinned
-node receipt verifier. The test trusts only its committed loopback certificate;
-TLS verification remains enabled. It requires no deployment inputs or live
-credentials and checks that the Human bearer never reaches node RPC or the
-seller. The test entry loads the production middleware TypeScript sources
-in-process so the declared gate needs only the SDK build. Gate evidence is
-retained privately by `hf-build` and `hf-done`; this fixture proof does not
-certify a live deployment.
+The [integration tests](test/) use loopback Human HTTPS and node JSON-RPC peers,
+committed Human API response shapes and the node-produced signed `payExact`
+receipt vector. The test client trusts its loopback certificate and keeps TLS
+verification enabled. The Human bearer is confined to the Human service; it is
+not sent to node RPC or the seller.

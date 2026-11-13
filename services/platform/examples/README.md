@@ -11,9 +11,10 @@ Beta profiles use public node JSON-RPC at
 `https://api-mainnet-beta.paxeer.network/`. The other public names are
 `https://api1.mainnet-beta.paxeer.network/` through
 `https://api14.mainnet-beta.paxeer.network/`, also at the root path. Nodes and
-hosted application services have different APIs. `px_*` methods belong to the
-[hosted gateway](../hosted/gateway/README.md); human payments and merchant
-settlement additionally require operator-deployed services and credentials.
+hosted application services have different APIs. The node serves `px_*` state
+reads; registration and funding use the
+[hosted gateway](../hosted/gateway/README.md). Human payments and merchant
+settlement require operator-deployed services and credentials.
 Mainnet-beta carries real value; an environment label does not imply free funds
 or a reset schedule.
 
@@ -32,7 +33,7 @@ profile JSON.
 
 Supply independently pinned receipt keys to each application's named variable;
 setting the buyer's variable does not configure the paid API. Native node
-JSON-RPC uses `/`, not `/rpc`. A human API, settlement URL or emulator health
+JSON-RPC uses the root path. A human API, settlement URL or emulator health
 endpoint cannot substitute for `rpcUrl`.
 
 Install the locked Node workspace from the repository root with `npm ci` and
@@ -74,8 +75,8 @@ For the beta profile, set these inputs to authentic values from the deployment:
 
 The emulator paid-API profile uses the corresponding `LAYERX_EMULATOR_*`
 variables for money fields, but still reads **`LAYERX_RECEIPT_KEYS_JSON`**. It
-currently selects JSON-RPC at `http://127.0.0.1:8545/`; the other applications'
-emulator profiles select port 9402. Choose compatible service coordinates in an
+selects loopback JSON-RPC port 8545, as does the marketplace. The buyer and
+merchant profiles use port 9402. Choose compatible service coordinates in an
 external profile using `LAYERX_EXAMPLE_CONFIG`; starting the CLI emulator alone
 does not supply a native chain RPC at port 8545.
 
@@ -89,8 +90,8 @@ payment's untrusted response.
 The paid API computes the transaction hash from the x402 payload's
 `rawTransaction` and calls `pax_sequencerReceipt` at its configured `rpcUrl`.
 It verifies the signed receipt against the raw transaction and pinned keys,
-then returns a `layerx-receipt-proof-v2` proof. It does not resolve a legacy
-batch-authority object. Its resolver reports verification level `receipted`
+then returns signed receipt material, its digest and the selected pinned key.
+Its resolver reports verification level `receipted`
 even when the node returns a committed receipt; it does not prove BFT finality.
 
 Fulfillment records bind the request digest and idempotency key and retain the
@@ -134,27 +135,18 @@ the supplied `LAYERX_TESTNET_*` inputs and deployed services. The scenario
 attempts buyer payment, merchant checkout, then marketplace deploy/list/buy;
 only actual successful outcomes establish that journey.
 
-## Historical emulator workflow
+## Emulator profiles
 
-The retained `start:emulator` scripts and scenario below describe the historical
-emulator workflow, not the merged production path. They do not provision the
-native chain RPC or independently pinned receipt keys required above.
+The `start:emulator` scripts select local adapter profiles. The buyer and
+merchant-checkout profiles contain retired network coordinates; use a
+service-specific external profile for native node RPC. Paid API and marketplace
+RPC profiles use loopback port 8545; merchant-shop uses loopback port 9402.
 
-`--scenario emulator` currently provisions a scratch CLI profile, four signing
-keys and a local emulator. It resolves the CLI from `$LAYERX_BIN`,
-`build/bin/layerx`, then `PATH`, waits for health, derives account and money
-inputs from local state and a seeding transfer, and stops the process and
-removes the scratch profile afterward. `LAYERX_EMULATOR_SEED_FILE` selects an
-existing seed and its adjacent trust anchor. Credential storage defaults to a
-per-run file store and passphrase unless overridden.
-
-That bootstrap still uses local quote/commit, state and receipt routes. Its
-provided receipt-key variable is `LAYERX_EMULATOR_RECEIPT_KEYS_JSON`, while the
-paid API reads `LAYERX_RECEIPT_KEYS_JSON`; its chosen endpoint also differs from
-the paid API's native RPC profile. Those prerequisites must agree before this
-scenario can establish a native payment journey. The pre-merge `/rpc` paths
-retained in emulator profiles are retired network coordinates.
-Do not infer native compatibility from declaration checks or emulator health.
+`--scenario emulator` starts a local CLI emulator and derives local account and
+payment inputs. It supplies `LAYERX_EMULATOR_RECEIPT_KEYS_JSON`; the paid API
+reads the separate `LAYERX_RECEIPT_KEYS_JSON` variable. Supply compatible node
+RPC, service endpoints and independently pinned keys for each application.
+Emulator health does not establish a native payment journey.
 
 ## Building and checking against real receipts
 
@@ -182,7 +174,7 @@ node services/platform/examples/qualify-reference-apps.mjs
 
 This consumes the prebuilt artifacts and checks actual paid-resource, merchant
 and marketplace outcomes, retaining private process logs and state. It defaults
-to the historical emulator workflow when the environment variable is omitted;
+to the emulator scenario when the environment variable is omitted;
 that default does not qualify the merged production path. Declaration checks,
 emulator health and artifact hashes alone do not prove a successful payment.
 The prerequisites above still apply. Missing artifacts, authentic receipt keys,
