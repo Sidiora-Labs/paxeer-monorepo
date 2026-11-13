@@ -170496,7 +170496,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.294]
 title = "Lead the landing page of the documentation site with the kernel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.43.292"]
@@ -374478,7 +374478,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.276]
 title = "Bring the Python tests 193 to 208 of tools/qualification/audit_repairs to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
