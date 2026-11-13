@@ -238876,7 +238876,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.181]
 title = "Move the task records and name the files after what they hold in storage/db_engine/litt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -325797,7 +325797,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.43.199]
 title = "Move the task records and name the files after what they hold in tests/protocol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -325860,7 +325860,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.196]
 title = "Move the task records and name the files after what they hold in tests/modules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -325892,7 +325892,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.195]
 title = "Move the task records and name the files after what they hold in tests/ledger"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -325924,7 +325924,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.187]
 title = "Move the task records and name the files after what they hold in tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373728,7 +373728,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.193]
 title = "Move the task records and name the files after what they hold in tests/explorer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373824,7 +373824,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.190]
 title = "Move the task records and name the files after what they hold in tests/ci"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
