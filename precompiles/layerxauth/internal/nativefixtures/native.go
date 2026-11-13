@@ -1,5 +1,5 @@
-// Package repair1503 supplies in-process native fixtures for the auth integration tests.
-package repair1503
+// Package nativefixtures supplies in-process native fixtures for the auth integration tests.
+package nativefixtures
 
 /*
 #cgo CFLAGS: -I${SRCDIR}/../../../../include -I${SRCDIR}/../../../../build/generated

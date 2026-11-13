@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepair_146_LifecycleReceipts(t *testing.T) {
+func TestAuthLifecycleReceipts(t *testing.T) {
 	a := app.Setup(t, false, true, false)
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	ctx := a.GetContextForDeliverTx(nil).WithChainID("pax-test").WithBlockHeight(11).

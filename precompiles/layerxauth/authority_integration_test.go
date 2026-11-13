@@ -11,7 +11,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxauth"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxauth/internal/repair1503"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxauth/internal/nativefixtures"
 	lp "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -20,19 +20,19 @@ import (
 	tmdb "github.com/tendermint/tm-db"
 )
 
-func TestRepairM_1503_10_SuccessorSpendSurvivesReopen(t *testing.T) {
+func TestSessionSuccessorSpendSurvivesReopen(t *testing.T) {
 	TestPrecompileGrantSessionSuccessor(t)
 }
 
-func TestRepairM_1503_12_LifecycleReceiptLogs(t *testing.T) {
+func TestAuthLifecycleReceiptLogs(t *testing.T) {
 	TestPrecompileRecordLifecycleRegistersDid(t)
 }
 
-func TestRepairM_1503_11_ChargedSuccessorParity(t *testing.T) {
-	repairM1503SuccessorParity(t)
+func TestChargedSessionSuccessorParity(t *testing.T) {
+	assertChargedSessionSuccessorParity(t)
 }
 
-func repairM1503OwnerAuthority(t *testing.T, f *grantFixture) lxphost.KernelAuthority {
+func ownerAuthority(t *testing.T, f *grantFixture) lxphost.KernelAuthority {
 	t.Helper()
 	authority := f.actor.Authority
 	authority.Kind = lxphost.AuthorityKindOwner
@@ -42,9 +42,9 @@ func repairM1503OwnerAuthority(t *testing.T, f *grantFixture) lxphost.KernelAuth
 	return authority
 }
 
-func repairM1503Execute(t *testing.T, f *grantFixture, ctx sdk.Context, activityType uint32, payload []byte, limit uint64, grantID [32]byte) (lxphost.Receipt, error) {
+func executeAuthorityActivity(t *testing.T, f *grantFixture, ctx sdk.Context, activityType uint32, payload []byte, limit uint64, grantID [32]byte) (lxphost.Receipt, error) {
 	t.Helper()
-	authority := repairM1503OwnerAuthority(t, f)
+	authority := ownerAuthority(t, f)
 	if grantID != [32]byte{} {
 		payloadHash, err := codec.DomainHash(codec.DomainPayloadHash, payload)
 		require.NoError(t, err)
@@ -54,13 +54,13 @@ func repairM1503Execute(t *testing.T, f *grantFixture, ctx sdk.Context, activity
 			VerifiedKey: resolved.VerifiedKey, Bound: true, Kind: resolved.Kind,
 			GrantID: resolved.GrantID, AuthorityHash: resolved.AuthorityHash, Scope: &resolved.Scope}
 	}
-	activity := repairM1503Activity(t, f, ctx, activityType, payload, limit, authority.VerifiedKey)
+	activity := newAuthorityActivity(t, f, ctx, activityType, payload, limit, authority.VerifiedKey)
 	sequence, err := lxphost.NextSequence(ctx, f.hostKey)
 	require.NoError(t, err)
 	return f.host.Execute(lxphost.WithSequence(ctx, sequence), activity, authority)
 }
 
-func repairM1503Activity(t *testing.T, f *grantFixture, ctx sdk.Context, activityType uint32, payload []byte, limit uint64, key [32]byte) lxphost.Activity {
+func newAuthorityActivity(t *testing.T, f *grantFixture, ctx sdk.Context, activityType uint32, payload []byte, limit uint64, key [32]byte) lxphost.Activity {
 	t.Helper()
 	sequence, err := f.host.ReadIdentitySequence(ctx, f.actor.DID)
 	require.NoError(t, err)
@@ -74,7 +74,7 @@ func repairM1503Activity(t *testing.T, f *grantFixture, ctx sdk.Context, activit
 	return activity
 }
 
-func repairM1503FeesAndProgram(t *testing.T, f *grantFixture) ([]byte, uint64) {
+func setupGovernedFeesAndProgram(t *testing.T, f *grantFixture) ([]byte, uint64) {
 	t.Helper()
 	// A primary key can also hold a session grant. This keeps the real host's
 	// main-account signer binding intact during the metered predecessor call.
@@ -82,7 +82,7 @@ func repairM1503FeesAndProgram(t *testing.T, f *grantFixture) ([]byte, uint64) {
 	salt := bytes.Repeat([]byte{0x55}, 32)
 	material := append([]byte("LX:ASSET:v1"), f.actor.Authority.Actor[:]...)
 	f.asset = sha256.Sum256(append(material, salt...))
-	rows, err := repair1503.GovernedRecords(f.asset, f.timestamp)
+	rows, err := nativefixtures.GovernedRecords(f.asset, f.timestamp)
 	require.NoError(t, err)
 	for _, row := range rows {
 		f.ctx.KVStore(f.hostKey).Set(row.Key, row.Value)
@@ -96,7 +96,7 @@ func repairM1503FeesAndProgram(t *testing.T, f *grantFixture) ([]byte, uint64) {
 	require.Equal(t, schedule, history)
 	execute := func(kind uint32, payload []byte) {
 		t.Helper()
-		receipt, err := repairM1503Execute(t, f, f.ctx, kind, payload, 0, [32]byte{})
+		receipt, err := executeAuthorityActivity(t, f, f.ctx, kind, payload, 0, [32]byte{})
 		require.NoError(t, err)
 		require.Zero(t, receipt.ResultCode)
 	}
@@ -178,11 +178,11 @@ func repairM1503FeesAndProgram(t *testing.T, f *grantFixture) ([]byte, uint64) {
 		[]byte("LayerX/programs/access-declaration/v1\x00\x00"), 64,
 		[7]uint64{1_000_000, 16_777_216, 1_048_576, 1_048_576, 64, 1_048_576, 4096})
 	require.NoError(t, err)
-	activity := repairM1503Activity(t, f, f.ctx, 0x00090003, payload, 100_000_000, f.actor.DIDKey)
+	activity := newAuthorityActivity(t, f, f.ctx, 0x00090003, payload, 100_000_000, f.actor.DIDKey)
 	sequence, err := lxphost.NextSequence(f.ctx, f.hostKey)
 	require.NoError(t, err)
 	before := hostSnapshot(t, f.ctx, f.hostKey)
-	forecast, err := f.host.Simulate(lxphost.WithSequence(f.ctx, sequence), activity, repairM1503OwnerAuthority(t, f))
+	forecast, err := f.host.Simulate(lxphost.WithSequence(f.ctx, sequence), activity, ownerAuthority(t, f))
 	require.NoError(t, err)
 	require.Zero(t, forecast.ResultCode)
 	require.NotNil(t, forecast.ProgramOutcome)
@@ -209,7 +209,7 @@ func repairM1503FeesAndProgram(t *testing.T, f *grantFixture) ([]byte, uint64) {
 	return payload, forecast.FeeCharged.Uint64()
 }
 
-func repairM1503Body(f *grantFixture, key [32]byte, revocation, fee uint64) []byte {
+func feeSessionSuccessorBody(f *grantFixture, key [32]byte, revocation, fee uint64) []byte {
 	body := f.feeSessionBody(key, revocation)
 	binary.BigEndian.PutUint16(body[122:124], 3)
 	binary.BigEndian.PutUint16(body[124:126], 3)
@@ -220,7 +220,7 @@ func repairM1503Body(f *grantFixture, key [32]byte, revocation, fee uint64) []by
 	return body
 }
 
-func repairM1503Commitment(grant lxphost.AuthorityGrant) [32]byte {
+func sessionReplacementCommitment(grant lxphost.AuthorityGrant) [32]byte {
 	preimage := append([]byte("LXP/session-fee-replacement/v1\x00"), grant.GrantID[:]...)
 	preimage = binary.BigEndian.AppendUint64(preimage, grant.RevokedAtSequence)
 	preimage = append(preimage, grant.GrantID[:]...)
@@ -232,7 +232,7 @@ func repairM1503Commitment(grant lxphost.AuthorityGrant) [32]byte {
 	return sha256.Sum256(binary.BigEndian.AppendUint64(preimage, grant.FeeBudget.PeriodStart))
 }
 
-func repairM1503Charge(t *testing.T, f *grantFixture, ctx sdk.Context, id [32]byte, payload []byte, fee uint64) lxphost.AuthorityGrant {
+func chargeSessionFee(t *testing.T, f *grantFixture, ctx sdk.Context, id [32]byte, payload []byte, fee uint64) lxphost.AuthorityGrant {
 	t.Helper()
 	_, payer, err := lxphost.AssetAccountID(f.actor.DIDKey, f.asset)
 	require.NoError(t, err)
@@ -240,7 +240,7 @@ func repairM1503Charge(t *testing.T, f *grantFixture, ctx sdk.Context, id [32]by
 	require.NoError(t, err)
 	before, err := f.host.ReadGrant(ctx, id)
 	require.NoError(t, err)
-	receipt, err := repairM1503Execute(t, f, ctx, 0x00090003, payload, fee, id)
+	receipt, err := executeAuthorityActivity(t, f, ctx, 0x00090003, payload, fee, id)
 	require.NoError(t, err)
 	require.Zero(t, receipt.ResultCode)
 	require.NotNil(t, receipt.ProgramOutcome)
@@ -257,7 +257,7 @@ func repairM1503Charge(t *testing.T, f *grantFixture, ctx sdk.Context, id [32]by
 	return after
 }
 
-func repairM1503Reopen(t *testing.T, f *grantFixture, ctx sdk.Context) {
+func reopenGrantFixture(t *testing.T, f *grantFixture, ctx sdk.Context) {
 	t.Helper()
 	before := hostSnapshot(t, ctx, f.hostKey)
 	directory := t.TempDir()
@@ -325,7 +325,7 @@ func repairM1503Reopen(t *testing.T, f *grantFixture, ctx sdk.Context) {
 	require.Equal(t, before, hostSnapshot(t, f.ctx, f.hostKey))
 }
 
-func repairM1503AssertExhausted(t *testing.T, f *grantFixture, id [32]byte, fee uint64, total bool) {
+func assertSessionFeeBudgetExhausted(t *testing.T, f *grantFixture, id [32]byte, fee uint64, total bool) {
 	t.Helper()
 	grant, err := f.host.ReadGrant(f.ctx, id)
 	require.NoError(t, err)
@@ -333,14 +333,14 @@ func repairM1503AssertExhausted(t *testing.T, f *grantFixture, id [32]byte, fee 
 	require.Equal(t, sdk.NewIntFromUint64(fee), grant.FeeBudget.SpentThisPeriod)
 	require.Equal(t, uint64(f.ctx.BlockTime().UnixMilli()), grant.FeeBudget.PeriodStart)
 	before := hostSnapshot(t, f.ctx, f.hostKey)
-	require.ErrorIs(t, repair1503.FeeAdmission(before, id, grant.FeeBudget.PeriodStart, fee), lxphost.Code(-211))
+	require.ErrorIs(t, nativefixtures.FeeAdmission(before, id, grant.FeeBudget.PeriodStart, fee), lxphost.Code(-211))
 	nextPeriod := grant.FeeBudget.PeriodStart + grant.FeeBudget.PeriodLength
 	if total {
 		require.Equal(t, grant.FeeBudget.MaximumTotal, grant.FeeBudget.SpentTotal)
-		require.ErrorIs(t, repair1503.FeeAdmission(before, id, nextPeriod, fee), lxphost.Code(-211))
+		require.ErrorIs(t, nativefixtures.FeeAdmission(before, id, nextPeriod, fee), lxphost.Code(-211))
 	} else {
 		require.Equal(t, sdk.NewIntFromUint64(fee), grant.FeeBudget.SpentTotal)
-		require.NoError(t, repair1503.FeeAdmission(before, id, nextPeriod, fee))
+		require.NoError(t, nativefixtures.FeeAdmission(before, id, nextPeriod, fee))
 	}
 	require.Equal(t, before, hostSnapshot(t, f.ctx, f.hostKey))
 	evm, _ := f.evm()
