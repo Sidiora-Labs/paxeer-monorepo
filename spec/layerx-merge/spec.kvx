@@ -13930,6 +13930,18 @@ value = "The paths of task 22.39.499 are services/platform/hosted/human and serv
 basis = "Gotcha 4382. The verification of the task runs make human-test, which tests every member of the workspace."
 affects = []
 
+[decision.3470]
+title = "The build command of task 22.39.511 starts with forge --version"
+value = "The build command of task 22.39.511 runs forge --version first and then the steps of decision 3467 unchanged. The verification command, the paths and the do items of the task stay as they are."
+basis = "Gotcha 4383."
+affects = []
+
+[decision.3471]
+title = "Task 22.43.258 brings the last readers of renamed files to the present paths"
+value = "Task 22.43.258 changes the readers under tools/qualification/audit_repairs, tools/qualification/paxeer-x/tests, tools/paxeer-x, tests/bridge/retired and in .gitignore that name a file or a directory by a path from before a rename. The task renames no file and changes no assertion beyond the path text."
+basis = "Gotcha 4384 and decision 3464."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43590,6 +43602,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.43.258]
+title = "Bring the last readers of renamed files to the present paths"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs", "tools/qualification/paxeer-x/tests", "tools/paxeer-x", "tests/bridge/retired", ".gitignore"]
+tests = []
+verification_contract = "python3 -m compileall -q tools/qualification/audit_repairs tools/qualification/paxeer-x/tests tools/paxeer-x/tests tests/bridge/retired > /dev/null && python3 -m json.tool tools/paxeer-x/retired_callers.json > /dev/null && ! git grep -q -E -e '[^/]tools/qualification/audit_repairs/repair_22_33_[0-9]+[.]kvx' -- tools/qualification/audit_repairs && ! git grep -q -F -e services/platform/hosted/human/test_repair_22_31_348.py -e repair_22_31_227_fixture/ca.pem -e layerx-types/tests/repair_22_33_1542.rs -e src/repair_22_31_207/ -e src/repair_22_31_211/ -- tools/qualification/paxeer-x/tests tools/paxeer-x/retired_callers.json tools/paxeer-x/tests tests/bridge/retired .gitignore"
+do_1 = "do_1 Decision 3471, gotcha 4384. Each manifest under spec/layerx-merge/programme/records/renames holds file sections with a from key and a to key. A stale reference is a place in a file that names a from path and does not name the present path. Where the to path of a manifest is not in the tree, find the present file with git log and the follow flag over the from path."
+symbols = []
 
 [capability.22.43.257]
 title = "Bring the readers of renamed files under the interop services, the bring-up tools and the chain packages to the present paths"
@@ -327434,7 +327455,7 @@ symbols = []
 touches = ["go.mod", "go.sum", "tools/hpx/registry", "core/deps/cosmwasm/packages/go-gen", "tools/hyperfide/tests/fixtures", "services/platform/hosted/gateway/tests", "apps/launchpad/web/src/widgets/rewards", ".golangci.yml", "Makefile", "contracts/src/xweb/examples/ApiConsumer.sol", "contracts/test/XWebConsumer.t.sol"]
 tests = []
 planned_paths = ["tools/hpx/registry/repair_22_39_511.kvx"]
-build_cmd = "make -s paxeer-tools-install && for m in tests/fixtures/example/cosmwasm/cw1155 tests/fixtures/example/cosmwasm/cw20 tests/fixtures/example/cosmwasm/cw721 tests/fixtures/example/cosmwasm/echo tests/fixtures/example/cosmwasm/iter tools/benchmark/loadtest/contracts/jupiter tools/benchmark/loadtest/contracts/mars tools/benchmark/loadtest/contracts/saturn tools/benchmark/loadtest/contracts/venus tests/fixtures/example/cosmwasm/parallelization/bank tests/fixtures/example/cosmwasm/parallelization/staking tests/fixtures/example/cosmwasm/parallelization/wasm wasm-runtime/libwasmvm; do cargo fetch --locked --manifest-path $m/Cargo.toml || exit 1; done && for d in tools/hpx/registry sdk/cosmovisor sdk/ics23; do (cd $d && go mod download) || exit 1; done"
+build_cmd = "forge --version > /dev/null && make -s paxeer-tools-install && for m in tests/fixtures/example/cosmwasm/cw1155 tests/fixtures/example/cosmwasm/cw20 tests/fixtures/example/cosmwasm/cw721 tests/fixtures/example/cosmwasm/echo tests/fixtures/example/cosmwasm/iter tools/benchmark/loadtest/contracts/jupiter tools/benchmark/loadtest/contracts/mars tools/benchmark/loadtest/contracts/saturn tools/benchmark/loadtest/contracts/venus tests/fixtures/example/cosmwasm/parallelization/bank tests/fixtures/example/cosmwasm/parallelization/staking tests/fixtures/example/cosmwasm/parallelization/wasm wasm-runtime/libwasmvm; do cargo fetch --locked --manifest-path $m/Cargo.toml || exit 1; done && for d in tools/hpx/registry sdk/cosmovisor sdk/ics23; do (cd $d && go mod download) || exit 1; done"
 verify_cmd = "test -s tools/hpx/registry/repair_22_39_511.kvx && make -s paxeer-manifest-lint && GOPROXY=off go mod tidy -diff && cd tools/hpx/registry && GOPROXY=off go build ./..."
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
@@ -373340,6 +373361,37 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.43.258]
+title = "Bring the last readers of renamed files to the present paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.258"]
+interfaces = []
+do_1 = "do_1 Decision 3471, gotcha 4384. Each manifest under spec/layerx-merge/programme/records/renames holds file sections with a from key and a to key. A stale reference is a place in a file that names a from path and does not name the present path. Where the to path of a manifest is not in the tree, find the present file with git log and the follow flag over the from path."
+do_2 = "do_2 Eighteen test files under tools/qualification/audit_repairs read a record file by the path tools/qualification/audit_repairs followed by the record name. The records now lie under spec/layerx-merge/programme/records/tools/qualification/audit_repairs. Find each such reader with git grep and bring it to the present path, written as one string. In tools/qualification/paxeer-x/tests one test loads services/platform/hosted/human/test_repair_22_31_348.py; give it the present file name from the manifests. Run each changed test by hand where the environment allows and state the outcome in the final message."
+do_3 = "do_3 In tools/paxeer-x/retired_callers.json two patterns name the directories services/platform/hosted/authority/src/repair_22_31_207 and services/platform/ramps/toolkit/src/repair_22_31_211 from before a rename; bring the patterns and the lines of tools/paxeer-x/tests/retired_callers_test.py that hold the same paths to the present directories. In tests/bridge/retired/test_retired_checkpoint_settlement.py one entry of a list of readers names services/agent/crates/layerx-types/tests/repair_22_33_1542.rs; give it the present file name and keep the order of the list. In .gitignore one line names a certificate file under services/agent/crates/layerx-sdk/tests/fixtures by an earlier directory name; bring it to the present path of that file. Then run python3 tools/paxeer-x/tests/retired_callers_test.py and python3 -m pytest over the test under tests/bridge/retired by hand. Where one of them still stops and the cause lies inside the paths of this task, repair it; where the cause lies outside, name the file and the line in the final message and change nothing there."
+do_4 = "do_4 A name that is an identifier and not a path or a file name stays as it is: the name of a test function, a record id inside a data file, a title. The present path of a moved record that holds the earlier path as its last part is not stale. Change no assertion beyond the path text, rename no file and delete nothing. Before each commit read the output of git status. Name in the final message the count of references changed for each file and every stale reference left in the paths with its reason. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/qualification/audit_repairs", "tools/qualification/paxeer-x/tests", "tools/paxeer-x", "tests/bridge/retired", ".gitignore"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m compileall -q tools/qualification/audit_repairs tools/qualification/paxeer-x/tests tools/paxeer-x/tests tests/bridge/retired > /dev/null && python3 -m json.tool tools/paxeer-x/retired_callers.json > /dev/null && ! git grep -q -E -e '[^/]tools/qualification/audit_repairs/repair_22_33_[0-9]+[.]kvx' -- tools/qualification/audit_repairs && ! git grep -q -F -e services/platform/hosted/human/test_repair_22_31_348.py -e repair_22_31_227_fixture/ca.pem -e layerx-types/tests/repair_22_33_1542.rs -e src/repair_22_31_207/ -e src/repair_22_31_211/ -- tools/qualification/paxeer-x/tests tools/paxeer-x/retired_callers.json tools/paxeer-x/tests tests/bridge/retired .gitignore"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.43.251]
 title = "Bring the readers of renamed files under the repository tests, the inventory test scripts and the workflows to the present paths"
