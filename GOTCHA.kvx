@@ -21845,3 +21845,8 @@ fix = "Decision 3490. Tasks 22.43.295 to 22.43.303."
 title = "Cases of the Python tests wait on files of the product"
 symptom = "The test series of decision 3478 brought the Python tests to the present tree. Where the file a case reads, and not the case, is the side that moved on, the case carries a mark of expected failure that names the file: a checksum file, two workflow files, the ledger, fixtures, pages, package manifests and rows of the interface file."
 fix = "Decision 3491. Tasks 22.43.304 to 22.43.320."
+
+[gotcha.4405]
+title = "Tests read the kernel sentence on pages of several tasks"
+symptom = "The Python tests under tools/qualification/audit_repairs that read the old sentence of the network read it on more pages than the three of task 22.43.295: pages of the wiki, docs/system/rpc.md and sdk/README.md among them, which the tasks 22.43.296 to 22.43.303 change. The verification of task 22.43.295 ran thirteen test files."
+fix = "Decision 3492. Task 22.43.295 gets do_5, the path tests/ci and a verification over every test file that names the wording."
