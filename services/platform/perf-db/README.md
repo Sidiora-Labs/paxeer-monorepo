@@ -1,35 +1,6 @@
 # PerfDB
 
-<div align="center">
-
-<h3>Embedded Rust database engine for high-frequency trading systems</h3>
-
-<p>
-Time series storage · real-time state · relational data · event sourcing unified into a single in-process library with<br/>
-<strong>zero network hops</strong> and <strong>native Rust types on the hot path</strong>.
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Project-PerfDB-FFFFFF?style=for-the-badge&amp;labelColor=004CED" alt="Project: PerfDB" />
-  <img src="https://img.shields.io/badge/Built_by-Sidiora_Labs-004CED?style=for-the-badge&amp;labelColor=000000" alt="Built by Sidiora Labs" />
-  <a href="#license"><img src="https://img.shields.io/badge/License-Apache--2.0-004CED?style=for-the-badge&amp;labelColor=000000" alt="License: Apache-2.0" /></a>
-  <img src="https://img.shields.io/badge/Status-Pre--release-FF6B35?style=for-the-badge&amp;labelColor=000000" alt="Status: Pre-release" />
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Rust-1.85%2B-004CED?style=for-the-badge&amp;labelColor=000000&amp;logo=rust&amp;logoColor=white" alt="Rust 1.85+" />
-  <img src="https://img.shields.io/badge/Engine-Zero_Network_Hops-00C896?style=for-the-badge&amp;labelColor=000000" alt="Zero network hops" />
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Latest_Read-1.1ns-00C896?style=for-the-badge&amp;labelColor=000000" alt="Latest read: 1.1ns" />
-  <img src="https://img.shields.io/badge/Candle_Query-54--95ns-00C896?style=for-the-badge&amp;labelColor=000000" alt="Candle range query: 54-95ns" />
-  <img src="https://img.shields.io/badge/Tick_Ingest-~1.6M%2Fsec-00C896?style=for-the-badge&amp;labelColor=000000" alt="Tick ingestion: ~1.6M/sec" />
-</p>
-
-</div>
-
----
+Embedded Rust database engine for trading applications.
 
 ## Contents
 
@@ -60,19 +31,9 @@ See [the architecture](ARCHITECTURE.md) for storage layouts and concurrency.
 
 ## Performance
 
-| Operation | Measured | Target | Legacy stack (typical) |
-|---|---|---|---|
-| Latest price read | 1.1ns | <100ns | ~500µs (Redis `GET`) |
-| Candle range query | 54–95ns | <50µs | ~5ms (QuestDB PG wire) |
-| Position lookup by ID | 97–102ns | <200ns | ~300µs (Redis `GET`) |
-| Position list by user | ~1.6µs | <1µs | ~2ms (Redis `SMEMBERS`) |
-| Tick ingestion, multi-market | ~1M/sec | >2M/sec | ~10K/sec (QuestDB ILP) |
-| Tick ingestion, single-market | ~1.6M/sec | >2M/sec | ~10K/sec (QuestDB ILP) |
-
-Run `cargo bench` to reproduce these numbers on your own hardware; see
-[Benchmarks](#benchmarks) for details. Figures above were captured on a
-commodity VPS without NVMe storage — expect better throughput on
-dedicated hardware.
+The benchmark suite measures latest-price reads, candle queries, position
+lookups and tick ingestion. Run it on the target hardware to assess those
+workloads; see [Benchmarks](#benchmarks) for the available commands.
 
 ## Architecture
 
@@ -122,7 +83,7 @@ The example creates `./data`; start with an empty directory for its single-tick 
 
 ## Installation
 
-PerfDB is not yet published to crates.io. Its source lives at
+PerfDB source lives at
 `services/platform/perf-db` in the monorepo. Use it as a git dependency
 (Cargo finds the `perfdb` package in that directory):
 
@@ -150,7 +111,7 @@ cargo build --release
 ### System requirements
 
 - Rust 1.85 or newer (stable), with edition 2024 support
-- Linux (kernel 4.15+) or macOS 10.15+
+- Unix writer locking via `flock`; opening a writer on a non-Unix platform returns an error
 - SSD recommended for WAL and mmap performance
 
 ## Usage
@@ -273,8 +234,8 @@ cargo bench --bench position_lookup
 cargo bench --bench price_read
 ```
 
-Results are written to `target/criterion/` with HTML reports. See
-[Performance](#performance) for the latest recorded numbers.
+Criterion writes reports under the Cargo target directory, normally
+`target/criterion/`.
 
 ## Project Status
 
@@ -316,7 +277,7 @@ Licensed under Apache-2.0 (Apache License, Version 2.0). See the repository
 
 ## Related
 
-- [Paxeer Network](https://paxeer.app) — Sovereign L1 (Chain ID 125), 400ms blocks and finality, purpose-built for high-frequency and agentic workloads.
+- [Paxeer Network](https://paxeer.app) — BFT network with EVM chain ID 125. A receipt is final when its block is committed.
 
 ---
 

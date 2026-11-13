@@ -26,7 +26,7 @@ The agent HTTP envelope is served on a private mutual-TLS listener. Its `POST /r
 
 | Requirement | Behavior |
 | --- | --- |
-| <code>req.9031</code> | agent.register answers with a prepared bindLayerX transaction to 0x101C instead of refused_pending_bootstrap_artifact. |
+| <code>req.9031</code> | agent.register answers with a prepared bindLayerX transaction to the account-binding precompile at 0x1004. |
 
 ## approval-approve
 
@@ -111,7 +111,7 @@ The agent HTTP envelope is served on a private mutual-TLS listener. Its `POST /r
 | --- | --- |
 | <code>req.9032</code> | ProtocolBudgetState is decoded from a getBudget eth_call result at a committed height. |
 | <code>req.9034</code> | budget.state answers with the getBudget result and achieved rung Committed. |
-| <code>req.9006</code> | ProtocolBudgetView::from_proven refuses a record with achieved_rung below Committed, replacing the StateProven check at services/agent/crates/layerx-agent-api/src/identity.rs. |
+| <code>req.9006</code> | ProtocolBudgetView::from_proven refuses a record with achieved_rung below Committed in services/agent/crates/layerx-agent-api/src/identity.rs. |
 
 ## capability-attenuate
 
@@ -151,7 +151,7 @@ The agent HTTP envelope is served on a private mutual-TLS listener. Its `POST /r
 | --- | --- |
 | <code>req.9027</code> | An offline export v2 verifies offline using only the bundled receipt keys and validator set. |
 | <code>req.9027</code> | The serialized export contains no settlement domain or certificate field. |
-| <code>req.9005</code> | OfflineExport carries facts, receipts and proofs at one height and no certificates field, replacing services/agent/crates/layerx-agent-api/src/read.rs. |
+| <code>req.9005</code> | OfflineExport carries facts, receipts and proofs at one height and no certificates field in services/agent/crates/layerx-agent-api/src/read.rs. |
 
 ## faucet-claim
 
@@ -200,7 +200,7 @@ The agent HTTP envelope is served on a private mutual-TLS listener. Its `POST /r
 | Requirement | Behavior |
 | --- | --- |
 | <code>req.9010</code> | A prepared layerxledger transfer yields an Eip1559Call whose signing_hash equals the golden keccak preimage for chain id, pending nonce, fees, gas, target 0x101A and calldata (services/agent/crates/layerx-crypto/src/evm_transaction.rs). |
-| <code>req.9010</code> | prepare returns StaleNonce when the caller's expected nonce differs from eth_getTransactionCount pending, replacing StaleSequence at services/agent/crates/layerx-agentd/src/prepare/mod.rs. |
+| <code>req.9010</code> | prepare returns StaleNonce when the caller's expected nonce differs from eth_getTransactionCount pending at services/agent/crates/layerx-agentd/src/prepare/mod.rs. |
 | <code>req.9010</code> | max_fee_per_gas is twice the head base fee plus the priority fee and a request ceiling below that is refused with InvalidDefaults. |
 | <code>req.9002</code> | The agent envelope decoder maps known names to Operation values. Unknown names return ProtocolIncompatibility with reason envelope.unknown_operation; the retired faucet.claim name returns UnavailableCapability. |
 
@@ -296,7 +296,7 @@ The agent HTTP envelope is served on a private mutual-TLS listener. Its `POST /r
 | <code>req.9019</code> | A pending balance read returns the eth_getBalance amount with value_height equal to chain_head plus one and relative_to pending. |
 | <code>req.9019</code> | A balance read at a height above chain_head is refused with reason read.height_ahead. |
 | <code>req.9024</code> | operation read.balance returns amount, chain_head and value_height and no sequence fields. |
-| <code>req.9005</code> | VerifiedRead exposes achieved_rung and a Freshness of chain_head, value_height and relative_to, matching services/agent/schema/agent-api/read.kvx instead of the sequence fields at services/agent/crates/layerx-agent-api/src/read.rs. |
+| <code>req.9005</code> | VerifiedRead exposes achieved_rung and a Freshness of chain_head, value_height and relative_to, as declared in services/agent/schema/agent-api/read.kvx and implemented in services/agent/crates/layerx-agent-api/src/read.rs. |
 
 ## read-batch
 
@@ -345,7 +345,7 @@ The agent HTTP envelope is served on a private mutual-TLS listener. Its `POST /r
 | <code>req.9023</code> | A receipt proof bundle v2 carries the receipt, an inclusion path that recomputes the block receipts root and rung Receipted. |
 | <code>req.9023</code> | An account proof bundle is built only against a committed block and is refused before commit with reason read.not_committed. |
 | <code>req.9024</code> | operation read.proof_bundle answers a receipt target with a layerx-receipt-proof-v2 bundle at rung Receipted. |
-| <code>req.9005</code> | A proof bundle record for an Activity or Receipt target requires Rung::Receipted and an Account target requires Rung::Committed, replacing the Level checks at services/agent/crates/layerx-agent-api/src/read.rs. |
+| <code>req.9005</code> | A proof bundle record for an Activity or Receipt target requires Rung::Receipted and an Account target requires Rung::Committed in services/agent/crates/layerx-agent-api/src/read.rs. |
 | <code>req.9007</code> | operation.read.proof_bundle declares layerx-receipt-proof-v2 with Receipted for activity and receipt targets and Committed for account targets (services/agent/schema/agent-api/read.kvx). |
 
 ## record-agenthttpcredential
@@ -604,7 +604,6 @@ The agent HTTP envelope is served on a private mutual-TLS listener. Its `POST /r
 | <code>req.9012</code> | operation submit answers with the transaction hash returned by eth_sendRawTransaction and SubmissionState Submitted (services/agent/schema/agent-api/write.kvx). |
 | <code>req.9014</code> | Outbox::enqueue keys a record by the keccak hash of its raw bytes and refuses a second enqueue of identical bytes (services/agent/crates/layerx-agentd/src/outbox/mod.rs). |
 | <code>req.9015</code> | Store::sweep removes records whose recorded head height is more than retention_blocks below the current height (services/agent/crates/layerx-agentd/src/idempotency.rs). |
-| <code>req.9066</code> | The limits suite converges restarts and duplicates on one economic effect, one receipt, final state Executed and two attempts when submissions are EIP-1559 raw transactions. |
 | <code>req.9066</code> | Resubmitting the identical signed raw transaction after a restart records one transaction hash in the outbox. |
 
 ## subscription-acknowledge
@@ -681,7 +680,7 @@ The agent HTTP envelope is served on a private mutual-TLS listener. Its `POST /r
 | --- | --- |
 | <code>req.9012</code> | operation track looks the submission up by its 32-byte transaction hash and refuses a 31-byte key with invalid_request. |
 | <code>req.9014</code> | legal_transition admits Executed to Committed and refuses Submitted to Committed and any transition out of Committed (services/agent/crates/layerx-agentd/src/outbox/mod.rs). |
-| <code>req.9014</code> | A submission whose nonce was consumed by another transaction ends Failed with reason submission.nonce_consumed instead of the retired Superseded state. |
+| <code>req.9014</code> | A submission whose nonce was consumed by another transaction ends Failed with reason submission.nonce_consumed. |
 | <code>req.9016</code> | resolve_unknown moves an Unknown submission to Executed when pax_sequencerReceipt returns a receipt signed by a published receipt key (services/agent/crates/layerx-agentd/src/outbox/unknown.rs). |
 | <code>req.9016</code> | resolve_unknown marks the submission Failed with reason submission.nonce_consumed when no receipt exists and the pending nonce has advanced past it. |
 
@@ -1106,11 +1105,8 @@ The agent HTTP envelope is served on a private mutual-TLS listener. Its `POST /r
 | Requirement | Behavior |
 | --- | --- |
 | <code>req.8253</code> | decodeDaemonSubmission validates the transaction hash, submission reference, state, rung, evidence and transitions. Receipt evidence must match the submission rung and transaction. |
-| <code>req.8253</code> | decodeDaemonSubmission validates the transaction hash, submission reference, state, rung, evidence and transitions. Receipt evidence must match the submission rung and transaction. |
-| <code>req.8253</code> | decodeDaemonSubmission validates the transaction hash, submission reference, state, rung, evidence and transitions. Receipt evidence must match the submission rung and transaction. |
-| <code>req.9001</code> | layerx_agent_api::verify exports Rung with exactly Submitted, Receipted and Committed and RungStatus with Achieved and Below, matching errors.kvx type.VerificationStatus (services/agent/schema/agent-api/errors.kvx). |
-| <code>req.9001</code> | Level::rung maps Unverified and SequencerSigned to Submitted, BatchIncluded and StateProven to Receipted, CheckpointFinalised to Committed and SettlementAnchored to None (services/agent/crates/layerx-agent-api/src/error.rs). |
-| <code>req.9008</code> | layerx_agent_api::verify exposes Rung and a VerificationStatus whose Achieved and Unverified variants carry rungs, and no Level type, replacing services/agent/crates/layerx-agent-api/src/error.rs. |
+| <code>req.9001</code> | layerx_agent_api::verify exports Rung with Submitted, Receipted and Committed and RungStatus with Achieved and Below. The wire schema in services/agent/schema/agent-api/errors.kvx declares VerificationStatus with Achieved and Unverified. |
+| <code>req.9008</code> | VerificationStatus aliases RungStatus in services/agent/crates/layerx-agent-api/src/error.rs. Achieved carries a rung; Below carries requested and achieved rungs and a reason. The JSON response serializes Below with state unverified and requested, achieved and reason fields. |
 
 ## type-sessioncontext
 
@@ -1241,8 +1237,6 @@ The agent HTTP envelope is served on a private mutual-TLS listener. Its `POST /r
 | <code>req.9964</code> | verify_sequencer_receipt accepts a receipt signed by a pinned key valid at its height and refuses an unpinned or out-of-range key. |
 | <code>req.9964</code> | verify_rpc_payment refuses a payment whose receipt is not signed by a pinned receipt key. |
 | <code>req.9965</code> | The TypeScript LXP_RETRYABLE set equals the codes whose Retryable column is yes. |
-| <code>req.9966</code> | The pay2 build script no longer names lifecycle.rs or tests/boundary.rs and the package builds without them. |
-| <code>req.9967</code> | The four generated receipt files equal the generator output for the resealed pipeline lock. |
 | <code>req.9968</code> | A managed agent action whose exact signed bytes are a type-2 transaction from the owner is accepted. |
 | <code>req.9968</code> | A type-2 transaction whose hash differs from the served activity id is refused. |
 | <code>req.9969</code> | SnapshotBinding v2 decodes the shared vector to its four fields and a v1 binding is refused. |

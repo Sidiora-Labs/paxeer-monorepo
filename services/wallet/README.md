@@ -10,8 +10,8 @@ The pnpm workspace contains the Paxeer X wallet packages and the perpetuals app.
 | `../../sdk/wallet` | `@paxeer/wallet` | Browser and React SDK for the wallet gateway, test suites under `test` |
 | `demo/` | `@paxeer/demo` | Web reference app built on the SDK |
 | `../../apps/perps` | `builders-workshop` | Perpetuals web app |
-| `deploy/env` | | Every environment variable name the wallet services read, one per line with its purpose, grouped by service; no values |
-| `tsconfig.base.json` | | Compiler options shared by every package |
+| `deploy/env` | | Environment variable reference grouped by service, with purposes and no values |
+| `tsconfig.base.json` | | Compiler options shared by the wallet SDK, gateway and demo |
 
 Other directories are not pnpm packages:
 
