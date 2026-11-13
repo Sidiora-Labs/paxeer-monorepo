@@ -122,9 +122,13 @@ fn parse_hex32(value: &str) -> Option<[u8; 32]> {
 ///
 /// # Errors
 /// Returns the retired-capability or bootstrap-artifact refusal for gated operations.
+#[allow(
+    clippy::unnecessary_wraps,
+    reason = "Preserve the public API signature used by daemon consumers."
+)]
 pub fn dispatch_target(
     operation: Operation,
-    request_id: RequestId,
+    _request_id: RequestId,
 ) -> Result<Operation, Rejection> {
     match operation {
         Operation::AgentRegister
@@ -394,12 +398,7 @@ fn authorization_rejection(request_id: RequestId, error: &SessionControlError) -
             request_id,
             "session.scope_denied",
         ),
-        SessionControlError::Authorization(AuthorizationError::Expired) => {
-            Rejection::new(ErrorClass::PolicyRefusal, request_id, "session.expired")
-        }
-        SessionControlError::Authorization(AuthorizationError::Revoked) => {
-            Rejection::new(ErrorClass::PolicyRefusal, request_id, "session.revoked")
-        }
+
         SessionControlError::Authorization(AuthorizationError::InvalidRequest) => Rejection::new(
             ErrorClass::ProtocolIncompatibility,
             request_id,
@@ -411,17 +410,15 @@ fn authorization_rejection(request_id: RequestId, error: &SessionControlError) -
             request_id,
             reason: "unavailable",
         },
-        SessionControlError::Session(crate::session::SessionError::Revoked) => {
+        SessionControlError::Authorization(AuthorizationError::Revoked)
+        | SessionControlError::Session(crate::session::SessionError::Revoked) => {
             Rejection::new(ErrorClass::PolicyRefusal, request_id, "session.revoked")
         }
-        SessionControlError::Session(crate::session::SessionError::Expired) => {
+        SessionControlError::Authorization(AuthorizationError::Expired)
+        | SessionControlError::Session(crate::session::SessionError::Expired) => {
             Rejection::new(ErrorClass::PolicyRefusal, request_id, "session.expired")
         }
-        SessionControlError::Session(_) => Rejection::new(
-            ErrorClass::PolicyRefusal,
-            request_id,
-            "session.not_authorized",
-        ),
+
         _ => Rejection::new(
             ErrorClass::PolicyRefusal,
             request_id,
@@ -513,30 +510,93 @@ const LEVELS: [(&str, Rung); 3] = [
     ("committed", Rung::Committed),
 ];
 
-/// `None` when the request declares no level; `Some(None)` when the declared level is not a
-/// level name.
-fn requested_level(request: &serde_json::Map<String, serde_json::Value>) -> Option<Option<Rung>> {
-    let value = request.get("requested_rung")?;
-    Some(value.as_str().and_then(|name| {
-        LEVELS
-            .into_iter()
-            .find_map(|(spelling, level)| (spelling == name).then_some(level))
-    }))
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum RequestedLevel {
+    Absent,
+    Invalid,
+    Valid(Rung),
+}
+
+// Keep the existing spelling assertions readable while representing all three
+// request states explicitly in the implementation.
+#[cfg(test)]
+trait AssertTestValue<T> {
+    fn assert_value(self, context: &str) -> T;
+}
+
+#[cfg(test)]
+impl<T> AssertTestValue<T> for Option<T> {
+    fn assert_value(self, context: &str) -> T {
+        match self {
+            Some(value) => value,
+            None => panic!("{context}"),
+        }
+    }
+}
+
+#[cfg(test)]
+impl<T, E: std::fmt::Debug> AssertTestValue<T> for Result<T, E> {
+    fn assert_value(self, context: &str) -> T {
+        match self {
+            Ok(value) => value,
+            Err(error) => panic!("{context}: {error:?}"),
+        }
+    }
+}
+
+#[cfg(test)]
+trait AssertTestError<E> {
+    fn assert_error(self, context: &str) -> E;
+}
+
+#[cfg(test)]
+impl<T, E> AssertTestError<E> for Result<T, E> {
+    fn assert_error(self, context: &str) -> E {
+        match self {
+            Ok(_) => panic!("{context}"),
+            Err(error) => error,
+        }
+    }
+}
+
+#[cfg(test)]
+impl<T: PartialEq<Option<Rung>>> PartialEq<Option<T>> for RequestedLevel {
+    fn eq(&self, other: &Option<T>) -> bool {
+        match self {
+            Self::Absent => other.is_none(),
+            Self::Invalid => other.as_ref().is_some_and(|value| value == &None),
+            Self::Valid(rung) => other.as_ref().is_some_and(|value| value == &Some(*rung)),
+        }
+    }
+}
+
+fn requested_level(request: &serde_json::Map<String, serde_json::Value>) -> RequestedLevel {
+    let Some(value) = request.get("requested_rung") else {
+        return RequestedLevel::Absent;
+    };
+    value
+        .as_str()
+        .and_then(|name| {
+            LEVELS
+                .into_iter()
+                .find_map(|(spelling, level)| (spelling == name).then_some(level))
+        })
+        .map_or(RequestedLevel::Invalid, RequestedLevel::Valid)
 }
 
 fn verification_json(
     request_id: RequestId,
     status: Option<&VerificationStatus>,
     achieved: Option<Rung>,
-    requested: Option<Option<Rung>>,
+    requested: RequestedLevel,
 ) -> Result<serde_json::Value, Rejection> {
     let Some(status) = status else {
         return match requested {
-            None => Ok(serde_json::json!({
+            RequestedLevel::Absent => Ok(serde_json::json!({
                 "state": "achieved",
                 "rung": level_name(Rung::Submitted),
             })),
-            Some(Some(requested)) => match achieved {
+            RequestedLevel::Valid(requested) => match achieved {
                 Some(Rung::Submitted) if requested == Rung::Submitted => Ok(serde_json::json!({
                     "state": "achieved",
                     "rung": level_name(Rung::Submitted),
@@ -556,7 +616,7 @@ fn verification_json(
                     "verification.inconsistent",
                 )),
             },
-            Some(_) => Err(Rejection::new(
+            RequestedLevel::Invalid => Err(Rejection::new(
                 ErrorClass::VerificationFailure,
                 request_id,
                 "verification.inconsistent",
@@ -599,10 +659,27 @@ fn rejected(rejection: &Rejection) -> AgentRpcResponse {
 ///
 /// # Errors
 /// Returns `VerificationFailure` when an unverified status does not satisfy achieved < requested.
+#[allow(
+    clippy::option_option,
+    reason = "Preserve the public absent, invalid or valid requested-rung argument."
+)]
 pub fn success_body(
     request_id: RequestId,
     dispatched: &Dispatched,
     requested: Option<Option<Rung>>,
+) -> Result<AgentRpcResponse, Rejection> {
+    let requested = match requested {
+        None => RequestedLevel::Absent,
+        Some(None) => RequestedLevel::Invalid,
+        Some(Some(rung)) => RequestedLevel::Valid(rung),
+    };
+    success_response(request_id, dispatched, requested)
+}
+
+fn success_response(
+    request_id: RequestId,
+    dispatched: &Dispatched,
+    requested: RequestedLevel,
 ) -> Result<AgentRpcResponse, Rejection> {
     let (status, achieved) = match (
         dispatched.value.get("found"),
@@ -768,10 +845,10 @@ fn authorized_on_surface<A: HumanAuthorityBoundary>(
 
 fn respond(
     request_id: RequestId,
-    requested: Option<Option<Rung>>,
+    requested: RequestedLevel,
     result: Result<Dispatched, Rejection>,
 ) -> AgentRpcResponse {
-    match result.and_then(|dispatched| success_body(request_id, &dispatched, requested)) {
+    match result.and_then(|dispatched| success_response(request_id, &dispatched, requested)) {
         Ok(response) => response,
         Err(rejection) => rejected(&rejection),
     }
@@ -801,7 +878,7 @@ fn replayed(request_id: RequestId, bytes: &[u8]) -> AgentRpcResponse {
     }
 }
 
-fn idempotency_refusal(request_id: RequestId, error: IdempotencyError) -> Rejection {
+fn idempotency_refusal(request_id: RequestId, error: &IdempotencyError) -> Rejection {
     match error {
         IdempotencyError::Conflict(_) => Rejection::new(
             ErrorClass::IdempotencyConflict,
@@ -871,83 +948,115 @@ pub fn handle_rpc<A: HumanAuthorityBoundary>(
         idempotency_key: envelope.idempotency_key,
         peer: context_peer.peer().clone(),
     };
-    let journey = matches!(operation, Operation::Prepare | Operation::Submit);
-    let Some(key) = envelope.idempotency_key.filter(|_| !journey) else {
-        let result = dispatch_operation(
-            owner,
-            &permit,
-            &context_peer,
-            operation,
-            &envelope.request,
-            &context,
-        );
-        let response = respond(request_id, requested_level(&envelope.request), result);
-        drop(context_peer);
-        drop(permit);
-        return response;
-    };
-    let request_bytes = match canonical_request_bytes(operation, &envelope.request, request_id) {
-        Ok(Some(bytes)) => bytes,
-        Ok(None) => {
-            return rejected(&Rejection::new(
-                ErrorClass::UnavailableCapability,
-                request_id,
-                "idempotency.unsupported_operation",
-            ));
-        }
-        Err(rejection) => return rejected(&rejection),
-    };
-    let store = match owner.idempotency(&permit.principal().tenant) {
-        Ok(store) => store,
-        Err(_) => return rejected(&owner_unavailable(request_id)),
-    };
-    let mut fault = None;
-    let outcome = store.execute(key, &request_bytes, core_sequence, |attempt| {
-        if attempt.retry {
-            fault = Some(Rejection::new(
-                ErrorClass::TransportFailure,
-                request_id,
-                "outcome.unknown",
-            ));
-            return Err(String::from("outcome.unknown"));
-        }
-        let result = dispatch_operation(
-            owner,
-            &permit,
-            &context_peer,
-            operation,
-            &envelope.request,
-            &context,
-        )
-        .and_then(|dispatched| {
-            success_body(request_id, &dispatched, requested_level(&envelope.request))
-        });
-        let response = match result {
-            Ok(response) => response,
-            Err(rejection) if is_fault(rejection.class) => {
-                fault = Some(rejection);
-                return Err(String::from("fault"));
-            }
-            Err(rejection) => rejected(&rejection),
-        };
-        Ok(EconomicResult {
-            response_bytes: settled_bytes(&response),
-            receipt_ref: None,
-        })
-    });
+    let response = AuthorizedRpc {
+        owner,
+        envelope: &envelope,
+        permit: &permit,
+        context_peer: &context_peer,
+        context: &context,
+        operation,
+    }
+    .execute(core_sequence);
     drop(context_peer);
     drop(permit);
-    match outcome {
-        Ok(Outcome::First(result) | Outcome::RepeatedOriginal(result)) => {
-            replayed(request_id, &result.response_bytes)
+    response
+}
+
+struct AuthorizedRpc<'a, 'permit, A> {
+    owner: &'a SharedAgentOwner<A>,
+    envelope: &'a Envelope,
+    permit: &'a OperationPermit,
+    context_peer: &'a crate::agent_rpc_peer::RpcOwnerContext<'permit>,
+    context: &'a DispatchContext,
+    operation: Operation,
+}
+
+impl<A: HumanAuthorityBoundary> AuthorizedRpc<'_, '_, A> {
+    fn execute(&self, core_sequence: u64) -> AgentRpcResponse {
+        let owner = self.owner;
+        let envelope = self.envelope;
+        let permit = self.permit;
+        let context_peer = self.context_peer;
+        let context = self.context;
+        let operation = self.operation;
+        let request_id = context.request_id;
+        let journey = matches!(operation, Operation::Prepare | Operation::Submit);
+        let Some(key) = envelope.idempotency_key.filter(|_| !journey) else {
+            let result = dispatch_operation(
+                owner,
+                permit,
+                context_peer,
+                operation,
+                &envelope.request,
+                context,
+            );
+            let response = respond(request_id, requested_level(&envelope.request), result);
+            return response;
+        };
+        let request_bytes = match canonical_request_bytes(operation, &envelope.request, request_id)
+        {
+            Ok(Some(bytes)) => bytes,
+            Ok(None) => {
+                return rejected(&Rejection::new(
+                    ErrorClass::UnavailableCapability,
+                    request_id,
+                    "idempotency.unsupported_operation",
+                ));
+            }
+            Err(rejection) => return rejected(&rejection),
+        };
+        let Ok(store) = owner.idempotency(&permit.principal().tenant) else {
+            return rejected(&owner_unavailable(request_id));
+        };
+        let mut fault = None;
+        let outcome = store.execute(key, &request_bytes, core_sequence, |attempt| {
+            if attempt.retry {
+                fault = Some(Rejection::new(
+                    ErrorClass::TransportFailure,
+                    request_id,
+                    "outcome.unknown",
+                ));
+                return Err(String::from("outcome.unknown"));
+            }
+            let result = dispatch_operation(
+                owner,
+                permit,
+                context_peer,
+                operation,
+                &envelope.request,
+                context,
+            )
+            .and_then(|dispatched| {
+                success_response(request_id, &dispatched, requested_level(&envelope.request))
+            });
+            let response = match result {
+                Ok(response) => response,
+                Err(rejection) if is_fault(rejection.class) => {
+                    fault = Some(rejection);
+                    return Err(String::from("fault"));
+                }
+                Err(rejection) => rejected(&rejection),
+            };
+            Ok(EconomicResult {
+                response_bytes: settled_bytes(&response),
+                receipt_ref: None,
+            })
+        });
+        match outcome {
+            Ok(Outcome::First(result) | Outcome::RepeatedOriginal(result)) => {
+                replayed(request_id, &result.response_bytes)
+            }
+            Err(IdempotencyError::Operation(_)) => {
+                rejected(&fault.unwrap_or_else(|| owner_unavailable(request_id)))
+            }
+            Err(error) => rejected(&idempotency_refusal(request_id, &error)),
         }
-        Err(IdempotencyError::Operation(_)) => {
-            rejected(&fault.unwrap_or_else(|| owner_unavailable(request_id)))
-        }
-        Err(error) => rejected(&idempotency_refusal(request_id, error)),
     }
 }
 
+/// # Errors
+/// Returns an error if the request or retained evidence fails owner validation, a required
+/// capability is refused, or the node or durable store is unavailable.
 pub fn handle_human_native_prepare<A: HumanAuthorityBoundary>(
     owner: &SharedAgentOwner<A>,
     peer: &crate::human::HumanPeer,
@@ -1004,6 +1113,9 @@ pub fn handle_human_native_prepare<A: HumanAuthorityBoundary>(
     Ok(response)
 }
 
+/// # Errors
+/// Returns an error if the request or retained evidence fails owner validation, a required
+/// capability is refused, or the node or durable store is unavailable.
 pub fn handle_human_native_send_prepare<A: HumanAuthorityBoundary>(
     owner: &SharedAgentOwner<A>,
     peer: &crate::human::HumanPeer,
@@ -1106,6 +1218,7 @@ fn requested_level_accepts_each_declared_kebab_case_spelling() {
 
 #[test]
 fn requested_level_refuses_retired_camel_case_spellings() {
+    // Keep the retired spelling here to prove the public decoder refuses it.
     for name in [
         "Unverified",
         "SequencerSigned",
@@ -1133,7 +1246,7 @@ fn requested_level_refuses_an_unknown_spelling() {
         let requested = requested_level(&level_request(name));
         assert_eq!(requested, Some(None));
         let refusal = verification_json(RequestId(3), None, None, requested)
-            .expect_err("an unknown requested level is refused");
+            .assert_error("an unknown requested level is refused");
         assert_eq!(refusal.class, ErrorClass::VerificationFailure);
         assert_eq!(refusal.reason, "verification.inconsistent");
     }
@@ -1162,6 +1275,8 @@ pub struct McpInvocationRequest {
     pub idempotency_key: [u8; 32],
 }
 
+/// # Errors
+/// Returns an error if the invocation envelope or native request fields fail validation.
 pub fn decode_mcp_invocation(
     body: &[u8],
 ) -> Result<Option<McpInvocationRequest>, AgentRpcResponse> {
@@ -1229,10 +1344,11 @@ pub fn decode_mcp_invocation(
     }))
 }
 
+#[must_use]
 pub fn mcp_result_response(id: RequestId, value: serde_json::Value) -> AgentRpcResponse {
     respond(
         id,
-        None,
+        RequestedLevel::Absent,
         Ok(Dispatched {
             value,
             verification: None,
@@ -1240,6 +1356,7 @@ pub fn mcp_result_response(id: RequestId, value: serde_json::Value) -> AgentRpcR
     )
 }
 
+#[must_use]
 pub fn mcp_result_refusal(
     id: RequestId,
     class: ErrorClass,
@@ -1248,6 +1365,9 @@ pub fn mcp_result_refusal(
     rejected(&Rejection::new(class, id, reason))
 }
 
+/// # Errors
+/// Returns an error if the request is malformed, its owner context cannot be authorized, or
+/// the requested operation is refused.
 pub fn validate_mcp_native_request(
     operation: Operation,
     arguments: &serde_json::Value,
@@ -1285,6 +1405,9 @@ pub struct McpOwnerEnvironment {
     pub native_send_profile: bool,
 }
 
+/// # Errors
+/// Returns an error if the request is malformed, its owner context cannot be authorized, or
+/// the requested operation is refused.
 pub fn mcp_owner_environment<A: HumanAuthorityBoundary>(
     owner: &SharedAgentOwner<A>,
     request_id: RequestId,
@@ -1306,6 +1429,9 @@ pub fn mcp_owner_environment<A: HumanAuthorityBoundary>(
         .map_err(|error| crate::agent_rpc_dispatch::owner_error(request_id, error))
 }
 
+/// # Errors
+/// Returns an error if the request is malformed, its owner context cannot be authorized, or
+/// the requested operation is refused.
 pub fn dispatch_mcp_owner<A: HumanAuthorityBoundary>(
     owner: &SharedAgentOwner<A>,
     request_id: RequestId,
@@ -1355,6 +1481,7 @@ pub fn dispatch_mcp_owner<A: HumanAuthorityBoundary>(
         .map(|dispatched| dispatched.value)
 }
 
+#[must_use]
 pub fn mcp_api_refusal(error: &ApiError) -> AgentRpcResponse {
     let reason = error.reason.as_str();
     let status = match error.class {
@@ -1371,7 +1498,7 @@ pub fn mcp_api_refusal(error: &ApiError) -> AgentRpcResponse {
         status,
         body: serde_json::json!({
             "class": class_name(error.class),
-            "protocol_result_code": error.protocol_result_code.map(|code| code.raw()),
+            "protocol_result_code": error.protocol_result_code.map(layerx_types::result::ResultCode::raw),
             "retriability": match error.retriability {
                 Retriability::Terminal => "Terminal", Retriability::Retriable => "Retriable",
             },
@@ -1383,6 +1510,9 @@ pub fn mcp_api_refusal(error: &ApiError) -> AgentRpcResponse {
     }
 }
 
+/// # Errors
+/// Returns an error if the request is malformed, its owner context cannot be authorized, or
+/// the requested operation is refused.
 pub fn decode_mcp_local_grant_config(
     value: &serde_json::Value,
 ) -> Result<layerx_agent_api::identity::NativeLocalGrantConsentV1, Rejection> {
@@ -1392,6 +1522,7 @@ pub fn decode_mcp_local_grant_config(
         .into_request(id)
 }
 
+#[must_use]
 pub fn mcp_control_refusal(request_id: RequestId, error: &SessionControlError) -> AgentRpcResponse {
     rejected(&authorization_rejection(request_id, error))
 }
@@ -1401,13 +1532,16 @@ fn idempotent_replay_keeps_protocol_rejection_distinct_from_conflict() {
     let error = ApiError::idempotent_replay(RequestId(302));
     assert_eq!(error.class, ErrorClass::CoreRejection);
     assert_eq!(
-        error.protocol_result_code.map(|code| code.raw()),
+        error
+            .protocol_result_code
+            .map(layerx_types::result::ResultCode::raw),
         Some(-302)
     );
     assert_eq!(error.retriability, Retriability::Terminal);
     assert_eq!(error.reason.as_str(), "idempotent_replay");
     assert_ne!(error.class, ErrorClass::IdempotencyConflict);
     let response = mcp_api_refusal(&error);
-    let value: serde_json::Value = serde_json::from_slice(&response.body).expect("error envelope");
+    let value: serde_json::Value =
+        serde_json::from_slice(&response.body).assert_value("error envelope");
     assert_eq!(value["protocol_result_code"], -302);
 }

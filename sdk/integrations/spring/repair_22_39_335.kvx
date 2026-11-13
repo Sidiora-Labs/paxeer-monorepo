@@ -1,0 +1,42 @@
+[repair.22.39.335]
+acceptance = "22998.1"
+decisions = ["3046", "3130"]
+gotcha = "4123"
+base_revision = "ff064d5aebd059893d28f79879ce178898f86039"
+producer_commit = "206790b449"
+producer_task = "22.31.417"
+producer = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/X402.java:32 NATIVE_NETWORK; parseNetwork accepts only eip155:125."
+
+[change.receipt_keys_environment]
+file = "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/ReceiptKeysConfigTest.java"
+line = 51
+before = "            \"layerx.payment.network=layerx:mainnet\","
+after = "            \"layerx.payment.network=\" + X402.NATIVE_NETWORK,"
+tests = ["declaredConfigBindsReceiptKeys", "autoConfigurationBuildsAuthorityFromReceiptKeys"]
+preserved = "Every receipt-key assertion, invalid-key case and authority-binding assertion remains unchanged; production sources and all other cases are unchanged."
+
+[network_sweep]
+paths = ["sdk/integrations/spring/src/test", "sdk/integrations/spring/src/main/resources", "sdk/integrations/spring/example/src/main/resources", "sdk/integrations/spring/example/resource.json"]
+additional_repairs = []
+result = "ReceiptKeysConfigTest.environment is the only refused payment-network declaration outside a refusal list."
+accepted_declarations = ["Repair2231417Test.offer", "Repair2231417Test.finding026ConfiguredMeteredPurposeReachesRealFilter", "Repair2233620Test.offer", "Repair2231452Test", "SellerReceiptsTest.requirements"]
+accepted_values = "Other positive payment-network declarations use eip155:125."
+refusal_lists = ["src/test/java/com/sidiora/layerx/spring/Repair2231417Test.java:285", "src/test/java/com/sidiora/layerx/spring/SellerReceiptsTest.java:274"]
+resources = "The Spring auto-configuration resource declares a class only; example application.yaml takes its network from LAYERX_X402_NETWORK, and example resource.json declares no payment network."
+
+[module_cases]
+total = 30
+ReceiptKeysConfigTest = 2
+Repair2233621Test = 5
+Repair2231452Test = 3
+Repair2231417Test = 11
+Repair2233620Test = 4
+SellerReceiptsTest = 5
+count_source = "All @Test methods in the six module test classes; no parameterized, repeated or disabled tests. The full-module verify gate supplies the executed counts in target/surefire-reports."
+
+[qualification]
+build_command = "mvn -q -f sdk/integrations/spring/pom.xml -DskipTests test-compile"
+verify_command = "test -s sdk/integrations/spring/repair_22_39_335.kvx && mvn -q -f sdk/integrations/spring/pom.xml test"
+verified_revision = "/out/run/gates.jsonl: final passing verify row records the exact candidate revision, command, exit code and private log; a passing build row at that same revision is required."
+build_evidence = "/out/run/gates.jsonl: build row matching the final verify revision."
+publication = "The runner publishes the qualified candidate; no manual commit or push."

@@ -5,8 +5,7 @@ import {
   type Address,
   type PublicClient,
 } from 'viem';
-import { decodeContract } from '../../../../../sdk/launchpad/packages/sdk/src/validate.ts';
-import type { Quote } from '../../../../../sdk/launchpad/packages/sdk/src/types.gen.ts';
+import { decodeContract, type Quote } from '@kindle/sdk';
 
 const quoterAbi = parseAbi([
   'function quoteExactInput(address pool,uint256 amountIn,bool isBuy) view returns((uint256 amountOut,uint256 feeAmount,uint256 priceImpactBps))',

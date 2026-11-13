@@ -177,6 +177,53 @@ fn answer(endpoint: &Endpoint, target: &str) -> Checked<(u16, Value)> {
     Ok((status, serde_json::from_slice(&bytes)?))
 }
 
+fn assert_chain_feeds(endpoint: &Endpoint) -> Checked<()> {
+    for (feed, count) in [("transfers", 4), ("events", 2)] {
+        let target = format!("/v1/chains/1/{feed}");
+        let (status, full) = answer(endpoint, &target)?;
+        assert_eq!(status, 200);
+        assert_eq!(full["version"], 1);
+        assert_eq!(full["indexedHeight"], 45);
+        assert!(full["next_cursor"].is_null());
+        let all = full["items"].as_array().ok_or("items missing")?;
+        assert_eq!(all.len(), count);
+        assert!(all.iter().all(|row| row["chain"] == "pax:1"));
+        let mut paged = Vec::new();
+        let mut cursor = None;
+        for _ in 0..=count {
+            let query = cursor.as_ref().map_or("?limit=1".to_owned(), |cursor| {
+                format!("?limit=1&cursor={cursor}")
+            });
+            let (status, body) = answer(endpoint, &format!("{target}{query}"))?;
+            assert_eq!(status, 200);
+            paged.extend(
+                body["items"]
+                    .as_array()
+                    .ok_or("page items missing")?
+                    .iter()
+                    .cloned(),
+            );
+            cursor = body["next_cursor"].as_str().map(str::to_owned);
+            if cursor.is_none() {
+                break;
+            }
+        }
+        assert!(cursor.is_none(), "pagination did not terminate");
+        assert_eq!(&paged, all);
+        let (status, other) = answer(endpoint, &format!("/v1/chains/2/{feed}"))?;
+        assert_eq!(status, 200);
+        assert!(other["items"]
+            .as_array()
+            .ok_or("other items missing")?
+            .iter()
+            .all(|row| row["chain"] == "pax:2"));
+        let (status, empty) = answer(endpoint, &format!("/v1/chains/3/{feed}"))?;
+        assert_eq!(status, 200);
+        assert_eq!(empty["items"], json!([]));
+    }
+    Ok(())
+}
+
 #[test]
 fn chains_api_lists_and_reads_one_chain() -> Checked<()> {
     check_topics()?;
@@ -193,8 +240,8 @@ fn chains_api_lists_and_reads_one_chain() -> Checked<()> {
     drop(store);
     let endpoint = api_endpoint(Store::open(&database.0)?)?;
     let expected = json!({"id":1,"name":"demo","operator":fixture()["bob"],"status":"active",
-        "chain_id":125000001,"created_height":42,"bond":"100000000000000000007",
-        "gas_allowance":500000,"byte_allowance":65536,"fee_share_bps":100});
+        "chain_id":125_000_001,"created_height":42,"bond":"100000000000000000007",
+        "gas_allowance":500_000,"byte_allowance":65536,"fee_share_bps":100});
     let (status, list) = answer(&endpoint, "/v1/chains")?;
     assert_eq!(status, 200);
     let chains = list["chains"].as_array().ok_or("chains missing")?;
@@ -252,49 +299,7 @@ fn chains_api_lists_and_reads_one_chain() -> Checked<()> {
             json!({"id":3,"tx_count":0,"gas_used":0,"last_height":0})
         )
     );
-    for (feed, count) in [("transfers", 4), ("events", 2)] {
-        let target = format!("/v1/chains/1/{feed}");
-        let (status, full) = answer(&endpoint, &target)?;
-        assert_eq!(status, 200);
-        assert_eq!(full["version"], 1);
-        assert_eq!(full["indexedHeight"], 45);
-        assert!(full["next_cursor"].is_null());
-        let all = full["items"].as_array().ok_or("items missing")?;
-        assert_eq!(all.len(), count);
-        assert!(all.iter().all(|row| row["chain"] == "pax:1"));
-        let mut paged = Vec::new();
-        let mut cursor = None;
-        for _ in 0..=count {
-            let query = cursor.as_ref().map_or("?limit=1".to_owned(), |cursor| {
-                format!("?limit=1&cursor={cursor}")
-            });
-            let (status, body) = answer(&endpoint, &format!("{target}{query}"))?;
-            assert_eq!(status, 200);
-            paged.extend(
-                body["items"]
-                    .as_array()
-                    .ok_or("page items missing")?
-                    .iter()
-                    .cloned(),
-            );
-            cursor = body["next_cursor"].as_str().map(str::to_owned);
-            if cursor.is_none() {
-                break;
-            }
-        }
-        assert!(cursor.is_none(), "pagination did not terminate");
-        assert_eq!(&paged, all);
-        let (status, other) = answer(&endpoint, &format!("/v1/chains/2/{feed}"))?;
-        assert_eq!(status, 200);
-        assert!(other["items"]
-            .as_array()
-            .ok_or("other items missing")?
-            .iter()
-            .all(|row| row["chain"] == "pax:2"));
-        let (status, empty) = answer(&endpoint, &format!("/v1/chains/3/{feed}"))?;
-        assert_eq!(status, 200);
-        assert_eq!(empty["items"], json!([]));
-    }
+    assert_chain_feeds(&endpoint)?;
     for target in [
         "/v1/chains?unknown=1",
         "/v1/chains/1?unknown=1",
@@ -386,7 +391,9 @@ fn chains_api_status_codes_follow_the_registry_and_rollback() -> Checked<()> {
             }
         );
         for (index, expected) in statuses.into_iter().enumerate() {
-            let id = index as u32 + 1;
+            let id = u32::try_from(index)
+                .unwrap_or_else(|_| panic!("u32 fixture value out of range"))
+                + 1;
             let (status, body) = answer(&endpoint, &format!("/v1/chains/{id}"))?;
             assert_eq!(status, 200);
             assert_eq!(body["status"], expected, "block {height}, chain {id}");

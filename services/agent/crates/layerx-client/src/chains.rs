@@ -72,6 +72,7 @@ pub enum ChainCall {
 }
 
 impl ChainCall {
+    #[must_use]
     pub const fn signature(&self) -> &'static str {
         METHOD_SIGNATURES[match self {
             Self::CreateChain { .. } => 0,
@@ -89,12 +90,14 @@ impl ChainCall {
         }]
     }
 
+    #[must_use]
     pub fn selector(&self) -> [u8; 4] {
         let hash = transaction_hash(self.signature().as_bytes());
         [hash[0], hash[1], hash[2], hash[3]]
     }
 }
 
+#[must_use]
 pub fn encode_call(call: &ChainCall) -> Vec<u8> {
     let mut bytes = call.selector().to_vec();
     let args = match call {
@@ -104,7 +107,7 @@ pub fn encode_call(call: &ChainCall) -> Vec<u8> {
             byte_allowance,
             fee_share_bps,
         } => with_string(
-            vec![
+            &[
                 uint(128),
                 uint(*gas_allowance),
                 uint(*byte_allowance),
@@ -124,13 +127,16 @@ pub fn encode_call(call: &ChainCall) -> Vec<u8> {
         ChainCall::SetOperator { id, operator } => {
             [uint(u64::from(*id)), address_word(operator)].concat()
         }
-        ChainCall::ChainByName(name) => with_string(vec![uint(32)], name),
+        ChainCall::ChainByName(name) => with_string(&[uint(32)], name),
         ChainCall::ChainCount | ChainCall::Params => Vec::new(),
     };
     bytes.extend_from_slice(&args);
     bytes
 }
 
+/// # Errors
+///
+/// Returns `ChainsError::Encoding` for an unknown selector, malformed arguments or noncanonical encoding.
 pub fn decode_call(bytes: &[u8]) -> Result<ChainCall, ChainsError> {
     let selector = bytes.get(..4).ok_or(ChainsError::Encoding)?;
     let index = METHOD_SIGNATURES
@@ -192,9 +198,10 @@ pub struct ChainRecord {
 }
 
 impl ChainRecord {
+    #[must_use]
     pub fn encode(&self) -> Vec<u8> {
         with_string(
-            vec![
+            &[
                 uint(u64::from(self.id)),
                 uint(352),
                 address_word(&self.operator),
@@ -212,6 +219,9 @@ impl ChainRecord {
     }
 }
 
+/// # Errors
+///
+/// Returns `ChainsError::Encoding` for malformed chain fields or string offsets.
 pub fn decode_get_chain(bytes: &[u8]) -> Result<ChainRecord, ChainsError> {
     Ok(ChainRecord {
         id: number(bytes, 0)?,
@@ -240,6 +250,7 @@ pub struct ChainsParams {
 }
 
 impl ChainsParams {
+    #[must_use]
     pub fn encode(&self) -> Vec<u8> {
         [
             address_word(&self.authority),
@@ -254,6 +265,9 @@ impl ChainsParams {
     }
 }
 
+/// # Errors
+///
+/// Returns `ChainsError::Encoding` for a wrong word count or malformed parameter fields.
 pub fn decode_params(bytes: &[u8]) -> Result<ChainsParams, ChainsError> {
     exact_words(bytes, 7)?;
     Ok(ChainsParams {
@@ -291,6 +305,7 @@ pub enum ChainEvent {
 }
 
 impl ChainEvent {
+    #[must_use]
     pub const fn signature(&self) -> &'static str {
         EVENT_SIGNATURES[match self {
             Self::Created { .. } => 0,
@@ -300,10 +315,12 @@ impl ChainEvent {
         }]
     }
 
+    #[must_use]
     pub fn topic0(&self) -> [u8; 32] {
         transaction_hash(self.signature().as_bytes())
     }
 
+    #[must_use]
     pub fn encode(&self) -> (Vec<[u8; 32]>, Vec<u8>) {
         let mut topics = vec![self.topic0()];
         let data = match self {
@@ -314,7 +331,7 @@ impl ChainEvent {
                 chain_id,
             } => {
                 topics.extend([uint(u64::from(*id)), address_word(operator)]);
-                with_string(vec![uint(64), uint(*chain_id)], name)
+                with_string(&[uint(64), uint(*chain_id)], name)
             }
             Self::StatusChanged { id, status } => {
                 topics.push(uint(u64::from(*id)));
@@ -333,11 +350,14 @@ impl ChainEvent {
     }
 }
 
+/// # Errors
+///
+/// Returns `ChainsError::Encoding` for unknown topics, a wrong topic count or malformed event fields.
 pub fn decode_event(topics: &[[u8; 32]], data: &[u8]) -> Result<ChainEvent, ChainsError> {
-    let topic0 = topics.first().ok_or(ChainsError::Encoding)?;
+    let signature_topic = topics.first().ok_or(ChainsError::Encoding)?;
     let index = EVENT_SIGNATURES
         .iter()
-        .position(|signature| *topic0 == transaction_hash(signature.as_bytes()))
+        .position(|signature| *signature_topic == transaction_hash(signature.as_bytes()))
         .ok_or(ChainsError::Encoding)?;
     let expected_topics = if index == 1 { 2 } else { 3 };
     if topics.len() != expected_topics {
@@ -378,10 +398,12 @@ pub fn decode_event(topics: &[[u8; 32]], data: &[u8]) -> Result<ChainEvent, Chai
     Ok(event)
 }
 
+#[must_use]
 pub fn virtual_chain_id(id: u32) -> u64 {
     VIRTUAL_CHAIN_ID_BASE + u64::from(id)
 }
 
+#[must_use]
 pub fn chain_rpc_url(base: &str, id: u32) -> String {
     format!("{}/chain/{id}", base.trim_end_matches('/'))
 }
@@ -396,22 +418,37 @@ impl<'a> ChainsReads<'a> {
         Self { endpoint }
     }
 
+    /// # Errors
+    ///
+    /// Returns `ChainsError::Rpc` on transport or node refusal and `ChainsError::Encoding` for malformed registry output.
     pub fn get_chain(&self, id: u32) -> Result<ChainRecord, ChainsError> {
         decode_get_chain(&self.read(&ChainCall::GetChain(id))?)
     }
 
+    /// # Errors
+    ///
+    /// Returns `ChainsError::Rpc` on transport or node refusal and `ChainsError::Encoding` for malformed registry output.
     pub fn chain_by_name(&self, name: &str) -> Result<u32, ChainsError> {
         self.read_number(&ChainCall::ChainByName(name.to_owned()))
     }
 
+    /// # Errors
+    ///
+    /// Returns `ChainsError::Rpc` on transport or node refusal and `ChainsError::Encoding` for malformed registry output.
     pub fn chain_count(&self) -> Result<u32, ChainsError> {
         self.read_number(&ChainCall::ChainCount)
     }
 
+    /// # Errors
+    ///
+    /// Returns `ChainsError::Rpc` on transport or node refusal and `ChainsError::Encoding` for malformed registry output.
     pub fn chain_id_of(&self, id: u32) -> Result<u64, ChainsError> {
         self.read_number(&ChainCall::ChainIdOf(id))
     }
 
+    /// # Errors
+    ///
+    /// Returns `ChainsError::Rpc` on transport or node refusal and `ChainsError::Encoding` for malformed registry output.
     pub fn params(&self) -> Result<ChainsParams, ChainsError> {
         decode_params(&self.read(&ChainCall::Params)?)
     }
@@ -441,7 +478,7 @@ fn address_word(value: &[u8; 20]) -> [u8; 32] {
     word
 }
 
-fn with_string(head: Vec<[u8; 32]>, text: &str) -> Vec<u8> {
+fn with_string(head: &[[u8; 32]], text: &str) -> Vec<u8> {
     let mut bytes = head.concat();
     bytes.extend_from_slice(&uint(text.len() as u64));
     bytes.extend_from_slice(text.as_bytes());

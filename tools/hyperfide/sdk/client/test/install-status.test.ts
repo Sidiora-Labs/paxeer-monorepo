@@ -5,14 +5,26 @@ import https from "node:https";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import { expect, expectTypeOf, test } from "vitest";
-import { createHyperfideSdk } from "../src/core.js";
 import {
-  SystemInstallError,
+  createNodeHyperfideSdk as createRootHyperfideSdk,
+  createHttpTransport,
+  SystemInstallError as RootSystemInstallError,
   type SystemInstallErrorCode,
   type SystemInstallStatusArgs,
   type SystemInstallStatusResult,
-} from "../src/areas/system.js";
-import { createHttpTransport } from "../src/transport-http.js";
+} from "@hyperfide/sdk";
+import {
+  createNodeHyperfideSdk,
+  SystemInstallError as NodeSystemInstallError,
+} from "@hyperfide/sdk/node";
+import {
+  createBrowserHyperfideSdk,
+  SystemInstallError as BrowserSystemInstallError,
+} from "@hyperfide/sdk/browser";
+import {
+  createHyperfideSdk as createCoreHyperfideSdk,
+  SystemInstallError as CoreSystemInstallError,
+} from "@hyperfide/sdk/core";
 
 interface StatusFixture {
   origin: string;
@@ -27,7 +39,7 @@ interface StatusFixture {
 
 async function install_status_reads_actual_ready_and_preserves_typed_errors() {
   expectTypeOf<
-    SystemInstallError["code"]
+    RootSystemInstallError["code"]
   >().toEqualTypeOf<SystemInstallErrorCode>();
   const root = fileURLToPath(new URL("../../../", import.meta.url));
   const fixture = spawn(
@@ -77,41 +89,57 @@ async function install_status_reads_actual_ready_and_preserves_typed_errors() {
     const ca = readFileSync(actual.ca_file);
     // This fetch implementation uses real HTTPS with the fixture CA. It does
     // not replace the control-plane service, action, authentication or result.
-    const transport = createHttpTransport({
-      baseUrl: actual.origin,
-      runtime: "node",
-      fetch: async (input, init) =>
-        new Promise<Response>((resolve, reject) => {
-          const request = https.request(
-            String(input),
-            {
-              method: init?.method,
-              ca,
-              minVersion: "TLSv1.3",
-              headers: Object.fromEntries(new Headers(init?.headers)),
-              signal: init?.signal ?? undefined,
-            },
-            (incoming) => {
-              const chunks: Buffer[] = [];
-              incoming.on("data", (chunk) => chunks.push(chunk));
-              incoming.once("error", reject);
-              incoming.once("end", () =>
-                resolve(
-                  new Response(Buffer.concat(chunks), {
-                    status: incoming.statusCode,
-                    headers: {
-                      "content-type": String(incoming.headers["content-type"]),
-                    },
-                  }),
-                ),
-              );
-            },
-          );
-          request.once("error", reject);
-          request.end(init?.body);
+    const fetchStatus: typeof fetch = async (input, init) =>
+      new Promise<Response>((resolve, reject) => {
+        const request = https.request(
+          String(input),
+          {
+            method: init?.method,
+            ca,
+            minVersion: "TLSv1.3",
+            headers: Object.fromEntries(new Headers(init?.headers)),
+            signal: init?.signal ?? undefined,
+          },
+          (incoming) => {
+            const chunks: Buffer[] = [];
+            incoming.on("data", (chunk) => chunks.push(chunk));
+            incoming.once("error", reject);
+            incoming.once("end", () =>
+              resolve(
+                new Response(Buffer.concat(chunks), {
+                  status: incoming.statusCode,
+                  headers: {
+                    "content-type": String(incoming.headers["content-type"]),
+                  },
+                }),
+              ),
+            );
+          },
+        );
+        request.once("error", reject);
+        request.end(init?.body);
+      });
+    const connection = { baseUrl: actual.origin, fetch: fetchStatus };
+    const entries = [
+      {
+        sdk: createRootHyperfideSdk(connection),
+        SystemInstallError: RootSystemInstallError,
+      },
+      {
+        sdk: createNodeHyperfideSdk(connection),
+        SystemInstallError: NodeSystemInstallError,
+      },
+      {
+        sdk: createBrowserHyperfideSdk(connection),
+        SystemInstallError: BrowserSystemInstallError,
+      },
+      {
+        sdk: createCoreHyperfideSdk({
+          transport: createHttpTransport({ ...connection, runtime: "node" }),
         }),
-    });
-    const sdk = createHyperfideSdk({ transport });
+        SystemInstallError: CoreSystemInstallError,
+      },
+    ];
     function args(
       identity: StatusFixture["runner"] = actual.runner,
     ): SystemInstallStatusArgs {
@@ -150,37 +178,41 @@ async function install_status_reads_actual_ready_and_preserves_typed_errors() {
         },
       };
     }
-    const ready = await sdk.system.installStatus(args());
-    expectTypeOf(ready).toEqualTypeOf<SystemInstallStatusResult>();
-    expect(ready).toEqual(actual.expected);
-    expect(ready.state).toBe("READY");
-    expect(ready.receipt?.receipt_digest).toBe(ready.receipt_digest);
-    expect(await sdk.system.installStatus(args())).toEqual(ready);
-    for (const [input, code] of [
-      [{ ...args(), operationId: randomUUID() }, "FLEET_INSTALL_NOT_FOUND"],
-      [
-        { ...args(), operationId: actual.predecessor_operation_id },
-        "FLEET_INSTALL_SUPERSEDED",
-      ],
-      [args(actual.operator), "FLEET_INSTALL_SCOPE"],
-    ] as const) {
-      try {
-        await sdk.system.installStatus(input);
-        throw new Error(`Expected ${code}`);
-      } catch (error) {
-        expect(error).toBeInstanceOf(SystemInstallError);
-        expect((error as SystemInstallError).code).toBe(code);
-        expect((error as SystemInstallError).body).toMatchObject({
-          ok: false,
-          error: { code },
-        });
+    for (const { sdk, SystemInstallError } of entries) {
+      const ready = await sdk.system.installStatus(args());
+      expectTypeOf(ready).toEqualTypeOf<SystemInstallStatusResult>();
+      expect(ready).toEqual(actual.expected);
+      expect(ready.state).toBe("READY");
+      expect(ready.receipt?.receipt_digest).toBe(ready.receipt_digest);
+      expect(await sdk.system.installStatus(args())).toEqual(ready);
+      for (const [input, code] of [
+        [{ ...args(), operationId: randomUUID() }, "FLEET_INSTALL_NOT_FOUND"],
+        [
+          { ...args(), operationId: actual.predecessor_operation_id },
+          "FLEET_INSTALL_SUPERSEDED",
+        ],
+        [args(actual.operator), "FLEET_INSTALL_SCOPE"],
+      ] as const) {
+        try {
+          await sdk.system.installStatus(input);
+          throw new Error(`Expected ${code}`);
+        } catch (error) {
+          expect(error).toBeInstanceOf(SystemInstallError);
+          if (!(error instanceof SystemInstallError)) throw error;
+          expectTypeOf(error.code).toEqualTypeOf<SystemInstallErrorCode>();
+          expect(error.code).toBe(code);
+          expect(error.body).toMatchObject({
+            ok: false,
+            error: { code },
+          });
+        }
       }
+      const aborted = new AbortController();
+      aborted.abort();
+      await expect(
+        sdk.system.installStatus({ ...args(), signal: aborted.signal }),
+      ).rejects.toMatchObject({ name: "AbortError" });
     }
-    const aborted = new AbortController();
-    aborted.abort();
-    await expect(
-      sdk.system.installStatus({ ...args(), signal: aborted.signal }),
-    ).rejects.toMatchObject({ name: "AbortError" });
   } finally {
     fixture.stdin.end("close\n");
     const code = await exited;

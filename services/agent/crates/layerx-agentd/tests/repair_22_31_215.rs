@@ -1,3 +1,11 @@
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 use std::collections::BTreeSet;
 use std::fs;
 use std::os::unix::fs::MetadataExt;
@@ -52,21 +60,21 @@ impl Drop for Directory {
 }
 
 fn tenant() -> TenantId {
-    TenantId::new("tenant-a").unwrap()
+    require_ok(TenantId::new("tenant-a"), "required test value")
 }
 
 fn scope() -> SubscriptionScope {
     SubscriptionScope {
-        tenant: ApiTenantId::new("tenant-a").unwrap(),
-        agent: AgentDid::new("agent-a").unwrap(),
-        capability: CapabilityId::new("capability-a").unwrap(),
+        tenant: require_ok(ApiTenantId::new("tenant-a"), "required test value"),
+        agent: require_ok(AgentDid::new("agent-a"), "required test value"),
+        capability: require_ok(CapabilityId::new("capability-a"), "required test value"),
     }
 }
 
 fn target() -> SubscriptionTarget {
     SubscriptionTarget {
         scope: scope(),
-        subscription_id: SubscriptionId::new("subscription-a").unwrap(),
+        subscription_id: require_ok(SubscriptionId::new("subscription-a"), "required test value"),
     }
 }
 
@@ -95,8 +103,8 @@ fn node_log(height: u64, tx: u32, index: u32) -> Value {
         "blockNumber": format!("0x{height:x}"),
         "transactionIndex": format!("0x{tx:x}"),
         "logIndex": format!("0x{index:x}"),
-        "transactionHash": format!("0x{}", hex::encode([tx as u8 + 1; 32])),
-        "blockHash": format!("0x{}", hex::encode([height as u8; 32])),
+        "transactionHash": format!("0x{}", hex::encode([require_ok(u8::try_from(tx), "test value fits u8") + 1; 32])),
+        "blockHash": format!("0x{}", hex::encode([require_ok(u8::try_from(height), "test value fits u8"); 32])),
         "address": format!("0x{}", "12".repeat(20)),
         "topics": [format!("0x{}", "34".repeat(32))],
         "data": "0x00ff", "removed": false
@@ -104,22 +112,32 @@ fn node_log(height: u64, tx: u32, index: u32) -> Value {
 }
 
 fn open_ingestor(root: &Path, initial_sequence: u64) -> EventIngestor {
-    EventIngestor::open(Store::open(root).unwrap(), tenant(), 32, initial_sequence).unwrap()
+    require_ok(
+        EventIngestor::open(
+            require_ok(Store::open(root), "required test value"),
+            tenant(),
+            32,
+            initial_sequence,
+        ),
+        "required test value",
+    )
 }
 
 fn close_block(ingestor: &mut EventIngestor, head: u64) {
     // Adjacent heads flush the actual pending-log journal without a history gap.
-    let source = EthLogSource::new(
-        "http://127.0.0.1:9",
-        &[],
-        SubscriptionTopic::Logs {
-            address: None,
-            topics: vec![],
-        },
-    )
-    .unwrap();
-    ingestor
-        .new_head(
+    let source = require_ok(
+        EthLogSource::new(
+            "http://127.0.0.1:9",
+            &[],
+            SubscriptionTopic::Logs {
+                address: None,
+                topics: vec![],
+            },
+        ),
+        "required test value",
+    );
+    require_ok(
+        ingestor.new_head(
             head,
             &source,
             HistoryLimits {
@@ -128,69 +146,91 @@ fn close_block(ingestor: &mut EventIngestor, head: u64) {
             },
             32,
             attributes(),
-        )
-        .unwrap();
+        ),
+        "required test value",
+    );
 }
 
 fn create(ingestor: EventIngestor, start: Cursor) -> SubscriptionStore {
-    let mut store = SubscriptionStore::open(ingestor.into_store(), tenant()).unwrap();
+    let mut store = require_ok(
+        SubscriptionStore::open(ingestor.into_store(), tenant()),
+        "required test value",
+    );
     let owned = |value| TenantObject {
         tenant: scope().tenant,
         value,
     };
-    store
-        .create(
+    require_ok(
+        store.create(
             target().subscription_id,
             SubscriptionCreate {
                 scope: scope(),
                 filter: SubscriptionFilter {
-                    agents: ExplicitSet::allow(vec![owned(AgentDid::new("agent-a").unwrap())]),
+                    agents: ExplicitSet::allow(vec![owned(require_ok(
+                        AgentDid::new("agent-a"),
+                        "required test value",
+                    ))]),
                     accounts: ExplicitSet::allow(vec![TenantObject {
                         tenant: scope().tenant,
-                        value: AccountRef::new("account-a").unwrap(),
+                        value: require_ok(AccountRef::new("account-a"), "required test value"),
                     }]),
                     activity_types: ExplicitSet::allow(vec![ActivityType(9)]),
                     modules: ExplicitSet::allow(vec![TenantObject {
                         tenant: scope().tenant,
-                        value: ModuleRef::new("asset").unwrap(),
+                        value: require_ok(ModuleRef::new("asset"), "required test value"),
                     }]),
                     assets: ExplicitSet::allow(vec![TenantObject {
                         tenant: scope().tenant,
-                        value: Asset::new("LXR").unwrap(),
+                        value: require_ok(Asset::new("LXR"), "required test value"),
                     }]),
                     counterparties: ExplicitSet::allow(vec![TenantObject {
                         tenant: scope().tenant,
-                        value: Counterparty::new("counterparty-a").unwrap(),
+                        value: require_ok(
+                            Counterparty::new("counterparty-a"),
+                            "required test value",
+                        ),
                     }]),
                     result_classes: ExplicitSet::allow(vec![ResultCode::from_raw(0)]),
                 },
                 start,
-                delivery_target: DeliveryTarget::new("uds://consumer").unwrap(),
+                delivery_target: require_ok(
+                    DeliveryTarget::new("uds://consumer"),
+                    "required test value",
+                ),
             },
-        )
-        .unwrap();
+        ),
+        "required test value",
+    );
     store
 }
 
 fn open_engine(store: SubscriptionStore, live_start: u64) -> DeliveryEngine {
-    DeliveryEngine::open(
-        store,
-        target(),
-        live_start,
-        3,
-        RetryPolicy {
-            base_delay_ms: 10,
-            maximum_delay_ms: 100,
-            jitter_percent: 0,
-            maximum_attempts: 3,
-        },
+    require_ok(
+        DeliveryEngine::open(
+            store,
+            target(),
+            live_start,
+            3,
+            RetryPolicy {
+                base_delay_ms: 10,
+                maximum_delay_ms: 100,
+                jitter_percent: 0,
+                maximum_attempts: 3,
+            },
+        ),
+        "required test value",
     )
-    .unwrap()
 }
 
 fn reopen(root: &Path, live_start: u64) -> DeliveryEngine {
     open_engine(
-        SubscriptionStore::open(Store::open(root).unwrap(), tenant()).unwrap(),
+        require_ok(
+            SubscriptionStore::open(
+                require_ok(Store::open(root), "required test value"),
+                tenant(),
+            ),
+            "required test value",
+        ),
         live_start,
     )
 }
@@ -204,21 +244,23 @@ struct Consumer {
 
 impl Consumer {
     fn new(directory: &Path) -> Self {
-        fs::create_dir_all(directory).unwrap();
+        require_ok(fs::create_dir_all(directory), "required test value");
         let socket = directory.join("consumer.sock");
-        let listener = UnixListener::bind(&socket).unwrap();
-        let metadata = fs::metadata(&socket).unwrap();
-        let endpoint = Endpoint::new(
-            socket,
-            PeerIdentity {
-                uid: metadata.uid(),
-                gid: metadata.gid(),
-            },
-            16_384,
-            Duration::from_secs(3),
-            Duration::from_millis(2),
-        )
-        .unwrap();
+        let listener = require_ok(UnixListener::bind(&socket), "required test value");
+        let metadata = require_ok(fs::metadata(&socket), "required test value");
+        let endpoint = require_ok(
+            Endpoint::new(
+                socket,
+                PeerIdentity {
+                    uid: metadata.uid(),
+                    gid: metadata.gid(),
+                },
+                16_384,
+                Duration::from_secs(3),
+                Duration::from_millis(2),
+            ),
+            "required test value",
+        );
         Self {
             listener,
             endpoint,
@@ -228,33 +270,40 @@ impl Consumer {
     }
 
     fn receive(&mut self, engine: &mut DeliveryEngine) -> (DeliveryItem, VerifiedItem) {
-        let listener = self.listener.try_clone().unwrap();
+        let listener = require_ok(self.listener.try_clone(), "required test value");
         let peer = self.endpoint.expected_peer;
         let server = thread::spawn(move || {
-            let (mut stream, _) = listener.accept().unwrap();
-            stream
-                .set_read_timeout(Some(Duration::from_secs(3)))
-                .unwrap();
-            stream
-                .set_write_timeout(Some(Duration::from_secs(3)))
-                .unwrap();
-            let frame = read_frame(&mut stream, 16_384).unwrap();
+            let (mut stream, _) = require_ok(listener.accept(), "required test value");
+            require_ok(
+                stream.set_read_timeout(Some(Duration::from_secs(3))),
+                "required test value",
+            );
+            require_ok(
+                stream.set_write_timeout(Some(Duration::from_secs(3))),
+                "required test value",
+            );
+            let frame = require_ok(read_frame(&mut stream, 16_384), "required test value");
             let auth = authenticator();
-            let verified = auth.verify(&frame, peer).unwrap();
+            let verified = require_ok(auth.verify(&frame, peer), "required test value");
             assert_eq!(verified.tenant, "tenant-a");
             assert_eq!(verified.subscription_id, "subscription-a");
-            write_frame(&mut stream, &auth.acknowledgement(verified.binding), 16_384).unwrap();
+            require_ok(
+                write_frame(&mut stream, &auth.acknowledgement(verified.binding), 16_384),
+                "required test value",
+            );
             verified.item
         });
-        let sent = outbound::deliver(
-            engine,
-            &self.endpoint,
-            &authenticator(),
-            &StopSignal::active(),
-            100,
-        )
-        .unwrap();
-        let received = server.join().unwrap();
+        let sent = require_ok(
+            outbound::deliver(
+                engine,
+                &self.endpoint,
+                &authenticator(),
+                &StopSignal::active(),
+                100,
+            ),
+            "required test value",
+        );
+        let received = require_ok(server.join(), "required test value");
         if let VerifiedItem::Event {
             deduplication_id,
             event_identity,
@@ -270,17 +319,21 @@ impl Consumer {
 }
 
 fn authenticator() -> Authenticator {
-    Authenticator::new("consumer-key", [0x8a; 32]).unwrap()
+    require_ok(
+        Authenticator::new("consumer-key", [0x8a; 32]),
+        "required test value",
+    )
 }
 
 fn acknowledge(engine: &mut DeliveryEngine, position: Cursor) {
-    let record = engine
-        .acknowledge(&CursorAcknowledgement {
+    let record = require_ok(
+        engine.acknowledge(&CursorAcknowledgement {
             scope: scope(),
             subscription_id: target().subscription_id,
             cursor: position,
-        })
-        .unwrap();
+        }),
+        "required test value",
+    );
     assert_eq!(record.last_acknowledged, position);
 }
 
@@ -309,16 +362,12 @@ fn assert_event(
     };
     assert_eq!(*cursor, position);
     assert_eq!(*global_sequence, ordinal);
+    assert_eq!(*wire_phase, u8::from(phase != DeliveryPhase::Backfill));
     assert_eq!(
-        *wire_phase,
-        if phase == DeliveryPhase::Backfill {
-            0
-        } else {
-            1
-        }
-    );
-    assert_eq!(
-        serde_json::from_slice::<Value>(event_bytes).unwrap(),
+        require_ok(
+            serde_json::from_slice::<Value>(event_bytes),
+            "required test value"
+        ),
         *bytes
     );
 }
@@ -335,7 +384,10 @@ fn event_cursor_preserves_node_positions_across_ack_reopen_and_live_backfill_sea
     ];
     // Ingestion sorts the node's real position independently of arrival order.
     for index in [3, 1, 2, 0] {
-        ingestor.ingest_log(&logs[index], attributes()).unwrap();
+        require_ok(
+            ingestor.ingest_log(&logs[index], attributes()),
+            "required test value",
+        );
     }
     close_block(&mut ingestor, 43);
     assert_eq!(ingestor.watermark().next_expected, 74);
@@ -381,15 +433,21 @@ fn event_cursor_preserves_node_positions_across_ack_reopen_and_live_backfill_sea
         );
         acknowledge(&mut engine, position);
     }
-    assert!(deliver(&mut engine).unwrap().is_none());
+    assert!(require_ok(deliver(&mut engine), "required test value").is_none());
     assert_eq!(consumer.effects.len(), 4);
-    assert_eq!(health(&engine).unwrap().lag_sequences, 0);
+    assert_eq!(
+        require_ok(health(&engine), "required test value").lag_sequences,
+        0
+    );
     drop(engine);
 
     // An acknowledged node cursor also selects an event appended after reopening.
     let mut ingestor = open_ingestor(&root.0, 0);
     let live = node_log(43, 0, 0);
-    ingestor.ingest_log(&live, attributes()).unwrap();
+    require_ok(
+        ingestor.ingest_log(&live, attributes()),
+        "required test value",
+    );
     close_block(&mut ingestor, 44);
     drop(ingestor);
     let mut engine = reopen(&root.0, 72);
@@ -403,7 +461,7 @@ fn event_cursor_preserves_node_positions_across_ack_reopen_and_live_backfill_sea
     acknowledge(&mut engine, cursor(43, 0, 0));
     assert_eq!(consumer.effects.len(), 5);
     assert_eq!(consumer.attempts, 5);
-    assert!(deliver(&mut engine).unwrap().is_none());
+    assert!(require_ok(deliver(&mut engine), "required test value").is_none());
 }
 
 #[test]
@@ -413,7 +471,10 @@ fn event_replay_identity_survives_receipt_promotion_reopen_and_one_consumer_effe
     let mut pending = node_log(42, 0, 0);
     pending["blockHash"] = Value::Null;
     pending["seq"] = json!("0x63");
-    ingestor.ingest_log(&pending, attributes()).unwrap();
+    require_ok(
+        ingestor.ingest_log(&pending, attributes()),
+        "required test value",
+    );
     close_block(&mut ingestor, 43);
     let mut engine = open_engine(create(ingestor, cursor(41, 0, 0)), 901);
     let mut consumer = Consumer::new(&root.0);
@@ -432,7 +493,9 @@ fn event_replay_identity_survives_receipt_promotion_reopen_and_one_consumer_effe
     // cursor acknowledgement is lost before the daemon stops.
     assert_eq!(consumer.effects.len(), 1);
     assert_eq!(
-        health(&engine).unwrap().acknowledged_cursor.block_height,
+        require_ok(health(&engine), "required test value")
+            .acknowledged_cursor
+            .block_height,
         41
     );
     drop(engine);
@@ -441,11 +504,18 @@ fn event_replay_identity_survives_receipt_promotion_reopen_and_one_consumer_effe
     let mut promoted = pending.clone();
     promoted["blockHash"] = node_log(42, 0, 0)["blockHash"].clone();
     promoted["transactionIndex"] = json!("0x2");
-    ingestor.ingest_log(&promoted, attributes()).unwrap();
+    require_ok(
+        ingestor.ingest_log(&promoted, attributes()),
+        "required test value",
+    );
     assert_eq!(ingestor.watermark().next_expected, 901);
     assert_eq!(
-        serde_json::from_slice::<Value>(&ingestor.retained_event(900).unwrap().canonical_bytes)
-            .unwrap(),
+        require_ok(
+            serde_json::from_slice::<Value>(
+                &require_ok(ingestor.retained_event(900), "required test value").canonical_bytes
+            ),
+            "required test value"
+        ),
         promoted
     );
     drop(ingestor);
@@ -487,8 +557,11 @@ fn event_replay_identity_survives_receipt_promotion_reopen_and_one_consumer_effe
         consumer.receive(&mut engine).1,
         VerifiedItem::BackfillComplete { .. }
     ));
-    assert!(deliver(&mut engine).unwrap().is_none());
-    assert_eq!(health(&engine).unwrap().lag_sequences, 0);
+    assert!(require_ok(deliver(&mut engine), "required test value").is_none());
+    assert_eq!(
+        require_ok(health(&engine), "required test value").lag_sequences,
+        0
+    );
 }
 
 #[test]
@@ -496,11 +569,17 @@ fn event_replay_identity_without_transaction_hash_uses_fixed_block_position() {
     let root = Directory::new();
     let mut ingestor = open_ingestor(&root.0, 300);
     let mut first = node_log(42, 0, 0);
-    first.as_object_mut().unwrap().remove("transactionHash");
+    require_some(first.as_object_mut(), "required test value").remove("transactionHash");
     let mut second = first.clone();
     second["logIndex"] = json!("0x1");
-    ingestor.ingest_log(&first, attributes()).unwrap();
-    ingestor.ingest_log(&second, attributes()).unwrap();
+    require_ok(
+        ingestor.ingest_log(&first, attributes()),
+        "required test value",
+    );
+    require_ok(
+        ingestor.ingest_log(&second, attributes()),
+        "required test value",
+    );
     close_block(&mut ingestor, 43);
     let mut engine = open_engine(create(ingestor, cursor(41, 0, 0)), 302);
     let mut consumer = Consumer::new(&root.0);

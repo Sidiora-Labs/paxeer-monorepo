@@ -172,6 +172,7 @@ def test_035_inherited_repair_preserves_entire_openrpc_document():
     ).read_text())
     assert snapshot["base_revision"] == "b06a8e8502aeb3eee0ed79afb1979f134a140ff1"
     assert snapshot["source"] == "services/platform/hosted/gateway/openrpc.json"
+    assert snapshot["pin_source_revision"] == "2910889b640274b1b6f2bd14a2fba25019093bb2"
     assert hashlib.sha256((ROOT / snapshot["source"]).read_bytes()).hexdigest() == snapshot["sha256"]
 
 

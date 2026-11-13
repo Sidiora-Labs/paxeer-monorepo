@@ -250,6 +250,8 @@ impl CounterLedger {
 
     /// Opens and validates the durable authority before it can admit requests.
     /// A permanent lock inode serializes independent opens, including other processes.
+    /// # Errors
+    /// Returns an error if the persisted rate-limit state or configuration cannot be restored.
     pub fn open(root: impl AsRef<Path>) -> Result<Self, Refusal> {
         fs::create_dir_all(root.as_ref()).map_err(|_| Refusal::CounterUnavailable)?;
         let ledger = Self(Arc::new(CounterAuthority::Durable(

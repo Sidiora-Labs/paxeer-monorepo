@@ -2,13 +2,12 @@
 
 Hosted services provide application ingress, identity, proof verification, indexing and operational support for Paxeer. They do not form an additional consensus network. Mainnet-beta is one BFT chain with EVM chain ID **125** (`0x7d`); its kernel is part of the network and proposes blocks. A receipt is final when its block is committed. Sub-chains are database tenant domains, launchable without another chain deployment.
 
-Public node JSON-RPC uses the HTTPS root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, or `api-mainnet-beta.paxeer.network`. Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json). `node.hyperpaxeer.com` is the build library mirror, not RPC.
-
-This page binds service families and historical registry anchors to their maintained source. The [gateway contract](platform-gateway.md) owns public ingress; [middleware](platform-middleware.md) owns application payment verification, [ramps](platform-ramps.md) own independent external-funds workflows, and [protobuf APIs](proto-api.md) own node gRPC/REST declarations. The [standalone relay/archive service is retired](platform-relay-archive.md).
+Public node JSON-RPC uses HTTPS at the configured node origin's root path. Node method availability follows the [node RPC contract](rpc.md#public-json-rpc). The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
+This page describes service families and links their implementation. The [gateway contract](platform-gateway.md) owns public ingress; [middleware](platform-middleware.md) owns application payment verification, [ramps](platform-ramps.md) own independent external-funds workflows, and [protobuf APIs](proto-api.md) own node gRPC/REST declarations. Full and archive `paxd` nodes supply historical chain data; the [indexer](#indexer-http-routes) supplies ordered application projections.
 
 ## Env vars
 
-The [platform Cargo workspace](../services/platform/Cargo.toml) declares the Rust service members. Deployment manifests and environment initialization scripts describe packaging; membership or a manifest does not prove a service is deployed or ready. The sections below link actual configuration readers. Historical `LAYERX_` prefixes and client type names remain in source; preserve exact names when configuring an active adapter, without inferring a separate chain from them.
+The [platform Cargo workspace](../services/platform/Cargo.toml) declares the Rust service members. Deployment manifests and environment initialization scripts describe packaging; membership or a manifest does not prove a service is deployed or ready. The sections below link actual configuration readers. `LAYERX_` prefixes and client type names are configuration and API names for these services.
 
 Keep API credentials, TLS identities and signer handles at their declared boundaries. Do not translate a missing dependency into an empty success. Liveness, local storage health, dependency readiness, signed receipt verification and block commitment are separate observations. Forward tenant and principal bindings through authorization, persistence, cursor and idempotency paths rather than defaulting all traffic to one domain.
 
@@ -20,7 +19,7 @@ Keep API credentials, TLS identities and signer handles at their declared bounda
 
 [bootstrap.sh](../services/platform/hosted/node/bootstrap.sh) and [supervisor.sh](../services/platform/hosted/node/supervisor.sh) enter [native_runtime.py](../services/platform/hosted/node/native_runtime.py). That code prepares and supervises native `paxd` generations. Its root-origin validation and `committed_health` check consensus status and native JSON-RPC, rather than accepting a process's liveness as committed readiness. [reset_state.py](../services/platform/hosted/node/reset_state.py) and [data_directory.py](../services/platform/hosted/node/data_directory.py) own durable generation/reset state and protected directory operations.
 
-Native inputs include `LAYERX_NODE_CONSENSUS_RPC_URL`, `LAYERX_NODE_RPC_URL` and `LAYERX_NODE_CHAIN_ID`; the consensus chain identifier is distinct from numeric EVM chain ID 125. Preserve the generated manifest's identity and storage bindings. The legacy `layerxd` daemon is retired; remaining compatibility scripts referring to it are not native node startup instructions.
+Native inputs include `LAYERX_NODE_CONSENSUS_RPC_URL`, `LAYERX_NODE_RPC_URL` and `LAYERX_NODE_CHAIN_ID`; the consensus chain identifier is distinct from numeric EVM chain ID 125. Preserve the generated manifest's identity and storage bindings.
 
 <a id="core-env-vars"></a>
 <a id="core-error-codes"></a>
@@ -94,7 +93,7 @@ Configuration includes `LAYERX_IDENTITY_STATE_DIR`, `LAYERX_IDENTITY_SERVICE_TOK
 
 ## Indexer HTTP routes
 
-[indexer/src/api.rs](../services/platform/hosted/indexer/src/api.rs) exposes health/readiness and chain, asset, history and holder reads, including `/v1/chains`, `/v1/assets`, `/v1/history/…` and `/v1/holders/…`. [config.rs](../services/platform/hosted/indexer/src/config.rs) reads database, listen, TLS, source, polling and backfill configuration. The default listener is `127.0.0.1:8095`; it is not a public node origin.
+[indexer/src/api.rs](../services/platform/hosted/indexer/src/api.rs) exposes health/readiness and chain, asset, history and holder reads, including `/v1/chains`, `/v1/assets`, `/v1/history/…` and `/v1/holders/…`. [config.rs](../services/platform/hosted/indexer/src/config.rs) reads database, listen, TLS, source, polling and backfill configuration. The default listener uses loopback on port 8095.
 
 [store.rs](../services/platform/hosted/indexer/src/store.rs) owns positions, projection records and ingestion observations. [follow.rs](../services/platform/hosted/indexer/src/follow.rs), [paxeer.rs](../services/platform/hosted/indexer/src/paxeer.rs) and [backfill.rs](../services/platform/hosted/indexer/src/backfill.rs) own live following and historical ingestion. [explorer.rs](../services/platform/hosted/indexer/src/explorer.rs) joins explorer-backed history. Preserve ordered cursors and completeness information when serving the [gateway history methods](platform-gateway.md#gateway-jsonrpc-methods).
 
@@ -186,7 +185,6 @@ The source defines commit and reveal windows within each 128-height epoch and jo
 
 Key releases are durable intents; tombstones, holds and retention high-water marks constrain recovery and deletion. Restoring below a live revocation or retention watermark must not become ready. Artifact service responses are off-chain storage evidence, not protocol receipts. Preserve tenant, publisher and access-envelope bindings when adapting its HTTP and file formats.
 
-<a id="paxai-storage-keeper-file-formats"></a>
 <a id="paxai-worker-cli-commands"></a>
 <a id="paxai-worker-config-keys"></a>
 <a id="paxai-worker-env-vars"></a>
@@ -195,7 +193,7 @@ Key releases are durable intents; tombstones, holds and retention high-water mar
 
 ## PaxAI worker and storage
 
-[paxai-worker/src](../services/platform/hosted/paxai-worker/src) separates signed service transport, authenticated discovery, membership, jobs, runners, metadata and storage. [main.rs](../services/platform/hosted/paxai-worker/src/main.rs) wires the service; [src/bin](../services/platform/hosted/paxai-worker/src/bin) contains helper entry points. Worker configuration, persisted job/metadata formats and keeper material are governed by these readers, not generic node configuration.
+[paxai-worker/src](../services/platform/hosted/paxai-worker/src) separates signed service transport, authenticated discovery, membership, jobs, runners, metadata and storage. [main.rs](../services/platform/hosted/paxai-worker/src/main.rs) wires the service; [src/bin](../services/platform/hosted/paxai-worker/src/bin) contains helper entry points. Worker configuration and persisted job/metadata formats are governed by these readers, not generic node configuration. Historical chain availability comes from archive nodes and requires no separate storage reservation service.
 
 Verify discovery and authorization before accepting work. Preserve restart state and the exact network/program/job identity in storage and submissions. Worker completion and stored artifacts do not establish an on-chain reward or finality; inspect the committed market state and proof at their owning boundary.
 
@@ -212,6 +210,8 @@ Verify discovery and authorization before accepting work. Preserve restart state
 <a id="paxeer-http-routes"></a>
 <a id="paxeer-jsonrpc-methods"></a>
 
-## Retired Paxeer relay boundary
+<a id="retired-paxeer-relay-boundary"></a>
 
-The separate hosted Paxeer relay role is retired by the merged-network retirement inventory. Remaining compatibility files under [hosted/paxeer](../services/platform/hosted/paxeer) do not justify deploying another relay or copying its old CLI, environment, HTTP, JSON-RPC or error contracts into a new integration. Send native node operations to the node root, hosted application operations to their configured gateway, and history queries to the node/archive or indexer boundary that actually owns the requested data.
+## Node and hosted routing
+
+Send native node operations to the node root, hosted application operations to their configured gateway, and history queries to the node or indexer boundary that owns the requested data.

@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "kind": "reviewed_native_correlation_generation_inputs",
   "chainId": 125,
-  "currentReviewedCatalogSHA256": "8ac70f904a048bca6fbc193c0667fea65b3f5e3d51446c0d5a434ccbbb79103f",
+  "currentReviewedCatalogSHA256": "47f8cbd0465b4c12ba425d00b02596b9e85dac82cbb3df073b50ccbc2160fe72",
   "generatorVersion": "L02-revisions-v2",
   "currentReviewedCatalog": "protocol/catalog/reviewed.json",
   "preserveExistingGeneratedBindings": true,

@@ -1,0 +1,61 @@
+[task]
+id = "22.39.342"
+decision = "3209"
+base_revision = "82c80e6b950d5838c72fa5bb28a45bdf3ecb9a09"
+start_revision = "23f0bde2a3a52608c3f9e403bd71b0ad96db6b66"
+continued_revision = "2f617a97789875bcd68404c70ec1779b05f44fbe"
+prerequisite_revision = "591c8608694c8d6806d4a9a0a85851012ec35b54"
+revision_evidence = "The private /out/run/gates.jsonl entries and final hf-done JSON name the exact verified candidate revision, command, exit code and log; only a passing verification entry at the built candidate establishes qualification."
+
+[change.programs]
+path = "sdk/platform/dotnet/Programs.cs"
+symbols = ["AuthorizationV2", "DecodeAuthorizationRoot"]
+changed_lines = ["719-721", "742-745", "749", "799-807", "813"]
+behavior = "Recognize account-bound v1 and v2 wrappers; read both names per v2 leg, validate named destinations against their identity and asset, and derive destination payment accounts before computing the kernel Merkle root. Reject nesting of either wrapper version, trailing bytes and v2 wrappers with no named destination. Preserve v1 decoding."
+
+[change.tests]
+path = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ReceiptFixtureTests.cs"
+symbol = "NativeDestinationAuthorizationVectors"
+changed_lines = ["11-36"]
+fixture = "programs/fixtures/pay5/destination-authorization-vectors.json"
+vectors = 1271
+accepted = 2
+refused = 1269
+behavior = "Run every native-produced vector through DecodeAuthorizationRoot with the existing accept/refuse rule and check AuthorizationV2 for accepted evidence; NativeAccountAuthorizationVectors remains unchanged and covers 515 v1 vectors."
+
+[qualification]
+status = "See the bounded gate ledger for the qualification result of attempt 2."
+build_command = "dotnet build sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj"
+verify_command = "test -s sdk/platform/dotnet/repair_22_39_342.kvx && dotnet test sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --filter 'FullyQualifiedName~ReceiptFixtureTests'"
+build_log = "/out/logs/build-1.log"
+verify_log = "/out/logs/verify-1.log"
+verification_state = "Attempt 2 preserves the implementation and existing assertions; hf-build and hf-done qualify the same final candidate without a handwritten SDK install."
+evidence_ledger = "/out/run/gates.jsonl"
+
+[gotcha.scope]
+observed = "Scope excludes GOTCHA.kvx and spec files; runner-owned setup changes are preserved, and task notes are recorded here. An initial patch context did not match the long ProgramOutcomeV3 declaration; the corrected patch uses the class declaration as its insertion point."
+
+[gotcha.format]
+observed = "No C# formatter is configured in the repository; touched code follows the existing four-space C# source style and root .editorconfig whitespace rules. No formatter applies to kvx."
+
+[attempt1.initial-build]
+revision = "3fc9f1badf3984b7f1699ab46be74731e9b75c52"
+command = "dotnet build sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj"
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The sandbox supplied SDK 8.0.427; both unchanged project manifests target net10.0, so NETSDK1045 stopped the build before compilation."
+repair = "Install and select .NET SDK 10 in the sandbox without changing project targets; rerun the declared build and verification on the candidate containing this record."
+
+[attempt1.blocker]
+task = "22.39.342"
+file = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/AgentOperationEnvelopeTests.cs:82"
+symbol = "X509Certificate2.X509Certificate2(byte[])"
+observed = "Revision 9a855cf18b0387de2ab04c48805d8a3fa82e2f77, command dotnet build sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj, exit 1, log /out/logs/build-2.log: the SDK library compiles, but the unchanged test uses an obsolete certificate constructor and TreatWarningsAsErrors promotes SYSLIB0057 to an error."
+assumption = "Repair belongs to the owner of AgentOperationEnvelopeTests.cs; this task cannot edit that out-of-scope file or suppress the check."
+severity = "blocker"
+
+[attempt2.continuation]
+decision = "3234"
+observed = "The runner merged prerequisite 22.39.354 before restoring the attempt-1 tree; AgentOperationEnvelopeTests.cs:82 now uses X509CertificateLoader.LoadCertificate, and no out-of-scope source changes are needed."
+implementation = "Preserve both readers and NativeDestinationAuthorizationVectors from attempt 1; confirm 1271 destination vectors (2 accepted, 1269 refused) and the unchanged 515 account vectors (5 accepted, 510 refused)."
+evidence = "The current attempt has a fresh private gate ledger; attempt-1 log paths above describe historical failures only."

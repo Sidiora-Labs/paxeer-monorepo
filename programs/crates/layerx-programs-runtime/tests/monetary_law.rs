@@ -1,5 +1,4 @@
-#[path = "support/abi_versions.rs"]
-mod abi_versions;
+use layerx_programs_runtime::test_support as abi_versions;
 
 use layerx_programs_runtime::abi::response::CANDIDATE_ABI_MODULE;
 use layerx_programs_runtime::test_support::{
@@ -360,6 +359,8 @@ fn candidate_program_transfer_host_issues_exact_owner_frame_authority() {
 
 #[test]
 fn real_wasm_program_leg_from_underivable_account_is_refused() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let program = ProgramId::new([41; 32]).unwrap_or_else(|error| panic!("program: {error}"));
     let foreign = ProgramId::new([45; 32]).unwrap_or_else(|error| panic!("foreign: {error}"));
     let payer = PrincipalId::new([42; 32]).unwrap_or_else(|error| panic!("payer: {error}"));
@@ -373,7 +374,7 @@ fn real_wasm_program_leg_from_underivable_account_is_refused() {
         owner_program: program,
         seed: seed.to_vec(),
         source_account: layerx_programs_runtime::derive_program_account(program, seed)
-            .unwrap()
+            .assert_success("test value")
             .bytes(),
         asset,
         to: recipient,
@@ -406,10 +407,10 @@ fn real_wasm_program_leg_from_underivable_account_is_refused() {
             },
             payer,
             generous_budget(),
-            ActivityBudgetBinding::new([12; 32]).unwrap(),
+            ActivityBudgetBinding::new([12; 32]).assert_success("test value"),
         ),
     );
-    assert_authority_escalation(refused.unwrap());
+    assert_authority_escalation(&refused.assert_success("test value"));
     assert_eq!(storage, Storage::default());
 }
 
@@ -637,12 +638,23 @@ fn real_wasm_budgeted_preparation_retains_failure_and_resource_diagnostics() {
 }
 
 fn candidate_forwarding_module(callee: ProgramId, requested: &CapabilitySet) -> Vec<u8> {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let encoded = requested.canonical_encoding();
     let mut entry = Vec::new();
-    for mut value in [0_i64, 32, 32, 0, 32, encoded.len() as i64, 512, 0] {
+    for mut value in [
+        0_i64,
+        32,
+        32,
+        0,
+        32,
+        i64::try_from(encoded.len()).assert_success("fixture fits i64"),
+        512,
+        0,
+    ] {
         entry.push(OP_I32_CONST);
         loop {
-            let byte = (value & 0x7f) as u8;
+            let byte = value.to_le_bytes()[0] & 0x7f;
             value >>= 7;
             let done = (value == 0 && byte & 0x40 == 0) || (value == -1 && byte & 0x40 != 0);
             entry.push(if done { byte } else { byte | 0x80 });
@@ -676,6 +688,8 @@ fn candidate_forwarding_module(callee: ProgramId, requested: &CapabilitySet) -> 
 
 #[test]
 fn real_wasm_program_leg_staged_by_callee_frame_is_refused() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     use layerx_programs_runtime::{CompositionRules, ProgramCatalog};
     let owner = ProgramId::new([61; 32]).unwrap_or_else(|error| panic!("owner: {error}"));
     let callee = ProgramId::new([62; 32]).unwrap_or_else(|error| panic!("callee: {error}"));
@@ -727,15 +741,17 @@ fn real_wasm_program_leg_staged_by_callee_frame_is_refused() {
             },
             payer,
             generous_budget(),
-            ActivityBudgetBinding::new([13; 32]).unwrap(),
+            ActivityBudgetBinding::new([13; 32]).assert_success("test value"),
         ),
     );
-    assert_authority_escalation(refused.unwrap());
+    assert_authority_escalation(&refused.assert_success("test value"));
     assert_eq!(storage, before);
 }
 
 #[test]
 fn real_wasm_cumulative_program_legs_refuse_one_past_grant_atomically() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let owner = ProgramId::new([71; 32]).unwrap_or_else(|error| panic!("owner: {error}"));
     let payer = PrincipalId::new([72; 32]).unwrap_or_else(|error| panic!("payer: {error}"));
     let seed = b"cumulative";
@@ -778,11 +794,11 @@ fn real_wasm_cumulative_program_legs_refuse_one_past_grant_atomically() {
                 },
                 payer,
                 generous_budget(),
-                ActivityBudgetBinding::new([14; 32]).unwrap(),
+                ActivityBudgetBinding::new([14; 32]).assert_success("test value"),
             ),
         );
         if maximum_amount == 9 {
-            assert_authority_escalation(outcome.unwrap());
+            assert_authority_escalation(&outcome.assert_success("test value"));
         } else {
             let record = outcome.unwrap_or_else(|error| panic!("at bound: {error}"));
             let effects = record
@@ -800,16 +816,19 @@ fn real_wasm_cumulative_program_legs_refuse_one_past_grant_atomically() {
 
 #[test]
 fn monetary_law_raw_balance_and_issuance_imports_refuse_every_supported_abi() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     use layerx_programs_runtime::ValidationRefusal;
     let engine = WasmEngine::declared().unwrap_or_else(|error| panic!("engine: {error}"));
     let versions = abi_versions::supported_abi_versions();
     assert!(versions.contains(&layerx_programs_runtime::ABI_V5_VERSION));
-    let program = ProgramId::new([0x71; 32]).unwrap();
-    let principal = PrincipalId::new([0x72; 32]).unwrap();
+    let program = ProgramId::new([0x71; 32]).assert_success("test value");
+    let principal = PrincipalId::new([0x72; 32]).assert_success("test value");
     let namespace = layerx_programs_runtime::StorageNamespace::principal(program, principal);
     let mut storage = Storage::default();
     let mut seed = storage.transaction(namespace);
-    seed.write(b"existing", b"committed state").unwrap();
+    seed.write(b"existing", b"committed state")
+        .assert_success("test value");
     assert_eq!(seed.commit(), 1);
     let before = storage.clone();
     for abi_version in versions {
@@ -818,8 +837,10 @@ fn monetary_law_raw_balance_and_issuance_imports_refuse_every_supported_abi() {
                 abi_version,
                 &layerx_programs_runtime::test_support::add_module(),
             )
-            .unwrap();
-        positive.instantiate_for_qualification().unwrap();
+            .assert_success("test value");
+        positive
+            .instantiate_for_qualification()
+            .assert_success("test value");
         for module_name in [
             ABI_MODULE,
             CANDIDATE_ABI_MODULE,
@@ -852,7 +873,9 @@ fn monetary_law_raw_balance_and_issuance_imports_refuse_every_supported_abi() {
                 let outcome = engine
                     .validate_versioned(abi_version, &wasm)
                     .map(|validated| {
-                        validated.instantiate_for_qualification().unwrap();
+                        validated
+                            .instantiate_for_qualification()
+                            .assert_success("test value");
                         Executor::declared().execute_authorized(
                             &mut storage,
                             AuthorizedExecutionRequest {
@@ -875,10 +898,13 @@ fn monetary_law_raw_balance_and_issuance_imports_refuse_every_supported_abi() {
                 assert!(outcome.is_err(), "raw import reached instantiation/execution: {abi_version}/{module_name}/{import_name}");
                 assert_eq!(storage, before, "raw import mutated storage");
                 assert_eq!(
-                    storage.transaction(namespace).read(b"existing").unwrap(),
+                    storage
+                        .transaction(namespace)
+                        .read(b"existing")
+                        .assert_success("test value"),
                     Some(b"committed state".to_vec())
                 );
-                let refusal = outcome.err().unwrap();
+                let refusal = outcome.err().assert_success("test value");
                 assert_eq!(
                     refusal,
                     ValidationRefusal::ForbiddenImport {
@@ -925,8 +951,12 @@ fn monetary_law_principal_transfer_without_invoker_grant_refuses_atomically() {
     assert_eq!(storage, before);
 }
 
-fn assert_authority_escalation(record: layerx_programs_runtime::V2AuthorizedExecutionRecord) {
-    let failure = record.failure().expect("authenticated authority refusal");
+fn assert_authority_escalation(record: &layerx_programs_runtime::V2AuthorizedExecutionRecord) {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    let failure = record
+        .failure()
+        .assert_success("authenticated authority refusal");
     assert_eq!(
         failure.class(),
         layerx_programs_runtime::RefusalClass::Unauthorized
@@ -941,25 +971,27 @@ fn assert_authority_escalation(record: layerx_programs_runtime::V2AuthorizedExec
 
 #[test]
 fn foreign_root_program_spend_is_an_abi_invalid_capability() {
-    let owner = ProgramId::new([91; 32]).unwrap();
-    let foreign = ProgramId::new([92; 32]).unwrap();
-    let payer = PrincipalId::new([93; 32]).unwrap();
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    let owner = ProgramId::new([91; 32]).assert_success("test value");
+    let foreign = ProgramId::new([92; 32]).assert_success("test value");
+    let payer = PrincipalId::new([93; 32]).assert_success("test value");
     let seed = b"foreign-root";
     let grants = CapabilitySet::new([Capability::ProgramSpend {
         owner_program: foreign,
         seed: seed.to_vec(),
         source_account: layerx_programs_runtime::derive_program_account(foreign, seed)
-            .unwrap()
+            .assert_success("test value")
             .bytes(),
         asset: [94; 32],
         to: [95; 32],
         maximum_amount: 5,
     }])
-    .unwrap();
+    .assert_success("test value");
     let module = WasmEngine::declared()
-        .unwrap()
+        .assert_success("test value")
         .validate_v2(&candidate_with_entry(&[OP_I32_CONST, 0, OP_END]))
-        .unwrap();
+        .assert_success("test value");
     let mut storage = Storage::default();
     assert_eq!(
         Executor::declared().execute_authorized_v2(

@@ -1,0 +1,249 @@
+[repair.22.39.275]
+base_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+scan_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/chain"
+scan_exit = 1
+finding_count = 26
+decisions = ["3101", "3104", "3125"]
+continuation_base_revision = "8742bd00eb3acc490f28e5d26038636590216955"
+previous_attempt_revision = "0a7eeaf533637c9106e084c8656114aa5cc261d9"
+qualification = "The bounded hf-build/hf-done ledger and final task receipt record the exact final candidate revision, command, exit and private log; qualification requires both gates to pass on the same candidate."
+inventory = "The 26 findings below retain the path, line, component and symbol of the original scan at base_revision; the continuation preserves the attempt-1 replay code and installs the allowance authorized by decision 3125."
+allowance_catalogue = "tools/paxeer-x/retired_callers.json"
+allowance_path = "tools/chain/upgrade-replay"
+allowed_symbols = ["layerxanchor", "layerxcustody", "layerxverify"]
+allowance_reason = "The upgrade replay harness retains the historical anchor, custody and verify modules and precompiles to prove activation, exact retirement refusals and committed state recovery across upgrades."
+existing_test = "TestRepairM_811_PrecompileCallsSurviveReopen requires the historical verify/custody/anchor calls, exact retired refusals, anchor genesis and recovery across commit/reopen; deleting those reachable paths or disguising names would weaken the existing check."
+
+[finding.1]
+path = "tools/chain/upgrade-replay/appsetup.go"
+line = 11
+component = "anchor"
+symbol = "layerxanchor"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Historical store keys, module versions and production ABI registrations are required to replay activation before merge and check the retained contracts after merge."
+
+[finding.2]
+path = "tools/chain/upgrade-replay/appsetup.go"
+line = 13
+component = "custody-deposit"
+symbol = "layerxcustody"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Historical store keys, module versions and production ABI registrations are required to replay activation before merge and check the retained contracts after merge."
+
+[finding.3]
+path = "tools/chain/upgrade-replay/appsetup.go"
+line = 19
+component = "anchor"
+symbol = "layerxanchor"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Historical store keys, module versions and production ABI registrations are required to replay activation before merge and check the retained contracts after merge."
+
+[finding.4]
+path = "tools/chain/upgrade-replay/appsetup.go"
+line = 21
+component = "custody-deposit"
+symbol = "layerxcustody"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Historical store keys, module versions and production ABI registrations are required to replay activation before merge and check the retained contracts after merge."
+
+[finding.5]
+path = "tools/chain/upgrade-replay/appsetup.go"
+line = 23
+component = "verify"
+symbol = "layerxverify"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Historical store keys, module versions and production ABI registrations are required to replay activation before merge and check the retained contracts after merge."
+
+[finding.6]
+path = "tools/chain/upgrade-replay/appsetup.go"
+line = 78
+component = "verify"
+symbol = "layerxverify"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Historical store keys, module versions and production ABI registrations are required to replay activation before merge and check the retained contracts after merge."
+
+[finding.7]
+path = "tools/chain/upgrade-replay/appsetup.go"
+line = 79
+component = "custody-deposit"
+symbol = "layerxcustody"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Historical store keys, module versions and production ABI registrations are required to replay activation before merge and check the retained contracts after merge."
+
+[finding.8]
+path = "tools/chain/upgrade-replay/appsetup.go"
+line = 80
+component = "anchor"
+symbol = "layerxanchor"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Historical store keys, module versions and production ABI registrations are required to replay activation before merge and check the retained contracts after merge."
+
+[finding.9]
+path = "tools/chain/upgrade-replay/precompile_calls.go"
+line = 17
+component = "anchor"
+symbol = "layerxanchor"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Real historical calls and height-dependent retirement checks are required to assert every disabled operation returns its exact refusal and that anchor views retire at the separate store-delete plan."
+
+[finding.10]
+path = "tools/chain/upgrade-replay/precompile_calls.go"
+line = 18
+component = "verify"
+symbol = "layerxverify"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Real historical calls and height-dependent retirement checks are required to assert every disabled operation returns its exact refusal and that anchor views retire at the separate store-delete plan."
+
+[finding.11]
+path = "tools/chain/upgrade-replay/precompile_calls.go"
+line = 55
+component = "verify"
+symbol = "layerxverify"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Real historical calls and height-dependent retirement checks are required to assert every disabled operation returns its exact refusal and that anchor views retire at the separate store-delete plan."
+
+[finding.12]
+path = "tools/chain/upgrade-replay/precompile_calls.go"
+line = 57
+component = "custody-deposit"
+symbol = "layerxcustody"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Real historical calls and height-dependent retirement checks are required to assert every disabled operation returns its exact refusal and that anchor views retire at the separate store-delete plan."
+
+[finding.13]
+path = "tools/chain/upgrade-replay/precompile_calls.go"
+line = 59
+component = "anchor"
+symbol = "layerxanchor"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Real historical calls and height-dependent retirement checks are required to assert every disabled operation returns its exact refusal and that anchor views retire at the separate store-delete plan."
+
+[finding.14]
+path = "tools/chain/upgrade-replay/precompile_calls.go"
+line = 69
+component = "verify"
+symbol = "layerxverify"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Real historical calls and height-dependent retirement checks are required to assert every disabled operation returns its exact refusal and that anchor views retire at the separate store-delete plan."
+
+[finding.15]
+path = "tools/chain/upgrade-replay/precompile_calls.go"
+line = 75
+component = "custody-deposit"
+symbol = "layerxcustody"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Real historical calls and height-dependent retirement checks are required to assert every disabled operation returns its exact refusal and that anchor views retire at the separate store-delete plan."
+
+[finding.16]
+path = "tools/chain/upgrade-replay/precompile_calls.go"
+line = 77
+component = "anchor"
+symbol = "layerxanchor"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Real historical calls and height-dependent retirement checks are required to assert every disabled operation returns its exact refusal and that anchor views retire at the separate store-delete plan."
+
+[finding.17]
+path = "tools/chain/upgrade-replay/replay.go"
+line = 24
+component = "anchor"
+symbol = "layerxanchor"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Historical genesis parameters and their real keeper types remain necessary to assert activation state and preserve governance and commit/reopen checks."
+
+[finding.18]
+path = "tools/chain/upgrade-replay/replay.go"
+line = 26
+component = "custody-deposit"
+symbol = "layerxcustody"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Historical genesis parameters and their real keeper types remain necessary to assert activation state and preserve governance and commit/reopen checks."
+
+[finding.19]
+path = "tools/chain/upgrade-replay/replay.go"
+line = 295
+component = "custody-deposit"
+symbol = "layerxcustody"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Historical genesis parameters and their real keeper types remain necessary to assert activation state and preserve governance and commit/reopen checks."
+
+[finding.20]
+path = "tools/chain/upgrade-replay/replay.go"
+line = 297
+component = "custody-deposit"
+symbol = "layerxcustody"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Historical genesis parameters and their real keeper types remain necessary to assert activation state and preserve governance and commit/reopen checks."
+
+[finding.21]
+path = "tools/chain/upgrade-replay/replay.go"
+line = 298
+component = "custody-deposit"
+symbol = "layerxcustody"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Historical genesis parameters and their real keeper types remain necessary to assert activation state and preserve governance and commit/reopen checks."
+
+[finding.22]
+path = "tools/chain/upgrade-replay/replay.go"
+line = 299
+component = "custody-deposit"
+symbol = "layerxcustody"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Historical genesis parameters and their real keeper types remain necessary to assert activation state and preserve governance and commit/reopen checks."
+
+[finding.23]
+path = "tools/chain/upgrade-replay/replay.go"
+line = 302
+component = "anchor"
+symbol = "layerxanchor"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Historical genesis parameters and their real keeper types remain necessary to assert activation state and preserve governance and commit/reopen checks."
+
+[finding.24]
+path = "tools/chain/upgrade-replay/replay.go"
+line = 304
+component = "anchor"
+symbol = "layerxanchor"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Historical genesis parameters and their real keeper types remain necessary to assert activation state and preserve governance and commit/reopen checks."
+
+[finding.25]
+path = "tools/chain/upgrade-replay/replay.go"
+line = 305
+component = "anchor"
+symbol = "layerxanchor"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Historical genesis parameters and their real keeper types remain necessary to assert activation state and preserve governance and commit/reopen checks."
+
+[finding.26]
+path = "tools/chain/upgrade-replay/replay.go"
+line = 306
+component = "anchor"
+symbol = "layerxanchor"
+disposition = "allowed_reference"
+allowance_path = "tools/chain/upgrade-replay"
+reason = "Historical genesis parameters and their real keeper types remain necessary to assert activation state and preserve governance and commit/reopen checks."

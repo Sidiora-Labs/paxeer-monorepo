@@ -465,6 +465,7 @@ lxp_result lxp_genesis_module_plan_matches(
     return LXP_OK;
 }
 
+/* Shared by genesis validation, materialization and the default builder. */
 static const char *fresh_system_name(uint16_t kind)
 {
     switch ((lx_account_kind)kind) {

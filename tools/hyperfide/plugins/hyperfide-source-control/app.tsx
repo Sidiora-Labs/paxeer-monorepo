@@ -8,6 +8,7 @@ import {
   sourceContract,
   requestSchema,
   sourceCheckpointReceiptMatches,
+  sourceHostCheckpointMatches,
   type SourceActionInput,
   type SourceProductRequest,
   type SourceProductResponse,
@@ -51,9 +52,28 @@ export function workspaceReceiptEvidence(
   response: SourceProductResponse,
   previous: SourceWorkspaceEvidence[],
 ): SourceWorkspaceEvidence | null {
-  if (!response.ok) return null;
+  if (!response.ok || response.operationId !== request.operationId) return null;
   const result = object(response.result);
   if (!result) return null;
+  if (request.action.kind === "workspace") {
+    const recovered = object(result.checkpointEvidence);
+    const checkpoint = recovered?.checkpoint;
+    if (
+      recovered?.projectId === request.projectId &&
+      sourceHostCheckpointMatches(checkpoint, result.workspace) &&
+      checkpoint.workspaceId === request.action.workspaceId
+    )
+      return {
+        projectId: request.projectId,
+        workspaceGeneration: checkpoint.result.workspace.workspace_generation,
+        scopeGeneration: checkpoint.scopeGeneration,
+        workspaceId: checkpoint.workspaceId,
+        revisionId: checkpoint.result.revision_id,
+        stage: "ACKNOWLEDGED",
+        operationId: checkpoint.operationId,
+      };
+    return null;
+  }
   if (
     request.action.kind === "checkpoint" &&
     sourceCheckpointReceiptMatches(
@@ -64,6 +84,11 @@ export function workspaceReceiptEvidence(
     typeof result.revision_id === "string"
   )
     return {
+      projectId: request.projectId,
+      workspaceGeneration: String(
+        BigInt(request.action.workspaceGeneration) + 1n,
+      ),
+      scopeGeneration: request.action.scopeGeneration,
       workspaceId: request.action.workspaceId,
       revisionId: result.revision_id,
       stage: "ACKNOWLEDGED",
@@ -76,7 +101,9 @@ export function workspaceReceiptEvidence(
     typeof result.submission_id === "string"
   ) {
     const prior = previous.find(
-      (value) => value.revisionId === result.revision_id,
+      (value) =>
+        value.projectId === request.projectId &&
+        value.revisionId === result.revision_id,
     );
     if (prior)
       return { ...prior, stage: "SUBMITTED", operationId: request.operationId };
@@ -92,7 +119,9 @@ export function workspaceReceiptEvidence(
         ? "EXPORTED"
         : null;
   const prior = previous.find(
-    (value) => value.revisionId === result.revision_id,
+    (value) =>
+      value.projectId === request.projectId &&
+      value.revisionId === result.revision_id,
   );
   return stage && prior
     ? { ...prior, stage, operationId: request.operationId }
@@ -136,9 +165,24 @@ export function SourcePanel(_props: PluginNavPanelProps) {
       setCompletion({ request, response });
       setWorkspaceEvidence((previous) => {
         const evidence = workspaceReceiptEvidence(request, response, previous);
-        if (!evidence) return previous;
+        if (!evidence)
+          return request.action.kind === "workspace"
+            ? previous.filter(
+                (value) =>
+                  value.projectId !== request.projectId ||
+                  value.workspaceId !==
+                    (
+                      request.action as Extract<
+                        SourceActionInput,
+                        { kind: "workspace" }
+                      >
+                    ).workspaceId,
+              )
+            : previous;
         const prior = previous.find(
-          (value) => value.workspaceId === evidence.workspaceId,
+          (value) =>
+            value.projectId === evidence.projectId &&
+            value.workspaceId === evidence.workspaceId,
         );
         const stages = ["ACKNOWLEDGED", "SUBMITTED", "ACCEPTED", "EXPORTED"];
         if (
@@ -148,7 +192,9 @@ export function SourcePanel(_props: PluginNavPanelProps) {
           return previous;
         return [
           ...previous.filter(
-            (value) => value.workspaceId !== evidence.workspaceId,
+            (value) =>
+              value.projectId !== evidence.projectId ||
+              value.workspaceId !== evidence.workspaceId,
           ),
           evidence,
         ].slice(-128);
@@ -193,6 +239,16 @@ export function SourcePanel(_props: PluginNavPanelProps) {
       setSending(true);
       setError("");
       setNotice("");
+      if (request.action.kind === "workspace") {
+        const workspaceId = request.action.workspaceId;
+        setWorkspaceEvidence((previous) =>
+          previous.filter(
+            (value) =>
+              value.projectId !== request.projectId ||
+              value.workspaceId !== workspaceId,
+          ),
+        );
+      }
       try {
         const response = await rpc.call("execute", request);
         setReceipt(response);
@@ -460,6 +516,7 @@ export function SourcePanel(_props: PluginNavPanelProps) {
                       : null
                   }
                   evidence={workspaceEvidence}
+                  completed={completed}
                 />
               )}{" "}
               {tab === "changes" && (

@@ -208,8 +208,30 @@ def test_f064_retains_nonempty_native_and_explorer_acceptance_corpora():
     gateway = (ROOT / "services/platform/hosted/gateway/src/lib.rs").read_text()
     assert "fn production_route_refuses_every_program_and_activity_route()" in gateway
     explorer = ROOT / "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/committed_vectors_test.exs"
-    assert 'test "committed_vectors_drive_verify"' in explorer.read_text()
-    assert "SequencerReceipt.verify(tx_hash" in explorer.read_text()
+    vectors = explorer.read_text()
+    assert 'test "committed_vectors_drive_verify"' in vectors
+    # 20d1e29d9d installs governed trust and supplies full committed evidence.
+    assert 'Code.require_file("../../../support/fixture/paxeer_x/governed_receipt_fixtures.exs", __DIR__)' in vectors
+    assert "alias Explorer.Chain.PaxeerX.GovernedReceiptFixtures" in vectors
+    assert re.search(
+        r"setup do\s+GovernedReceiptFixtures\.restore_on_exit\(\)\s+"
+        r"GovernedReceiptFixtures\.configure_committed\(\)", vectors,
+    )
+    assert 'committed_vectors.json' in vectors
+    assert '%{"cases" => cases} = @vectors |> File.read!() |> Jason.decode!()' in vectors
+    assert "Enum.map(cases, &committed_vectors_drive_verify/1)" in vectors
+    assert "defp committed_vectors_drive_verify(test_case) do" in vectors
+    assert '"0x" <> raw_transaction = test_case["rawTransaction"]' in vectors
+    assert "tx_hash = raw_transaction |> Base.decode16!(case: :mixed) |> ExKeccak.hash_256()" in vectors
+    assert '{:ok, keys} = SequencerReceipt.decode_receipt_keys([test_case["pinnedKey"]])' in vectors
+    assert re.search(
+        r'SequencerReceipt\.verify\(\s*tx_hash,\s*test_case\["receiptJson"\],\s*keys,\s*'
+        r'GovernedReceiptFixtures\.committed_opts\(test_case\)\s*\)', vectors,
+    )
+    assert re.search(
+        r"Enum\.map\(cases, &committed_vectors_drive_verify/1\) == \[\s*"
+        r"\{:committed, key, 10\},\s*\{:error, :r7\},\s*\{:error, :r8\}\s*\]", vectors,
+    )
 
 
 def test_f065_connected_path_uses_real_evm_producer_reads_commitment_and_refusals():
@@ -549,13 +571,13 @@ def test_f021_native_funding_uses_retained_bank_send_and_public_root_roster():
     funding = (ROOT / owner.BANK_PRODUCER).read_text()
     assert "pub(super) fn sign_native(" in funding
     assert '"eth_sendRawTransaction"' in funding and "DEPLOYMENT_CHAIN_ID: u64 = 125" in funding
-    assert owner.native_funding((ROOT / "docs/site/docs/overview/getting-started.md").read_text(), roots)
+    assert owner.native_funding((ROOT / "docs/site/paxeer-docs/src/app/payments-quickstart/page.tsx").read_text(), roots)
     text = source("108.0.7")
     assert "funded_by_custody_credit" not in text and "router=" not in text
     assert 'python3 tools/paxeer-x/gates/onboarding_funding.py "$1"' in text
     assert 'check "native-bank-send:$page" funded_by_native_bank_send "$page"' in text
     assert text.count('docs/wiki/Getting-Started-Beta.md') == 1
-    assert "docs/site/docs/platform/index.md" in text
+    assert "docs/site/paxeer-docs/src/app/platform-api/page.tsx" in text
 
 
 @pytest.mark.parametrize("suffix", ["/rpc", "/evm", "/rpc/ws", "?route=rpc", ":8545"])
@@ -574,7 +596,7 @@ def test_f021_public_roster_refuses_prefixed_or_non_public_roots(suffix):
 def test_f021_funding_refuses_unserved_faucet_and_retired_producers(addition):
     owner = module("onboarding_funding")
     roots = owner.public_roots((ROOT / owner.INVENTORY).read_text())
-    current = (ROOT / "docs/site/docs/overview/getting-started.md").read_text()
+    current = (ROOT / "docs/site/paxeer-docs/src/app/payments-quickstart/page.tsx").read_text()
     with pytest.raises(ValueError, match="forbidden|retired funding"):
         owner.native_funding(current + addition, roots)
 
@@ -588,7 +610,7 @@ def test_f021_keeps_unserved_host_refusal_and_private_page_corpus():
     assert "docs/platform/beta-resets.ics" in text
     assert "check package-info-docs-location no_docs_host" in text
     scanner = (ROOT / "tools/bringup/docs-names.sh").read_text()
-    assert "inventory=docs/site/docs/reference/public-rpc.md" in scanner
+    assert "inventory=docs/site/paxeer-docs/src/app/public-rpc/page.tsx" in scanner
     assert 'docs-names "$inventory" "$spec" "${files[@]}"' in scanner
 
 

@@ -30,6 +30,7 @@ INTEGRATION = {
     'recorded_schedule_prices_real_meter_without_current_head_fallback': 'recorded schedules price without current-head fallback',
     'governed_fee_history_reprices_each_recorded_version_exactly': 'replay reprices each recorded schedule version exactly',
 }
+# The fee-relay removal keeps this governed-schedule integration suite.
 SUITES = ['fee_governance', 'replay']
 WALL_CLOCK = re.compile(r'\b(SystemTime|Instant|UNIX_EPOCH|chrono)\b|std::time')
 RELEASE_SCOPE = 'the remaining integration suites and aggregate make programs-test'

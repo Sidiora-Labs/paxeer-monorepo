@@ -36,16 +36,21 @@ impl Fixture {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed),
         ));
-        let tenant = TenantId::new("tenant-a").expect("tenant");
+        let tenant = TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error:?}"));
         let scope = SubscriptionScope {
-            tenant: ApiTenantId::new("tenant-a").expect("API tenant"),
-            agent: AgentDid::new("agent-a").expect("agent"),
-            capability: CapabilityId::new("capability-a").expect("capability"),
+            tenant: ApiTenantId::new("tenant-a")
+                .unwrap_or_else(|error| panic!("API tenant: {error:?}")),
+            agent: AgentDid::new("agent-a").unwrap_or_else(|error| panic!("agent: {error:?}")),
+            capability: CapabilityId::new("capability-a")
+                .unwrap_or_else(|error| panic!("capability: {error:?}")),
         };
-        let id = SubscriptionId::new("subscription-a").expect("subscription ID");
-        let mut subscriptions =
-            SubscriptionStore::open(Store::open(&root).expect("durable store"), tenant)
-                .expect("subscription store");
+        let id = SubscriptionId::new("subscription-a")
+            .unwrap_or_else(|error| panic!("subscription ID: {error:?}"));
+        let mut subscriptions = SubscriptionStore::open(
+            Store::open(&root).unwrap_or_else(|error| panic!("durable store: {error:?}")),
+            tenant,
+        )
+        .unwrap_or_else(|error| panic!("subscription store: {error:?}"));
         subscriptions
             .create(
                 id.clone(),
@@ -62,10 +67,12 @@ impl Fixture {
                     },
                     start: position(12, 0, 0).into(),
                     delivery_target: DeliveryTarget::new("uds://consumer-a")
-                        .expect("delivery target"),
+                        .unwrap_or_else(|error| panic!("delivery target: {error:?}")),
                 },
             )
-            .expect("create subscription with a block-position cursor");
+            .unwrap_or_else(|error| {
+                panic!("create subscription with a block-position cursor: {error:?}")
+            });
         Self {
             root,
             subscriptions: Some(subscriptions),
@@ -79,25 +86,31 @@ impl Fixture {
     fn subscriptions(&mut self) -> &mut SubscriptionStore {
         self.subscriptions
             .as_mut()
-            .expect("open subscription store")
+            .unwrap_or_else(|| panic!("open subscription store"))
     }
 
     fn snapshot(&self) -> SubscriptionCursorSnapshot {
         let durable = self
             .subscriptions
             .as_ref()
-            .expect("subscriptions")
+            .unwrap_or_else(|| panic!("subscriptions"))
             .durable()
-            .expect("durable view");
+            .unwrap_or_else(|error| panic!("durable view: {error:?}"));
         SubscriptionCursorSnapshot::read(&durable, &self.target, None, RequestId(7))
-            .expect("read cursor state through the RPC adapter")
+            .unwrap_or_else(|error| panic!("read cursor state through the RPC adapter: {error:?}"))
     }
 
     fn ingest(&mut self, positions: &[Cursor]) {
-        let subscriptions = self.subscriptions.take().expect("subscriptions");
-        let durable = subscriptions.into_durable().expect("owned durable store");
-        let tenant = TenantId::new("tenant-a").expect("tenant");
-        let mut ingestor = EventIngestor::open(durable, tenant.clone(), 8, 0).expect("ingestor");
+        let subscriptions = self
+            .subscriptions
+            .take()
+            .unwrap_or_else(|| panic!("subscriptions"));
+        let durable = subscriptions
+            .into_durable()
+            .unwrap_or_else(|error| panic!("owned durable store: {error:?}"));
+        let tenant = TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error:?}"));
+        let mut ingestor = EventIngestor::open(durable, tenant.clone(), 8, 0)
+            .unwrap_or_else(|error| panic!("ingestor: {error:?}"));
         let wire_logs = positions.iter().map(|cursor| log(*cursor)).collect();
         let logs_server = SubscriptionServer::new(json!(["logs", {"topics": []}]), wire_logs);
         let mut logs = subscribe(
@@ -108,11 +121,11 @@ impl Fixture {
                 topics: vec![],
             },
         )
-        .expect("log subscription");
+        .unwrap_or_else(|error| panic!("log subscription: {error:?}"));
         for _ in positions {
             ingestor
                 .read_log(&mut logs, attributes())
-                .expect("ingest Ethereum log");
+                .unwrap_or_else(|error| panic!("ingest Ethereum log: {error:?}"));
         }
         logs_server.finish();
         let history = HistoryServer::new(vec![]);
@@ -120,7 +133,7 @@ impl Fixture {
         let heads_server =
             SubscriptionServer::new(json!(["newHeads"]), vec![json!({"number":"0xe"})]);
         let mut heads = subscribe(&heads_server.url, &[], SubscriptionTopic::NewHeads)
-            .expect("head subscription");
+            .unwrap_or_else(|error| panic!("head subscription: {error:?}"));
         ingestor
             .read_head(
                 &mut heads,
@@ -132,7 +145,7 @@ impl Fixture {
                 8,
                 attributes(),
             )
-            .expect("flush logs from closed blocks");
+            .unwrap_or_else(|error| panic!("flush logs from closed blocks: {error:?}"));
         heads_server.finish();
         history.finish();
         assert_eq!(
@@ -144,7 +157,8 @@ impl Fixture {
             positions.last().copied()
         );
         self.subscriptions = Some(
-            SubscriptionStore::open(ingestor.into_store(), tenant).expect("restore subscriptions"),
+            SubscriptionStore::open(ingestor.into_store(), tenant)
+                .unwrap_or_else(|error| panic!("restore subscriptions: {error:?}")),
         );
     }
 }
@@ -152,7 +166,8 @@ impl Fixture {
 impl Drop for Fixture {
     fn drop(&mut self) {
         self.subscriptions.take();
-        fs::remove_dir_all(&self.root).expect("remove test state");
+        fs::remove_dir_all(&self.root)
+            .unwrap_or_else(|error| panic!("remove test state: {error:?}"));
     }
 }
 
@@ -196,7 +211,7 @@ fn subscription_acknowledge_beyond_delivery_is_refused() {
     fixture
         .subscriptions()
         .mark_delivered(&target, delivered)
-        .expect("deliver cursor");
+        .unwrap_or_else(|error| panic!("deliver cursor: {error:?}"));
     let id = RequestId(7);
     for cursor in [position(12, 1, 5), position(12, 2, 0), position(13, 0, 0)] {
         let error = fixture
@@ -206,7 +221,8 @@ fn subscription_acknowledge_beyond_delivery_is_refused() {
                 subscription_id: target.subscription_id.clone(),
                 cursor: cursor.into(),
             })
-            .expect_err("an ingested or future position was never delivered");
+            .err()
+            .unwrap_or_else(|| panic!("an ingested or future position was never delivered"));
         assert!(
             matches!(error, SubscriptionError::CursorNeverDelivered { cursor: refused } if refused == cursor)
         );
@@ -219,7 +235,7 @@ fn subscription_acknowledge_beyond_delivery_is_refused() {
             fixture
                 .subscriptions()
                 .get(&target)
-                .expect("record after refusal")
+                .unwrap_or_else(|error| panic!("record after refusal: {error:?}"))
                 .last_acknowledged,
             position(12, 0, 0).into()
         );
@@ -231,12 +247,12 @@ fn subscription_acknowledge_beyond_delivery_is_refused() {
             subscription_id: target.subscription_id.clone(),
             cursor: delivered.into(),
         })
-        .expect("acknowledge the exact delivered triple");
+        .unwrap_or_else(|error| panic!("acknowledge the exact delivered triple: {error:?}"));
     assert_eq!(
         fixture
             .subscriptions()
             .resume_cursor(&target)
-            .expect("resume cursor"),
+            .unwrap_or_else(|error| panic!("resume cursor: {error:?}")),
         delivered
     );
     assert_eq!(
@@ -263,11 +279,11 @@ fn subscription_health_reports_delivered_and_watermark_triples() {
     fixture
         .subscriptions()
         .mark_delivered(&target, acknowledged)
-        .expect("first delivery");
+        .unwrap_or_else(|error| panic!("first delivery: {error:?}"));
     fixture
         .subscriptions()
         .mark_delivered(&target, delivered)
-        .expect("second delivery");
+        .unwrap_or_else(|error| panic!("second delivery: {error:?}"));
     fixture
         .subscriptions()
         .acknowledge(&CursorAcknowledgement {
@@ -275,39 +291,44 @@ fn subscription_health_reports_delivered_and_watermark_triples() {
             subscription_id: target.subscription_id.clone(),
             cursor: acknowledged.into(),
         })
-        .expect("acknowledge only the first delivery");
+        .unwrap_or_else(|error| panic!("acknowledge only the first delivery: {error:?}"));
     let expected = json!({
         "last_delivered": {"block_height":"12", "tx_index":"1", "log_index":"4"},
         "ingest_watermark": {"block_height":"13", "tx_index":"0", "log_index":"2"},
     });
     assert_eq!(Value::Object(fixture.snapshot().health_fields()), expected);
-    let subscriptions = fixture.subscriptions.take().expect("subscriptions");
+    let subscriptions = fixture
+        .subscriptions
+        .take()
+        .unwrap_or_else(|| panic!("subscriptions"));
     drop(subscriptions);
     fixture.subscriptions = Some(
         SubscriptionStore::open(
-            Store::open(&fixture.root).expect("reopen durable store"),
-            TenantId::new("tenant-a").expect("tenant"),
+            Store::open(&fixture.root)
+                .unwrap_or_else(|error| panic!("reopen durable store: {error:?}")),
+            TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error:?}")),
         )
-        .expect("restore subscriptions"),
+        .unwrap_or_else(|error| panic!("restore subscriptions: {error:?}")),
     );
     assert_eq!(Value::Object(fixture.snapshot().health_fields()), expected);
     let durable = fixture
         .subscriptions
         .as_ref()
-        .expect("subscriptions")
+        .unwrap_or_else(|| panic!("subscriptions"))
         .durable()
-        .expect("durable view");
+        .unwrap_or_else(|error| panic!("durable view: {error:?}"));
     let mut foreign_target = target.clone();
-    foreign_target.scope.capability = CapabilityId::new("another-capability").expect("capability");
+    foreign_target.scope.capability = CapabilityId::new("another-capability")
+        .unwrap_or_else(|error| panic!("capability: {error:?}"));
     assert_eq!(
         SubscriptionCursorSnapshot::read(&durable, &foreign_target, None, RequestId(7))
             .err()
-            .expect("foreign scope refused")
+            .unwrap_or_else(|| panic!("foreign scope refused"))
             .reason,
         "owner.refused"
     );
     let credential = SessionCredential::new(
-        TenantId::new("tenant-a").expect("tenant"),
+        TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error:?}")),
         SessionId([1; 32]),
         [2; 32],
         1,
@@ -315,19 +336,19 @@ fn subscription_health_reports_delivered_and_watermark_triples() {
     assert_eq!(
         SubscriptionCursorSnapshot::read(&durable, &target, Some(&credential), RequestId(7))
             .err()
-            .expect("wrong session binding refused")
+            .unwrap_or_else(|| panic!("wrong session binding refused"))
             .reason,
         "owner.refused"
     );
     let key = TenantKey::new(
-        TenantId::new("tenant-a").expect("tenant"),
+        TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error:?}")),
         ObjectKind::Subscription,
         target.subscription_id.as_str().as_bytes().to_vec(),
     )
-    .expect("record key");
+    .unwrap_or_else(|error| panic!("record key: {error:?}"));
     assert!(durable
         .get(&key)
-        .expect("durable cursor record")
+        .unwrap_or_else(|| panic!("durable cursor record"))
         .bytes()
         .starts_with(b"LXS3"));
 }
@@ -339,14 +360,20 @@ fn local_event_anchor_does_not_advance_the_chain_watermark() {
     let mut fixture = Fixture::new();
     fixture.ingest(&[position(13, 0, 2)]);
     let before = fixture.snapshot().health_fields()["ingest_watermark"].clone();
-    let subscriptions = fixture.subscriptions.take().unwrap();
+    let subscriptions = fixture
+        .subscriptions
+        .take()
+        .unwrap_or_else(|| panic!("test value missing"));
     let mut ingestor = EventIngestor::open(
-        subscriptions.into_durable().unwrap(),
-        TenantId::new("tenant-a").unwrap(),
+        subscriptions
+            .into_durable()
+            .unwrap_or_else(|error| panic!("test operation failed: {error:?}")),
+        TenantId::new("tenant-a")
+            .unwrap_or_else(|error| panic!("test operation failed: {error:?}")),
         8,
         0,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     let sequence = ingestor.watermark().next_expected;
     ingest_local_restriction(
         &mut ingestor,
@@ -358,16 +385,25 @@ fn local_event_anchor_does_not_advance_the_chain_watermark() {
             attributes: attributes(),
         },
     )
-    .unwrap();
-    assert_eq!(ingestor.watermark().last_position.unwrap().block_height, 13);
+    .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+    assert_eq!(
+        ingestor
+            .watermark()
+            .last_position
+            .unwrap_or_else(|| panic!("test value missing"))
+            .block_height,
+        13
+    );
     assert_eq!(ingestor.watermark().next_expected, sequence + 1);
     drop(ingestor);
     fixture.subscriptions = Some(
         SubscriptionStore::open(
-            Store::open(&fixture.root).unwrap(),
-            TenantId::new("tenant-a").unwrap(),
+            Store::open(&fixture.root)
+                .unwrap_or_else(|error| panic!("test operation failed: {error:?}")),
+            TenantId::new("tenant-a")
+                .unwrap_or_else(|error| panic!("test operation failed: {error:?}")),
         )
-        .unwrap(),
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}")),
     );
     assert_eq!(
         fixture.snapshot().health_fields()["ingest_watermark"],

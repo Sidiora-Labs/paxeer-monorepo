@@ -1,5 +1,5 @@
 //! Bounded proofs for audit 22.30.96; mapping and wiring live in
-//! src/repair_22_33_1541.kvx. All peers are local; the crash test reexecutes
+//! `src/repair_22_33_1541.kvx`. All peers are local; the crash test reexecutes
 //! this already-built test binary, with no external tool or service.
 use layerx_client::ai_market::{AiClientError, OperationJournal, OperationRecord, OperationState};
 use layerx_client::frame::framing::{read_frame, write_frame};
@@ -43,10 +43,13 @@ fn signed(nonce: u64) -> OperationRecord {
     ))
 }
 fn hex(bytes: &[u8]) -> String {
-    format!(
-        "0x{}",
-        bytes.iter().map(|b| format!("{b:02x}")).collect::<String>()
-    )
+    use std::fmt::Write as _;
+    let mut text = String::with_capacity(2 + bytes.len() * 2);
+    text.push_str("0x");
+    for byte in bytes {
+        let _ = write!(text, "{byte:02x}");
+    }
+    text
 }
 struct Directory(PathBuf);
 impl Directory {
@@ -82,11 +85,17 @@ fn read_request(stream: TcpStream) -> (TcpStream, Value) {
             length = Some(must(value.trim().parse::<usize>()));
         }
     }
-    let mut body = vec![0; length.expect("content length")];
+    let mut body = vec![
+        0;
+        match length {
+            Some(required_value) => required_value,
+            None => panic!("content length"),
+        }
+    ];
     must(reader.read_exact(&mut body));
     (reader.into_inner(), must(serde_json::from_slice(&body)))
 }
-fn answer(mut stream: TcpStream, request: &Value, result: Value) {
+fn answer(mut stream: TcpStream, request: &Value, result: &Value) {
     let body = json!({"jsonrpc":"2.0","id":request["id"],"result":result}).to_string();
     must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()));
     must(stream.flush());
@@ -170,6 +179,24 @@ impl Drop for CrashChild {
     }
 }
 
+fn await_child_submission(server: &TcpListener, child: &mut CrashChild) -> TcpStream {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        match server.accept() {
+            Ok((stream, _)) => break stream,
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                assert!(Instant::now() < deadline, "child did not submit");
+                assert!(
+                    must(child.0.try_wait()).is_none(),
+                    "child exited before transmission"
+                );
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            Err(error) => panic!("{error}"),
+        }
+    }
+}
+
 #[test]
 fn journal_recovers_only_after_process_owner_stops() {
     const CHILD_DIRECTORY: &str = "REPAIR_1541_CHILD_DIRECTORY";
@@ -205,21 +232,7 @@ fn journal_recovers_only_after_process_owner_stops() {
             .stderr(Stdio::inherit())
             .spawn(),
     ));
-    let deadline = Instant::now() + Duration::from_secs(10);
-    let stream = loop {
-        match server.accept() {
-            Ok((stream, _)) => break stream,
-            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                assert!(Instant::now() < deadline, "child did not submit");
-                assert!(
-                    must(child.0.try_wait()).is_none(),
-                    "child exited before transmission"
-                );
-                std::thread::sleep(Duration::from_millis(2));
-            }
-            Err(error) => panic!("{error}"),
-        }
-    };
+    let stream = await_child_submission(&server, &mut child);
     let (stream, request) = read_request(stream);
     assert_eq!(request["method"], "eth_sendRawTransaction");
     assert_eq!(request["params"], json!([hex(stale.signed_bytes())]));
@@ -270,7 +283,7 @@ fn journal_recovers_only_after_process_owner_stops() {
         let (stream, _) = must(server.accept());
         let (stream, request) = read_request(stream);
         assert_eq!(request["params"], json!([hex(expected.signed_bytes())]));
-        answer(stream, &request, json!(hex(&expected.activity_id())));
+        answer(stream, &request, &json!(hex(&expected.activity_id())));
     });
     let endpoint = must(SequencerEndpoint::new(&url, &[]));
     assert_eq!(
@@ -301,34 +314,41 @@ fn gateway_account_keeps_served_height_after_later_head() {
     let (server, url) = listener();
     let produced = fixture["account"].clone();
     let expected = produced.clone();
-    let address = produced["paxeer"]["address"]
-        .as_str()
-        .expect("address")
-        .to_owned();
+    let address = (match produced["paxeer"]["address"].as_str() {
+        Some(required_value) => required_value,
+        None => panic!("address"),
+    })
+    .to_owned();
     let worker = std::thread::spawn(move || {
         let (stream, _) = must(server.accept());
         let (stream, request) = read_request(stream);
         assert_eq!(request["method"], "px_getAccount");
         assert_eq!(request["params"], json!([address]));
-        answer(stream, &request, produced);
+        answer(stream, &request, &produced);
         let (stream, _) = must(server.accept());
         let (stream, request) = read_request(stream);
         assert_eq!(
             request["method"], "eth_blockNumber",
             "account must not resample the head"
         );
-        answer(stream, &request, json!("0x20"));
+        answer(stream, &request, &json!("0x20"));
     });
     let endpoint = must(SequencerEndpoint::new(&url, &[]));
     let px = must(PxEndpoint::new(&url, &[]));
-    let joined = must(px.account(expected["paxeer"]["address"].as_str().expect("address")));
+    let joined = must(px.account(match expected["paxeer"]["address"].as_str() {
+        Some(required_value) => required_value,
+        None => panic!("address"),
+    }));
     assert_eq!(must(endpoint.block_number()), 32);
-    let account = joined.paxeer.expect("Paxeer half");
+    let Some(account) = joined.paxeer else {
+        panic!("Paxeer half")
+    };
     assert_eq!(
         account.height,
-        expected["paxeer"]["height"]
-            .as_u64()
-            .expect("served height")
+        match expected["paxeer"]["height"].as_u64() {
+            Some(required_value) => required_value,
+            None => panic!("served height"),
+        }
     );
     assert_eq!(account.height, 16);
     assert_eq!(account.nonce, 42);
@@ -342,10 +362,11 @@ fn gateway_account_rejects_missing_or_invalid_height() {
         "../../../../../sdk/wallet/test/fixtures/endpoint/merged-contract.json"
     )));
     let account = fixture["account"].clone();
-    let address = account["paxeer"]["address"]
-        .as_str()
-        .expect("address")
-        .to_owned();
+    let address = (match account["paxeer"]["address"].as_str() {
+        Some(required_value) => required_value,
+        None => panic!("address"),
+    })
+    .to_owned();
     let (server, url) = listener();
     let worker = std::thread::spawn(move || {
         for height in [
@@ -361,16 +382,17 @@ fn gateway_account_rejects_missing_or_invalid_height() {
             match height {
                 Some(value) => bad["paxeer"]["height"] = value,
                 None => {
-                    bad["paxeer"]
-                        .as_object_mut()
-                        .expect("Paxeer object")
-                        .remove("height");
+                    (match bad["paxeer"].as_object_mut() {
+                        Some(required_value) => required_value,
+                        None => panic!("Paxeer object"),
+                    })
+                    .remove("height");
                 }
             }
             let (stream, _) = must(server.accept());
             let (stream, request) = read_request(stream);
             assert_eq!(request["method"], "px_getAccount");
-            answer(stream, &request, bad);
+            answer(stream, &request, &bad);
         }
     });
     let px = must(PxEndpoint::new(&url, &[]));
@@ -389,10 +411,11 @@ fn retired_interface_uses_generic_frame_boundary() {
         assert_eq!(payload, b"generic canonical bytes");
         must(write_frame(&mut stream, &payload, 64));
     });
-    let address = url
-        .strip_prefix("http://")
-        .expect("scheme")
-        .trim_end_matches('/');
+    let address = (match url.strip_prefix("http://") {
+        Some(required_value) => required_value,
+        None => panic!("scheme"),
+    })
+    .trim_end_matches('/');
     let mut stream = must(TcpStream::connect(address));
     must(stream.set_read_timeout(Some(Duration::from_secs(2))));
     must(write_frame(&mut stream, b"generic canonical bytes", 64));
@@ -480,7 +503,13 @@ impl WebSocketPeer {
     }
     fn finish(mut self) -> usize {
         self.stop.store(true, Ordering::Release);
-        must(self.worker.take().expect("worker").join())
+        must(
+            (match self.worker.take() {
+                Some(required_value) => required_value,
+                None => panic!("worker"),
+            })
+            .join(),
+        )
     }
 }
 impl Drop for WebSocketPeer {
@@ -596,7 +625,10 @@ impl HandshakePeer {
 
     fn finish(mut self) {
         let _ = self.release.send(());
-        must(self.worker.take().expect("worker").join());
+        let Some(worker) = self.worker.take() else {
+            panic!("worker")
+        };
+        must(worker.join());
     }
 }
 impl Drop for HandshakePeer {

@@ -196,7 +196,6 @@ pub fn bind_retained_registration(
     owner_address: [u8; 20],
 ) -> Result<HumanPeer, HumanOperationError> {
     use crate::outbox::{Outbox, SubmissionState};
-    use layerx_crypto::disclosure::call::{bind_call, ConstructMethod};
     use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
 
     let Some(scope) = &peer.subject else {
@@ -205,9 +204,9 @@ pub fn bind_retained_registration(
     if did.as_bytes() == scope.owner.as_bytes() {
         return Ok(peer.clone());
     }
-    if chain_id == 0 || owner_address == [0; 20] {
-        return Err(HumanOperationError::Refused);
-    }
+    crate::reject_if(chain_id == 0 || owner_address == [0; 20], || {
+        HumanOperationError::Refused
+    })?;
     let owner = Did::new(scope.owner.as_bytes()).map_err(|_| HumanOperationError::Refused)?;
     let sponsor = layerx_wire::hash::did_id_for_protocol(&owner, 3)
         .map_err(|_| HumanOperationError::Refused)?;
@@ -245,55 +244,24 @@ pub fn bind_retained_registration(
         {
             let mut word = [0; 32];
             word[31] = 64;
-            if call.data.len() != 164 || call.data[36..68] != word || call.data[68..100] != word {
-                return Err(HumanOperationError::Refused);
-            }
+            crate::reject_if(
+                call.data.len() != 164 || call.data[36..68] != word || call.data[68..100] != word,
+                || HumanOperationError::Refused,
+            )?;
             let target = format!("did:layerx:{}", hex(&call.data[4..36]));
-            if target.as_bytes() == did.as_bytes() && matching.replace(bytes.to_vec()).is_some() {
-                return Err(HumanOperationError::Refused);
-            }
+            crate::reject_if(
+                target.as_bytes() == did.as_bytes() && matching.replace(bytes.to_vec()).is_some(),
+                || HumanOperationError::Refused,
+            )?;
             continue;
         }
-        if call.to != crate::prepare::evm::PrecompileTarget::Auth.address()
-            || call.data.get(..4)
-                != Some(
-                    layerx_crypto::disclosure::call::ledger_selector(
-                        "recordLifecycle(bytes,bytes32)",
-                    )
-                    .as_slice(),
-                )
+        if !retained_registration_call_matches(&call, sender, did, chain_id, sponsor, scope.asset)?
         {
             continue;
         }
-        let method = bind_call(&call, sender)
-            .and_then(|disclosure| disclosure.construct_method())
-            .map_err(|_| HumanOperationError::Refused)?;
-        let Some(ConstructMethod::AuthLifecycle {
-            payload,
-            idempotency_key,
-        }) = method
-        else {
-            continue;
-        };
-        // Other lifecycle operations do not register a managed subject.
-        if payload.get(..4) != Some([0x71, 1, 2, 1].as_slice()) {
-            continue;
-        }
-        let registration = layerx_crypto::onboarding::SponsoredRegistration::decode(&payload)
-            .map_err(|_| HumanOperationError::Refused)?;
-        if registration.consent.target != *did {
-            continue;
-        }
-        if u64::from(registration.network_id) != chain_id
-            || registration.consent.sponsor != sponsor
-            || registration.consent.native_asset != scope.asset
-            || registration.consent.action_key != idempotency_key
-        {
-            return Err(HumanOperationError::Refused);
-        }
-        if matching.replace(bytes.to_vec()).is_some() {
-            return Err(HumanOperationError::Refused);
-        }
+        crate::reject_if(matching.replace(bytes.to_vec()).is_some(), || {
+            HumanOperationError::Refused
+        })?;
     }
     let mut bound = peer.clone();
     bound
@@ -302,6 +270,51 @@ pub fn bind_retained_registration(
         .ok_or(HumanOperationError::Refused)?
         .registration = Some(matching.ok_or(HumanOperationError::Refused)?);
     Ok(bound)
+}
+fn retained_registration_call_matches(
+    call: &layerx_crypto::evm_transaction::Eip1559Call,
+    sender: [u8; 20],
+    did: &Did,
+    chain_id: u64,
+    sponsor: [u8; 32],
+    asset: [u8; 32],
+) -> Result<bool, HumanOperationError> {
+    use layerx_crypto::disclosure::call::{bind_call, ConstructMethod};
+    if call.to != crate::prepare::evm::PrecompileTarget::Auth.address()
+        || call.data.get(..4)
+            != Some(
+                layerx_crypto::disclosure::call::ledger_selector("recordLifecycle(bytes,bytes32)")
+                    .as_slice(),
+            )
+    {
+        return Ok(false);
+    }
+    let method = bind_call(call, sender)
+        .and_then(|disclosure| disclosure.construct_method())
+        .map_err(|_| HumanOperationError::Refused)?;
+    let Some(ConstructMethod::AuthLifecycle {
+        payload,
+        idempotency_key,
+    }) = method
+    else {
+        return Ok(false);
+    };
+    // Other lifecycle operations do not register a managed subject.
+    if payload.get(..4) != Some([0x71, 1, 2, 1].as_slice()) {
+        return Ok(false);
+    }
+    if !retained_legacy_registration_matches(
+        &payload,
+        did,
+        chain_id,
+        sponsor,
+        asset,
+        idempotency_key,
+    )? {
+        return Ok(false);
+    }
+
+    Ok(true)
 }
 
 /// Checks an EVM transaction against the actor address resolved from current
@@ -351,6 +364,33 @@ pub(super) fn begin_transmission(
         )
         .map_err(|_| HumanOperationError::Unavailable)?;
     Ok(bytes)
+}
+
+#[allow(
+    deprecated,
+    reason = "Retain decoding of already-executed sponsored registrations while restoring managed subjects."
+)]
+fn retained_legacy_registration_matches(
+    payload: &[u8],
+    did: &Did,
+    chain_id: u64,
+    sponsor: [u8; 32],
+    asset: [u8; 32],
+    idempotency_key: [u8; 32],
+) -> Result<bool, HumanOperationError> {
+    let registration = layerx_crypto::onboarding::SponsoredRegistration::decode(payload)
+        .map_err(|_| HumanOperationError::Refused)?;
+    if registration.consent.target != *did {
+        return Ok(false);
+    }
+    if u64::from(registration.network_id) != chain_id
+        || registration.consent.sponsor != sponsor
+        || registration.consent.native_asset != asset
+        || registration.consent.action_key != idempotency_key
+    {
+        return Err(HumanOperationError::Refused);
+    }
+    Ok(true)
 }
 
 #[cfg(test)]

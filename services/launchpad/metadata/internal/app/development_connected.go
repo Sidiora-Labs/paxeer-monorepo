@@ -269,8 +269,8 @@ func developmentQuarantineReady(ctx context.Context, objects metadata.S3AssetObj
 			return raster.ErrUnavailable
 		}
 		_, readErr := io.Copy(io.Discard, io.LimitReader(response.Body, 65536))
-		response.Body.Close()
-		if readErr != nil || response.StatusCode != http.StatusForbidden {
+		closeErr := response.Body.Close()
+		if readErr != nil || closeErr != nil || response.StatusCode != http.StatusForbidden {
 			return raster.ErrUnavailable
 		}
 	}

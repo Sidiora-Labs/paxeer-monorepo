@@ -36,7 +36,7 @@ var decimalsSelector = crypto.Keccak256([]byte("decimals()"))[:4]
 // that fill only when nothing touches the pool's reserves later in the same
 // block. When a later token or USDL Transfer involving the pool, or a later
 // PoolStateUpdated reserve sync for the pool, follows the fill in that block the mark
-// is not provable and nil is returned (the position stays "unpriced"). A token
+// is not provable and nil is returned (the position stays unpriced). A token
 // with no fill at or below head also has no mark. Errors are dependency or
 // integrity failures and fail the fold.
 func (a *BaselineAuthority) markPriceTx(ctx context.Context, tx pgx.Tx, token string, head int64, headHash string) (*l17.Price, error) {
@@ -119,7 +119,7 @@ func SpotMark(token string, decimals int, effectiveUSDL, tokenReserve *big.Int, 
 	divisor := new(big.Int).GCD(nil, nil, numerator, denominator)
 	numerator.Quo(numerator, divisor)
 	denominator.Quo(denominator, divisor)
-	chain, quoteAddress, currency, quoteDecimals := "125", usdlAddress, "USDL", 6
+	chain, quoteAddress, currency, quoteDecimals := "125", usdlAddress, symbolUSDL, 6
 	base := strings.ToLower(token)
 	reference := "pool:" + strings.ToLower(pool)
 	baseDecimals := decimals
@@ -128,8 +128,8 @@ func SpotMark(token string, decimals int, effectiveUSDL, tokenReserve *big.Int, 
 	return &l17.Price{
 		Numerator:   numerator.String(),
 		Denominator: denominator.String(),
-		BaseAsset:   l17.AssetRef{Kind: "erc20", ChainID: &chain, Address: &base, CurrencyCode: nil, Decimals: &baseDecimals},
-		QuoteAsset:  l17.AssetRef{Kind: "erc20", ChainID: &chain, Address: &quoteAddress, CurrencyCode: &currency, Decimals: &quoteDecimals},
+		BaseAsset:   l17.AssetRef{Kind: tokenERC20, ChainID: &chain, Address: &base, CurrencyCode: nil, Decimals: &baseDecimals},
+		QuoteAsset:  l17.AssetRef{Kind: tokenERC20, ChainID: &chain, Address: &quoteAddress, CurrencyCode: &currency, Decimals: &quoteDecimals},
 		Source:      l17.PriceSource{Kind: "post_swap_spot", AmountBasis: "effective_reserves", SourceEventID: &event, Position: &at, ProviderID: nil, ObservedAt: observed.UTC().Format("2006-01-02T15:04:05.000Z"), SourceReference: &reference},
 	}, nil
 }

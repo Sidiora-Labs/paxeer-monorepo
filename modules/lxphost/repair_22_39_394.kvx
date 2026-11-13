@@ -1,0 +1,56 @@
+[meta]
+subject = "Programs occupancy responsibility at a call"
+
+[check.call_binding]
+file = "src/modules/programs/occupancy.c"
+check = "A call has a nonzero root program, payer and activity binding; its signed fee limit covers the execution ceiling of the declared budget."
+depends_on_call = "yes"
+runs = "call binding"
+
+[check.position_payer]
+file = "src/modules/programs/occupancy_evidence.c"
+check = "A principal namespace names its payer; a shared namespace names its program owner, including an activated position."
+depends_on_call = "yes for newly added responsibility"
+runs = "call output validation and block-end output validation"
+
+[check.position_authority]
+file = "src/modules/programs/occupancy_evidence.c"
+check = "New responsibility names the call payer, root program and activity binding, and its cumulative amount stays within the signed limit after the execution ceiling."
+depends_on_call = "yes"
+runs = "call output validation"
+
+[check.position_mandate]
+file = "src/modules/programs/occupancy_evidence.c"
+check = "A position with added responsibility carries the mandate for its namespace, byte maximum, price and amount."
+depends_on_call = "yes for newly added responsibility"
+runs = "call output validation and block-end output validation"
+
+[check.position_state]
+file = "src/modules/programs/occupancy_evidence.c"
+check = "The debit evidence matches the prior and next positions, the schedule, byte batches, price, arrears and payer totals."
+depends_on_call = "yes for call output; no for block-end settlement"
+runs = "call output validation and block-end output validation"
+
+[check.output_payment]
+file = "src/modules/programs/occupancy.c"
+check = "A call that adds responsibility requires the payment account returned by the program payment lookup for its payer and asset; output payer amounts add to their due amounts and transfers use payer accounts."
+depends_on_call = "yes for a new responsibility's payment source; no for settlement totals"
+runs = "call output application and block-end output application"
+
+[check.payer_available]
+file = "src/modules/programs/occupancy.c"
+check = "An occupancy payer has an unfrozen payment account with enough of the occupancy asset, and the treasury can receive that asset."
+depends_on_call = "yes for responsibility added by a call"
+runs = "call settlement and block-end settlement"
+
+[check.transfer]
+file = "src/modules/programs/occupancy.c"
+check = "Each paid occupancy amount transfers from the payer's payment account to the fee treasury with occupancy responsibility authority."
+depends_on_call = "no for a block-end debit; yes when a call creates the position that later pays"
+runs = "block-end output application"
+
+[check.block_transition]
+file = "src/modules/programs/occupancy.c"
+check = "The next batch follows the finalized batch, and the selected schedule, asset and state root match the transition context."
+depends_on_call = "no"
+runs = "block-end transition reached by FinalizeProgramsOccupancy in modules/lxphost/host.go"

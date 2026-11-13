@@ -1,5 +1,5 @@
 //! The Paxeer half: walks EVM blocks with their receipts and logs, plus the
-//! CometBFT `tx_search` page for the same heights, and decodes them into
+//! `CometBFT` `tx_search` page for the same heights, and decodes them into
 //! transfers and events.
 //!
 //! EVM: native value transfers, ERC-20 `Transfer` (a registered pointer
@@ -36,16 +36,16 @@ pub const NATIVE_ASSET: &str = "evm:native";
 
 const TX_SEARCH_PAGE: u64 = 100;
 
-/// The JSON-RPC error `data` CometBFT answers `tx_search` with when the
+/// The JSON-RPC error `data` `CometBFT` answers `tx_search` with when the
 /// node runs with its transaction index off.
 pub const TX_INDEX_DISABLED: &str = "transaction searching is disabled due to no kvEventSink";
 
-/// How CometBFT renders event attribute keys and values.
+/// How `CometBFT` renders event attribute keys and values.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AttributeEncoding {
     /// `[]byte` attributes, JSON base64 (this chain's ABCI types).
     Base64,
-    /// Plain strings (CometBFT 0.37+ style).
+    /// Plain strings (`CometBFT` 0.37+ style).
     Plain,
 }
 
@@ -367,6 +367,10 @@ struct LogSource<'a> {
     timestamp: Option<&'a str>,
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "Keep the existing event-family decoding order and transfer projection together."
+)]
 fn decode_log(
     unit: &mut Unit,
     log: &Value,
@@ -549,7 +553,7 @@ fn decode_log(
         )?;
         if let Some(mut row) = crate::names::decode(&decoded, sender, timestamp) {
             row.height = height;
-            row.tx_hash = tx_hash.to_owned();
+            tx_hash.clone_into(&mut row.tx_hash);
             row.log_index = log_index;
             unit.name_events.push(row);
         }
@@ -682,6 +686,10 @@ fn denom_asset(denom: &str) -> AssetRow {
 ///
 /// # Errors
 /// Refuses a malformed entry or attribute encoding.
+#[allow(
+    clippy::too_many_lines,
+    reason = "Keep one transaction decoding pass together with its existing event and transfer ordering."
+)]
 pub fn decode_cosmos_tx(
     unit: &mut Unit,
     transaction: &Value,
@@ -879,7 +887,7 @@ pub fn group_by_height(txs: &[Value]) -> Result<BTreeMap<u64, Vec<Value>>, Index
 }
 
 /// Follows one Paxeer node's EVM JSON-RPC and, when configured, its
-/// CometBFT RPC.
+/// `CometBFT` RPC.
 pub struct PaxeerIngester {
     evm: Endpoint,
     comet: Option<Endpoint>,
@@ -960,6 +968,10 @@ impl PaxeerIngester {
     ///
     /// # Errors
     /// Returns source failures and a missing receipt.
+    #[allow(
+        clippy::type_complexity,
+        reason = "Preserve the public return type pairing a full block with its transaction-hash-indexed receipts."
+    )]
     pub fn block_with_receipts(
         &self,
         height: u64,
@@ -971,7 +983,7 @@ impl PaxeerIngester {
         Ok(Some((block, receipts)))
     }
 
-    /// The CometBFT `tx_search` results for `from..=to`, grouped by height,
+    /// The `CometBFT` `tx_search` results for `from..=to`, grouped by height,
     /// exactly as [`PaxeerIngester::step`] reads them.
     ///
     /// # Errors
@@ -1127,6 +1139,11 @@ impl PaxeerIngester {
 
     /// Observe enrichment independently from EVM progress. Only the recognized
     /// disabled-index status permits the daemon's EVM-only fallback.
+    ///
+    /// # Errors
+    /// Returns source errors for failed RPC calls, a catching-up node, or an invalid
+    /// transaction-index status; decode errors for a malformed status response;
+    /// and store errors when reading cursors or recording observations fails.
     pub fn observe_comet(&self, store: &Store) -> Result<CometObservation, IndexError> {
         let Some(comet) = &self.comet else {
             return Ok(CometObservation::NotConfigured);
@@ -1170,6 +1187,10 @@ impl PaxeerIngester {
     }
 
     /// The exact daemon callback order, also used by the integration gate.
+    ///
+    /// # Errors
+    /// Propagates observation failures from `Self::observe_comet` and source, decode,
+    /// integrity, store or finality-boundary errors from `Self::step`.
     pub fn daemon_step(&self, store: &Store) -> Result<StepOutcome, IndexError> {
         self.observe_comet(store)?;
         self.step(store)
@@ -1177,6 +1198,11 @@ impl PaxeerIngester {
 
     /// Resolve a database transaction's domain from the trusted node and bind it
     /// to the database's hash, block height and transaction position.
+    ///
+    /// # Errors
+    /// Returns source errors for RPC failure, decode errors for missing or malformed
+    /// transaction fields, or an integrity error when the hash, block height or
+    /// transaction index differs from the database row.
     pub fn transaction_domain(
         &self,
         row: &crate::blockscout::TransactionRow,

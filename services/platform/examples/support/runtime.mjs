@@ -273,7 +273,7 @@ export function secureUrl(value) {
 
 export function hex32(value) {
   const digits = typeof value === "string" && value.startsWith("0x") ? value.slice(2) : value;
-  if (typeof digits !== "string" || !/^[0-9a-fA-F]{64}$/u.test(digits)) throw new Error("invalid_receipt_authority");
+  if (typeof digits !== "string" || !/^[0-9a-fA-F]{64}$/u.test(digits)) throw new Error("invalid_hex32");
   return Uint8Array.from({ length: 32 }, (_, index) => Number.parseInt(digits.slice(index * 2, index * 2 + 2), 16));
 }
 

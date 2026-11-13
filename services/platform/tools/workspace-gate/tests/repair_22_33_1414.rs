@@ -66,7 +66,8 @@ impl Fixture {
 
     fn refuses(&self, source: &str, expected: &str) {
         let error = gate::workspace_gate(&self.root, source)
-            .expect_err("unsafe or incomplete workspace must be rejected");
+            .err()
+            .unwrap_or_else(|| panic!("unsafe or incomplete workspace must be rejected"));
         assert!(error.contains(expected), "expected {expected}, got {error}");
     }
 }

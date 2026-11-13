@@ -1,0 +1,8 @@
+[meta]
+name = "Arbiter storage write dispute"
+kind = "case-repair"
+
+[decision]
+changed_side = "judge and case"
+reason = "A committed boundary carries a memory delta. The judge rebuilds the initial and selected pre-state memory before comparing commitments and replaying the storage write; the case selects the metered write and checks its opened proofs against the replayed boundary."
+vectors_changed = []

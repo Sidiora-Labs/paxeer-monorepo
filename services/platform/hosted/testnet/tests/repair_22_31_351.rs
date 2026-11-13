@@ -4,34 +4,7 @@ use layerx_platform_testnet::{
 };
 use std::process::Command;
 
-#[test]
-fn testnet_chain_id_configuration_rejects_protocol_id() {
-    let mut config = platform_testnet();
-    let pending = PendingRelease {
-        package_semver: config.package_semver.clone(),
-        wire_protocol_version: LXP_WIRE_PROTOCOL_VERSION,
-    };
-    assert_eq!(config.network_id, 402);
-    assert_eq!(TESTNET_NETWORK_ID, 402);
-    assert_eq!(config.evm_chain_id, 125);
-    assert_eq!(TESTNET_EVM_CHAIN_ID, 125);
-    assert_eq!(config.validate(&pending), Ok(()));
-    for chain_id in [0, 1, u64::from(TESTNET_NETWORK_ID), u64::MAX] {
-        config.evm_chain_id = chain_id;
-        assert!(config.validate(&pending).is_err(), "accepted {chain_id}");
-    }
-    config.evm_chain_id = TESTNET_EVM_CHAIN_ID;
-    config.network_id = 125;
-    assert!(config.validate(&pending).is_err());
-}
-
-#[test]
-fn testnet_chain_id_parameters_to_signed_transaction() -> Result<(), Box<dyn std::error::Error>> {
-    let output = Command::new("python3")
-        .arg("-B")
-        .arg("-c")
-        .arg(
-            r#"
+const SIGNED_TRANSACTION_JOURNEY: &str = r#"
 import contextlib
 import datetime
 import importlib.util
@@ -196,8 +169,35 @@ with tempfile.TemporaryDirectory(prefix="testnet-chain-id-") as directory:
         finally:
             server.terminate()
             server.wait(timeout=5)
-"#,
-        )
+"#;
+
+#[test]
+fn testnet_chain_id_configuration_rejects_protocol_id() {
+    let mut config = platform_testnet();
+    let pending = PendingRelease {
+        package_semver: config.package_semver.clone(),
+        wire_protocol_version: LXP_WIRE_PROTOCOL_VERSION,
+    };
+    assert_eq!(config.network_id, 402);
+    assert_eq!(TESTNET_NETWORK_ID, 402);
+    assert_eq!(config.evm_chain_id, 125);
+    assert_eq!(TESTNET_EVM_CHAIN_ID, 125);
+    assert_eq!(config.validate(&pending), Ok(()));
+    for chain_id in [0, 1, u64::from(TESTNET_NETWORK_ID), u64::MAX] {
+        config.evm_chain_id = chain_id;
+        assert!(config.validate(&pending).is_err(), "accepted {chain_id}");
+    }
+    config.evm_chain_id = TESTNET_EVM_CHAIN_ID;
+    config.network_id = 125;
+    assert!(config.validate(&pending).is_err());
+}
+
+#[test]
+fn testnet_chain_id_parameters_to_signed_transaction() -> Result<(), Box<dyn std::error::Error>> {
+    let output = Command::new("python3")
+        .arg("-B")
+        .arg("-c")
+        .arg(SIGNED_TRANSACTION_JOURNEY)
         .arg(env!("CARGO_BIN_EXE_layerx-testnet-control"))
         .arg(env!("CARGO_MANIFEST_DIR"))
         .arg(env!("CARGO_PKG_VERSION"))

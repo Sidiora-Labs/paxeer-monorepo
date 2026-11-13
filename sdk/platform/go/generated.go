@@ -610,19 +610,21 @@ func (value JourneyKind) Valid() bool {
 type JourneyState string
 
 const (
-	JourneyStateGettingReady  JourneyState = "getting-ready"
-	JourneyStateSending       JourneyState = "sending"
-	JourneyStateProcessing    JourneyState = "processing"
-	JourneyStateDone          JourneyState = "done"
-	JourneyStateDoneFinalised JourneyState = "done-finalised"
-	JourneyStateStillChecking JourneyState = "still-checking"
-	JourneyStateRefused       JourneyState = "refused"
-	JourneyStateWaitingForYou JourneyState = "waiting-for-you"
+	JourneyStateGettingReady     JourneyState = "getting-ready"
+	JourneyStateSending          JourneyState = "sending"
+	JourneyStateProcessing       JourneyState = "processing"
+	JourneyStateDone             JourneyState = "done"
+	JourneyStateDoneFinalised    JourneyState = "done-finalised"
+	JourneyStateStillChecking    JourneyState = "still-checking"
+	JourneyStateRefused          JourneyState = "refused"
+	JourneyStateWaitingForYou    JourneyState = "waiting-for-you"
+	JourneyStateClosed           JourneyState = "closed"
+	JourneyStateAwaitingApproval JourneyState = "awaiting-approval"
 )
 
 func (value JourneyState) Valid() bool {
 	switch value {
-	case JourneyStateGettingReady, JourneyStateSending, JourneyStateProcessing, JourneyStateDone, JourneyStateDoneFinalised, JourneyStateStillChecking, JourneyStateRefused, JourneyStateWaitingForYou:
+	case JourneyStateGettingReady, JourneyStateSending, JourneyStateProcessing, JourneyStateDone, JourneyStateDoneFinalised, JourneyStateStillChecking, JourneyStateRefused, JourneyStateWaitingForYou, JourneyStateClosed, JourneyStateAwaitingApproval:
 		return true
 	default:
 		return false

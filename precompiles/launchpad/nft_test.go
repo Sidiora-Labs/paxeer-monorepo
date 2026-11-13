@@ -112,7 +112,10 @@ func newNFTEnv(t *testing.T, holder common.Address) *nftEnv {
 	ctx = ctx.WithGasMeter(sdk.NewInfiniteGasMeterWithMultiplier(ctx))
 	k, ctx := launchpadtest.NewKeeper(app, ctx)
 	k.InitGenesis(ctx, nftGenesis(t, holder))
-	require.NoError(t, k.ExportGenesis(ctx).Validate())
+	exported := k.ExportGenesis(ctx)
+	require.NoError(t, exported.Validate())
+	require.Equal(t, []types.FeeRightOwnerTokens{{Owner: holder.Hex(), TokenIDs: []uint64{1}}},
+		exported.FeeRights.OwnerTokens)
 
 	app.EvmKeeper.SetCode(ctx, nftCollection, launchpadkeeper.SurfaceRuntime)
 	app.EvmKeeper.SetCode(ctx, nftReceiver, common.FromHex(nftReceiverRuntime))
@@ -181,7 +184,8 @@ func nftGenesis(t *testing.T, holder common.Address) types.GenesisState {
 	gs.FeeRights = types.FeeRightCollection{NextTokenID: 2, PoolIndexMigrationCursor: 2, PoolIndexReady: true,
 		Tokens: []types.FeeRight{{ID: 1, Owner: holder.Hex(), Approved: nftApproved.Hex(),
 			Strategy: types.FeeStrategyClaim, Pool: nftPool.Hex()}},
-		Operators: []types.FeeRightOperator{{Owner: holder.Hex(), Operator: nftOperator.Hex()}}}
+		OwnerTokens: []types.FeeRightOwnerTokens{{Owner: holder.Hex(), TokenIDs: []uint64{1}}},
+		Operators:   []types.FeeRightOperator{{Owner: holder.Hex(), Operator: nftOperator.Hex()}}}
 	require.NoError(t, gs.Validate())
 	return *gs
 }

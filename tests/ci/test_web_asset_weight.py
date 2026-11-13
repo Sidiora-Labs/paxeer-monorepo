@@ -28,7 +28,7 @@ OPTIMIZED_ASSETS = {
     "apps/wallet/public/paxeerCOEX_light.svg": (256, 128),
 }
 LARGE_ASSET_ALLOWLIST = {
-    "apps/explorer/public/openapi.yaml": (642_254, "Published API schema"),
+    "apps/explorer/public/openapi.yaml": (631_987, "Published API schema"),
     "apps/explorer/public/static/fonts/Inter-fallback.sfd": (
         3_912_143,
         "Existing font source",

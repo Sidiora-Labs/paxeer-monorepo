@@ -3,7 +3,6 @@ use std::path::{Path, PathBuf};
 
 use layerx_types::ids::Did;
 
-use crate::human_runtime::{HumanAuthorityBoundary, UnifiedAgentOwner};
 use crate::session::{SessionCredential, SessionError, SessionId, SessionRegistry, Token};
 use crate::store::TenantId;
 
@@ -121,7 +120,7 @@ impl OperationClass {
             Operation::AgentRegister | Operation::SessionOpen | Operation::Prepare => {
                 Some(Self::Prepare)
             }
-            Operation::PolicyDryRun => Some(Self::Read),
+
             Operation::SubscriptionAcknowledge
             | Operation::SubscriptionCreate
             | Operation::SubscriptionDelete
@@ -129,7 +128,9 @@ impl OperationClass {
             | Operation::SubscriptionList
             | Operation::SubscriptionPause
             | Operation::SubscriptionResume => Some(Self::Subscribe),
-            Operation::AvailabilityFetch
+
+            Operation::PolicyDryRun
+            | Operation::AvailabilityFetch
             | Operation::BudgetList
             | Operation::BudgetState
             | Operation::BudgetReconciliation
@@ -147,8 +148,8 @@ impl OperationClass {
             | Operation::ReadHistory
             | Operation::ReadModuleState
             | Operation::ReadProofBundle
-            | Operation::SessionList => Some(Self::Read),
-            Operation::TenantReadiness => Some(Self::Read),
+            | Operation::SessionList
+            | Operation::TenantReadiness => Some(Self::Read),
             Operation::BudgetCreate
             | Operation::BudgetFund
             | Operation::BudgetRevoke
@@ -316,7 +317,7 @@ impl std::fmt::Debug for TenantAuditEntry {
             .field("surface", &self.surface)
             .field("operation", &self.operation)
             .field("outcome", &self.outcome)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -389,6 +390,8 @@ impl TenantObservability {
         (self.audit_delivered, self.traces_delivered)
     }
 
+    /// # Errors
+    /// Returns an error if audit entries cannot be validated or appended to durable storage.
     pub fn flush_to(&mut self, root: &Path) -> Result<(), crate::audit::RecordError> {
         use crate::audit::{self, Coverage, Decision, Entry, EventClass, Log, Redacted};
         while let Some(entry) = self.audit.first() {
@@ -700,35 +703,6 @@ pub fn require_session_credential(
         (Some(OperationClass::Read), _) | (Some(_), Some(_)) => Ok(()),
         (Some(_), None) => Err(AuthorizationError::BearerOnlyCatalogueWrite),
     }
-}
-
-/// Loads the trusted owner of the object an id-addressed or object-referencing operation names.
-/// `Ok(None)` means the operation addresses no stored object; an unresolvable reference is
-/// refused without revealing whether it exists.
-///
-/// # Errors
-///
-/// Returns `NotAuthorized` when the owner cannot resolve the addressed object.
-pub(crate) fn load_target_owner<A: HumanAuthorityBoundary>(
-    owner: &UnifiedAgentOwner<A>,
-    operation: Operation,
-    request: &serde_json::Map<String, serde_json::Value>,
-    tenant: &TenantId,
-) -> Result<Option<ObjectOwner>, AuthorizationError> {
-    owner
-        .target_object_owner(operation, request, tenant)
-        .map_err(|_| AuthorizationError::NotAuthorized)
-}
-
-/// The trusted owner of the object an Agent HTTP envelope operation addresses. The envelope
-/// path loads no target object, so no owner is supplied here; ownership of an addressed object
-/// is decided by the owner method for the authenticated peer.
-#[must_use]
-pub(crate) const fn target_owner(
-    _operation: Operation,
-    _request: &serde_json::Map<String, serde_json::Value>,
-) -> Option<ObjectOwner> {
-    None
 }
 
 /// Rejects any caller-supplied tenant coordinate that differs from the authenticated tenant.

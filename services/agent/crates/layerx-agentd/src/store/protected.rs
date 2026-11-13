@@ -7,8 +7,8 @@ use std::path::{Component, Path, PathBuf};
 use super::STORE_FILE;
 
 // Linux open flags, also used by the daemon's protected read-only snapshot path.
-const NO_FOLLOW: i32 = 0o400000;
-const DIRECTORY: i32 = 0o200000;
+const NO_FOLLOW: i32 = 0o400_000;
+const DIRECTORY: i32 = 0o200_000;
 const NONBLOCK: i32 = 0o4000;
 
 #[derive(Debug)]

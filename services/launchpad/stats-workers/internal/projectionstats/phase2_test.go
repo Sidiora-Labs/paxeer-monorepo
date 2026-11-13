@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -119,10 +120,7 @@ func TestPhase3CrashWorker(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	nc, err := nats.Connect(os.Getenv("L13_PHASE3_NATS_URL"), nats.Timeout(5*time.Second))
-	if err != nil {
-		t.Fatal(err)
-	}
+	nc := internaltest.ConnectNATS(t, os.Getenv("L13_PHASE3_NATS_URL"))
 	driver := phase3Driver(t, ctx, nc, os.Getenv("L13_PHASE3_CRASH_STREAM"), os.Getenv("L13_PHASE3_CRASH_SUBJECT"))
 	message := phase3Fetch(t, ctx, driver)
 	authority, labels := historicalAuthority(t)
@@ -172,11 +170,7 @@ func TestPhase3ActualReceiptProcessCrashAndBrokerRedelivery(t *testing.T) {
 	for _, stage := range []string{"before_commit", "after_commit", "before_ack"} {
 		t.Run(stage, func(t *testing.T) {
 			ctx, repo := repository(t)
-			nc, err := nats.Connect(brokerURL, nats.Timeout(5*time.Second))
-			if err != nil {
-				t.Fatal(err)
-			}
-			t.Cleanup(nc.Close)
+			nc := internaltest.ConnectNATS(t, brokerURL)
 			js, err := jetstream.New(nc)
 			if err != nil {
 				t.Fatal(err)

@@ -1,0 +1,2431 @@
+[repair]
+task = "22.39.290"
+acceptance = "22998.1"
+base_revision = "7c65ca246479ea68169faf54cef98cfeb9e66537"
+inventory_revision = "ffdbfa83942b"
+inventory = "Gotcha 3992 / decision 3126: original 68 failing cases in 25 files; attempt 2 runs the explicitly requested base comparison before further implementation."
+status = "implemented_not_qualified_pending_final_bounded_gate"
+verify_command = "test -s services/wallet/gateway/repair_22_39_290.kvx && pnpm --dir services/wallet/gateway run test"
+verified_revision = "Resolve the final verify row's revision in private /out/run/gates.jsonl; qualification is claimed only if that row has exit 0 and matches the preceding build revision."
+evidence = "/out/run/gates.jsonl and the log path printed by hf-done; no raw operational evidence is published."
+
+[cause.configuration_import]
+site = "test/support/node-receipts.ts imported src/provision/bind.ts, which imported rpc/pool.ts and captured env before beforeAll configured custody, chain or provisioning."
+repair = "Move unchanged binding protocol definitions and cryptography into src/provision/protocol.ts; re-export from bind.ts and have the receipt helper import the pure module. Runtime validation, assertions, custody policy and node transcript requirements remain in force."
+affected = ["provisioning.test.ts", "backfill-command.test.ts", "e2e/gateway.e2e.test.ts", "agent.test.ts", "evm-sign.test.ts", "evm-approvals.test.ts", "lx-approvals.test.ts", "agent-daily-cap-concurrency.test.ts", "agent-rate-limit-reservation.test.ts", "agent-receipt.test.ts", "owner-broadcast-outcome.test.ts", "served-by.test.ts", "sign-client-nonce.test.ts"]
+
+[cause.external_precompile]
+site = "Precompile conformance proxies forwarded to setup.ts localhost:0 or an operator-provided RPC."
+repair = "Each case owns an explicit loopback peer decoding the published Go ABI; empty scheduler/stream state, malformed TEE quote refusals and EIP-712 hashing/recovery follow the published contract. Unexpected methods fail teardown. The existing observers still assert target, selectors, arguments, response and absence of broadcasts."
+affected = ["agent-precompiles-scheduler.test.ts", "agent-precompiles-streams.test.ts", "agent-precompiles-eip712.test.ts", "agent-precompiles-tee.test.ts"]
+contract = "precompiles/layerxagent/{scheduler,streams,eip712,teeattestor}/*.go"
+
+[cause.external_executable]
+site = "Three tests spawned anvil although the qualification environment has no Anvil binary."
+repair = "Use the existing TestChain signing/nonce/balance loopback material in explicit EVM mode. Real gateway child processes, PostgreSQL, identity verification and custody daemons remain exercised; EVM mode explicitly refuses Paxeer receipt methods and returns empty native-precompile calls."
+affected = ["agent-actions-sequencer.test.ts", "proof_s27_embedded_wallet_gateway.test.ts", "served-by.test.ts"]
+
+[cause.rpc_health]
+site = "Existing peers answered eth_blockNumber but refused the eth_chainId health request, so the shared pool marked them down before a later read."
+repair = "Answer eth_chainId=0x7d, matching the configured chain 125; retain the original method-specific replies and failure scenarios."
+affected = ["agent-receipt.test.ts", "owner-broadcast-outcome.test.ts", "sign-client-nonce.test.ts", "chain-reads-receipt.test.ts", "evm-sign.test.ts"]
+
+[cause.agent_setup]
+site = "agent.test.ts used the identity-only HTTP server as an RPC and assumed authentication still created a wallet."
+repair = "Use explicit EVM loopback RPCs and create the encrypted legacy wallet through the production repository after authentication; attach it to the principal before request-signing cases. The actual signature and replay assertions remain."
+affected = ["agent.test.ts"]
+
+[cause.tee_abi]
+site = "teeRoutesEncodeNodeAbiSelectors assumed the published ABI contained only four gateway methods although it also declares bindPeer and peerBinding."
+repair = "Assert the exact six published method names, assert exactly four gateway methods, and retain equality between emitted selectors and those four route selectors."
+owner = "wallet gateway conformance; published peer methods are owned by node TEE precompile tasks"
+
+[boundary.node_receipts]
+site = "test/provisioning.test.ts::nodeEvidenceForTransaction"
+observed = "Static inspection: this fixture generates random keys and transactions but requires each envelope to exist in a fixed node-recorded corpus; a missing transcript remains a hard assertion."
+owner = "22.33.208 (node-produced sponsored receipt evidence); node execution transcripts belong to domain 5"
+assumption = "No generated or unrecorded receipt is substituted for a required node transcript. Any qualification failure at this boundary must be reported with its command evidence."
+
+[boundary.schema]
+site = "test/schemas.injection.test.ts::TxRequest forward-compatible inner shape"
+observed = "Static inspection: the case expects unknown fields to be stripped while repair-22-33-184.test.ts and the strict TxRequest codec require refusal."
+owner = "22.33.184 (tx-extra-fields-discarded), wallet domain 12"
+assumption = "Both assertions remain intact; a cross-task contradiction is reported rather than changing acceptance to obtain a pass."
+
+[change.1]
+path = "services/wallet/gateway/test/agent-actions-sequencer.test.ts"
+causes = ["external_executable"]
+cases = ["retainedSubmissionReachesSequencer"]
+coverage = "All existing registrations remain enabled; shared fixture changes apply to every registered case in this file. Expanded parameterized names and outcomes are in the whole-suite qualification log."
+
+[change.2]
+path = "services/wallet/gateway/test/agent-precompiles-eip712.test.ts"
+causes = ["external_precompile"]
+cases = ["readRepositoryFile", "registeredNodeAbi", "exerciseEip712Routes", "eip712RoutesTargetServedAddress", "eip712RoutesEncodeNodeAbiSelectors"]
+coverage = "All existing registrations remain enabled; shared fixture changes apply to every registered case in this file. Expanded parameterized names and outcomes are in the whole-suite qualification log."
+
+[change.3]
+path = "services/wallet/gateway/test/agent-precompiles-scheduler.test.ts"
+causes = ["external_precompile"]
+cases = ["agentPrecompileRoutes", "repositorySource", "provisionAgent", "signedPost", "nodeMethod", "builtWrite", "writeArguments", "assertTransactionUsesBuiltCall", "visit", "schedulerRoutesTargetServedAddress", "schedulerRoutesEncodeNodeAbiSelectors"]
+coverage = "All existing registrations remain enabled; shared fixture changes apply to every registered case in this file. Expanded parameterized names and outcomes are in the whole-suite qualification log."
+
+[change.4]
+path = "services/wallet/gateway/test/agent-precompiles-streams.test.ts"
+causes = ["external_precompile"]
+cases = ["repositoryFile", "nodeStreamsAbi", "startStreamsFixture", "driveStreamsRoutes", "streamsRoutesTargetServedAddress", "streamsRoutesEncodeNodeAbiSelectors"]
+coverage = "All existing registrations remain enabled; shared fixture changes apply to every registered case in this file. Expanded parameterized names and outcomes are in the whole-suite qualification log."
+
+[change.5]
+path = "services/wallet/gateway/test/agent-precompiles-tee.test.ts"
+causes = ["external_precompile", "tee_abi"]
+cases = ["repositoryFile", "registeredNodeAbi", "driveRoute", "teeRoutesTargetServedAddress", "teeRoutesEncodeNodeAbiSelectors"]
+coverage = "All existing registrations remain enabled; shared fixture changes apply to every registered case in this file. Expanded parameterized names and outcomes are in the whole-suite qualification log."
+
+[change.6]
+path = "services/wallet/gateway/test/agent-receipt.test.ts"
+causes = ["rpc_health"]
+cases = ["sequencerReceipt", "provisionAgent", "signedPost", "agentSendReturnsSequencerReceipt", "agentTransferReturnsSequencerReceipt", "agentApproveReturnsSequencerReceipt", "agentUnknownOutcomeSendCountsTowardDailyCap"]
+coverage = "All existing registrations remain enabled; shared fixture changes apply to every registered case in this file. Expanded parameterized names and outcomes are in the whole-suite qualification log."
+
+[change.7]
+path = "services/wallet/gateway/test/agent.test.ts"
+causes = ["agent_setup", "configuration_import"]
+cases = ["matches the attestor layout byte for byte", "refuses a nonce that is not sixteen bytes", "reads a left-padded address word and refuses dirty or short words", "does not bind an owner at verify even when the DID label is a user id", "records ownership only with the agent counter-signature and only once", "lets the token read", "requires a signature when no credential is presented", "refuses a signed request from a frozen agent", "signs a message for a correctly signed request and refuses its replay", "refuses an expired request", "refuses an expiry beyond the allowed window", "refuses a body that differs from the signed one", "refuses a signature made by another key", "refuses a key that is not registered", "refuses malformed signature headers", "authenticate", "claimSignature", "claim", "signedHeaders", "signedPost", "ownerCall"]
+coverage = "All existing registrations remain enabled; shared fixture changes apply to every registered case in this file. Expanded parameterized names and outcomes are in the whole-suite qualification log."
+
+[change.8]
+path = "services/wallet/gateway/test/chain-reads-receipt.test.ts"
+causes = ["rpc_health"]
+cases = ["actionReceiptWaitUsesSequencerReceipt"]
+coverage = "All existing registrations remain enabled; shared fixture changes apply to every registered case in this file. Expanded parameterized names and outcomes are in the whole-suite qualification log."
+
+[change.9]
+path = "services/wallet/gateway/test/evm-sign.test.ts"
+causes = ["rpc_health"]
+cases = ["canonicalSignedReceipt", "startRpc", "reservePorts", "reviewTransaction", "signApproval", "approveTransaction", "evmSignRequiresApprovedRow", "evmSignSendsThroughSequencerWithReceipt"]
+coverage = "All existing registrations remain enabled; shared fixture changes apply to every registered case in this file. Expanded parameterized names and outcomes are in the whole-suite qualification log."
+
+[change.10]
+path = "services/wallet/gateway/test/owner-broadcast-outcome.test.ts"
+causes = ["rpc_health"]
+cases = ["fund and sweep answer an unknown broadcast outcome with 202 poll_receipt", "fund and sweep answer a consumed nonce with 409 nonce_consumed", "fundAndSweepAnswerAnUnknownBroadcastOutcomeWith202PollReceipt", "fundAndSweepAnswerAConsumedNonceWith409NonceConsumed"]
+coverage = "All existing registrations remain enabled; shared fixture changes apply to every registered case in this file. Expanded parameterized names and outcomes are in the whole-suite qualification log."
+
+[change.11]
+path = "services/wallet/gateway/test/proof_s27_embedded_wallet_gateway.test.ts"
+causes = ["external_executable"]
+cases = ["freePort", "launch", "stop", "waitFor", "startGateway", "request", "s27ConfigurationCrossesRealRpcAndReadiness", "s27WalletAndNonceSurviveRestartAndAcceptedBroadcastKeepsHash", "s27PrecompileProducerCrossesTheRealSigningConsumer", "s27ProvisioningAndBackfillPreserveTypedRefusals"]
+coverage = "All existing registrations remain enabled; shared fixture changes apply to every registered case in this file. Expanded parameterized names and outcomes are in the whole-suite qualification log."
+
+[change.12]
+path = "services/wallet/gateway/test/served-by.test.ts"
+causes = ["external_executable"]
+cases = ["names the gateway as paxeer-wallet-gateway", "is set on a liveness answer over a real connection", "is set on the readiness answer whatever its status", "is set on an authenticated wallet answer", "is set on a refused request without a token", "is set on an unknown route", "is set on a malformed request body", "is set on a CORS preflight answer", "starts with the retired sponsor input discarded", "keeps provisioning idempotent when RPC and sponsorship are unavailable", "refuses a caller requesting another wallet identity", "refuses sponsorship status when the chain identity cannot be read", "requires authentication before processing sponsored submissions", "refuses an authenticated malformed sponsored submission", "provisionCaller", "statusRequest", "launch", "stopGatewayEntry", "gatewayStartsWithoutMirrorSyncWorker", "evmApprovalRoutesAreMounted"]
+coverage = "All existing registrations remain enabled; shared fixture changes apply to every registered case in this file. Expanded parameterized names and outcomes are in the whole-suite qualification log."
+
+[change.13]
+path = "services/wallet/gateway/test/setup.ts"
+causes = ["fixture_contract"]
+cases = []
+coverage = "All existing registrations remain enabled; shared fixture changes apply to every registered case in this file. Expanded parameterized names and outcomes are in the whole-suite qualification log."
+
+[change.14]
+path = "services/wallet/gateway/test/sign-client-nonce.test.ts"
+causes = ["rpc_health"]
+cases = ["refuses an outstanding client nonce on /v1/wallet/send and tracks the hash of a failed send", "reserves the client nonce with the signed hash, refuses it while outstanding and below latest, and returns the broadcast deadline", "keeps custody reservations exclusive to their action and chain before signing", "rolls back incomplete leases and gives concurrent sign requests distinct tracked nonces", "asUser", "refusesOutstandingClientNonceOnSendAndTracksTheHashOfAFailedSend"]
+coverage = "All existing registrations remain enabled; shared fixture changes apply to every registered case in this file. Expanded parameterized names and outcomes are in the whole-suite qualification log."
+
+[change.15]
+path = "services/wallet/gateway/test/support/chain.ts"
+causes = ["fixture_contract"]
+cases = ["receiptBytes", "receiptQuantity", "receiptUint", "receiptHash", "receiptAddress", "receiptSummary", "verifyChainSequencerReceipt", "chainMainAccountId"]
+coverage = "All existing registrations remain enabled; shared fixture changes apply to every registered case in this file. Expanded parameterized names and outcomes are in the whole-suite qualification log."
+
+[change.16]
+path = "services/wallet/gateway/test/support/node-receipts.ts"
+causes = ["configuration_import"]
+cases = ["productionReceiptModules", "recordedPin", "recordedSponsoredSubmit", "nodeEvidenceForTransaction", "authenticateNodeReceipt", "authenticateSponsoredBindReceipt", "openReceiptDatabase"]
+coverage = "All existing registrations remain enabled; shared fixture changes apply to every registered case in this file. Expanded parameterized names and outcomes are in the whole-suite qualification log."
+
+[change.protocol_module]
+path = "services/wallet/gateway/src/provision/protocol.ts"
+causes = ["configuration_import"]
+cases = ["all provisioning, binding-vector and receipt cases importing support/node-receipts.ts"]
+change = "Move exact existing protocol definitions, key checks and cryptography; bind.ts preserves its public exports and production callers."
+
+[change.precompile_peer]
+path = "services/wallet/gateway/test/support/precompile-rpc.ts"
+causes = ["external_precompile"]
+cases = ["schedulerRoutesTargetServedAddress", "schedulerRoutesEncodeNodeAbiSelectors", "streamsRoutesTargetServedAddress", "streamsRoutesEncodeNodeAbiSelectors", "teeRoutesTargetServedAddress", "teeRoutesEncodeNodeAbiSelectors", "eip712RoutesTargetServedAddress", "eip712RoutesEncodeNodeAbiSelectors"]
+change = "Explicit per-file loopback service, published ABI decoding, cryptographic EIP-712 operations, exact empty-state and malformed-input replies, unexpected-request assertions at teardown."
+
+[qualification.build_environment]
+revision = "4040ba09f81668a4820cffc3557bfd874ece72ad"
+command = "corepack enable && cd services/wallet && pnpm install --frozen-lockfile --ignore-scripts && cd ../.. && pnpm --dir services/wallet/gateway run typecheck"
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The install succeeded, then the Corepack pnpm shim selected the repository root's npm packageManager before pnpm could handle --dir; TypeScript did not run."
+repair = "Set COREPACK_ENABLE_PROJECT_SPEC=0 for the bounded gate processes so Corepack dispatches pnpm; pnpm retains its own workspace packageManager and frozen-lockfile checks. No manifest or validation assertion changes."
+
+[qualification.build_dispatch]
+revision = "cbc473c80537d0c8478205a1c8a154c4712cd75d"
+command = "corepack enable && cd services/wallet && pnpm install --frozen-lockfile --ignore-scripts && cd ../.. && pnpm --dir services/wallet/gateway run typecheck"
+exit = 1
+log = "/out/logs/build-2.log"
+observed = "With project selection disabled, Corepack selected its pnpm 12.18.0 default and pnpm correctly refused the workspace's required 10.34.9; TypeScript did not run."
+repair = "Activate the already cached pnpm 10.34.9 using corepack prepare pnpm@10.34.9 --activate, then retain COREPACK_ENABLE_PROJECT_SPEC=0 for gate dispatch; no version or lockfile check is disabled."
+
+[continuation]
+attempt = 2
+seed_revision = "cc426f01afe67af2bd9fd732bafa01118b9508da"
+base_revision = "7c65ca246479ea68169faf54cef98cfeb9e66537"
+base_command = "COREPACK_ENABLE_PROJECT_SPEC=0 pnpm --dir /tmp/wallet-gateway-22-39-290-base/services/wallet/gateway run test"
+base_exit = 1
+base_log = "/out/logs/base-22-39-290.log"
+base_failing_list = "/out/logs/base-22-39-290-failures.json"
+base_result = "27 failed files; 75 failed, 325 passed, 35 skipped by existing setup failures, 30 existing todo; 499.32 seconds."
+isolation = "Gateway source, migrations, fixtures and tests are archived from the exact base; unchanged repository resources and installed dependencies are shared through links. No task implementation is substituted into the base gateway."
+qualification = "Only hf-build and hf-done qualify the final candidate; the base comparison is diagnostic and does not qualify any revision."
+
+[base_case.1]
+file = "services/wallet/gateway/test/proof_s27_embedded_wallet_gateway.test.ts"
+case = "beforeAll (registered cases blocked by fixture failure)"
+fails_at_base = true
+base_result = "fixture_failed_cases_not_executed"
+classification = "environment"
+observed = "Missing anvil executable prevents fixture startup."
+repair_or_expected = "Attempt-1 explicit EVM loopback; residual public readiness projection conflict is separately classified below."
+
+[base_case.2]
+file = "services/wallet/gateway/test/served-by.test.ts"
+case = "beforeAll (registered cases blocked by fixture failure)"
+fails_at_base = true
+base_result = "fixture_failed_cases_not_executed"
+classification = "environment"
+observed = "Missing anvil executable prevents fixture startup."
+repair_or_expected = "Attempt-1 explicit EVM loopback; all served-by assertions preserved."
+
+[base_case.3]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "beforeAll (registered cases blocked by fixture failure)"
+fails_at_base = true
+base_result = "fixture_failed_cases_not_executed"
+classification = "environment"
+observed = "Station callback asks RpcPool for retired pending nonce; loopback signs EIP-7702 with receipt operation zero."
+repair_or_expected = "Use latest in the station and review fixtures; encode EIP-7702 as published operation four in TestChain."
+
+[base_case.4]
+file = "services/wallet/gateway/test/agent-precompiles-eip712.test.ts"
+case = "eip712RoutesTargetServedAddress"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Port-zero external precompile endpoint."
+repair_or_expected = "Attempt-1 explicit ABI-backed loopback EIP-712 peer."
+
+[base_case.5]
+file = "services/wallet/gateway/test/agent-precompiles-eip712.test.ts"
+case = "eip712RoutesEncodeNodeAbiSelectors"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Port-zero external precompile endpoint."
+repair_or_expected = "Attempt-1 explicit ABI-backed loopback EIP-712 peer."
+
+[base_case.6]
+file = "services/wallet/gateway/test/agent-precompiles-scheduler.test.ts"
+case = "schedulerRoutesTargetServedAddress"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "External precompile unavailable; requests fail before policy and ABI assertions."
+repair_or_expected = "Attempt-1 explicit scheduler peer; residual reschedule refusal is separately classified below."
+
+[base_case.7]
+file = "services/wallet/gateway/test/agent-precompiles-scheduler.test.ts"
+case = "schedulerRoutesEncodeNodeAbiSelectors"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "External precompile unavailable; requests fail before policy and ABI assertions."
+repair_or_expected = "Attempt-1 explicit scheduler peer; residual reschedule refusal is separately classified below."
+
+[base_case.8]
+file = "services/wallet/gateway/test/agent-precompiles-streams.test.ts"
+case = "streamsRoutesTargetServedAddress"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Port-zero upstream; fixture cannot start."
+repair_or_expected = "Attempt-1 explicit streams peer; residual settle refusal is separately classified below."
+
+[base_case.9]
+file = "services/wallet/gateway/test/agent-precompiles-streams.test.ts"
+case = "streamsRoutesEncodeNodeAbiSelectors"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Port-zero upstream; fixture cannot start."
+repair_or_expected = "Attempt-1 explicit streams peer; residual settle refusal is separately classified below."
+
+[base_case.10]
+file = "services/wallet/gateway/test/agent-receipt.test.ts"
+case = "agentSendReturnsSequencerReceipt"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Peer refuses chain-id health requests and becomes unhealthy."
+repair_or_expected = "Attempt-1 chain-id response and complete sequencer receipt fixture."
+
+[base_case.11]
+file = "services/wallet/gateway/test/agent-receipt.test.ts"
+case = "agentTransferReturnsSequencerReceipt"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Peer refuses chain-id health requests and becomes unhealthy."
+repair_or_expected = "Attempt-1 chain-id response and complete sequencer receipt fixture."
+
+[base_case.12]
+file = "services/wallet/gateway/test/agent-receipt.test.ts"
+case = "agentApproveReturnsSequencerReceipt"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Peer refuses chain-id health requests and becomes unhealthy."
+repair_or_expected = "Attempt-1 chain-id response and complete sequencer receipt fixture."
+
+[base_case.13]
+file = "services/wallet/gateway/test/agent-receipt.test.ts"
+case = "agentUnknownOutcomeSendCountsTowardDailyCap"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Peer refuses chain-id health requests and becomes unhealthy."
+repair_or_expected = "Attempt-1 chain-id response and complete sequencer receipt fixture."
+
+[base_case.14]
+file = "services/wallet/gateway/test/agent.test.ts"
+case = "agent request signing > once the owner unfreezes the agent > signs a message for a correctly signed request and refuses its replay"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Missing funded chain/precompile peer or authentication no longer provisions a wallet."
+repair_or_expected = "Attempt-1 loopback EVM peer and explicit wallet/principal preparation."
+
+[base_case.15]
+file = "services/wallet/gateway/test/agent.test.ts"
+case = "agent request signing > once the owner unfreezes the agent > refuses a signed scheduler deposit to the unserved precompile without signing"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Missing funded chain/precompile peer or authentication no longer provisions a wallet."
+repair_or_expected = "Attempt-1 loopback EVM peer and explicit wallet/principal preparation."
+
+[base_case.16]
+file = "services/wallet/gateway/test/agent.test.ts"
+case = "agent request signing > once the owner unfreezes the agent > refuses the unserved precompile route POST /v1/agent/precompiles/scheduler/schedule"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Missing funded chain/precompile peer or authentication no longer provisions a wallet."
+repair_or_expected = "Attempt-1 loopback EVM peer and explicit wallet/principal preparation."
+
+[base_case.17]
+file = "services/wallet/gateway/test/agent.test.ts"
+case = "agent request signing > once the owner unfreezes the agent > refuses the unserved precompile route POST /v1/agent/precompiles/scheduler/cancel"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Missing funded chain/precompile peer or authentication no longer provisions a wallet."
+repair_or_expected = "Attempt-1 loopback EVM peer and explicit wallet/principal preparation."
+
+[base_case.18]
+file = "services/wallet/gateway/test/agent.test.ts"
+case = "agent request signing > once the owner unfreezes the agent > refuses the unserved precompile route POST /v1/agent/precompiles/scheduler/reschedule"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Missing funded chain/precompile peer or authentication no longer provisions a wallet."
+repair_or_expected = "Attempt-1 loopback EVM peer and explicit wallet/principal preparation."
+
+[base_case.19]
+file = "services/wallet/gateway/test/agent.test.ts"
+case = "agent request signing > once the owner unfreezes the agent > refuses the unserved precompile route POST /v1/agent/precompiles/streams/open"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Missing funded chain/precompile peer or authentication no longer provisions a wallet."
+repair_or_expected = "Attempt-1 loopback EVM peer and explicit wallet/principal preparation."
+
+[base_case.20]
+file = "services/wallet/gateway/test/agent.test.ts"
+case = "agent request signing > once the owner unfreezes the agent > refuses the unserved precompile route POST /v1/agent/precompiles/streams/settle"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Missing funded chain/precompile peer or authentication no longer provisions a wallet."
+repair_or_expected = "Attempt-1 loopback EVM peer and explicit wallet/principal preparation."
+
+[base_case.21]
+file = "services/wallet/gateway/test/agent.test.ts"
+case = "agent request signing > once the owner unfreezes the agent > refuses the unserved precompile route POST /v1/agent/precompiles/streams/close"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Missing funded chain/precompile peer or authentication no longer provisions a wallet."
+repair_or_expected = "Attempt-1 loopback EVM peer and explicit wallet/principal preparation."
+
+[base_case.22]
+file = "services/wallet/gateway/test/agent.test.ts"
+case = "agent request signing > once the owner unfreezes the agent > refuses the unserved precompile route POST /v1/agent/precompiles/streams/update-rate"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Missing funded chain/precompile peer or authentication no longer provisions a wallet."
+repair_or_expected = "Attempt-1 loopback EVM peer and explicit wallet/principal preparation."
+
+[base_case.23]
+file = "services/wallet/gateway/test/agent.test.ts"
+case = "agent request signing > once the owner unfreezes the agent > refuses the unserved precompile route POST /v1/agent/precompiles/eip712/domain-separator"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Missing funded chain/precompile peer or authentication no longer provisions a wallet."
+repair_or_expected = "Attempt-1 loopback EVM peer and explicit wallet/principal preparation."
+
+[base_case.24]
+file = "services/wallet/gateway/test/agent.test.ts"
+case = "agent request signing > once the owner unfreezes the agent > refuses the unserved precompile route POST /v1/agent/precompiles/eip712/hash-typed-data"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Missing funded chain/precompile peer or authentication no longer provisions a wallet."
+repair_or_expected = "Attempt-1 loopback EVM peer and explicit wallet/principal preparation."
+
+[base_case.25]
+file = "services/wallet/gateway/test/agent.test.ts"
+case = "agent request signing > once the owner unfreezes the agent > refuses the unserved precompile route POST /v1/agent/precompiles/eip712/recover"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Missing funded chain/precompile peer or authentication no longer provisions a wallet."
+repair_or_expected = "Attempt-1 loopback EVM peer and explicit wallet/principal preparation."
+
+[base_case.26]
+file = "services/wallet/gateway/test/agent.test.ts"
+case = "agent request signing > once the owner unfreezes the agent > refuses the unserved precompile route POST /v1/agent/precompiles/tee/verify"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Missing funded chain/precompile peer or authentication no longer provisions a wallet."
+repair_or_expected = "Attempt-1 loopback EVM peer and explicit wallet/principal preparation."
+
+[base_case.27]
+file = "services/wallet/gateway/test/agent.test.ts"
+case = "agent request signing > once the owner unfreezes the agent > refuses the unserved precompile route POST /v1/agent/precompiles/tee/root-count"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Missing funded chain/precompile peer or authentication no longer provisions a wallet."
+repair_or_expected = "Attempt-1 loopback EVM peer and explicit wallet/principal preparation."
+
+[base_case.28]
+file = "services/wallet/gateway/test/agent.test.ts"
+case = "agent request signing > once the owner unfreezes the agent > refuses the unserved precompile route POST /v1/agent/precompiles/tee/root-of"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Missing funded chain/precompile peer or authentication no longer provisions a wallet."
+repair_or_expected = "Attempt-1 loopback EVM peer and explicit wallet/principal preparation."
+
+[base_case.29]
+file = "services/wallet/gateway/test/agent.test.ts"
+case = "agent request signing > once the owner unfreezes the agent > refuses the unserved precompile route GET /v1/agent/precompiles/scheduler/job/1"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Missing funded chain/precompile peer or authentication no longer provisions a wallet."
+repair_or_expected = "Attempt-1 loopback EVM peer and explicit wallet/principal preparation."
+
+[base_case.30]
+file = "services/wallet/gateway/test/agent.test.ts"
+case = "agent request signing > once the owner unfreezes the agent > refuses the unserved precompile route GET /v1/agent/precompiles/scheduler/pending"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Missing funded chain/precompile peer or authentication no longer provisions a wallet."
+repair_or_expected = "Attempt-1 loopback EVM peer and explicit wallet/principal preparation."
+
+[base_case.31]
+file = "services/wallet/gateway/test/agent.test.ts"
+case = "agent request signing > once the owner unfreezes the agent > refuses the unserved precompile route GET /v1/agent/precompiles/streams/stream/1"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Missing funded chain/precompile peer or authentication no longer provisions a wallet."
+repair_or_expected = "Attempt-1 loopback EVM peer and explicit wallet/principal preparation."
+
+[base_case.32]
+file = "services/wallet/gateway/test/agent.test.ts"
+case = "agent request signing > once the owner unfreezes the agent > refuses the unserved precompile route GET /v1/agent/precompiles/streams/accrued/1"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Missing funded chain/precompile peer or authentication no longer provisions a wallet."
+repair_or_expected = "Attempt-1 loopback EVM peer and explicit wallet/principal preparation."
+
+[base_case.33]
+file = "services/wallet/gateway/test/attestor.test.ts"
+case = "AttestorClient over mutual TLS > generates a key on every participant with the schema request body"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Approved inventory lacks generate admission for key-evm."
+repair_or_expected = "Add owner user-0001 epoch-zero secp256k1 generation admission to the signed fixture inventory."
+
+[base_case.34]
+file = "services/wallet/gateway/test/attestor.test.ts"
+case = "AttestorClient over mutual TLS > refuses a client that presents no certificate"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "CustodyAuthorityError masks failure to publish an authority snapshot over mutual TLS."
+repair_or_expected = "Expected AttestorQuorumError; preserve certificate refusal and assertion for custody authority error-mapping owner."
+
+[base_case.35]
+file = "services/wallet/gateway/test/attestor.test.ts"
+case = "signing routes > signs through the attestors for a migrated wallet and the envelope path otherwise, switching on the flag"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Signing expectation conflicts with durable signature accounting, nonce reservation or custody authority refusal."
+repair_or_expected = "Leave assertions and producer intact; wallet custody/signature-accounting owner."
+
+[base_case.36]
+file = "services/wallet/gateway/test/attestor.test.ts"
+case = "signing routes > signs and broadcasts a transaction and signs typed data through the attestors"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Signing expectation conflicts with durable signature accounting, nonce reservation or custody authority refusal."
+repair_or_expected = "Leave assertions and producer intact; wallet custody/signature-accounting owner."
+
+[base_case.37]
+file = "services/wallet/gateway/test/attestor.test.ts"
+case = "signing routes > maps attestor refusals to typed HTTP responses and audits them"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Signing expectation conflicts with durable signature accounting, nonce reservation or custody authority refusal."
+repair_or_expected = "Leave assertions and producer intact; wallet custody/signature-accounting owner."
+
+[base_case.38]
+file = "services/wallet/gateway/test/backfill-command.test.ts"
+case = "backfill command > backfill command refuses bad arguments and a start without the attestor configuration"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Child environment omits required custody producer, tenant and approved inventory files."
+repair_or_expected = "Pass the existing five-member attestor fixture authority and approved inventory into the child."
+
+[base_case.39]
+file = "services/wallet/gateway/test/backfill-command.test.ts"
+case = "backfill command > backfill command generates identities in bounded batches, prints only totals and sends no top-up or binding"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Child environment omits required custody producer, tenant and approved inventory files."
+repair_or_expected = "Pass the existing five-member attestor fixture authority and approved inventory into the child."
+
+[base_case.40]
+file = "services/wallet/gateway/test/evm-sign.test.ts"
+case = "evmSignSendsThroughSequencerWithReceipt"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Status vector is [200, 200]."
+repair_or_expected = "Expected [200, 202]; leave test and producer intact for wallet EVM approval owner."
+
+[base_case.41]
+file = "services/wallet/gateway/test/nonce.test.ts"
+case = "NonceStore > keeps a nonce accepted on one member and unknown on another inside the grace period and releases it after"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Both read-member pools have no sequencer URL and cannot submit the transaction."
+repair_or_expected = "Pin each pool sequencerUrl to the already-running accepting loopback member."
+
+[base_case.42]
+file = "services/wallet/gateway/test/nonce.test.ts"
+case = "NonceStore > does not take a not found from the accepting member as final while another member knows the transaction"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Both read-member pools have no sequencer URL and cannot submit the transaction."
+repair_or_expected = "Pin each pool sequencerUrl to the already-running accepting loopback member."
+
+[base_case.43]
+file = "services/wallet/gateway/test/owner-broadcast-outcome.test.ts"
+case = "fund and sweep answer an unknown broadcast outcome with 202 poll_receipt"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Peer refuses chain-id health requests, preventing the intended broadcast outcome."
+repair_or_expected = "Attempt-1 chain-id response; retain typed outcome assertions."
+
+[base_case.44]
+file = "services/wallet/gateway/test/owner-broadcast-outcome.test.ts"
+case = "fund and sweep answer a consumed nonce with 409 nonce_consumed"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Peer refuses chain-id health requests, preventing the intended broadcast outcome."
+repair_or_expected = "Attempt-1 chain-id response; retain typed outcome assertions."
+
+[base_case.45]
+file = "services/wallet/gateway/test/precompiles.test.ts"
+case = "agent ABI selectors > 'streams' exactly matches every section (a2) signature and selector"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Published streams/TEE selector sets or frozen TEE ABI differ from section-a2 expectations."
+repair_or_expected = "Expected exact old selector/event surface; leave both producer and assertions intact for precompile ABI owners."
+
+[base_case.46]
+file = "services/wallet/gateway/test/precompiles.test.ts"
+case = "agent ABI selectors > 'teeAttestor' exactly matches every section (a2) signature and selector"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Published streams/TEE selector sets or frozen TEE ABI differ from section-a2 expectations."
+repair_or_expected = "Expected exact old selector/event surface; leave both producer and assertions intact for precompile ABI owners."
+
+[base_case.47]
+file = "services/wallet/gateway/test/precompiles.test.ts"
+case = "teeAttestorFrozenEventParity"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Published streams/TEE selector sets or frozen TEE ABI differ from section-a2 expectations."
+repair_or_expected = "Expected exact old selector/event surface; leave both producer and assertions intact for precompile ABI owners."
+
+[base_case.48]
+file = "services/wallet/gateway/test/provisioning-station.test.ts"
+case = "provisionBindIsStationSponsored"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Loopback receipt encodes EIP-7702 operation as zero, rejected by the real receipt verifier."
+repair_or_expected = "Encode transaction type four, retaining real receipt verification and all station assertions."
+
+[base_case.49]
+file = "services/wallet/gateway/test/provisioning-station.test.ts"
+case = "provisionRequotesAfterUnsubmittedQuoteExpires"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Loopback receipt encodes EIP-7702 operation as zero, rejected by the real receipt verifier."
+repair_or_expected = "Encode transaction type four, retaining real receipt verification and all station assertions."
+
+[base_case.50]
+file = "services/wallet/gateway/test/provisioning-station.test.ts"
+case = "provisionKeepsUnresolvedStationRequest"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Loopback receipt encodes EIP-7702 operation as zero, rejected by the real receipt verifier."
+repair_or_expected = "Encode transaction type four, retaining real receipt verification and all station assertions."
+
+[base_case.51]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+case = "bindReadsSequencerReceipt"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Receipt helper imports runtime env before per-case provisioning/identity configuration."
+repair_or_expected = "Attempt-1 pure protocol extraction; no weakening of recorded node-evidence requirements."
+
+[base_case.52]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+case = "bindBroadcastIsIdempotent"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Receipt helper imports runtime env before per-case provisioning/identity configuration."
+repair_or_expected = "Attempt-1 pure protocol extraction; no weakening of recorded node-evidence requirements."
+
+[base_case.53]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+case = "provisioning flow > provisioning creates both keys, has the gas station sponsor the binding and confirms it before active"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Receipt helper imports runtime env before per-case provisioning/identity configuration."
+repair_or_expected = "Attempt-1 pure protocol extraction; no weakening of recorded node-evidence requirements."
+
+[base_case.54]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+case = "provisioning flow > provisioning resumes after a failure at each step without a second key, station request or binding"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Receipt helper imports runtime env before per-case provisioning/identity configuration."
+repair_or_expected = "Attempt-1 pure protocol extraction; no weakening of recorded node-evidence requirements."
+
+[base_case.55]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+case = "provisioning flow > provisioning refuses and records an address already bound to a different DID"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Receipt helper imports runtime env before per-case provisioning/identity configuration."
+repair_or_expected = "Attempt-1 pure protocol extraction; no weakening of recorded node-evidence requirements."
+
+[base_case.56]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+case = "provisioning flow > provisioning sponsors the agent bind through two reauthorization challenges and confirms it before active"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Receipt helper imports runtime env before per-case provisioning/identity configuration."
+repair_or_expected = "Attempt-1 pure protocol extraction; no weakening of recorded node-evidence requirements."
+
+[base_case.57]
+file = "services/wallet/gateway/test/repair-22-31-370.test.ts"
+case = "hostedEvmSdkRoundTrip"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Hosted SDK round trip times out or answers a different refusal shape on the untouched base."
+repair_or_expected = "Leave unchanged for task 22.31.370 hosted gateway/SDK owner; no neighboring repair."
+
+[base_case.58]
+file = "services/wallet/gateway/test/repair-22-31-370.test.ts"
+case = "hostedSponsoredQuoteAndBudgetRefusal"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Hosted SDK round trip times out or answers a different refusal shape on the untouched base."
+repair_or_expected = "Leave unchanged for task 22.31.370 hosted gateway/SDK owner; no neighboring repair."
+
+[base_case.59]
+file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+case = "humanDailyCapParallelLegacySigning"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Durable accounting conflicts with concurrent identical requests, fails an old refusal, or returns outcome_unknown 202."
+repair_or_expected = "Expected two successes, refusal before legacy authority, or send_failed 500; leave unchanged for task 22.31.371/accounting owners."
+
+[base_case.60]
+file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+case = "humanDailyCapDatabaseRefusalBeforeLegacyAuthority"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Durable accounting conflicts with concurrent identical requests, fails an old refusal, or returns outcome_unknown 202."
+repair_or_expected = "Expected two successes, refusal before legacy authority, or send_failed 500; leave unchanged for task 22.31.371/accounting owners."
+
+[base_case.61]
+file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+case = "humanDailyCapRetainsUncertainSendAcrossReopen"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Durable accounting conflicts with concurrent identical requests, fails an old refusal, or returns outcome_unknown 202."
+repair_or_expected = "Expected two successes, refusal before legacy authority, or send_failed 500; leave unchanged for task 22.31.371/accounting owners."
+
+[base_case.62]
+file = "services/wallet/gateway/test/repair-22-33-208.test.ts"
+case = "walletSendReceiptAuthenticatesCanonicalNodeEvidence"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Native strip-only TypeScript loader imports a parameter property through the runtime binding module."
+repair_or_expected = "Attempt-1 pure protocol import and production TypeScript transform loader."
+
+[base_case.63]
+file = "services/wallet/gateway/test/repair-22-33-208.test.ts"
+case = "provisioningReceiptTransportRecoversWithoutResubmission"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Native strip-only TypeScript loader imports a parameter property through the runtime binding module."
+repair_or_expected = "Attempt-1 pure protocol import and production TypeScript transform loader."
+
+[base_case.64]
+file = "services/wallet/gateway/test/repair-22-33-208.test.ts"
+case = "sponsoredSubmitReceiptRequiresCanonicalSponsoredExecution"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Native strip-only TypeScript loader imports a parameter property through the runtime binding module."
+repair_or_expected = "Attempt-1 pure protocol import and production TypeScript transform loader."
+
+[base_case.65]
+file = "services/wallet/gateway/test/repair-22-33-208.test.ts"
+case = "provisioningRequiresNodeExecutedSponsoredBind"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Native strip-only TypeScript loader imports a parameter property through the runtime binding module."
+repair_or_expected = "Attempt-1 pure protocol import and production TypeScript transform loader."
+
+[base_case.66]
+file = "services/wallet/gateway/test/sponsor-submit-receipt.test.ts"
+case = "sponsoredSubmitReturnsSequencerReceipt"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Native strip-only TypeScript loader imports a parameter property through the runtime binding module."
+repair_or_expected = "Attempt-1 pure protocol import and production TypeScript transform loader."
+
+[base_case.67]
+file = "services/wallet/gateway/test/wallet-send-receipt.test.ts"
+case = "walletSendReturnsSequencerReceipt"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Native strip-only TypeScript loader imports a parameter property through the runtime binding module."
+repair_or_expected = "Attempt-1 pure protocol import and production TypeScript transform loader."
+
+[base_case.68]
+file = "services/wallet/gateway/test/wallet-send-receipt.test.ts"
+case = "walletSendPreservesCommittedRung"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Native strip-only TypeScript loader imports a parameter property through the runtime binding module."
+repair_or_expected = "Attempt-1 pure protocol import and production TypeScript transform loader."
+
+[base_case.69]
+file = "services/wallet/gateway/test/repair-22-33-210.test.ts"
+case = "sequencerReceiptMatchesNodeVectors"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Producer supplies seven V1/V2 receipt vectors."
+repair_or_expected = "Expected six; leave exact count assertion and corpus intact for node receipt conformance owner / task 22.33.210."
+
+[base_case.70]
+file = "services/wallet/gateway/test/support/chain-sequencer-receipt.test.ts"
+case = "sequencerReceiptMatchesNodeVectors"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Producer supplies seven V1/V2 receipt vectors."
+repair_or_expected = "Expected six; leave exact count assertion and corpus intact for node receipt conformance owner / task 22.33.210."
+
+[base_case.71]
+file = "services/wallet/gateway/test/rpc-pool.test.ts"
+case = "writeGoesToSequencerEndpointOnly"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "HTTP 500 is delivered, but malformed transaction bytes trigger an RLP parse error while classifying the failure."
+repair_or_expected = "Sign a real EIP-1559 transaction; retain the existing failing HTTP peer and exact HTTP 500 assertion."
+
+[base_case.72]
+file = "services/wallet/gateway/test/schemas.injection.test.ts"
+case = "TxRequest — forward-compatible inner shape > strips unknown inner keys (e.g. future EVM fields) without failing"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Strict transaction schema refuses unknown inner fields."
+repair_or_expected = "Expected success with unknown fields stripped; task 22.33.184 owns strict refusal and both tests remain intact."
+
+[base_case.73]
+file = "services/wallet/gateway/test/sign-client-nonce.test.ts"
+case = "/v1/wallet/sign after migration 019 > refuses an outstanding client nonce on /v1/wallet/send and tracks the hash of a failed send"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Peer omits chain-id health response; no healthy endpoint reaches nonce operations."
+repair_or_expected = "Attempt-1 chain-id response; configure both read RPC settings to the local peer. Residual status/accounting conflicts remain intact."
+
+[base_case.74]
+file = "services/wallet/gateway/test/sign-client-nonce.test.ts"
+case = "/v1/wallet/sign after migration 019 > reserves the client nonce with the signed hash, refuses it while outstanding and below latest, and returns the broadcast deadline"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Peer omits chain-id health response; no healthy endpoint reaches nonce operations."
+repair_or_expected = "Attempt-1 chain-id response; configure both read RPC settings to the local peer. Residual status/accounting conflicts remain intact."
+
+[base_case.75]
+file = "services/wallet/gateway/test/sign-client-nonce.test.ts"
+case = "/v1/wallet/sign after migration 019 > keeps custody reservations exclusive to their action and chain before signing"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Peer omits chain-id health response; no healthy endpoint reaches nonce operations."
+repair_or_expected = "Attempt-1 chain-id response; configure both read RPC settings to the local peer. Residual status/accounting conflicts remain intact."
+
+[base_case.76]
+file = "services/wallet/gateway/test/sign-client-nonce.test.ts"
+case = "/v1/wallet/sign after migration 019 > rolls back incomplete leases and gives concurrent sign requests distinct tracked nonces"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "Peer omits chain-id health response; no healthy endpoint reaches nonce operations."
+repair_or_expected = "Attempt-1 chain-id response; configure both read RPC settings to the local peer. Residual status/accounting conflicts remain intact."
+
+[base_case.77]
+file = "services/wallet/gateway/test/sponsor-budget.test.ts"
+case = "sponsoredQuoteAnswersBudgetExhausted"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Sponsor quote forwards an extra did field and receives budget refusal 429."
+repair_or_expected = "Expected invalid-body 400 for the extra field; leave request/assertion/producer intact for sponsored-quote schema owner."
+
+[residual.scheduler_policy]
+file = "services/wallet/gateway/test/agent-precompiles-scheduler.test.ts"
+cases = ["schedulerRoutesTargetServedAddress", "schedulerRoutesEncodeNodeAbiSelectors"]
+fails_at_base = true
+base_cause = "environment: external RPC unavailable"
+classification = "product"
+site = "src/policy/agent.ts::decodePrecompilePolicy"
+observed = "reschedule returns COUNTERPARTY_UNDECODED before contract/selector denylist evaluation because an id does not establish a retained destination."
+expected = "CONTRACT_DENYLISTED or SELECTOR_DENYLISTED with the contract/selector field; every selector must be observed."
+owner = "Wallet precompile-policy owner / task 22.31.371; successor task assignment is external to this repair."
+disposition = "No policy bypass, alternate calldata, weakened assertion or invented state can safely force gas estimation."
+
+[residual.streams_policy]
+file = "services/wallet/gateway/test/agent-precompiles-streams.test.ts"
+cases = ["streamsRoutesTargetServedAddress", "streamsRoutesEncodeNodeAbiSelectors"]
+fails_at_base = true
+base_cause = "environment: fixture cannot start on port zero"
+classification = "product"
+site = "src/policy/agent.ts::decodePrecompilePolicy"
+observed = "settle, close and updateRate deliberately return null from the policy decoder; evaluateAgent returns COUNTERPARTY_UNDECODED before transactionForRequest can call eth_estimateGas."
+expected = "One eth_estimateGas request per write and send_failed 502 from the unfunded wallet."
+owner = "Wallet precompile-policy owner / task 22.31.371; successor task assignment is external to this repair."
+disposition = "Loopback supports chain id, nonce, fees and eth_estimateGas. Reaching gas estimation would require changing the producer policy, forbidden by the product-cause ruling."
+
+[residual.public_readiness]
+file = "services/wallet/gateway/test/proof_s27_embedded_wallet_gateway.test.ts"
+case = "s27ConfigurationCrossesRealRpcAndReadiness"
+fails_at_base = true
+base_result = "blocked_by_missing_anvil_beforeAll"
+classification = "product"
+site = "src/routes/readiness.ts::readinessRoutes"
+observed = "Public /readyz exposes component state and reason only."
+expected = "rpc_pool.healthy, rpc_pool.endpoints and identity_provider.keys in the public response."
+owner = "Wallet readiness/privacy owner; detailed readiness is authenticated at /v1/admin/readiness."
+disposition = "Leave public projection and assertion intact."
+
+[change.17]
+path = "services/wallet/gateway/test/attestor.test.ts"
+cases = ["generates a key on every participant with the schema request body", "signs through the attestors for a migrated wallet and the envelope path otherwise, switching on the flag", "signs and broadcasts a transaction and signs typed data through the attestors", "maps attestor refusals to typed HTTP responses and audits them"]
+change = "Signed generation admission, local RPC configuration, chain-id health and explicit unknown-receipt reply; unchanged assertions carry response-body diagnostics."
+
+[change.18]
+path = "services/wallet/gateway/test/backfill-command.test.ts"
+cases = ["backfill command refuses bad arguments and a start without the attestor configuration", "backfill command generates identities in bounded batches, prints only totals and sends no top-up or binding"]
+change = "Child inherits the network fixture producer/tenant/inventory files alongside its existing mTLS configuration."
+
+[change.19]
+path = "services/wallet/gateway/test/nonce.test.ts"
+cases = ["keeps a nonce accepted on one member and unknown on another inside the grace period and releases it after", "does not take a not found from the accepting member as final while another member knows the transaction"]
+change = "Configure the accepting local member as the sequencer; preserve every two-member reconciliation, count and stored-member assertion."
+
+[change.20]
+path = "services/wallet/gateway/test/rpc-pool.test.ts"
+cases = ["writeGoesToSequencerEndpointOnly"]
+change = "Use real signed EIP-1559 bytes so the existing HTTP-500 response reaches transport failure classification rather than a malformed-RLP error."
+
+[change.21]
+path = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+cases = ["beforeAll (all fifteen registered cases)", "evmReviewApproveSignReturnsReceipt"]
+change = "Use supported latest nonce reads on the existing loopback chain for station sponsorship and review."
+
+[change.22]
+path = "services/wallet/gateway/test/support/chain.ts"
+cases = ["gateway e2e and provisioning-station sponsored binding cases"]
+change = "Encode EIP-7702 operation as four, matching the existing exact transaction-type verifier; signatures and receipt checks remain enabled."
+
+[change.23]
+path = "services/wallet/gateway/test/sign-client-nonce.test.ts"
+cases = ["all four existing nonce cases"]
+change = "Point HYPERPAXEER_RPC_URL at the same explicit loopback peer as RPC_URLS before runtime import."
+
+[qualification.1]
+revision = "84f1cc627972f7306b18bc0fbe847d1980e36ee5"
+command = "cg spec done 22.39.290 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+build_log = "/out/logs/build-1.log"
+build_exit = 0
+result = "42 failed, 393 passed, 30 existing todo, two missing-transcript unhandled errors; not qualified."
+
+[change.24]
+path = "services/wallet/gateway/test/attestor.test.ts"
+cases = ["generates a key on every participant with the schema request body"]
+change = "Return the exact attestor-1 through attestor-5 membership signed into this case's inventory, instead of the unrelated node-1 through node-5 template membership."
+
+[change.25]
+path = "services/wallet/gateway/test/support/node-receipts.ts"
+cases = ["provisioning flow cases", "wallet send evidence cases"]
+change = "Use the existing local PostgreSQL engine with independent sessions; the PGlite one-connection fixture deadlocks when provisioning holds its subject advisory lock and requests another connection. Receipt transcript requirements stay unchanged."
+
+[change.26]
+path = "services/wallet/gateway/test/support/postgres.ts"
+cases = ["receipt-database setup"]
+change = "Extract engine startup from runtime configuration and migrations, so the receipt helper can configure the already imported production pool without a second database implementation. Existing start-before-env validation remains intact."
+
+[change.27]
+path = "services/wallet/gateway/test/backfill-command.test.ts"
+cases = ["backfill command generates identities in bounded batches, prints only totals and sends no top-up or binding"]
+change = "Admit account:<owner>:standard:ed25519:0 generation for each standard migrated fixture, in addition to its existing approved EVM key. Backfill still creates the Ed25519 key through real five-party generation."
+
+[qualification_case.1_1]
+file = "services/wallet/gateway/test/agent-precompiles-scheduler.test.ts"
+case = "schedulerRoutesTargetServedAddress"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected { …(2) } to match object { error: 'CONTRACT_DENYLISTED', …(1) }"
+expected = "Contract/selector denylist responses and exact selector set, instead of COUNTERPARTY_UNDECODED for reschedule; policy owner 22.31.371."
+
+[qualification_case.1_2]
+file = "services/wallet/gateway/test/agent-precompiles-scheduler.test.ts"
+case = "schedulerRoutesEncodeNodeAbiSelectors"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected { …(2) } to match object { error: 'SELECTOR_DENYLISTED', …(1) } | AssertionError: expected false to be true // Object.is equality | AssertionError: expected Set{ '0x849ba0a3', '0x40e58ee5', …(3) } to deeply equal Set{ '0x849ba0a3', '0x40e58ee5', …(3) }"
+expected = "Contract/selector denylist responses and exact selector set, instead of COUNTERPARTY_UNDECODED for reschedule; policy owner 22.31.371."
+
+[qualification_case.1_3]
+file = "services/wallet/gateway/test/agent-precompiles-streams.test.ts"
+case = "streamsRoutesTargetServedAddress"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: /v1/agent/precompiles/streams/settle must reach eth_estimateGas: expected [] to have a length of 1 but got +0"
+expected = "One eth_estimateGas call for settle, close and updateRate; policy decoder refuses before estimation; policy owner 22.31.371."
+
+[qualification_case.1_4]
+file = "services/wallet/gateway/test/agent-precompiles-streams.test.ts"
+case = "streamsRoutesEncodeNodeAbiSelectors"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: /v1/agent/precompiles/streams/settle must reach eth_estimateGas: expected [] to have a length of 1 but got +0"
+expected = "One eth_estimateGas call for settle, close and updateRate; policy decoder refuses before estimation; policy owner 22.31.371."
+
+[qualification_case.1_5]
+file = "services/wallet/gateway/test/attestor.test.ts"
+case = "AttestorClient over mutual TLS > generates a key on every participant with the schema request body"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "AttestorKeyError: key: inventory_mismatch: generated or refreshed key membership differs from approved wallet inventory"
+expected = "Generated membership must equal the five approved inventory members; repaired by change.24."
+
+[qualification_case.1_6]
+file = "services/wallet/gateway/test/attestor.test.ts"
+case = "AttestorClient over mutual TLS > refuses a client that presents no certificate"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected Error: custody authority snapshot was not… { …(4) } to be an instance of AttestorQuorumError"
+expected = "AttestorQuorumError; producer wraps failed snapshot publication in CustodyAuthorityError (custody authority owner)."
+
+[qualification_case.1_7]
+file = "services/wallet/gateway/test/attestor.test.ts"
+case = "signing routes > signs through the attestors for a migrated wallet and the envelope path otherwise, switching on the flag"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: {\"error\":\"sign_failed\",\"detail\":\"signature accounting reservation cannot be retargeted\",\"request_id\":\"4e5f6291-edde-4aa5-b06a-6725fbb6e7f3\"}: expected 500 to be 200 // Object.is equality"
+expected = "HTTP 200 after migrating and repeating the message; reservation rejects retargeting the same intent to another key (signature accounting owner)."
+
+[qualification_case.1_8]
+file = "services/wallet/gateway/test/attestor.test.ts"
+case = "signing routes > signs and broadcasts a transaction and signs typed data through the attestors"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: {\"error\":\"attestor_session_refused\",\"category\":\"session\",\"code\":\"session_bad_request\",\"message\":\"session: session_bad_request: request does not match a recorded fixture\",\"request_id\":\"d57e28aa-550f-46c3-a077-525e9ba8b21a\"}: expected 502 to be 200 // Object.is equality"
+expected = "Reuse the previously signed nonce and bytes for send; nonce allocator instead advances and the pinned signer refuses a different transaction (nonce/signing owner)."
+
+[qualification_case.1_9]
+file = "services/wallet/gateway/test/attestor.test.ts"
+case = "signing routes > maps attestor refusals to typed HTTP responses and audits them"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: {\"error\":\"custody_authority_unavailable\",\"replication_pending\":true,\"request_id\":\"ba55dd7e-1520-4e95-a7fc-ab876c7be719\"}: expected 503 to be 403 // Object.is equality"
+expected = "HTTP 403 attestor_policy_refused; current custody snapshot publication refuses with HTTP 503 first (custody authority owner); assertions retained."
+
+[qualification_case.1_10]
+file = "services/wallet/gateway/test/backfill-command.test.ts"
+case = "backfill command > backfill command generates identities in bounded batches, prints only totals and sends no top-up or binding"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "AssertionError: expected [ …(7) ] to deeply equal [ …(7) ]"
+expected = "One refused and one skipped row in first batch; add missing standard Ed25519 generation admission (change.27)."
+
+[qualification_case.1_11]
+file = "services/wallet/gateway/test/evm-sign.test.ts"
+case = "evmSignSendsThroughSequencerWithReceipt"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected [ 200, 200 ] to deeply equal [ 200, 202 ]"
+expected = "Concurrent approval statuses [200,202]; producer returns [200,200] (EVM approval recovery owner)."
+
+[qualification_case.1_12]
+file = "services/wallet/gateway/test/owner-broadcast-outcome.test.ts"
+case = "fund and sweep answer an unknown broadcast outcome with 202 poll_receipt"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: {\"error\":\"send_failed\",\"detail\":\"signature accounting reservation cannot be retargeted\"}: expected 502 to be 409 // Object.is equality"
+expected = "HTTP 409 nonce_conflict on retry; producer returns HTTP 502 reservation cannot be retargeted (signature accounting owner)."
+
+[qualification_case.1_13]
+file = "services/wallet/gateway/test/precompiles.test.ts"
+case = "agent ABI selectors > 'streams' exactly matches every section (a2) signature and selector"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: streams: expected [ [ …(2) ], [ …(2) ], [ …(2) ], …(7) ] to deeply equal [ [ 'accrued(uint256)', …(1) ], …(5) ]"
+expected = "Frozen method/selector/event ABI parity; producer adds stream/TEE events and peer binding methods (node ABI owner)."
+
+[qualification_case.1_14]
+file = "services/wallet/gateway/test/precompiles.test.ts"
+case = "agent ABI selectors > 'teeAttestor' exactly matches every section (a2) signature and selector"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: teeAttestor: expected [ [ …(2) ], …(4) ] to deeply equal [ [ 'rootCount(uint8)', …(1) ], …(3) ]"
+expected = "Frozen method/selector/event ABI parity; producer adds stream/TEE events and peer binding methods (node ABI owner)."
+
+[qualification_case.1_15]
+file = "services/wallet/gateway/test/precompiles.test.ts"
+case = "teeAttestorFrozenEventParity"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected [ { type: 'function', …(4) }, …(4) ] to deeply equal [ { type: 'function', …(4) }, …(7) ]"
+expected = "Frozen method/selector/event ABI parity; producer adds stream/TEE events and peer binding methods (node ABI owner)."
+
+[qualification_case.1_16]
+file = "services/wallet/gateway/test/proof_s27_embedded_wallet_gateway.test.ts"
+case = "s27ConfigurationCrossesRealRpcAndReadiness"
+fails_at_base = false
+base_result = "blocked_by_base_suite_setup"
+classification = "product"
+observed = "AssertionError: expected { error: 'not_ready', …(2) } to match object { ready: false, components: { …(4) } }"
+expected = "Detailed healthy/required/endpoints/keys fields in public /readyz; producer exposes component state/reason and reserves details for authenticated admin readiness (readiness/privacy owner)."
+
+[qualification_case.1_17]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+case = "bindReadsSequencerReceipt"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Error: Test timed out in 5000ms."
+expected = "A recorded node transcript for each randomly generated raw transaction; the producer corpus has no matching bytes (domain 5 / 22.33.208). No synthetic transcript supplied."
+
+[qualification_case.1_18]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+case = "bindBroadcastIsIdempotent"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Error: Test timed out in 5000ms."
+expected = "A recorded node transcript for each randomly generated raw transaction; the producer corpus has no matching bytes (domain 5 / 22.33.208). No synthetic transcript supplied."
+
+[qualification_case.1_19]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+case = "provisioning flow > provisioning creates both keys, has the gas station sponsor the binding and confirms it before active"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "AssertionError: expected { …(2) } to deeply equal { …(2) }"
+expected = "Reach declared provisioning assertions with independent database sessions; repaired by changes.25 and .26. Any remaining transcript conflict belongs to domain 5 / 22.33.208."
+
+[qualification_case.1_20]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+case = "provisioning flow > provisioning resumes after a failure at each step without a second key, station request or binding"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "AssertionError: expected [Function] to throw error matching /getUnifiedAccount/ but got 'timeout exceeded when trying to conne…'"
+expected = "Reach declared provisioning assertions with independent database sessions; repaired by changes.25 and .26. Any remaining transcript conflict belongs to domain 5 / 22.33.208."
+
+[qualification_case.1_21]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+case = "provisioning flow > provisioning refuses and records an address already bound to a different DID"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "TypeError: Cannot read properties of undefined (reading 'state')"
+expected = "Reach declared provisioning assertions with independent database sessions; repaired by changes.25 and .26. Any remaining transcript conflict belongs to domain 5 / 22.33.208."
+
+[qualification_case.1_22]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+case = "provisioning flow > provisioning sponsors the agent bind through two reauthorization challenges and confirms it before active"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "AssertionError: {\"wallet_id\":\"6a6d3f31-0655-4d5c-b879-b82bd4844c2b\",\"address\":\"0x30E1290bae83E722fC54e22a7AFd51c06108D82E\",\"kind\":\"standard\",\"outcome\":\"failed\",\"did\":null,\"main_account_id\":null,\"reason\":\"Error\"}: expected { …(7) } to match object { outcome: 'awaiting_owner', …(1) }"
+expected = "Reach declared provisioning assertions with independent database sessions; repaired by changes.25 and .26. Any remaining transcript conflict belongs to domain 5 / 22.33.208."
+
+[qualification_case.1_23]
+file = "services/wallet/gateway/test/repair-22-31-370.test.ts"
+case = "hostedEvmSdkRoundTrip"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Error: Test timed out in 30000ms."
+expected = "SDK round trip completes within 30000ms and quote returns ok=true; base already times out/refuses quote (hosted SDK owner)."
+
+[qualification_case.1_24]
+file = "services/wallet/gateway/test/repair-22-31-370.test.ts"
+case = "hostedSponsoredQuoteAndBudgetRefusal"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: {\"ok\":false,\"refusal\":{\"code\":\"unavailable\",\"field\":\"quoteUrl\"}}: expected false to be true // Object.is equality"
+expected = "SDK round trip completes within 30000ms and quote returns ok=true; base already times out/refuses quote (hosted SDK owner)."
+
+[qualification_case.1_25]
+file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+case = "humanDailyCapParallelLegacySigning"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: [{\"error\":\"DAILY_VALUE_CAP\",\"message\":\"daily value cap exceeded. used=100 request=50 cap=100\",\"request_id\":\"def0adc1-19b4-4e58-8244-83b535df04ce\"},{\"signed_tx\":\"0x02f86a7d80843b9aca0084773594008252089400000000000000000000000000000000000000a13280c080a0e96b10722929a48d48af53905b727bbf973b719151cc353751c86da4da7993f8a03772b92b5870a025c889734abbd14ab0487f9ae87db1c8f15a320feb626942fc\",\"address\":\"0x65DC45632C33035dBb82bc0a8da17d0C131384BE\",\"chain_id\":125,\"nonce\":0,\"broadcast_deadline\":\"2026-11-09T23:32:37.006Z\"},{\"error\":\"DAILY_VALUE_CAP\",\"message\":\"daily value cap exceeded. used=100 request=50 cap=100\",\"request_id\":\"dfa5eb88-4ebf-43ab-be82-ca2b80f48542\"},{\"error\":\"DAILY_VALUE_CAP\",\"message\":\"daily value cap exceeded. used=100 request=50 cap=100\",\"request_id\":\"9a275042-f2d4-4012-9fe4-0390966b6e9f\"},{\"error\":\"DAILY_VALUE_CAP\",\"message\":\"daily value cap exceeded. used=100 request=50 cap=100\",\"request_id\":\"07a364e1-af54-42dd-92df-d15cbee233cb\"},{\"error\":\"DAILY_VALUE_CAP\",\"message\":\"daily value cap exceeded. used=100 request=50 cap=100\",\"request_id\":\"317f4283-84a2-4d5b-bf72-a380ed6f7f6e\"},{\"error\":\"DAILY_VALUE_CAP\",\"message\":\"daily value cap exceeded. used=100 request=50 cap=100\",\"request_id\":\"1e9fdc2b-07f6-42f2-ab17-6a75feb02f3f\"},{\"error\":\"sign_failed\",\"detail\":\"duplicate key value violates unique constraint \\\"wallet_signature_reservations_pkey\\\"\",\"request_id\":\"c312f2fc-4ae8-4882-be4c-d8446c83fc4d\"}]: expected [ { …(5) } ] to have a length of 2 but got 1"
+expected = "Two signed daily-cap reservations; duplicate reservation primary key leaves one success (signature accounting owner)."
+
+[qualification_case.1_26]
+file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+case = "humanDailyCapDatabaseRefusalBeforeLegacyAuthority"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "error: permission denied for schema public"
+expected = "Mount routes with a restricted database role, then refuse signing; new ApprovalRecovery DDL requires schema CREATE at mount (approval recovery/fixture contract owner)."
+
+[qualification_case.1_27]
+file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+case = "humanDailyCapRetainsUncertainSendAcrossReopen"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: {\"error\":\"outcome_unknown\",\"tx_hash\":\"0x40c54a63619f67c776b9f66852bdd0f1bdba5f717a7de15d8167ed9554109a9c\",\"nonce\":0,\"retry\":\"poll_receipt\",\"poll\":\"eth_getTransactionReceipt\",\"must_not_resubmit\":true,\"member\":0,\"members\":1}: expected 202 to be 500 // Object.is equality"
+expected = "HTTP 500 send_failed; typed outcome_unknown producer returns HTTP 202 poll_receipt (broadcast outcome owner)."
+
+[qualification_case.1_28]
+file = "services/wallet/gateway/test/repair-22-33-210.test.ts"
+case = "sequencerReceiptMatchesNodeVectors"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "See the following grouped failure in the evidence log."
+expected = "Six V1/V2 corpus rows; producer supplies seven (domain 5 / 22.33.210)."
+
+[qualification_case.1_29]
+file = "services/wallet/gateway/test/support/chain-sequencer-receipt.test.ts"
+case = "sequencerReceiptMatchesNodeVectors"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected [ …(7) ] to have a length of 6 but got 7"
+expected = "Six V1/V2 corpus rows; producer supplies seven (domain 5 / 22.33.210)."
+
+[qualification_case.1_30]
+file = "services/wallet/gateway/test/schemas.injection.test.ts"
+case = "TxRequest — forward-compatible inner shape > strips unknown inner keys (e.g. future EVM fields) without failing"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected false to be true // Object.is equality"
+expected = "Strip unknown inner transaction fields and succeed; strict producer codec refuses (22.33.184)."
+
+[qualification_case.1_31]
+file = "services/wallet/gateway/test/sign-client-nonce.test.ts"
+case = "/v1/wallet/sign after migration 019 > refuses an outstanding client nonce on /v1/wallet/send and tracks the hash of a failed send"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected [ { id: '1' }, { id: '2' } ] to deeply equal [ { id: '1' } ]"
+expected = "No additional wallet_signatures row on nonce refusal, and all concurrent signing requests return HTTP 200; producer signature-accounting reservation conflicts persist (nonce/signature accounting owner)."
+
+[qualification_case.1_32]
+file = "services/wallet/gateway/test/sign-client-nonce.test.ts"
+case = "/v1/wallet/sign after migration 019 > keeps custody reservations exclusive to their action and chain before signing"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected [ { id: '7' } ] to deeply equal []"
+expected = "No additional wallet_signatures row on nonce refusal, and all concurrent signing requests return HTTP 200; producer signature-accounting reservation conflicts persist (nonce/signature accounting owner)."
+
+[qualification_case.1_33]
+file = "services/wallet/gateway/test/sign-client-nonce.test.ts"
+case = "/v1/wallet/sign after migration 019 > rolls back incomplete leases and gives concurrent sign requests distinct tracked nonces"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected 500 to be 200 // Object.is equality"
+expected = "No additional wallet_signatures row on nonce refusal, and all concurrent signing requests return HTTP 200; producer signature-accounting reservation conflicts persist (nonce/signature accounting owner)."
+
+[qualification_case.1_34]
+file = "services/wallet/gateway/test/sponsor-budget.test.ts"
+case = "sponsoredQuoteAnswersBudgetExhausted"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected 429 to be 400 // Object.is equality"
+expected = "HTTP 400 for extra did field; producer forwards it and returns HTTP 429 budget refusal (sponsor schema owner)."
+
+[qualification_case.1_35]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "gateway against five real attestor daemons > evmReviewApproveSignReturnsReceipt"
+fails_at_base = false
+base_result = "blocked_by_base_suite_setup"
+classification = "product"
+observed = "AssertionError: expected [ { …(2) }, { …(2) } ] to deeply equal [ { …(2) } ]"
+expected = "Exactly one observed receipted query; producer first polls an unknown receipt (null) before broadcasting and obtaining the receipt (EVM approval recovery owner)."
+
+[qualification_case.1_36]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "gateway against five real attestor daemons > reports every readiness component up"
+fails_at_base = false
+base_result = "blocked_by_base_suite_setup"
+classification = "product"
+observed = "AssertionError: expected { state: 'up', reason: null } to match object { Object (state, required, ...) }"
+expected = "Detailed healthy/required/endpoints/keys fields in public /readyz; producer exposes component state/reason and reserves details for authenticated admin readiness (readiness/privacy owner)."
+
+[qualification_case.1_37]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "gateway against five real attestor daemons > signs a transaction through the quorum and the signature recovers the wallet"
+fails_at_base = false
+base_result = "blocked_by_base_suite_setup"
+classification = "product"
+observed = "AssertionError: {\"error\":\"attestor_quorum_refused\",\"category\":\"quorum\",\"code\":\"quorum_unavailable\",\"message\":\"quorum: quorum_unavailable: attestor quorum unavailable: 0 healthy node(s), 3 required\",\"request_id\":\"a5e75105-e894-41d4-8b87-3f77e4f028bb\"}: expected 503 to be 200 // Object.is equality"
+expected = "HTTP 200 signing or HTTP 403 cap refusal; producer reports zero healthy attestors after snapshot publication despite preceding readiness being up (custody/quorum owner)."
+
+[qualification_case.1_38]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "gateway against five real attestor daemons > signs typed data and the signature recovers the wallet"
+fails_at_base = false
+base_result = "blocked_by_base_suite_setup"
+classification = "product"
+observed = "AssertionError: {\"error\":\"attestor_policy_refused\",\"category\":\"policy\",\"code\":\"policy_denied\",\"policy_code\":\"decode_error\",\"message\":\"policy: policy_denied: permit spender is missing or not an address\",\"request_id\":\"9049c140-6e38-4aba-963c-47ffeec124d8\"}: expected 403 to be 200 // Object.is equality"
+expected = "HTTP 200 for Ether Mail; current attestor policy interprets it as permit and rejects missing spender (attestor EIP-712 policy owner)."
+
+[qualification_case.1_39]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "gateway against five real attestor daemons > refuses a transaction over the attestor policy cap"
+fails_at_base = false
+base_result = "blocked_by_base_suite_setup"
+classification = "product"
+observed = "AssertionError: {\"error\":\"attestor_quorum_refused\",\"category\":\"quorum\",\"code\":\"quorum_unavailable\",\"message\":\"quorum: quorum_unavailable: attestor quorum unavailable: 0 healthy node(s), 3 required\",\"request_id\":\"e8d3ee2f-8d5f-4cb3-9256-b857a94b5e7c\"}: expected 503 to be 403 // Object.is equality"
+expected = "HTTP 200 signing or HTTP 403 cap refusal; producer reports zero healthy attestors after snapshot publication despite preceding readiness being up (custody/quorum owner)."
+
+[qualification_case.1_40]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "gateway against five real attestor daemons > answers not ready with a typed body once the attestor quorum is lost"
+fails_at_base = false
+base_result = "blocked_by_base_suite_setup"
+classification = "product"
+observed = "AssertionError: expected { state: 'down', …(1) } to match object { state: 'down', required: 3, …(1) }"
+expected = "Detailed healthy/required/endpoints/keys fields in public /readyz; producer exposes component state/reason and reserves details for authenticated admin readiness (readiness/privacy owner)."
+
+[qualification_case.1_41]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "wallet custody boundary against the gateway database > rechecks custody when an already-created legacy signing handle is used"
+fails_at_base = false
+base_result = "blocked_by_base_suite_setup"
+classification = "product"
+observed = "error: duplicate key value violates unique constraint \"wallets_attestor_key_id_uidx\""
+expected = "Update another wallet with the already-bound attestor key, then recheck signing custody; producer unique key constraint refuses the fixture row (wallet custody schema owner)."
+
+[qualification_case.1_42]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "wallet custody boundary against the gateway database > refuses null-envelope legacy signing without decrypting"
+fails_at_base = false
+base_result = "blocked_by_base_suite_setup"
+classification = "product"
+observed = "error: new row for relation \"wallets\" violates check constraint \"wallets_key_material_chk\""
+expected = "Persist a null-envelope legacy row, then refuse signing without decrypting; producer wallets_key_material_chk refuses the invalid row (wallet custody schema owner)."
+
+[qualification.2]
+revision = "164d4a6fec1b691aeb9d8b6c3e1cc54980eedbc0"
+command = "cg spec done 22.39.290 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+build_log = "/out/logs/build-2.log"
+build_exit = 0
+result = "39 failed, 396 passed, 30 existing todo, two missing-transcript unhandled errors; not qualified. Generation membership now passes; provisioning no longer deadlocks; backfill's first batch and standard owner result now pass."
+
+[change.28]
+path = "services/wallet/gateway/test/backfill-command.test.ts"
+cases = ["backfill command generates identities in bounded batches, prints only totals and sends no top-up or binding"]
+change = "Use the agent:<registered-public-key> owner for agent key generation/admission, retaining its deterministic wallet user id. Create the principal's default read_only policy so the real authority snapshot contains a complete principal. Preserve batch, custody, no-broadcast and no-identifier assertions; include private peer/audit diagnostics on batch assertion failure."
+
+[gotcha.database_sessions]
+site = "test/support/node-receipts.ts::openReceiptDatabase"
+observed = "A one-connection receipt fixture deadlocked provisionAccount while it held the subject advisory-lock session."
+resolution = "Use local PostgreSQL sessions; no timeout, assertion or production lock was loosened."
+
+[gotcha.node_transcript]
+site = "test/provisioning.test.ts::nodeEvidenceForTransaction"
+observed = "After the database repair, station_contract_violation is caused by requiring random generated sponsored-bind bytes in a fixed published execution corpus; bindReadsSequencerReceipt and bindBroadcastIsIdempotent also throw the missing-transcript assertion."
+expected = "An authentic domain-5 node execution transcript for each exact transaction; no locally invented proof may satisfy this requirement."
+owner = "domain 5 / task 22.33.208"
+
+[final_gate_contract]
+status = "No successful whole-suite qualification is claimed. The runner's last verify row in private /out/run/gates.jsonl records the exact final revision, command, exit and log; final message copies those fields verbatim."
+repair_budget = "Historical attempt 2 exhausted its two repair cycles. Attempt 3 has its own bounded gate ledger, recorded in continuation_3; leave product causes and assertions intact."
+
+[qualification_case.2_1]
+file = "services/wallet/gateway/test/agent-precompiles-scheduler.test.ts"
+case = "schedulerRoutesTargetServedAddress"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected { …(2) } to match object { error: 'CONTRACT_DENYLISTED', …(1) }"
+expected = "Contract/selector denylist responses and exact selector set, instead of COUNTERPARTY_UNDECODED for reschedule; policy owner 22.31.371."
+
+[qualification_case.2_2]
+file = "services/wallet/gateway/test/agent-precompiles-scheduler.test.ts"
+case = "schedulerRoutesEncodeNodeAbiSelectors"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected { …(2) } to match object { error: 'SELECTOR_DENYLISTED', …(1) } | AssertionError: expected false to be true // Object.is equality | AssertionError: expected Set{ '0x849ba0a3', '0x40e58ee5', …(3) } to deeply equal Set{ '0x849ba0a3', '0x40e58ee5', …(3) }"
+expected = "Contract/selector denylist responses and exact selector set, instead of COUNTERPARTY_UNDECODED for reschedule; policy owner 22.31.371."
+
+[qualification_case.2_3]
+file = "services/wallet/gateway/test/agent-precompiles-streams.test.ts"
+case = "streamsRoutesTargetServedAddress"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: /v1/agent/precompiles/streams/settle must reach eth_estimateGas: expected [] to have a length of 1 but got +0"
+expected = "One eth_estimateGas call for settle, close and updateRate; policy decoder refuses before estimation; policy owner 22.31.371."
+
+[qualification_case.2_4]
+file = "services/wallet/gateway/test/agent-precompiles-streams.test.ts"
+case = "streamsRoutesEncodeNodeAbiSelectors"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: /v1/agent/precompiles/streams/settle must reach eth_estimateGas: expected [] to have a length of 1 but got +0"
+expected = "One eth_estimateGas call for settle, close and updateRate; policy decoder refuses before estimation; policy owner 22.31.371."
+
+[qualification_case.2_5]
+file = "services/wallet/gateway/test/attestor.test.ts"
+case = "AttestorClient over mutual TLS > refuses a client that presents no certificate"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected Error: custody authority snapshot was not… { …(4) } to be an instance of AttestorQuorumError"
+expected = "AttestorQuorumError; producer wraps failed snapshot publication in CustodyAuthorityError (custody authority owner)."
+
+[qualification_case.2_6]
+file = "services/wallet/gateway/test/attestor.test.ts"
+case = "signing routes > signs through the attestors for a migrated wallet and the envelope path otherwise, switching on the flag"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: {\"error\":\"sign_failed\",\"detail\":\"signature accounting reservation cannot be retargeted\"}: expected 500 to be 200 // Object.is equality"
+expected = "HTTP 200 after migrating and repeating the message; reservation rejects retargeting the same intent to another key (signature accounting owner)."
+
+[qualification_case.2_7]
+file = "services/wallet/gateway/test/attestor.test.ts"
+case = "signing routes > signs and broadcasts a transaction and signs typed data through the attestors"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: {\"error\":\"attestor_session_refused\",\"category\":\"session\",\"code\":\"session_bad_request\",\"message\":\"session: session_bad_request: request does not match a recorded fixture\"}: expected 502 to be 200 // Object.is equality"
+expected = "Reuse the previously signed nonce and bytes for send; nonce allocator instead advances and the pinned signer refuses a different transaction (nonce/signing owner)."
+
+[qualification_case.2_8]
+file = "services/wallet/gateway/test/attestor.test.ts"
+case = "signing routes > maps attestor refusals to typed HTTP responses and audits them"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: {\"error\":\"custody_authority_unavailable\",\"replication_pending\":true}: expected 503 to be 403 // Object.is equality"
+expected = "HTTP 403 attestor_policy_refused; current custody snapshot publication refuses with HTTP 503 first (custody authority owner); assertions retained."
+
+[qualification_case.2_9]
+file = "services/wallet/gateway/test/backfill-command.test.ts"
+case = "backfill command > backfill command generates identities in bounded batches, prints only totals and sends no top-up or binding"
+fails_at_base = true
+base_result = "failed"
+classification = "environment"
+observed = "AssertionError: expected [ …(7) ] to deeply equal [ …(7) ]"
+expected = "One awaiting-agent-signature row, one awaiting-owner row and one injected chain failure. Supply the registered agent owner and default policy in change.28; assertions remain unchanged."
+
+[qualification_case.2_10]
+file = "services/wallet/gateway/test/evm-sign.test.ts"
+case = "evmSignSendsThroughSequencerWithReceipt"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected [ 200, 200 ] to deeply equal [ 200, 202 ]"
+expected = "Concurrent approval statuses [200,202]; producer returns [200,200] (EVM approval recovery owner)."
+
+[qualification_case.2_11]
+file = "services/wallet/gateway/test/owner-broadcast-outcome.test.ts"
+case = "fund and sweep answer an unknown broadcast outcome with 202 poll_receipt"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: {\"error\":\"send_failed\",\"detail\":\"signature accounting reservation cannot be retargeted\"}: expected 502 to be 409 // Object.is equality"
+expected = "HTTP 409 nonce_conflict on retry; producer returns HTTP 502 reservation cannot be retargeted (signature accounting owner)."
+
+[qualification_case.2_12]
+file = "services/wallet/gateway/test/precompiles.test.ts"
+case = "agent ABI selectors > 'streams' exactly matches every section (a2) signature and selector"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: streams: expected [ [ …(2) ], [ …(2) ], [ …(2) ], …(7) ] to deeply equal [ [ 'accrued(uint256)', …(1) ], …(5) ]"
+expected = "Frozen method/selector/event ABI parity; producer adds stream/TEE events and peer binding methods (node ABI owner)."
+
+[qualification_case.2_13]
+file = "services/wallet/gateway/test/precompiles.test.ts"
+case = "agent ABI selectors > 'teeAttestor' exactly matches every section (a2) signature and selector"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: teeAttestor: expected [ [ …(2) ], …(4) ] to deeply equal [ [ 'rootCount(uint8)', …(1) ], …(3) ]"
+expected = "Frozen method/selector/event ABI parity; producer adds stream/TEE events and peer binding methods (node ABI owner)."
+
+[qualification_case.2_14]
+file = "services/wallet/gateway/test/precompiles.test.ts"
+case = "teeAttestorFrozenEventParity"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected [ { type: 'function', …(4) }, …(4) ] to deeply equal [ { type: 'function', …(4) }, …(7) ]"
+expected = "Frozen method/selector/event ABI parity; producer adds stream/TEE events and peer binding methods (node ABI owner)."
+
+[qualification_case.2_15]
+file = "services/wallet/gateway/test/proof_s27_embedded_wallet_gateway.test.ts"
+case = "s27ConfigurationCrossesRealRpcAndReadiness"
+fails_at_base = false
+base_result = "blocked_by_base_suite_setup"
+classification = "product"
+observed = "AssertionError: expected { error: 'not_ready', …(2) } to match object { ready: false, components: { …(4) } }"
+expected = "Detailed healthy/required/endpoints/keys fields in public /readyz; producer exposes component state/reason and reserves details for authenticated admin readiness (readiness/privacy owner)."
+
+[qualification_case.2_16]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+case = "bindReadsSequencerReceipt"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Error: Test timed out in 5000ms."
+expected = "Exact node execution transcripts for random transaction bytes must exist in the fixed published corpus; missing transcripts cause timeouts or station_contract_violation. Domain 5 / 22.33.208 owns this interface; receipt and station guards are retained."
+
+[qualification_case.2_17]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+case = "bindBroadcastIsIdempotent"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Error: Test timed out in 5000ms."
+expected = "Exact node execution transcripts for random transaction bytes must exist in the fixed published corpus; missing transcripts cause timeouts or station_contract_violation. Domain 5 / 22.33.208 owns this interface; receipt and station guards are retained."
+
+[qualification_case.2_18]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+case = "provisioning flow > provisioning creates both keys, has the gas station sponsor the binding and confirms it before active"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: {\"error\":\"station_contract_violation\",\"message\":\"station_contract_violation\"}: expected 503 to be 200 // Object.is equality"
+expected = "Exact node execution transcripts for random transaction bytes must exist in the fixed published corpus; missing transcripts cause timeouts or station_contract_violation. Domain 5 / 22.33.208 owns this interface; receipt and station guards are retained."
+
+[qualification_case.2_19]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+case = "provisioning flow > provisioning resumes after a failure at each step without a second key, station request or binding"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected ProvisionError: station_contract_violation { …(2) } to match object { code: 'gas_station_unavailable' }"
+expected = "Exact node execution transcripts for random transaction bytes must exist in the fixed published corpus; missing transcripts cause timeouts or station_contract_violation. Domain 5 / 22.33.208 owns this interface; receipt and station guards are retained."
+
+[qualification_case.2_20]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+case = "provisioning flow > provisioning sponsors the agent bind through two reauthorization challenges and confirms it before active"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: {\"error\":\"station_contract_violation\",\"message\":\"station_contract_violation\"}: expected 503 to be 200 // Object.is equality"
+expected = "Exact node execution transcripts for random transaction bytes must exist in the fixed published corpus; missing transcripts cause timeouts or station_contract_violation. Domain 5 / 22.33.208 owns this interface; receipt and station guards are retained."
+
+[qualification_case.2_21]
+file = "services/wallet/gateway/test/repair-22-31-370.test.ts"
+case = "hostedEvmSdkRoundTrip"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Error: Test timed out in 30000ms."
+expected = "SDK round trip completes within 30000ms and quote returns ok=true; base already times out/refuses quote (hosted SDK owner)."
+
+[qualification_case.2_22]
+file = "services/wallet/gateway/test/repair-22-31-370.test.ts"
+case = "hostedSponsoredQuoteAndBudgetRefusal"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected { ok: false, refusal: { …(2) } } to match object { ok: false, …(1) }"
+expected = "SDK round trip completes within 30000ms and quote returns ok=true; base already times out/refuses quote (hosted SDK owner)."
+
+[qualification_case.2_23]
+file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+case = "humanDailyCapParallelLegacySigning"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Duplicate key value violates a signature-reservation or wallet-key uniqueness constraint."
+expected = "Two signed daily-cap reservations; duplicate reservation primary key leaves one success (signature accounting owner)."
+
+[qualification_case.2_24]
+file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+case = "humanDailyCapDatabaseRefusalBeforeLegacyAuthority"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "error: permission denied for schema public"
+expected = "Mount routes with a restricted database role, then refuse signing; new ApprovalRecovery DDL requires schema CREATE at mount (approval recovery/fixture contract owner)."
+
+[qualification_case.2_25]
+file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+case = "humanDailyCapRetainsUncertainSendAcrossReopen"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: {\"error\":\"outcome_unknown\",\"tx_hash\":\"0xda81f902c14d4450f954581c7f452245ed4ff091f5ea9fdea4380b823fbee30d\",\"nonce\":0,\"retry\":\"poll_receipt\",\"poll\":\"eth_getTransactionReceipt\",\"must_not_resubmit\":true,\"member\":0,\"members\":1}: expected 202 to be 500 // Object.is equality"
+expected = "HTTP 500 send_failed; typed outcome_unknown producer returns HTTP 202 poll_receipt (broadcast outcome owner)."
+
+[qualification_case.2_26]
+file = "services/wallet/gateway/test/repair-22-33-210.test.ts"
+case = "sequencerReceiptMatchesNodeVectors"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "Grouped failure; see evidence log."
+expected = "Six V1/V2 corpus rows; producer supplies seven (domain 5 / 22.33.210)."
+
+[qualification_case.2_27]
+file = "services/wallet/gateway/test/support/chain-sequencer-receipt.test.ts"
+case = "sequencerReceiptMatchesNodeVectors"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected [ …(7) ] to have a length of 6 but got 7"
+expected = "Six V1/V2 corpus rows; producer supplies seven (domain 5 / 22.33.210)."
+
+[qualification_case.2_28]
+file = "services/wallet/gateway/test/schemas.injection.test.ts"
+case = "TxRequest — forward-compatible inner shape > strips unknown inner keys (e.g. future EVM fields) without failing"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected false to be true // Object.is equality"
+expected = "Strip unknown inner transaction fields and succeed; strict producer codec refuses (22.33.184)."
+
+[qualification_case.2_29]
+file = "services/wallet/gateway/test/sign-client-nonce.test.ts"
+case = "/v1/wallet/sign after migration 019 > refuses an outstanding client nonce on /v1/wallet/send and tracks the hash of a failed send"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected [ { id: '1' }, { id: '2' } ] to deeply equal [ { id: '1' } ]"
+expected = "No additional wallet_signatures row on nonce refusal, and all concurrent signing requests return HTTP 200; producer signature-accounting reservation conflicts persist (nonce/signature accounting owner)."
+
+[qualification_case.2_30]
+file = "services/wallet/gateway/test/sign-client-nonce.test.ts"
+case = "/v1/wallet/sign after migration 019 > keeps custody reservations exclusive to their action and chain before signing"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected [ { id: '7' } ] to deeply equal []"
+expected = "No additional wallet_signatures row on nonce refusal, and all concurrent signing requests return HTTP 200; producer signature-accounting reservation conflicts persist (nonce/signature accounting owner)."
+
+[qualification_case.2_31]
+file = "services/wallet/gateway/test/sign-client-nonce.test.ts"
+case = "/v1/wallet/sign after migration 019 > rolls back incomplete leases and gives concurrent sign requests distinct tracked nonces"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected 500 to be 200 // Object.is equality"
+expected = "No additional wallet_signatures row on nonce refusal, and all concurrent signing requests return HTTP 200; producer signature-accounting reservation conflicts persist (nonce/signature accounting owner)."
+
+[qualification_case.2_32]
+file = "services/wallet/gateway/test/sponsor-budget.test.ts"
+case = "sponsoredQuoteAnswersBudgetExhausted"
+fails_at_base = true
+base_result = "failed"
+classification = "product"
+observed = "AssertionError: expected 429 to be 400 // Object.is equality"
+expected = "HTTP 400 for extra did field; producer forwards it and returns HTTP 429 budget refusal (sponsor schema owner)."
+
+[qualification_case.2_33]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "gateway against five real attestor daemons > evmReviewApproveSignReturnsReceipt"
+fails_at_base = false
+base_result = "blocked_by_base_suite_setup"
+classification = "product"
+observed = "AssertionError: expected [ { …(2) }, { …(2) } ] to deeply equal [ { …(2) } ]"
+expected = "Exactly one observed receipted query; producer first polls an unknown receipt (null) before broadcasting and obtaining the receipt (EVM approval recovery owner)."
+
+[qualification_case.2_34]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "gateway against five real attestor daemons > reports every readiness component up"
+fails_at_base = false
+base_result = "blocked_by_base_suite_setup"
+classification = "product"
+observed = "AssertionError: expected { state: 'up', reason: null } to match object { Object (state, required, ...) }"
+expected = "Detailed healthy/required/endpoints/keys fields in public /readyz; producer exposes component state/reason and reserves details for authenticated admin readiness (readiness/privacy owner)."
+
+[qualification_case.2_35]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "gateway against five real attestor daemons > signs a transaction through the quorum and the signature recovers the wallet"
+fails_at_base = false
+base_result = "blocked_by_base_suite_setup"
+classification = "product"
+observed = "AssertionError: {\"error\":\"attestor_quorum_refused\",\"category\":\"quorum\",\"code\":\"quorum_unavailable\",\"message\":\"quorum: quorum_unavailable: attestor quorum unavailable: 2 healthy node(s), 3 required\"}: expected 503 to be 200 // Object.is equality"
+expected = "HTTP 200 signing or HTTP 403 cap refusal; producer reports zero healthy attestors after snapshot publication despite preceding readiness being up (custody/quorum owner)."
+
+[qualification_case.2_36]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "gateway against five real attestor daemons > signs typed data and the signature recovers the wallet"
+fails_at_base = false
+base_result = "blocked_by_base_suite_setup"
+classification = "product"
+observed = "AssertionError: {\"error\":\"attestor_policy_refused\",\"category\":\"policy\",\"code\":\"policy_denied\",\"policy_code\":\"decode_error\",\"message\":\"policy: policy_denied: permit spender is missing or not an address\"}: expected 403 to be 200 // Object.is equality"
+expected = "HTTP 200 for Ether Mail; current attestor policy interprets it as permit and rejects missing spender (attestor EIP-712 policy owner)."
+
+[qualification_case.2_37]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "gateway against five real attestor daemons > answers not ready with a typed body once the attestor quorum is lost"
+fails_at_base = false
+base_result = "blocked_by_base_suite_setup"
+classification = "product"
+observed = "AssertionError: expected { state: 'down', …(1) } to match object { state: 'down', required: 3, …(1) }"
+expected = "Detailed healthy/required/endpoints/keys fields in public /readyz; producer exposes component state/reason and reserves details for authenticated admin readiness (readiness/privacy owner)."
+
+[qualification_case.2_38]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "wallet custody boundary against the gateway database > rechecks custody when an already-created legacy signing handle is used"
+fails_at_base = false
+base_result = "blocked_by_base_suite_setup"
+classification = "product"
+observed = "Duplicate key value violates a signature-reservation or wallet-key uniqueness constraint."
+expected = "Update another wallet with the already-bound attestor key, then recheck signing custody; producer unique key constraint refuses the fixture row (wallet custody schema owner)."
+
+[qualification_case.2_39]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "wallet custody boundary against the gateway database > refuses null-envelope legacy signing without decrypting"
+fails_at_base = false
+base_result = "blocked_by_base_suite_setup"
+classification = "product"
+observed = "error: new row for relation \"wallets\" violates check constraint \"wallets_key_material_chk\""
+expected = "Persist a null-envelope legacy row, then refuse signing without decrypting; producer wallets_key_material_chk refuses the invalid row (wallet custody schema owner)."
+
+
+[continuation_3]
+attempt = 3
+seed_revision = "c14d6aaf91172a088533bc374ebf7b541508e768"
+base_revision = "e8512f7fe578e841b04c6734367b8a1bf463f70d"
+base_comparison = "The attempt-2 comparison and all base_case records above stand; no diagnostic suite is rerun."
+status = "environment_repairs_implemented_first_gate_failed_final_repair_pending"
+evidence = "The final build and verify rows in private /out/run/gates.jsonl identify the exact candidate, command, exit and log. Only an exit-zero verify at the built candidate establishes qualification."
+scope = "Only repair_22_39_290.kvx, gateway/src and gateway/test; no manual spec edits, commits or pushes."
+
+[change.29]
+path = "services/wallet/gateway/test/backfill-command.test.ts"
+cases = ["backfill command generates identities in bounded batches, prints only totals and sends no top-up or binding"]
+causes = ["agent_setup", "fixture_contract"]
+change = "Explicitly unfreeze the registered agent fixture. The production schema defaults newly registered agents to frozen, while this case requires an eligible migrated agent awaiting its bind signature. Keep the read-only signing policy, approved owner/key inventory, exact batch totals and no-send assertions."
+
+[change.30]
+path = "services/wallet/gateway/test/nonce.test.ts"
+cases = ["all NonceStore cases using startRpc", "keeps a nonce accepted on one member and unknown on another inside the grace period and releases it after", "does not take a not found from the accepting member as final while another member knows the transaction"]
+causes = ["rpc_health", "fixture_contract"]
+change = "Answer chain id 125 and block 100 on the accepting member and both partition peers. Keep the accepting sequencer, known/unknown hash sets, injected outages, grace bound, member-index and transaction assertions."
+
+[change.31]
+path = "services/wallet/gateway/src/agent/authority.ts"
+cases = ["AttestorClient over mutual TLS > refuses a client that presents no certificate"]
+causes = ["fixture_contract"]
+change = "Preserve the original publication failure as the Error cause when wrapping it in CustodyAuthorityError. Durable snapshot and acknowledgement checks remain mandatory."
+
+[change.32]
+path = "services/wallet/gateway/src/attestor/client.ts"
+cases = ["AttestorClient over mutual TLS > refuses a client that presents no certificate"]
+causes = ["fixture_contract"]
+change = "When signing authority publication fails with a typed AttestorQuorumError cause, surface that original typed quorum refusal. Other inventory, database and publication failures keep their custody-authority refusal; signing never continues after publication failure. This is the explicit custody-snapshot correction required by attempt 3."
+
+[change.33]
+path = "services/wallet/gateway/test/attestor.test.ts"
+cases = ["generates a key on every participant with the schema request body", "refuses a client that presents no certificate"]
+causes = ["fixture_contract"]
+change = "Assert the exact signed owner-approved epoch-zero generate admission for key-evm before the five-peer operation. Extend the certificate-refusal test to assert the failed snapshot has no published timestamp and zero acknowledgements, retaining the AttestorQuorumError and no-sign-request assertions."
+
+[change.34]
+path = "services/wallet/gateway/test/provisioning.test.ts"
+cases = ["bindReadsSequencerReceipt", "bindBroadcastIsIdempotent", "all provisioning flow cases"]
+causes = ["configuration_import", "fixture_contract"]
+change = "Configure both RPC settings from the loopback sequencer before runtime import. Catch asynchronous receipt-peer handler failures and answer a JSON-RPC internal error with the original assertion, instead of leaving the HTTP connection open and timing out. The exact published-transcript lookup, receipt authentication, station contract assertions and all original test deadlines remain unchanged."
+
+[continuation_3.environment_review]
+rpc_health = "Loopback chain-id replies exist in receipt, owner, EVM and sign-client peers; complete nonce health replies in change.30."
+external_precompile = "The inherited ABI-decoding local peers remain; the scheduler and streams residuals are the unconditional product policy refusal recorded below."
+external_executable = "Inherited TestChain EVM mode replaces absent Anvil in sequencer, served-by and embedded-gateway fixtures. Real attestor daemons are built by the registered suite itself."
+agent_setup = "Inherited agent signing setup and change.29 supply real database principals, wallets and explicit eligibility."
+configuration_import = "Inherited pure provision/protocol.ts extraction stands; provisioning now sets the direct RPC setting as well as the pool setting."
+tee_abi = "Inherited six-method node ABI/four-route parity assertion stands; unrelated frozen ABI expectations remain product findings."
+fixture_contract = "Inherited approved inventory, exact member identities, signed transactions for the HTTP-500 peer, local database sessions and loopback EIP-7702 receipt type stand. Changes.29 through .34 complete the identified fixture corrections."
+
+[continuation_3.policy_conflict]
+file = "services/wallet/gateway/src/policy/agent.ts"
+case = "schedulerRoutesTargetServedAddress; schedulerRoutesEncodeNodeAbiSelectors; streamsRoutesTargetServedAddress; streamsRoutesEncodeNodeAbiSelectors"
+classification = "product"
+observed = "decodePrecompilePolicy returns null unconditionally for scheduler reschedule and streams settle, close and updateRate, before denylist checks and gas estimation."
+expected = "The unchanged tests require denylist codes and one eth_estimateGas call for each write."
+owner = "22.31.371 / wallet precompile policy"
+disposition = "The request to reach eth_estimateGas conflicts with the explicit requirement to leave product causes unrepaired. No fixture state can change this unconditional producer branch; do not bypass policy or weaken assertions."
+
+[continuation_3.transcript_conflict]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+case = "bindReadsSequencerReceipt; bindBroadcastIsIdempotent; provisioning creates both keys; provisioning resumes after a failure; provisioning sponsors the agent bind"
+classification = "product"
+observed = "The existing hard transcript guard requires exact random or distributed-generated transaction bytes to occur in a fixed published node execution corpus."
+expected = "Authentic node-produced evidence for those exact bytes; fixture errors must return promptly within existing deadlines."
+owner = "22.33.208 / domain 5 node execution evidence"
+disposition = "Preserve transcript lookup and cryptographic authentication. The local material must not invent node execution evidence; change.34 only fixes the hung HTTP failure path."
+
+[gotcha.frozen_backfill_agent]
+site = "test/backfill-command.test.ts::registered migrated agent fixture"
+observed = "The schema default is_frozen=true prevents provisionAccount from reaching awaiting_agent_signature even with an approved key and policy."
+resolution = "Set is_frozen=false explicitly for this eligible fixture; production freeze enforcement stays intact."
+
+[gotcha.async_receipt_refusal]
+site = "test/provisioning.test.ts::sequencer request end handler"
+observed = "An assertion thrown in an async EventEmitter listener becomes an unhandled rejection and leaves the peer response open."
+resolution = "Catch the handler promise and return the original error through JSON-RPC; retain hard transcript assertions and deadlines."
+
+
+[qualification.3_1]
+revision = "97177da729f727fa2070ab26059dc15ec53424b3"
+command = "cg spec done 22.39.290 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+build_revision = "97177da729f727fa2070ab26059dc15ec53424b3"
+build_command = "corepack enable && cd services/wallet && pnpm install --frozen-lockfile --ignore-scripts && cd ../.. && pnpm --dir services/wallet/gateway run typecheck"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+result = "35 failed, 400 passed, 30 existing todo; 16 failed, 44 passed, 9 existing todo-only files; no unhandled errors. Build and verify ran on the same candidate; not qualified."
+passing_repairs = "Backfill, nonce, key generation and no-certificate refusal are absent from the final failure list; e2e setup starts locally and its transaction-signing and cap-refusal cases pass. Direct provisioning receipt failures surface in 137 ms and 45 ms within unchanged test deadlines."
+
+[change.35]
+path = "services/wallet/gateway/test/attestor.test.ts"
+cases = ["all signing routes cases", "maps attestor refusals to typed HTTP responses and audits them"]
+causes = ["fixture_contract"]
+change = "Give each independent signing-route case a fresh AttestorClient and assert all five local peers have their exact approved identities, are healthy and have no error at setup. Stop the previous client. The real-daemon delegate case temporarily replaces the signed inventory, so transport state must not carry across independent cases spanning inventory scopes. Keep all signing, refusal, custody and audit assertions."
+qualification = "Final bounded gate must establish the outcome; this fixture correction claims no repair to signature accounting, nonce allocation, policy or other producer behavior."
+
+[gotcha.formatter_range]
+site = "src/attestor/client.ts"
+observed = "The formatter expands a range inside a TypeScript class to format the whole class."
+resolution = "Retain formatted changed statements and preserve original formatting of unchanged class members; no inherited implementation was reverted."
+
+[gotcha.grouped_vitest_failure]
+site = "private whole-suite failure list extraction"
+observed = "Consecutive failure headers can share an assertion body, so consuming a message line while matching headers omits one case."
+resolution = "Extract all failure headers first and attach their assertion bodies separately; all 35 failed cases are recorded."
+
+[continuation_3.final_gate]
+recorded_gate = "qualification.3_1 and qualification_case.3_* name the exact first failed revision and all residual cases."
+repair = "change.35 isolates attestor transport state and adds strict fixture-health assertions; the final repair record includes the required evidence and cause list."
+budget = "The rebuild and whole-suite verification use the two remaining gate reruns; stop on their bounded result without modifying the candidate afterward."
+final_evidence = "Copy revision, command, exit and log verbatim from the last hf-done output; private /out/run/gates.jsonl is authoritative for the delivered candidate."
+
+[qualification_case.3_1]
+file = "services/wallet/gateway/test/agent-precompiles-scheduler.test.ts"
+case = "schedulerRoutesTargetServedAddress"
+classification = "product"
+observed = "AssertionError: expected { …(2) } to match object { error: 'CONTRACT_DENYLISTED', …(1) }"
+expected = "Contract/selector denylist responses and exact selector set, instead of COUNTERPARTY_UNDECODED for reschedule; policy owner 22.31.371."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_2]
+file = "services/wallet/gateway/test/agent-precompiles-scheduler.test.ts"
+case = "schedulerRoutesEncodeNodeAbiSelectors"
+classification = "product"
+observed = "AssertionError: expected { …(2) } to match object { error: 'SELECTOR_DENYLISTED', …(1) } | AssertionError: expected false to be true // Object.is equality | AssertionError: expected Set{ '0x849ba0a3', '0x40e58ee5', …(3) } to deeply equal Set{ '0x849ba0a3', '0x40e58ee5', …(3) }"
+expected = "Contract/selector denylist responses and exact selector set, instead of COUNTERPARTY_UNDECODED for reschedule; policy owner 22.31.371."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_3]
+file = "services/wallet/gateway/test/agent-precompiles-streams.test.ts"
+case = "streamsRoutesTargetServedAddress"
+classification = "product"
+observed = "AssertionError: /v1/agent/precompiles/streams/settle must reach eth_estimateGas: expected [] to have a length of 1 but got +0"
+expected = "One eth_estimateGas call for settle, close and updateRate; policy decoder refuses before estimation; policy owner 22.31.371."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_4]
+file = "services/wallet/gateway/test/agent-precompiles-streams.test.ts"
+case = "streamsRoutesEncodeNodeAbiSelectors"
+classification = "product"
+observed = "AssertionError: /v1/agent/precompiles/streams/settle must reach eth_estimateGas: expected [] to have a length of 1 but got +0"
+expected = "One eth_estimateGas call for settle, close and updateRate; policy decoder refuses before estimation; policy owner 22.31.371."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_5]
+file = "services/wallet/gateway/test/attestor.test.ts"
+case = "signing routes > signs through the attestors for a migrated wallet and the envelope path otherwise, switching on the flag"
+classification = "product"
+observed = "AssertionError: {\"error\":\"sign_failed\",\"detail\":\"signature accounting reservation cannot be retargeted\"}: expected 500 to be 200 // Object.is equality"
+expected = "HTTP 200 after migrating and repeating the message; reservation rejects retargeting the same intent to another key (signature accounting owner)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_6]
+file = "services/wallet/gateway/test/attestor.test.ts"
+case = "signing routes > signs and broadcasts a transaction and signs typed data through the attestors"
+classification = "product"
+observed = "AssertionError: {\"error\":\"attestor_session_refused\",\"category\":\"session\",\"code\":\"session_bad_request\",\"message\":\"session: session_bad_request: request does not match a recorded fixture\"}: expected 502 to be 200 // Object.is equality"
+expected = "Reuse the previously signed nonce and bytes for send; nonce allocator instead advances and the pinned signer refuses a different transaction (nonce/signing owner)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_7]
+file = "services/wallet/gateway/test/attestor.test.ts"
+case = "signing routes > maps attestor refusals to typed HTTP responses and audits them"
+classification = "product"
+observed = "AssertionError: {\"error\":\"attestor_quorum_refused\",\"category\":\"quorum\",\"code\":\"inventory_mismatch\",\"message\":\"quorum: inventory_mismatch: too few distinct approved participant identities are available\"}: expected 503 to be 403 // Object.is equality"
+expected = "HTTP 403 attestor_policy_refused; current custody snapshot publication refuses with HTTP 503 first (custody authority owner); assertions retained."
+evidence = "qualification.3_1; full assertion in its private log"
+fixture_repair = "change.35 addresses cross-case client reuse; final qualification distinguishes residual refusal from fixture-health failure."
+
+[qualification_case.3_8]
+file = "services/wallet/gateway/test/evm-sign.test.ts"
+case = "evmSignSendsThroughSequencerWithReceipt"
+classification = "product"
+observed = "AssertionError: expected [ 200, 200 ] to deeply equal [ 200, 202 ]"
+expected = "Concurrent approval statuses [200,202]; producer returns [200,200] (EVM approval recovery owner)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_9]
+file = "services/wallet/gateway/test/owner-broadcast-outcome.test.ts"
+case = "fund and sweep answer an unknown broadcast outcome with 202 poll_receipt"
+classification = "product"
+observed = "AssertionError: {\"error\":\"send_failed\",\"detail\":\"signature accounting reservation cannot be retargeted\"}: expected 502 to be 409 // Object.is equality"
+expected = "HTTP 409 nonce_conflict on retry; producer returns HTTP 502 reservation cannot be retargeted (signature accounting owner)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_10]
+file = "services/wallet/gateway/test/precompiles.test.ts"
+case = "agent ABI selectors > 'streams' exactly matches every section (a2) signature and selector"
+classification = "product"
+observed = "AssertionError: streams: expected [ [ …(2) ], [ …(2) ], [ …(2) ], …(7) ] to deeply equal [ [ 'accrued(uint256)', …(1) ], …(5) ]"
+expected = "Frozen method/selector/event ABI parity; producer adds stream/TEE events and peer binding methods (node ABI owner)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_11]
+file = "services/wallet/gateway/test/precompiles.test.ts"
+case = "agent ABI selectors > 'teeAttestor' exactly matches every section (a2) signature and selector"
+classification = "product"
+observed = "AssertionError: teeAttestor: expected [ [ …(2) ], …(4) ] to deeply equal [ [ 'rootCount(uint8)', …(1) ], …(3) ]"
+expected = "Frozen method/selector/event ABI parity; producer adds stream/TEE events and peer binding methods (node ABI owner)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_12]
+file = "services/wallet/gateway/test/precompiles.test.ts"
+case = "teeAttestorFrozenEventParity"
+classification = "product"
+observed = "AssertionError: expected [ { type: 'function', …(4) }, …(4) ] to deeply equal [ { type: 'function', …(4) }, …(7) ]"
+expected = "Frozen method/selector/event ABI parity; producer adds stream/TEE events and peer binding methods (node ABI owner)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_13]
+file = "services/wallet/gateway/test/proof_s27_embedded_wallet_gateway.test.ts"
+case = "s27ConfigurationCrossesRealRpcAndReadiness"
+classification = "product"
+observed = "AssertionError: expected { error: 'not_ready', …(2) } to match object { ready: false, components: { …(4) } }"
+expected = "Detailed healthy/required/endpoints/keys fields in public /readyz; producer exposes component state/reason and reserves details for authenticated admin readiness (readiness/privacy owner)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_14]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+case = "bindReadsSequencerReceipt"
+classification = "product"
+observed = "RpcResponseError: AssertionError [ERR_ASSERTION]: missing canonical node execution transcript for <transaction-or-address> in sdk/platform/conformance/fixtures/sequencer-receipt-v1.json, daemon/committed-fixture/vectors/vector-v1-receipted-positive.json, sdk/platform/conformance/fixtures/vector-v6-sponsored-bind.json; owner domain 5 must record this transaction"
+expected = "Exact node execution transcripts for random transaction bytes must exist in the fixed published corpus; missing transcripts cause timeouts or station_contract_violation. Domain 5 / 22.33.208 owns this interface; receipt and station guards are retained."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_15]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+case = "bindBroadcastIsIdempotent"
+classification = "product"
+observed = "RpcResponseError: AssertionError [ERR_ASSERTION]: missing canonical node execution transcript for <transaction-or-address> in sdk/platform/conformance/fixtures/sequencer-receipt-v1.json, daemon/committed-fixture/vectors/vector-v1-receipted-positive.json, sdk/platform/conformance/fixtures/vector-v6-sponsored-bind.json; owner domain 5 must record this transaction"
+expected = "Exact node execution transcripts for random transaction bytes must exist in the fixed published corpus; missing transcripts cause timeouts or station_contract_violation. Domain 5 / 22.33.208 owns this interface; receipt and station guards are retained."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_16]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+case = "provisioning flow > provisioning creates both keys, has the gas station sponsor the binding and confirms it before active"
+classification = "product"
+observed = "AssertionError: {\"error\":\"station_contract_violation\",\"message\":\"station_contract_violation\"}: expected 503 to be 200 // Object.is equality"
+expected = "Exact node execution transcripts for random transaction bytes must exist in the fixed published corpus; missing transcripts cause timeouts or station_contract_violation. Domain 5 / 22.33.208 owns this interface; receipt and station guards are retained."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_17]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+case = "provisioning flow > provisioning resumes after a failure at each step without a second key, station request or binding"
+classification = "product"
+observed = "AssertionError: expected ProvisionError: station_contract_violation { …(2) } to match object { code: 'gas_station_unavailable' }"
+expected = "Exact node execution transcripts for random transaction bytes must exist in the fixed published corpus; missing transcripts cause timeouts or station_contract_violation. Domain 5 / 22.33.208 owns this interface; receipt and station guards are retained."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_18]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+case = "provisioning flow > provisioning sponsors the agent bind through two reauthorization challenges and confirms it before active"
+classification = "product"
+observed = "AssertionError: {\"error\":\"station_contract_violation\",\"message\":\"station_contract_violation\"}: expected 503 to be 200 // Object.is equality"
+expected = "Exact node execution transcripts for random transaction bytes must exist in the fixed published corpus; missing transcripts cause timeouts or station_contract_violation. Domain 5 / 22.33.208 owns this interface; receipt and station guards are retained."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_19]
+file = "services/wallet/gateway/test/repair-22-31-370.test.ts"
+case = "hostedEvmSdkRoundTrip"
+classification = "product"
+observed = "Error: Test timed out in 30000ms."
+expected = "SDK round trip completes within 30000ms and quote returns ok=true; base already times out/refuses quote (hosted SDK owner)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_20]
+file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+case = "humanDailyCapParallelLegacySigning"
+classification = "product"
+observed = "AssertionError: [{\"signed_tx\":\"<transaction-or-address>\",\"address\":\"<transaction-or-address>\",\"chain_id\":125,\"nonce\":0,\"broadcast_deadline\":\"2026-11-10T00:31:22.628Z\"},{\"error\":\"DAILY_VALUE_CAP\",\"message\":\"daily value cap exceeded. used=100 request=50 cap=100\"},{\"error\":\"DAILY_VALUE_CAP\",\"message\":\"daily value cap exceeded. used=100 request=50 cap=100\"},{\"error\":\"DAILY_VALUE_CAP\",\"message\":\"daily value cap exceeded. used=100 request=50 cap=100\"},{\"error\":\"DAILY_VALUE_CAP\",\"message\":\"daily value cap exceeded. used=100 request=50 cap=100\"},{\"error\":\"sign_failed\",\"detail\":\"duplicate key value violates unique constraint \\\"wallet_signature_reservations_pkey\\\"\"},{\"error\":\"DAILY_VALUE_CAP\",\"message\":\"daily value cap exceeded. used=100 request=50 cap=100\"},{\"error\":\"DAILY_VALUE_CAP\",\"message\":\"daily value cap exceeded. used=100 request=50 cap=100\"}]: expected [ { …(5) } ] to have a length of 2 b; full assertion in private evidence log"
+expected = "Two signed daily-cap reservations; duplicate reservation primary key leaves one success (signature accounting owner)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_21]
+file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+case = "humanDailyCapDatabaseRefusalBeforeLegacyAuthority"
+classification = "product"
+observed = "error: permission denied for schema public"
+expected = "Mount routes with a restricted database role, then refuse signing; new ApprovalRecovery DDL requires schema CREATE at mount (approval recovery/fixture contract owner)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_22]
+file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+case = "humanDailyCapRetainsUncertainSendAcrossReopen"
+classification = "product"
+observed = "AssertionError: {\"error\":\"outcome_unknown\",\"tx_hash\":\"<transaction-or-address>\",\"nonce\":0,\"retry\":\"poll_receipt\",\"poll\":\"eth_getTransactionReceipt\",\"must_not_resubmit\":true,\"member\":0,\"members\":1}: expected 202 to be 500 // Object.is equality"
+expected = "HTTP 500 send_failed; typed outcome_unknown producer returns HTTP 202 poll_receipt (broadcast outcome owner)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_23]
+file = "services/wallet/gateway/test/repair-22-33-210.test.ts"
+case = "sequencerReceiptMatchesNodeVectors"
+classification = "product"
+observed = "Grouped assertion; see private evidence log."
+expected = "Six V1/V2 corpus rows; producer supplies seven (domain 5 / 22.33.210)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_24]
+file = "services/wallet/gateway/test/support/chain-sequencer-receipt.test.ts"
+case = "sequencerReceiptMatchesNodeVectors"
+classification = "product"
+observed = "AssertionError: expected [ …(7) ] to have a length of 6 but got 7"
+expected = "Six V1/V2 corpus rows; producer supplies seven (domain 5 / 22.33.210)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_25]
+file = "services/wallet/gateway/test/schemas.injection.test.ts"
+case = "TxRequest — forward-compatible inner shape > strips unknown inner keys (e.g. future EVM fields) without failing"
+classification = "product"
+observed = "AssertionError: expected false to be true // Object.is equality"
+expected = "Strip unknown inner transaction fields and succeed; strict producer codec refuses (22.33.184)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_26]
+file = "services/wallet/gateway/test/sign-client-nonce.test.ts"
+case = "/v1/wallet/sign after migration 019 > refuses an outstanding client nonce on /v1/wallet/send and tracks the hash of a failed send"
+classification = "product"
+observed = "AssertionError: expected [ { id: '1' }, { id: '2' } ] to deeply equal [ { id: '1' } ]"
+expected = "No additional wallet_signatures row on nonce refusal, and all concurrent signing requests return HTTP 200; producer signature-accounting reservation conflicts persist (nonce/signature accounting owner)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_27]
+file = "services/wallet/gateway/test/sign-client-nonce.test.ts"
+case = "/v1/wallet/sign after migration 019 > keeps custody reservations exclusive to their action and chain before signing"
+classification = "product"
+observed = "AssertionError: expected [ { id: '7' } ] to deeply equal []"
+expected = "No additional wallet_signatures row on nonce refusal, and all concurrent signing requests return HTTP 200; producer signature-accounting reservation conflicts persist (nonce/signature accounting owner)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_28]
+file = "services/wallet/gateway/test/sign-client-nonce.test.ts"
+case = "/v1/wallet/sign after migration 019 > rolls back incomplete leases and gives concurrent sign requests distinct tracked nonces"
+classification = "product"
+observed = "AssertionError: expected 500 to be 200 // Object.is equality"
+expected = "No additional wallet_signatures row on nonce refusal, and all concurrent signing requests return HTTP 200; producer signature-accounting reservation conflicts persist (nonce/signature accounting owner)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_29]
+file = "services/wallet/gateway/test/sponsor-budget.test.ts"
+case = "sponsoredQuoteAnswersBudgetExhausted"
+classification = "product"
+observed = "AssertionError: expected 429 to be 400 // Object.is equality"
+expected = "HTTP 400 for extra did field; producer forwards it and returns HTTP 429 budget refusal (sponsor schema owner)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_30]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "gateway against five real attestor daemons > evmReviewApproveSignReturnsReceipt"
+classification = "product"
+observed = "AssertionError: expected [ { …(2) }, { …(2) } ] to deeply equal [ { …(2) } ]"
+expected = "Exactly one observed receipted query; producer first polls an unknown receipt (null) before broadcasting and obtaining the receipt (EVM approval recovery owner)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_31]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "gateway against five real attestor daemons > reports every readiness component up"
+classification = "product"
+observed = "AssertionError: expected { state: 'up', reason: null } to match object { Object (state, required, ...) }"
+expected = "Detailed healthy/required/endpoints/keys fields in public /readyz; producer exposes component state/reason and reserves details for authenticated admin readiness (readiness/privacy owner)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_32]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "gateway against five real attestor daemons > signs typed data and the signature recovers the wallet"
+classification = "product"
+observed = "AssertionError: {\"error\":\"attestor_policy_refused\",\"category\":\"policy\",\"code\":\"policy_denied\",\"policy_code\":\"decode_error\",\"message\":\"policy: policy_denied: permit spender is missing or not an address\"}: expected 403 to be 200 // Object.is equality"
+expected = "HTTP 200 for Ether Mail; current attestor policy interprets it as permit and rejects missing spender (attestor EIP-712 policy owner)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_33]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "gateway against five real attestor daemons > answers not ready with a typed body once the attestor quorum is lost"
+classification = "product"
+observed = "AssertionError: expected { state: 'down', …(1) } to match object { state: 'down', required: 3, …(1) }"
+expected = "Detailed healthy/required/endpoints/keys fields in public /readyz; producer exposes component state/reason and reserves details for authenticated admin readiness (readiness/privacy owner)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_34]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "wallet custody boundary against the gateway database > rechecks custody when an already-created legacy signing handle is used"
+classification = "product"
+observed = "error: duplicate key value violates unique constraint \"wallets_attestor_key_id_uidx\""
+expected = "Update another wallet with the already-bound attestor key, then recheck signing custody; producer unique key constraint refuses the fixture row (wallet custody schema owner)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[qualification_case.3_35]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "wallet custody boundary against the gateway database > refuses null-envelope legacy signing without decrypting"
+classification = "product"
+observed = "error: new row for relation \"wallets\" violates check constraint \"wallets_key_material_chk\""
+expected = "Persist a null-envelope legacy row, then refuse signing without decrypting; producer wallets_key_material_chk refuses the invalid row (wallet custody schema owner)."
+evidence = "qualification.3_1; full assertion in its private log"
+
+[continuation_4]
+seed_revision = "08501fd25a232db726fd1fc42cfaa4a749e55af1"
+qualification = "Only hf-build followed by hf-done; no hand-run verification. Final private ledger revision and log are authoritative. No claim of qualification before exit zero."
+scope = "Preserve attempt-3 implementation and historical cause records. User continuation-4 instructions authorize producer-aligned expectations; earlier boundary assumptions are historical, superseded where noted below."
+
+[continuation_4.change_1]
+file = "services/wallet/gateway/test/precompiles.test.ts"
+cases = ["streams selector parity", "teeAttestor selector parity", "teeAttestorFrozenEventParity"]
+cause = "product: frozen ABI and address-table selector inventory lag registered Go ABI"
+repair = "Freeze full registered scheduler and tee ABI, including events and peer binding methods. Compare functions only for selector inventory; assert full ABI equality separately."
+producer = "6e64aa6ffb45918b2936a2c2c92b248687a88287; f2445f6a535adebd785204ee502dfc9935327811; 07987039a73a5fddfc6973a4a6df33adcc3aa7f3"
+base_failed = true
+evidence = "Final bounded hf-done log enumerates actual outcomes; historical attempt-3 assertions remain in qualification_case.3_* ."
+
+[continuation_4.change_2]
+file = "services/wallet/gateway/test/agent-precompiles-scheduler.test.ts"
+cases = ["schedulerRoutesTargetServedAddress", "schedulerRoutesEncodeNodeAbiSelectors"]
+cause = "product: undecodable reschedule obscures explicit deny rules"
+repair = "src/policy/agent.ts now enforces explicit destination and selector deny rules before the precompile operand decoder, consistent with deny-beats-allow. Undecodable movements remain refused; no allow path changes."
+producer = "2ff2f9515b4e39efea5ac7a05a27c4e6abc0bcfa"
+base_failed = true
+evidence = "Final bounded hf-done log enumerates actual outcomes; historical attempt-3 assertions remain in qualification_case.3_* ."
+
+[continuation_4.change_3]
+file = "services/wallet/gateway/test/attestor.test.ts"
+cases = ["signs through the attestors for a migrated wallet and the envelope path otherwise, switching on the flag", "signs and broadcasts a transaction and signs typed data through the attestors", "maps attestor refusals to typed HTTP responses and audits them"]
+cause = "fixture_contract: immutable request accounting and nonce leases"
+repair = "Use a distinct pre-migration message, preserve the pinned post-migration message, age the unsigned-broadcast lease past its deadline, answer the exact by-hash lookup with null, and assert one expired lease before the real allocator reconciles it. Keep typed refusal assertions and per-case transport health checks."
+producer = "fc308aa6ace5ee0e8918caf67e5d24cc262a62b4"
+base_failed = true
+evidence = "Final bounded hf-done log enumerates actual outcomes; historical attempt-3 assertions remain in qualification_case.3_* ."
+
+[continuation_4.change_4]
+file = "services/wallet/gateway/test/evm-sign.test.ts"
+cases = ["evmSignSendsThroughSequencerWithReceipt"]
+cause = "fixture_contract and producer recovery: receipt preflight precedes broadcast, serialized retry returns retained result"
+repair = "Answer null before broadcast and signed receipt afterward. Assert both queries and matching hashes; concurrent results are exactly equal HTTP 200 retained responses and only one broadcast."
+producer = "fc308aa6ace5ee0e8918caf67e5d24cc262a62b4"
+base_failed = true
+evidence = "Final bounded hf-done log enumerates actual outcomes; historical attempt-3 assertions remain in qualification_case.3_* ."
+
+[continuation_4.change_5]
+file = "services/wallet/gateway/test/owner-broadcast-outcome.test.ts"
+cases = ["fund and sweep answer an unknown broadcast outcome with 202 poll_receipt"]
+cause = "fixture_contract: repeated intent cannot retarget immutable accounting to another nonce"
+repair = "Use amount 2 for the later underpriced transaction, distinct from uncertain amount 1. Keep exact unknown-outcome and nonce-conflict assertions."
+producer = "fc308aa6ace5ee0e8918caf67e5d24cc262a62b4"
+base_failed = true
+evidence = "Final bounded hf-done log enumerates actual outcomes; historical attempt-3 assertions remain in qualification_case.3_* ."
+
+[continuation_4.change_6]
+file = "services/wallet/gateway/test/proof_s27_embedded_wallet_gateway.test.ts"
+cases = ["s27ConfigurationCrossesRealRpcAndReadiness"]
+cause = "product: public readiness redaction"
+repair = "Assert public component state/reason; detailed endpoint inventory belongs to authenticated admin readiness."
+producer = "e3835b654d65646c02681252839918c6f0aca72f"
+base_failed = true
+evidence = "Final bounded hf-done log enumerates actual outcomes; historical attempt-3 assertions remain in qualification_case.3_* ."
+
+[continuation_4.change_7]
+file = "services/wallet/gateway/test/provisioning.test.ts"
+cases = ["bindReadsSequencerReceipt", "bindBroadcastIsIdempotent", "provisioning creates both keys, has the gas station sponsor the binding and confirms it before active", "provisioning resumes after a failure at each step without a second key, station request or binding", "provisioning sponsors the agent bind through two reauthorization challenges and confirms it before active"]
+cause = "fixture_contract: random transaction cannot be present in a fixed node corpus"
+repair = "Use the existing loopback chain to execute and sign canonical receipts for actual generated envelopes. Validate owner authorization, quote, sponsor/account signatures, binding proof, nonce and event effects; verify canonical receipt bytes against exact raw transaction and pinned key. Fixed node-vector tests remain separate. Supersedes boundary.node_receipts for loopback environment coverage; this is not node execution certification."
+producer = "21e7fad72320ab6e794dcd4a5d3be762f829acab; producer contracts src/provision/protocol.ts and precompiles/addr/abi.json"
+base_failed = true
+evidence = "Final bounded hf-done log enumerates actual outcomes; historical attempt-3 assertions remain in qualification_case.3_* ."
+
+[continuation_4.change_8]
+file = "services/wallet/gateway/test/repair-22-31-370.test.ts"
+cases = ["hostedEvmSdkRoundTrip"]
+cause = "environment: Vite source loading times out while loading workspace SDK"
+repair = "Load actual committed wallet SDK and browser exports through the existing native production-source loader, resolving source .js imports to .ts and installed cryptographic dependencies. Keep real SDK, proxy, token and route assertions and 30000ms bound."
+producer = "4723c4db337a9057b6f37c028c59a18970e8bcbb"
+base_failed = true
+evidence = "Final bounded hf-done log enumerates actual outcomes; historical attempt-3 assertions remain in qualification_case.3_* ."
+
+[continuation_4.change_9]
+file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+cases = ["humanDailyCapParallelLegacySigning", "humanDailyCapDatabaseRefusalBeforeLegacyAuthority", "humanDailyCapRetainsUncertainSendAcrossReopen"]
+cause = "fixture_contract: duplicate intents, initialization DDL and missing accepted receipt"
+repair = "Distinct calldata creates eight distinct payment intents. Restricted role may initialize tables but retains its read/write denial. Unknown-send peer applies actual signed bytes to loopback chain, loses response, and returns canonical accepted receipt to restart recovery; assert exact typed 202 and no second broadcast."
+producer = "2ff2f9515b4e39efea5ac7a05a27c4e6abc0bcfa; 4723c4db337a9057b6f37c028c59a18970e8bcbb"
+base_failed = true
+evidence = "Final bounded hf-done log enumerates actual outcomes; historical attempt-3 assertions remain in qualification_case.3_* ."
+
+[continuation_4.change_10]
+file = "services/wallet/gateway/test/support/chain-sequencer-receipt.test.ts"
+cases = ["sequencerReceiptMatchesNodeVectors (also registered by repair-22-33-210.test.ts)"]
+cause = "product: node corpus contains seven V1/V2 rows"
+repair = "Assert exact seven producer IDs; derive success/revert expectation from each producer receipt status, authenticate every pinned row and retain exact byte/JSON equality."
+producer = "21e7fad72320ab6e794dcd4a5d3be762f829acab"
+base_failed = true
+evidence = "Final bounded hf-done log enumerates actual outcomes; historical attempt-3 assertions remain in qualification_case.3_* ."
+
+[continuation_4.change_11]
+file = "services/wallet/gateway/test/schemas.injection.test.ts"
+cases = ["TxRequest rejects unsupported inner keys before transaction semantics can change"]
+cause = "product: strict inner schema rejects future transaction fields"
+repair = "Assert exact unrecognized_keys issue, three unsupported keys and parse failure. No production schema change. Supersedes boundary.schema per explicit continuation-4 producer alignment."
+producer = "9625aab0ce73ebdf09d5424d1324203b0acffe4f"
+base_failed = true
+evidence = "Final bounded hf-done log enumerates actual outcomes; historical attempt-3 assertions remain in qualification_case.3_* ."
+
+[continuation_4.change_12]
+file = "services/wallet/gateway/test/sign-client-nonce.test.ts"
+cases = ["refuses an outstanding client nonce on /v1/wallet/send and tracks the hash of a failed send", "keeps custody reservations exclusive to their action and chain before signing", "rolls back incomplete leases and gives concurrent sign requests distinct tracked nonces"]
+cause = "product and fixture_contract: daily reservation precedes nonce refusal; repeated intent cannot retarget"
+repair = "Assert exactly one conservative pending charge with value 1 and null hash on refusal, retain prior rows, exercise distinct concurrent intents and exact nonces, and assert typed unknown-send 202 with poll_receipt."
+producer = "fc308aa6ace5ee0e8918caf67e5d24cc262a62b4"
+base_failed = true
+evidence = "Final bounded hf-done log enumerates actual outcomes; historical attempt-3 assertions remain in qualification_case.3_* ."
+
+[continuation_4.change_13]
+file = "services/wallet/gateway/test/sponsor-budget.test.ts"
+cases = ["sponsoredQuoteAnswersBudgetExhausted"]
+cause = "product: optional valid did is accepted and forwarded"
+repair = "Use malformed DID for invalid-body 400; use owner DID for budget-exhausted 429 and assert exact forwarded quote payload."
+producer = "4723c4db337a9057b6f37c028c59a18970e8bcbb"
+base_failed = true
+evidence = "Final bounded hf-done log enumerates actual outcomes; historical attempt-3 assertions remain in qualification_case.3_* ."
+
+[continuation_4.change_14]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+cases = ["evmReviewApproveSignReturnsReceipt", "reports every readiness component up", "signs typed data and the signature recovers the wallet", "answers not ready with a typed body once the attestor quorum is lost", "rechecks custody when an already-created legacy signing handle is used", "refuses null-envelope legacy storage and migrated signing without decrypting"]
+cause = "product and fixture_contract: recovery preflight, readiness redaction, Permit policy, unique custody keys and database custody constraints"
+repair = "Assert prebroadcast null plus authenticated receipt; assert public redaction and authenticated admin details in healthy and failed quorum states; sign valid Permit rather than Ether Mail; use distinct inventory key identifiers for separate wallets; assert database rejection of invalid legacy null-envelope storage before testing valid migrated row refusal."
+producer = "e3835b654d65646c02681252839918c6f0aca72f; 6a4cc05c27e8f7cf69cf6d4e20af3af38e196ce1; 33f5ea8663a428a7c697c7d206309ea2d564f463"
+base_failed = true
+evidence = "Final bounded hf-done log enumerates actual outcomes; historical attempt-3 assertions remain in qualification_case.3_* ."
+
+[continuation_4.policy_conflict]
+file = "services/wallet/gateway/test/agent-precompiles-streams.test.ts"
+cases = ["streamsRoutesTargetServedAddress", "streamsRoutesEncodeNodeAbiSelectors"]
+cause = "cross-task contradiction: both conformance cases require eth_estimateGas for settle/close/updateRate, but src/policy/agent.ts refuses ID-only movement with COUNTERPARTY_UNDECODED and rawPrecompilePolicyRefusesUndecodableMovement requires HTTP 403 for both helper and raw paths."
+producer = "2ff2f9515b4e39efea5ac7a05a27c4e6abc0bcfa (22.31.371)"
+resolution = "Preserve both checks and policy unless the user explicitly resolves the contradiction; an RPC peer cannot answer an estimate the route refuses to issue. Record the bounded result without claiming a pass."
+
+[continuation_4.build_environment]
+revision = "a1927cf7f48cade650ce3d5861da11bb5bf1ed51"
+command = "corepack enable && cd services/wallet && pnpm install --frozen-lockfile --ignore-scripts && cd ../.. && pnpm --dir services/wallet/gateway run typecheck"
+exit = 1
+log = "/out/logs/build-1.log"
+cause = "Qualification environment: Corepack enforces the root npm packageManager against the explicitly declared pnpm --dir gate before typecheck starts. Wallet frozen install succeeded."
+repair = "Set COREPACK_ENABLE_STRICT=0 for both bounded gates, retaining the exact declared commands, frozen dependency install and typecheck. No manifest or code fallback is introduced."
+
+[continuation_4.build_environment_version]
+revision = "41f9ec5275ed68dfa8bd4f4b5a67799b6a599c5b"
+command = "corepack enable && cd services/wallet && pnpm install --frozen-lockfile --ignore-scripts && cd ../.. && pnpm --dir services/wallet/gateway run typecheck"
+exit = 1
+log = "/out/logs/build-2.log"
+cause = "With manager mismatch enforcement disabled, Corepack selected its global pnpm 12.18.0 outside the wallet workspace; pnpm refused the wallet 10.34.9 version contract before typecheck."
+repair = "Activate the declared pnpm 10.34.9 through corepack prepare pnpm@10.34.9 --activate; keep COREPACK_ENABLE_STRICT=0 for the root gate invocation. Both environment failures happened before any compiler or test ran."
+
+[continuation_5]
+base_revision = "5df42280640955ac1f70ea7e257ffaed6bb3f0b2"
+carried_revision = "96730306a637356de46b729b884b09f44f84a0fe"
+status = "implementation_complete_pending_isolated_files_and_bounded_gates"
+isolated_files = ["test/provisioning.test.ts", "test/provisioning-station.test.ts", "test/repair-22-33-207.test.ts", "test/e2e/gateway.e2e.test.ts", "test/agent-precompiles-streams.test.ts", "test/attestor.test.ts", "test/evm-sign.test.ts"]
+isolated_evidence = "Each requested file is run alone through pnpm --dir services/wallet/gateway exec vitest run; private /out/logs/continuation-5-*.log records command, base revision and exit. These runs do not substitute for hf-done."
+gate_evidence = "The final /out/run/gates.jsonl row and hf-done output identify the exact candidate revision, declared command, exit and private log; a passing build is not completion."
+
+[continuation_5.receipt_publication]
+file = "services/wallet/gateway/test/support/chain.ts"
+cases = ["bindReadsSequencerReceipt", "bindBroadcastIsIdempotent", "provisioning creates both keys, has the gas station sponsor the binding and confirms it before active", "provisioning resumes after a failure at each step without a second key, station request or binding", "provisioning sponsors the agent bind through two reauthorization challenges and confirms it before active"]
+cause = "fixture_contract: applied receipt was exposed before asynchronous canonical receipt authentication finished"
+repair = "Build and authenticate the signed sequencer receipt before publishing the applied receipt. A concurrent receipt poll observes null until both forms are ready; readReceipt and RpcPool keep their real production path."
+contract = "rpc/sequencer_receipt_vectors_test.go; services/agent/sdk/typescript/src/{sequencer-receipt-codec,verifier}.ts"
+
+[continuation_5.station_execution]
+files = ["services/wallet/gateway/test/provisioning-station.test.ts", "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"]
+cases = ["provisionBindIsStationSponsored", "provisionRequotesAfterUnsubmittedQuoteExpires", "provisionKeepsUnresolvedStationRequest", "all fifteen gateway e2e cases held by beforeAll"]
+cause = "fixture_contract: station re-executed bindLayerX after the real signed EIP-7702 transaction already applied it"
+repair = "Keep quote, account and relayer signatures, persistence, sponsored envelope and response assertions. Replace the duplicate state mutation with exact assertions on the published binding and nonce=1. The station still returns transactionHash from the actual signed broadcast."
+contract = "precompiles/addr/abi.json; services/wallet/gateway/src/provision/protocol.ts::sponsoredBindAbi"
+
+[continuation_5.database_restart]
+files = ["services/wallet/gateway/test/repair-22-33-207.test.ts", "services/wallet/gateway/test/support/postgres.ts"]
+cases = ["all nine repair-22-33-207 cases held by beforeAll", "canonicalEvmEvidenceSurvivesDatabaseRestart", "ambiguousWriteRecoversWithoutReadPoolBroadcastOrReplacement"]
+cause = "environment: embedded PostgreSQL startup and connection bridge held setup beyond its unchanged 30000ms bound"
+repair = "Use the suite's private native PostgreSQL engine. Add an explicit restart operation retaining its data directory and listening port, close the production pool before restarting, and retain every persistence/evidence assertion. Migration conformance registrations and all 30000ms bounds remain."
+
+[continuation_5.stream_state]
+files = ["services/wallet/gateway/src/policy/agent.ts", "services/wallet/gateway/test/support/precompile-rpc.ts", "services/wallet/gateway/test/agent-precompiles-streams.test.ts"]
+cases = ["streamsRoutesTargetServedAddress", "streamsRoutesEncodeNodeAbiSelectors", "streamsRetainedStateEnforcesMovementPolicy", "rawPrecompilePolicyRefusesUndecodableMovement"]
+cause = "product and fixture_contract: ID-only stream movement never resolved its retained payer, payee, token or cap"
+repair = "Resolve getStream through the real read client from canonically decoded signed calldata. Require an active matching ID, the agent wallet as payer, nonzero payee/token/cap and settled<=cap before applying the existing token, counterparty, withdrawal and cap policies. Unavailable or malformed state remains COUNTERPARTY_UNDECODED. The peer supplies a known stream at id 1 for writes and preserves missing id 0 reads. New assertions exercise each retained-state refusal, token/address denylists, withdrawal allowlist and token cap for settle/close/updateRate."
+contract = "precompiles/layerxagent/streams/streams.go::abiJSON; modules/layerxpay/keeper/stream_agent.go"
+supersedes = "continuation_4.policy_conflict: explicit continuation-5 state resolution preserves refusals when state cannot be decoded"
+owner = "22.31.371 wallet movement policy"
+
+[continuation_5.attestor_admission]
+file = "services/wallet/gateway/test/attestor.test.ts"
+cases = ["signs and broadcasts a transaction and signs typed data through the attestors"]
+cause = "fixture_contract: signing admission must name the actual migrated wallet key and owner"
+repair = "Assert through requireInventoryKey that the signed owner inventory admits sign on the migrated wallet's exact held secp256k1 key and epoch. Keep key-evm generation admission separate and preserve all signing and broadcast assertions."
+repaired_product_case = "Continuation 6 repairs the duplicate-reservation producer in src/routes/sign.ts::signTransaction and src/db/signatureAccounting.ts::bindHumanSignatureReservation; the original successful-send assertion and all conflict guards remain."
+
+[continuation_5.evm_reconciliation]
+file = "services/wallet/gateway/test/evm-sign.test.ts"
+cases = ["evmSignSendsThroughSequencerWithReceipt"]
+cause = "product: two concurrent sign requests each reconcile under the recovery lock"
+repair = "Assert exact sequencer method order: preflight pax_sequencerReceipt, eth_sendRawTransaction, post-submit pax_sequencerReceipt, replay pax_sequencerReceipt. Assert first receipt null, both subsequent receipts identical, and exactly one broadcast; retain authenticated evidence and restart recovery."
+contract = "services/wallet/gateway/src/routes/evmApprovals.ts::reconcile"
+
+[continuation_5.isolated_repair_restart]
+file = "services/wallet/gateway/test/support/postgres.ts"
+observed = "At base 5df42280640955ac1f70ea7e257ffaed6bb3f0b2, pnpm --dir services/wallet/gateway exec vitest run test/repair-22-33-207.test.ts exits 1; two restart cases get ECONNREFUSED on the retained port (/out/logs/continuation-5-3.log)."
+repair = "pg_ctl start does not reuse postmaster.opts after a separate stop. Pass the original listen options explicitly on restart; preserve the data directory, port, real PostgreSQL and every test bound."
+
+[continuation_5.isolated_repair_readiness]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "answers not ready with a typed body once the attestor quorum is lost"
+observed = "At base 5df42280640955ac1f70ea7e257ffaed6bb3f0b2, pnpm --dir services/wallet/gateway exec vitest run test/e2e/gateway.e2e.test.ts exits 1; fourteen cases pass and readiness reports zero healthy members rather than two surviving processes (/out/logs/continuation-5-4.log)."
+repair = "Assert both surviving real daemons return HTTP 503, ready=false and reachable_peers=1, then assert healthy=0 and all five admin member entries unready. Keep every public/admin redaction, readiness status and independent component assertion."
+producer = "e3835b654d65646c02681252839918c6f0aca72f; services/wallet/attestor/internal/health/health.go::MinReachablePeers=2; src/attestor/quorum.ts::isHealthy"
+
+[continuation_6.repaired_accounting]
+files = ["services/wallet/gateway/src/routes/sign.ts", "services/wallet/gateway/src/db/signatureAccounting.ts", "services/wallet/gateway/test/attestor.test.ts", "services/wallet/gateway/test/repair-22-31-371.test.ts"]
+cases = ["signs and broadcasts a transaction and signs typed data through the attestors", "humanSignatureReservationPreservesOperationGuards"]
+cause = "product: the send route inserted a second operation reservation before reserveSignature searched by request hash or operation hash; the sign-only request includes an explicit nonce while send allocates that same nonce, giving two request hashes for one operation"
+repair = "Under the accounting advisory transaction lock, bind the provisional daily charge only when no operation exists; otherwise adopt the original reservation after validating the operation hash, user, address, recipient, value, chain and principal. Delete only the validated unsigned provisional charge, retain the original daily window and signed evidence, and journal the send against the adopted signature ID. Both producers share the unchanged multi-row conflict, retarget and expired-unresolved refusals."
+assertions = "Print request hash, operation hash and signed evidence before send; assert one original reservation and one wallet_signatures row after send, unchanged evidence and a daily-count delta of exactly one. Exercise mismatches in all six accounting fields, a changed operation, conflicting rows for two operations, adoption of expired signed evidence and rejection of expired unresolved evidence through real PostgreSQL and envelope signing."
+supersedes = "continuation_5.product_accounting; decision 3185 explicitly includes this producer repair in 22.39.290"
+qualification = "Both declared isolated files pass as recorded below; hf-build and hf-done qualify this final candidate and their private ledger identifies the exact verified revision."
+
+[continuation_5.isolated_results]
+base_revision = "5df42280640955ac1f70ea7e257ffaed6bb3f0b2"
+provisioning = "exit 0; 7 passed; /out/logs/continuation-5-1.log"
+station = "exit 0; 4 passed; /out/logs/continuation-5-2.log"
+recovery = "exit 0; 9 passed; /out/logs/continuation-5-3-repair.log"
+gateway_e2e = "exit 0; 15 passed; /out/logs/continuation-5-4-repair.log"
+streams = "exit 0; 3 passed; /out/logs/continuation-5-5.log"
+attestor = "exit 1; 12 passed, 1 failed, 3 existing todo; /out/logs/continuation-5-6.log; exact inventory signing admission passes, duplicate transaction accounting fails"
+evm_sign = "exit 0; 2 passed; /out/logs/continuation-5-7.log"
+accounting_producer = "fc308aa6ace5ee0e8918caf67e5d24cc262a62b4 (22.31.517); existing accounting conflict guard is preserved"
+status = "isolated_checks_finished_pending_bounded_build_and_verification"
+
+[continuation_5.bounded_gate_1]
+revision = "7312be69f21e083bc899f622dbc53da3a1a2552a"
+build_command = "corepack enable && cd services/wallet && pnpm install --frozen-lockfile --ignore-scripts && cd ../.. && pnpm --dir services/wallet/gateway run typecheck"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+command = "cg spec done 22.39.290 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+result = "434 passed, 2 failed, 30 existing todo; 58 files passed, 2 failed, 9 existing skipped files. No skip or todo registration was added."
+
+[continuation_5.bounded_repair_quorum]
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+case = "refuses a transaction over the attestor policy cap"
+cause = "environment: real daemon health had no eligible quorum at the moment the policy stimulus was issued under the full suite"
+observed = "Gate 1 at 7312be69f21e083bc899f622dbc53da3a1a2552a, cg spec done 22.39.290 -f layerx-merge --root /work/paxeer-monorepo exits 1 with HTTP 503 quorum_unavailable (zero healthy) where the unchanged cap assertion requires HTTP 403 policy_denied (/out/logs/verify-1.log)."
+repair = "Establish all five admitted daemon identities, healthy=true, ready=true and reachable_peers=4 through the real signing client's refreshHealth before issuing the cap request. The fixture precondition has a 10000ms bound inside the unchanged 300000ms case bound. The failed route request is never retried; the original cap and refusal assertions and all production checks remain."
+remaining_product_cause = "The separately recorded attestor duplicate-accounting failure is preserved under the explicit instruction to leave product causes unrepaired."
+
+[continuation_5.bounded_repair_isolated_result]
+command = "pnpm --dir services/wallet/gateway exec vitest run test/e2e/gateway.e2e.test.ts"
+exit = 0
+log = "/out/logs/continuation-5-4-quorum-repair.log"
+result = "15 passed, including the exact five-member readiness precondition and the unchanged attestor policy-cap refusal assertion."
+final_qualification = "Run hf-build and hf-done on the unchanged final candidate; their final private ledger rows identify the exact candidate and outcomes. Keep the task unqualified if the preserved production accounting conflict remains."
+
+[continuation_6.isolated_receipt_repair]
+file = "services/wallet/gateway/test/attestor.test.ts"
+case = "reads the authorization nonce at latest and refuses a changed nonce without signing"
+command = "pnpm --dir services/wallet/gateway exec vitest run test/attestor.test.ts"
+exit = 1
+log = "/out/logs/continuation-6-attestor.log"
+observed = "The repaired sign-then-send case passes, but mounting the following case reconciles the prior send against a peer that always answers null for receipts, rebroadcasting that earlier transaction before the unchanged no-broadcast assertion."
+repair = "Execute the real submitted envelope on the existing TestChain loopback material, retain its canonical execution receipt and answer receipt and transaction lookups from that state, so HumanSendRecovery can settle the prior send on startup. No existing assertion is changed."
+
+[continuation_6.isolated_results]
+accounting_command = "pnpm --dir services/wallet/gateway exec vitest run test/repair-22-31-371.test.ts"
+accounting_exit = 0
+accounting_log = "/out/logs/continuation-6-daily-accounting.log"
+accounting_result = "8 passed, 1 existing todo; includes humanSignatureReservationPreservesOperationGuards and all unchanged humanDailyCap cases"
+attestor_command = "pnpm --dir services/wallet/gateway exec vitest run test/attestor.test.ts"
+attestor_exit = 0
+attestor_log = "/out/logs/continuation-6-attestor-receipt-repair.log"
+attestor_result = "13 passed, 3 existing todo; includes the original sign-then-send case, exact operation evidence, one signature row, one daily count increase, and the unchanged following no-broadcast refusal"
+final_evidence = "hf-build and hf-done print the final candidate revision, exact command, exit code and private evidence path; stop on the bounded gate result without editing this candidate after qualification."
+
+[continuation_6.build_environment]
+revision = "22708a2255f0fd438400113f4896ce3c7fe701c9"
+command = "corepack enable && cd services/wallet && pnpm install --frozen-lockfile --ignore-scripts && cd ../.. && pnpm --dir services/wallet/gateway run typecheck"
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Install passes, but the root pnpm invocation stops before typechecking because Corepack selects the root npm packageManager declaration instead of the wallet workspace's pnpm pin."
+repair = "Install the workspace's exact pnpm@10.34.9 as Corepack's global selection and run the unchanged declared build and verify commands with COREPACK_ENABLE_PROJECT_SPEC=0. This changes only tool selection in the qualification shell; manifests, frozen installation, types, test assertions and declared commands are preserved."

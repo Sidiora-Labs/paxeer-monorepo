@@ -18,11 +18,17 @@ pub struct RpcClient {
 
 impl RpcClient {
     /// Connect to the public node JSON-RPC root, preserving TLS and authorization.
+    ///
+    /// # Errors
+    /// Returns an error when input validation or the requested operation fails.
     pub fn new(url: &str, credential: Option<zeroize::Zeroizing<String>>) -> Result<Self, String> {
         Self::connect(url, credential, false, false)
     }
 
     /// Connect to an explicitly configured hosted service URL, including its path.
+    ///
+    /// # Errors
+    /// Returns an error when input validation or the requested operation fails.
     pub fn new_gateway(
         url: &str,
         credential: Option<zeroize::Zeroizing<String>>,
@@ -31,6 +37,9 @@ impl RpcClient {
     }
 
     /// Connect to an explicit hosted service with a bearer identity session.
+    ///
+    /// # Errors
+    /// Returns an error when input validation or the requested operation fails.
     pub fn new_session(url: &str, session: zeroize::Zeroizing<String>) -> Result<Self, String> {
         if session.is_empty() {
             return Err("identity_session_required: an empty identity session is invalid".into());
@@ -98,6 +107,9 @@ impl RpcClient {
 }
 
 /// Split a full service URL without dropping its explicit path or accepting URL credentials.
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn endpoint_parts(url: &str) -> Result<(String, String), String> {
     let uri: tungstenite::http::Uri = url.parse().map_err(|_| "invalid RPC endpoint")?;
     let scheme = uri
@@ -142,11 +154,15 @@ pub struct PreparedSubmission {
 }
 
 impl PreparedSubmission {
+    #[must_use]
     pub fn request(&self) -> &Value {
         &self.command
     }
 
     /// Only a bound JSON-RPC rejection proves refusal after a request was sent.
+    ///
+    /// # Errors
+    /// Returns an error when input validation or the requested operation fails.
     pub fn resolve(self, response: Result<Value, String>) -> Result<Value, SubmissionFailure> {
         let tx_hash = self.tx_hash;
         let response = response.map_err(|detail| SubmissionFailure::Indeterminate {
@@ -176,6 +192,9 @@ impl PreparedSubmission {
 }
 
 /// Validate a submission and retain its hash before the caller sends the request once.
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn prepare_submission(
     raw: &[u8],
     network_id: Option<u64>,
@@ -202,6 +221,9 @@ pub fn prepare_submission(
 }
 
 /// Recoverable invocations retain unknown submissions; unsent and refused remain failures.
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn submission_outcome(result: Result<Value, SubmissionFailure>) -> Result<Value, String> {
     match result {
         Ok(value) => Ok(value),
@@ -237,7 +259,7 @@ pub fn request(method: &str, params: &Value) -> Result<Value, String> {
         "eth_estimateGas" => estimate_gas_params(args)?,
         "eth_chainId" | "eth_gasPrice" | "eth_maxPriorityFeePerGas" if args.is_empty() => {}
         "eth_chainId" | "eth_maxPriorityFeePerGas" => {
-            return Err(format!("{method} takes no parameters"))
+            return Err(format!("{method} takes no parameters"));
         }
         "eth_call" => call_params(args)?,
         "eth_gasPrice" => return Err("eth_gasPrice takes no parameters".into()),
@@ -255,7 +277,7 @@ pub fn request(method: &str, params: &Value) -> Result<Value, String> {
         _ => {
             return Err(format!(
                 "rpc_method_unavailable: {method} is absent from the published OpenRPC contract"
-            ))
+            ));
         }
     }
     Ok(json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}))
@@ -609,16 +631,17 @@ mod tests {
     }
 
     fn asset_page(assets: Vec<Value>, next_cursor: Value) -> Value {
-        json!({
-            "assets": assets,
-            "next_cursor": next_cursor,
+        let mut page = json!({
             "observed_head_sequence": "9",
             "state_root": "44".repeat(32),
             "verification": "authenticated_committed_snapshot"
-        })
+        });
+        page["assets"] = Value::Array(assets);
+        page["next_cursor"] = next_cursor;
+        page
     }
 
-    fn assert_published_methods(methods: &[Value]) -> Result<(), String> {
+    fn assert_published_methods(methods: &[Value]) {
         assert_eq!(
             methods
                 .iter()
@@ -649,11 +672,12 @@ mod tests {
                 Some("px_getInferenceReceipts"),
             ]
         );
-        assert!(methods.iter().all(|entry| !entry["name"]
-            .as_str()
-            .unwrap_or_default()
-            .starts_with("lx_")));
-        Ok(())
+        assert!(methods.iter().all(|entry| {
+            !entry["name"]
+                .as_str()
+                .unwrap_or_default()
+                .starts_with("lx_")
+        }));
     }
 
     #[test]
@@ -665,7 +689,7 @@ mod tests {
         let methods = published["methods"]
             .as_array()
             .ok_or("missing contract methods")?;
-        assert_published_methods(methods)?;
+        assert_published_methods(methods);
         let network = methods
             .iter()
             .find(|entry| entry["name"] == "px_getNetwork")
@@ -700,7 +724,9 @@ mod tests {
         ] {
             assert!(!methods.iter().any(|entry| entry["name"] == method));
             for params in [params, json!([]), json!({"account_id":id})] {
-                let error = request(method, &params).expect_err("retired method was admitted");
+                let error = request(method, &params)
+                    .err()
+                    .unwrap_or_else(|| panic!("retired method was admitted"));
                 assert_eq!(
                     error,
                     format!("rpc_method_unavailable: {method} is switched off")
@@ -786,11 +812,15 @@ mod tests {
             json!([{"topic": topic, "from_sequence": 0, "limit": 1}, 1]),
             json!([topic, 0, 1]),
         ] {
-            assert!(request("lx_getProgramEvents", &params).is_err(), "{params}");
             let refused = client
                 .call("lx_getProgramEvents", &params)
                 .err()
                 .ok_or("malformed query reached transport")?;
+            assert_eq!(
+                request("lx_getProgramEvents", &params).err(),
+                Some(refused.clone()),
+                "{params}"
+            );
             assert!(
                 refused == "rpc_method_unavailable: lx_getProgramEvents is switched off",
                 "{refused}"

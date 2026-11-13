@@ -126,7 +126,7 @@ func applyRewardDeploymentMigration(t *testing.T, ctx context.Context, pool *pgx
 
 func applyRepair29Migration(t *testing.T, ctx context.Context, pool *pgxpool.Pool, root, name, schema string) {
 	t.Helper()
-	sql, err := os.ReadFile(filepath.Join(root, "launchpad/spec/production-system/integration/migrations", name))
+	sql, err := os.ReadFile(filepath.Join(root, "migrations", name))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +145,7 @@ func applyRepair29Migration(t *testing.T, ctx context.Context, pool *pgxpool.Poo
 	}
 }
 
-func TestRepair_29_RewardSchemaReadiness(t *testing.T) {
+func TestProductionRewardSchemaReadiness(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	dsn, stop := repair29Store(t, ctx, filepath.Join(t.TempDir(), "readiness"))

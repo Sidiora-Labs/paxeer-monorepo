@@ -221,7 +221,9 @@ def test_evidence_route_producer_and_portable_consumer_remain_connected():
     require(execute, '"evidence.get" => super::ProductionComponents::evidence_get(scope, request)')
     route = source(path).split("fn evidence_get(\n", 2)[2]
     require(route, 'journey_receipt(scope, expected)?', 'receipt_label(',
-            'if verification != "receipt-verified"',
+            'match (evidence.rung, verification)',
+            '(Rung::Receipted, "receipt-verified") | (Rung::Committed, "committed") => {}',
+            '_ => return Err(ApiFailure::upstream_degraded())',
             'super::ProductionComponents::managed_receipt_material(id, &evidence)?')
     producer = function(path, "managed_receipt_material")
     require(producer, 'Some(evidence.receipt_digest)',

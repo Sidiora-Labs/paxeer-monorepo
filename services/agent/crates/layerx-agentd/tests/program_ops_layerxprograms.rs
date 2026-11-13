@@ -11,9 +11,12 @@ use layerx_types::program_call::{NativeProgramCall, Resources};
 use serde_json::{json, Value};
 
 fn serve(answer: Value) -> (String, JoinHandle<Value>) {
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let url = format!("http://{}/", listener.local_addr().unwrap());
-    listener.set_nonblocking(true).unwrap();
+    let listener = lint_success(TcpListener::bind("127.0.0.1:0"), "required test operation");
+    let url = format!(
+        "http://{}/",
+        lint_success(listener.local_addr(), "required test operation")
+    );
+    lint_success(listener.set_nonblocking(true), "required test operation");
     let server = thread::spawn(move || {
         let deadline = Instant::now() + Duration::from_secs(5);
         let stream = loop {
@@ -29,36 +32,44 @@ fn serve(answer: Value) -> (String, JoinHandle<Value>) {
                 Err(error) => panic!("accept: {error}"),
             }
         };
-        stream
-            .set_read_timeout(Some(Duration::from_secs(2)))
-            .unwrap();
-        stream
-            .set_write_timeout(Some(Duration::from_secs(2)))
-            .unwrap();
+        lint_success(
+            stream.set_read_timeout(Some(Duration::from_secs(2))),
+            "required test operation",
+        );
+        lint_success(
+            stream.set_write_timeout(Some(Duration::from_secs(2))),
+            "required test operation",
+        );
         let mut reader = BufReader::new(stream);
         let mut length = None;
         loop {
             let mut line = String::new();
-            assert_ne!(reader.read_line(&mut line).unwrap(), 0);
+            assert_ne!(
+                lint_success(reader.read_line(&mut line), "required test operation"),
+                0
+            );
             if line == "\r\n" {
                 break;
             }
             if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                length = Some(value.trim().parse::<usize>().unwrap());
+                length = Some(lint_success(
+                    value.trim().parse::<usize>(),
+                    "required test operation",
+                ));
             }
         }
-        let length = length.expect("request content length");
+        let length = lint_present(length, "request content length");
         assert!(length < 64 * 1024);
         let mut body = vec![0; length];
-        reader.read_exact(&mut body).unwrap();
-        let request: Value = serde_json::from_slice(&body).unwrap();
+        lint_success(reader.read_exact(&mut body), "required test operation");
+        let request: Value = lint_success(serde_json::from_slice(&body), "required test operation");
         let mut response = answer;
         response["jsonrpc"] = json!("2.0");
         response["id"] = request["id"].clone();
         let text = response.to_string();
         let mut stream = reader.into_inner();
-        write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{text}", text.len()).unwrap();
-        stream.flush().unwrap();
+        lint_success(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{text}", text.len()), "required test operation");
+        lint_success(stream.flush(), "required test operation");
         request
     });
     (url, server)
@@ -106,29 +117,32 @@ fn assert_request(request: &Value, actor: [u8; 20]) {
         request["params"][0]["to"],
         "0x000000000000000000000000000000000000101d"
     );
-    let data = hex::decode(
-        request["params"][0]["data"]
-            .as_str()
-            .unwrap()
-            .strip_prefix("0x")
-            .unwrap(),
-    )
-    .unwrap();
-    let abi: Value = serde_json::from_str(include_str!(
-        "../../../../../precompiles/layerxprograms/abi.json"
-    ))
-    .unwrap();
-    let function = abi
-        .as_array()
-        .unwrap()
+    let data = lint_success(
+        hex::decode(lint_present(
+            lint_present(
+                request["params"][0]["data"].as_str(),
+                "required test operation",
+            )
+            .strip_prefix("0x"),
+            "required test operation",
+        )),
+        "required test operation",
+    );
+    let abi: Value = lint_success(
+        serde_json::from_str(include_str!(
+            "../../../../../precompiles/layerxprograms/abi.json"
+        )),
+        "required test operation",
+    );
+    let function = lint_present(
+        lint_present(abi.as_array(), "required test operation")
+            .iter()
+            .find(|v| v["name"] == "call" && v["type"] == "function"),
+        "required test operation",
+    );
+    let types = lint_present(function["inputs"].as_array(), "required test operation")
         .iter()
-        .find(|v| v["name"] == "call" && v["type"] == "function")
-        .unwrap();
-    let types = function["inputs"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|v| v["type"].as_str().unwrap())
+        .map(|v| lint_present(v["type"].as_str(), "required test operation"))
         .collect::<Vec<_>>()
         .join(",");
     let selector = transaction_hash(format!("call({types})").as_bytes());
@@ -170,18 +184,25 @@ fn program_simulation_uses_eth_call_at_pending() {
     ] {
         let (url, server) =
             serve(json!({"result": format!("0x{}", hex::encode(output(code, kind, &response)))}));
-        let operations =
-            ProgramOperations::from_endpoint(SequencerEndpoint::new(&url, &[]).unwrap());
-        let result = if native {
-            operations.simulate_native([0x11; 20], call(), 987)
-        } else {
-            operations.simulate([0x11; 20], call(), 987)
-        }
-        .unwrap();
+        let operations = ProgramOperations::from_endpoint(lint_success(
+            SequencerEndpoint::new(&url, &[]),
+            "required test operation",
+        ));
+        let result = lint_success(
+            if native {
+                operations.simulate_native([0x11; 20], call(), 987)
+            } else {
+                operations.simulate([0x11; 20], call(), 987)
+            },
+            "required test operation",
+        );
         assert_eq!(result.terminal_result, code);
         assert_eq!(result.terminal_kind, kind);
         assert_eq!(result.response, response);
-        assert_request(&server.join().unwrap(), [0x11; 20]);
+        assert_request(
+            &lint_success(server.join(), "required test operation"),
+            [0x11; 20],
+        );
     }
     for malformed in [
         vec![],
@@ -192,18 +213,24 @@ fn program_simulation_uses_eth_call_at_pending() {
         },
         {
             let mut value = output(0, 0, &[1]);
-            *value.last_mut().unwrap() = 1;
+            *lint_present(value.last_mut(), "required test operation") = 1;
             value
         },
         output(0, 0, &vec![1; 1025]),
     ] {
         let (url, server) = serve(json!({"result": format!("0x{}", hex::encode(malformed))}));
-        let operations = ProgramOperations::connect(&url, &[]).unwrap();
+        let operations = lint_success(
+            ProgramOperations::connect(&url, &[]),
+            "required test operation",
+        );
         assert_eq!(
             operations.simulate([0x11; 20], call(), 987),
             Err(ProgramOperationError::UnverifiedReceipt)
         );
-        assert_request(&server.join().unwrap(), [0x11; 20]);
+        assert_request(
+            &lint_success(server.join(), "required test operation"),
+            [0x11; 20],
+        );
     }
 }
 
@@ -225,31 +252,43 @@ fn program_revert_maps_to_a_typed_operation_error() {
             error["data"] = data.clone();
         }
         let (url, server) = serve(json!({"error": error}));
-        let operations = ProgramOperations::connect(&url, &[]).unwrap();
+        let operations = lint_success(
+            ProgramOperations::connect(&url, &[]),
+            "required test operation",
+        );
         assert_eq!(
             operations.simulate([0x11; 20], call(), 987),
             Err(ProgramOperationError::Submit(
                 ProgramRpcFailure::ExecutionReverted(refusal)
             ))
         );
-        assert_request(&server.join().unwrap(), [0x11; 20]);
+        assert_request(
+            &lint_success(server.join(), "required test operation"),
+            [0x11; 20],
+        );
     }
     let refusal = RpcRefusal {
-        code: -32602,
+        code: -32_602,
         message: "invalid params".to_owned(),
         data: Some(json!("bad call")),
     };
     let (url, server) = serve(
         json!({"error": {"code":refusal.code, "message":refusal.message, "data":refusal.data}}),
     );
-    let operations = ProgramOperations::connect(&url, &[]).unwrap();
+    let operations = lint_success(
+        ProgramOperations::connect(&url, &[]),
+        "required test operation",
+    );
     assert_eq!(
         operations.simulate([0x11; 20], call(), 987),
         Err(ProgramOperationError::Submit(ProgramRpcFailure::Sequencer(
             SequencerError::Rpc(refusal)
         )))
     );
-    assert_request(&server.join().unwrap(), [0x11; 20]);
+    assert_request(
+        &lint_success(server.join(), "required test operation"),
+        [0x11; 20],
+    );
 }
 
 #[test]
@@ -260,24 +299,38 @@ fn program_simulation_carries_the_actor_as_caller() {
             let (url, server) = serve(json!({
                 "result": format!("0x{}", hex::encode(output(-7, 2, &response)))
             }));
-            let operations = ProgramOperations::connect(&url, &[]).unwrap();
-            let result = if native {
-                operations.simulate_native(actor, call(), 987)
-            } else {
-                operations.simulate(actor, call(), 987)
-            }
-            .unwrap();
+            let operations = lint_success(
+                ProgramOperations::connect(&url, &[]),
+                "required test operation",
+            );
+            let result = lint_success(
+                if native {
+                    operations.simulate_native(actor, call(), 987)
+                } else {
+                    operations.simulate(actor, call(), 987)
+                },
+                "required test operation",
+            );
             assert_eq!(result.terminal_result, -7);
             assert_eq!(result.terminal_kind, 2);
             assert_eq!(result.response, response);
-            assert_request(&server.join().unwrap(), actor);
+            assert_request(
+                &lint_success(server.join(), "required test operation"),
+                actor,
+            );
         }
     }
 
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    listener.set_nonblocking(true).unwrap();
-    let url = format!("http://{}/", listener.local_addr().unwrap());
-    let operations = ProgramOperations::connect(&url, &[]).unwrap();
+    let listener = lint_success(TcpListener::bind("127.0.0.1:0"), "required test operation");
+    lint_success(listener.set_nonblocking(true), "required test operation");
+    let url = format!(
+        "http://{}/",
+        lint_success(listener.local_addr(), "required test operation")
+    );
+    let operations = lint_success(
+        ProgramOperations::connect(&url, &[]),
+        "required test operation",
+    );
     for native in [false, true] {
         let result = if native {
             operations.simulate_native([0; 20], call(), 987)
@@ -289,5 +342,21 @@ fn program_simulation_carries_the_actor_as_caller() {
             listener.accept(),
             Err(error) if error.kind() == std::io::ErrorKind::WouldBlock
         ));
+    }
+}
+
+#[track_caller]
+fn lint_success<T, E: std::fmt::Debug>(result: Result<T, E>, context: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{context}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn lint_present<T>(value: Option<T>, context: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{context}: required value is absent"),
     }
 }

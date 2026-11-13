@@ -48,7 +48,7 @@ public final class ReceiptKeysConfigTest {
             "layerx.protected-path=/paid",
             "layerx.resource.url=https://merchant.example/paid",
             "layerx.payment.scheme=exact",
-            "layerx.payment.network=layerx:mainnet",
+            "layerx.payment.network=" + X402.NATIVE_NETWORK,
             "layerx.payment.price=100",
             "layerx.payment.asset=0x" + "55".repeat(32),
             "layerx.payment.pay-to=0x" + "66".repeat(32),

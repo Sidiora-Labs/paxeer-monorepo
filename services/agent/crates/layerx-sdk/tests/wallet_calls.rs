@@ -19,7 +19,7 @@ use layerx_types::result::{KnownResult, Retriability};
 use serde_json::{json, Value};
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    hex::encode(bytes)
 }
 fn unhex(text: &str) -> Vec<u8> {
     text.strip_prefix("0x")
@@ -27,7 +27,11 @@ fn unhex(text: &str) -> Vec<u8> {
         .as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).expect("hex text"), 16).expect("hex bytes")
+            u8::from_str_radix(
+                std::str::from_utf8(pair).unwrap_or_else(|error| panic!("hex text: {error:?}")),
+                16,
+            )
+            .unwrap_or_else(|error| panic!("hex bytes: {error:?}"))
         })
         .collect()
 }
@@ -57,14 +61,62 @@ fn listener(
     listener_with_rungs(methods, refusal, vec!["receipted"])
 }
 
+fn read_wallet_request(socket: &mut std::net::TcpStream) -> Value {
+    socket
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap_or_else(|error| panic!("read timeout: {error:?}"));
+    socket
+        .set_write_timeout(Some(Duration::from_secs(5)))
+        .unwrap_or_else(|error| panic!("write timeout: {error:?}"));
+    let mut header = Vec::new();
+    while !header.ends_with(b"\r\n\r\n") {
+        assert!(header.len() < 8192);
+        let mut byte = [0];
+        socket
+            .read_exact(&mut byte)
+            .unwrap_or_else(|error| panic!("header: {error:?}"));
+        header.push(byte[0]);
+    }
+    assert!(std::str::from_utf8(&header)
+        .unwrap_or_else(|error| panic!("HTTP text: {error:?}"))
+        .starts_with("POST / HTTP/1.1\r\n"));
+    let length = std::str::from_utf8(&header)
+        .unwrap_or_else(|error| panic!("HTTP text: {error:?}"))
+        .lines()
+        .find_map(|line| {
+            let (name, value) = line.split_once(':')?;
+            name.eq_ignore_ascii_case("content-length").then(|| {
+                value
+                    .trim()
+                    .parse::<usize>()
+                    .unwrap_or_else(|error| panic!("length: {error:?}"))
+            })
+        })
+        .unwrap_or_else(|| panic!("content length"));
+    assert!(length <= 1_048_576 + 4096);
+    let mut body = vec![0; length];
+    socket
+        .read_exact(&mut body)
+        .unwrap_or_else(|error| panic!("body: {error:?}"));
+    serde_json::from_slice(&body).unwrap_or_else(|error| panic!("JSON request: {error:?}"))
+}
+
 fn listener_with_rungs(
     methods: Vec<&'static str>,
     refusal: Option<(&'static str, &'static str)>,
     rungs: Vec<&'static str>,
 ) -> (RpcClient, JoinHandle<Vec<Value>>) {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("loopback listener");
-    let endpoint = format!("http://{}", listener.local_addr().expect("local address"));
-    listener.set_nonblocking(true).expect("nonblocking");
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .unwrap_or_else(|error| panic!("loopback listener: {error:?}"));
+    let endpoint = format!(
+        "http://{}",
+        listener
+            .local_addr()
+            .unwrap_or_else(|error| panic!("local address: {error:?}"))
+    );
+    listener
+        .set_nonblocking(true)
+        .unwrap_or_else(|error| panic!("nonblocking: {error:?}"));
     let server = thread::spawn(move || {
         let mut requests = Vec::new();
         let mut submitted = None;
@@ -81,35 +133,7 @@ fn listener_with_rungs(
                     Err(error) => panic!("accept: {error}"),
                 }
             };
-            socket
-                .set_read_timeout(Some(Duration::from_secs(5)))
-                .expect("read timeout");
-            socket
-                .set_write_timeout(Some(Duration::from_secs(5)))
-                .expect("write timeout");
-            let mut header = Vec::new();
-            while !header.ends_with(b"\r\n\r\n") {
-                assert!(header.len() < 8192);
-                let mut byte = [0];
-                socket.read_exact(&mut byte).expect("header");
-                header.push(byte[0]);
-            }
-            assert!(std::str::from_utf8(&header)
-                .expect("HTTP text")
-                .starts_with("POST / HTTP/1.1\r\n"));
-            let length = std::str::from_utf8(&header)
-                .expect("HTTP text")
-                .lines()
-                .find_map(|line| {
-                    let (name, value) = line.split_once(':')?;
-                    name.eq_ignore_ascii_case("content-length")
-                        .then(|| value.trim().parse::<usize>().expect("length"))
-                })
-                .expect("content length");
-            assert!(length <= 1_048_576 + 4096);
-            let mut body = vec![0; length];
-            socket.read_exact(&mut body).expect("body");
-            let request: Value = serde_json::from_slice(&body).expect("JSON request");
+            let request = read_wallet_request(&mut socket);
             assert_eq!(request["method"], method);
             let result = match method {
                 "eth_getTransactionCount" => {
@@ -122,15 +146,21 @@ fn listener_with_rungs(
                 "eth_estimateGas" => json!("0x186a0"),
                 "px_getAccount" => json!({"account_id": "01".repeat(32), "next_sequence": "7"}),
                 "eth_sendRawTransaction" => {
-                    let raw = unhex(request["params"][0].as_str().expect("raw transaction"));
+                    let raw = unhex(
+                        request["params"][0]
+                            .as_str()
+                            .unwrap_or_else(|| panic!("raw transaction")),
+                    );
                     let hash = format!("0x{}", hex(&transaction_hash(&raw)));
                     submitted = Some(hash.clone());
                     json!(hash)
                 }
                 "pax_sequencerReceipt" => {
-                    let hash = submitted.as_ref().expect("submitted first");
+                    let hash = submitted
+                        .as_ref()
+                        .unwrap_or_else(|| panic!("submitted first"));
                     assert_eq!(request["params"], json!([hash]));
-                    let rung = rungs.next().expect("sequencer rung");
+                    let rung = rungs.next().unwrap_or_else(|| panic!("sequencer rung"));
                     if let Some((at, reason)) = refusal {
                         assert_eq!(at, method);
                         json!({"txHash": hash, "rung": rung, "status": "0x0", "returnData": error_data(reason)})
@@ -143,19 +173,23 @@ fn listener_with_rungs(
             let response = if refusal
                 .is_some_and(|(at, _)| at == method && at != "pax_sequencerReceipt")
             {
-                json!({"jsonrpc": "2.0", "id": request["id"], "error": {"code": -32000, "message": "execution reverted", "data": error_data(refusal.expect("refusal").1)}})
+                json!({"jsonrpc": "2.0", "id": request["id"], "error": {"code": -32_000, "message": "execution reverted", "data": error_data(refusal.unwrap_or_else(|| panic!("refusal")).1)}})
             } else {
                 json!({"jsonrpc": "2.0", "id": request["id"], "result": result})
             };
-            let body = serde_json::to_vec(&response).expect("response JSON");
-            write!(socket, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).expect("response header");
-            socket.write_all(&body).expect("response body");
+            let body = serde_json::to_vec(&response)
+                .unwrap_or_else(|error| panic!("response JSON: {error:?}"));
+            write!(socket, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).unwrap_or_else(|error| panic!("response header: {error:?}"));
+            socket
+                .write_all(&body)
+                .unwrap_or_else(|error| panic!("response body: {error:?}"));
             requests.push(request);
         }
         requests
     });
     (
-        RpcClient::connect_node(&endpoint, None).expect("RPC client"),
+        RpcClient::connect_node(&endpoint, None)
+            .unwrap_or_else(|error| panic!("RPC client: {error:?}")),
         server,
     )
 }
@@ -172,7 +206,10 @@ fn error_data(reason: &str) -> String {
     format!("0x{}", hex(&data))
 }
 fn signer() -> LocalSigner {
-    LocalSigner::from_derived_account(&derive_from_seed(&[0x42; 64], 0).expect("derived account"))
+    LocalSigner::from_derived_account(
+        &derive_from_seed(&[0x42; 64], 0)
+            .unwrap_or_else(|error| panic!("derived account: {error:?}")),
+    )
 }
 fn policy() -> ReceiptPolicy {
     ReceiptPolicy {
@@ -218,24 +255,34 @@ fn send_signs_a_layerxledger_send_call_with_a_65_byte_signature() {
         policy: &policy,
         native_asset: [3; 32],
     };
-    let hash = match run(wallet.send(&payload, &options())) {
-        Err(RpcError::Pending { activity_id }) => activity_id,
-        _ => panic!("submitted hash must remain pending without receipt evidence"),
+    let Err(RpcError::Pending { activity_id: hash }) = run(wallet.send(&payload, &options()))
+    else {
+        panic!("submitted hash must remain pending without receipt evidence");
     };
-    let requests = server.join().expect("RPC peer");
+    let requests = server
+        .join()
+        .unwrap_or_else(|error| panic!("RPC peer: {error:?}"));
     let writes: Vec<_> = requests
         .iter()
         .filter(|request| request["method"] == "eth_sendRawTransaction")
         .collect();
     assert_eq!(writes.len(), 1);
-    let raw = unhex(writes[0]["params"][0].as_str().expect("raw bytes"));
+    let raw = unhex(
+        writes[0]["params"][0]
+            .as_str()
+            .unwrap_or_else(|| panic!("raw bytes")),
+    );
     assert_eq!(raw[0], 2);
     assert_eq!(transaction_hash(&raw), hash);
-    let (call, signature) = decode_signed(&raw).expect("EIP-1559 transaction");
+    let (call, signature) =
+        decode_signed(&raw).unwrap_or_else(|error| panic!("EIP-1559 transaction: {error:?}"));
     assert_eq!(signature.as_bytes().len(), 65);
     assert_eq!(
-        recover_sender(&call, &signature).expect("recover sender"),
-        signer.evm_address().expect("wallet address")
+        recover_sender(&call, &signature)
+            .unwrap_or_else(|error| panic!("recover sender: {error:?}")),
+        signer
+            .evm_address()
+            .unwrap_or_else(|| panic!("wallet address"))
     );
     assert_eq!(call.to, [vec![0; 18], vec![0x10, 0x1a]].concat().as_slice());
     assert_eq!(call.chain_id, 125);
@@ -244,15 +291,21 @@ fn send_signs_a_layerxledger_send_call_with_a_65_byte_signature() {
     assert_eq!(call.max_fee_per_gas, 5);
     assert_eq!(&call.data[..4], &[0x2b, 0xb1, 0xae, 0x7c]);
     assert_eq!(
-        bind_call(&call, signer.evm_address().expect("address"))
-            .expect("disclosure")
-            .construct_method()
-            .expect("method"),
+        bind_call(
+            &call,
+            signer.evm_address().unwrap_or_else(|| panic!("address"))
+        )
+        .unwrap_or_else(|error| panic!("disclosure: {error:?}"))
+        .construct_method()
+        .unwrap_or_else(|error| panic!("method: {error:?}")),
         Some(ConstructMethod::LedgerSend { payload })
     );
     assert_eq!(
         requests[0]["params"][0],
-        format!("0x{}", hex(&signer.evm_address().expect("address")))
+        format!(
+            "0x{}",
+            hex(&signer.evm_address().unwrap_or_else(|| panic!("address")))
+        )
     );
     assert_eq!(requests[4]["params"][0]["from"], requests[0]["params"][0]);
 }
@@ -270,18 +323,22 @@ fn open_account_encodes_the_open_account_selector() {
         policy: &policy,
         native_asset: [3; 32],
     };
-    let hash = match run(wallet.open_account([0x33; 32], &options())) {
-        Err(RpcError::Pending { activity_id }) => activity_id,
-        _ => panic!("submitted hash"),
+    let Err(RpcError::Pending { activity_id: hash }) =
+        run(wallet.open_account([0x33; 32], &options()))
+    else {
+        panic!("submitted hash");
     };
-    let requests = server.join().expect("RPC peer");
+    let requests = server
+        .join()
+        .unwrap_or_else(|error| panic!("RPC peer: {error:?}"));
     let raw = unhex(
-        requests.last().expect("submission")["params"][0]
+        requests.last().unwrap_or_else(|| panic!("submission"))["params"][0]
             .as_str()
-            .expect("raw"),
+            .unwrap_or_else(|| panic!("raw")),
     );
     assert_eq!(hash, transaction_hash(&raw));
-    let (call, signature) = decode_signed(&raw).expect("signed call");
+    let (call, signature) =
+        decode_signed(&raw).unwrap_or_else(|error| panic!("signed call: {error:?}"));
     assert_eq!(
         call.data,
         [
@@ -293,8 +350,8 @@ fn open_account_encodes_the_open_account_selector() {
     assert_eq!(&call.to[18..], &[0x10, 0x1a]);
     assert!(call.to[..18].iter().all(|byte| *byte == 0));
     assert_eq!(
-        recover_sender(&call, &signature).expect("sender"),
-        signer.evm_address().expect("address")
+        recover_sender(&call, &signature).unwrap_or_else(|error| panic!("sender: {error:?}")),
+        signer.evm_address().unwrap_or_else(|| panic!("address"))
     );
 }
 
@@ -342,7 +399,10 @@ fn submitted_revert_maps_through_the_registry() {
                 result,
                 retriability,
             }) => {
-                assert_eq!(code, reason.split_once(": ").expect("code").0);
+                assert_eq!(
+                    code,
+                    reason.split_once(": ").unwrap_or_else(|| panic!("code")).0
+                );
                 assert_eq!(actual, reason);
                 assert_eq!(result, KnownResult::from_revert_reason(reason));
                 assert!(result.is_some());
@@ -350,8 +410,13 @@ fn submitted_revert_maps_through_the_registry() {
             }
             _ => panic!("registry-classified refusal from {at}"),
         }
-        let requests = server.join().expect("RPC peer");
-        assert_eq!(requests.last().expect("request")["method"], at);
+        let requests = server
+            .join()
+            .unwrap_or_else(|error| panic!("RPC peer: {error:?}"));
+        assert_eq!(
+            requests.last().unwrap_or_else(|| panic!("request"))["method"],
+            at
+        );
     }
 }
 
@@ -385,10 +450,14 @@ fn receipted_rung_waits_on_to_committed() {
             run(wallet.open_account([3; 32], &options)),
             Err(RpcError::Clock(ClockError::Unavailable))
         ));
-        let requests = server.join().expect("RPC peer");
+        let requests = server
+            .join()
+            .unwrap_or_else(|error| panic!("RPC peer: {error:?}"));
         assert_eq!(requests.len(), expected_requests);
         assert_eq!(
-            requests.last().expect("committed or receipted answer")["method"],
+            requests
+                .last()
+                .unwrap_or_else(|| panic!("committed or receipted answer"))["method"],
             "pax_sequencerReceipt"
         );
     }
@@ -427,9 +496,11 @@ fn receipted_rung_revert_maps_through_the_registry() {
             }
             _ => panic!("receipted revert must be classified before commitment verification"),
         }
-        let requests = server.join().expect("RPC peer");
+        let requests = server
+            .join()
+            .unwrap_or_else(|error| panic!("RPC peer: {error:?}"));
         assert_eq!(
-            requests.last().expect("receipt request")["method"],
+            requests.last().unwrap_or_else(|| panic!("receipt request"))["method"],
             "pax_sequencerReceipt"
         );
     }

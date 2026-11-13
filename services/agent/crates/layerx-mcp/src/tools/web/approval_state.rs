@@ -81,6 +81,8 @@ impl WebApprovalResources {
     }
 
     /// Returns the retained preparation for the daemon's approve/rebind operation.
+    /// # Errors
+    /// Returns an error if the retained spend cannot be loaded, decoded or rebound to its exact preparation.
     pub fn preparation(
         &self,
         tenant: &TenantId,
@@ -212,13 +214,7 @@ impl WebPlane<'_, '_> {
         {
             return Err(changed());
         }
-        if matches!(self.call.operation, WebOperation::Search(_))
-            && self.call.currency == Currency::Pax
-        {
-            self.payer
-                .validate_search_quote(facts.asset, facts.amount)
-                .map_err(WebToolError::Payer)?;
-        }
+        self.validate_search_quote(facts)?;
         let ticket = boundary
             .registry
             .ticket(key)
@@ -227,78 +223,10 @@ impl WebPlane<'_, '_> {
         if ticket.is_some() && stored.is_none() {
             return Err(changed());
         }
-        let spend = match stored {
-            Some(spend) => spend,
-            None => {
-                let metadata = spend_disclosure(
-                    self.config,
-                    self.call,
-                    self.target,
-                    offer,
-                    facts,
-                    key,
-                    boundary.clock,
-                )?;
-                let (call, grant_id) = self.approval_call(offer, facts, metadata.clone())?;
-                let commitment = self.spend_commitment(metadata.expiry.0)?;
-                let (bytes, signing_hash, sender) = if self.call.scheme == Scheme::Metered
-                    && call.selector
-                        == layerx_crypto::disclosure::call::ledger_selector(DRAW_SIGNATURE)
-                    && grant_id.is_some()
-                {
-                    let bytes = call.encode().map_err(|_| changed())?;
-                    let signing_hash = StoredSpend::draw_signing_hash(&bytes, commitment);
-                    (bytes, signing_hash, boundary.context.actor_address)
-                } else {
-                    let transaction = self
-                        .payer
-                        .prepare_transaction(&call)
-                        .map_err(WebToolError::Payer)?;
-                    verify_call_binding(&transaction).map_err(|_| changed())?;
-                    if transaction.from != boundary.context.actor_address
-                        || transaction.call.to != call.target.address()
-                        || transaction.call.data != call.encode().map_err(|_| changed())?
-                        || self.config.network != format!("eip155:{}", transaction.call.chain_id)
-                    {
-                        return Err(changed());
-                    }
-                    (
-                        transaction.call.encode_unsigned(),
-                        transaction.signing_hash,
-                        transaction.from,
-                    )
-                };
-                let spend = StoredSpend {
-                    digest: Sha256::digest(&bytes).into(),
-                    bytes,
-                    signing_hash,
-                    sender,
-                    commitment,
-                    expiry: metadata.expiry.0,
-                    expires_at_height: boundary
-                        .current_height()
-                        .checked_add(APPROVAL_WINDOW)
-                        .ok_or_else(changed)?,
-                    activity_type: self.call.scheme.activity_type(),
-                    receiver: facts.receiver_did.clone(),
-                    amount: facts.amount,
-                    asset: self.call.currency.code().to_owned(),
-                    key,
-                    selector: call.selector,
-                    arguments: call
-                        .arguments
-                        .into_iter()
-                        .map(|arg| match arg {
-                            AbiArgument::Word(word) => StoredArgument::Word(word),
-                            AbiArgument::Bytes(bytes) => StoredArgument::Bytes(bytes),
-                        })
-                        .collect(),
-                    grant_id,
-                };
-                self.validate_approval_call(offer, facts, &spend, &spend.prepared()?)?;
-                resources.save(&boundary.context.tenant, &spend)?;
-                spend
-            }
+        let spend = if let Some(spend) = stored {
+            spend
+        } else {
+            self.prepare_held_spend(&resources, offer, facts, key)?
         };
         if spend.commitment != self.spend_commitment(spend.expiry)?
             || spend.sender != boundary.context.actor_address
@@ -340,43 +268,7 @@ impl WebPlane<'_, '_> {
             &resources.limiter,
         );
         if !has_ticket && matches!(decision, Err(ApprovalExpiryError::NotFound)) {
-            let reservation = budget::reserve(
-                &resources.limiter,
-                &ReservationRequest {
-                    id: key,
-                    amount: facts.amount,
-                    expiry_sequence: spend.expires_at_height,
-                    current_sequence: boundary.current_height(),
-                    applicable_limits: resources.limits.clone(),
-                },
-            )
-            .map_err(|_| WebToolError::Payer(WebPayerError::Refused))?;
-            let mut context = boundary.context.clone();
-            context.request_id = key;
-            context.agent = Did::new(hex(&spend.sender).as_bytes()).map_err(|_| changed())?;
-            let held = layerx_agentd::policy::approval::hold_reserved_at(
-                boundary.registry,
-                context,
-                prepared,
-                boundary.current_height(),
-                spend.expires_at_height,
-                &reservation,
-                boundary.clock,
-            );
-            let held = match held {
-                Ok(held) => held,
-                Err(error) => {
-                    budget::release(
-                        &resources.limiter,
-                        key,
-                        budget::ReleaseKind::Failed,
-                        boundary.current_height(),
-                    )
-                    .map_err(|_| unavailable())?;
-                    return Err(WebToolError::Approval(ApprovalError::Daemon(error)));
-                }
-            };
-            return Err(WebToolError::ApprovalRequired(Box::new(held)));
+            return self.reserve_held_spend(&resources, facts, key, &spend, prepared);
         }
         // A durable granted decision binds the exact canonical bytes, including after restart.
         let decision = decision.map_err(|_| changed())?;
@@ -397,13 +289,17 @@ impl WebPlane<'_, '_> {
         {
             return Err(changed());
         }
-        if matches!(self.call.operation, WebOperation::Search(_))
-            && self.call.currency == Currency::Pax
-        {
-            self.payer
-                .validate_search_quote(facts.asset, facts.amount)
-                .map_err(WebToolError::Payer)?;
-        }
+        self.validate_search_quote(facts)?;
+        self.submit_held_spend(&spend, &prepared, facts, key)
+    }
+
+    fn submit_held_spend(
+        &mut self,
+        spend: &StoredSpend,
+        prepared: &Prepared,
+        facts: &OfferFacts,
+        key: [u8; 32],
+    ) -> Result<HeldAuthorisation, WebToolError> {
         if spend.receiver_draw() {
             return Ok(HeldAuthorisation::ReceiverDraw(
                 spend.grant_id.ok_or_else(changed)?,
@@ -411,7 +307,7 @@ impl WebPlane<'_, '_> {
         }
         let payment = self
             .payer
-            .submit_transaction(&prepared)
+            .submit_transaction(prepared)
             .map_err(WebToolError::Payer)?;
         if let Some(grant_id) = spend.grant_id {
             check_grant(self.config, &payment, grant_id)?;
@@ -424,6 +320,131 @@ impl WebPlane<'_, '_> {
                 json!({"idempotencyKey": hex(&key), "receiptDigest": hex(&digest), "txHash": format!("0x{}", hex(&payment.tx_hash)), "verificationLevel": "receipted"}),
             ))
         }
+    }
+
+    fn prepare_held_spend(
+        &mut self,
+        resources: &WebApprovalResources,
+        offer: &PaymentRequirements,
+        facts: &OfferFacts,
+        key: [u8; 32],
+    ) -> Result<StoredSpend, WebToolError> {
+        let boundary = self.approval;
+        let metadata = spend_disclosure(
+            self.config,
+            self.call,
+            self.target,
+            offer,
+            facts,
+            key,
+            boundary.clock,
+        )?;
+        let (call, grant_id) = self.approval_call(offer, facts, metadata.clone())?;
+        let commitment = self.spend_commitment(metadata.expiry.0)?;
+        let (bytes, signing_hash, sender) = if self.call.scheme == Scheme::Metered
+            && call.selector == layerx_crypto::disclosure::call::ledger_selector(DRAW_SIGNATURE)
+            && grant_id.is_some()
+        {
+            let bytes = call.encode().map_err(|_| changed())?;
+            let signing_hash = StoredSpend::draw_signing_hash(&bytes, commitment);
+            (bytes, signing_hash, boundary.context.actor_address)
+        } else {
+            let transaction = self
+                .payer
+                .prepare_transaction(&call)
+                .map_err(WebToolError::Payer)?;
+            verify_call_binding(&transaction).map_err(|_| changed())?;
+            if transaction.from != boundary.context.actor_address
+                || transaction.call.to != call.target.address()
+                || transaction.call.data != call.encode().map_err(|_| changed())?
+                || self.config.network != format!("eip155:{}", transaction.call.chain_id)
+            {
+                return Err(changed());
+            }
+            (
+                transaction.call.encode_unsigned(),
+                transaction.signing_hash,
+                transaction.from,
+            )
+        };
+        let spend = StoredSpend {
+            digest: Sha256::digest(&bytes).into(),
+            bytes,
+            signing_hash,
+            sender,
+            commitment,
+            expiry: metadata.expiry.0,
+            expires_at_height: boundary
+                .current_height()
+                .checked_add(APPROVAL_WINDOW)
+                .ok_or_else(changed)?,
+            activity_type: self.call.scheme.activity_type(),
+            receiver: facts.receiver_did.clone(),
+            amount: facts.amount,
+            asset: self.call.currency.code().to_owned(),
+            key,
+            selector: call.selector,
+            arguments: call
+                .arguments
+                .into_iter()
+                .map(|arg| match arg {
+                    AbiArgument::Word(word) => StoredArgument::Word(word),
+                    AbiArgument::Bytes(bytes) => StoredArgument::Bytes(bytes),
+                })
+                .collect(),
+            grant_id,
+        };
+        self.validate_approval_call(offer, facts, &spend, &spend.prepared()?)?;
+        resources.save(&boundary.context.tenant, &spend)?;
+        Ok(spend)
+    }
+
+    fn reserve_held_spend(
+        &self,
+        resources: &WebApprovalResources,
+        facts: &OfferFacts,
+        key: [u8; 32],
+        spend: &StoredSpend,
+        prepared: Prepared,
+    ) -> Result<HeldAuthorisation, WebToolError> {
+        let boundary = self.approval;
+        let reservation = budget::reserve(
+            &resources.limiter,
+            &ReservationRequest {
+                id: key,
+                amount: facts.amount,
+                expiry_sequence: spend.expires_at_height,
+                current_sequence: boundary.current_height(),
+                applicable_limits: resources.limits.clone(),
+            },
+        )
+        .map_err(|_| WebToolError::Payer(WebPayerError::Refused))?;
+        let mut context = boundary.context.clone();
+        context.request_id = key;
+        context.agent = Did::new(hex(&spend.sender).as_bytes()).map_err(|_| changed())?;
+        let held = layerx_agentd::policy::approval::hold_reserved_at(
+            boundary.registry,
+            context,
+            prepared,
+            boundary.current_height(),
+            spend.expires_at_height,
+            &reservation,
+            boundary.clock,
+        );
+        let held = match held {
+            Ok(held) => held,
+            Err(error) => {
+                budget::release(
+                    &resources.limiter,
+                    key,
+                    budget::ReleaseKind::Failed,
+                    boundary.current_height(),
+                )
+                .map_err(|_| unavailable())?;
+                return Err(WebToolError::Approval(ApprovalError::Daemon(error)));
+            }
+        };
+        Err(WebToolError::ApprovalRequired(Box::new(held)))
     }
 
     fn grant_terms(

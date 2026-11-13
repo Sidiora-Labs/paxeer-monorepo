@@ -16,11 +16,7 @@ fn protocol(consumed: u128, start: u64) -> ProtocolBudgetState {
 
 #[test]
 fn merkle_inclusion_without_a_canonical_budget_schema_cannot_correct_the_cache() {
-    let mut local = LocalAccounting {
-        consumed: 900,
-        window_start_sequence: 1,
-        last_receipt: Some([1; 32]),
-    };
+    let mut local = LocalAccounting::at_period_start(900, 1, Some([1; 32]));
     let protocol = protocol(0, 100);
     let verifier = support::evidence_verifier();
     let verified_state = verifier
@@ -35,17 +31,13 @@ fn merkle_inclusion_without_a_canonical_budget_schema_cannot_correct_the_cache()
         Err(ReconcileError::ProtocolStateSchemaUnavailable)
     );
     assert_eq!(local.consumed, 900);
-    assert_eq!(local.window_start_sequence, 1);
+    assert_eq!(local.window_start_ms(), 1);
     assert_eq!(local.last_receipt, Some([1; 32]));
 }
 
 #[test]
 fn duplicate_receipt_and_activity_evidence_are_rejected_before_reconciliation() {
-    let mut local = LocalAccounting {
-        consumed: 200,
-        window_start_sequence: 100,
-        last_receipt: Some([1; 32]),
-    };
+    let mut local = LocalAccounting::at_period_start(200, 100, Some([1; 32]));
     let receipt = support::raw_receipt_at([2; 32], 0, 200, 120);
     let duplicates = [
         SpendReceiptEvidence {
@@ -90,11 +82,7 @@ fn duplicate_receipt_and_activity_evidence_are_rejected_before_reconciliation() 
 
 #[test]
 fn receipts_are_bound_to_the_expected_activity_before_reconciliation() {
-    let mut local = LocalAccounting {
-        consumed: 200,
-        window_start_sequence: 100,
-        last_receipt: Some([1; 32]),
-    };
+    let mut local = LocalAccounting::at_period_start(200, 100, Some([1; 32]));
     let receipts = [SpendReceiptEvidence {
         expected_activity_id: [9; 32],
         evidence: support::raw_receipt_at([2; 32], 0, 200, 120),
@@ -113,11 +101,7 @@ fn receipts_are_bound_to_the_expected_activity_before_reconciliation() {
 
 #[test]
 fn unverified_inputs_never_correct_the_cache() {
-    let mut local = LocalAccounting {
-        consumed: 200,
-        window_start_sequence: 100,
-        last_receipt: None,
-    };
+    let mut local = LocalAccounting::at_period_start(200, 100, None);
     let raw = support::raw_receipt_at([3; 32], 0, 1, 120);
     let mut corrupted = raw.canonical_receipt().to_vec();
     corrupted[0] ^= 1;
@@ -160,22 +144,14 @@ fn canonical_protocol(spent_this_period: u128, head: u64) -> ProtocolBudgetState
 #[test]
 fn only_a_local_cache_that_differs_from_the_verified_record_raises_a_divergence_alert() {
     let verifier = support::evidence_verifier();
-    let mut agreed = LocalAccounting {
-        consumed: 25,
-        window_start_sequence: 80,
-        last_receipt: None,
-    };
+    let mut agreed = LocalAccounting::at_period_start(25, 80, None);
     let agreed_state = reconcile(&mut agreed, &canonical_protocol(25, 99), &[], &verifier)
         .unwrap_or_else(|error| panic!("reconcile agreed: {error:?}"));
     assert_eq!(agreed_state.local_after(), 25);
     assert_eq!(agreed.consumed, 25);
     assert_eq!(divergence_alert(&agreed_state, 1_000), None);
 
-    let mut ahead = LocalAccounting {
-        consumed: 900,
-        window_start_sequence: 80,
-        last_receipt: None,
-    };
+    let mut ahead = LocalAccounting::at_period_start(900, 80, None);
     let ahead_state = reconcile(&mut ahead, &canonical_protocol(25, 99), &[], &verifier)
         .unwrap_or_else(|error| panic!("reconcile ahead: {error:?}"));
     let ahead_alert = divergence_alert(&ahead_state, 1_000)
@@ -189,11 +165,7 @@ fn only_a_local_cache_that_differs_from_the_verified_record_raises_a_divergence_
     assert!(ahead_alert.health.divergence_open);
     assert_eq!(ahead.consumed, 25);
 
-    let mut behind = LocalAccounting {
-        consumed: 5,
-        window_start_sequence: 80,
-        last_receipt: None,
-    };
+    let mut behind = LocalAccounting::at_period_start(5, 80, None);
     let behind_state = reconcile(&mut behind, &canonical_protocol(25, 99), &[], &verifier)
         .unwrap_or_else(|error| panic!("reconcile behind: {error:?}"));
     let behind_alert = divergence_alert(&behind_state, 1_000)
@@ -226,11 +198,7 @@ fn committed_layerxpay_state_corrects_local_spend_and_flags_divergence() {
     }
     let protocol = ProtocolBudgetState::decode_get_budget([0x51; 32], 99, &result)
         .unwrap_or_else(|error| panic!("getBudget: {error:?}"));
-    let mut local = LocalAccounting {
-        consumed: 900,
-        window_start_sequence: 80,
-        last_receipt: None,
-    };
+    let mut local = LocalAccounting::at_period_start(900, 80, None);
     let state = protocol
         .reconcile(&mut local, &[])
         .unwrap_or_else(|error| panic!("committed reconciliation: {error:?}"));

@@ -75,14 +75,16 @@ public final class PortableReceiptTest {
         var key = new LocalVerifier.ReceiptKey(bytes(pin, "keyId"), bytes(pin, "publicKey"),
             new BigInteger(pin.required("firstHeight").textValue().substring(2), 16),
             new BigInteger(pin.required("lastHeight").textValue().substring(2), 16));
-        return PortableReceipt.verify(encode(bundle), new LocalVerifier.ReceiptKeys(List.of(key)));
+        return PortableReceipt.verify(encode(bundle), new LocalVerifier.ReceiptKeys(List.of(key)), committedTrust());
     }
 
     @Test
     void portableReceiptRoundTripsAtReceipted() throws Exception {
         int count = 0;
-        for (JsonNode vector : fixture().required("cases")) {
-            if (!vector.required("vector").asText().equals("V1")) continue;
+        JsonNode cases = fixture("vector-v1-receipted-positive.json").required("cases");
+        assertTrue(cases.isArray() && !cases.isEmpty());
+        for (JsonNode vector : cases) {
+            assertEquals("V1", vector.required("vector").textValue());
             count++;
             var key = key(vector);
             var keys = new LocalVerifier.ReceiptKeys(List.of(key));
@@ -139,14 +141,16 @@ public final class PortableReceiptTest {
             assertRefused(() -> PortableReceipt.verify(exported, otherKeys));
             if (count == 1) committedRoundTrip(vector);
         }
-        assertEquals(4, count, "all published V1 cases must execute");
+        assertEquals(cases.size(), count, "all published V1 cases must execute");
     }
 
     @Test
     void portableReceiptRefusesVersionOneFormat() throws Exception {
         int count = 0;
-        for (JsonNode vector : fixture().required("cases")) {
-            if (!vector.required("vector").asText().equals("V1")) continue;
+        JsonNode cases = fixture("vector-v1-receipted-positive.json").required("cases");
+        assertTrue(cases.isArray() && !cases.isEmpty());
+        for (JsonNode vector : cases) {
+            assertEquals("V1", vector.required("vector").textValue());
             count++;
             var keys = new LocalVerifier.ReceiptKeys(List.of(key(vector)));
             byte[] exported = PortableReceipt.export(bytes(vector, "rawTransaction"),
@@ -183,7 +187,7 @@ public final class PortableReceiptTest {
             byte[] trailing = (json + " {}").getBytes(StandardCharsets.UTF_8);
             assertRefused(() -> PortableReceipt.verify(trailing, keys));
         }
-        assertEquals(4, count, "all V1 bundles must refuse the retired format and fields");
+        assertEquals(cases.size(), count, "all V1 bundles must refuse the retired format and fields");
     }
 
     @Test
@@ -412,7 +416,10 @@ public final class PortableReceiptTest {
     }
 
     private static byte[] base64(JsonNode node, String field) {
-        return Base64.getDecoder().decode(node.required(field).asText());
+        JsonNode value = node.required(field);
+        if (value.isNull()) return new byte[0];
+        assertTrue(value.isTextual(), field);
+        return Base64.getDecoder().decode(value.textValue());
     }
 
     private static void committedRoundTrip(JsonNode vector) throws Exception {
@@ -456,9 +463,11 @@ public final class PortableReceiptTest {
             new LocalVerifier.MerkleProof(0, 2, List.of(rawLeaf)), List.of(receipt.activityId()),
             next, commit(next, validatorKey), validators, transaction,
             new LocalVerifier.MerkleProof(1, 2, List.of(batchLeaf)));
+        var trust = new ConsensusTrust("portable-test", height, validatorsHash);
         byte[] exported = PortableReceipt.export(raw, encode(vector.required("receiptJson")), key,
-            header, inclusion, commit, validators);
-        var verified = PortableReceipt.verify(exported, keys);
+            header, inclusion, commit, validators, trust);
+        assertRefused(() -> PortableReceipt.verify(exported, keys));
+        var verified = PortableReceipt.verify(exported, keys, trust);
         assertEquals("committed", verified.verificationLevel());
         assertEquals(Committed.VerificationLevel.COMMITTED, verified.committed().level());
         assertEquals(height, verified.committed().height());
@@ -469,15 +478,15 @@ public final class PortableReceiptTest {
         for (String field : List.of("blockHeader", "receiptInclusion", "commit", "validatorSet")) {
             ObjectNode missing = bundle.deepCopy();
             missing.remove(field);
-            assertRefused(() -> PortableReceipt.verify(encode(missing), keys));
+            assertRefused(() -> PortableReceipt.verify(encode(missing), keys, trust));
         }
         ObjectNode tampered = bundle.deepCopy();
         ((ObjectNode) tampered.required("commit").required("Signatures").get(0))
             .put("Signature", Base64.getEncoder().encodeToString(new byte[64]));
-        assertRefused(() -> PortableReceipt.verify(encode(tampered), keys));
+        assertRefused(() -> PortableReceipt.verify(encode(tampered), keys, trust));
         ObjectNode downgrade = bundle.deepCopy();
         downgrade.put("verificationLevel", "receipted");
-        assertRefused(() -> PortableReceipt.verify(encode(downgrade), keys));
+        assertRefused(() -> PortableReceipt.verify(encode(downgrade), keys, trust));
     }
 
     private static Committed.Header header(long height, byte[] data, byte[] results, byte[] validators,

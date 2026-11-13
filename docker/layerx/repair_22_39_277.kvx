@@ -1,0 +1,833 @@
+# Finding inventory and source repairs for task 22.39.277.
+[meta]
+task = "22.39.277"
+mode = "BUILD"
+status = "implemented"
+inventory_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+inventory_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path docker/layerx --path docker/kernel --path docker/paxeer --path Makefile --path README.md --path docs/site --path contracts --path contracts/config"
+inventory_exit = 1
+inventory_log = "/out/logs/retired-callers-inventory-22.39.277.log"
+finding_count = 88
+qualification_evidence = "/out/run/gates.jsonl"
+qualification_revision = "/out/run/gates.jsonl: last kind=verify entry, revision field; qualification requires exit=0 and a kind=build entry with the same revision and exit=0."
+scope_constraint = "Attempt 2 admits tools/paxeer-x/retired_callers.json; the launchpad Solidity files stay unchanged while directory-scoped catalogue entries identify their live treasury API."
+policy = "Preserve real regression tests and retained compatibility metadata; do not rename symbols, hide literals, weaken the scan, or change out-of-scope files to obtain a passing gate."
+
+[finding.1]
+path = "Makefile"
+line = 47
+component = "oracle-web-roots"
+symbol = "lx_oracle_adapter"
+status = "repaired"
+resolution = "Removed exclusions naming four absent source files; the live projection exclusion remains."
+
+[finding.2]
+path = "Makefile"
+line = 47
+component = "oracle-web-roots"
+symbol = "lx_oracle_root"
+status = "repaired"
+resolution = "Removed exclusions naming four absent source files; the live projection exclusion remains."
+
+[finding.3]
+path = "Makefile"
+line = 48
+component = "da"
+symbol = "lxp_da_"
+status = "repaired"
+resolution = "Removed exclusions naming four absent source files; the live projection exclusion remains."
+
+[finding.4]
+path = "Makefile"
+line = 375
+component = "replay-golden"
+symbol = "lxp_test_golden_replay"
+status = "allowed_reference"
+resolution = "Decision 3125: allowed_references[Makefile] retains the live golden replay build rule, C source and history fixture without deleting, renaming or disabling the test."
+
+[finding.5]
+path = "Makefile"
+line = 376
+component = "replay-golden"
+symbol = "lxp_test_golden_replay"
+status = "allowed_reference"
+resolution = "Decision 3125: allowed_references[Makefile] retains the live golden replay build rule, C source and history fixture without deleting, renaming or disabling the test."
+
+[finding.6]
+path = "Makefile"
+line = 377
+component = "replay-golden"
+symbol = "history.lxl"
+status = "allowed_reference"
+resolution = "Decision 3125: allowed_references[Makefile] retains the live golden replay build rule, C source and history fixture without deleting, renaming or disabling the test."
+
+[finding.7]
+path = "Makefile"
+line = 1279
+component = "custody-credit"
+symbol = "bridge_credit"
+status = "allowed_reference"
+resolution = "Decision 3125: allowed_references[Makefile] retains the regression target and case that assert retired credit symbols are absent from the native archive."
+
+[finding.8]
+path = "Makefile"
+line = 1290
+component = "custody-credit"
+symbol = "bridge_credit"
+status = "allowed_reference"
+resolution = "Decision 3125: allowed_references[Makefile] retains the regression target and case that assert retired credit symbols are absent from the native archive."
+
+[finding.9]
+path = "Makefile"
+line = 1307
+component = "custody-credit"
+symbol = "bridge_credit"
+status = "allowed_reference"
+resolution = "Decision 3125: allowed_references[Makefile] retains the regression target and case that assert retired credit symbols are absent from the native archive."
+
+[finding.10]
+path = "Makefile"
+line = 1308
+component = "custody-credit"
+symbol = "bridge_credit"
+status = "allowed_reference"
+resolution = "Decision 3125: allowed_references[Makefile] retains the regression target and case that assert retired credit symbols are absent from the native archive."
+
+[finding.11]
+path = "Makefile"
+line = 2003
+component = "layerxctl-port"
+symbol = "lni"
+status = "repaired"
+resolution = "Removed the nonexistent frame fuzz target; Cargo.toml declares only the three retained interface fuzz binaries and no source exists for the removed name."
+
+[finding.12]
+path = "Makefile"
+line = 2003
+component = "lni"
+symbol = "lni"
+status = "repaired"
+resolution = "Removed the nonexistent frame fuzz target; Cargo.toml declares only the three retained interface fuzz binaries and no source exists for the removed name."
+
+[finding.13]
+path = "Makefile"
+line = 2003
+component = "lni"
+symbol = "lni_"
+status = "repaired"
+resolution = "Removed the nonexistent frame fuzz target; Cargo.toml declares only the three retained interface fuzz binaries and no source exists for the removed name."
+
+[finding.14]
+path = "Makefile"
+line = 2671
+component = "feed-store"
+symbol = "state_feed"
+status = "allowed_reference"
+resolution = "Decision 3125: allowed_references[Makefile] retains the live test-core-ports wiring that proves runtime behavior without the retired state feed."
+
+[finding.15]
+path = "Makefile"
+line = 2676
+component = "feed-store"
+symbol = "state_feed"
+status = "allowed_reference"
+resolution = "Decision 3125: allowed_references[Makefile] retains the live test-core-ports wiring that proves runtime behavior without the retired state feed."
+
+[finding.16]
+path = "Makefile"
+line = 2683
+component = "feed-store"
+symbol = "state_feed"
+status = "allowed_reference"
+resolution = "Decision 3125: allowed_references[Makefile] retains the live test-core-ports wiring that proves runtime behavior without the retired state feed."
+
+[finding.17]
+path = "README.md"
+line = 203
+component = "anchor"
+symbol = "layerxAnchor"
+status = "repaired"
+resolution = "Replaced the old executor-name and source-link inventory with native bank funding, committed block finality, ICS23 proofs and EVM state proofs; retained the numerical refusal addresses."
+
+[finding.18]
+path = "README.md"
+line = 203
+component = "anchor"
+symbol = "layerxanchor"
+status = "repaired"
+resolution = "Replaced the old executor-name and source-link inventory with native bank funding, committed block finality, ICS23 proofs and EVM state proofs; retained the numerical refusal addresses."
+
+[finding.19]
+path = "README.md"
+line = 203
+component = "custody-deposit"
+symbol = "layerxCustody"
+status = "repaired"
+resolution = "Replaced the old executor-name and source-link inventory with native bank funding, committed block finality, ICS23 proofs and EVM state proofs; retained the numerical refusal addresses."
+
+[finding.20]
+path = "README.md"
+line = 203
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "repaired"
+resolution = "Replaced the old executor-name and source-link inventory with native bank funding, committed block finality, ICS23 proofs and EVM state proofs; retained the numerical refusal addresses."
+
+[finding.21]
+path = "README.md"
+line = 203
+component = "verify"
+symbol = "layerxVerify"
+status = "repaired"
+resolution = "Replaced the old executor-name and source-link inventory with native bank funding, committed block finality, ICS23 proofs and EVM state proofs; retained the numerical refusal addresses."
+
+[finding.22]
+path = "README.md"
+line = 203
+component = "verify"
+symbol = "layerxverify"
+status = "repaired"
+resolution = "Replaced the old executor-name and source-link inventory with native bank funding, committed block finality, ICS23 proofs and EVM state proofs; retained the numerical refusal addresses."
+
+[finding.23]
+path = "contracts/README.md"
+line = 21
+component = "anchor"
+symbol = "CheckpointRegistry"
+status = "repaired"
+resolution = "Replaced the obsolete deployment-source list with native bank and committed-state integration requirements."
+
+[finding.24]
+path = "contracts/README.md"
+line = 21
+component = "anchor"
+symbol = "GuarantorBond"
+status = "repaired"
+resolution = "Replaced the obsolete deployment-source list with native bank and committed-state integration requirements."
+
+[finding.25]
+path = "contracts/README.md"
+line = 21
+component = "custody-deposit"
+symbol = "LayerXCustody"
+status = "repaired"
+resolution = "Replaced the obsolete deployment-source list with native bank and committed-state integration requirements."
+
+[finding.26]
+path = "contracts/address-inventory.md"
+line = 43
+component = "verify"
+symbol = "layerxVerify"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.27]
+path = "contracts/address-inventory.md"
+line = 43
+component = "verify"
+symbol = "layerxverify"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.28]
+path = "contracts/address-inventory.md"
+line = 44
+component = "custody-deposit"
+symbol = "layerxCustody"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.29]
+path = "contracts/address-inventory.md"
+line = 44
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.30]
+path = "contracts/address-inventory.md"
+line = 45
+component = "anchor"
+symbol = "layerxAnchor"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.31]
+path = "contracts/address-inventory.md"
+line = 45
+component = "anchor"
+symbol = "layerxanchor"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.32]
+path = "contracts/address-inventory.md"
+line = 93
+component = "verify"
+symbol = "layerxVerify"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.33]
+path = "contracts/address-inventory.md"
+line = 99
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.34]
+path = "contracts/address-inventory.md"
+line = 190
+component = "verify"
+symbol = "layerxverify"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.35]
+path = "contracts/address-inventory.md"
+line = 191
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.36]
+path = "contracts/address-inventory.md"
+line = 192
+component = "anchor"
+symbol = "layerxanchor"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.37]
+path = "contracts/address-inventory.md"
+line = 201
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.38]
+path = "contracts/address-inventory.md"
+line = 208
+component = "settlement-domain"
+symbol = "checkpoint-settlement.json"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.39]
+path = "contracts/address-inventory.md"
+line = 213
+component = "anchor"
+symbol = "layerxanchor"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.40]
+path = "contracts/address-inventory.md"
+line = 214
+component = "anchor"
+symbol = "layerxanchor"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.41]
+path = "contracts/address-inventory.md"
+line = 217
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.42]
+path = "contracts/address-inventory.md"
+line = 218
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.43]
+path = "contracts/address-inventory.md"
+line = 221
+component = "anchor"
+symbol = "layerxanchor"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.44]
+path = "contracts/address-inventory.md"
+line = 223
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.45]
+path = "contracts/address-inventory.md"
+line = 234
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.46]
+path = "contracts/address-inventory.md"
+line = 235
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.47]
+path = "contracts/address-inventory.md"
+line = 236
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.48]
+path = "contracts/address-inventory.md"
+line = 237
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.49]
+path = "contracts/address-inventory.md"
+line = 238
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.50]
+path = "contracts/address-inventory.md"
+line = 257
+component = "anchor"
+symbol = "CheckpointRegistry"
+status = "repaired"
+resolution = "Removed the source-index row for a deleted Solidity contract instead of preserving a nonexistent deployment target."
+
+[finding.51]
+path = "contracts/address-inventory.md"
+line = 276
+component = "anchor"
+symbol = "GuarantorBond"
+status = "repaired"
+resolution = "Removed the source-index row for a deleted Solidity contract instead of preserving a nonexistent deployment target."
+
+[finding.52]
+path = "contracts/address-inventory.md"
+line = 281
+component = "custody-claims"
+symbol = "LayerXVault"
+status = "repaired"
+resolution = "Removed the source-index row for a deleted Solidity contract instead of preserving a nonexistent deployment target."
+
+[finding.53]
+path = "contracts/address-inventory.md"
+line = 286
+component = "anchor"
+symbol = "ILayerXAnchor"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.54]
+path = "contracts/address-inventory.md"
+line = 290
+component = "verify"
+symbol = "ILayerXVerify"
+status = "documented_reference"
+resolution = "Decision 3125: documentation_paths[contracts/*.md] identifies this reviewed registry row as compatibility ABI, retirement or offline-export documentation rather than a retired executor caller."
+
+[finding.55]
+path = "contracts/address-inventory.md"
+line = 295
+component = "custody-deposit"
+symbol = "LayerXCustody"
+status = "repaired"
+resolution = "Removed the source-index row for a deleted Solidity contract instead of preserving a nonexistent deployment target."
+
+[finding.56]
+path = "contracts/address-inventory.md"
+line = 295
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "repaired"
+resolution = "Removed the source-index row for a deleted Solidity contract instead of preserving a nonexistent deployment target."
+
+[finding.57]
+path = "contracts/agent-api.md"
+line = 370
+component = "settlement-domain"
+symbol = "SettlementDomain"
+status = "repaired"
+resolution = "Removed the obsolete settlement type row whose linked checkpoint proof module no longer exists."
+
+[finding.58]
+path = "contracts/agent-formats.md"
+line = 121
+component = "layerxctl-port"
+symbol = "LNI"
+status = "repaired"
+resolution = "Replaced the obsolete socket-frame and capability sections with native node JSON-RPC, committed-height queries and the current operation catalogue."
+
+[finding.59]
+path = "contracts/agent-formats.md"
+line = 121
+component = "lni"
+symbol = "LNI"
+status = "repaired"
+resolution = "Replaced the obsolete socket-frame and capability sections with native node JSON-RPC, committed-height queries and the current operation catalogue."
+
+[finding.60]
+path = "contracts/agent-formats.md"
+line = 123
+component = "layerxctl-port"
+symbol = "LNI"
+status = "repaired"
+resolution = "Replaced the obsolete socket-frame and capability sections with native node JSON-RPC, committed-height queries and the current operation catalogue."
+
+[finding.61]
+path = "contracts/agent-formats.md"
+line = 123
+component = "lni"
+symbol = "LNI"
+status = "repaired"
+resolution = "Replaced the obsolete socket-frame and capability sections with native node JSON-RPC, committed-height queries and the current operation catalogue."
+
+[finding.62]
+path = "contracts/agent-formats.md"
+line = 128
+component = "layerxctl-port"
+symbol = "LNI"
+status = "repaired"
+resolution = "Replaced the obsolete socket-frame and capability sections with native node JSON-RPC, committed-height queries and the current operation catalogue."
+
+[finding.63]
+path = "contracts/agent-formats.md"
+line = 128
+component = "lni"
+symbol = "LNI"
+status = "repaired"
+resolution = "Replaced the obsolete socket-frame and capability sections with native node JSON-RPC, committed-height queries and the current operation catalogue."
+
+[finding.64]
+path = "contracts/agent-formats.md"
+line = 130
+component = "layerxctl-port"
+symbol = "LNI"
+status = "repaired"
+resolution = "Replaced the obsolete socket-frame and capability sections with native node JSON-RPC, committed-height queries and the current operation catalogue."
+
+[finding.65]
+path = "contracts/agent-formats.md"
+line = 130
+component = "lni"
+symbol = "LNI"
+status = "repaired"
+resolution = "Replaced the obsolete socket-frame and capability sections with native node JSON-RPC, committed-height queries and the current operation catalogue."
+
+[finding.66]
+path = "contracts/agent-human-peer.md"
+line = 170
+component = "checkpoint-evidence"
+symbol = "SETTLEMENT_ANCHORED"
+status = "repaired"
+resolution = "Matched the production receipt frame codec: code 6 is COMMITTED and historical codes 4 and 5 decode to it without an extra finality rung."
+
+[finding.67]
+path = "contracts/agent-rust-api.md"
+line = 154
+component = "paxeer-verifier"
+symbol = "layerx-paxeer-verifier"
+status = "repaired"
+resolution = "Removed absent checkpoint/settlement modules and the deleted verifier crate citation; documented node commit/header and native state proof verification."
+
+[finding.68]
+path = "contracts/config/checkpoint-settlement.json"
+line = 28
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "repaired"
+resolution = "Removed obsolete domains, guarantor vectors and certificate policy; retained the published schema identifier, chain ID and commit/header/validator-set offline export coordinates."
+
+[finding.69]
+path = "contracts/launchpad/contracts/core/SidioraFactory.sol"
+line = 82
+component = "exchange-intents"
+symbol = "recordDeposit"
+status = "allowed_reference"
+resolution = "Decision 3125: allowed_references[contracts/launchpad/contracts/core] permits the live launchpad treasury recordDeposit interface, implementation or fee-accounting call, distinct from the retired exchange-intents method."
+
+[finding.70]
+path = "contracts/launchpad/contracts/interfaces/ITreasury.sol"
+line = 18
+component = "exchange-intents"
+symbol = "recordDeposit"
+status = "allowed_reference"
+resolution = "Decision 3125: allowed_references[contracts/launchpad/contracts/interfaces] permits the live launchpad treasury recordDeposit interface, implementation or fee-accounting call, distinct from the retired exchange-intents method."
+
+[finding.71]
+path = "contracts/launchpad/contracts/periphery/Router.sol"
+line = 166
+component = "exchange-intents"
+symbol = "recordDeposit"
+status = "allowed_reference"
+resolution = "Decision 3125: allowed_references[contracts/launchpad/contracts/periphery] permits the live launchpad treasury recordDeposit interface, implementation or fee-accounting call, distinct from the retired exchange-intents method."
+
+[finding.72]
+path = "contracts/launchpad/contracts/protocol/Treasury.sol"
+line = 79
+component = "exchange-intents"
+symbol = "recordDeposit"
+status = "allowed_reference"
+resolution = "Decision 3125: allowed_references[contracts/launchpad/contracts/protocol] permits the live launchpad treasury recordDeposit interface, implementation or fee-accounting call, distinct from the retired exchange-intents method."
+
+[finding.73]
+path = "contracts/platform-hosted.md"
+line = 7
+component = "replica"
+symbol = "relay-archive"
+status = "repaired"
+resolution = "Replaced the retired service link with current node/archive and indexer history; removed the obsolete storage service anchor and documented archive availability."
+
+[finding.74]
+path = "contracts/platform-hosted.md"
+line = 189
+component = "storage-keeper"
+symbol = "paxai-storage-keeper"
+status = "repaired"
+resolution = "Replaced the retired service link with current node/archive and indexer history; removed the obsolete storage service anchor and documented archive availability."
+
+[finding.75]
+path = "contracts/platform-relay-archive.md"
+line = 3
+component = "replica"
+symbol = "relay_archive"
+status = "repaired"
+resolution = "Removed the deleted-tree citation and obsolete method registration anchor; the migration page points to current node, indexer, gateway and protobuf interfaces."
+
+[finding.76]
+path = "contracts/platform-relay-archive.md"
+line = 31
+component = "replica"
+symbol = "relay-archive"
+status = "repaired"
+resolution = "Removed the deleted-tree citation and obsolete method registration anchor; the migration page points to current node, indexer, gateway and protobuf interfaces."
+
+[finding.77]
+path = "docker/kernel/Dockerfile.dockerignore"
+line = 1
+component = "settlement-domain"
+symbol = "checkpoint-settlement.json"
+status = "repaired"
+resolution = "Removed obsolete settlement-fixture exclusion/inclusion entries after removing that native image build dependency."
+
+[finding.78]
+path = "docker/layerx/Dockerfile"
+line = 18
+component = "settlement-domain"
+symbol = "checkpoint-settlement.json"
+status = "repaired"
+resolution = "Removed the unused settlement fixture COPY and the generated settlement header checks/copy; native output now contains the retained kernel and programs archives."
+
+[finding.79]
+path = "docker/layerx/Dockerfile.dockerignore"
+line = 1
+component = "settlement-domain"
+symbol = "checkpoint-settlement.json"
+status = "repaired"
+resolution = "Removed obsolete settlement-fixture exclusion/inclusion entries after removing that native image build dependency."
+
+[finding.80]
+path = "docker/layerx/Dockerfile.dockerignore"
+line = 67
+component = "paxeer-verifier"
+symbol = "layerx-paxeer-verifier"
+status = "repaired"
+resolution = "Removed the inclusion override for the deleted verifier crate."
+
+[finding.81]
+path = "docker/layerx/Dockerfile.dockerignore"
+line = 94
+component = "protocol-adapter"
+symbol = "layerx-programs-protocol-adapter"
+status = "repaired"
+resolution = "Removed the inclusion override for the deleted program adapter crate."
+
+[finding.82]
+path = "docker/layerx/Dockerfile.dockerignore"
+line = 94
+component = "protocol-adapter"
+symbol = "protocol-adapter"
+status = "repaired"
+resolution = "Removed the inclusion override for the deleted program adapter crate."
+
+[finding.83]
+path = "docker/layerx/Dockerfile.dockerignore"
+line = 113
+component = "settlement-domain"
+symbol = "checkpoint-settlement.json"
+status = "repaired"
+resolution = "Removed obsolete settlement-fixture exclusion/inclusion entries after removing that native image build dependency."
+
+[finding.84]
+path = "docker/paxeer/Dockerfile.paxd-node.dockerignore"
+line = 1
+component = "settlement-domain"
+symbol = "checkpoint-settlement.json"
+status = "repaired"
+resolution = "Removed obsolete settlement-fixture exclusion/inclusion entries after removing that native image build dependency."
+
+[finding.85]
+path = "docs/site/mkdocs.yml"
+line = 94
+component = "layerxctl-port"
+symbol = "LNI"
+status = "repaired"
+resolution = "Removed navigation advertising the retired socket interface; current agent/client documentation remains in the Agents navigation."
+
+[finding.86]
+path = "docs/site/mkdocs.yml"
+line = 94
+component = "layerxctl-port"
+symbol = "lni"
+status = "repaired"
+resolution = "Removed navigation advertising the retired socket interface; current agent/client documentation remains in the Agents navigation."
+
+[finding.87]
+path = "docs/site/mkdocs.yml"
+line = 94
+component = "lni"
+symbol = "LNI"
+status = "repaired"
+resolution = "Removed navigation advertising the retired socket interface; current agent/client documentation remains in the Agents navigation."
+
+[finding.88]
+path = "docs/site/mkdocs.yml"
+line = 94
+component = "lni"
+symbol = "lni"
+status = "repaired"
+resolution = "Removed navigation advertising the retired socket interface; current agent/client documentation remains in the Agents navigation."
+
+[adjacent.platform_gateway]
+path = "contracts/platform-gateway.md"
+resolution = "The task declares this path in touches although the initial scan reports no finding there; its current integration guidance now names direct EVM submission, committed-height native program queries and ICS23 proofs as the replacements."
+
+[gotcha.1]
+area = "scope"
+symptom = "The scan covers contracts recursively, including four launchpad Solidity files not present in the task scope."
+cause = "The bounded verify command has a broader scan boundary than the files authorized for changes."
+do = "Record the findings without modifying those files or weakening the check; qualification cannot claim a clean scan until their owner resolves them."
+
+[gotcha.2]
+area = "catalogue"
+symptom = "The scan reports test wiring and historical disabled ABI documentation as retired callers."
+cause = "Existing allowances cover the implementation/interface trees but exclude the Makefile and this documentation; the allowed file list excludes the catalogue required by do_2."
+do = "Preserve the exact live symbols and tests, record the allowance requests here, and report the scope conflict without silently adding exclusions."
+
+[qualification.attempt_1]
+revision = "a76c7d268fcb3befc0b3f6bd3c4fe63df1ba5846"
+command = "cg spec done 22.39.277 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+build_command = "make -n build/liblayerx.a > /dev/null && python3 -m py_compile tests/ci/test_docs_make_targets_and_scripts.py"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+documentation_tests_passed = 17
+remaining_scan_findings = 40
+observed = "The build passed and all 17 declared documentation tests passed; the final scan exited 1 on retained test and compatibility references plus four pre-existing launchpad references outside the permitted file scope."
+assumption = "The explicit scope and prohibition on disabling tests take precedence over the catalogue-edit step; this task does not claim a clean scan or completion."
+
+[allowance_request.1]
+path = "Makefile"
+symbols = ["bridge_credit", "history.lxl", "lxp_test_golden_replay", "state_feed"]
+citation = "These exact names wire retained regression checks for absent credit symbols and runtime behavior without the retired state feed; keeping them preserves the assertions rather than reviving either producer."
+status = "applied_attempt_2"
+
+[allowance_request.2]
+path = "contracts/address-inventory.md"
+symbols = ["layerxVerify", "layerxverify", "layerxCustody", "layerxcustody", "layerxAnchor", "layerxanchor", "ILayerXAnchor", "ILayerXVerify", "checkpoint-settlement.json"]
+citation = "The registry documents disabled implementations and contract interfaces that still ship, plus the retained chain-bound offline export fixture; none of these historical metadata references dispatches to a retired executor."
+status = "resolved_by_documentation_pattern_attempt_2"
+
+[qualification.golden_conflict]
+path = "Makefile"
+symbol = "lxp_test_golden_replay"
+observed = "The replay-golden catalogue declares the source and fixture deleted, while both files exist on the supplied base and the explicit Make rule builds that test."
+assumption = "Removing or disguising the test build rule solely to clear the scan would violate the explicit prohibition on deleting or disabling tests; owner reconciliation is required."
+severity = "blocker"
+
+[qualification.final_evidence]
+record = "/out/run/gates.jsonl"
+revision_selector = "The last kind=verify entry identifies the exact attempt-2 candidate revision, command, exit and log; its matching kind=build entry identifies the built revision without changing this record after qualification."
+publication = "The task is not complete unless the final verify entry exits zero; commits and pushes belong to the runner."
+
+[continuation.attempt_2]
+base_revision = "8742bd00eb3acc490f28e5d26038636590216955"
+source_attempt_revision = "963ce56212e280a6ea0ed3ad6b16c1c6458cd247"
+decision = "3125"
+gotcha = "4010"
+remaining_findings = 40
+inventory_source = "The attempt-1 inventory and failed qualification above record the findings; no extra pre-implementation scan or verification is run during this continuation."
+implementation = "Preserved all attempt-1 source repairs, resolved all forty remaining finding records through the reviewed documentation pattern and five scoped live-reference entries, and retained every test and assertion."
+status = "implemented_awaiting_bounded_qualification"
+build_runner = "hf-build"
+verify_runner = "hf-done"
+evidence = "/out/run/gates.jsonl"
+verified_revision = "/out/run/gates.jsonl: final kind=verify entry revision; its exit must be zero and its revision must equal the successful kind=build entry revision."
+
+[allowance.applied.makefile]
+path = "Makefile"
+symbols = ["bridge_credit", "history.lxl", "lxp_test_golden_replay", "state_feed"]
+catalogue = "tools/paxeer-x/retired_callers.json"
+reason = "The golden replay target and fixture still ship, and the credit-absence and unbound-feed regression targets remain live."
+
+[allowance.applied.launchpad_core]
+path = "contracts/launchpad/contracts/core"
+symbols = ["recordDeposit"]
+catalogue = "tools/paxeer-x/retired_callers.json"
+reason = "SidioraFactory calls the live treasury API to account launchpad fees rather than the retired exchange-intents method."
+
+[allowance.applied.launchpad_interfaces]
+path = "contracts/launchpad/contracts/interfaces"
+symbols = ["recordDeposit"]
+catalogue = "tools/paxeer-x/retired_callers.json"
+reason = "ITreasury declares the live launchpad fee-accounting API rather than the retired exchange-intents method."
+
+[allowance.applied.launchpad_periphery]
+path = "contracts/launchpad/contracts/periphery"
+symbols = ["recordDeposit"]
+catalogue = "tools/paxeer-x/retired_callers.json"
+reason = "Router calls the live treasury API to account launchpad fees rather than the retired exchange-intents method."
+
+[allowance.applied.launchpad_protocol]
+path = "contracts/launchpad/contracts/protocol"
+symbols = ["recordDeposit"]
+catalogue = "tools/paxeer-x/retired_callers.json"
+reason = "Treasury accounts an actual prior token transfer under DEPOSITOR_ROLE using balance and amount checks."
+
+[documentation.applied.contracts]
+pattern = "contracts/*.md"
+catalogue = "tools/paxeer-x/retired_callers.json"
+reason = "Reviewed contract documents preserve current API and compatibility registry names without dispatching to a retired executor."
+findings = "26-49, 53-54"
+
+[gotcha.1.resolution]
+decision = "3125"
+resolved = "The expanded catalogue scope permits four narrow launchpad directory allowances without changing the Solidity sources."
+
+[gotcha.2.resolution]
+decision = "3125"
+resolved = "The expanded catalogue scope permits the live Makefile identifiers and reviewed contract-documentation pattern."
+
+[qualification.golden_conflict.resolution]
+decision = "3125"
+resolved = "The explicit continuation ruling identifies the golden target as live and permits its exact symbol and fixture name in the Makefile catalogue entry."

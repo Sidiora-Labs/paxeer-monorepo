@@ -1,0 +1,78 @@
+[member]
+name = "layerx-human-kms"
+lint_locations = 246
+
+[lint.cast_possible_truncation]
+locations = 3
+
+[lint.cast_possible_wrap]
+locations = 3
+
+[lint.cast_sign_loss]
+locations = 1
+
+[lint.dead_code]
+locations = 9
+
+[lint.duplicate_mod]
+locations = 2
+
+[lint.expect_used]
+locations = 13
+
+[lint.items_after_statements]
+locations = 15
+
+[lint.items_after_test_module]
+locations = 1
+
+[lint.large_enum_variant]
+locations = 1
+
+[lint.missing_errors_doc]
+locations = 28
+
+[lint.must_use_candidate]
+locations = 2
+
+[lint.needless_borrow]
+locations = 1
+
+[lint.needless_borrows_for_generic_args]
+locations = 1
+
+[lint.needless_pass_by_value]
+locations = 8
+
+[lint.redundant_closure_for_method_calls]
+locations = 2
+
+[lint.return_self_not_must_use]
+locations = 1
+
+[lint.semicolon_if_nothing_returned]
+locations = 1
+
+[lint.similar_names]
+locations = 3
+
+[lint.struct_field_names]
+locations = 4
+
+[lint.too_many_arguments]
+locations = 1
+
+[lint.too_many_lines]
+locations = 32
+
+[lint.unnecessary_wraps]
+locations = 9
+
+[lint.unreadable_literal]
+locations = 1
+
+[lint.unused_self]
+locations = 2
+
+[lint.unwrap_used]
+locations = 102

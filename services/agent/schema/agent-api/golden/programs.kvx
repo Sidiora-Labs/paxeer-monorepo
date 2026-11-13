@@ -179,38 +179,35 @@ committed = "verified_block_commit"
 unknown = "retain_exact_signed_EIP1559_bytes_and_resolve_by_transaction_hash"
 
 [operation.program.deploy]
-method = "POST"
-path = "/v1/programs/deploy"
+transport = "evm_json_rpc"
+rpc_method = "eth_sendRawTransaction"
+precompile = "0x000000000000000000000000000000000000101d"
 request = "NativeProgramDeployRequest"
 required = ["idempotency_key"]
 response = "ProgramLifecycleResponse"
 scope = "program:deploy"
-content_type = "application/octet-stream"
-idempotency_header = "Idempotency-Key"
 idempotency_binding = "canonical_lowercase_transaction_hash"
 unknown_outcome = "retain_exact_signed_EIP1559_transaction_and_hash"
 
 [operation.program.upgrade]
-method = "POST"
-path = "/v1/programs/upgrade"
+transport = "evm_json_rpc"
+rpc_method = "eth_sendRawTransaction"
+precompile = "0x000000000000000000000000000000000000101d"
 request = "NativeProgramUpgradeRequest"
 required = ["idempotency_key"]
 response = "ProgramLifecycleResponse"
 scope = "program:upgrade"
-content_type = "application/octet-stream"
-idempotency_header = "Idempotency-Key"
 idempotency_binding = "canonical_lowercase_transaction_hash"
 unknown_outcome = "retain_exact_signed_EIP1559_transaction_and_hash"
 
 [operation.program.wind-down]
-method = "POST"
-path = "/v1/programs/wind-down"
+transport = "evm_json_rpc"
+rpc_method = "eth_sendRawTransaction"
+precompile = "0x000000000000000000000000000000000000101d"
 request = "NativeProgramWindDownRequest"
 required = ["idempotency_key"]
 response = "ProgramLifecycleResponse"
 scope = "program:wind-down"
-content_type = "application/octet-stream"
-idempotency_header = "Idempotency-Key"
 idempotency_binding = "canonical_lowercase_transaction_hash"
 unknown_outcome = "retain_exact_signed_EIP1559_transaction_and_hash"
 
@@ -240,8 +237,9 @@ scope = "program:simulate"
 non_committing = true
 
 [operation.program.call]
-method = "POST"
-path = "/v1/programs/call"
+transport = "evm_json_rpc"
+rpc_method = "eth_sendRawTransaction"
+precompile = "0x000000000000000000000000000000000000101d"
 request = "ProgramCallRequest"
 request_profiles = ["retained_legacy_call","native-v1"]
 native_request = "NativeProgramCallRequest"

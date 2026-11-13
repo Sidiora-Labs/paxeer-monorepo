@@ -60,11 +60,12 @@ pub struct ProgramReplayProfile {
 }
 
 impl ProgramReplayProfile {
+    /// # Errors
+    ///
+    /// Returns a replay refusal when bounds, record framing, versioned identity, or witness commitments are invalid.
     pub fn new(maximum_boundaries: u32, maximum_bytes: u32) -> Result<Self, ReplayWitnessError> {
-        if maximum_boundaries < 2
-            || maximum_boundaries > MAX_PROGRAM_REPLAY_BOUNDARIES
-            || maximum_bytes < 512
-            || maximum_bytes > MAX_PROGRAM_REPLAY_BYTES
+        if !(2..=MAX_PROGRAM_REPLAY_BOUNDARIES).contains(&maximum_boundaries)
+            || !(512..=MAX_PROGRAM_REPLAY_BYTES).contains(&maximum_bytes)
         {
             return Err(ReplayWitnessError::Bounds);
         }
@@ -76,12 +77,15 @@ impl ProgramReplayProfile {
             policy,
         })
     }
+    #[must_use]
     pub const fn maximum_boundaries(self) -> u32 {
         self.maximum_boundaries
     }
+    #[must_use]
     pub const fn maximum_bytes(self) -> u32 {
         self.maximum_bytes
     }
+    #[must_use]
     pub const fn trace_policy(self) -> crate::TracePolicy {
         self.policy
     }
@@ -98,6 +102,9 @@ pub struct ReplayRecordHeader {
 }
 
 impl ReplayRecordHeader {
+    /// # Errors
+    ///
+    /// Returns a replay refusal when bounds, record framing, versioned identity, or witness commitments are invalid.
     pub fn from_boundary(
         arbitration: &crate::ArbitrationExecutionState,
         semantic: &[u8],
@@ -152,6 +159,9 @@ impl ReplayRecordHeader {
         }
         Ok(())
     }
+    /// # Errors
+    ///
+    /// Returns a replay refusal when bounds, record framing, versioned identity, or witness commitments are invalid.
     pub fn canonical_bytes(&self, maximum: usize) -> Result<Vec<u8>, ReplayWitnessError> {
         self.validate()?;
         let mut out = Vec::new();
@@ -216,6 +226,9 @@ impl ReplayRecordHeader {
         }
         Ok(out)
     }
+    /// # Errors
+    ///
+    /// Returns a replay refusal when bounds, record framing, versioned identity, or witness commitments are invalid.
     pub fn decode(bytes: &[u8], maximum: usize) -> Result<Self, ReplayWitnessError> {
         if maximum == 0 || maximum > MAX_PROGRAM_REPLAY_BYTES as usize || bytes.len() > maximum {
             return Err(ReplayWitnessError::Bounds);
@@ -266,12 +279,18 @@ impl ReplayRecordHeader {
         header.validate()?;
         Ok(header)
     }
+    /// # Errors
+    ///
+    /// Returns a replay refusal when bounds, record framing, versioned identity, or witness commitments are invalid.
     pub fn digest(&self) -> Result<[u8; 32], ReplayWitnessError> {
         let mut hash = Sha256::new();
         hash.update(b"LXP/program-replay-header/v2\0");
         hash.update(self.canonical_bytes(MAX_PROGRAM_REPLAY_BYTES as usize)?);
         Ok(hash.finalize().into())
     }
+    /// # Errors
+    ///
+    /// Returns a replay refusal when bounds, record framing, versioned identity, or witness commitments are invalid.
     pub fn boundary_envelope(
         &self,
         leaf: &[u8],
@@ -284,7 +303,13 @@ impl ReplayRecordHeader {
             maximum,
         )?;
         let header = self.canonical_bytes(maximum)?;
-        append(&mut out, &(header.len() as u32).to_be_bytes(), maximum)?;
+        append(
+            &mut out,
+            &u32::try_from(header.len())
+                .map_err(|_| ReplayWitnessError::Bounds)?
+                .to_be_bytes(),
+            maximum,
+        )?;
         append(&mut out, &header, maximum)?;
         append(&mut out, leaf, maximum)?;
         Ok(out)
@@ -309,27 +334,292 @@ pub struct ProgramReplayRecord {
     bytes: Vec<u8>,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct CapturedRecordParameters {
+    pub(crate) profile: ProgramReplayProfile,
+    pub(crate) code_hash: [u8; 32],
+    pub(crate) input_digest: [u8; 32],
+    pub(crate) runtime_version: u16,
+    pub(crate) abi_version: u16,
+    pub(crate) fee_schedule_version: u32,
+    pub(crate) metering_schedule_version: u32,
+    pub(crate) terminal_status: u8,
+}
+fn capture_diagnostic(
+    error: ReplayWitnessError,
+    check: &'static str,
+    observed: u128,
+    permitted: u128,
+    leaf_length: usize,
+) -> ReplayCaptureError {
+    ReplayCaptureError {
+        error,
+        check,
+        observed,
+        permitted,
+        leaf_length,
+    }
+}
+
+fn append_captured_leaf(
+    witness: &mut Vec<u8>,
+    leaf: &[u8],
+    index: usize,
+    header: &ReplayRecordHeader,
+    maximum: usize,
+    replay_fuel: &mut u64,
+) -> Result<[u8; 32], ReplayCaptureError> {
+    let length = u32::try_from(leaf.len()).map_err(|_| {
+        capture_diagnostic(
+            ReplayWitnessError::Bounds,
+            "from_captured leaf length",
+            leaf.len() as u128,
+            u128::from(u32::MAX),
+            leaf.len(),
+        )
+    })?;
+    capture_append(
+        witness,
+        &length.to_be_bytes(),
+        maximum,
+        "from_captured witness bytes",
+        leaf.len(),
+    )?;
+    capture_append(
+        witness,
+        leaf,
+        maximum,
+        "from_captured witness bytes",
+        leaf.len(),
+    )?;
+    let boundary =
+        crate::portable_replay::PortableBoundary::decode_with_header(leaf, maximum, header)
+            .map_err(|error| {
+                capture_diagnostic(
+                    error,
+                    "from_captured leaf decode",
+                    leaf.len() as u128,
+                    maximum as u128,
+                    leaf.len(),
+                )
+            })?;
+    let supplement = &boundary.replay.snapshot.supplement;
+    let fuels = crate::commit::replay_step_commitment_fuels(
+        supplement.canonical_state_bytes,
+        supplement.arbitration_engine_canonical_bytes,
+        supplement.arbitration_host_state_bytes,
+    )
+    .map_err(|_| {
+        capture_diagnostic(
+            ReplayWitnessError::Bounds,
+            "from_captured commitment fuel",
+            u128::from(supplement.canonical_state_bytes)
+                + u128::from(supplement.arbitration_engine_canonical_bytes)
+                + u128::from(supplement.arbitration_host_state_bytes),
+            u128::from(u64::MAX),
+            leaf.len(),
+        )
+    })?;
+    if fuels
+        != (
+            supplement.commitment_fuel,
+            supplement.arbitration_commitment_fuel,
+        )
+    {
+        return Err(capture_diagnostic(
+            ReplayWitnessError::Binding,
+            "from_captured commitment fuel binding",
+            u128::from(fuels.0) + u128::from(fuels.1),
+            u128::from(supplement.commitment_fuel)
+                + u128::from(supplement.arbitration_commitment_fuel),
+            leaf.len(),
+        ));
+    }
+    *replay_fuel = replay_fuel
+        .checked_add(fuels.0)
+        .and_then(|total| total.checked_add(fuels.1))
+        .ok_or_else(|| {
+            capture_diagnostic(
+                ReplayWitnessError::Bounds,
+                "from_captured fuel sum",
+                u128::from(*replay_fuel) + u128::from(fuels.0) + u128::from(fuels.1),
+                u128::from(u64::MAX),
+                leaf.len(),
+            )
+        })?;
+    let mut hash = Sha256::new();
+    hash.update(b"LXP/program-replay-leaf/v1\0");
+    hash.update(
+        u32::try_from(index)
+            .map_err(|_| {
+                capture_diagnostic(
+                    ReplayWitnessError::Bounds,
+                    "from_captured leaf index",
+                    index as u128,
+                    u128::from(u32::MAX),
+                    0,
+                )
+            })?
+            .to_be_bytes(),
+    );
+    hash.update(length.to_be_bytes());
+    hash.update(leaf);
+    Ok(<[u8; 32]>::from(hash.finalize()))
+}
+
+type CapturedWitness = (Vec<u8>, [u8; 32], u64);
+fn encode_captured_witness(
+    profile: ProgramReplayProfile,
+    leaves: &[Vec<u8>],
+    header: &ReplayRecordHeader,
+    boundary_count: u32,
+) -> Result<CapturedWitness, ReplayCaptureError> {
+    let maximum = profile.maximum_bytes as usize;
+    let mut witness = Vec::new();
+    capture_append(
+        &mut witness,
+        PROGRAM_REPLAY_WITNESS_DOMAIN,
+        maximum,
+        "from_captured witness bytes",
+        0,
+    )?;
+    let header_digest = header.digest().map_err(|error| {
+        capture_diagnostic(error, "from_captured header digest", 0, maximum as u128, 0)
+    })?;
+    capture_append(
+        &mut witness,
+        &header_digest,
+        maximum,
+        "from_captured witness header binding",
+        0,
+    )?;
+    capture_append(
+        &mut witness,
+        &boundary_count.to_be_bytes(),
+        maximum,
+        "from_captured witness bytes",
+        0,
+    )?;
+    let mut hashes = Vec::new();
+    hashes.try_reserve_exact(leaves.len()).map_err(|_| {
+        capture_diagnostic(
+            ReplayWitnessError::Allocation,
+            "from_captured hash allocation",
+            leaves.len() as u128,
+            u128::from(profile.maximum_boundaries),
+            0,
+        )
+    })?;
+    let mut replay_fuel = 0u64;
+    for (index, leaf) in leaves.iter().enumerate() {
+        hashes.push(append_captured_leaf(
+            &mut witness,
+            leaf,
+            index,
+            header,
+            maximum,
+            &mut replay_fuel,
+        )?);
+    }
+    while hashes.len() > 1 {
+        let mut next = Vec::new();
+        next.try_reserve_exact(hashes.len().div_ceil(2))
+            .map_err(|_| {
+                capture_diagnostic(
+                    ReplayWitnessError::Allocation,
+                    "from_captured hash allocation",
+                    leaves.len() as u128,
+                    u128::from(profile.maximum_boundaries),
+                    0,
+                )
+            })?;
+        for pair in hashes.chunks(2) {
+            let mut hash = Sha256::new();
+            hash.update(b"LXP/program-replay-node/v1\0");
+            hash.update(pair[0]);
+            hash.update(*pair.get(1).unwrap_or(&pair[0]));
+            next.push(<[u8; 32]>::from(hash.finalize()));
+        }
+        hashes = next;
+    }
+    Ok((witness, hashes[0], replay_fuel))
+}
+
+fn encode_captured_record(
+    parameters: CapturedRecordParameters,
+    header: &ReplayRecordHeader,
+    boundary_count: u32,
+    boundary_root: [u8; 32],
+    witness_digest: [u8; 32],
+    witness: &[u8],
+) -> Result<Vec<u8>, ReplayCaptureError> {
+    let profile = parameters.profile;
+    let maximum = profile.maximum_bytes as usize;
+    let header_bytes = header.canonical_bytes(maximum).map_err(|error| {
+        capture_diagnostic(error, "from_captured header bytes", 0, maximum as u128, 0)
+    })?;
+    let header_length = u32::try_from(header_bytes.len()).map_err(|_| {
+        capture_diagnostic(
+            ReplayWitnessError::Bounds,
+            "from_captured header length",
+            header_bytes.len() as u128,
+            u128::from(u32::MAX),
+            0,
+        )
+    })?;
+    let witness_length = u32::try_from(witness.len()).map_err(|_| {
+        capture_diagnostic(
+            ReplayWitnessError::Bounds,
+            "from_captured witness length",
+            witness.len() as u128,
+            u128::from(u32::MAX),
+            0,
+        )
+    })?;
+    let fields: &[(&[u8], &str)] = &[
+        (PROGRAM_REPLAY_RECORD_DOMAIN, "from_captured record bytes"),
+        (&2u16.to_be_bytes(), "from_captured record bytes"),
+        (&header_length.to_be_bytes(), "from_captured record header"),
+        (&header_bytes, "from_captured record header"),
+        (
+            &profile.maximum_boundaries.to_be_bytes(),
+            "from_captured record bytes",
+        ),
+        (
+            &profile.maximum_bytes.to_be_bytes(),
+            "from_captured record bytes",
+        ),
+        (&[parameters.terminal_status], "from_captured record bytes"),
+        (&boundary_count.to_be_bytes(), "from_captured record bytes"),
+        (&boundary_root, "from_captured record bytes"),
+        (&witness_digest, "from_captured record bytes"),
+        (&witness_length.to_be_bytes(), "from_captured record bytes"),
+        (witness, "from_captured record bytes"),
+    ];
+    let mut bytes = Vec::new();
+    for (value, check) in fields {
+        capture_append(&mut bytes, value, maximum, check, 0)?;
+    }
+    Ok(bytes)
+}
+
 impl ProgramReplayRecord {
-    #[allow(clippy::too_many_arguments)]
     pub(crate) fn from_captured(
-        profile: ProgramReplayProfile,
-        code_hash: [u8; 32],
-        input_digest: [u8; 32],
-        runtime_version: u16,
-        abi_version: u16,
-        fee_schedule_version: u32,
-        metering_schedule_version: u32,
-        terminal_status: u8,
-        leaves: Vec<Vec<u8>>,
+        parameters: CapturedRecordParameters,
+        leaves: &[Vec<u8>],
         header: ReplayRecordHeader,
     ) -> Result<Self, ReplayCaptureError> {
-        let diagnostic = |error, check, observed, permitted, leaf_length| ReplayCaptureError {
-            error,
-            check,
-            observed,
-            permitted,
-            leaf_length,
-        };
+        let CapturedRecordParameters {
+            profile,
+            code_hash,
+            input_digest,
+            runtime_version,
+            abi_version,
+            fee_schedule_version,
+            metering_schedule_version,
+            terminal_status,
+        } = parameters;
+
         if header.identity.module_code_hash != code_hash
             || header.identity.input_digest != input_digest
             || header.identity.runtime_version != runtime_version
@@ -338,7 +628,7 @@ impl ProgramReplayRecord {
             || header.identity.metering_schedule_version != metering_schedule_version
             || header.identity.trace_policy != profile.trace_policy()
         {
-            return Err(diagnostic(
+            return Err(capture_diagnostic(
                 ReplayWitnessError::Binding,
                 "from_captured record header",
                 1,
@@ -347,276 +637,42 @@ impl ProgramReplayRecord {
             ));
         }
         if terminal_status > 2 {
-            return Err(diagnostic(
+            return Err(capture_diagnostic(
                 ReplayWitnessError::Bounds,
                 "from_captured terminal status",
-                terminal_status as u128,
+                u128::from(terminal_status),
                 2,
                 0,
             ));
         }
         if leaves.is_empty() || leaves.len() > profile.maximum_boundaries as usize {
-            return Err(diagnostic(
+            return Err(capture_diagnostic(
                 ReplayWitnessError::Bounds,
                 "from_captured leaves (minimum 1)",
                 leaves.len() as u128,
-                profile.maximum_boundaries as u128,
+                u128::from(profile.maximum_boundaries),
                 0,
             ));
         }
-        let maximum = profile.maximum_bytes as usize;
         let boundary_count = u32::try_from(leaves.len()).map_err(|_| {
-            diagnostic(
+            capture_diagnostic(
                 ReplayWitnessError::Bounds,
                 "from_captured boundary count",
                 leaves.len() as u128,
-                u32::MAX as u128,
+                u128::from(u32::MAX),
                 0,
             )
         })?;
-        let mut witness = Vec::new();
-        capture_append(
-            &mut witness,
-            PROGRAM_REPLAY_WITNESS_DOMAIN,
-            maximum,
-            "from_captured witness bytes",
-            0,
-        )?;
-        let header_digest = header.digest().map_err(|error| {
-            diagnostic(error, "from_captured header digest", 0, maximum as u128, 0)
-        })?;
-        capture_append(
-            &mut witness,
-            &header_digest,
-            maximum,
-            "from_captured witness header binding",
-            0,
-        )?;
-        capture_append(
-            &mut witness,
-            &boundary_count.to_be_bytes(),
-            maximum,
-            "from_captured witness bytes",
-            0,
-        )?;
-        let mut hashes = Vec::new();
-        hashes.try_reserve_exact(leaves.len()).map_err(|_| {
-            diagnostic(
-                ReplayWitnessError::Allocation,
-                "from_captured hash allocation",
-                leaves.len() as u128,
-                profile.maximum_boundaries as u128,
-                0,
-            )
-        })?;
-        let mut replay_fuel = 0u64;
-        for (index, leaf) in leaves.iter().enumerate() {
-            let length = u32::try_from(leaf.len()).map_err(|_| {
-                diagnostic(
-                    ReplayWitnessError::Bounds,
-                    "from_captured leaf length",
-                    leaf.len() as u128,
-                    u32::MAX as u128,
-                    leaf.len(),
-                )
-            })?;
-            capture_append(
-                &mut witness,
-                &length.to_be_bytes(),
-                maximum,
-                "from_captured witness bytes",
-                leaf.len(),
-            )?;
-            capture_append(
-                &mut witness,
-                leaf,
-                maximum,
-                "from_captured witness bytes",
-                leaf.len(),
-            )?;
-            let boundary = crate::portable_replay::PortableBoundary::decode_with_header(
-                leaf, maximum, &header,
-            )
-            .map_err(|error| {
-                diagnostic(
-                    error,
-                    "from_captured leaf decode",
-                    leaf.len() as u128,
-                    maximum as u128,
-                    leaf.len(),
-                )
-            })?;
-            let supplement = &boundary.replay.snapshot.supplement;
-            let fuels = crate::commit::replay_step_commitment_fuels(
-                supplement.canonical_state_bytes,
-                supplement.arbitration_engine_canonical_bytes,
-                supplement.arbitration_host_state_bytes,
-            )
-            .map_err(|_| {
-                diagnostic(
-                    ReplayWitnessError::Bounds,
-                    "from_captured commitment fuel",
-                    supplement.canonical_state_bytes as u128
-                        + supplement.arbitration_engine_canonical_bytes as u128
-                        + supplement.arbitration_host_state_bytes as u128,
-                    u64::MAX as u128,
-                    leaf.len(),
-                )
-            })?;
-            if fuels
-                != (
-                    supplement.commitment_fuel,
-                    supplement.arbitration_commitment_fuel,
-                )
-            {
-                return Err(diagnostic(
-                    ReplayWitnessError::Binding,
-                    "from_captured commitment fuel binding",
-                    fuels.0 as u128 + fuels.1 as u128,
-                    supplement.commitment_fuel as u128
-                        + supplement.arbitration_commitment_fuel as u128,
-                    leaf.len(),
-                ));
-            }
-            replay_fuel = replay_fuel
-                .checked_add(fuels.0)
-                .and_then(|total| total.checked_add(fuels.1))
-                .ok_or_else(|| {
-                    diagnostic(
-                        ReplayWitnessError::Bounds,
-                        "from_captured fuel sum",
-                        replay_fuel as u128 + fuels.0 as u128 + fuels.1 as u128,
-                        u64::MAX as u128,
-                        leaf.len(),
-                    )
-                })?;
-            let mut hash = Sha256::new();
-            hash.update(b"LXP/program-replay-leaf/v1\0");
-            hash.update((index as u32).to_be_bytes());
-            hash.update(length.to_be_bytes());
-            hash.update(leaf);
-            hashes.push(<[u8; 32]>::from(hash.finalize()));
-        }
-        while hashes.len() > 1 {
-            let mut next = Vec::new();
-            next.try_reserve_exact(hashes.len().div_ceil(2))
-                .map_err(|_| {
-                    diagnostic(
-                        ReplayWitnessError::Allocation,
-                        "from_captured hash allocation",
-                        leaves.len() as u128,
-                        profile.maximum_boundaries as u128,
-                        0,
-                    )
-                })?;
-            for pair in hashes.chunks(2) {
-                let mut hash = Sha256::new();
-                hash.update(b"LXP/program-replay-node/v1\0");
-                hash.update(pair[0]);
-                hash.update(*pair.get(1).unwrap_or(&pair[0]));
-                next.push(<[u8; 32]>::from(hash.finalize()));
-            }
-            hashes = next;
-        }
-        let boundary_root = hashes[0];
+        let (witness, boundary_root, replay_fuel) =
+            encode_captured_witness(profile, leaves, &header, boundary_count)?;
         let witness_digest = <[u8; 32]>::from(Sha256::digest(&witness));
-        let mut bytes = Vec::new();
-        capture_append(
-            &mut bytes,
-            PROGRAM_REPLAY_RECORD_DOMAIN,
-            maximum,
-            "from_captured record bytes",
-            0,
-        )?;
-        capture_append(
-            &mut bytes,
-            &2u16.to_be_bytes(),
-            maximum,
-            "from_captured record bytes",
-            0,
-        )?;
-        let header_bytes = header.canonical_bytes(maximum).map_err(|error| {
-            diagnostic(error, "from_captured header bytes", 0, maximum as u128, 0)
-        })?;
-        capture_append(
-            &mut bytes,
-            &(header_bytes.len() as u32).to_be_bytes(),
-            maximum,
-            "from_captured record header",
-            0,
-        )?;
-        capture_append(
-            &mut bytes,
-            &header_bytes,
-            maximum,
-            "from_captured record header",
-            0,
-        )?;
-        capture_append(
-            &mut bytes,
-            &profile.maximum_boundaries.to_be_bytes(),
-            maximum,
-            "from_captured record bytes",
-            0,
-        )?;
-        capture_append(
-            &mut bytes,
-            &profile.maximum_bytes.to_be_bytes(),
-            maximum,
-            "from_captured record bytes",
-            0,
-        )?;
-        capture_append(
-            &mut bytes,
-            &[terminal_status],
-            maximum,
-            "from_captured record bytes",
-            0,
-        )?;
-        capture_append(
-            &mut bytes,
-            &boundary_count.to_be_bytes(),
-            maximum,
-            "from_captured record bytes",
-            0,
-        )?;
-        capture_append(
-            &mut bytes,
-            &boundary_root,
-            maximum,
-            "from_captured record bytes",
-            0,
-        )?;
-        capture_append(
-            &mut bytes,
-            &witness_digest,
-            maximum,
-            "from_captured record bytes",
-            0,
-        )?;
-        capture_append(
-            &mut bytes,
-            &u32::try_from(witness.len())
-                .map_err(|_| {
-                    diagnostic(
-                        ReplayWitnessError::Bounds,
-                        "from_captured witness length",
-                        witness.len() as u128,
-                        u32::MAX as u128,
-                        0,
-                    )
-                })?
-                .to_be_bytes(),
-            maximum,
-            "from_captured record bytes",
-            0,
-        )?;
-        capture_append(
-            &mut bytes,
+        let bytes = encode_captured_record(
+            parameters,
+            &header,
+            boundary_count,
+            boundary_root,
+            witness_digest,
             &witness,
-            maximum,
-            "from_captured record bytes",
-            0,
         )?;
         Ok(Self {
             header,
@@ -635,47 +691,61 @@ impl ProgramReplayRecord {
             bytes,
         })
     }
+    #[must_use]
     pub fn header(&self) -> &ReplayRecordHeader {
         &self.header
     }
+    #[must_use]
     pub const fn profile(&self) -> ProgramReplayProfile {
         self.profile
     }
+    #[must_use]
     pub const fn code_hash(&self) -> [u8; 32] {
         self.code_hash
     }
+    #[must_use]
     pub const fn input_digest(&self) -> [u8; 32] {
         self.input_digest
     }
+    #[must_use]
     pub const fn runtime_version(&self) -> u16 {
         self.runtime_version
     }
+    #[must_use]
     pub const fn abi_version(&self) -> u16 {
         self.abi_version
     }
+    #[must_use]
     pub const fn fee_schedule_version(&self) -> u32 {
         self.fee_schedule_version
     }
+    #[must_use]
     pub const fn metering_schedule_version(&self) -> u32 {
         self.metering_schedule_version
     }
+    #[must_use]
     pub const fn terminal_status(&self) -> u8 {
         self.terminal_status
     }
+    #[must_use]
     pub const fn boundary_count(&self) -> u32 {
         self.boundary_count
     }
+    #[must_use]
     pub const fn boundary_root(&self) -> [u8; 32] {
         self.boundary_root
     }
+    #[must_use]
     pub const fn witness_digest(&self) -> [u8; 32] {
         self.witness_digest
     }
     /// Total replay work, reconstructed from the committed boundary fuel fields
     /// when a captured or portable record is read.
+    #[must_use]
     pub const fn replay_fuel(&self) -> u64 {
         self.replay_fuel
     }
+    #[must_use]
     pub fn canonical_bytes(&self) -> &[u8] {
         &self.bytes
     }
@@ -707,28 +777,36 @@ pub(crate) fn captured_leaf(
     captured_leaf_bytes(replay, arbitration, &semantic_bytes, memory, maximum)
 }
 
-pub(crate) fn captured_leaf_bytes(
+fn capture_leaf_append(
+    bytes: &mut Vec<u8>,
+    value: &[u8],
+    maximum: usize,
+) -> Result<(), ReplayCaptureError> {
+    let leaf_length = bytes.len().saturating_add(value.len());
+    capture_append(bytes, value, maximum, "captured_leaf bytes", leaf_length)
+}
+fn capture_leaf_field(
+    bytes: &mut Vec<u8>,
+    value: &[u8],
+    maximum: usize,
+) -> Result<(), ReplayCaptureError> {
+    let length = u32::try_from(value.len()).map_err(|_| ReplayCaptureError {
+        error: ReplayWitnessError::Bounds,
+        check: "captured_leaf field length",
+        observed: value.len() as u128,
+        permitted: u128::from(u32::MAX),
+        leaf_length: bytes.len(),
+    })?;
+    capture_leaf_append(bytes, &length.to_be_bytes(), maximum)?;
+    capture_leaf_append(bytes, value, maximum)
+}
+
+fn captured_leaf_state(
     replay: &wasmi::ExecutionReplaySnapshot,
     arbitration: &crate::ArbitrationExecutionState,
-    semantic_bytes: &[u8],
     memory: &crate::replay::ReplayMemory,
     maximum: usize,
 ) -> Result<Vec<u8>, ReplayCaptureError> {
-    fn append(bytes: &mut Vec<u8>, value: &[u8], maximum: usize) -> Result<(), ReplayCaptureError> {
-        let leaf_length = bytes.len().saturating_add(value.len());
-        capture_append(bytes, value, maximum, "captured_leaf bytes", leaf_length)
-    }
-    fn field(bytes: &mut Vec<u8>, value: &[u8], maximum: usize) -> Result<(), ReplayCaptureError> {
-        let length = u32::try_from(value.len()).map_err(|_| ReplayCaptureError {
-            error: ReplayWitnessError::Bounds,
-            check: "captured_leaf field length",
-            observed: value.len() as u128,
-            permitted: u32::MAX as u128,
-            leaf_length: bytes.len(),
-        })?;
-        append(bytes, &length.to_be_bytes(), maximum)?;
-        append(bytes, value, maximum)
-    }
     let diagnostic = |error| ReplayCaptureError {
         error,
         check: "captured_leaf canonical state",
@@ -736,9 +814,6 @@ pub(crate) fn captured_leaf_bytes(
         permitted: crate::MAX_ARBITRATION_STATE_BYTES as u128,
         leaf_length: 0,
     };
-    let header = ReplayRecordHeader::from_boundary(arbitration, semantic_bytes, maximum)
-        .map_err(diagnostic)?;
-    let mut bytes = Vec::new();
     let mut portable = arbitration.clone();
     let mut snapshot = replay.snapshot.as_ref().clone();
     for instance in &mut snapshot.arbitration_instances {
@@ -792,47 +867,68 @@ pub(crate) fn captured_leaf_bytes(
         return Err(diagnostic(ReplayWitnessError::Encoding));
     }
     let mut state = Vec::new();
-    append(
+    capture_leaf_append(
         &mut state,
         &crate::ARBITRATION_STEP_COMMITMENT_VERSION.to_be_bytes(),
         maximum,
     )?;
-    field(&mut state, &legacy[98..legacy_end], maximum)?;
-    field(&mut state, &portable.engine_state, maximum)?;
-    append(&mut state, &portable.host_state_root, maximum)?;
-    append(
+    capture_leaf_field(&mut state, &legacy[98..legacy_end], maximum)?;
+    capture_leaf_field(&mut state, &portable.engine_state, maximum)?;
+    capture_leaf_append(&mut state, &portable.host_state_root, maximum)?;
+    capture_leaf_append(
         &mut state,
         &portable.host_state_bytes.to_be_bytes(),
         maximum,
     )?;
-    field(&mut bytes, &state, maximum)?;
+    Ok(state)
+}
+
+pub(crate) fn captured_leaf_bytes(
+    replay: &wasmi::ExecutionReplaySnapshot,
+    arbitration: &crate::ArbitrationExecutionState,
+    semantic_bytes: &[u8],
+    memory: &crate::replay::ReplayMemory,
+    maximum: usize,
+) -> Result<Vec<u8>, ReplayCaptureError> {
+    let diagnostic = |error| ReplayCaptureError {
+        error,
+        check: "captured_leaf canonical state",
+        observed: replay.snapshot.linear_memory.len() as u128,
+        permitted: crate::MAX_ARBITRATION_STATE_BYTES as u128,
+        leaf_length: 0,
+    };
+    let header = ReplayRecordHeader::from_boundary(arbitration, semantic_bytes, maximum)
+        .map_err(diagnostic)?;
+    let mut bytes = Vec::new();
+    let state = captured_leaf_state(replay, arbitration, memory, maximum)?;
+    capture_leaf_field(&mut bytes, &state, maximum)?;
     let frame_count = u32::try_from(replay.frames.len()).map_err(|_| ReplayCaptureError {
         error: ReplayWitnessError::Bounds,
         check: "captured_leaf frame count",
         observed: replay.frames.len() as u128,
-        permitted: u32::MAX as u128,
+        permitted: u128::from(u32::MAX),
         leaf_length: bytes.len(),
     })?;
-    append(&mut bytes, &frame_count.to_be_bytes(), maximum)?;
+    capture_leaf_append(&mut bytes, &frame_count.to_be_bytes(), maximum)?;
     for frame in &replay.frames {
-        append(
+        capture_leaf_append(
             &mut bytes,
             &frame.module_function_index.to_be_bytes(),
             maximum,
         )?;
-        append(&mut bytes, &frame.instruction_offset.to_be_bytes(), maximum)?;
-        append(&mut bytes, &frame.value_base.to_be_bytes(), maximum)?;
+        capture_leaf_append(&mut bytes, &frame.instruction_offset.to_be_bytes(), maximum)?;
+        capture_leaf_append(&mut bytes, &frame.value_base.to_be_bytes(), maximum)?;
         let operand_count =
             u32::try_from(frame.operand_types.len()).map_err(|_| ReplayCaptureError {
                 error: ReplayWitnessError::Bounds,
                 check: "captured_leaf operand count",
                 observed: frame.operand_types.len() as u128,
-                permitted: u32::MAX as u128,
+                permitted: u128::from(u32::MAX),
                 leaf_length: bytes.len(),
             })?;
-        append(&mut bytes, &operand_count.to_be_bytes(), maximum)?;
+        capture_leaf_append(&mut bytes, &operand_count.to_be_bytes(), maximum)?;
         for value_type in &frame.operand_types {
-            append(
+            capture_leaf_append(
                 &mut bytes,
                 &[match value_type {
                     wasmi::ExecutionValueType::I32 => 0,
@@ -842,13 +938,13 @@ pub(crate) fn captured_leaf_bytes(
             )?;
         }
     }
-    field(&mut bytes, &replay.snapshot.canonical_instruction, maximum)?;
-    append(
+    capture_leaf_field(&mut bytes, &replay.snapshot.canonical_instruction, maximum)?;
+    capture_leaf_append(
         &mut bytes,
         &replay.snapshot.instruction_fuel.to_be_bytes(),
         maximum,
     )?;
-    append(
+    capture_leaf_append(
         &mut bytes,
         &replay.snapshot.memory_expansion_bytes.to_be_bytes(),
         maximum,
@@ -862,11 +958,11 @@ pub(crate) fn captured_leaf_bytes(
         supplement.arbitration_canonical_state_bytes,
         supplement.arbitration_commitment_fuel,
     ] {
-        append(&mut bytes, &value.to_be_bytes(), maximum)?;
+        capture_leaf_append(&mut bytes, &value.to_be_bytes(), maximum)?;
     }
     let semantic =
         crate::replay::compact_semantic(semantic_bytes, &header, maximum).map_err(diagnostic)?;
-    field(&mut bytes, &semantic, maximum)?;
+    capture_leaf_field(&mut bytes, &semantic, maximum)?;
     Ok(bytes)
 }
 
@@ -876,6 +972,13 @@ pub(crate) fn captured_leaf_breakdown(
     maximum: usize,
 ) -> Result<String, ReplayWitnessError> {
     use crate::replay::ReplayCursor;
+    fn present(cursor: &mut ReplayCursor<'_>) -> Result<usize, ReplayWitnessError> {
+        Ok(if cursor.boolean()? {
+            4 + cursor.field()?.len()
+        } else {
+            0
+        })
+    }
     let boundary =
         crate::portable_replay::PortableBoundary::decode_with_header(leaf, maximum, header)?;
     let mut cursor = ReplayCursor::new(leaf);
@@ -901,13 +1004,7 @@ pub(crate) fn captured_leaf_breakdown(
     let mut parts = ReplayCursor::new(semantic);
     let host_bytes = parts.field()?;
     let host = host_bytes.len();
-    fn present(cursor: &mut ReplayCursor<'_>) -> Result<usize, ReplayWitnessError> {
-        Ok(if cursor.boolean()? {
-            4 + cursor.field()?.len()
-        } else {
-            0
-        })
-    }
+
     let mut host_parts = ReplayCursor::new(host_bytes);
     let code_hash = 1 + present(&mut host_parts)?;
     let abi = 1 + present(&mut host_parts)?;

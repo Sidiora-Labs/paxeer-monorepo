@@ -8,6 +8,8 @@ pub enum Mode {
 }
 
 impl Mode {
+    /// # Errors
+    /// Returns an error when the value is not a supported owner mode.
     pub fn parse(value: Option<&str>) -> Result<Self, String> {
         match value {
             None | Some("full") => Ok(Self::Full),
@@ -17,6 +19,9 @@ impl Mode {
         }
     }
 
+    /// # Errors
+    /// Returns an error if the environment or protected configuration is missing, malformed,
+    /// unsupported or unreadable.
     pub fn from_environment() -> Result<Self, String> {
         match env::var("LAYERX_AGENT_MODE") {
             Ok(value) => Self::parse(Some(&value)),
@@ -26,6 +31,8 @@ impl Mode {
     }
 }
 
+/// # Errors
+/// Propagates the selected owner operation's error if startup or serving fails.
 pub fn run(
     full: impl FnOnce() -> Result<(), String>,
     human_owner: impl FnOnce() -> Result<(), String>,

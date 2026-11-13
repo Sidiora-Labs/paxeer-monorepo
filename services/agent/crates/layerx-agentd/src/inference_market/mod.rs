@@ -18,6 +18,9 @@ pub struct InferenceMarket {
     pub room_profile: Vec<u8>,
 }
 
+/// # Errors
+/// Returns an error if availability cannot be fetched or validated, or the inference server
+/// cannot start or serve its listener.
 pub fn serve_inference_market(
     config: InferenceConfig,
     gate: InferenceBootGate,
@@ -39,6 +42,7 @@ pub fn serve_inference_market(
     })
 }
 
+#[must_use]
 pub fn market_id(chain_id: u64, program: &[u8; 32]) -> [u8; 32] {
     let mut chain = Sha256::new();
     chain.update(b"PAXAI/chain-domain/v1");
@@ -50,6 +54,9 @@ pub fn market_id(chain_id: u64, program: &[u8; 32]) -> [u8; 32] {
     market.finalize().into()
 }
 
+/// # Errors
+/// Returns an error if availability cannot be fetched or validated, or the inference server
+/// cannot start or serve its listener.
 pub fn read_availability(
     agent: &ureq::Agent,
     endpoint: &str,
@@ -57,6 +64,44 @@ pub fn read_availability(
     chain_id: u64,
     program: &[u8; 32],
     reference: Reference,
+) -> Result<Value, String> {
+    let document = availability_document(agent, endpoint, bearer, chain_id, program)?;
+    validate_availability(&document, chain_id, program, reference)
+}
+
+/// Read one gateway publication and independently verify its claimed node height.
+///
+/// # Errors
+/// Returns an error if acquisition, node verification, exact binding checks or
+/// component availability checks fail.
+pub fn read_verified_availability(
+    agent: &ureq::Agent,
+    endpoint: &str,
+    bearer: &str,
+    chain_id: u64,
+    program: &[u8; 32],
+    verify_height: impl FnOnce(u64) -> Result<Reference, String>,
+) -> Result<(Reference, Value), String> {
+    let document = availability_document(agent, endpoint, bearer, chain_id, program)?;
+    let height = document["result"]["binding"]["block_height"]
+        .as_str()
+        .filter(|text| {
+            (text.len() == 1 || !text.starts_with('0'))
+                && text.bytes().all(|byte| byte.is_ascii_digit())
+        })
+        .and_then(|text| text.parse::<u64>().ok())
+        .ok_or("inference availability is not bound to the current committed program")?;
+    let reference = verify_height(height)?;
+    let components = validate_availability(&document, chain_id, program, reference)?;
+    Ok((reference, components))
+}
+
+fn availability_document(
+    agent: &ureq::Agent,
+    endpoint: &str,
+    bearer: &str,
+    chain_id: u64,
+    program: &[u8; 32],
 ) -> Result<Value, String> {
     let market = layerx_programs::hex::encode(&market_id(chain_id, program));
     let url = format!(
@@ -79,6 +124,16 @@ pub fn read_availability(
         .map_err(|_| "inference availability response exceeded its bound".to_owned())?;
     let document: Value = serde_json::from_slice(&bytes)
         .map_err(|_| "inference availability response is malformed".to_owned())?;
+    Ok(document)
+}
+
+fn validate_availability(
+    document: &Value,
+    chain_id: u64,
+    program: &[u8; 32],
+    reference: Reference,
+) -> Result<Value, String> {
+    let market = layerx_programs::hex::encode(&market_id(chain_id, program));
     let snapshot = &document["result"];
     let binding = &snapshot["binding"];
     let mut chain = Sha256::new();
@@ -90,7 +145,14 @@ pub fn read_availability(
         || binding["chain"] != format!("0x{}", layerx_programs::hex::encode(&chain.finalize()))
         || binding["program"] != format!("0x{}", layerx_programs::hex::encode(program))
         || binding["market"] != format!("0x{market}")
-        || binding["block_height"] != reference.head_sequence.to_string()
+        || binding["block_height"]
+            .as_str()
+            .filter(|text| {
+                (text.len() == 1 || !text.starts_with('0'))
+                    && text.bytes().all(|byte| byte.is_ascii_digit())
+            })
+            .and_then(|text| text.parse::<u64>().ok())
+            != Some(reference.head_sequence)
         || binding["block_hash"]
             != format!("0x{}", layerx_programs::hex::encode(&reference.checkpoint))
         || binding["rank"] != 4
@@ -105,6 +167,9 @@ pub fn read_availability(
     Ok(components)
 }
 
+/// # Errors
+/// Returns an error if availability cannot be fetched or validated, or the inference server
+/// cannot start or serve its listener.
 pub fn observe_availability(
     gate: &Arc<Mutex<InferenceBootGate>>,
     observation: Result<(Reference, Value), String>,
@@ -121,6 +186,9 @@ pub fn observe_availability(
     }
 }
 
+/// # Errors
+/// Returns an error if availability cannot be fetched or validated, or the inference server
+/// cannot start or serve its listener.
 pub fn serve_health(
     stream: &mut (impl Read + Write),
     gate: &Arc<Mutex<InferenceBootGate>>,

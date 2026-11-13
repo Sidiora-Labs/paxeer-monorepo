@@ -1,5 +1,10 @@
 mod market_tests {
-    use layerx_program_sdk::arbiter::*;
+    use layerx_program_sdk::arbiter::{
+        MarketBillingCommitment, MarketSandboxProfile, MarketStepRequest, ProfileLimits,
+        MARKET_SANDBOX_BILLING_CAPACITY, MARKET_SANDBOX_PROFILE_CAPACITY,
+        MARKET_STEP_HEADER_CAPACITY, MARKET_STEP_HOLDS, MARKET_STEP_OPEN,
+        MARKET_STEP_OUTCOME_BYTES, MARKET_STEP_TERMINAL, MARKET_STEP_TRANSITION,
+    };
     use layerx_programs_runtime as rt;
     use rt::execute::{
         adjudicate_market_step, encode_market_step_evidence_with_header,
@@ -62,10 +67,18 @@ mod market_tests {
                 Ok(self.take(1)?[0])
             }
             fn u16(&mut self) -> Result<u16, ReplayWitnessError> {
-                Ok(u16::from_be_bytes(self.take(2)?.try_into().unwrap()))
+                use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+                Ok(u16::from_be_bytes(
+                    self.take(2)?.try_into().assert_success("test value"),
+                ))
             }
             fn u32(&mut self) -> Result<u32, ReplayWitnessError> {
-                Ok(u32::from_be_bytes(self.take(4)?.try_into().unwrap()))
+                use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+                Ok(u32::from_be_bytes(
+                    self.take(4)?.try_into().assert_success("test value"),
+                ))
             }
             fn done(&self) -> bool {
                 self.0.is_empty()
@@ -83,6 +96,8 @@ mod market_tests {
             dictionary: &[u8],
             maximum: usize,
         ) -> Result<Vec<u8>, ReplayWitnessError> {
+            use layerx_programs_runtime::test_support::AssertSuccess as _;
+
             const WINDOW: usize = u16::MAX as usize;
             const SLOTS: usize = 8192;
             const MIN_MATCH: usize = 6;
@@ -96,9 +111,16 @@ mod market_tests {
                 bytes: &[u8],
                 maximum: usize,
             ) -> Result<(), ReplayWitnessError> {
-                for chunk in bytes.chunks(u16::MAX as usize) {
+                use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+                for chunk in bytes.chunks(usize::from(u16::MAX)) {
                     append(out, &[0], maximum)?;
-                    append(out, &(chunk.len() as u16).to_be_bytes(), maximum)?;
+                    append(
+                        out,
+                        &(u16::try_from(chunk.len()).assert_success("fixture fits u16"))
+                            .to_be_bytes(),
+                        maximum,
+                    )?;
                     append(out, chunk, maximum)?;
                 }
                 Ok(())
@@ -151,10 +173,15 @@ mod market_tests {
                 }
                 literal(&mut bytes, &state[literal_start..position], maximum)?;
                 append(&mut bytes, &[1], maximum)?;
-                append(&mut bytes, &(count as u16).to_be_bytes(), maximum)?;
                 append(
                     &mut bytes,
-                    &((current - candidate) as u16).to_be_bytes(),
+                    &(u16::try_from(count).assert_success("fixture fits u16")).to_be_bytes(),
+                    maximum,
+                )?;
+                append(
+                    &mut bytes,
+                    &(u16::try_from(current - candidate).assert_success("fixture fits u16"))
+                        .to_be_bytes(),
                     maximum,
                 )?;
                 let end = position + count;
@@ -183,7 +210,7 @@ mod market_tests {
             maximum_decoded_bytes: usize,
             dictionary: &[u8],
         ) -> Result<Vec<u8>, ReplayWitnessError> {
-            let dictionary = &dictionary[dictionary.len().saturating_sub(u16::MAX as usize)..];
+            let dictionary = &dictionary[dictionary.len().saturating_sub(usize::from(u16::MAX))..];
 
             if bytes.len() > MAX_PROGRAM_REPLAY_BYTES as usize
                 || maximum_decoded_bytes == 0
@@ -205,14 +232,14 @@ mod market_tests {
                 .map_err(|_| ReplayWitnessError::Allocation)?;
             while decoded.len() < length {
                 let tag = cursor.u8()?;
-                let count = cursor.u16()? as usize;
+                let count = usize::from(cursor.u16()?);
                 if count == 0 || count > length - decoded.len() {
                     return Err(ReplayWitnessError::Bounds);
                 }
                 match tag {
                     0 => decoded.extend_from_slice(cursor.take(count)?),
                     1 => {
-                        let distance = cursor.u16()? as usize;
+                        let distance = usize::from(cursor.u16()?);
                         if count < 6 || distance == 0 || distance > dictionary.len() + decoded.len()
                         {
                             return Err(ReplayWitnessError::Encoding);
@@ -252,6 +279,8 @@ mod market_tests {
 
             #[test]
             fn boundary_payload_codec_is_lossless_canonical_and_bounded() {
+                use layerx_programs_runtime::test_support::AssertSuccess as _;
+
                 let maximum = MAX_PROGRAM_REPLAY_BYTES as usize;
                 let mut distinct = Vec::new();
                 for index in 0u32..4096 {
@@ -264,13 +293,15 @@ mod market_tests {
                     (0u8..=255).cycle().take(131_073).collect(),
                     distinct,
                 ] {
-                    let encoded = portable_state_bytes(&original, maximum).unwrap();
+                    let encoded =
+                        portable_state_bytes(&original, maximum).assert_success("test value");
                     assert_eq!(
-                        decode_portable_state_bytes_untrusted(&encoded, maximum).unwrap(),
+                        decode_portable_state_bytes_untrusted(&encoded, maximum)
+                            .assert_success("test value"),
                         original
                     );
                     assert_eq!(
-                        portable_state_bytes(&original, encoded.len()).unwrap(),
+                        portable_state_bytes(&original, encoded.len()).assert_success("test value"),
                         encoded
                     );
                     assert_eq!(
@@ -294,11 +325,17 @@ mod market_tests {
                     .flat_map(|index| Sha256::digest(index.to_be_bytes()))
                     .collect();
                 let original = &dictionary[dictionary.len() - 4096..];
-                let encoded = portable_payload_bytes(original, &dictionary, maximum).unwrap();
-                assert!(encoded.len() < portable_state_bytes(original, maximum).unwrap().len());
+                let encoded = portable_payload_bytes(original, &dictionary, maximum)
+                    .assert_success("test value");
+                assert!(
+                    encoded.len()
+                        < portable_state_bytes(original, maximum)
+                            .assert_success("test value")
+                            .len()
+                );
                 assert_eq!(
                     decode_portable_payload_bytes_untrusted(&encoded, maximum, &dictionary)
-                        .unwrap(),
+                        .assert_success("test value"),
                     original
                 );
                 assert!(decode_portable_state_bytes_untrusted(&encoded, maximum).is_err());
@@ -354,19 +391,25 @@ mod market_tests {
     const VALUE: [u8; 32] = [0x5a; 32];
 
     fn program() -> ProgramId {
-        ProgramId::new([0x77; 32]).unwrap()
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+        ProgramId::new([0x77; 32]).assert_success("test value")
     }
     fn market() -> ProgramId {
-        ProgramId::new([0x55; 32]).unwrap()
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+        ProgramId::new([0x55; 32]).assert_success("test value")
     }
     fn tenant() -> PrincipalId {
-        PrincipalId::new([4; 32]).unwrap()
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+        PrincipalId::new([4; 32]).assert_success("test value")
     }
 
     fn i32_const(code: &mut Vec<u8>, mut value: i32) {
         code.push(0x41);
         loop {
-            let byte = (value & 0x7f) as u8;
+            let byte = value.to_le_bytes()[0] & 0x7f;
             value >>= 7;
             if (value == 0 && byte & 0x40 == 0) || (value == -1 && byte & 0x40 != 0) {
                 code.push(byte);
@@ -400,14 +443,17 @@ mod market_tests {
     }
 
     fn guest() -> Vec<u8> {
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
         let mut entry = Vec::new();
         for index in 0..CALLS {
             for argument in [
                 1,
                 8,
-                KEY.len() as i32,
-                ((index + 1) * REPLAY_MEMORY_CHUNK_BYTES) as i32,
-                VALUE.len() as i32,
+                i32::try_from(KEY.len()).assert_success("fixture fits i32"),
+                i32::try_from((index + 1) * REPLAY_MEMORY_CHUNK_BYTES)
+                    .assert_success("fixture fits i32"),
+                i32::try_from(VALUE.len()).assert_success("fixture fits i32"),
             ] {
                 i32_const(&mut entry, argument);
             }
@@ -441,22 +487,32 @@ mod market_tests {
     }
 
     fn seed(principal: PrincipalId) -> Storage {
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
         let mut storage = Storage::new();
         let mut transaction =
             storage.transaction(StorageNamespace::principal(program(), principal));
-        transaction.write(KEY, &VALUE).unwrap();
+        transaction.write(KEY, &VALUE).assert_success("test value");
         assert_eq!(transaction.commit(), 1);
         storage
     }
 
     #[test]
     fn profiled_executor_admits_128_distinct_chunk_writes_in_17_wasm_pages() {
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
         let validated = WasmEngine::declared()
-            .unwrap()
+            .assert_success("test value")
             .validate_v2(&guest())
-            .unwrap();
+            .assert_success("test value");
         let executor = Executor::new(budget(), FeeSchedule::declared())
-            .with_program_replay_profile(ProgramReplayProfile::new(4096, MAXIMUM as u32).unwrap());
+            .with_program_replay_profile(
+                ProgramReplayProfile::new(
+                    4096,
+                    u32::try_from(MAXIMUM).assert_success("fixture fits u32"),
+                )
+                .assert_success("test value"),
+            );
         let mut storage = seed(tenant());
         let before = storage.clone();
         let result = executor
@@ -467,7 +523,7 @@ mod market_tests {
                     program: program(),
                     authorization: AuthorizationContext::new(
                         tenant(),
-                        CapabilitySet::new([Capability::StorageRead]).unwrap(),
+                        CapabilitySet::new([Capability::StorageRead]).assert_success("test value"),
                     ),
                     receipts: &UnavailableReceiptOracle,
                     entrypoint: "layerx_call",
@@ -476,14 +532,15 @@ mod market_tests {
                     response_capacity: 0,
                 },
             )
-            .unwrap();
+            .assert_success("test value");
         assert!(
             matches!(result.outcome(), V2ActivityOutcome::Success { .. }),
             "{result:?}"
         );
         assert_eq!(storage, before);
-        let record = result.replay_record().unwrap();
-        let (decoded, leaves) = decode_record(record.canonical_bytes(), MAXIMUM).unwrap();
+        let record = result.replay_record().assert_success("test value");
+        let (decoded, leaves) =
+            decode_record(record.canonical_bytes(), MAXIMUM).assert_success("test value");
         assert_eq!(decoded, *record);
         assert!(leaves.iter().map(Vec::len).sum::<usize>() <= MAXIMUM);
         assert!(record.canonical_bytes().len() <= MAXIMUM);
@@ -491,10 +548,12 @@ mod market_tests {
             result.execution().usage().storage_read_bytes,
             CALLS as u64 * (VALUE.len() + KEY.len()) as u64
         );
-        let mut memory = validated.initial_replay_memory().unwrap();
+        let mut memory = validated
+            .initial_replay_memory()
+            .assert_success("test value");
         for leaf in &leaves {
-            let mut boundary =
-                PortableBoundary::decode_with_header(leaf, MAXIMUM, record.header()).unwrap();
+            let mut boundary = PortableBoundary::decode_with_header(leaf, MAXIMUM, record.header())
+                .assert_success("test value");
             if [456, 734, 743, 900].contains(&boundary.replay.snapshot.step_index) {
                 captured_leaf_breakdown(&boundary);
             }
@@ -503,7 +562,9 @@ mod market_tests {
                 boundary.arbitration.legacy.execution_parameters_digest,
                 record.header().execution_parameters_digest
             );
-            memory = boundary.rebuild_memory(&memory).unwrap();
+            memory = boundary
+                .rebuild_memory(&memory)
+                .assert_success("test value");
         }
         assert_header_binding(record);
         for index in 0..CALLS {
@@ -517,14 +578,17 @@ mod market_tests {
             leaves.iter().map(Vec::len).sum::<usize>(),
             record.canonical_bytes().len()
         )
-        .unwrap();
+        .assert_success("test value");
     }
 
     fn fields(bytes: &[u8], prefix: usize, count: usize) -> Vec<&[u8]> {
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
         let mut bytes = &bytes[prefix..];
         let mut result = Vec::new();
         for _ in 0..count {
-            let length = u32::from_be_bytes(bytes[..4].try_into().unwrap()) as usize;
+            let length =
+                u32::from_be_bytes(bytes[..4].try_into().assert_success("test value")) as usize;
             result.push(&bytes[4..4 + length]);
             bytes = &bytes[4 + length..];
         }
@@ -533,28 +597,40 @@ mod market_tests {
     }
 
     fn previous_format_breakdown(boundary: &PortableBoundary) {
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
         // Reconstruct the old canonical preimage before applying its former packing stage.
         let mut arbitration = boundary.arbitration.clone();
         let mut memory = Vec::new();
         memory.extend(boundary.memory.length.to_be_bytes());
         memory.extend(boundary.memory.root);
-        memory.extend((boundary.memory.changed_chunks.len() as u32).to_be_bytes());
+        memory.extend(
+            (u32::try_from(boundary.memory.changed_chunks.len())
+                .assert_success("fixture fits u32"))
+            .to_be_bytes(),
+        );
         for chunk in &boundary.memory.changed_chunks {
             memory.extend(chunk.index.to_be_bytes());
             memory.extend(chunk.bytes);
         }
-        std::sync::Arc::make_mut(&mut arbitration.legacy).linear_memory = memory.clone();
-        let legacy = arbitration.legacy.canonical_bytes().unwrap();
-        let state = arbitration.canonical_bytes().unwrap();
-        let packed = previous_format::portable_state_bytes(&state, MAXIMUM).unwrap();
+        std::sync::Arc::make_mut(&mut arbitration.legacy)
+            .linear_memory
+            .clone_from(&memory);
+        let legacy = arbitration
+            .legacy
+            .canonical_bytes()
+            .assert_success("test value");
+        let state = arbitration.canonical_bytes().assert_success("test value");
+        let packed =
+            previous_format::portable_state_bytes(&state, MAXIMUM).assert_success("test value");
         let semantic = &boundary.semantic_bytes;
         let semantic_parts = fields(
             semantic,
             b"LayerX/programs/semantic-replay-source/v2\0".len(),
             4,
         );
-        let packed_semantic =
-            previous_format::portable_payload_bytes(semantic, &state, MAXIMUM).unwrap();
+        let packed_semantic = previous_format::portable_payload_bytes(semantic, &state, MAXIMUM)
+            .assert_success("test value");
         let frames = 4 + boundary
             .replay
             .frames
@@ -578,24 +654,35 @@ mod market_tests {
             state.len(),
             identity + 4 + legacy.len() + 4 + arbitration.engine_state.len() + 40
         );
-        writeln!(std::io::stderr(), "repair_22_31_577 before middle_step={} prefix={prefix} packed_arbitration={} arbitration_framing=4 raw_identity={identity} raw_legacy={} raw_engine={} raw_host_commitment=40 packed_semantic={} semantic_framing=4 raw_semantic_host={} raw_semantic_storage={} raw_semantic_payment={} raw_semantic_composition={} frames={frames} instruction={instruction} fuel_expansion=16 supplement=48 memory={} memory_in_legacy=true trap=1 leaf_total={old_total}", boundary.replay.snapshot.step_index, packed.len(), legacy.len(), arbitration.engine_state.len(), packed_semantic.len(), semantic_parts[0].len(), semantic_parts[1].len(), semantic_parts[2].len(), semantic_parts[3].len(), memory.len()).unwrap();
-        let leaf = boundary.reencode_untrusted(MAXIMUM).unwrap();
-        let state_length = u32::from_be_bytes(leaf[..4].try_into().unwrap()) as usize;
+        writeln!(std::io::stderr(), "repair_22_31_577 before middle_step={} prefix={prefix} packed_arbitration={} arbitration_framing=4 raw_identity={identity} raw_legacy={} raw_engine={} raw_host_commitment=40 packed_semantic={} semantic_framing=4 raw_semantic_host={} raw_semantic_storage={} raw_semantic_payment={} raw_semantic_composition={} frames={frames} instruction={instruction} fuel_expansion=16 supplement=48 memory={} memory_in_legacy=true trap=1 leaf_total={old_total}", boundary.replay.snapshot.step_index, packed.len(), legacy.len(), arbitration.engine_state.len(), packed_semantic.len(), semantic_parts[0].len(), semantic_parts[1].len(), semantic_parts[2].len(), semantic_parts[3].len(), memory.len()).assert_success("test value");
+        let leaf = boundary
+            .reencode_untrusted(MAXIMUM)
+            .assert_success("test value");
+        let state_length =
+            u32::from_be_bytes(leaf[..4].try_into().assert_success("test value")) as usize;
         let compact_state = &leaf[4..4 + state_length];
-        let legacy_length = u32::from_be_bytes(compact_state[2..6].try_into().unwrap()) as usize;
+        let legacy_length =
+            u32::from_be_bytes(compact_state[2..6].try_into().assert_success("test value"))
+                as usize;
         let compact_semantic_offset = 4 + state_length + frames + instruction + 16 + 48;
         let semantic_length = u32::from_be_bytes(
             leaf[compact_semantic_offset..compact_semantic_offset + 4]
                 .try_into()
-                .unwrap(),
+                .assert_success("test value"),
         ) as usize;
         let compact =
             &leaf[compact_semantic_offset + 4..compact_semantic_offset + 4 + semantic_length];
         let parts = fields(compact, 0, 3);
         assert_eq!(parts[2].len(), 32);
         let composition =
-            rt::replay::CompositionReplayWitnessV1::decode(semantic_parts[3], MAXIMUM).unwrap();
-        assert_eq!(parts[2], composition.proposal_digest(MAXIMUM).unwrap());
+            rt::replay::CompositionReplayWitnessV1::decode(semantic_parts[3], MAXIMUM)
+                .assert_success("test value");
+        assert_eq!(
+            parts[2],
+            composition
+                .proposal_digest(MAXIMUM)
+                .assert_success("test value")
+        );
         assert_eq!(
             leaf.len(),
             4 + state_length + frames + instruction + 16 + 48 + 4 + semantic_length + 1
@@ -604,36 +691,25 @@ mod market_tests {
             state_length,
             2 + 4 + legacy_length + 4 + arbitration.engine_state.len() + 40
         );
-        writeln!(std::io::stderr(), "repair_22_31_577 after middle_step={} prefix=0 header_binding=0 arbitration={} arbitration_framing=4 leaf_identity=0 legacy={legacy_length} engine={} host_commitment=40 semantic={} semantic_framing=4 semantic_host={} semantic_storage={} semantic_payment=0 semantic_composition={} frames={frames} instruction={instruction} fuel_expansion=16 supplement=48 memory={} memory_in_legacy=true trap=1 leaf_total={} header_total={}", boundary.replay.snapshot.step_index, state_length, arbitration.engine_state.len(), semantic_length, parts[0].len(), parts[1].len(), parts[2].len(), memory.len(), leaf.len(), boundary.header.canonical_bytes(MAXIMUM).unwrap().len()).unwrap();
+        writeln!(std::io::stderr(), "repair_22_31_577 after middle_step={} prefix=0 header_binding=0 arbitration={} arbitration_framing=4 leaf_identity=0 legacy={legacy_length} engine={} host_commitment=40 semantic={} semantic_framing=4 semantic_host={} semantic_storage={} semantic_payment=0 semantic_composition={} frames={frames} instruction={instruction} fuel_expansion=16 supplement=48 memory={} memory_in_legacy=true trap=1 leaf_total={} header_total={}", boundary.replay.snapshot.step_index, state_length, arbitration.engine_state.len(), semantic_length, parts[0].len(), parts[1].len(), parts[2].len(), memory.len(), leaf.len(), boundary.header.canonical_bytes(MAXIMUM).assert_success("test value").len()).assert_success("test value");
     }
 
     fn captured_leaf_breakdown(boundary: &PortableBoundary) {
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
         previous_format_breakdown(boundary);
-        fn take<'a>(bytes: &mut &'a [u8], length: usize) -> &'a [u8] {
-            let (value, tail) = bytes.split_at(length);
-            *bytes = tail;
-            value
-        }
-        fn field<'a>(bytes: &mut &'a [u8]) -> &'a [u8] {
-            let length = u32::from_be_bytes(take(bytes, 4).try_into().unwrap()) as usize;
-            take(bytes, length)
-        }
-        fn delta(bytes: &mut &[u8]) -> usize {
-            let present = take(bytes, 1);
-            assert!(present == [0] || present == [1]);
-            1 + if present == [1] {
-                4 + field(bytes).len()
-            } else {
-                0
-            }
-        }
-        let leaf = boundary.reencode_untrusted(MAXIMUM).unwrap();
+        let leaf = boundary
+            .reencode_untrusted(MAXIMUM)
+            .assert_success("test value");
         let mut bytes = leaf.as_slice();
         field(&mut bytes);
-        let frames = u32::from_be_bytes(take(&mut bytes, 4).try_into().unwrap());
+        let frames =
+            u32::from_be_bytes(take(&mut bytes, 4).try_into().assert_success("test value"));
         for _ in 0..frames {
             take(&mut bytes, 12);
-            let count = u32::from_be_bytes(take(&mut bytes, 4).try_into().unwrap()) as usize;
+            let count =
+                u32::from_be_bytes(take(&mut bytes, 4).try_into().assert_success("test value"))
+                    as usize;
             take(&mut bytes, count);
         }
         field(&mut bytes);
@@ -675,7 +751,7 @@ mod market_tests {
             0
         };
         writeln!(std::io::stderr(), "repair_22_31_577 captured_leaf_breakdown step={} host_code_hash={} host_abi={} host_runtime={} host_meter={} host_storage_baseline={} host_framing=8 runtime_composition_code_hash={} runtime_composition_revision={} runtime_composition_graph={} runtime_outcome={} runtime_outcome_tag={} response_capacity={} response_state={} outcome_encoding={:02x?}",
-            boundary.replay.snapshot.step_index, code, abi, runtime_length, meter, baseline, composition_code, revision, graphs, outcome_bytes, outcome_tag, capacity_bytes, runtime.len(), outcome_encoding).unwrap();
+            boundary.replay.snapshot.step_index, code, abi, runtime_length, meter, baseline, composition_code, revision, graphs, outcome_bytes, outcome_tag, capacity_bytes, runtime.len(), outcome_encoding).assert_success("test value");
         let semantic = fields(
             &boundary.semantic_bytes,
             b"LayerX/programs/semantic-replay-source/v2\0".len(),
@@ -683,11 +759,12 @@ mod market_tests {
         );
         let host_domain = b"LayerX/programs/replay-host-witness/v1\0";
         // The restored canonical host still contains every header-backed value.
-        let host = rt::replay::ReplayHostWitnessV1::decode(semantic[0], MAXIMUM).unwrap();
+        let host = rt::replay::ReplayHostWitnessV1::decode(semantic[0], MAXIMUM)
+            .assert_success("test value");
         assert_eq!(host.code_hash(), boundary.header.identity.module_code_hash);
         let raw = &semantic[0][host_domain.len() + 32..];
         let abi_length = if raw[0] == 1 {
-            4 + u32::from_be_bytes(raw[1..5].try_into().unwrap()) as usize
+            4 + u32::from_be_bytes(raw[1..5].try_into().assert_success("test value")) as usize
         } else {
             0
         };
@@ -701,13 +778,36 @@ mod market_tests {
             outcome_bytes
         };
         writeln!(std::io::stderr(), "repair_22_31_577 restored_host step={} code_hash=32 abi={} runtime={} meter={} storage_baseline={} composition_code_hash=32 composition_revision={} composition_graph={} runtime_outcome={}",
-            boundary.replay.snapshot.step_index, 1 + abi_length, parts[0].len(), parts[1].len(), parts[2].len(), revision, composition.len() - revision, restored_outcome_bytes).unwrap();
+            boundary.replay.snapshot.step_index, 1 + abi_length, parts[0].len(), parts[1].len(), parts[2].len(), revision, composition.len() - revision, restored_outcome_bytes).assert_success("test value");
+    }
+    fn take<'a>(bytes: &mut &'a [u8], length: usize) -> &'a [u8] {
+        let (value, tail) = bytes.split_at(length);
+        *bytes = tail;
+        value
+    }
+    fn field<'a>(bytes: &mut &'a [u8]) -> &'a [u8] {
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+        let length =
+            u32::from_be_bytes(take(bytes, 4).try_into().assert_success("test value")) as usize;
+        take(bytes, length)
+    }
+    fn delta(bytes: &mut &[u8]) -> usize {
+        let present = take(bytes, 1);
+        assert!(present == [0] || present == [1]);
+        1 + if present == [1] {
+            4 + field(bytes).len()
+        } else {
+            0
+        }
     }
 
     fn assert_header_binding(record: &rt::ProgramReplayRecord) {
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
         use rt::replay_record::{PROGRAM_REPLAY_RECORD_DOMAIN, PROGRAM_REPLAY_WITNESS_DOMAIN};
         let header = record.header();
-        let canonical = header.canonical_bytes(MAXIMUM).unwrap();
+        let canonical = header.canonical_bytes(MAXIMUM).assert_success("test value");
         let header_offset = PROGRAM_REPLAY_RECORD_DOMAIN.len() + 2 + 4;
         let baseline_offset = 32 + 32 + 2 + 2 + 4 + 4 + 32 + 12 + 32 * 3 + 4;
         let constants_offset = baseline_offset + header.storage_baseline.len() + 4;
@@ -715,7 +815,7 @@ mod market_tests {
             .storage_baseline
             .windows(VALUE.len())
             .position(|bytes| bytes == VALUE)
-            .unwrap();
+            .assert_success("test value");
         // The witness must bind every record constant even when the leaves do not change.
         for offset in [
             32,  // input digest
@@ -744,7 +844,7 @@ mod market_tests {
         let binding_offset = witness_offset + PROGRAM_REPLAY_WITNESS_DOMAIN.len();
         assert_eq!(
             &changed[binding_offset..binding_offset + 32],
-            header.digest().unwrap()
+            header.digest().assert_success("test value")
         );
         changed[binding_offset] ^= 1;
         let digest = Sha256::digest(&changed[witness_offset..]);
@@ -754,7 +854,8 @@ mod market_tests {
             Err(rt::replay::ReplayWitnessError::Binding)
         ));
         assert_eq!(
-            rt::replay_record::ReplayRecordHeader::decode(&canonical, MAXIMUM).unwrap(),
+            rt::replay_record::ReplayRecordHeader::decode(&canonical, MAXIMUM)
+                .assert_success("test value"),
             *header
         );
         assert_eq!(
@@ -773,24 +874,26 @@ mod market_tests {
     }
 
     fn adjudicator(header: &[u8], evidence: &[u8], expected: i32) -> Vec<u8> {
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
         const HEADER: i32 = 8;
         const EVIDENCE: i32 = 4096;
         const OUTPUT: i32 = 1_048_576;
         let mut entry = Vec::new();
         for argument in [
             HEADER,
-            header.len() as i32,
+            i32::try_from(header.len()).assert_success("fixture fits i32"),
             EVIDENCE,
-            evidence.len() as i32,
+            i32::try_from(evidence.len()).assert_success("fixture fits i32"),
             OUTPUT,
-            MARKET_STEP_OUTCOME_BYTES as i32,
+            i32::try_from(MARKET_STEP_OUTCOME_BYTES).assert_success("fixture fits i32"),
         ] {
             i32_const(&mut entry, argument);
         }
         entry.extend([0x10, 0]);
         i32_const(&mut entry, expected);
         entry.extend([0x47, 0x04, 0x40, 0x00, 0x0b]);
-        if expected == MARKET_STEP_OUTCOME_BYTES as i32 {
+        if expected == i32::try_from(MARKET_STEP_OUTCOME_BYTES).assert_success("fixture fits i32") {
             i32_const(&mut entry, OUTPUT);
             entry.extend([0x2d, 0, 0]);
             i32_const(&mut entry, i32::from(MARKET_STEP_HOLDS));
@@ -817,10 +920,12 @@ mod market_tests {
     }
 
     fn through_host(catalog: &Rc<ProgramCatalog>, header: &[u8], evidence: &[u8], expected: i32) {
-        let engine = WasmEngine::declared().unwrap();
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+        let engine = WasmEngine::declared().assert_success("test value");
         let validated = engine
             .validate_v5(&adjudicator(header, evidence, expected))
-            .unwrap();
+            .assert_success("test value");
         let result = Executor::new(
             ResourceBudget::new_complete(
                 100_000_000,
@@ -846,7 +951,7 @@ mod market_tests {
                 response_capacity: 0,
             },
         )
-        .unwrap();
+        .assert_success("test value");
         assert!(
             matches!(result.outcome(), V2ActivityOutcome::Success { .. }),
             "host expected status {expected}: {result:?}"
@@ -855,13 +960,113 @@ mod market_tests {
 
     #[test]
     fn boundary_roots_rebuild_every_live_snapshot_and_authenticate_middle_step_memory() {
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+        let fixture = memory_sandbox_fixture();
+        let memory = fixture
+            .module
+            .initial_replay_memory()
+            .assert_success("initial memory");
+        assert_eq!(memory.len(), MEMORY_BYTES);
+        assert_eq!(&memory[8..13], KEY);
+        let initial_memory = memory.clone();
+        let mut observation = BoundaryMemoryObservation {
+            memory,
+            snapshots: 0,
+            admitted: 0,
+            changed_chunks: 0,
+        };
+        let mut instance =
+            instantiate_market_sandbox_untrusted(&fixture.module, &fixture.authority)
+                .assert_success("sandbox instance");
+        let capture = instance
+            .call_market_sandbox_untrusted_observed(
+                MarketSandboxRequest {
+                    module: &fixture.module,
+                    entrypoint: "compute",
+                    args: &fixture.args,
+                    authority: &fixture.authority,
+                    replay_profile: ProgramReplayProfile::new(
+                        4096,
+                        u32::try_from(MAXIMUM).assert_success("fixture fits u32"),
+                    )
+                    .assert_success("replay profile"),
+                },
+                &mut |leaf, snapshot| observation.observe(leaf, snapshot),
+            )
+            .assert_success("sandbox capture");
+        let leaves = assert_memory_capture(&capture, &observation);
+        let levels = memory_merkle_levels(&leaves, &capture);
+        let billing = memory_billing(&fixture, &capture, &leaves);
+        let baseline_bytes = fixture
+            .baseline
+            .replay_state_bytes(MAXIMUM)
+            .assert_success("baseline bytes");
+        let mut catalog = ProgramCatalog::new();
+        catalog.insert(program(), fixture.module);
+        let catalog = Rc::new(catalog);
+        let context = MemoryProofContext {
+            capture: &capture,
+            leaves: &leaves,
+            levels: &levels,
+            initial_memory: &initial_memory,
+            baseline_bytes: &baseline_bytes,
+            billing: &billing,
+            catalog: &catalog,
+            fees: fixture.fees,
+        };
+        assert_middle_memory_step(&context);
+        let position = u32::try_from(leaves.len()).assert_success("fixture fits u32") / 2;
+        for (mode, index) in [
+            (MARKET_STEP_OPEN, position),
+            (
+                MARKET_STEP_TERMINAL,
+                u32::try_from(leaves.len()).assert_success("fixture fits u32") - 1,
+            ),
+        ] {
+            assert_edge_memory_step(&context, mode, index);
+        }
+    }
+    struct MemorySandboxFixture {
+        module: rt::ValidatedModule,
+        lease: [u8; 32],
+        namespace: [u8; 32],
+        baseline: Storage,
+        fees: FeeSchedule,
+        args: [WasmValue; 2],
+        authority: rt::replay::MarketSandboxReplayAuthority,
+    }
+    struct BoundaryMemoryObservation {
+        memory: Vec<u8>,
+        snapshots: usize,
+        admitted: usize,
+        changed_chunks: usize,
+    }
+    struct MemoryBilling {
+        profile_bytes: Vec<u8>,
+        billing_bytes: Vec<u8>,
+    }
+    struct MemoryProofContext<'a> {
+        capture: &'a rt::execute::MarketSandboxExecution,
+        leaves: &'a [Vec<u8>],
+        levels: &'a [Vec<[u8; 32]>],
+        initial_memory: &'a [u8],
+        baseline_bytes: &'a [u8],
+        billing: &'a MemoryBilling,
+        catalog: &'a Rc<ProgramCatalog>,
+        fees: FeeSchedule,
+    }
+
+    fn memory_sandbox_fixture() -> MemorySandboxFixture {
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
         let module = WasmEngine::declared()
-            .unwrap()
+            .assert_success("test value")
             .validate_v2(&guest())
-            .unwrap();
+            .assert_success("test value");
         let lease = [5; 32];
-        let namespace = market_sandbox_namespace(program(), lease).unwrap();
-        let baseline = seed(PrincipalId::new(namespace).unwrap());
+        let namespace = market_sandbox_namespace(program(), lease).assert_success("test value");
+        let baseline = seed(PrincipalId::new(namespace).assert_success("test value"));
         let fees = FeeSchedule::declared();
         let args = [WasmValue::I32(0), WasmValue::I32(0)];
         let authority = rt::replay::MarketSandboxReplayAuthority {
@@ -873,7 +1078,8 @@ mod market_tests {
             tenant: tenant(),
             payment_account: tenant().bytes(),
             code_hash: module.code_hash(),
-            input_digest: market_sandbox_input_digest("compute", &args).unwrap(),
+            input_digest: market_sandbox_input_digest("compute", &args)
+                .assert_success("test value"),
             runtime_version: rt::RUNTIME_VERSION,
             abi_version: 2,
             fee_schedule_version: fees.version(),
@@ -881,81 +1087,101 @@ mod market_tests {
             budget: budget(),
             fees,
             fee_budget: 1_000_000_000,
-            baseline_state_root: market_sandbox_baseline_root(&baseline).unwrap(),
+            baseline_state_root: market_sandbox_baseline_root(&baseline)
+                .assert_success("test value"),
             baseline_storage: baseline.clone(),
         };
-        let mut memory = module.initial_replay_memory().unwrap();
-        assert_eq!(memory.len(), MEMORY_BYTES);
-        assert_eq!(&memory[8..13], KEY);
-        let initial_memory = memory.clone();
-        let mut snapshots = 0;
-        let mut admitted = 0;
-        let mut changed_chunks = 0;
-        let mut instance = instantiate_market_sandbox_untrusted(&module, &authority).unwrap();
-        let capture = instance
-            .call_market_sandbox_untrusted_observed(
-                MarketSandboxRequest {
-                    module: &module,
-                    entrypoint: "compute",
-                    args: &args,
-                    authority: &authority,
-                    replay_profile: ProgramReplayProfile::new(4096, MAXIMUM as u32).unwrap(),
-                },
-                &mut |leaf, snapshot| {
-                    assert!(leaf.starts_with(b"LXP/program-replay-boundary-context/v2\0"));
-                    let mut portable = PortableBoundary::decode_untrusted(leaf, MAXIMUM).unwrap();
-                    if admitted == CALLS / 2 && snapshot.snapshot.canonical_instruction == [0x1a] {
-                        captured_leaf_breakdown(&portable);
-                    }
-                    assert_eq!(
-                        portable.memory,
-                        ReplayMemory::capture(&snapshot.snapshot.linear_memory, &memory).unwrap()
-                    );
-                    assert!(portable.memory.changed_chunks.len() <= 1);
-                    changed_chunks += portable.memory.changed_chunks.len();
-                    memory = portable.rebuild_memory(&memory).unwrap();
-                    assert_eq!(memory, snapshot.snapshot.linear_memory);
-                    assert_eq!(
-                        portable.replay.snapshot.linear_memory,
-                        snapshot.snapshot.linear_memory
-                    );
-                    assert_eq!(
-                        portable.replay.snapshot.arbitration_instances,
-                        snapshot.snapshot.arbitration_instances
-                    );
-                    assert_eq!(
-                        portable.memory.root,
-                        replay_memory_root(&snapshot.snapshot.linear_memory).unwrap()
-                    );
-                    let canonical_leaf = portable.reencode_untrusted(MAXIMUM).unwrap();
-                    assert_eq!(
-                        PortableBoundary::decode_with_header(
-                            &canonical_leaf,
-                            MAXIMUM,
-                            &portable.header
-                        )
-                        .unwrap()
-                        .header,
-                        portable.header
-                    );
-                    assert_eq!(
-                        portable
-                            .header
-                            .boundary_envelope(&canonical_leaf, MAXIMUM)
-                            .unwrap(),
-                        leaf
-                    );
-                    if snapshot.snapshot.canonical_instruction == [0x1a] {
-                        assert_eq!(
-                            snapshot.snapshot.value_stack.last().unwrap().bits,
-                            VALUE.len() as u64 + 1
-                        );
-                        admitted += 1;
-                    }
-                    snapshots += 1;
-                },
-            )
-            .unwrap();
+        MemorySandboxFixture {
+            module,
+            lease,
+            namespace,
+            baseline,
+            fees,
+            args,
+            authority,
+        }
+    }
+
+    impl BoundaryMemoryObservation {
+        fn observe(&mut self, leaf: &[u8], snapshot: &wasmi::ExecutionReplaySnapshot) {
+            use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+            assert!(leaf.starts_with(b"LXP/program-replay-boundary-context/v2\0"));
+            let mut portable =
+                PortableBoundary::decode_untrusted(leaf, MAXIMUM).assert_success("test value");
+            if self.admitted == CALLS / 2 && snapshot.snapshot.canonical_instruction == [0x1a] {
+                captured_leaf_breakdown(&portable);
+            }
+            assert_eq!(
+                portable.memory,
+                ReplayMemory::capture(&snapshot.snapshot.linear_memory, &self.memory)
+                    .assert_success("test value")
+            );
+            assert!(portable.memory.changed_chunks.len() <= 1);
+            self.changed_chunks += portable.memory.changed_chunks.len();
+            self.memory = portable
+                .rebuild_memory(&self.memory)
+                .assert_success("test value");
+            assert_eq!(self.memory, snapshot.snapshot.linear_memory);
+            assert_eq!(
+                portable.replay.snapshot.linear_memory,
+                snapshot.snapshot.linear_memory
+            );
+            assert_eq!(
+                portable.replay.snapshot.arbitration_instances,
+                snapshot.snapshot.arbitration_instances
+            );
+            assert_eq!(
+                portable.memory.root,
+                replay_memory_root(&snapshot.snapshot.linear_memory).assert_success("test value")
+            );
+            let canonical_leaf = portable
+                .reencode_untrusted(MAXIMUM)
+                .assert_success("test value");
+            assert_eq!(
+                PortableBoundary::decode_with_header(&canonical_leaf, MAXIMUM, &portable.header)
+                    .assert_success("test value")
+                    .header,
+                portable.header
+            );
+            assert_eq!(
+                portable
+                    .header
+                    .boundary_envelope(&canonical_leaf, MAXIMUM)
+                    .assert_success("test value"),
+                leaf
+            );
+            if snapshot.snapshot.canonical_instruction == [0x1a] {
+                assert_eq!(
+                    snapshot
+                        .snapshot
+                        .value_stack
+                        .last()
+                        .assert_success("test value")
+                        .bits,
+                    VALUE.len() as u64 + 1
+                );
+                self.admitted += 1;
+            }
+            self.snapshots += 1;
+        }
+    }
+
+    fn assert_memory_capture(
+        capture: &rt::execute::MarketSandboxExecution,
+        observation: &BoundaryMemoryObservation,
+    ) -> Vec<Vec<u8>> {
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+        let BoundaryMemoryObservation {
+            memory,
+            admitted,
+            changed_chunks,
+            snapshots,
+        } = observation;
+        let admitted = *admitted;
+        let changed_chunks = *changed_chunks;
+        let snapshots = *snapshots;
         assert!(
             capture.terminal_fault.is_none(),
             "{:?}",
@@ -966,7 +1192,8 @@ mod market_tests {
         assert_eq!(changed_chunks, CALLS);
         assert_eq!(snapshots, capture.boundary_leaves.len());
         assert_eq!(capture.record.terminal_status(), 0);
-        let (decoded, leaves) = decode_record(capture.record.canonical_bytes(), MAXIMUM).unwrap();
+        let (decoded, leaves) =
+            decode_record(capture.record.canonical_bytes(), MAXIMUM).assert_success("test value");
         assert_eq!(decoded, capture.record);
         assert_header_binding(&capture.record);
         assert_eq!(leaves, capture.boundary_leaves);
@@ -977,71 +1204,61 @@ mod market_tests {
             capture.usage.storage_read_bytes,
             CALLS as u64 * (KEY.len() + VALUE.len()) as u64
         );
-        writeln!(std::io::stderr(), "repair_22_31_577 sandbox admitted_count={admitted} leaf_total={leaf_total} record_total={}", capture.record.canonical_bytes().len()).unwrap();
+        writeln!(std::io::stderr(), "repair_22_31_577 sandbox admitted_count={admitted} leaf_total={leaf_total} record_total={}", capture.record.canonical_bytes().len()).assert_success("test value");
         for index in 0..CALLS {
             let start = (index + 1) * REPLAY_MEMORY_CHUNK_BYTES;
             assert_eq!(&memory[start..start + VALUE.len()], VALUE.as_slice());
         }
 
+        leaves
+    }
+
+    fn memory_merkle_levels(
+        leaves: &[Vec<u8>],
+        capture: &rt::execute::MarketSandboxExecution,
+    ) -> Vec<Vec<[u8; 32]>> {
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
         let mut levels = vec![leaves
             .iter()
             .enumerate()
-            .map(|(index, leaf)| replay_leaf_hash(index as u32, leaf).unwrap())
+            .map(|(index, leaf)| {
+                replay_leaf_hash(
+                    u32::try_from(index).assert_success("fixture fits u32"),
+                    leaf,
+                )
+                .assert_success("test value")
+            })
             .collect::<Vec<_>>()];
-        while levels.last().unwrap().len() > 1 {
+        while levels.last().assert_success("test value").len() > 1 {
             levels.push(
                 levels
                     .last()
-                    .unwrap()
+                    .assert_success("test value")
                     .chunks(2)
                     .map(|pair| replay_node_hash(pair[0], *pair.get(1).unwrap_or(&pair[0])))
                     .collect(),
             );
         }
-        assert_eq!(levels.last().unwrap()[0], capture.record.boundary_root());
-        let position = leaves.len() as u32 / 2;
-        let mut pre_memory = initial_memory.clone();
-        for leaf in &leaves[..=position as usize] {
-            pre_memory =
-                PortableBoundary::decode_with_header(leaf, MAXIMUM, capture.record.header())
-                    .unwrap()
-                    .rebuild_memory(&pre_memory)
-                    .unwrap();
-        }
-        let chunks = ReplayMemory::capture(&pre_memory, &initial_memory)
-            .unwrap()
-            .changed_chunks;
-        assert!(!chunks.is_empty());
-        let indices = [position, position + 1];
-        let paths: Vec<Vec<[u8; 32]>> = indices
-            .iter()
-            .map(|index| {
-                let mut position = *index as usize;
-                let mut path = Vec::new();
-                for level in &levels[..levels.len() - 1] {
-                    path.push(*level.get(position ^ 1).unwrap_or(&level[position]));
-                    position /= 2;
-                }
-                path
-            })
-            .collect();
-        let proofs: Vec<_> = indices
-            .iter()
-            .zip(&paths)
-            .map(|(index, siblings)| MarketStepProof {
-                index: *index,
-                leaf: &leaves[*index as usize],
-                siblings,
-            })
-            .collect();
-        let baseline_bytes = baseline.replay_state_bytes(MAXIMUM).unwrap();
-        let evidence = encode_market_step_evidence_with_header(
-            &baseline_bytes,
-            &proofs,
-            &chunks,
-            capture.record.header(),
-        )
-        .unwrap();
+        assert_eq!(
+            levels.last().assert_success("test value")[0],
+            capture.record.boundary_root()
+        );
+        levels
+    }
+
+    fn memory_billing(
+        fixture: &MemorySandboxFixture,
+        capture: &rt::execute::MarketSandboxExecution,
+        leaves: &[Vec<u8>],
+    ) -> MemoryBilling {
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+        let module = &fixture.module;
+        let lease = fixture.lease;
+        let namespace = fixture.namespace;
+        let authority = &fixture.authority;
+        let fees = fixture.fees;
         let mut entrypoint_bytes = [0; 64];
         entrypoint_bytes[..7].copy_from_slice(b"compute");
         let limits = budget();
@@ -1081,142 +1298,225 @@ mod market_tests {
             interval_end: 6,
             response_deadline: 16,
             maximum_boundaries: 4096,
-            maximum_bytes: MAXIMUM as u32,
+            maximum_bytes: u32::try_from(MAXIMUM).assert_success("fixture fits u32"),
         };
         let mut profile_bytes = vec![0; MARKET_SANDBOX_PROFILE_CAPACITY];
-        let length = profile.encode(&mut profile_bytes).unwrap();
+        let length = profile
+            .encode(&mut profile_bytes)
+            .assert_success("test value");
         profile_bytes.truncate(length);
         let billing = MarketBillingCommitment {
             profile_digest: Sha256::digest(&profile_bytes).into(),
             provider_trace_root: capture.record.boundary_root(),
             final_execution_state_root: capture.final_commitment.digest,
             output_digest: capture.output_digest,
-            usage: capture.billing_usage(2).unwrap(),
+            usage: capture.billing_usage(2).assert_success("test value"),
             payable: 10_000,
             challenger_stake: 250_000_000,
             challenge_window_batches: 10,
-            boundary_count: leaves.len() as u32,
+            boundary_count: u32::try_from(leaves.len()).assert_success("fixture fits u32"),
         };
         let mut billing_bytes = vec![0; MARKET_SANDBOX_BILLING_CAPACITY];
-        let length = billing.encode(&mut billing_bytes).unwrap();
+        let length = billing
+            .encode(&mut billing_bytes)
+            .assert_success("test value");
         billing_bytes.truncate(length);
+        MemoryBilling {
+            profile_bytes,
+            billing_bytes,
+        }
+    }
+
+    fn assert_middle_memory_step(context: &MemoryProofContext<'_>) {
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+        let capture = context.capture;
+        let leaves = context.leaves;
+        let levels = context.levels;
+        let initial_memory = context.initial_memory;
+        let baseline_bytes = context.baseline_bytes;
+        let profile_bytes = &context.billing.profile_bytes;
+        let billing_bytes = &context.billing.billing_bytes;
+        let catalog = context.catalog;
+        let fees = context.fees;
+        let position = u32::try_from(leaves.len()).assert_success("fixture fits u32") / 2;
+        let mut pre_memory = initial_memory.to_vec();
+        for leaf in &leaves[..=position as usize] {
+            pre_memory =
+                PortableBoundary::decode_with_header(leaf, MAXIMUM, capture.record.header())
+                    .assert_success("test value")
+                    .rebuild_memory(&pre_memory)
+                    .assert_success("test value");
+        }
+        let chunks = ReplayMemory::capture(&pre_memory, initial_memory)
+            .assert_success("test value")
+            .changed_chunks;
+        assert!(!chunks.is_empty());
+        let indices = [position, position + 1];
+        let paths: Vec<Vec<[u8; 32]>> = indices
+            .iter()
+            .map(|index| {
+                let mut position = *index as usize;
+                let mut path = Vec::new();
+                for level in &levels[..levels.len() - 1] {
+                    path.push(*level.get(position ^ 1).unwrap_or(&level[position]));
+                    position /= 2;
+                }
+                path
+            })
+            .collect();
+        let proofs: Vec<_> = indices
+            .iter()
+            .zip(&paths)
+            .map(|(index, siblings)| MarketStepProof {
+                index: *index,
+                leaf: &leaves[*index as usize],
+                siblings,
+            })
+            .collect();
+        let evidence = encode_market_step_evidence_with_header(
+            baseline_bytes,
+            &proofs,
+            &chunks,
+            capture.record.header(),
+        )
+        .assert_success("test value");
         let mut header = vec![0; MARKET_STEP_HEADER_CAPACITY];
         let length = MarketStepRequest {
             mode: MARKET_STEP_TRANSITION,
             position,
-            profile: &profile_bytes,
-            billing: &billing_bytes,
+            profile: profile_bytes,
+            billing: billing_bytes,
         }
         .encode(&mut header)
-        .unwrap();
+        .assert_success("test value");
         header.truncate(length);
-        let mut catalog = ProgramCatalog::new();
-        catalog.insert(program(), module);
-        let catalog = Rc::new(catalog);
         through_host(
-            &catalog,
+            catalog,
             &header,
             &evidence,
-            MARKET_STEP_OUTCOME_BYTES as i32,
+            i32::try_from(MARKET_STEP_OUTCOME_BYTES).assert_success("fixture fits i32"),
         );
         let mut altered = chunks.clone();
         altered[0].bytes[17] ^= 1;
         let forged = encode_market_step_evidence_with_header(
-            &baseline_bytes,
+            baseline_bytes,
             &proofs,
             &altered,
             capture.record.header(),
         )
-        .unwrap();
+        .assert_success("test value");
         assert_eq!(
-            adjudicate_market_step(&header, &forged, market(), fees, &*catalog, &mut |_| Ok(())),
+            adjudicate_market_step(
+                &header,
+                &forged,
+                market(),
+                fees,
+                catalog.as_ref(),
+                &mut |_| Ok(())
+            ),
             Err(MarketStepRefusal::Evidence)
         );
-        through_host(&catalog, &header, &forged, -5);
-        for (mode, index) in [
-            (MARKET_STEP_OPEN, position),
-            (MARKET_STEP_TERMINAL, leaves.len() as u32 - 1),
-        ] {
-            let mut memory = initial_memory.clone();
-            for leaf in &leaves[..=index as usize] {
-                memory =
-                    PortableBoundary::decode_with_header(leaf, MAXIMUM, capture.record.header())
-                        .unwrap()
-                        .rebuild_memory(&memory)
-                        .unwrap();
-            }
-            let mut chunks = ReplayMemory::capture(&memory, &initial_memory)
-                .unwrap()
-                .changed_chunks;
-            assert!(!chunks.is_empty());
-            let mut pos = index as usize;
-            let mut siblings = Vec::new();
-            for level in &levels[..levels.len() - 1] {
-                siblings.push(*level.get(pos ^ 1).unwrap_or(&level[pos]));
-                pos /= 2;
-            }
-            let proofs = [MarketStepProof {
-                index,
-                leaf: &leaves[index as usize],
-                siblings: &siblings,
-            }];
-            let evidence = encode_market_step_evidence_with_header(
-                &baseline_bytes,
-                &proofs,
-                &chunks,
-                capture.record.header(),
-            )
-            .unwrap();
-            let length = MarketStepRequest {
-                mode,
-                position: index,
-                profile: &profile_bytes,
-                billing: &billing_bytes,
-            }
-            .encode(&mut header)
-            .unwrap();
-            header.truncate(length);
-            through_host(
-                &catalog,
-                &header,
-                &evidence,
-                MARKET_STEP_OUTCOME_BYTES as i32,
-            );
-            chunks[0].bytes[17] ^= 1;
-            let forged = encode_market_step_evidence_with_header(
-                &baseline_bytes,
-                &proofs,
-                &chunks,
-                capture.record.header(),
-            )
-            .unwrap();
-            assert_eq!(
-                adjudicate_market_step(
-                    &header,
-                    &forged,
-                    market(),
-                    fees,
-                    &*catalog,
-                    &mut |_| Ok(())
-                ),
-                Err(MarketStepRefusal::Evidence)
-            );
-            through_host(&catalog, &header, &forged, -5);
+        through_host(catalog, &header, &forged, -5);
+    }
+
+    fn assert_edge_memory_step(context: &MemoryProofContext<'_>, mode: u8, index: u32) {
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+        let capture = context.capture;
+        let leaves = context.leaves;
+        let levels = context.levels;
+        let initial_memory = context.initial_memory;
+        let baseline_bytes = context.baseline_bytes;
+        let profile_bytes = &context.billing.profile_bytes;
+        let billing_bytes = &context.billing.billing_bytes;
+        let catalog = context.catalog;
+        let fees = context.fees;
+        let mut header = vec![0; MARKET_STEP_HEADER_CAPACITY];
+
+        let mut memory = initial_memory.to_vec();
+        for leaf in &leaves[..=index as usize] {
+            memory = PortableBoundary::decode_with_header(leaf, MAXIMUM, capture.record.header())
+                .assert_success("test value")
+                .rebuild_memory(&memory)
+                .assert_success("test value");
         }
+        let mut chunks = ReplayMemory::capture(&memory, initial_memory)
+            .assert_success("test value")
+            .changed_chunks;
+        assert!(!chunks.is_empty());
+        let mut pos = index as usize;
+        let mut siblings = Vec::new();
+        for level in &levels[..levels.len() - 1] {
+            siblings.push(*level.get(pos ^ 1).unwrap_or(&level[pos]));
+            pos /= 2;
+        }
+        let proofs = [MarketStepProof {
+            index,
+            leaf: &leaves[index as usize],
+            siblings: &siblings,
+        }];
+        let evidence = encode_market_step_evidence_with_header(
+            baseline_bytes,
+            &proofs,
+            &chunks,
+            capture.record.header(),
+        )
+        .assert_success("test value");
+        let length = MarketStepRequest {
+            mode,
+            position: index,
+            profile: profile_bytes,
+            billing: billing_bytes,
+        }
+        .encode(&mut header)
+        .assert_success("test value");
+        header.truncate(length);
+        through_host(
+            catalog,
+            &header,
+            &evidence,
+            i32::try_from(MARKET_STEP_OUTCOME_BYTES).assert_success("fixture fits i32"),
+        );
+        chunks[0].bytes[17] ^= 1;
+        let forged = encode_market_step_evidence_with_header(
+            baseline_bytes,
+            &proofs,
+            &chunks,
+            capture.record.header(),
+        )
+        .assert_success("test value");
+        assert_eq!(
+            adjudicate_market_step(
+                &header,
+                &forged,
+                market(),
+                fees,
+                catalog.as_ref(),
+                &mut |_| Ok(())
+            ),
+            Err(MarketStepRefusal::Evidence)
+        );
+        through_host(catalog, &header, &forged, -5);
     }
 
     #[test]
     fn memory_tree_binds_length_chunk_position_padding_and_canonical_changes() {
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
         let previous = vec![0; REPLAY_MEMORY_CHUNK_BYTES * 2 + 1];
         let mut current = previous.clone();
         current[7] = 3;
         current[8192] = 9;
-        let memory = ReplayMemory::capture(&current, &previous).unwrap();
+        let memory = ReplayMemory::capture(&current, &previous).assert_success("test value");
         assert_eq!(memory.changed_chunks.len(), 2);
-        assert_eq!(memory.rebuild(&previous).unwrap(), current);
+        assert_eq!(
+            memory.rebuild(&previous).assert_success("test value"),
+            current
+        );
         assert_ne!(
-            replay_memory_root(&current).unwrap(),
-            replay_memory_root(&current[..8192]).unwrap()
+            replay_memory_root(&current).assert_success("test value"),
+            replay_memory_root(&current[..8192]).assert_success("test value")
         );
         let mut reordered = memory.clone();
         reordered.changed_chunks.reverse();

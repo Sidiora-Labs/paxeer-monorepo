@@ -1,0 +1,463 @@
+[meta]
+task = "22.39.271"
+status = "implemented-not-qualified"
+scan_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+scan_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path services/explorer/backend --path services/explorer/services"
+scan_exit = 1
+scan_log = "/out/logs/retired-callers-baseline.log"
+qualification_evidence = "/out/run/gates.jsonl"
+qualification_policy = "Only the bounded hf-build and hf-done receipts establish the candidate revision and result; no successful qualification is claimed by this record."
+generated_inventory = "Canonicalize historical snapshot object keys without changing any ABI value or array order, then regenerate precompiles.json with the existing generate_precompiles.py; never hand-edit generated output."
+allowance_catalogue = "tools/paxeer-x/retired_callers.json now contains exact-file, named-symbol allowances authorized by decision 3125."
+verify_command_conflict = "The declared verify_cmd changes into services/explorer/backend before its Python commands, whose repository-root-relative paths then resolve below the backend instead of the repository root; spec edits are outside scope."
+signature_provider_touches = "The historical source JSON is canonicalized and its combined ABI regenerated while preserving every historical selector, overload and indexed event layout."
+
+[finding.1]
+path = "services/explorer/backend/README.md"
+line = 153
+component = "checkpoint-evidence"
+symbol = "settlement_anchored"
+disposition = "allowed-reference"
+repair = "Retain the frozen archive verification value: it is persisted historical data, not a current native finality claim; clarify schema/docs and allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/receipt_test.exs:30 asserts unchanged historical imports including this value."
+continuation_line = 153
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.2]
+path = "services/explorer/backend/README.md"
+line = 165
+component = "explorer-kernel-views"
+symbol = "paxeer-x/anchors"
+disposition = "repaired"
+repair = "Replace retired unprefixed route examples with the explicit archive routes and native transaction status/signature endpoints."
+evidence = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex"
+
+[finding.3]
+path = "services/explorer/backend/README.md"
+line = 165
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+disposition = "repaired"
+repair = "Replace retired unprefixed route examples with the explicit archive routes and native transaction status/signature endpoints."
+evidence = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex"
+
+[finding.4]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/archive_receipt.ex"
+line = 39
+component = "checkpoint-evidence"
+symbol = "settlement_anchored"
+disposition = "allowed-reference"
+repair = "Retain the frozen archive verification value: it is persisted historical data, not a current native finality claim; clarify schema/docs and allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/receipt_test.exs:30 asserts unchanged historical imports including this value."
+continuation_line = 40
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.5]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/receipt.ex"
+line = 32
+component = "checkpoint-evidence"
+symbol = "settlement_anchored"
+disposition = "allowed-reference"
+repair = "Retain the frozen archive verification value: it is persisted historical data, not a current native finality claim; clarify schema/docs and allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/receipt_test.exs:30 asserts unchanged historical imports including this value."
+continuation_line = 33
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.6]
+path = "services/explorer/backend/apps/explorer/priv/repo/migrations/20261001000000_create_paxeer_x_tables.exs"
+line = 21
+component = "checkpoint-evidence"
+symbol = "settlement_anchored"
+disposition = "allowed-reference"
+repair = "Retain the frozen archive verification value: it is persisted historical data, not a current native finality claim; clarify schema/docs and allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/receipt_test.exs:30 asserts unchanged historical imports including this value."
+continuation_line = 22
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.7]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zksync/status_tracking/common.ex"
+line = 39
+component = "availability-fetch"
+symbol = "fetch_batch"
+disposition = "allowed-reference"
+repair = "Retain the live zkSync L1 batch RPC function and its caller; this is not kernel batch availability; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "Indexer.Fetcher.ZkSync.Utils.Rpc.fetch_batch_details_by_batch_number calls zks_getL1BatchDetails."
+continuation_line = 42
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.8]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zksync/utils/rpc.ex"
+line = 178
+component = "availability-fetch"
+symbol = "fetch_batch"
+disposition = "allowed-reference"
+repair = "Retain the live zkSync L1 batch RPC function and its caller; this is not kernel batch availability; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "Indexer.Fetcher.ZkSync.Utils.Rpc.fetch_batch_details_by_batch_number calls zks_getL1BatchDetails."
+continuation_line = 181
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.9]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zksync/utils/rpc.ex"
+line = 180
+component = "availability-fetch"
+symbol = "fetch_batch"
+disposition = "allowed-reference"
+repair = "Retain the live zkSync L1 batch RPC function and its caller; this is not kernel batch availability; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "Indexer.Fetcher.ZkSync.Utils.Rpc.fetch_batch_details_by_batch_number calls zks_getL1BatchDetails."
+continuation_line = 183
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.10]
+path = "services/explorer/backend/config/runtime.exs"
+line = 299
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed-reference"
+repair = "Retain native sequencer receipt key and CometBFT validator pins loaded from the operator-managed file; these are not the retired kernel process; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex"
+continuation_line = 301
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.11]
+path = "services/explorer/backend/config/runtime.exs"
+line = 338
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed-reference"
+repair = "Retain native sequencer receipt key and CometBFT validator pins loaded from the operator-managed file; these are not the retired kernel process; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex"
+continuation_line = 340
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.12]
+path = "services/explorer/backend/config/runtime.exs"
+line = 339
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed-reference"
+repair = "Retain native sequencer receipt key and CometBFT validator pins loaded from the operator-managed file; these are not the retired kernel process; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex"
+continuation_line = 341
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.13]
+path = "services/explorer/backend/config/runtime.exs"
+line = 340
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed-reference"
+repair = "Retain native sequencer receipt key and CometBFT validator pins loaded from the operator-managed file; these are not the retired kernel process; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex"
+continuation_line = 342
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.14]
+path = "services/explorer/backend/config/runtime.exs"
+line = 341
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed-reference"
+repair = "Retain native sequencer receipt key and CometBFT validator pins loaded from the operator-managed file; these are not the retired kernel process; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex"
+continuation_line = 343
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.15]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+line = 69
+component = "verify"
+symbol = "layerxVerify"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 69
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.16]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+line = 70
+component = "verify"
+symbol = "layerxverify"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 70
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.17]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+line = 74
+component = "custody-deposit"
+symbol = "layerxCustody"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 74
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.18]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+line = 75
+component = "custody-deposit"
+symbol = "layerxcustody"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 75
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.19]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+line = 79
+component = "anchor"
+symbol = "layerxAnchor"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 79
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.20]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+line = 80
+component = "anchor"
+symbol = "layerxanchor"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 80
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.21]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+line = 5948
+component = "mirror"
+symbol = "CheckpointSubmitted"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 5948
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.22]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+line = 7172
+component = "custody-claims"
+symbol = "depositRootAuthority"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 7172
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.23]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+line = 11029
+component = "custody-deposit"
+symbol = "depositToken"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 11029
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.24]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+line = 15482
+component = "verify"
+symbol = "ILayerXVerify"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 15482
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.25]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+line = 15684
+component = "verify"
+symbol = "ILayerXVerify"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 15684
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.26]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+line = 15746
+component = "verify"
+symbol = "ILayerXVerify"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 15746
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.27]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+line = 15777
+component = "custody-claims"
+symbol = "finaliseWithdrawal"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 15777
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.28]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+line = 15811
+component = "custody-claims"
+symbol = "requestWithdrawal"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 15811
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.29]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+line = 15910
+component = "verify"
+symbol = "ILayerXVerify"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 15910
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.30]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+line = 15936
+component = "custody-claims"
+symbol = "registerDepositRoot"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 15936
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.31]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+line = 16040
+component = "custody-claims"
+symbol = "executeForcedExit"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 16040
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.32]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+line = 16084
+component = "custody-claims"
+symbol = "requestForcedExit"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 16084
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.33]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+line = 18849
+component = "anchor"
+symbol = "ILayerXAnchor"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 18849
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.34]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+line = 18988
+component = "exchange-intents"
+symbol = "getIntent"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 18988
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.35]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+line = 19785
+component = "exchange-intents"
+symbol = "requestSettlement"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 19785
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.36]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+line = 25837
+component = "anchor"
+symbol = "ILayerXAnchor"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 25837
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.37]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+line = 26022
+component = "mirror"
+symbol = "statusOf"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 26022
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.38]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles_historical.json"
+line = 568
+component = "exchange-intents"
+symbol = "getIntent"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 568
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[finding.39]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles_historical.json"
+line = 966
+component = "exchange-intents"
+symbol = "requestSettlement"
+disposition = "allowed-reference"
+repair = "Retain producer ABI and historical snapshot names used only for selector/topic decoding; they do not execute retired methods; allow the exact path and named symbols in tools/paxeer-x/retired_callers.json under decision 3125."
+evidence = "services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py and abi_inventory_test_support.rs require the exact producer/historical union."
+continuation_line = 966
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references for this exact path and symbol"
+
+[continuation]
+attempt = 2
+base_revision = "8742bd00eb3acc490f28e5d26038636590216955"
+seed_revision = "7482c7b3593e12a75c1b525ded7829134afe4908"
+scan_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path services/explorer/backend --path services/explorer/services"
+scan_exit = 1
+scan_log = "/out/logs/retired-callers-attempt-2-baseline.log"
+findings = 37
+repair = "All remaining findings receive exact-file named-symbol allowances for live interfaces or historical decoding; the two retired route examples were already repaired in attempt 1."
+qualification_evidence = "/out/run/gates.jsonl"
+verified_revision_source = "The revision, command, exit and log in the final hf-done receipt in qualification_evidence identify the qualified tree; this source record does not assert qualification before that gate executes."
+
+[continuation_3]
+attempt = 3
+decision = "3153"
+base_revision = "2ce65ef1b65c7b37530e7fcccde49f13209ca848"
+seed_revision = "72d646417636018b99bebe4f801c510840f6f3e3"
+receipt_verification_task = "22.39.308"
+receipt_verification_files = ["services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/committed_vectors_test.exs", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/status_committed_test.exs", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/status_test.exs", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs"]
+receipt_verification_note = "Decision 3153 assigns the seventeen cases refused at the governed key guard in these four files to task 22.39.308; that task completes their repair against the governed key guard and fixtures."
+verification_scope = "The declared gate runs the thirteen other PaxeerX test files and returns to the repository root before JSON validation and the retired-reference scan, resolving the earlier verify_command_conflict."
+catalogue_merge = "Keep all current allowed_references and append the seed's exact-file named-symbol explorer allowances beside them."
+qualification_evidence = "/out/run/gates.jsonl"
+verified_revision_source = "The final hf-done receipt records the exact candidate revision, command, exit code and private log; the build and verification must qualify that same revision."

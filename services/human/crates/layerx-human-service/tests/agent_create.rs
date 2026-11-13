@@ -1,5 +1,6 @@
-#[path = "support/canonical_owner.rs"]
-mod canonical_owner;
+pub mod canonical_owner {
+    include!("support/canonical_owner.rs");
+}
 
 use layerx_human_test_support as support;
 
@@ -825,12 +826,12 @@ fn program_call_disclosure_is_refused_as_a_lifecycle_method() {
         to,
         data: encode_program_call(&native, 1_000),
     };
-    let signed_activity = call.sign(&[0x68; 32]).expect("sign program call");
-    let (decoded, signature) = decode_signed(&signed_activity).expect("decode program call");
-    let sender = recover_sender(&decoded, &signature).expect("recover program caller");
-    let disclosure = bind_call(&decoded, sender).expect("bind program call disclosure");
+    let signed_activity = call.sign(&[0x68; 32]).or_fail("sign program call");
+    let (decoded, signature) = decode_signed(&signed_activity).or_fail("decode program call");
+    let sender = recover_sender(&decoded, &signature).or_fail("recover program caller");
+    let disclosure = bind_call(&decoded, sender).or_fail("bind program call disclosure");
     assert!(matches!(
-        disclosure.construct_method().expect("program call method"),
+        disclosure.construct_method().or_fail("program call method"),
         Some(ConstructMethod::ProgramCall { call, fee_limit })
             if call.native() == native && fee_limit == 1_000
     ));
@@ -860,35 +861,19 @@ fn program_call_disclosure_is_refused_as_a_lifecycle_method() {
     );
 }
 
-#[test]
-fn creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths() {
-    let mut fixture = Fixture::new("agent-create-complete");
-    let alice = principal("alice");
-    let mut scope = fixture
-        .store
-        .principal(&alice)
-        .unwrap_or_else(|error| panic!("principal scope: {error}"));
-    let mut journey = CreationJourney::start(
-        &mut scope,
-        &request("treasury"),
-        &context(0x31),
-        &catalog("treasury", 2_000),
-        1,
-    )
-    .unwrap_or_else(|error| panic!("start: {error}"));
-    assert_eq!(journey.status().state, CreationState::GettingReady);
+fn assert_creation_preparation(journey: &CreationJourney, registry: &ModuleRegistry) {
     let projection = journey.projection();
     let intent = layerx_intents::Intent::v1(IntentKind::BudgetCreate(
         layerx_intents::BudgetCreate::new(
             layerx_types::intent::BudgetId::new(projection.agent_id),
             layerx_types::account::AccountId::parse(&projection.owner_account)
-                .expect("creation owner account"),
+                .or_fail("creation owner account"),
             layerx_types::account::AccountId::parse(&projection.budget_account)
-                .expect("creation budget account"),
+                .or_fail("creation budget account"),
             layerx_types::ids::AssetId::new(projection.budget_asset),
             layerx_types::amount::Amount::from_u128(projection.monthly_limit),
             layerx_types::intent::PeriodLength::new(projection.period_seconds)
-                .expect("creation budget period"),
+                .or_fail("creation budget period"),
             layerx_types::intent::RolloverPolicy::None,
             layerx_types::amount::Amount::ZERO,
             layerx_types::intent::PurposeHash::new(projection.purpose_hash),
@@ -896,24 +881,29 @@ fn creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths() {
                 projection.started_at + projection.budget_expiry_seconds,
             ),
         )
-        .expect("creation budget intent"),
+        .or_fail("creation budget intent"),
     ));
-    let compiled =
-        layerx_intents::compile(&intent, &fixture.registry).expect("compiled creation budget");
+    let compiled = layerx_intents::compile(&intent, registry).or_fail("compiled creation budget");
     let (canonical, disclosure, signed_creation) = prepare_call(compiled.payload());
     let call = layerx_human_kms::attestor::decode_unsigned_evm_transaction(&canonical)
-        .expect("unsigned EIP-1559 creation preparation");
+        .or_fail("unsigned EIP-1559 creation preparation");
     assert!(matches!(
-        disclosure.construct_method().expect("creation call source"),
+        disclosure
+            .construct_method()
+            .or_fail("creation call source"),
         Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreate { .. })
     ));
     assert_eq!(
         verify_creation_call_disclosure(&canonical, &disclosure),
         Ok(())
     );
-    let from: [u8; 20] = disclosure.actor.as_slice().try_into().expect("call sender");
+    let from: [u8; 20] = disclosure
+        .actor
+        .as_slice()
+        .try_into()
+        .or_fail("call sender");
     assert_eq!(
-        layerx_crypto::disclosure::call::bind_call(&call, from).expect("bind creation call"),
+        layerx_crypto::disclosure::call::bind_call(&call, from).or_fail("bind creation call"),
         disclosure,
     );
     let mut mismatched = disclosure.clone();
@@ -945,7 +935,7 @@ fn creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths() {
         )),
     );
     let (signed_call, _) = layerx_crypto::evm_transaction::decode_signed(&signed_creation.bytes)
-        .expect("signed creation transaction");
+        .or_fail("signed creation transaction");
     assert_eq!(signed_call, call);
     assert_eq!(
         verify_creation_call_disclosure(&signed_creation.bytes, &disclosure),
@@ -953,6 +943,83 @@ fn creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths() {
             "agent preparation differs from creation intent"
         )),
     );
+}
+
+fn assert_real_creation_call(agent: &InProcessAgentLayer) {
+    let (canonical, disclosure) = agent
+        .creation_call
+        .as_ref()
+        .or_fail("prepared creation call");
+    assert!(matches!(
+        disclosure
+            .construct_method()
+            .or_fail("creation call source"),
+        Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreate { .. })
+    ));
+    let call = layerx_human_kms::attestor::decode_unsigned_evm_transaction(canonical)
+        .or_fail("unsigned EIP-1559 creation preparation");
+    let from: [u8; 20] = disclosure
+        .actor
+        .as_slice()
+        .try_into()
+        .or_fail("call sender");
+    assert_eq!(
+        layerx_crypto::disclosure::call::bind_call(&call, from).or_fail("bind creation call"),
+        *disclosure,
+    );
+    let evidence = agent
+        .protocol_cache
+        .values()
+        .find(|evidence| {
+            let (signed_call, _) =
+                layerx_crypto::evm_transaction::decode_signed(&evidence.signed_activity)
+                    .or_fail("signed lifecycle call");
+            signed_call == call
+        })
+        .or_fail("receipt-gated creation evidence");
+    let (signed_call, signature) =
+        layerx_crypto::evm_transaction::decode_signed(&evidence.signed_activity)
+            .or_fail("signed creation call");
+    assert_eq!(signed_call, call);
+    assert_eq!(
+        layerx_crypto::evm_transaction::recover_sender(&signed_call, &signature)
+            .or_fail("creation sender"),
+        from
+    );
+    assert_eq!(
+        verify_creation_call_disclosure(canonical, disclosure),
+        Ok(())
+    );
+
+    let mut mismatched = disclosure.clone();
+    mismatched.actor[0] ^= 1;
+    assert_ne!(mismatched.actor, from);
+    assert_eq!(
+        verify_creation_call_disclosure(canonical, &mismatched),
+        Err(AgentFailure::Refused(
+            "agent preparation differs from creation intent"
+        )),
+    );
+}
+
+#[test]
+fn creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths() {
+    let mut fixture = Fixture::new("agent-create-complete");
+    let alice = principal("alice");
+    let mut scope = fixture
+        .store
+        .principal(&alice)
+        .unwrap_or_else(|error| panic!("principal scope: {error}"));
+    let mut journey = CreationJourney::start(
+        &mut scope,
+        &request("treasury"),
+        &context(0x31),
+        &catalog("treasury", 2_000),
+        1,
+    )
+    .unwrap_or_else(|error| panic!("start: {error}"));
+    assert_eq!(journey.status().state, CreationState::GettingReady);
+    assert_creation_preparation(&journey, &fixture.registry);
     let mut agent = InProcessAgentLayer::new(&fixture.root.join("agent-store"), None);
     let active = journey
         .resume(
@@ -973,55 +1040,7 @@ fn creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths() {
     }
     assert_eq!(agent.sessions.open_count(), 1);
 
-    let (canonical, disclosure) = agent
-        .creation_call
-        .as_ref()
-        .expect("prepared creation call");
-    assert!(matches!(
-        disclosure.construct_method().expect("creation call source"),
-        Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreate { .. })
-    ));
-    let call = layerx_human_kms::attestor::decode_unsigned_evm_transaction(canonical)
-        .expect("unsigned EIP-1559 creation preparation");
-    let from: [u8; 20] = disclosure.actor.as_slice().try_into().expect("call sender");
-    assert_eq!(
-        layerx_crypto::disclosure::call::bind_call(&call, from).expect("bind creation call"),
-        *disclosure,
-    );
-    let evidence = agent
-        .protocol_cache
-        .values()
-        .find(|evidence| {
-            let (signed_call, _) =
-                layerx_crypto::evm_transaction::decode_signed(&evidence.signed_activity)
-                    .expect("signed lifecycle call");
-            signed_call == call
-        })
-        .expect("receipt-gated creation evidence");
-    let (signed_call, signature) =
-        layerx_crypto::evm_transaction::decode_signed(&evidence.signed_activity)
-            .expect("signed creation call");
-    assert_eq!(signed_call, call);
-    assert_eq!(
-        layerx_crypto::evm_transaction::recover_sender(&signed_call, &signature)
-            .expect("creation sender"),
-        from
-    );
-    assert_eq!(
-        verify_creation_call_disclosure(canonical, disclosure),
-        Ok(())
-    );
-
-    let mut mismatched = disclosure.clone();
-    mismatched.actor[0] ^= 1;
-    assert_ne!(mismatched.actor, from);
-    assert_eq!(
-        verify_creation_call_disclosure(canonical, &mismatched),
-        Err(AgentFailure::Refused(
-            "agent preparation differs from creation intent"
-        )),
-    );
-
+    assert_real_creation_call(&agent);
     let agent_id = journey.agent_id();
     drop(scope);
     let mut reopened = fixture.reopen();
@@ -1217,11 +1236,11 @@ fn purpose_authority_comes_from_configuration_and_monthly_limit_only_narrows_it(
     assert_eq!(
         catalog
             .activity_types("vendor-payments")
-            .expect("purpose activity types"),
+            .or_fail("purpose activity types"),
         vec![layerx_types::programs_activity::activity_type(
             layerx_types::programs_activity::CALL_ORDINAL,
         )
-        .expect("programs call activity")],
+        .or_fail("programs call activity")],
     );
     assert!(matches!(
         catalog.activity_types("unconfigured"),
@@ -1282,11 +1301,11 @@ fn purpose_authority_comes_from_configuration_and_monthly_limit_only_narrows_it(
 
 #[test]
 fn agents_route_admits_three_fields_and_refuses_undeclared_activity_types() {
-    let schema = ApiSchema::v1().expect("human API schema");
+    let schema = ApiSchema::v1().or_fail("human API schema");
     let route = schema
         .route("POST", "/v1/agents")
-        .expect("agents route")
-        .expect("declared agents route");
+        .or_fail("agents route")
+        .or_fail("declared agents route");
     assert_eq!(route.operation.name, "agent.create");
     let body = json!({
         "name": "Treasury helper",
@@ -1295,32 +1314,34 @@ fn agents_route_admits_three_fields_and_refuses_undeclared_activity_types() {
     });
     let admitted = schema
         .decode_request(route.operation, Some(body.clone()))
-        .expect("documented three-field request");
+        .or_fail("documented three-field request");
     let catalog = catalog("treasury", 2_000);
-    let purpose = admitted["purpose"].as_str().expect("purpose");
+    let purpose = admitted["purpose"].as_str().or_fail("purpose");
     let derived = catalog
         .activity_types(purpose)
-        .expect("purpose activity types");
+        .or_fail("purpose activity types");
     let creation = CreateAgentRequest::new(
-        admitted["name"].as_str().expect("name"),
+        admitted["name"].as_str().or_fail("name"),
         purpose,
         admitted["monthly_limit"]["amount"]
             .as_str()
-            .expect("amount")
+            .or_fail("amount")
             .parse()
-            .expect("monthly amount"),
+            .or_fail("monthly amount"),
         admitted["monthly_limit"]["currency"]
             .as_str()
-            .expect("currency"),
+            .or_fail("currency"),
     )
-    .expect("creation request")
+    .or_fail("creation request")
     .with_activity_types(derived.clone())
-    .expect("derived creation activity types");
+    .or_fail("derived creation activity types");
     let mut fixture = Fixture::new("agent-create-schema-route");
     let alice = principal("alice");
-    let mut scope = fixture.store.principal(&alice).expect("principal scope");
+    let mut scope = fixture.store.principal(&alice).or_fail("principal scope");
     let journey = CreationJourney::start(&mut scope, &creation, &context(0x71), &catalog, 1)
-        .expect("schema-admitted request reaches creation");
+        .unwrap_or_else(|error| {
+            panic!("{}: {error:?}", "schema-admitted request reaches creation")
+        });
     assert_eq!(journey.status().state, CreationState::GettingReady);
     assert_eq!(
         journey.projection().activity_types,
@@ -1341,9 +1362,16 @@ fn agents_route_admits_three_fields_and_refuses_undeclared_activity_types() {
         .collect::<Vec<_>>());
     let refusal = schema
         .decode_request(route.operation, Some(undeclared))
-        .expect_err("activity_types must remain undeclared");
+        .err()
+        .unwrap_or_else(|| panic!("activity_types must remain undeclared"));
     assert_eq!(
         refusal.detail(),
         "request.activity_types is not declared in this schema version",
     );
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

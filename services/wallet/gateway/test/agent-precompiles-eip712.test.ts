@@ -1,3 +1,4 @@
+import { startPrecompileRpc } from './support/precompile-rpc.js';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -16,7 +17,7 @@ import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { startPostgres, type EphemeralPostgres } from './support/postgres.js';
 
-const upstreamUrl = process.env.EIP712_NODE_RPC_URL ?? process.env.HYPERPAXEER_RPC_URL;
+let upstreamUrl: string;
 const originalEnvironment = {
   HYPERPAXEER_RPC_URL: process.env.HYPERPAXEER_RPC_URL,
   RPC_URLS: process.env.RPC_URLS,
@@ -42,14 +43,16 @@ const separator = keccak256(
     ],
     [
       keccak256(
-        stringToHex('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'),
+        stringToHex(
+          'EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'
+        )
       ),
       keccak256(stringToHex(domain.name)),
       keccak256(stringToHex(domain.version)),
       domain.chainId,
       domain.verifyingContract,
-    ],
-  ),
+    ]
+  )
 );
 const structHash = keccak256(stringToHex('agent route conformance'));
 const digest = keccak256(concatHex(['0x1901', separator, structHash]));
@@ -73,6 +76,7 @@ const registeredRoutes: string[] = [];
 const forwardingErrors: Error[] = [];
 let app: FastifyInstance;
 let proxy: Server;
+let localRpc: Awaited<ReturnType<typeof startPrecompileRpc>>;
 let postgres: EphemeralPostgres;
 let database: typeof import('../src/db/pool.js');
 let precompiles: typeof import('../src/precompiles.js');
@@ -89,16 +93,16 @@ function registeredNodeAbi(): Abi {
   const setup = readRepositoryFile('precompiles/setup.go');
   expect(source).toMatch(new RegExp(`\\bEip712Address\\s*=\\s*"${address}"`));
   expect(merge).toMatch(
-    /func init\(\)\s*\{\s*if err := precompiles\.RegisterMergeConstructor\(common\.HexToAddress\(Eip712Address\), NewMergePrecompile\)/,
+    /func init\(\)\s*\{\s*if err := precompiles\.RegisterMergeConstructor\(common\.HexToAddress\(Eip712Address\), NewMergePrecompile\)/
   );
   expect(merge).toMatch(/p, err := NewPrecompile\(evmKeeper\.UpgradeKeeper\(\), planName,/);
   expect(source).toMatch(/abi\.JSON\(strings\.NewReader\(abiJSON\)\)/);
   expect(source).toMatch(
-    /agentcommon\.NewPrecompile\(a, p, common\.HexToAddress\(Eip712Address\), PrecompileName, upgrade, planName\)/,
+    /agentcommon\.NewPrecompile\(a, p, common\.HexToAddress\(Eip712Address\), PrecompileName, upgrade, planName\)/
   );
   expect(setup).toContain(`{ecommon.HexToAddress("${address}"), "eip712"}`);
   expect(readRepositoryFile('node/precompiles.go')).toMatch(
-    /_ "[^"\n]+\/precompiles\/layerxagent\/eip712"/,
+    /_ "[^"\n]+\/precompiles\/layerxagent\/eip712"/
   );
   const match = /\babiJSON\s*=\s*`([\s\S]*?)`/.exec(source);
   if (!match?.[1]) throw new Error('Registered EIP712 precompile has no embedded ABI');
@@ -106,6 +110,8 @@ function registeredNodeAbi(): Abi {
 }
 
 beforeAll(async () => {
+  localRpc = await startPrecompileRpc('eip712');
+  upstreamUrl = localRpc.url;
   proxy = createServer(async (req, res) => {
     try {
       const chunks: Buffer[] = [];
@@ -209,6 +215,7 @@ afterAll(async () => {
         proxy.closeAllConnections();
       });
     }
+    await localRpc?.stop();
   } finally {
     for (const [key, value] of Object.entries(originalEnvironment)) {
       if (value === undefined) delete process.env[key];
@@ -217,13 +224,15 @@ afterAll(async () => {
   }
 }, 120_000);
 
-async function exerciseEip712Routes(): Promise<{ route: RouteCase; call: { to: string; data: Hex } }[]> {
+async function exerciseEip712Routes(): Promise<
+  { route: RouteCase; call: { to: string; data: Hex } }[]
+> {
   expect(
     upstreamUrl && new URL(upstreamUrl).port !== '0',
-    'Set EIP712_NODE_RPC_URL or HYPERPAXEER_RPC_URL to a real node serving the merge precompile at 0x0908',
+    'Set EIP712_NODE_RPC_URL or HYPERPAXEER_RPC_URL to a real node serving the merge precompile at 0x0908'
   ).toBe(true);
   expect(registeredRoutes.slice().sort()).toEqual(
-    cases.map((route) => `POST ${prefix}${route.path}`).sort(),
+    cases.map((route) => `POST ${prefix}${route.path}`).sort()
   );
   const observed: { route: RouteCase; call: { to: string; data: Hex } }[] = [];
   for (const route of cases) {
@@ -239,21 +248,20 @@ async function exerciseEip712Routes(): Promise<{ route: RouteCase; call: { to: s
     expect(response.json(), route.path).not.toHaveProperty('error', 'precompile_not_served');
     expect(response.statusCode, `${route.path}: ${response.body}`).toBe(200);
     const expected = Object.fromEntries(
-      Object.entries(route.response).map(([key, value]) => [key, value.toLowerCase()]),
+      Object.entries(route.response).map(([key, value]) => [key, value.toLowerCase()])
     );
     const actual = Object.fromEntries(
       Object.entries(response.json<Record<string, string>>()).map(([key, value]) => [
         key,
         value.toLowerCase(),
-      ]),
+      ])
     );
     expect(actual, route.path).toEqual(expected);
     const emitted = requests.slice(start);
     expect(emitted.every((request) => request.method === 'eth_call')).toBe(true);
     const calls = emitted.filter(
       (request) =>
-        request.method === 'eth_call' &&
-        (request.params[0] as { data: Hex }).data !== '0xffffffff',
+        request.method === 'eth_call' && (request.params[0] as { data: Hex }).data !== '0xffffffff'
     );
     expect(calls, route.path).toHaveLength(1);
     expect(calls[0]!.params, route.path).toHaveLength(2);
@@ -270,7 +278,9 @@ async function eip712RoutesTargetServedAddress(): Promise<void> {
   registeredNodeAbi();
   expect(precompiles.PRECOMPILE_ADDRESSES.eip712).toBe(address);
   expect(precompiles.UNSERVED_PRECOMPILES.has('eip712')).toBe(false);
-  expect(() => precompiles.servedAddress('eip712')).not.toThrow(precompiles.PrecompileNotServedError);
+  expect(() => precompiles.servedAddress('eip712')).not.toThrow(
+    precompiles.PrecompileNotServedError
+  );
   expect(precompiles.servedAddress('eip712')).toBe(address);
   const observed = await exerciseEip712Routes();
   expect(observed).toHaveLength(3);
@@ -280,8 +290,8 @@ async function eip712RoutesTargetServedAddress(): Promise<void> {
       (request) =>
         request.method === 'eth_call' &&
         (request.params[0] as { to: string; data: Hex }).to === address &&
-        (request.params[0] as { to: string; data: Hex }).data === '0xffffffff',
-    ),
+        (request.params[0] as { to: string; data: Hex }).data === '0xffffffff'
+    )
   ).toHaveLength(1);
 }
 

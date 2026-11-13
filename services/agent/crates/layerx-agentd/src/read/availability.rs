@@ -36,6 +36,10 @@ impl From<SequencerError> for AvailabilityReadError {
 /// # Errors
 /// Refuses heights above the node's head, propagates RPC failures, and refuses
 /// a transaction count that cannot be represented as a `u64`.
+#[allow(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "Preserve the public API signature used by daemon consumers."
+)]
 pub fn availability(
     endpoint: &SequencerEndpoint,
     request: &AvailabilityRequest,

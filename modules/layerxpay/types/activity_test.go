@@ -65,6 +65,7 @@ func TestMethodActivityMatchesKernelTypes(t *testing.T) {
 		"budgetDelegateSpend":     {"LX_BUDGET_DELEGATE_SPEND", KernelActivity{ActivityBudgetDelegateSpend, BudgetModuleID, 114}},
 		"budgetPull":              {"LX_BUDGET_PULL", KernelActivity{ActivityBudgetPull, BudgetModuleID, 460}},
 		"streamOpen":              {"LX_STREAM_OPEN", KernelActivity{ActivityStreamOpen, StreamModuleID, 0}},
+		"streamOpenForAsk":        {"LX_STREAM_OPEN", KernelActivity{ActivityStreamOpen, StreamModuleID, 236}},
 		"streamTopUp":             {"LX_STREAM_TOP_UP", KernelActivity{ActivityStreamTopUp, StreamModuleID, 50}},
 		"streamMeter":             {"LX_STREAM_METER", KernelActivity{ActivityStreamMeter, StreamModuleID, 138}},
 		"streamSettle":            {"LX_STREAM_SETTLE", KernelActivity{ActivityStreamSettle, StreamModuleID, 66}},
@@ -157,6 +158,14 @@ func TestMethodActivityMatchesKernelTypes(t *testing.T) {
 func TestMethodActivitySharedOrdinals(t *testing.T) {
 	id, account, asset, purpose, key := [32]byte{1}, [32]byte{2}, [32]byte{3}, [32]byte{4}, [32]byte{5}
 	amount := codec.U128{Lo: 10}
+	askOpen, err := EncodeStreamOpen(StreamOpen{
+		StreamID: id, StreamAccount: account, Recipient: purpose, AssetID: asset,
+		Mode: StreamModeMetered, Rate: amount, RateUnit: 1, StartTimestamp: 1,
+		TotalCap: amount, InitialFunding: amount, MeterAuthorities: [][32]byte{key},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	create, err := EncodeBudgetCreate(id, account, asset, purpose, amount, amount, amount, 100, 1, 1000, 1, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -178,6 +187,7 @@ func TestMethodActivitySharedOrdinals(t *testing.T) {
 		want    KernelActivity
 		payload []byte
 	}{
+		{"streamOpenForAsk", KernelActivity{0x00040001, 4, 236}, askOpen},
 		{"escrowCapture", KernelActivity{0x00020002, 2, 80}, EncodeEscrowCapture(id, amount, key)},
 		{"escrowPartialCapture", KernelActivity{0x00020003, 2, 80}, EncodeEscrowCapture(id, amount, key)},
 		{"escrowRelease", KernelActivity{0x00020004, 2, 64}, EncodeEscrowRelease(id, key)},

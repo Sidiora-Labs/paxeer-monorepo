@@ -11,6 +11,10 @@ const RETIRED_INPUTS: [&str; 7] = [
     "LAYERX_INTEROP_RECEIPT_AUTHORITY_TOKEN_FILE",
 ];
 
+/// Checks that the listener uses the active receipt pin and sequencer settings.
+///
+/// # Panics
+/// Panics when an active setting is absent or a retired setting is present.
 pub fn assert_inputs(dir: &Path, names: impl Iterator<Item = String>) {
     for file in [
         "sequencer-public-key",
@@ -40,6 +44,10 @@ pub fn assert_inputs(dir: &Path, names: impl Iterator<Item = String>) {
     assert!(dir.join("receipt-keys.json").is_file());
 }
 
+/// Checks the listener command's configured inputs.
+///
+/// # Panics
+/// Panics when an active setting is absent or a retired setting is present.
 pub fn assert_command(command: &Command, dir: &Path) {
     assert_inputs(
         dir,

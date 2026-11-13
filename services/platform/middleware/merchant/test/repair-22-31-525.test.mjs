@@ -127,12 +127,9 @@ async function repair2231525RefusesTamperedAttemptWithoutChangingPaidOrder(conte
   const tampered = structuredClone(fixture.payload);
   tampered.payload.receiptDigest = `0x${"00".repeat(32)}`;
   assert.notEqual(tampered.payload.receiptDigest, fixture.receipt.receiptDigest);
-  const result = await reopened.checkout(
+  await assert.rejects(reopened.checkout(
     "merchant", "proof", fixture.lines, encodePaymentPayloadHeader(tampered),
-  );
-  assert.equal(result.kind, "refused");
-  assert.deepEqual(result.order, fixture.paid.order);
-  assert.equal(result.order.state, "paid-verified");
+  ), (error) => error.code === "verification-failure");
   assert.deepEqual(await new FileOrders(fixture.ordersDirectory).get("proof"), fixture.paid.order);
   assert.deepEqual(await readdir(fixture.ordersDirectory), orderFiles);
   assert.deepEqual(await Promise.all(orderFiles.map((file) =>

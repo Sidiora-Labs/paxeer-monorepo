@@ -1,16 +1,16 @@
 //! Repair record 22.33.259, audit 22.30.130.
-//! pre-entry-capabilities: pre_entry_start_event, pre_entry_start_storage,
-//! pre_entry_reserve_event, pre_entry_reserve_storage and
-//! pre_entry_start_and_reserve_union prove descriptor binding through the native
+//! pre-entry-capabilities: `pre_entry_start_event`, `pre_entry_start_storage`,
+//! `pre_entry_reserve_event`, `pre_entry_reserve_storage` and
+//! `pre_entry_start_and_reserve_union` prove descriptor binding through the native
 //! byte interface and real execution, including missing-grant refusal/rollback.
-//! linker-timing-assertion: linker_strategies_preserve_complete_composition
+//! linker-timing-assertion: `linker_strategies_preserve_complete_composition`
 //! proves equivalent nine-frame executions and exact linker counts; the existing
 //! validate.rs test also counts actual per-frame host registrations deterministically.
 //! Wiring request: domain 13 owns programs/benches/interpreter.rs; benchmark both
 //! complete linker composition strategies and report sample distributions, without
 //! correctness assertions about universal wall-clock ordering.
 //! Baseline verification was not run: implementation-first order and the explicit
-//! prohibition on running verify_cmd by hand override the conflicting audit step 6.
+//! prohibition on running `verify_cmd` by hand override the conflicting audit step 6.
 //! The gate runner records the verified revision and private evidence location.
 //! Qualification repair: canonical interface collection counts are big-endian u16.
 
@@ -33,12 +33,53 @@ use layerx_programs_runtime::{
 };
 use sha2::{Digest, Sha256};
 
-// Compile the production native descriptor consumer into this gate, which does
-// not enable host-ffi or require a native host binary. Its byte source below is
-// an in-memory activity store, the native interface's committed-fixture peer.
+// Without host-ffi, compile the production descriptor consumer locally. With
+// host-ffi, call the library's exports against the same activity byte source.
+#[cfg(not(feature = "host-ffi"))]
 #[allow(dead_code)]
 #[path = "../src/ffi_interface.rs"]
 mod native_interface;
+
+#[cfg(feature = "host-ffi")]
+mod native_interface {
+    unsafe extern "C" {
+        pub safe fn layerx_programs_account_profile2_guest_admit(requested: u16) -> i32;
+        pub safe fn layerx_programs_abi_transition_admit(current: u16, requested: u16) -> i32;
+        pub safe fn layerx_programs_interface_validate(
+            token: u64,
+            wasm_length: u32,
+            interface_length: u32,
+            prior_length: u32,
+            abi: u16,
+            breaking: u8,
+            h0: u64,
+            h1: u64,
+            h2: u64,
+            h3: u64,
+        ) -> i32;
+    }
+}
+
+#[test]
+fn retain_host_ffi_exports() {
+    assert_eq!(
+        native_interface::layerx_programs_abi_transition_admit(0, 1),
+        0
+    );
+    assert_eq!(
+        native_interface::layerx_programs_abi_transition_admit(1, 0),
+        1
+    );
+    assert_eq!(
+        native_interface::layerx_programs_account_profile2_guest_admit(2),
+        0
+    );
+    assert_eq!(
+        native_interface::layerx_programs_account_profile2_guest_admit(1),
+        1
+    );
+    prove_pre_entry(Some(Effect::Event), None);
+}
 
 std::thread_local! {
     static ACTIVITY: RefCell<Option<(Vec<u8>, Vec<u8>)>> = const { RefCell::new(None) };
@@ -67,11 +108,15 @@ extern "C" fn layerx_programs_interface_activity_byte(
 }
 
 fn program(byte: u8) -> ProgramId {
-    ProgramId::new([byte; 32]).unwrap()
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    ProgramId::new([byte; 32]).assert_success("test value")
 }
 
 fn principal() -> PrincipalId {
-    PrincipalId::new([0x51; 32]).unwrap()
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    PrincipalId::new([0x51; 32]).assert_success("test value")
 }
 
 fn exports(entries: &[(&str, u8, u8)]) -> Vec<u8> {
@@ -193,15 +238,21 @@ fn pre_entry_guest(start: Option<Effect>, reserve: Option<Effect>) -> Vec<u8> {
 // A canonical, single-entry descriptor fixture. The native binder authenticates
 // its code hash against the guest bytes and consumes its capability descriptors.
 fn descriptor_fixture(wasm: &[u8], mask: u16) -> Vec<u8> {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let mut bytes = b"LayerX/program-interface/v1\0".to_vec();
     bytes.extend_from_slice(&Sha256::digest(wasm));
     bytes.extend_from_slice(&1_u16.to_be_bytes());
     bytes.extend_from_slice(&1_u16.to_be_bytes());
-    bytes.extend_from_slice(&(CALL_ENTRY_EXPORT.len() as u16).to_be_bytes());
+    bytes.extend_from_slice(
+        &(u16::try_from(CALL_ENTRY_EXPORT.len()).assert_success("fixture fits u16")).to_be_bytes(),
+    );
     bytes.extend_from_slice(CALL_ENTRY_EXPORT.as_bytes());
     bytes.extend([1, 2, 3, 4]);
     bytes.extend([1, 0x10, 1, 0x10]); // LayerX u8 input and output schemas.
-    bytes.extend_from_slice(&(mask.count_ones() as u16).to_be_bytes());
+    bytes.extend_from_slice(
+        &(u16::try_from(mask.count_ones()).assert_success("fixture fits u16")).to_be_bytes(),
+    );
     for bit in 0..12 {
         if mask & (1 << bit) != 0 {
             bytes.push(bit);
@@ -213,16 +264,18 @@ fn descriptor_fixture(wasm: &[u8], mask: u16) -> Vec<u8> {
 }
 
 fn bind_descriptor(wasm: &[u8], descriptor: &[u8]) -> i32 {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let hash: [u8; 32] = Sha256::digest(wasm).into();
     let words: Vec<_> = hash
         .chunks_exact(8)
-        .map(|word| u64::from_be_bytes(word.try_into().unwrap()))
+        .map(|word| u64::from_be_bytes(word.try_into().assert_success("test value")))
         .collect();
     ACTIVITY.with(|slot| *slot.borrow_mut() = Some((wasm.to_vec(), descriptor.to_vec())));
     let result = native_interface::layerx_programs_interface_validate(
         1,
-        wasm.len() as u32,
-        descriptor.len() as u32,
+        u32::try_from(wasm.len()).assert_success("fixture fits u32"),
+        u32::try_from(descriptor.len()).assert_success("fixture fits u32"),
         0,
         1,
         0,
@@ -270,38 +323,18 @@ fn execute(
 }
 
 fn prove_pre_entry(start: Option<Effect>, reserve: Option<Effect>) {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let wasm = pre_entry_guest(start, reserve);
-    let engine = WasmEngine::declared().unwrap();
-    let module = engine.validate(&wasm).unwrap();
+    let engine = WasmEngine::declared().assert_success("test value");
+    let module = engine.validate(&wasm).assert_success("test value");
     let required = start
         .into_iter()
         .chain(reserve)
         .fold(0, |mask, effect| mask | effect.mask());
-    for entry in [CALL_ENTRY_EXPORT, "other"] {
-        assert!(module.supports_interface_entrypoint(entry));
-        assert_eq!(
-            module.required_interface_capability_mask(entry),
-            Some(required)
-        );
-        assert!(module.interface_capability_mask_matches(entry, required));
-    }
-    assert_eq!(module.required_interface_capability_mask("absent"), None);
-    let descriptor = descriptor_fixture(&wasm, required);
-    let bindings = BindingGenerator::from_interface(&descriptor).unwrap();
-    bindings
-        .require_code_hash(Sha256::digest(&wasm).into())
-        .unwrap();
-    assert_eq!(bind_descriptor(&wasm, &descriptor), 0);
-    assert_eq!(bind_descriptor(&wasm, &descriptor_fixture(&wasm, 0)), -3);
-    assert_eq!(
-        bind_descriptor(&wasm, &descriptor_fixture(&wasm, required | 1)),
-        -3
-    );
-    let mut altered = wasm.clone();
-    altered.extend(raw_section(0, &[1, b'x']));
-    assert_eq!(bind_descriptor(&altered, &descriptor), -213);
-
-    let grants = CapabilitySet::new(start.into_iter().chain(reserve).map(Effect::grant)).unwrap();
+    assert_pre_entry_descriptor(&wasm, &module, required);
+    let grants = CapabilitySet::new(start.into_iter().chain(reserve).map(Effect::grant))
+        .assert_success("test value");
     let mut storage = Storage::new();
     let record = execute(
         &module,
@@ -311,7 +344,7 @@ fn prove_pre_entry(start: Option<Effect>, reserve: Option<Effect>) {
         CALL_ENTRY_EXPORT,
         CompositionContext::isolated(),
     )
-    .unwrap();
+    .assert_success("test value");
     assert_eq!(record.execution.outputs, vec![WasmValue::I32(0)]);
     let events =
         usize::from(start == Some(Effect::Event)) + usize::from(reserve == Some(Effect::Event));
@@ -324,7 +357,10 @@ fn prove_pre_entry(start: Option<Effect>, reserve: Option<Effect>) {
     }
     let namespace = StorageNamespace::principal(program(1), principal());
     assert_eq!(
-        storage.transaction(namespace).read(b"k").unwrap(),
+        storage
+            .transaction(namespace)
+            .read(b"k")
+            .assert_success("test value"),
         (required & Effect::Storage.mask() != 0).then(|| b"v".to_vec())
     );
     for missing in start.into_iter().chain(reserve) {
@@ -335,18 +371,19 @@ fn prove_pre_entry(start: Option<Effect>, reserve: Option<Effect>) {
                 .filter(|effect| *effect != missing)
                 .map(Effect::grant),
         )
-        .unwrap();
+        .assert_success("test value");
         let mut denied = Storage::new();
         let before = denied.clone();
-        let error = execute(
+        let Err(error) = execute(
             &module,
             &mut denied,
             reduced,
             &[1],
             CALL_ENTRY_EXPORT,
             CompositionContext::isolated(),
-        )
-        .unwrap_err();
+        ) else {
+            panic!("missing capability must refuse pre-entry execution");
+        };
         if start == Some(missing) {
             assert_eq!(
                 error,
@@ -376,9 +413,40 @@ fn prove_pre_entry(start: Option<Effect>, reserve: Option<Effect>) {
         "other",
         CompositionContext::isolated(),
     )
-    .unwrap();
+    .assert_success("test value");
     assert_eq!(other.execution.outputs, vec![WasmValue::I32(7)]);
     assert_eq!(other.effects.events.len(), events);
+}
+fn assert_pre_entry_descriptor(
+    wasm: &[u8],
+    module: &layerx_programs_runtime::ValidatedModule,
+    required: u16,
+) {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    for entry in [CALL_ENTRY_EXPORT, "other"] {
+        assert!(module.supports_interface_entrypoint(entry));
+        assert_eq!(
+            module.required_interface_capability_mask(entry),
+            Some(required)
+        );
+        assert!(module.interface_capability_mask_matches(entry, required));
+    }
+    assert_eq!(module.required_interface_capability_mask("absent"), None);
+    let descriptor = descriptor_fixture(wasm, required);
+    let bindings = BindingGenerator::from_interface(&descriptor).assert_success("test value");
+    bindings
+        .require_code_hash(Sha256::digest(wasm).into())
+        .assert_success("test value");
+    assert_eq!(bind_descriptor(wasm, &descriptor), 0);
+    assert_eq!(bind_descriptor(wasm, &descriptor_fixture(wasm, 0)), -3);
+    assert_eq!(
+        bind_descriptor(wasm, &descriptor_fixture(wasm, required | 1)),
+        -3
+    );
+    let mut altered = wasm.to_vec();
+    altered.extend(raw_section(0, &[1, b'x']));
+    assert_eq!(bind_descriptor(&altered, &descriptor), -213);
 }
 
 #[test]
@@ -408,10 +476,12 @@ fn pre_entry_start_and_reserve_union() {
 
 #[test]
 fn pre_entry_empty_input_skips_reserve_effects() {
-    let engine = WasmEngine::declared().unwrap();
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    let engine = WasmEngine::declared().assert_success("test value");
     let module = engine
         .validate(&pre_entry_guest(None, Some(Effect::Event)))
-        .unwrap();
+        .assert_success("test value");
     assert_eq!(
         module.required_interface_capability_mask(CALL_ENTRY_EXPORT),
         Some(1 << 4)
@@ -424,20 +494,23 @@ fn pre_entry_empty_input_skips_reserve_effects() {
         CALL_ENTRY_EXPORT,
         CompositionContext::isolated(),
     )
-    .unwrap();
+    .assert_success("test value");
     assert_eq!(record.execution.outputs, vec![WasmValue::I32(0)]);
     assert!(record.effects.events.is_empty());
 }
 
 fn call_grants(ids: &[ProgramId]) -> CapabilitySet {
-    CapabilitySet::new(ids.iter().map(|id| Capability::Call { program: *id })).unwrap()
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    CapabilitySet::new(ids.iter().map(|id| Capability::Call { program: *id }))
+        .assert_success("test value")
 }
 
 fn push_i32(body: &mut Vec<u8>, value: i32) {
     body.push(0x41);
     let mut value = i64::from(value);
     loop {
-        let byte = (value & 0x7f) as u8;
+        let byte = value.to_le_bytes()[0] & 0x7f;
         value >>= 7;
         let done = (value == 0 && byte & 0x40 == 0) || (value == -1 && byte & 0x40 != 0);
         body.push(if done { byte } else { byte | 0x80 });
@@ -447,7 +520,9 @@ fn push_i32(body: &mut Vec<u8>, value: i32) {
     }
 }
 
-fn composition_frame(callee: Option<ProgramId>, requested: CapabilitySet) -> Vec<u8> {
+fn composition_frame(callee: Option<ProgramId>, requested: &CapabilitySet) -> Vec<u8> {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let Some(callee) = callee else {
         return module(&[
             type_section(&[(&[TYPE_I32; 2], &[TYPE_I32])]),
@@ -458,7 +533,14 @@ fn composition_frame(callee: Option<ProgramId>, requested: CapabilitySet) -> Vec
     };
     let encoding = requested.canonical_encoding();
     let mut body = Vec::new();
-    for value in [0, 32, 32, 0, 32, encoding.len() as i32] {
+    for value in [
+        0,
+        32,
+        32,
+        0,
+        32,
+        i32::try_from(encoding.len()).assert_success("fixture fits i32"),
+    ] {
         push_i32(&mut body, value);
     }
     body.extend([0x10, 0, 0x0b]);
@@ -474,27 +556,29 @@ fn composition_frame(callee: Option<ProgramId>, requested: CapabilitySet) -> Vec
 }
 
 fn complete_composition(separate_linkers: bool) -> (AuthorizedExecutionRecord, usize) {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let before = host_linker_constructions_on_current_thread();
     let ids: Vec<_> = (1..=9).map(program).collect();
     let frames: Vec<_> = (0..ids.len())
         .map(|i| {
             composition_frame(
                 ids.get(i + 1).copied(),
-                call_grants(&ids[(i + 2).min(ids.len())..]),
+                &call_grants(&ids[(i + 2).min(ids.len())..]),
             )
         })
         .collect();
-    let engine = WasmEngine::declared().unwrap();
-    let root = engine.validate(&frames[0]).unwrap();
+    let engine = WasmEngine::declared().assert_success("test value");
+    let root = engine.validate(&frames[0]).assert_success("test value");
     let mut catalog = ProgramCatalog::new();
     let mut constructions = engine.host_linker_construction_count();
     for (id, wasm) in ids[1..].iter().zip(&frames[1..]) {
         let child = if separate_linkers {
-            let independent = WasmEngine::declared().unwrap();
+            let independent = WasmEngine::declared().assert_success("test value");
             constructions += independent.host_linker_construction_count();
-            independent.validate(wasm).unwrap()
+            independent.validate(wasm).assert_success("test value")
         } else {
-            engine.validate(wasm).unwrap()
+            engine.validate(wasm).assert_success("test value")
         };
         assert_eq!(child.host_linker_construction_count(), 1);
         assert_eq!(
@@ -512,7 +596,7 @@ fn complete_composition(separate_linkers: bool) -> (AuthorizedExecutionRecord, u
         CALL_ENTRY_EXPORT,
         CompositionContext::catalog(catalog, CompositionRules::declared()),
     )
-    .unwrap();
+    .assert_success("test value");
     assert_eq!(storage, Storage::new());
     assert_eq!(engine.host_linker_construction_count(), 1);
     assert_eq!(

@@ -1,0 +1,51 @@
+[meta]
+task = "22.39.348"
+base_revision = "a61b1b58f6493189bfb383cd953820d52e35fa2e"
+decision = "3214"
+gotcha = "4136"
+verified_revision_source = "The revision field of this task's final hf-done evidence in /out/run/gates.jsonl identifies the candidate containing this repair record."
+
+[site.decode]
+file = "services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs"
+symbol = "FeeOnlyLifecycle::decode"
+original_line = 379
+error = "E0261: test-only decode refers to undeclared lifetime 'a after the impl changed to FeeOnlyLifecycle<'_>."
+change = "Declare 'a on decode and return FeeOnlyLifecycle<'a> using its constructors, binding decoded payload borrows to the input lifetime."
+
+[site.committed_exit]
+file = "services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs"
+symbol = "committed_wind_down_amount_uses_prestate_balance_and_preserves_both_maxima"
+original_line = 1312
+error = "E0308: add_actual requires &ProgramExecutedDebit but the retained-maximum refusal assertion passes an owned debit."
+change = "Borrow debit at the caller and retain the exact UnreservedDebit assertion and maximum."
+
+[site.committed_fee]
+file = "services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs"
+symbol = "committed_lifecycle_fee_retains_allocation_maximum"
+original_line = 1387
+error = "E0308: add_actual requires &ProgramExecutedDebit but the allocation-maximum refusal assertion passes an owned fee."
+change = "Borrow fee at the caller and retain the exact UnreservedDebit assertion and maximum."
+
+[site.actual_exit]
+file = "services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs"
+symbol = "actual_exit_balance_and_incoming_credit_obey_signed_and_retained_maxima"
+original_line = 1421
+error = "E0308: add_actual requires &ProgramExecutedDebit but the retained-maximum refusal assertion passes an owned debit."
+change = "Borrow debit at the caller and retain the error assertion and maximum."
+
+[site.history_refusal]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "native_policy_usage_refuses_a_page_without_a_proof"
+original_line = 22171
+error = "E0308: policy_history_refusal requires &HistoryReadError but the refusal assertion passes an owned error."
+change = "Borrow error at the caller and preserve the real history-reader call, error code, refusal and RPC assertions."
+
+[qualification]
+build = "hf-build"
+verify = "hf-done"
+all_targets_command = "cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --all-targets"
+all_targets_result_source = "The final hf-done /out/logs/verify-*.log records this command's output; the chained verification proceeds to the settlement tests only if the all-targets check exits zero."
+settlement_test_filter = "program_lifecycle_settlement"
+history_test_filter = "native_policy_usage_refuses_a_page_without_a_proof"
+evidence = "/out/run/gates.jsonl"
+result = "Qualification is determined by the final hf-done ledger entry, including revision, command, exit and private log; no gate result is asserted before execution."

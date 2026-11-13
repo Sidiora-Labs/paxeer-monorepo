@@ -185,7 +185,7 @@ fn start(directory: &Path, certificate: &str, key: &str) -> (Boundary, u16) {
     );
     assert!(
         executable.is_file(),
-        "producer input (decision 2325): build layerx-paxeer-boundary from services/platform/Cargo.toml before public_http_uses_system_trust_and_checks_server_identity"
+        "the real TLS boundary binary must be available for the trust check"
     );
     let mut command = Command::new(executable);
     for (name, _) in std::env::vars_os() {
@@ -207,7 +207,11 @@ fn start(directory: &Path, certificate: &str, key: &str) -> (Boundary, u16) {
         .spawn()
         .unwrap_or_else(|error| panic!("start real TLS boundary: {error}"));
     let mut boundary = Boundary(process);
-    let stdout = boundary.0.stdout.take().expect("boundary stdout pipe");
+    let stdout = boundary
+        .0
+        .stdout
+        .take()
+        .unwrap_or_else(|| panic!("boundary stdout pipe"));
     let (sender, receiver) = mpsc::channel();
     std::thread::spawn(move || {
         let mut line = String::new();

@@ -102,7 +102,9 @@ fn expected_asset() -> PxAssetEntry {
     }
 }
 
-fn fields(value: Value) -> Map<String, Value> {
+type ReadExchanges = Vec<(&'static str, Value)>;
+
+fn fields(value: &Value) -> Map<String, Value> {
     value.as_object().must().clone()
 }
 
@@ -134,6 +136,98 @@ fn account_and_balances_read_px_methods_and_decode_every_field() {
             {"denom": "other", "amount": "0"}
         ]
     });
+    let (exchanges, bad_accounts, bad_balances) =
+        account_read_exchanges(&account_result, &balances_result);
+
+    let (url, handle) = serve(exchanges);
+    let endpoint = PxEndpoint::from(SequencerEndpoint::new(&url, &[]).must());
+    assert_eq!(
+        endpoint.account(&account).must(),
+        PxAccountJoin {
+            account: expected_identities(),
+            paxeer: Some(PxPaxeerAccount {
+                address: [0x12; 20],
+                balance: Uint256::from_decimal(&u128::MAX.to_string()).must(),
+                nonce: u64::MAX,
+                height: 150
+            }),
+            layerx: Some(fields(&native)),
+        }
+    );
+    assert_eq!(
+        endpoint.balances(&account).must(),
+        PxAccountBalances {
+            account: expected_identities(),
+            height: 150,
+            balances: vec![
+                PxAssetBalance {
+                    denom: "upax".to_owned(),
+                    amount: Uint256::from_decimal(&u128::MAX.to_string()).must()
+                },
+                PxAssetBalance {
+                    denom: "other".to_owned(),
+                    amount: Uint256::from_decimal("0").must()
+                }
+            ],
+        }
+    );
+    for _ in 0..bad_accounts {
+        assert_eq!(endpoint.account(&account), Err(SequencerError::Malformed));
+    }
+    for _ in 0..bad_balances {
+        assert_eq!(endpoint.balances(&account), Err(SequencerError::Malformed));
+    }
+    assert_eq!(
+        endpoint.account(&account).must(),
+        PxAccountJoin {
+            account: expected_identities(),
+            paxeer: Some(PxPaxeerAccount {
+                address: [0x12; 20],
+                balance: Uint256::from_decimal(&u128::MAX.to_string()).must(),
+                nonce: u64::MAX,
+                height: 150
+            }),
+            layerx: None,
+        }
+    );
+    assert_unbound_account_reads(&endpoint, &account);
+    let seen = handle.join().must();
+    assert_eq!(seen.len(), 5 + bad_accounts + bad_balances);
+    for params in seen {
+        assert_eq!(params, json!([account]));
+    }
+}
+
+fn assert_unbound_account_reads(endpoint: &PxEndpoint, account: &str) {
+    let empty_identities = PxResolvedIdentities {
+        evm_address: None,
+        pax_address: None,
+        layerx_did: None,
+        layerx_account: None,
+        bound: false,
+    };
+    assert_eq!(
+        endpoint.account(account).must(),
+        PxAccountJoin {
+            account: empty_identities.clone(),
+            paxeer: None,
+            layerx: None
+        }
+    );
+    assert_eq!(
+        endpoint.balances(account).must(),
+        PxAccountBalances {
+            account: empty_identities,
+            balances: vec![],
+            height: 151
+        }
+    );
+}
+
+fn account_read_exchanges(
+    account_result: &Value,
+    balances_result: &Value,
+) -> (ReadExchanges, usize, usize) {
     let mut exchanges = vec![
         ("px_getAccount", account_result.clone()),
         ("px_getBalances", balances_result.clone()),
@@ -201,85 +295,7 @@ fn account_and_balances_read_px_methods_and_decode_every_field() {
         json!({"account": unbound, "balances": [], "height": 151}),
     ));
 
-    let (url, handle) = serve(exchanges);
-    let endpoint = PxEndpoint::from(SequencerEndpoint::new(&url, &[]).must());
-    assert_eq!(
-        endpoint.account(&account).must(),
-        PxAccountJoin {
-            account: expected_identities(),
-            paxeer: Some(PxPaxeerAccount {
-                address: [0x12; 20],
-                balance: Uint256::from_decimal(&u128::MAX.to_string()).must(),
-                nonce: u64::MAX,
-                height: 150
-            }),
-            layerx: Some(fields(native)),
-        }
-    );
-    assert_eq!(
-        endpoint.balances(&account).must(),
-        PxAccountBalances {
-            account: expected_identities(),
-            height: 150,
-            balances: vec![
-                PxAssetBalance {
-                    denom: "upax".to_owned(),
-                    amount: Uint256::from_decimal(&u128::MAX.to_string()).must()
-                },
-                PxAssetBalance {
-                    denom: "other".to_owned(),
-                    amount: Uint256::from_decimal("0").must()
-                }
-            ],
-        }
-    );
-    for _ in 0..bad_accounts {
-        assert_eq!(endpoint.account(&account), Err(SequencerError::Malformed));
-    }
-    for _ in 0..bad_balances {
-        assert_eq!(endpoint.balances(&account), Err(SequencerError::Malformed));
-    }
-    assert_eq!(
-        endpoint.account(&account).must(),
-        PxAccountJoin {
-            account: expected_identities(),
-            paxeer: Some(PxPaxeerAccount {
-                address: [0x12; 20],
-                balance: Uint256::from_decimal(&u128::MAX.to_string()).must(),
-                nonce: u64::MAX,
-                height: 150
-            }),
-            layerx: None,
-        }
-    );
-    let empty_identities = PxResolvedIdentities {
-        evm_address: None,
-        pax_address: None,
-        layerx_did: None,
-        layerx_account: None,
-        bound: false,
-    };
-    assert_eq!(
-        endpoint.account(&account).must(),
-        PxAccountJoin {
-            account: empty_identities.clone(),
-            paxeer: None,
-            layerx: None
-        }
-    );
-    assert_eq!(
-        endpoint.balances(&account).must(),
-        PxAccountBalances {
-            account: empty_identities,
-            balances: vec![],
-            height: 151
-        }
-    );
-    let seen = handle.join().must();
-    assert_eq!(seen.len(), 5 + bad_accounts + bad_balances);
-    for params in seen {
-        assert_eq!(params, json!([account]));
-    }
+    (exchanges, bad_accounts, bad_balances)
 }
 
 #[test]
@@ -291,69 +307,8 @@ fn list_assets_and_network_read_px_methods_and_refuse_anchor_fields() {
     let network = json!({"network_id": "paxeer:mainnet", "paxeer": {"chain_id": "0x7d", "latest_block": "0x10"},
                          "consensus": {"latest_height": 9, "latest_block_hash": "12".repeat(32),
                                        "latest_app_hash": "34".repeat(32), "catching_up": false}});
-    let mut exchanges = vec![
-        ("px_listAssets", assets.clone()),
-        ("px_getNetwork", network.clone()),
-    ];
-    for anchor in [
-        Value::Null,
-        json!({"latest_finalized_batch": 9}),
-        json!(false),
-    ] {
-        let mut malformed = network.clone();
-        malformed["anchor"] = anchor;
-        exchanges.push(("px_getNetwork", malformed));
-    }
-    for name in ["network_id", "paxeer", "consensus"] {
-        let mut malformed = network.clone();
-        malformed.as_object_mut().must().remove(name);
-        exchanges.push(("px_getNetwork", malformed));
-    }
-    for (path, invalid) in [
-        ("/consensus/latest_height", json!(17)),
-        ("/paxeer/chain_id", json!("18446744073709551616")),
-        ("/paxeer/latest_block", json!("0x")),
-    ] {
-        let mut malformed = network.clone();
-        *malformed.pointer_mut(path).must() = invalid;
-        exchanges.push(("px_getNetwork", malformed));
-    }
-    let mut malformed = network.clone();
-    malformed["layerx"] = json!([]);
-    exchanges.push(("px_getNetwork", malformed));
-    let bad_networks = exchanges.len() - 2;
-    for name in ["assets", "joined_limit", "height"] {
-        let mut malformed = assets.clone();
-        malformed.as_object_mut().must().remove(name);
-        exchanges.push(("px_listAssets", malformed));
-    }
-    for name in [
-        "asset_id", "kind", "denom", "name", "symbol", "decimals", "supply",
-    ] {
-        let mut malformed = assets.clone();
-        malformed["assets"][0].as_object_mut().must().remove(name);
-        exchanges.push(("px_listAssets", malformed));
-    }
-    let mut malformed = assets.clone();
-    malformed["assets"][0]["paused"] = json!("true");
-    exchanges.push(("px_listAssets", malformed));
-    let mut malformed = assets.clone();
-    malformed["assets"][0]["name"] = json!([]);
-    exchanges.push(("px_listAssets", malformed));
-    let mut malformed = assets;
-    malformed["assets"] = json!(vec![Value::Null; 1025]);
-    exchanges.push(("px_listAssets", malformed));
-    let bad_assets = exchanges.len() - 2 - bad_networks;
-    let mut no_native = network.clone();
-    no_native["layerx"] = Value::Null;
-    exchanges.push(("px_getNetwork", no_native));
-    let mut with_native = network;
-    with_native["layerx"] = native_head.clone();
-    exchanges.push(("px_getNetwork", with_native));
-    exchanges.push((
-        "px_listAssets",
-        json!({"assets": [], "height": 151, "joined_limit": 16}),
-    ));
+    let (exchanges, bad_networks, bad_assets) =
+        network_read_exchanges(&assets, &network, &native_head);
 
     let (url, handle) = serve(exchanges);
     let endpoint = PxEndpoint::new(&url, &[]).must();
@@ -404,7 +359,7 @@ fn list_assets_and_network_read_px_methods_and_refuse_anchor_fields() {
     assert_eq!(
         endpoint.network().must(),
         PxNetworkHead {
-            layerx: Some(fields(native_head)),
+            layerx: Some(fields(&native_head)),
             ..expected_head
         }
     );
@@ -421,6 +376,78 @@ fn list_assets_and_network_read_px_methods_and_refuse_anchor_fields() {
     for params in seen {
         assert_eq!(params, json!([]));
     }
+}
+
+fn network_read_exchanges(
+    assets: &Value,
+    network: &Value,
+    native_head: &Value,
+) -> (ReadExchanges, usize, usize) {
+    let mut exchanges = vec![
+        ("px_listAssets", assets.clone()),
+        ("px_getNetwork", network.clone()),
+    ];
+    for anchor in [
+        Value::Null,
+        json!({"latest_finalized_batch": 9}),
+        json!(false),
+    ] {
+        let mut malformed = network.clone();
+        malformed["anchor"] = anchor;
+        exchanges.push(("px_getNetwork", malformed));
+    }
+    for name in ["network_id", "paxeer", "consensus"] {
+        let mut malformed = network.clone();
+        malformed.as_object_mut().must().remove(name);
+        exchanges.push(("px_getNetwork", malformed));
+    }
+    for (path, invalid) in [
+        ("/consensus/latest_height", json!(17)),
+        ("/paxeer/chain_id", json!("18446744073709551616")),
+        ("/paxeer/latest_block", json!("0x")),
+    ] {
+        let mut malformed = network.clone();
+        *malformed.pointer_mut(path).must() = invalid;
+        exchanges.push(("px_getNetwork", malformed));
+    }
+    let mut malformed = network.clone();
+    malformed["layerx"] = json!([]);
+    exchanges.push(("px_getNetwork", malformed));
+    let bad_networks = exchanges.len() - 2;
+    for name in ["assets", "joined_limit", "height"] {
+        let mut malformed = assets.clone();
+        malformed.as_object_mut().must().remove(name);
+        exchanges.push(("px_listAssets", malformed));
+    }
+    for name in [
+        "asset_id", "kind", "denom", "name", "symbol", "decimals", "supply",
+    ] {
+        let mut malformed = assets.clone();
+        malformed["assets"][0].as_object_mut().must().remove(name);
+        exchanges.push(("px_listAssets", malformed));
+    }
+    let mut malformed = assets.clone();
+    malformed["assets"][0]["paused"] = json!("true");
+    exchanges.push(("px_listAssets", malformed));
+    let mut malformed = assets.clone();
+    malformed["assets"][0]["name"] = json!([]);
+    exchanges.push(("px_listAssets", malformed));
+    let mut malformed = assets.clone();
+    malformed["assets"] = json!(vec![Value::Null; 1025]);
+    exchanges.push(("px_listAssets", malformed));
+    let bad_assets = exchanges.len() - 2 - bad_networks;
+    let mut no_native = network.clone();
+    no_native["layerx"] = Value::Null;
+    exchanges.push(("px_getNetwork", no_native));
+    let mut with_native = network.clone();
+    with_native["layerx"] = native_head.clone();
+    exchanges.push(("px_getNetwork", with_native));
+    exchanges.push((
+        "px_listAssets",
+        json!({"assets": [], "height": 151, "joined_limit": 16}),
+    ));
+
+    (exchanges, bad_networks, bad_assets)
 }
 
 #[test]

@@ -46,13 +46,13 @@ func readManifest(path, digest string) (coverage.MeasurementManifest, error) {
 	if path == "" {
 		return coverage.MeasurementManifest{}, errors.New("measurement manifest path required")
 	}
-	file, err := os.Open(path)
+	file, err := os.Open(path) //nolint:gosec // The caller selects the reviewed manifest path.
 	if err != nil {
 		return coverage.MeasurementManifest{}, errors.New("measurement manifest unavailable")
 	}
-	defer file.Close()
-	raw, err := io.ReadAll(io.LimitReader(file, coverage.MaxMeasurementInput+1))
-	if err != nil {
+	raw, readErr := io.ReadAll(io.LimitReader(file, coverage.MaxMeasurementInput+1))
+	closeErr := file.Close()
+	if readErr != nil || closeErr != nil {
 		return coverage.MeasurementManifest{}, errors.New("measurement manifest unreadable")
 	}
 	return coverage.ReadMeasurementManifest(raw, digest)
@@ -82,17 +82,15 @@ func writeExclusive(path string, value any) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600) //nolint:gosec // The caller selects the output directory.
 	if err != nil {
 		return "", fmt.Errorf("output unavailable: %s", path)
 	}
 	if _, err = file.Write(encoded); err != nil {
-		file.Close()
-		return "", fmt.Errorf("output write failed: %s", path)
+		return "", errors.Join(fmt.Errorf("output write failed: %s", path), file.Close())
 	}
 	if err = file.Sync(); err != nil {
-		file.Close()
-		return "", fmt.Errorf("output sync failed: %s", path)
+		return "", errors.Join(fmt.Errorf("output sync failed: %s", path), file.Close())
 	}
 	if err = file.Close(); err != nil {
 		return "", fmt.Errorf("output close failed: %s", path)
@@ -102,6 +100,10 @@ func writeExclusive(path string, value any) (string, error) {
 }
 
 func run() (bool, error) {
+	return runMeasurement(nil)
+}
+
+func runMeasurement(historyComplete func()) (bool, error) {
 	manifestPath := flag.String("manifest", "", "Reviewed measurement manifest JSON")
 	manifestDigest := flag.String("manifest-sha256", "", "Reviewed measurement manifest file SHA256")
 	outputDir := flag.String("output-dir", "", "Private directory for raw-history.json and measurement.json")
@@ -146,6 +148,9 @@ func run() (bool, error) {
 	replay, err := coverage.ReplayHistorical(ctx, source, input, capture)
 	if err != nil {
 		return false, err
+	}
+	if historyComplete != nil {
+		historyComplete()
 	}
 	burst, err := coverage.MeasureDecoderBurst(ctx, registry, capture)
 	if err != nil {

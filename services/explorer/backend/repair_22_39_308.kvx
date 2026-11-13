@@ -1,0 +1,150 @@
+[meta]
+task = "22.39.308"
+acceptance = "22998.1"
+base_revision = "2ce65ef1b65c7b37530e7fcccde49f13209ca848"
+revision = "refs/heads/task/22.39.308"
+revision_resolution = "hf-done installs its immutable candidate at HEAD on this task branch before verification; the exact resolved revision, command, exit and private log are retained in /out/run/gates.jsonl and reported by the gate."
+build_command = "cd services/explorer/backend && mix deps.get && mix compile"
+verify_command = "test -s services/explorer/backend/repair_22_39_308.kvx && cd services/explorer/backend && mix test apps/explorer/test/explorer/chain/paxeer_x/committed_vectors_test.exs apps/explorer/test/explorer/chain/paxeer_x/status_committed_test.exs apps/explorer/test/explorer/chain/paxeer_x/status_test.exs apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs"
+evidence = "/out/logs/build-1.log; /out/logs/verify-1.log; authoritative gate ledger /out/run/gates.jsonl"
+
+[inventory.governed]
+producer = "receipt_vectors.json#sequencer; rpc/sequencer_receipt_vectors_test.go"
+key_id = "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b"
+public_key = "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e"
+first_height = 1000
+last_height = 1999
+observed = "The non-digest identifier and both bounds satisfy governed_keys. V1/V2 receipt heights 1000..1002 are covered. V3 deliberately names another key, height 2000, altered activity/log/sequence data or non-canonical bytes."
+repair = "Configure the independently pinned recording before presenting discovered keys; retain every signed byte, ID, height and expected R1-R8 outcome."
+
+[inventory.daemon]
+producer = "committed_vectors.json#cases; daemon/committed-fixture/vectors/vector-v4-committed.json"
+key_id = "0x9fe7d4491a2dfba1b61b8b5283b486fa92b3e90b8a29d7e4ff7f0ed89e389d9b"
+public_key = "0x98bcc99e26fda009118f88f4a01864c65bd40cb2064c2cde3b156fde2f71804c"
+first_height = 10
+last_height = 10
+observed = "The SHA256 public-key identifier and both bounds satisfy governed_keys; the recorded landing and signed receipt height are 10, not 1000."
+repair = "Configure the positive recording's pin and validator checkpoint independently of each candidate. Preserve complete batch transaction/proof and inclusion evidence through verify/4; expect the recorded height 10. Correct obsolete fixture provenance claiming digest identity is mandatory."
+
+[inventory.kernel]
+producer = "receipt_vectors.json#receipts; kernel_key/2 and verify_kernel/1 in the affected tests"
+key_id = "0x2929292929292929292929292929292929292929292929292929292929292929"
+first_height_before = 0
+first_height_after = 1
+last_height = 18446744073709551615
+observed = "The context identifier is a valid non-zero governance identifier. The locally built first_height=0 violates first>0; uint64_max is admitted. Missing configured authority also rejects discovery before signature checking."
+repair = "Build and independently configure positive bounded keys. Preserve invalid kernel batch IDs so valid signatures still stop at height_in_range; altered signatures/bodies reach R2."
+
+[case.1]
+file = "committed_vectors_test.exs"
+case = "committed_vectors_drive_verify"
+refusing_clause = "governed_keys requires nonempty chain_id and receipt_keys configuration; supplying discovered keys alone grants no authority."
+repair = "Install the daemon pin/checkpoint; pass full recorded evidence; assert committed at 10, R7 for earlier landing, R8 for unrelated commit. Assert digest ID and exact 10..10 pin."
+
+[case.2]
+file = "status_committed_test.exs"
+case = "committed_verification_promotes_unindexed_hash"
+refusing_clause = "governed_keys configured trust prerequisite is absent."
+repair = "Install daemon authority and complete inclusion options; assert committed at 10 across absent, zero, below, equal and above heads."
+
+[case.3]
+file = "status_committed_test.exs"
+case = "receipted_verification_stays_receipted"
+refusing_clause = "governed_keys configured trust prerequisite is absent."
+repair = "Install daemon authority; without committed options require receipted for every head around recorded height 10."
+
+[case.4]
+file = "status_test.exs"
+case = "a hash with a verified sequencer receipt and no block is receipted"
+refusing_clause = "governed_keys configured trust prerequisite is absent; the recorded 1000..1999 pin itself is valid."
+repair = "Install governed sequencer pins and restore application configuration after each serial test; retain both known-head and unknown-head receipted assertions."
+
+[case.5]
+file = "status_test.exs"
+case = "a verified sequencer receipt whose block is above the committed head is receipted"
+refusing_clause = "governed_keys configured trust prerequisite is absent."
+repair = "Install governed sequencer authority and retain the receipted rung assertion."
+
+[case.6]
+file = "status_test.exs"
+case = "a bit-flipped receipt body with no block stays submitted"
+refusing_clause = "governed_keys lacks configured pins; the locally built first_height=0 also violates first>0."
+repair = "Build/configure the kernel key with first_height=1 and uint64_max last; retain R2 and submitted assertions."
+
+[case.7]
+file = "status_test.exs"
+case = "a receipt refused at any step cannot promote a rung"
+refusing_clause = "governed_keys configured trust prerequisite masks the recorded V3 R4, R5 and R6 refusals."
+repair = "Install governed sequencer authority; preserve all eight refusal-rung checks and all six exact V3 outcomes."
+
+[case.8]
+file = "sequencer_receipt_test.exs"
+case = "a bit-flipped signature fails R2"
+refusing_clause = "governed_keys lacks configured pins and rejects the locally built first_height=0 before signed_by?."
+repair = "Build/configure the kernel key with first_height=1; retain both direct signature and full verifier R2 assertions."
+
+[case.9]
+file = "sequencer_receipt_test.exs"
+case = "a bit-flipped body fails R2"
+refusing_clause = "governed_keys lacks configured pins and rejects the locally built first_height=0 before signed_by?."
+repair = "Build/configure the kernel key with first_height=1; retain both R2 assertions."
+
+[case.10]
+file = "sequencer_receipt_test.exs"
+case = "a wrong sequencer key fails R3 under its own key id and R2 under the receipt's key id"
+refusing_clause = "governed_keys lacks configured pins and rejects first_height=0; this masks the intended signed_by? R2 under a configured substituted public key."
+repair = "Configure each explicit key as authority with first_height=1; require R3 for context ID mismatch and R2 for wrong public key under the receipt ID."
+
+[case.11]
+file = "sequencer_receipt_test.exs"
+case = "every V1 and V2 receipt decodes, re-encodes byte-exact and verifies receipted"
+refusing_clause = "governed_keys configured trust prerequisite is absent; neither the non-digest ID nor its height interval is invalid."
+repair = "Install governed sequencer pins; retain all accepted vectors, byte equality, digest, activity hash and exact receipted key assertions."
+
+[case.12]
+file = "sequencer_receipt_test.exs"
+case = "every V3 receipt is refused at its named step"
+refusing_clause = "governed_keys configured trust prerequisite masks later R4, R5 and R6 checks."
+repair = "Install authority independently of discovered keys and retain all six named refusal steps, including intentional R3 negatives."
+
+[case.13]
+file = "sequencer_receipt_test.exs"
+case = "a wrong transaction hash fails R4"
+refusing_clause = "governed_keys configured trust prerequisite is absent."
+repair = "Install governed sequencer pins; preserve the alternate raw-transaction hash and exact R4 assertion."
+
+[case.14]
+file = "sequencer_receipt_test.exs"
+case = "an answer field that differs from the receipt bytes fails R5"
+refusing_clause = "governed_keys configured trust prerequisite is absent."
+repair = "Install governed sequencer pins; retain altered gasUsed and exact R5 assertion."
+
+[case.15]
+file = "sequencer_receipt_test.exs"
+case = "a landing block signed by four of four validators verifies committed"
+refusing_clause = "governed_keys configured trust prerequisite is absent; the earlier test additionally supplies an unrelated synthetic height-1000 commit without inclusion evidence."
+repair = "Use the recorded height-10 landing and complete inclusion evidence for committed promotion. Also assert the four-of-four recording verifies independently at 1000 and cannot promote this unrelated receipt (R8). No signatures or receipt bytes are manufactured."
+
+[case.16]
+file = "sequencer_receipt_test.exs"
+case = "R8 refuses the two-of-four commit"
+refusing_clause = "governed_keys configured trust prerequisite masks R8."
+repair = "Use the real landing receipt and full evidence with the two-of-four commit; assert insufficient_voting_power directly and R8 on the full receipt verification."
+
+[case.17]
+file = "sequencer_receipt_test.exs"
+case = "R7 refuses a landing receipt with another gasUsed or a batch that does not cover seq"
+refusing_clause = "governed_keys configured trust prerequisite masks R7."
+repair = "Use complete recorded landing evidence; alter only gasUsed or the string-keyed batch range to exclude recorded sequence 9; preserve both exact R7 assertions."
+
+[regression.1806]
+case = "issue1806_governed_receipt_keys"
+repair = "Keep every tagged assertion unchanged: absent authority, non-digest IDs, restart/reload, restricted configured coverage, substituted keys, invalid IDs/heights, maximum uint64 and tampered signatures. Production guard conditions remain intact."
+
+[regression.kernel_height]
+case = "kernel-layout vectors stop at R3 because their batch_id is not a sequencer height; valid-0 stops at R3 under the full checks and stays submitted with no block"
+repair = "Configure admissible positive-height keys before verification; explicitly assert the kernel batch ID is not a sequencer-height encoding so R3 cannot be explained solely by missing trust."
+
+[gotcha.scope]
+observed = "Recorded fixtures have already advanced to daemon height 10 with authenticated inclusion; old consumers still expect height 1000 and discard the batch transaction and proof."
+repair = "Adapt consumers to the recording and preserve all authentication checks; an otherwise valid independent Comet commit cannot supply receipt inclusion."

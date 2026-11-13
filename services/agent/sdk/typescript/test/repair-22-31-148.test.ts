@@ -148,8 +148,10 @@ interface RecordedHeader {
 }
 interface RecordedCommit {
   readonly Height: number; readonly Round: number; readonly BlockID: RecordedBlockId;
-  readonly Signatures: readonly { readonly BlockIDFlag: 1 | 2 | 3; readonly ValidatorAddress: string;
-    readonly Timestamp: string; readonly Signature: string }[];
+  readonly Signatures: readonly (
+    | { readonly BlockIDFlag: 1; readonly ValidatorAddress: string; readonly Timestamp: string; readonly Signature: null }
+    | { readonly BlockIDFlag: 2 | 3; readonly ValidatorAddress: string; readonly Timestamp: string; readonly Signature: string }
+  )[];
 }
 interface RecordedValidator { readonly PublicKey: readonly number[]; readonly VotingPower: number }
 interface RecordedProof { readonly Total: number; readonly Index: number; readonly Aunts: readonly (readonly number[])[] }
@@ -177,9 +179,14 @@ function header(h: RecordedHeader): CometHeader {
     evidenceHash: base64(h.EvidenceHash), proposerAddress: base64(h.ProposerAddress) };
 }
 function commit(c: RecordedCommit): CommittedReceiptEvidence["commit"] {
-  return { height: BigInt(c.Height), round: c.Round, blockId: blockId(c.BlockID), signatures: c.Signatures.map(s => ({
-    blockIdFlag: s.BlockIDFlag, validatorAddress: base64(s.ValidatorAddress), timestamp: time(s.Timestamp), signature: base64(s.Signature),
-  })) };
+  return { height: BigInt(c.Height), round: c.Round, blockId: blockId(c.BlockID), signatures: c.Signatures.map(s => {
+    if (s.BlockIDFlag === 1) {
+      assert.equal(s.Signature, null, "Comet absent vote carries no signature");
+      assert.equal(s.ValidatorAddress, "", "Comet absent vote carries no validator address");
+      return { blockIdFlag: s.BlockIDFlag, validatorAddress: new Uint8Array(), timestamp: time(s.Timestamp), signature: new Uint8Array() };
+    }
+    return { blockIdFlag: s.BlockIDFlag, validatorAddress: base64(s.ValidatorAddress), timestamp: time(s.Timestamp), signature: base64(s.Signature) };
+  }) };
 }
 function validators(vs: readonly RecordedValidator[]): readonly CometValidator[] {
   return vs.map(v => { const publicKey = Uint8Array.from(v.PublicKey); return {
@@ -187,10 +194,11 @@ function validators(vs: readonly RecordedValidator[]): readonly CometValidator[]
   }; });
 }
 const proof = (p: RecordedProof): CometProof => ({ total: BigInt(p.Total), index: BigInt(p.Index), aunts: p.Aunts.map(a => Uint8Array.from(a)) });
-function evidence(): CommittedReceiptEvidence {
+function evidence(activityIds: readonly Uint8Array[]): NodeCommittedReceiptEvidence {
   const v = committedVector, p = v.receiptInclusion, next = commit(p.NextCommit);
   return { chainId: v.blockHeader.ChainID, landingHeight: next.height, blockId: next.blockId, commit: next, validators: validators(p.NextValidators),
-    inclusion: { executionHeader: header(v.blockHeader), successorHeader: header(p.NextHeader), executionCommit: commit(v.commit), executionValidators: validators(v.validatorSet),
+    header: header(p.NextHeader),
+    inclusion: { activityIds, executionHeader: header(v.blockHeader), successorHeader: header(p.NextHeader), executionCommit: commit(v.commit), executionValidators: validators(v.validatorSet),
       transaction: base64(p.Transaction), transactionProof: proof(p.TransactionProof), batchTransaction: base64(p.BatchTransaction), batchProof: proof(p.BatchProof),
       result: { code: p.Result.Code, data: base64(p.Result.Data), gasWanted: BigInt(p.Result.GasWanted), gasUsed: BigInt(p.Result.GasUsed) }, resultProof: proof(p.ResultProof) } };
 }
@@ -199,7 +207,7 @@ function receiptKeys(): readonly SequencerReceiptKey[] {
   return [{ keyId: unhex(k.keyId), publicKey: unhex(k.publicKey), first_height: BigInt(k.firstHeight), last_height: BigInt(k.lastHeight) }];
 }
 async function commit_inclusion_refuses_unrelated_valid_commit(): Promise<void> {
-  const v = committedVector, verified = await verifySequencerReceipt(unhex(v.signedReceipt), unhex(v.rawTransaction), receiptKeys()), e = evidence(), p = e.inclusion!;
+  const v = committedVector, verified = await verifySequencerReceipt(unhex(v.signedReceipt), unhex(v.rawTransaction), receiptKeys()), e = evidence([verified.receipt.activityId]), p = e.inclusion;
   assert.deepEqual(cometHeaderHash(p.executionHeader), p.executionCommit.blockId.hash);
   assert.deepEqual(cometHeaderHash(p.successorHeader), e.blockId.hash);
   assert.deepEqual(cometCommitHash(p.executionCommit), p.successorHeader.lastCommitHash);
@@ -207,14 +215,21 @@ async function commit_inclusion_refuses_unrelated_valid_commit(): Promise<void> 
   assert.deepEqual(unwrapCometEvmTransaction(p.transaction), unhex(v.rawTransaction));
   const result = await verifyCommittedReceipt(verified, e);
   assert.equal(result.level, "committed"); assert.equal(result.landingHeight, 11n);
-  assert.equal(result.signedPower, result.totalPower);
+  assert.deepEqual(e.validators.map(validator => validator.votingPower), [7_000_000_000n, 1n]);
+  assert.deepEqual(e.commit.signatures.map(signature => signature.blockIdFlag), [2, 1]);
+  assert.equal(result.signedPower, 7_000_000_000n);
+  assert.equal(result.totalPower, 7_000_000_001n);
+  assert.deepEqual(p.activityIds, [verified.receipt.activityId]);
   const nodeEvidence: NodeCommittedReceiptEvidence = { ...e, header: p.successorHeader,
-    inclusion: { ...p, activityIds: [verified.receipt.activityId] } };
+    inclusion: { ...p, activityIds: p.activityIds.map(id => id.slice()) } };
   assert.equal((await verifyCommittedReceipt(verified, nodeEvidence)).level, "committed");
   const unrelatedHeader: NodeCommittedReceiptEvidence = { ...nodeEvidence,
     header: { ...nodeEvidence.header, dataHash: new Uint8Array(32) } };
   const unrelatedActivity: NodeCommittedReceiptEvidence = { ...nodeEvidence,
     inclusion: { ...nodeEvidence.inclusion, activityIds: [new Uint8Array(32)] } };
+  const { activityIds: _activityIds, ...withoutActivityIds } = p;
+  await assert.rejects(verifyCommittedReceipt(verified, { ...e, inclusion: withoutActivityIds }),
+    error => error instanceof SequencerReceiptVerificationError && error.check === "hash_mismatch");
   await assert.rejects(verifyCommittedReceipt(verified, unrelatedHeader));
   await assert.rejects(verifyCommittedReceipt(verified, unrelatedActivity));
   assert.deepEqual(verified.receipt.effects.slice(1).map(effect => effect.body), v.receiptJson.logs.map(logEffect));

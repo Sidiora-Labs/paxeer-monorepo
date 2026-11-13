@@ -54,10 +54,8 @@ const TEMPLATE_MAP: Record<Route['pathname'], string> & Record<'/chains' | '/cha
   '/feed': '%network_name% price feed',
   '/feed/update/[hash]': '%network_name% price update %hash%',
   '/feed/market/[id]': '%network_name% price feed market %id%',
+  '/paxeer-x/inference': '%network_name% inference',
   '/paxeer-x/account/[hash]': '%network_name% Paxeer X account %hash%',
-  '/paxeer-x/anchors': '%network_name% anchor checkpoints',
-  '/paxeer-x/receipts': '%network_name% kernel receipts',
-  '/paxeer-x/receipts/[id]': '%network_name% kernel receipt %id%',
   '/dispute-games': '%network_name% dispute games',
   '/batches': '%network_name% txn batches',
   '/batches/[number]': `%network_name% ${ layerLabels.current } txn batch %number%`,
@@ -110,6 +108,8 @@ const TEMPLATE_MAP: Record<Route['pathname'], string> & Record<'/chains' | '/cha
   '/api/proxy': '%network_name% node API proxy',
   '/api/csrf': '%network_name% node API CSRF token',
   '/api/healthz': '%network_name% node API health check',
+  '/api/assistant': '%network_name% assistant API',
+  '/api/inference': '%network_name% inference API',
   '/api/config': '%network_name% node API app config',
 };
 

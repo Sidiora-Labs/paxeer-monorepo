@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
@@ -13,9 +14,11 @@ import (
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
 	store "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
+	storev2rootmulti "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/storev2/rootmulti"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/legacy/legacytx"
+	storageconfig "github.com/Sidiora-Labs/Paxeer-X-Network/storage/config"
 )
 
 var (
@@ -64,6 +67,36 @@ func setupBaseApp(t *testing.T, options ...func(*BaseApp)) *BaseApp {
 	return app
 }
 
+func newVersionedTestStore(t *testing.T, homeDir string) *storev2rootmulti.Store {
+	t.Helper()
+	scConfig := storageconfig.DefaultStateCommitConfig()
+	scConfig.MemIAVLConfig.SnapshotInterval = 1
+	scConfig.MemIAVLConfig.SnapshotMinTimeInterval = 0
+	scConfig.MemIAVLConfig.AsyncCommitBuffer = 0
+	ssConfig := storageconfig.DefaultStateStoreConfig()
+	ssConfig.AsyncWriteBuffer = 0
+	return storev2rootmulti.NewStore(homeDir, scConfig, ssConfig, nil)
+}
+
+func setupBaseAppWithVersionedState(t *testing.T, options ...func(*BaseApp)) *BaseApp {
+	t.Helper()
+	cms := newVersionedTestStore(t, t.TempDir())
+	options = append([]func(*BaseApp){func(app *BaseApp) { app.SetCMS(cms) }}, options...)
+	app := setupBaseApp(t, options...)
+	t.Cleanup(func() { require.NoError(t, app.Close()) })
+	return app
+}
+
+func requireVersionedTestValue(t *testing.T, app *BaseApp, height int64, storeKey sdk.StoreKey, key, value []byte) {
+	t.Helper()
+	cms := app.cms.(*storev2rootmulti.Store)
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		got, err := cms.GetStateStore().Get(storeKey.Name(), height, key)
+		require.NoError(c, err)
+		require.Equal(c, value, got)
+	}, 5*time.Second, time.Millisecond, "historical state writer must publish the committed value")
+}
+
 func TestLoadVersionPruning(t *testing.T) {
 	pruningOptions := store.PruningOptions{
 		KeepRecent: 2,
@@ -73,7 +106,10 @@ func TestLoadVersionPruning(t *testing.T) {
 	pruningOpt := SetPruning(pruningOptions)
 	db := dbm.NewMemDB()
 	name := t.Name()
-	app := NewBaseApp(name, db, nil, nil, &testutil.TestAppOpts{}, pruningOpt)
+	homeDir := t.TempDir()
+	cmsOpt := func(app *BaseApp) { app.SetCMS(newVersionedTestStore(t, homeDir)) }
+	app := NewBaseApp(name, db, nil, nil, &testutil.TestAppOpts{}, cmsOpt, pruningOpt)
+	t.Cleanup(func() { require.NoError(t, app.Close()) })
 
 	// make a cap key and mount the store
 	capKey := sdk.NewKVStoreKey("key1")
@@ -112,7 +148,8 @@ func TestLoadVersionPruning(t *testing.T) {
 	}
 
 	// reload with LoadLatestVersion, check it loads last version
-	app = NewBaseApp(name, db, nil, nil, &testutil.TestAppOpts{}, pruningOpt)
+	require.NoError(t, app.Close())
+	app = NewBaseApp(name, dbm.NewMemDB(), nil, nil, &testutil.TestAppOpts{}, cmsOpt, pruningOpt)
 	app.MountStores(capKey)
 
 	err = app.LoadLatestVersion()

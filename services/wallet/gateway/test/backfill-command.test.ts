@@ -80,6 +80,10 @@ function attestorEnv(): NodeJS.ProcessEnv {
     ATTESTOR_CA_FILE: net.pki.caFile,
     ATTESTOR_QUORUM: '3',
     ATTESTOR_TIMEOUT_MS: String(LONG),
+    WALLET_IDENTITY_BINDING_PRIVATE_KEY_FILE: net.authority.producerKeyFile,
+    WALLET_IDENTITY_BINDING_TENANT: net.authority.tenant,
+    WALLET_CUSTODY_INVENTORY_FILE: net.authority.inventoryFile,
+    WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE: net.authority.inventoryPublicKeyFile,
   };
 }
 
@@ -171,12 +175,13 @@ function keyOperation(
 async function insertMigrated(
   id: string,
   userId: string,
-  kind: 'standard' | 'agent'
+  kind: 'standard' | 'agent',
+  owner = userId
 ): Promise<`0x${string}`> {
   const keyId = `wallet:${userId}:${kind}:secp256k1:0`;
   admittedKeys.set(keyId, {
     key_id: keyId,
-    owner: userId,
+    owner,
     curve: 'secp256k1',
     epoch: 0,
     public_key: '',
@@ -187,7 +192,7 @@ async function insertMigrated(
     net.nodes.map((node) =>
       keyOperation(node.apiUrl, 'generate', {
         key_id: keyId,
-        owner: userId,
+        owner,
         curve: 'secp256k1',
         session_id: `backfill-generate-${id}`,
       })
@@ -203,7 +208,7 @@ async function insertMigrated(
     });
   admittedKeys.set(keyId, {
     key_id: keyId,
-    owner: userId,
+    owner,
     curve: 'secp256k1',
     epoch: key.epoch,
     public_key: key.public_key,
@@ -239,7 +244,7 @@ async function insertMigrated(
   for (const reply of descriptions)
     expect(reply).toMatchObject({
       key_id: keyId,
-      owner: userId,
+      owner,
       public_key: key.public_key,
       epoch: admittedKeys.get(keyId)!.epoch,
     });
@@ -249,6 +254,18 @@ async function insertMigrated(
     [id, userId, key.address, CHAIN_ID, kind, keyId]
   );
   sensitive.push(id, userId, key.address, keyId);
+  if (kind === 'standard') {
+    const accountKeyId = `account:${userId}:standard:ed25519:0`;
+    admittedKeys.set(accountKeyId, {
+      key_id: accountKeyId,
+      owner: userId,
+      curve: 'ed25519',
+      epoch: 0,
+      public_key: '',
+      operations: ['generate'],
+    });
+    net.authority.approveInventory([...admittedKeys.values()]);
+  }
   return key.address;
 }
 
@@ -371,7 +388,11 @@ describe('backfill command', () => {
     identity = await startIdentity();
     chain = new TestChain(CHAIN_ID);
     await chain.start();
-    net = await startAttestorNetwork({ identity, rpcUrl: chain.url, readyTimeoutMs: 120_000 });
+    net = await startAttestorNetwork({
+      identity,
+      rpcUrl: chain.url,
+      readyTimeoutMs: 120_000,
+    });
     const sponsorKey = generatePrivateKey();
     sponsorAddress = privateKeyToAccount(sponsorKey).address.toLowerCase();
     chain.balances.set(sponsorAddress, 10n ** 21n);
@@ -391,12 +412,18 @@ describe('backfill command', () => {
   it(
     'backfill command refuses bad arguments and a start without the attestor configuration',
     async () => {
-      const usage = await runEntry(['--batch-size', '0'], { ...baseEnv(), ...attestorEnv() });
+      const usage = await runEntry(['--batch-size', '0'], {
+        ...baseEnv(),
+        ...attestorEnv(),
+      });
       expect(usage.code).toBe(2);
       expect(usage.stdout).toBe('');
       expect(usage.stderr).toContain('--batch-size takes a positive integer');
 
-      const unknown = await runEntry(['--batch', '5'], { ...baseEnv(), ...attestorEnv() });
+      const unknown = await runEntry(['--batch', '5'], {
+        ...baseEnv(),
+        ...attestorEnv(),
+      });
       expect(unknown.code).toBe(2);
 
       const refused = await runEntry(['--batch-size', '2'], baseEnv());
@@ -418,7 +445,8 @@ describe('backfill command', () => {
       await insertMigrated(
         ids.agentWithoutPrincipal,
         walletsModule.agentWalletUserId(orphan.did),
-        'agent'
+        'agent',
+        `agent:${orphan.publicKeyHex}`
       );
 
       const boundOwner = randomUUID();
@@ -430,11 +458,17 @@ describe('backfill command', () => {
       await insertMigrated(ids.chainFault, randomUUID(), 'standard');
 
       const agent = newAgentKey('backfill');
-      await insertMigrated(ids.agent, walletsModule.agentWalletUserId(agent.did), 'agent');
+      await insertMigrated(
+        ids.agent,
+        walletsModule.agentWalletUserId(agent.did),
+        'agent',
+        `agent:${agent.publicKeyHex}`
+      );
       await pool.query(
-        `insert into agent_principals (did, label, key_fingerprint, public_key, wallet_id) values ($1, $2, $3, $4, $5)`,
+        `insert into agent_principals (did, label, key_fingerprint, public_key, wallet_id, is_frozen) values ($1, $2, $3, $4, $5, false)`,
         [agent.did, 'backfill', agent.publicKeyHex.slice(0, 16), agent.publicKeyHex, ids.agent]
       );
+      await pool.query('insert into agent_policies (did) values ($1)', [agent.did]);
       sensitive.push(agent.did, agent.publicKeyHex, orphan.did);
 
       const standardOwner = randomUUID();
@@ -464,7 +498,16 @@ describe('backfill command', () => {
       chain.fail('getUnifiedAccount');
       const rest = await runEntry(['--batch-size=2', '--max-batches=10'], env);
       expect(rest.code, rest.stderr).toBe(0);
-      expect(rest.stdout.trim().split('\n')).toEqual([
+      const fixtureDiagnostics = {
+        audit: (
+          await pool.query('select event, outcome, reason from account_setup_audit order by id')
+        ).rows,
+        attestors: net.nodes.map((node) => ({
+          nodeId: node.nodeId,
+          log: node.log.slice(-10),
+        })),
+      };
+      expect(rest.stdout.trim().split('\n'), JSON.stringify(fixtureDiagnostics)).toEqual([
         'backfill total outcome=bound count=0',
         'backfill total outcome=awaiting_owner count=1',
         'backfill total outcome=awaiting_agent_signature count=1',

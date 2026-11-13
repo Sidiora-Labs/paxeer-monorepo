@@ -41,8 +41,8 @@ use crate::{
     registry_ops::{CallContext, PolicySection},
     rewards::RewardState,
     state::{
-        decode_shared_state, encode_shared_state, settlement_rewards, ActorSlot, HeightWindow,
-        ReplayDecision, ReplayRequest, RetainedResult, Section, SharedState,
+        decode_shared_state, encode_shared_state, ActorSlot, HeightWindow, ReplayDecision,
+        ReplayRequest, RetainedResult, Section, SharedState,
     },
     tasks,
     types::{Authentication, EvaluatorId, FrozenBinding, Presence, ResultDigest},
@@ -1803,6 +1803,11 @@ pub struct SealRegion<'a> {
     rest: &'a [u8],
 }
 impl<'a> SealRegion<'a> {
+    /// Reads the framing of a seal region already validated in committed state.
+    pub(crate) fn committed(feature_bytes: &'a [u8]) -> CodecResult<Self> {
+        Self::read(feature_bytes, false)
+    }
+
     /// Strictly decodes the region prefix of `feature_bytes`.
     ///
     /// # Errors
@@ -1810,6 +1815,11 @@ impl<'a> SealRegion<'a> {
     /// invalid record, or an empty region with nothing after it.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(feature_bytes: &'a [u8]) -> CodecResult<Self> {
+        Self::read(feature_bytes, true)
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn read(feature_bytes: &'a [u8], validate: bool) -> CodecResult<Self> {
         if feature_bytes.is_empty() {
             return Ok(Self {
                 epoch: 0,
@@ -1826,23 +1836,29 @@ impl<'a> SealRegion<'a> {
         }
         let records = r.take(count * SEAL_RECORD_BYTES)?;
         let rest = feature_bytes.get(r.offset()..).ok_or(NON_CANONICAL)?;
-        let lap_len = crate::laps::region_length(rest)?;
+        let lap_len = if validate {
+            crate::laps::region_length(rest)?
+        } else {
+            crate::laps::committed_region_length(rest)?
+        };
         let (laps, rest) = rest.guest_split_at(lap_len);
         if count == 0 && rest.is_empty() && laps.is_empty() {
             return Err(NON_CANONICAL);
         }
-        let mut previous = None;
-        for record in records
-            .as_chunks::<{ SEAL_RECORD_BYTES }>()
-            .0
-            .iter()
-            .map(|chunk| chunk.as_slice())
-        {
-            let evaluator = EvidenceSeal::decode(record)?.evaluator;
-            if previous.is_some_and(|p| p >= evaluator) {
-                return Err(NON_CANONICAL);
+        if validate {
+            let mut previous = None;
+            for record in records
+                .as_chunks::<{ SEAL_RECORD_BYTES }>()
+                .0
+                .iter()
+                .map(<[u8; SEAL_RECORD_BYTES]>::as_slice)
+            {
+                let evaluator = EvidenceSeal::decode(record)?.evaluator;
+                if previous.is_some_and(|p| p >= evaluator) {
+                    return Err(NON_CANONICAL);
+                }
+                previous = Some(evaluator);
             }
-            previous = Some(evaluator);
         }
         Ok(Self {
             epoch,
@@ -1858,7 +1874,7 @@ impl<'a> SealRegion<'a> {
         let mut w = Writer::new(out);
         crate::codec::write_fields!(w;
             u64: self.epoch;
-            u8: (self.records.len() / SEAL_RECORD_BYTES) as u8;
+            u8: u8::try_from(self.records.len() / SEAL_RECORD_BYTES).map_err(|_| crate::errors::CAPACITY)?;
             put: self.records;
         )?;
         Ok(w.len())
@@ -1876,7 +1892,7 @@ impl<'a> SealRegion<'a> {
             .as_chunks::<{ SEAL_RECORD_BYTES }>()
             .0
             .iter()
-            .map(|chunk| chunk.as_slice())
+            .map(<[u8; 185]>::as_slice)
             .map(EvidenceSeal::decode)
     }
     /// The seal of `evaluator` in `epoch`.
@@ -1910,7 +1926,7 @@ impl<'a> SealRegion<'a> {
             .as_chunks::<{ SEAL_RECORD_BYTES }>()
             .0
             .iter()
-            .map(|chunk| chunk.as_slice())
+            .map(<[u8; 185]>::as_slice)
             .enumerate()
         {
             if EvidenceSeal::decode(record)?.evaluator > seal.evaluator {
@@ -1936,7 +1952,7 @@ impl<'a> SealRegion<'a> {
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn committed<'a>(state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
     let section = PolicySection::decode(
-        *state
+        state
             .feature_sections
             .guest_index(Section::PolicyLifecycle.index()),
     )?;
@@ -1952,19 +1968,17 @@ fn committed<'a>(state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
 fn frozen_binding<'a>(
     state: &SharedState<'a>,
     section: &PolicySection<'_>,
-    known: Option<RewardState<'a>>,
-) -> CodecResult<(FrozenBinding, RewardState<'a>)> {
-    let admission = AdmissionTable::decode(crate::reputation_transition::joint_table(
-        *state
+    _known: Option<RewardState<'a>>,
+) -> CodecResult<FrozenBinding> {
+    let admission = AdmissionTable::decode(crate::reputation_transition::framed_admission_table(
+        state
             .feature_sections
             .guest_index(Section::ReputationAdmission.index()),
     )?)?;
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
-    let rewards = settlement_rewards(state, known)?;
-    let row = match rewards.row(epoch) {
-        Err(NOT_FOUND) => return Err(WRONG_EPOCH),
-        row => row?,
-    };
+    let row = crate::rewards::committed_row(state.room_market()?.0, epoch)
+        .map_err(|e| if e == NOT_FOUND { WRONG_EPOCH } else { e })?
+        .row;
     let header = &section.header;
     let frozen = FrozenBinding {
         chain: header.deployment_chain_domain,
@@ -1974,7 +1988,7 @@ fn frozen_binding<'a>(
         config: Version::new(header.active_config_version)?,
         roster: row.roster,
     };
-    Ok((frozen, rewards))
+    Ok(frozen)
 }
 
 /// The sealed evidence registration of `evaluator` in the opened `epoch`, read from committed
@@ -2000,7 +2014,7 @@ pub(crate) fn sealed_evidence_with<'a>(
     evaluator: EvaluatorId,
     known: Option<RewardState<'a>>,
 ) -> CodecResult<Presence<RegisteredEvidence>> {
-    let (frozen, _) = frozen_binding(state, &committed(state)?, known)?;
+    let frozen = frozen_binding(state, &committed(state)?, known)?;
     if frozen.epoch != epoch {
         return Err(WRONG_EPOCH);
     }
@@ -2074,7 +2088,6 @@ impl SealPayload {
 struct Opened<'a> {
     state: SharedState<'a>,
     section: PolicySection<'a>,
-    rewards: RewardState<'a>,
     frozen: FrozenBinding,
     region: SealRegion<'a>,
 }
@@ -2082,7 +2095,7 @@ struct Opened<'a> {
 fn opened(current: &[u8]) -> CodecResult<Opened<'_>> {
     let state = decode_shared_state(current)?;
     let section = committed(&state)?;
-    let (frozen, rewards) = frozen_binding(&state, &section, None)?;
+    let frozen = frozen_binding(&state, &section, None)?;
     let region = SealRegion::decode(state.control.feature_bytes)?;
     if region.epoch > frozen.epoch && !region.records.is_empty() {
         return Err(NON_CANONICAL);
@@ -2090,7 +2103,6 @@ fn opened(current: &[u8]) -> CodecResult<Opened<'_>> {
     Ok(Opened {
         state,
         section,
-        rewards,
         frozen,
         region,
     })
@@ -2150,8 +2162,7 @@ impl Call<'_> {
             &region,
             &frozen,
             self.opened.frozen.epoch,
-            *self
-                .opened
+            self.opened
                 .state
                 .feature_sections
                 .guest_index(Section::ReputationAdmission.index()),
@@ -2182,11 +2193,8 @@ impl Call<'_> {
         {
             return Err(EVIDENCE_BINDING);
         }
-        let sealed = tasks::sealed_task_set_with(
-            &self.opened.state,
-            self.opened.frozen.epoch,
-            Some(self.opened.rewards),
-        )?;
+        let sealed =
+            tasks::sealed_task_set_with(&self.opened.state, self.opened.frozen.epoch, None)?;
         if payload.task_set != sealed {
             return Err(EVIDENCE_BINDING);
         }
@@ -2609,6 +2617,8 @@ pub fn verify_evidence_proof(proof: &EvidenceProof<'_>) -> Conclusions {
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn require_sealed_artifact_chunk_root(
     state: &SharedState<'_>,
     epoch: u64,
@@ -2622,11 +2632,11 @@ pub fn require_sealed_artifact_chunk_root(
     let unsealed = crate::errors::F11_BATCH_UNSEALED;
     let manifest = decode_manifest(manifest_bytes).map_err(|_| unsealed)?;
     let section = committed(state)?;
-    let (frozen, rewards) = frozen_binding(state, &section, None)?;
+    let frozen = frozen_binding(state, &section, None)?;
     if frozen.epoch != epoch {
         return Err(WRONG_EPOCH);
     }
-    let task_set = tasks::sealed_task_set_with(state, epoch, Some(rewards))?;
+    let task_set = tasks::sealed_task_set_with(state, epoch, None)?;
     let chunk_root = wire::sha256([
         CONTENT_DOMAIN,
         &manifest.byte_length.to_be_bytes(),

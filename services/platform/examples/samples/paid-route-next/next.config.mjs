@@ -1,6 +1,7 @@
 const nextConfig = {
   distDir: "dist",
-  transpilePackages: ["@scure/bip32"],
+  // BIP32's base encoding dependency can expose TypeScript in a private SDK install.
+  transpilePackages: ["@scure/bip32", "@scure/base"],
   serverExternalPackages: [
     "@sidiora/layerx-next",
     "@sidiora/layerx-seller-middleware",

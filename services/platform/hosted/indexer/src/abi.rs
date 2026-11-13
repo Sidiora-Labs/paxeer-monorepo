@@ -355,6 +355,7 @@ impl AbiRegistry {
                 .and_then(|name| name.to_str())
                 .ok_or_else(|| IndexError::Config("ABI directory name is not UTF-8".to_owned()))?
                 .to_owned();
+            // Disabled executors must never re-enter the event registry.
             if matches!(
                 contract.as_str(),
                 "layerxverify" | "layerxcustody" | "layerxanchor"
@@ -635,7 +636,7 @@ fn decode_value(data: &[u8], position: usize, kind: &AbiType) -> Result<Value, I
 }
 
 /// The hex of a 32-byte ABI value with its `0x` prefix removed, for asset
-/// identifiers shared with LayerX.
+/// identifiers shared with `LayerX`.
 #[must_use]
 pub fn bare_bytes32(value: &Value) -> Option<String> {
     let text = value.as_str()?;

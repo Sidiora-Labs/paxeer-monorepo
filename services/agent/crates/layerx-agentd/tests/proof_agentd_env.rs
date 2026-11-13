@@ -1,16 +1,16 @@
-//! Proves: mcp_binding_listener.daemon_environment / binding_environment -> process env var -> HumanNodeEnvironment::from_environment / McpHeights::from_environment / parse_digest / refuse_retired_environment.
+//! Proves: `mcp_binding_listener.daemon_environment` / `binding_environment` -> process env var -> `HumanNodeEnvironment::from_environment` / `McpHeights::from_environment` / `parse_digest` / `refuse_retired_environment`.
 //!
 //! The producer reads a real private environment file and execs fresh Rust consumers
-//! with Gate.boot's environment builder. main.rs uses these exact decoders; neither
+//! with Gate.boot's environment builder. `main.rs` uses these exact decoders; neither
 //! the producer nor the environment crossing is replaced. There is no persistent
 //! anchor state: two reads and two fresh processes must observe each producer, and
 //! a second producer changes its network, URL, heights and digest to expose caching.
 //!
-//! Repairs: running.md and RunningAnAgent.md advertised obsolete sequence keys;
-//! mcp_binding_listener.py required and forwarded a retired web signing key instead
-//! of a receipt-key index. main.rs now explicitly refuses legacy sequence names
+//! Repairs: `running.md` and `RunningAnAgent.md` advertised obsolete sequence keys;
+//! `mcp_binding_listener.py` required and forwarded a retired web signing key instead
+//! of a receipt-key index. `main.rs` now explicitly refuses legacy sequence names
 //! rather than silently ignoring them. Its existing env decoders are shared through
-//! node_rpc.rs so this target executes the host's functions without host-only deps.
+//! `node_rpc.rs` so this target executes the host's functions without host-only deps.
 //! A retired web key is intentionally never admitted, including malformed or empty
 //! values; the active digest path is proved with the MCP session identifier.
 
@@ -47,7 +47,7 @@ const RETIRED: [&str; 3] = [
 
 // run_path imports the actual qualification producer without running its outer
 // deployment gate. os.execve is the same OS environment transport as Gate.spawn.
-const PRODUCE: &str = r#"
+const PRODUCE: &str = r"
 import json, os, runpy, sys
 from pathlib import Path
 module, source, root, executable, encoded = sys.argv[1:]
@@ -67,7 +67,7 @@ values = api['binding_environment'](daemon, state, os.geteuid(), os.getegid(),
                                     overrides=case.get('overrides'))
 values['PROOF_AGENTD_ENV_INPUT'] = encoded
 os.execve(executable, [executable, '--exact', 'proof_agentd_env', '--nocapture'], values)
-"#;
+";
 
 struct Producer {
     root: PathBuf,
@@ -226,16 +226,20 @@ fn observe(case: &Value) -> Result<(), Box<dyn Error>> {
                 assert_eq!(required("LAYERX_AGENT_MCP_WEB_RECEIPT_KEY_INDEX")?, "0");
             }
             "human" => {
-                let error = HumanNodeEnvironment::from_environment()
-                    .expect_err("malformed Human configuration was accepted");
+                let error = lint_error(
+                    HumanNodeEnvironment::from_environment(),
+                    "malformed Human configuration was accepted",
+                );
                 assert!(
                     error.contains(case["error"].as_str().ok_or("missing error")?),
                     "{error}"
                 );
             }
             "heights" => {
-                let error =
-                    McpHeights::from_environment().expect_err("malformed height was accepted");
+                let error = lint_error(
+                    McpHeights::from_environment(),
+                    "malformed height was accepted",
+                );
                 assert!(error.contains(name), "{error}");
             }
             "digest" => assert!(parse_digest(SESSION).is_err()),
@@ -344,6 +348,19 @@ fn proof_agentd_env() -> Result<(), Box<dyn Error>> {
         "malformed input\n",
     )?;
 
+    verify_environment_documentation();
+    Ok(())
+}
+
+#[track_caller]
+fn lint_error<T: std::fmt::Debug, E>(result: Result<T, E>, context: &str) -> E {
+    match result {
+        Err(error) => error,
+        Ok(value) => panic!("{context}: unexpected success {value:?}"),
+    }
+}
+
+fn verify_environment_documentation() {
     for document in [
         include_str!("../../../../../docs/site/docs/agents/running.md"),
         include_str!("../../../../../docs/wiki/RunningAnAgent.md"),
@@ -369,5 +386,4 @@ fn proof_agentd_env() -> Result<(), Box<dyn Error>> {
             );
         }
     }
-    Ok(())
 }

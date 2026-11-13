@@ -158,28 +158,22 @@ wallet    reads the public wallet endpoint name from the wallet_endpoint
 
 kernel-value-loop pipes tools/bringup/value-loop.sh into a machine of the
           app of services/wallet/deploy/human.toml and prints one line per step:
-  precondition "fail precondition <name> <detail>" when a genesis output
-             (genesis-ids, custody-profile, publication-policy), the
-             sequencer's LNI socket (kernel-node), the receipt authority, a
-             kernel image binary (image) or the opening deposit (deposit-tx)
-             is absent; no other line follows
-  asset      "pass asset PAX id=<hex>" when the genesis asset id equals the
-             custody precompile's nativeAssetId()
+  precondition "fail precondition <name> <detail>" when the genesis asset,
+             authenticated node RPC, trust anchor, probe or inspector is
+             absent; no other line follows
+  asset      "pass asset PAX id=<hex>" when the registered genesis asset id
+             agrees with the chain-125 asset identity
   account    "pass account sender|recipient did=<did> main=<id>"
-  credit     "pass credit deposit=<hash> amount=<n>" when the sender was
-             opened by the first-credit path from DEPOSIT_TX
-  activity   "pass activity id=<hex>" for the SEND sealed by the sequencer
-  balance    "pass balance sender|recipient <json>"
-  batch      "pass batch id=<hex> sealed=<n>" when the receipt authority's
-             /v1/authorized-batches/by-activity answers for the SEND
-  checkpoint "pass checkpoint batch=<n> status=submitted|final" when the
-             anchor precompile's statusOf answers 1 or 2 for a sealed batch at
-             or after it; a failing step prints its fail line and stops
-          CHECK_LIVE_VALUE_LOOP_DEPOSIT_TX names the owner's deposit
-          transaction for the sender's opening credit and
-          CHECK_LIVE_VALUE_LOOP_CHECKPOINT_SECONDS bounds the checkpoint wait,
-          default 600; the whole run is bounded by
-          CHECK_LIVE_VALUE_LOOP_TIMEOUT, default 840.
+  transaction "pass transaction hash=<hash> chain_id=125" for the retained
+             signed transaction submitted through the node root JSON-RPC
+  balance    "pass balance sender|recipient <json>" for committed account
+             balances at or after the transaction inclusion height
+  block      "pass block hash=<hash> committed_height=<height>" after the
+             canonical block inclusion and governed signed receipt agree;
+             a failing step prints its fail line and stops
+          Sender and recipient keys and the signed transaction journal are
+          retained across retries. The sender must already be funded.
+          CHECK_LIVE_VALUE_LOOP_TIMEOUT bounds the whole run, default 840.
 
 registry-plan  prints the registry/hosted-gateway bring-up order from this checkout's
           tomls, no network, no host map, exactly four lines in order:
@@ -2825,7 +2819,6 @@ paxeer-hop-1 4020 - -
 paxeer-boundary-loopback 4020 - /data/tls/paxeer-boundary-loopback=4020:4020
 paxeer-hop-2 4020 - -
 paxeer-boundary-public 4020 - /data/tls/paxeer-boundary-public=4020:4020
-paxeer-relay 4020 - -
 core-boundary 4021 genesis /data/layerx/core=4021:4020:2700,/data/tls/pending-core=4021:4020,/data/tls/pending-core-admin=4021:4020
 agent-boundary 4021 genesis /data/layerx/agent-boundary=4021:4020:2700,/data/tls/agent-boundary=4021:4020
 human-kms 4026 genesis /run/human-private/kms=4026:4020:700,/data/human-state/kms=4026:4020:700,/run/layerx/human-material/human-kms=4026:4020:2500
@@ -3581,11 +3574,9 @@ check_search() {
 # passthrough; from the kernel machine of services/wallet/deploy/human.toml,
 # https://index.paxeer.network/healthz refuses a request without a client
 # certificate and answers 200 ready to one with the kernel's internal-CA
-# client identity; the hosted gateway's lx_getProgramEvents returns, on the reference
-# escrow's event topic, an event of the program CHECK_LIVE_REGISTRY_PROGRAM_ID
-# names (the deploy step records it); and the hosted gateway's /readyz reports
-# program_registry ready. CHECK_LIVE_ROUTER_URL must name the hosted gateway
-# origin for the full check. One line per check.
+# client identity; registry-observe reads the committed node receipt and
+# canonical eth_getLogs event for CHECK_LIVE_REGISTRY_PROGRAM_ID, then
+# durably advances the program cursor. One line per check.
 check_registry() {
 	local row target service host_key unit health host command reply status=0
 	local program="${CHECK_LIVE_REGISTRY_PROGRAM_ID:-}"
@@ -3908,8 +3899,6 @@ check_kernel_value_loop() {
 		echo "fail kernel-value-loop toml=absent"
 		finish 1
 	fi
-	[ -z "${CHECK_LIVE_VALUE_LOOP_DEPOSIT_TX:-}" ] || arguments+=("DEPOSIT_TX=$CHECK_LIVE_VALUE_LOOP_DEPOSIT_TX")
-	[ -z "${CHECK_LIVE_VALUE_LOOP_CHECKPOINT_SECONDS:-}" ] || arguments+=("CHECKPOINT_SECONDS=$CHECK_LIVE_VALUE_LOOP_CHECKPOINT_SECONDS")
 	if [ -n "${CHECK_LIVE_VALUE_LOOP_ASSET:-}" ]; then
 		case "$CHECK_LIVE_VALUE_LOOP_ASSET" in
 		PAX|SID|USDC|USDL) arguments+=("ASSET=$CHECK_LIVE_VALUE_LOOP_ASSET") ;;
@@ -3925,7 +3914,7 @@ check_kernel_value_loop() {
 			echo "fail precondition $value"
 			finish 1
 			;;
-		asset | account | credit | activity | balance | batch | checkpoint)
+		asset | account | transaction | balance | block)
 			if [ "$status" -ne 1 ] || [ "$key $value" != "$(tail -n 1 <<<"$answer")" ]; then
 				echo "pass $key $value"
 			else
@@ -3939,8 +3928,8 @@ check_kernel_value_loop() {
 		echo "fail kernel-value-loop app=$app exit=$status"
 		failures=1
 	fi
-	if [ "$status" -eq 0 ] && ! grep -q '^checkpoint ' <<<"$answer"; then
-		echo "fail checkpoint status=absent"
+	if [ "$status" -eq 0 ] && ! grep -Eq '^block hash=0x[0-9a-fA-F]{64} committed_height=[1-9][0-9]*$' <<<"$answer"; then
+		echo "fail block committed-evidence=absent"
 		failures=1
 	fi
 	finish "$failures"

@@ -406,6 +406,7 @@ impl Snapshot {
     /// # Errors
     ///
     /// Returns a refusal when snapshot ownership, transition, persistence, metering or state validation fails.
+    #[allow(clippy::large_types_passed_by_value)]
     pub fn commit(
         lease: &mut Lease,
         instance: &mut ProgramInstance,
@@ -607,39 +608,8 @@ pub fn restore(
     if source.state() != LeaseState::Destroyed {
         verify_persisted_snapshot(storage, source.namespace(), record.digest(), &bytes)?;
     }
-    let entries = rebound_live_entries(&supplied.namespace_cells)?;
-    let mut candidate_storage = storage.clone();
-    candidate_storage
-        .replace_protocol_namespace(
-            target
-                .namespace()
-                .storage_namespace()
-                .map_err(SnapshotRefusal::Lease)?,
-            &entries,
-        )
-        .map_err(SnapshotRefusal::Storage)?;
-    let occupied = candidate_storage
-        .namespace_persistent_bytes(
-            target
-                .namespace()
-                .storage_namespace()
-                .map_err(SnapshotRefusal::Lease)?,
-        )
-        .map_err(SnapshotRefusal::Storage)?;
-    if occupied > target.limits().namespace_bytes {
-        return Err(SnapshotRefusal::TargetBoundExceeded);
-    }
-    if live_namespace_cells(&candidate_storage, target.namespace())? != supplied.namespace_cells {
-        return Err(SnapshotRefusal::DigestMismatch);
-    }
-    let mut candidate_meter = meter.clone();
-    candidate_meter
-        .charge_storage_write(
-            byte_length
-                .checked_add(entries_metered_bytes(&entries)?)
-                .ok_or(SnapshotRefusal::StateBoundExceeded)?,
-        )
-        .map_err(SnapshotRefusal::Meter)?;
+    let (candidate_storage, candidate_meter) =
+        prepare_restore_storage(target, storage, meter, &supplied, byte_length)?;
     let state = supplied.rebind(target);
     let abi_version = match module.abi_revision() {
         layerx_programs_runtime::AbiRevision::V1 => ABI_V1_VERSION,
@@ -679,6 +649,42 @@ pub fn restore(
     *storage = committed_storage;
     *meter = committed_meter;
     Ok(restored)
+}
+
+fn prepare_restore_storage(
+    target: &Lease,
+    storage: &Storage,
+    meter: &layerx_programs_runtime::Meter,
+    supplied: &SandboxState,
+    byte_length: u64,
+) -> Result<(Storage, layerx_programs_runtime::Meter), SnapshotRefusal> {
+    let entries = rebound_live_entries(&supplied.namespace_cells)?;
+    let mut candidate_storage = storage.clone();
+    let namespace = target
+        .namespace()
+        .storage_namespace()
+        .map_err(SnapshotRefusal::Lease)?;
+    candidate_storage
+        .replace_protocol_namespace(namespace, &entries)
+        .map_err(SnapshotRefusal::Storage)?;
+    let occupied = candidate_storage
+        .namespace_persistent_bytes(namespace)
+        .map_err(SnapshotRefusal::Storage)?;
+    if occupied > target.limits().namespace_bytes {
+        return Err(SnapshotRefusal::TargetBoundExceeded);
+    }
+    if live_namespace_cells(&candidate_storage, target.namespace())? != supplied.namespace_cells {
+        return Err(SnapshotRefusal::DigestMismatch);
+    }
+    let mut candidate_meter = meter.clone();
+    candidate_meter
+        .charge_storage_write(
+            byte_length
+                .checked_add(entries_metered_bytes(&entries)?)
+                .ok_or(SnapshotRefusal::StateBoundExceeded)?,
+        )
+        .map_err(SnapshotRefusal::Meter)?;
+    Ok((candidate_storage, candidate_meter))
 }
 
 struct ValidatedRestore<'a> {

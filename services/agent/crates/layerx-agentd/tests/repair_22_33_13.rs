@@ -1,4 +1,12 @@
 //! Audit 22.30.100: graph-restore, native-send-envelope, registration-principal.
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
@@ -53,73 +61,82 @@ impl Directory {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
-        std::fs::DirBuilder::new()
-            .mode(0o700)
-            .create(&path)
-            .unwrap();
+        require_ok(
+            std::fs::DirBuilder::new().mode(0o700).create(&path),
+            "required test value",
+        );
         Self(path)
     }
     fn open(&self) -> Store {
-        Store::open(&self.0).unwrap()
+        require_ok(Store::open(&self.0), "required test value")
     }
 }
 impl Drop for Directory {
     fn drop(&mut self) {
-        std::fs::remove_dir_all(&self.0).unwrap();
+        require_ok(std::fs::remove_dir_all(&self.0), "required test value");
     }
 }
 fn tenant() -> TenantId {
-    TenantId::new("repair-22-33-13").unwrap()
+    require_ok(TenantId::new("repair-22-33-13"), "required test value")
 }
 fn graph_key() -> TenantKey {
-    TenantKey::new(
-        tenant(),
-        ObjectKind::Configuration,
-        b"capability-derivation-graph".to_vec(),
+    require_ok(
+        TenantKey::new(
+            tenant(),
+            ObjectKind::Configuration,
+            b"capability-derivation-graph".to_vec(),
+        ),
+        "required test value",
     )
-    .unwrap()
 }
 fn capability(id: u8, amount: u128) -> Capability {
-    Capability::new(
-        CapabilityId([id; 32]),
-        tenant(),
-        CapabilityDimensions {
-            activity_types: BTreeSet::from([5]),
-            counterparties: BTreeSet::from([PAYEE]),
-            assets: BTreeSet::from([ASSET]),
-            amount_ceiling: amount,
-            rate_ceiling: RateCeiling {
-                maximum_uses: 10,
-                window_sequences: 20,
+    require_ok(
+        Capability::new(
+            CapabilityId([id; 32]),
+            tenant(),
+            CapabilityDimensions {
+                activity_types: BTreeSet::from([5]),
+                counterparties: BTreeSet::from([PAYEE]),
+                assets: BTreeSet::from([ASSET]),
+                amount_ceiling: amount,
+                rate_ceiling: RateCeiling {
+                    maximum_uses: 10,
+                    window_sequences: 20,
+                },
+                purposes: BTreeSet::from(["rent".to_owned()]),
+                expiry_sequence: 100,
             },
-            purposes: BTreeSet::from(["rent".to_owned()]),
-            expiry_sequence: 100,
-        },
+        ),
+        "required test value",
     )
-    .unwrap()
 }
 fn graph_bytes(graph: &CapabilityGraph) -> Vec<u8> {
     let directory = Directory::new();
     let mut store = directory.open();
-    graph.persist(&mut store).unwrap();
-    store.get(&graph_key()).unwrap().bytes().to_vec()
+    require_ok(graph.persist(&mut store), "required test value");
+    require_some(store.get(&graph_key()), "required test value")
+        .bytes()
+        .to_vec()
 }
 fn reopen_graph(bytes: Vec<u8>) -> Result<Option<CapabilityGraph>, AttenuationError> {
     let directory = Directory::new();
     let mut store = directory.open();
-    store.put_local(graph_key(), bytes).unwrap();
+    require_ok(store.put_local(graph_key(), bytes), "required test value");
     drop(store);
     let reopened = directory.open();
     CapabilityGraph::restore(&reopened, tenant())
 }
 // Split only records already emitted by CapabilityGraph::persist.
 fn records(bytes: &[u8]) -> Vec<Vec<u8>> {
-    let count = u16::from_be_bytes(bytes[..2].try_into().unwrap());
+    let count = u16::from_be_bytes(require_ok(bytes[..2].try_into(), "required test value"));
     let mut offset = 2;
     let mut result = Vec::new();
     for _ in 0..count {
         let start = offset;
-        let length = u32::from_be_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
+        let length = u32::from_be_bytes(require_ok(
+            bytes[offset..offset + 4].try_into(),
+            "required test value",
+        )) as usize;
         offset += 4 + length;
         let parent = bytes[offset];
         offset += 1 + if parent == 1 { 32 } else { 0 };
@@ -130,14 +147,17 @@ fn records(bytes: &[u8]) -> Vec<Vec<u8>> {
     result
 }
 fn packed(records: &[Vec<u8>]) -> Vec<u8> {
-    let mut bytes = u16::try_from(records.len()).unwrap().to_be_bytes().to_vec();
+    let mut bytes = require_ok(u16::try_from(records.len()), "required test value")
+        .to_be_bytes()
+        .to_vec();
     bytes.extend(records.concat());
     bytes
 }
 fn parent(record: &mut Vec<u8>, id: [u8; 32]) {
-    let length = u32::from_be_bytes(record[..4].try_into().unwrap()) as usize;
+    let length =
+        u32::from_be_bytes(require_ok(record[..4].try_into(), "required test value")) as usize;
     let end = 4 + length;
-    let revoked = *record.last().unwrap();
+    let revoked = *require_some(record.last(), "required test value");
     record.truncate(end);
     record.push(1);
     record.extend_from_slice(&id);
@@ -146,20 +166,27 @@ fn parent(record: &mut Vec<u8>, id: [u8; 32]) {
 fn encoded_capability(value: &Capability) -> Vec<u8> {
     let directory = Directory::new();
     let mut store = directory.open();
-    value.persist(&mut store).unwrap();
-    let key = TenantKey::new(
-        value.tenant.clone(),
-        ObjectKind::Capability,
-        value.id.0.to_vec(),
-    )
-    .unwrap();
-    store.get(&key).unwrap().bytes().to_vec()
+    require_ok(value.persist(&mut store), "required test value");
+    let key = require_ok(
+        TenantKey::new(
+            value.tenant.clone(),
+            ObjectKind::Capability,
+            value.id.0.to_vec(),
+        ),
+        "required test value",
+    );
+    require_some(store.get(&key), "required test value")
+        .bytes()
+        .to_vec()
 }
 fn replace_capability(record: &mut Vec<u8>, value: &Capability) {
-    let old = u32::from_be_bytes(record[..4].try_into().unwrap()) as usize;
+    let old =
+        u32::from_be_bytes(require_ok(record[..4].try_into(), "required test value")) as usize;
     let suffix = record[4 + old..].to_vec();
     let value = encoded_capability(value);
-    *record = (value.len() as u32).to_be_bytes().to_vec();
+    *record = (require_ok(u32::try_from(value.len()), "test value fits u32"))
+        .to_be_bytes()
+        .to_vec();
     record.extend(value);
     record.extend(suffix);
 }
@@ -170,16 +197,26 @@ fn graph_restore_valid_restart_preserves_ancestry_revocation_and_cancellation() 
     let mut store = directory.open();
     let mut graph = CapabilityGraph::new(tenant());
     // Parent identifiers deliberately sort after their children.
-    graph.add_root(capability(3, 100)).unwrap();
-    capability::attenuate(&mut graph, CapabilityId([3; 32]), capability(1, 50)).unwrap();
-    capability::attenuate(&mut graph, CapabilityId([1; 32]), capability(2, 25)).unwrap();
-    graph.persist(&mut store).unwrap();
+    require_ok(graph.add_root(capability(3, 100)), "required test value");
+    require_ok(
+        capability::attenuate(&mut graph, CapabilityId([3; 32]), capability(1, 50)),
+        "required test value",
+    );
+    require_ok(
+        capability::attenuate(&mut graph, CapabilityId([1; 32]), capability(2, 25)),
+        "required test value",
+    );
+    require_ok(graph.persist(&mut store), "required test value");
     drop(graph);
     drop(store);
     let mut store = directory.open();
-    let mut graph = CapabilityGraph::restore(&store, tenant()).unwrap().unwrap();
+    let mut graph = require_some(
+        CapabilityGraph::restore(&store, tenant())
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value")),
+        "required test value",
+    );
     assert_eq!(
-        graph.chain(CapabilityId([2; 32])).unwrap(),
+        require_some(graph.chain(CapabilityId([2; 32])), "required test value"),
         [
             CapabilityId([3; 32]),
             CapabilityId([1; 32]),
@@ -199,26 +236,42 @@ fn graph_restore_valid_restart_preserves_ancestry_revocation_and_cancellation() 
             cancelled: false,
         },
     ];
-    let result =
-        capability::revoke_subtree(&mut graph, CapabilityId([1; 32]), &mut activities).unwrap();
+    let result = require_ok(
+        capability::revoke_subtree(&mut graph, CapabilityId([1; 32]), &mut activities),
+        "required test value",
+    );
     assert_eq!(result.cancelled_unsubmitted, 1);
     assert!(activities[0].cancelled);
     assert!(!activities[1].cancelled);
-    graph.persist(&mut store).unwrap();
+    require_ok(graph.persist(&mut store), "required test value");
     drop(graph);
     drop(store);
     let store = directory.open();
-    let recovered = CapabilityGraph::restore(&store, tenant()).unwrap().unwrap();
+    let recovered = require_some(
+        CapabilityGraph::restore(&store, tenant())
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value")),
+        "required test value",
+    );
     assert!(!recovered.is_enabled(CapabilityId([2; 32])));
     assert!(recovered.is_enabled(CapabilityId([3; 32])));
-    assert_eq!(recovered.chain(CapabilityId([2; 32])).unwrap().len(), 3);
+    assert_eq!(
+        require_some(
+            recovered.chain(CapabilityId([2; 32])),
+            "required test value"
+        )
+        .len(),
+        3
+    );
 }
 
 #[test]
 fn graph_restore_rejects_duplicate_foreign_missing_and_cyclic_ancestry() {
     let mut graph = CapabilityGraph::new(tenant());
-    graph.add_root(capability(1, 100)).unwrap();
-    capability::attenuate(&mut graph, CapabilityId([1; 32]), capability(2, 50)).unwrap();
+    require_ok(graph.add_root(capability(1, 100)), "required test value");
+    require_ok(
+        capability::attenuate(&mut graph, CapabilityId([1; 32]), capability(2, 50)),
+        "required test value",
+    );
     let emitted = records(&graph_bytes(&graph));
     assert_eq!(
         reopen_graph(packed(&[emitted[0].clone(), emitted[0].clone()])),
@@ -226,7 +279,7 @@ fn graph_restore_rejects_duplicate_foreign_missing_and_cyclic_ancestry() {
     );
     let mut foreign = emitted.clone();
     let mut value = capability(2, 50);
-    value.tenant = TenantId::new("foreign-tenant").unwrap();
+    value.tenant = require_ok(TenantId::new("foreign-tenant"), "required test value");
     replace_capability(&mut foreign[1], &value);
     assert_eq!(
         reopen_graph(packed(&foreign)),
@@ -265,8 +318,11 @@ fn graph_restore_rejects_duplicate_foreign_missing_and_cyclic_ancestry() {
 fn graph_restore_checks_every_attenuation_dimension_and_handles_deep_valid_chains() {
     use capability::Dimension;
     let mut graph = CapabilityGraph::new(tenant());
-    graph.add_root(capability(1, 100)).unwrap();
-    capability::attenuate(&mut graph, CapabilityId([1; 32]), capability(2, 50)).unwrap();
+    require_ok(graph.add_root(capability(1, 100)), "required test value");
+    require_ok(
+        capability::attenuate(&mut graph, CapabilityId([1; 32]), capability(2, 50)),
+        "required test value",
+    );
     let emitted = records(&graph_bytes(&graph));
     for dimension in [
         Dimension::ActivityType,
@@ -311,12 +367,26 @@ fn graph_restore_checks_every_attenuation_dimension_and_handles_deep_valid_chain
         Err(AttenuationError::Wider(Dimension::Rate))
     );
     let mut graph = CapabilityGraph::new(tenant());
-    graph.add_root(capability(1, 100)).unwrap();
+    require_ok(graph.add_root(capability(1, 100)), "required test value");
     for id in 2..=200 {
-        capability::attenuate(&mut graph, CapabilityId([id - 1; 32]), capability(id, 100)).unwrap();
+        require_ok(
+            capability::attenuate(&mut graph, CapabilityId([id - 1; 32]), capability(id, 100)),
+            "required test value",
+        );
     }
-    let restored = reopen_graph(graph_bytes(&graph)).unwrap().unwrap();
-    assert_eq!(restored.chain(CapabilityId([200; 32])).unwrap().len(), 200);
+    let restored = require_some(
+        reopen_graph(graph_bytes(&graph))
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value")),
+        "required test value",
+    );
+    assert_eq!(
+        require_some(
+            restored.chain(CapabilityId([200; 32])),
+            "required test value"
+        )
+        .len(),
+        200
+    );
     assert!(restored.is_enabled(CapabilityId([200; 32])));
 }
 
@@ -366,7 +436,10 @@ fn signed_checkpoint() -> ServedCheckpoint {
             .sign(&commit.vote_sign_bytes("125", header.time))
             .to_bytes(),
     });
-    checkpoint(8, "125", &header, &commit, &[validator]).unwrap()
+    require_ok(
+        checkpoint(8, "125", &header, &commit, &[validator]),
+        "required test value",
+    )
 }
 
 #[derive(Clone)]
@@ -391,40 +464,54 @@ struct Ledger {
 }
 impl Ledger {
     fn new() -> Self {
-        let account = derive_from_seed(&[42; 64], 0).unwrap();
-        let BindPlan::Bind(binding) = plan_bind(&account, 125, None, 0).unwrap() else {
+        let account = require_ok(derive_from_seed(&[42; 64], 0), "required test value");
+        let BindPlan::Bind(binding) =
+            require_ok(plan_bind(&account, 125, None, 0), "required test value")
+        else {
             panic!("new account must bind");
         };
-        binding.signed_binding().verify().unwrap();
+        require_ok(binding.signed_binding().verify(), "required test value");
         let identity = account.layerx_public_key();
         let sender = account.evm_address();
-        let did = Did::new(account.did().as_bytes()).unwrap();
-        let owner = did_id_for_protocol(&did, 3).unwrap();
-        let main = account_id_for_protocol(
-            &AccountId::parse(&format!("agent:{}:main", account.did())).unwrap(),
-            3,
-        )
-        .unwrap();
-        let source = account_id_for_protocol(
-            &AccountId::for_asset(&account.did(), ASSET, FEE_ASSET).unwrap(),
-            3,
-        )
-        .unwrap();
+        let did = require_ok(Did::new(account.did().as_bytes()), "required test value");
+        let owner = require_ok(did_id_for_protocol(&did, 3), "required test value");
+        let main = require_ok(
+            account_id_for_protocol(
+                &require_ok(
+                    AccountId::parse(&format!("agent:{}:main", account.did())),
+                    "required test value",
+                ),
+                3,
+            ),
+            "required test value",
+        );
+        let source = require_ok(
+            account_id_for_protocol(
+                &require_ok(
+                    AccountId::for_asset(&account.did(), ASSET, FEE_ASSET),
+                    "required test value",
+                ),
+                3,
+            ),
+            "required test value",
+        );
         let mut address = [0; 32];
         address[12..].copy_from_slice(&sender);
         // Use the production ABI encoder for the committed account-join response.
-        let unified = PrecompileCall {
-            target: PrecompileTarget::Ledger,
-            selector: [0; 4],
-            arguments: vec![
-                AbiArgument::Word(address),
-                AbiArgument::Bytes(b"pax-bound-account".to_vec()),
-                AbiArgument::Word(identity),
-                AbiArgument::Word(main),
-            ],
-        }
-        .encode()
-        .unwrap()[4..]
+        let unified = require_ok(
+            PrecompileCall {
+                target: PrecompileTarget::Ledger,
+                selector: [0; 4],
+                arguments: vec![
+                    AbiArgument::Word(address),
+                    AbiArgument::Bytes(b"pax-bound-account".to_vec()),
+                    AbiArgument::Word(identity),
+                    AbiArgument::Word(main),
+                ],
+            }
+            .encode(),
+            "required test value",
+        )[4..]
             .to_vec();
         let state = Arc::new(Mutex::new(LedgerState {
             unified,
@@ -442,11 +529,18 @@ impl Ledger {
             "parentHash":format!("0x{}",hex::encode([2;32])), "timestamp":"0x3e8",
             "transactionsRoot":format!("0x{}",hex::encode([4;32])), "receiptsRoot":format!("0x{}",hex::encode([7;32])),
             "stateRoot":format!("0x{}",hex::encode(cp.app_hash)), "transactions":[]});
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        listener.set_nonblocking(true).unwrap();
-        let endpoint =
-            SequencerEndpoint::new(&format!("http://{}/", listener.local_addr().unwrap()), &[])
-                .unwrap();
+        let listener = require_ok(TcpListener::bind("127.0.0.1:0"), "required test value");
+        require_ok(listener.set_nonblocking(true), "required test value");
+        let endpoint = require_ok(
+            SequencerEndpoint::new(
+                &format!(
+                    "http://{}/",
+                    require_ok(listener.local_addr(), "required test value")
+                ),
+                &[],
+            ),
+            "required test value",
+        );
         let stop = Arc::new(AtomicBool::new(false));
         let stopped = Arc::clone(&stop);
         let served = Arc::clone(&state);
@@ -460,98 +554,7 @@ impl Ledger {
                     }
                     Err(error) => panic!("accept: {error}"),
                 };
-                stream
-                    .set_read_timeout(Some(Duration::from_secs(5)))
-                    .unwrap();
-                let mut reader = BufReader::new(stream);
-                let mut length = None;
-                loop {
-                    let mut line = String::new();
-                    assert_ne!(reader.read_line(&mut line).unwrap(), 0);
-                    if line == "\r\n" {
-                        break;
-                    }
-                    if let Some((name, value)) = line.split_once(':') {
-                        if name.eq_ignore_ascii_case("content-length") {
-                            length = Some(value.trim().parse::<usize>().unwrap());
-                        }
-                    }
-                }
-                let mut body = vec![0; length.unwrap()];
-                reader.read_exact(&mut body).unwrap();
-                let request: Value = serde_json::from_slice(&body).unwrap();
-                let result = match request["method"].as_str().unwrap() {
-                    "eth_getBlockByNumber" => {
-                        assert_eq!(request["params"][0], "0x8");
-                        block.clone()
-                    }
-                    "eth_sendRawTransaction" => {
-                        let raw = hex::decode(
-                            request["params"][0]
-                                .as_str()
-                                .unwrap()
-                                .strip_prefix("0x")
-                                .unwrap(),
-                        )
-                        .unwrap();
-                        let (call, signature) = decode_signed(&raw).unwrap();
-                        let mut state = served.lock().unwrap();
-                        assert_eq!(recover_sender(&call, &signature).unwrap(), state.sender);
-                        assert_eq!(call.chain_id, 125);
-                        assert_eq!(call.to, PrecompileTarget::Ledger.address());
-                        let hash = transaction_hash(&raw);
-                        state.submissions.push(raw);
-                        json!(format!("0x{}", hex::encode(hash)))
-                    }
-                    "eth_call" => {
-                        assert_eq!(request["params"][1], "0x8");
-                        let data = hex::decode(
-                            request["params"][0]["data"]
-                                .as_str()
-                                .unwrap()
-                                .strip_prefix("0x")
-                                .unwrap(),
-                        )
-                        .unwrap();
-                        let mut state = served.lock().unwrap();
-                        let selector = &data[..4];
-                        let (name, bytes) =
-                            if selector == ledger_selector("getUnifiedAccount(address)") {
-                                assert_eq!(
-                                    request["params"][0]["to"],
-                                    "0x0000000000000000000000000000000000001004"
-                                );
-                                assert_eq!(data[4..16], [0; 12]);
-                                assert_eq!(data[16..], state.sender);
-                                ("unified", state.unified.clone())
-                            } else {
-                                assert_eq!(
-                                    request["params"][0]["to"],
-                                    "0x000000000000000000000000000000000000101a"
-                                );
-                                if selector == ledger_selector("accountId(bytes32,bytes32)") {
-                                    assert_eq!(data[4..36], state.identity);
-                                    assert_eq!(data[36..], ASSET);
-                                    ("account", state.source.to_vec())
-                                } else {
-                                    assert_eq!(selector, ledger_selector("accountOwner(bytes32)"));
-                                    if data[4..] == state.main {
-                                        ("main_owner", state.owner.to_vec())
-                                    } else {
-                                        assert_eq!(data[4..], state.source);
-                                        ("source_owner", state.source_owner.to_vec())
-                                    }
-                                }
-                            };
-                        *state.queries.entry(name.into()).or_default() += 1;
-                        json!(format!("0x{}", hex::encode(bytes)))
-                    }
-                    method => panic!("unexpected request {method}"),
-                };
-                let response =
-                    json!({"jsonrpc":"2.0", "id":request["id"], "result":result}).to_string();
-                write!(reader.get_mut(), "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}",response.len()).unwrap();
-                reader.get_mut().flush().unwrap();
+                finish_new_2_repair_22_33_13(&block, &served, stream);
             }
         });
         Self {
@@ -564,43 +567,48 @@ impl Ledger {
         }
     }
     fn reads(&self) -> CommittedReads<'_> {
-        CommittedReads::at_checkpoint(&self.endpoint, &self.checkpoint).unwrap()
+        require_ok(
+            CommittedReads::at_checkpoint(&self.endpoint, &self.checkpoint),
+            "required test value",
+        )
     }
     fn owner(&self) -> [u8; 32] {
-        self.state.lock().unwrap().owner
+        require_ok(self.state.lock(), "required test value").owner
     }
     fn main(&self) -> [u8; 32] {
-        self.state.lock().unwrap().main
+        require_ok(self.state.lock(), "required test value").main
     }
     fn source(&self) -> [u8; 32] {
-        self.state.lock().unwrap().source
+        require_ok(self.state.lock(), "required test value").source
     }
     fn prepare(&self, call: PrecompileCall, nonce: u64) -> SigningPreparation {
         SigningPreparation {
             actor_address: self.account.evm_address(),
-            transaction: prepare_bound(
-                EvmPreparationState {
-                    chain_id: 125,
-                    pending_nonce: nonce,
-                    base_fee_per_gas: 2,
-                    head_height: 8,
-                },
-                EvmPreparationDefaults {
-                    max_priority_fee_per_gas: 1,
-                    max_fee_per_gas: 10,
-                    maximum_payload_bytes: 8192,
-                },
-                EvmPrepareRequest {
-                    from: self.account.evm_address(),
-                    call,
-                    expected_nonce: Some(nonce),
-                    max_priority_fee_per_gas: None,
-                    max_fee_per_gas: None,
-                    declared_payload_limit: 8192,
-                },
-                100_000,
-            )
-            .unwrap(),
+            transaction: require_ok(
+                prepare_bound(
+                    EvmPreparationState {
+                        chain_id: 125,
+                        pending_nonce: nonce,
+                        base_fee_per_gas: 2,
+                        head_height: 8,
+                    },
+                    EvmPreparationDefaults {
+                        max_priority_fee_per_gas: 1,
+                        max_fee_per_gas: 10,
+                        maximum_payload_bytes: 8192,
+                    },
+                    EvmPrepareRequest {
+                        from: self.account.evm_address(),
+                        call,
+                        expected_nonce: Some(nonce),
+                        max_priority_fee_per_gas: None,
+                        max_fee_per_gas: None,
+                        declared_payload_limit: 8192,
+                    },
+                    100_000,
+                ),
+                "required test value",
+            ),
         }
     }
     fn send(&self, amount: u128, nonce: u64) -> SigningPreparation {
@@ -626,16 +634,18 @@ impl Ledger {
             network_id: 125,
             protocol_version: 3,
         };
-        let canonical = debit.authorization_message().unwrap();
-        let message =
-            layerx_crypto::SignatureMessage::new(Domain::SignaturePreimage, 3, 125, &canonical)
-                .unwrap();
-        let payload = debit
-            .encode_signed(
+        let canonical = require_ok(debit.authorization_message(), "required test value");
+        let message = require_ok(
+            layerx_crypto::SignatureMessage::new(Domain::SignaturePreimage, 3, 125, &canonical),
+            "required test value",
+        );
+        let payload = require_ok(
+            debit.encode_signed(
                 key.verifying_key().to_bytes(),
                 key.sign(&message.digest()).to_bytes(),
-            )
-            .unwrap();
+            ),
+            "required test value",
+        );
         self.prepare(PrecompileCall::ledger_transfer(payload), nonce)
     }
     fn register(&self, supply_cap: u128) -> SigningPreparation {
@@ -649,14 +659,16 @@ impl Ledger {
             issuer_kind: 1,
             custody_ref: Vec::new(),
         };
-        let encoded = encode_payment_call(
-            &Payment::Register(registration),
-            self.account.did().as_bytes(),
-        )
-        .unwrap();
+        let encoded = require_ok(
+            encode_payment_call(
+                &Payment::Register(registration),
+                self.account.did().as_bytes(),
+            ),
+            "required test value",
+        );
         let mut call = PrecompileCall {
             target: PrecompileTarget::Ledger,
-            selector: encoded[..4].try_into().unwrap(),
+            selector: require_ok(encoded[..4].try_into(), "required test value"),
             arguments: Vec::new(),
         };
         // Decode the encoder's canonical arguments without substituting another registration shape.
@@ -678,21 +690,144 @@ impl Ledger {
             AbiArgument::Word(kind),
             AbiArgument::Bytes(Vec::new()),
         ];
-        assert_eq!(call.encode().unwrap(), encoded);
+        assert_eq!(require_ok(call.encode(), "required test value"), encoded);
         self.prepare(call, 7)
     }
     fn raw(&self, preparation: &SigningPreparation) -> Vec<u8> {
-        preparation
-            .transaction
-            .call
-            .sign(self.account.evm_secret().unwrap())
-            .unwrap()
+        require_ok(
+            preparation.transaction.call.sign(require_some(
+                self.account.evm_secret(),
+                "required test value",
+            )),
+            "required test value",
+        )
     }
+}
+
+fn finish_new_2_repair_22_33_13(
+    block: &Value,
+    served: &Arc<Mutex<LedgerState>>,
+    stream: std::net::TcpStream,
+) {
+    require_ok(
+        stream.set_read_timeout(Some(Duration::from_secs(5))),
+        "required test value",
+    );
+    let mut reader = BufReader::new(stream);
+    let mut length = None;
+    loop {
+        let mut line = String::new();
+        assert_ne!(
+            require_ok(reader.read_line(&mut line), "required test value"),
+            0
+        );
+        if line == "\r\n" {
+            break;
+        }
+        if let Some((name, value)) = line.split_once(':') {
+            if name.eq_ignore_ascii_case("content-length") {
+                length = Some(require_ok(
+                    value.trim().parse::<usize>(),
+                    "required test value",
+                ));
+            }
+        }
+    }
+    let mut body = vec![0; require_some(length, "required test value")];
+    require_ok(reader.read_exact(&mut body), "required test value");
+    let request: Value = require_ok(serde_json::from_slice(&body), "required test value");
+    let result = match require_some(request["method"].as_str(), "required test value") {
+        "eth_getBlockByNumber" => {
+            assert_eq!(request["params"][0], "0x8");
+            block.clone()
+        }
+        "eth_sendRawTransaction" => {
+            let raw = require_ok(
+                hex::decode(require_some(
+                    request["params"][0]
+                        .as_str()
+                        .unwrap_or_else(|| panic!("{}", "required test value"))
+                        .strip_prefix("0x"),
+                    "required test value",
+                )),
+                "required test value",
+            );
+            let (call, signature) = require_ok(decode_signed(&raw), "required test value");
+            let mut state = require_ok(served.lock(), "required test value");
+            assert_eq!(
+                require_ok(recover_sender(&call, &signature), "required test value"),
+                state.sender
+            );
+            assert_eq!(call.chain_id, 125);
+            assert_eq!(call.to, PrecompileTarget::Ledger.address());
+            let hash = transaction_hash(&raw);
+            state.submissions.push(raw);
+            json!(format!("0x{}", hex::encode(hash)))
+        }
+        "eth_call" => {
+            assert_eq!(request["params"][1], "0x8");
+            finish_new_1_repair_22_33_13(served, &request)
+        }
+        method => panic!("unexpected request {method}"),
+    };
+    let response = json!({"jsonrpc":"2.0", "id":request["id"], "result":result}).to_string();
+    require_ok(write!(reader.get_mut(), "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}",response.len()), "required test value");
+    require_ok(reader.get_mut().flush(), "required test value");
+}
+
+fn finish_new_1_repair_22_33_13(served: &Arc<Mutex<LedgerState>>, request: &Value) -> Value {
+    let data = require_ok(
+        hex::decode(require_some(
+            request["params"][0]["data"]
+                .as_str()
+                .unwrap_or_else(|| panic!("{}", "required test value"))
+                .strip_prefix("0x"),
+            "required test value",
+        )),
+        "required test value",
+    );
+    let mut state = require_ok(served.lock(), "required test value");
+    let selector = &data[..4];
+    let (name, bytes) = if selector == ledger_selector("getUnifiedAccount(address)") {
+        assert_eq!(
+            request["params"][0]["to"],
+            "0x0000000000000000000000000000000000001004"
+        );
+        assert_eq!(data[4..16], [0; 12]);
+        assert_eq!(data[16..], state.sender);
+        ("unified", state.unified.clone())
+    } else {
+        assert_eq!(
+            request["params"][0]["to"],
+            "0x000000000000000000000000000000000000101a"
+        );
+        if selector == ledger_selector("accountId(bytes32,bytes32)") {
+            assert_eq!(data[4..36], state.identity);
+            assert_eq!(data[36..], ASSET);
+            ("account", state.source.to_vec())
+        } else {
+            assert_eq!(selector, ledger_selector("accountOwner(bytes32)"));
+            if data[4..] == state.main {
+                ("main_owner", state.owner.to_vec())
+            } else {
+                assert_eq!(data[4..], state.source);
+                ("source_owner", state.source_owner.to_vec())
+            }
+        }
+    };
+    *state.queries.entry(name.into()).or_default() += 1;
+    json!(format!("0x{}", hex::encode(bytes)))
 }
 impl Drop for Ledger {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
-        self.worker.take().unwrap().join().unwrap();
+        require_ok(
+            self.worker
+                .take()
+                .unwrap_or_else(|| panic!("{}", "required test value"))
+                .join(),
+            "required test value",
+        );
     }
 }
 
@@ -701,31 +836,40 @@ fn native_send_envelope_signed_evm_admission_reopens_exact_bytes_and_consumed_no
     let ledger = Ledger::new();
     let prepared = ledger.send(25, 7);
     let raw = ledger.raw(&prepared);
-    let registry = ModuleRegistry::new(&[]).unwrap();
-    let admission =
-        NativeSendAdmission::verify(&prepared, &raw, &registry, &ledger.reads()).unwrap();
+    let registry = require_ok(ModuleRegistry::new(&[]), "required test value");
+    let admission = require_ok(
+        NativeSendAdmission::verify(&prepared, &raw, &registry, &ledger.reads()),
+        "required test value",
+    );
     assert_eq!(admission.exact_bytes(), raw);
     assert_eq!(admission.principal().sender(), ledger.account.evm_address());
     assert_eq!(admission.principal().issuer(), ledger.owner());
     assert_eq!(admission.principal().fee_account(), ledger.main());
-    let (call, signature) = decode_signed(admission.exact_bytes()).unwrap();
+    let (call, signature) = require_ok(
+        decode_signed(admission.exact_bytes()),
+        "required test value",
+    );
     assert_eq!(call.chain_id, 125);
     assert_eq!(call.nonce, 7);
     assert_eq!(call.to, PrecompileTarget::Ledger.address());
     assert_eq!(call.data, prepared.transaction.call.data);
     assert_eq!(
-        recover_sender(&call, &signature).unwrap(),
+        require_ok(recover_sender(&call, &signature), "required test value"),
         ledger.account.evm_address()
     );
     let directory = Directory::new();
     let mut store = directory.open();
     let reference = admission.preparation_id();
-    admission.admit(&mut store, tenant()).unwrap();
+    require_ok(admission.admit(&mut store, tenant()), "required test value");
     let mut outbox = layerx_agentd::outbox::Outbox::default();
-    let hash = outbox
-        .enqueue_verified(&mut store, tenant(), admission.submission().clone())
-        .unwrap();
-    assert_eq!(outbox.bytes_for_transmission(hash).unwrap(), raw);
+    let hash = require_ok(
+        outbox.enqueue_verified(&mut store, tenant(), admission.submission().clone()),
+        "required test value",
+    );
+    assert_eq!(
+        require_ok(outbox.bytes_for_transmission(hash), "required test value"),
+        raw
+    );
     drop(outbox);
     assert!(matches!(
         admission.admit(&mut store, tenant()),
@@ -733,26 +877,60 @@ fn native_send_envelope_signed_evm_admission_reopens_exact_bytes_and_consumed_no
     ));
     drop(admission);
     drop(store);
-    let mut store = directory.open();
-    let recovered =
+    let store = directory.open();
+    let recovered = require_some(
         NativeSendAdmission::restore(&store, tenant(), reference, &registry, &ledger.reads())
-            .unwrap()
-            .unwrap();
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value")),
+        "required test value",
+    );
     assert_eq!(recovered.exact_bytes(), raw);
     assert_eq!(recovered.preparation(), &prepared);
     assert_eq!(
         transaction_hash(recovered.exact_bytes()),
         transaction_hash(&raw)
     );
+    complete_native_send_envelope_signed_evm_admission_reopens_exact_bytes_and_consumed_nonce_1_repair_22_33_13(CompleteNativeSendEnvelopeSignedEvmAdmissionReopensExactBytesAndConsumedNonce1Repair223313Context { ledger, raw, registry, reference, hash, store, recovered });
+}
+
+struct CompleteNativeSendEnvelopeSignedEvmAdmissionReopensExactBytesAndConsumedNonce1Repair223313Context
+{
+    ledger: Ledger,
+    raw: Vec<u8>,
+    registry: ModuleRegistry,
+    reference: [u8; 32],
+    hash: [u8; 32],
+    store: Store,
+    recovered: NativeSendAdmission,
+}
+
+fn complete_native_send_envelope_signed_evm_admission_reopens_exact_bytes_and_consumed_nonce_1_repair_22_33_13(
+    context: CompleteNativeSendEnvelopeSignedEvmAdmissionReopensExactBytesAndConsumedNonce1Repair223313Context,
+) {
+    let CompleteNativeSendEnvelopeSignedEvmAdmissionReopensExactBytesAndConsumedNonce1Repair223313Context { ledger, raw, registry, reference, hash, mut store, recovered } = context;
+
     let mut outbox = layerx_agentd::outbox::Outbox::default();
-    outbox.restore(&store, tenant(), hash).unwrap();
-    let retained = outbox.bytes_for_transmission(hash).unwrap();
+    require_ok(
+        outbox.restore(&store, tenant(), hash),
+        "required test value",
+    );
+    let retained = require_ok(outbox.bytes_for_transmission(hash), "required test value");
     assert_eq!(
-        ledger.endpoint.send_raw_transaction(retained).unwrap(),
+        require_ok(
+            ledger.endpoint.send_raw_transaction(retained),
+            "required test value"
+        ),
         hash
     );
     assert_eq!(
-        ledger.state.lock().unwrap().submissions.last().unwrap(),
+        require_some(
+            ledger
+                .state
+                .lock()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value"))
+                .submissions
+                .last(),
+            "required test value"
+        ),
         &raw
     );
     assert!(matches!(
@@ -760,27 +938,31 @@ fn native_send_envelope_signed_evm_admission_reopens_exact_bytes_and_consumed_no
         Err(BindingError::Conflict)
     ));
     let competing = ledger.send(26, 7);
-    let competing = NativeSendAdmission::verify(
-        &competing,
-        &ledger.raw(&competing),
-        &registry,
-        &ledger.reads(),
-    )
-    .unwrap();
+    let competing = require_ok(
+        NativeSendAdmission::verify(
+            &competing,
+            &ledger.raw(&competing),
+            &registry,
+            &ledger.reads(),
+        ),
+        "required test value",
+    );
     assert!(matches!(
         competing.admit(&mut store, tenant()),
         Err(BindingError::Conflict)
     ));
-    assert!(NativeSendAdmission::restore(
-        &store,
-        TenantId::new("other").unwrap(),
-        reference,
-        &registry,
-        &ledger.reads()
+    assert!(require_ok(
+        NativeSendAdmission::restore(
+            &store,
+            require_ok(TenantId::new("other"), "required test value"),
+            reference,
+            &registry,
+            &ledger.reads()
+        ),
+        "required test value"
     )
-    .unwrap()
     .is_none());
-    let queries = &ledger.state.lock().unwrap().queries;
+    let queries = &require_ok(ledger.state.lock(), "required test value").queries;
     for name in ["unified", "main_owner", "account", "source_owner"] {
         assert!(queries[name] >= 2);
     }
@@ -791,7 +973,7 @@ fn native_send_envelope_refuses_changed_transaction_binding_and_foreign_ledger_o
     let ledger = Ledger::new();
     let prepared = ledger.send(25, 7);
     let raw = ledger.raw(&prepared);
-    let registry = ModuleRegistry::new(&[]).unwrap();
+    let registry = require_ok(ModuleRegistry::new(&[]), "required test value");
     assert!(NativeSendAdmission::verify(
         &prepared,
         &prepared.transaction.call.encode_unsigned(),
@@ -814,12 +996,14 @@ fn native_send_envelope_refuses_changed_transaction_binding_and_foreign_ledger_o
         }
         assert!(NativeSendAdmission::verify(&changed, &raw, &registry, &ledger.reads()).is_err());
     }
-    let other = derive_from_seed(&[43; 64], 0).unwrap();
-    let other_raw = prepared
-        .transaction
-        .call
-        .sign(other.evm_secret().unwrap())
-        .unwrap();
+    let other = require_ok(derive_from_seed(&[43; 64], 0), "required test value");
+    let other_raw = require_ok(
+        prepared
+            .transaction
+            .call
+            .sign(require_some(other.evm_secret(), "required test value")),
+        "required test value",
+    );
     assert!(
         NativeSendAdmission::verify(&prepared, &other_raw, &registry, &ledger.reads()).is_err()
     );
@@ -834,41 +1018,52 @@ fn native_send_envelope_refuses_changed_transaction_binding_and_foreign_ledger_o
         &ledger.reads()
     )
     .is_err());
-    ledger.state.lock().unwrap().source_owner = [99; 32];
+    require_ok(ledger.state.lock(), "required test value").source_owner = [99; 32];
     assert!(NativeSendAdmission::verify(&prepared, &raw, &registry, &ledger.reads()).is_err());
 }
 
 #[test]
 fn native_send_envelope_restart_rechecks_retained_bytes_and_current_binding() {
     let ledger = Ledger::new();
-    let registry = ModuleRegistry::new(&[]).unwrap();
+    let registry = require_ok(ModuleRegistry::new(&[]), "required test value");
     let prepared = ledger.send(25, 7);
     let raw = ledger.raw(&prepared);
-    let admission =
-        NativeSendAdmission::verify(&prepared, &raw, &registry, &ledger.reads()).unwrap();
+    let admission = require_ok(
+        NativeSendAdmission::verify(&prepared, &raw, &registry, &ledger.reads()),
+        "required test value",
+    );
     let directory = Directory::new();
     let mut store = directory.open();
-    admission.admit(&mut store, tenant()).unwrap();
+    require_ok(admission.admit(&mut store, tenant()), "required test value");
     let reference = admission.preparation_id();
     let mut object = b"native-send-evm-v1:".to_vec();
     object.extend_from_slice(&reference);
-    let key = TenantKey::new(tenant(), ObjectKind::PreparedActivity, object).unwrap();
-    let original = store.get(&key).unwrap().bytes().to_vec();
-    let mut record: Value = serde_json::from_slice(&original).unwrap();
+    let key = require_ok(
+        TenantKey::new(tenant(), ObjectKind::PreparedActivity, object),
+        "required test value",
+    );
+    let original = require_some(store.get(&key), "required test value")
+        .bytes()
+        .to_vec();
+    let mut record: Value = require_ok(serde_json::from_slice(&original), "required test value");
     record[5][0] = json!(0x01);
-    store
-        .put_local(key.clone(), serde_json::to_vec(&record).unwrap())
-        .unwrap();
+    require_ok(
+        store.put_local(
+            key.clone(),
+            require_ok(serde_json::to_vec(&record), "required test value"),
+        ),
+        "required test value",
+    );
     drop(store);
     let mut store = directory.open();
     assert!(
         NativeSendAdmission::restore(&store, tenant(), reference, &registry, &ledger.reads())
             .is_err()
     );
-    store.put_local(key, original).unwrap();
+    require_ok(store.put_local(key, original), "required test value");
     drop(store);
     let store = directory.open();
-    ledger.state.lock().unwrap().owner = [91; 32];
+    require_ok(ledger.state.lock(), "required test value").owner = [91; 32];
     assert!(
         NativeSendAdmission::restore(&store, tenant(), reference, &registry, &ledger.reads())
             .is_err()
@@ -880,18 +1075,24 @@ fn registration_principal_uses_verified_evm_ledger_owner_and_same_fee_account() 
     let ledger = Ledger::new();
     let prepared = ledger.register(1_000);
     let raw = ledger.raw(&prepared);
-    let registry = ModuleRegistry::new(&[]).unwrap();
+    let registry = require_ok(ModuleRegistry::new(&[]), "required test value");
     assert_eq!(
-        verify_before_submit(&raw, &prepared, &ledger.account.evm_address(), &registry)
-            .unwrap()
-            .exact_bytes(),
+        require_ok(
+            verify_before_submit(&raw, &prepared, &ledger.account.evm_address(), &registry),
+            "required test value"
+        )
+        .exact_bytes(),
         raw
     );
-    let principal =
-        VerifiedLedgerPrincipal::resolve(&prepared.transaction, &ledger.reads()).unwrap();
+    let principal = require_ok(
+        VerifiedLedgerPrincipal::resolve(&prepared.transaction, &ledger.reads()),
+        "required test value",
+    );
     let context = NativeRegistrationContext::new(principal, FEE_ASSET);
-    let plan =
-        capability::derive_native_registration(&prepared.transaction.disclosure, context).unwrap();
+    let plan = require_ok(
+        capability::derive_native_registration(&prepared.transaction.disclosure, context),
+        "required test value",
+    );
     assert_eq!(
         plan.effects(),
         [Effect::Authorization {
@@ -907,52 +1108,68 @@ fn registration_principal_uses_verified_evm_ledger_owner_and_same_fee_account() 
     assert_eq!(plan.participants(), &BTreeSet::from([ledger.main()]));
     assert_eq!(plan.rate_actions(), 1);
     let digest: [u8; 32] = Sha256::digest(prepared.transaction.call.encode_unsigned()).into();
-    let commitment = capability::native_registration_commitment(
-        &prepared.transaction.disclosure,
-        3,
-        125,
-        digest,
-        context,
-    )
-    .unwrap();
-    assert_ne!(
-        commitment,
+    let commitment = require_ok(
         capability::native_registration_commitment(
             &prepared.transaction.disclosure,
             3,
             125,
             digest,
-            NativeRegistrationContext::new(principal, [38; 32])
+            context,
+        ),
+        "required test value",
+    );
+    assert_ne!(
+        commitment,
+        require_ok(
+            capability::native_registration_commitment(
+                &prepared.transaction.disclosure,
+                3,
+                125,
+                digest,
+                NativeRegistrationContext::new(principal, [38; 32])
+            ),
+            "required test value"
         )
-        .unwrap()
     );
     let directory = Directory::new();
     let mut store = directory.open();
-    prepared.retain(&mut store, tenant(), digest).unwrap();
+    require_ok(
+        prepared.retain(&mut store, tenant(), digest),
+        "required test value",
+    );
     drop(store);
     let store = directory.open();
-    let recovered = SigningPreparation::restore(&store, tenant(), digest).unwrap();
-    let principal =
-        VerifiedLedgerPrincipal::resolve(&recovered.transaction, &ledger.reads()).unwrap();
+    let recovered = require_ok(
+        SigningPreparation::restore(&store, tenant(), digest),
+        "required test value",
+    );
+    let principal = require_ok(
+        VerifiedLedgerPrincipal::resolve(&recovered.transaction, &ledger.reads()),
+        "required test value",
+    );
     let recovered_context = NativeRegistrationContext::new(principal, FEE_ASSET);
     assert_eq!(
         plan,
-        capability::derive_native_registration(
-            &recovered.transaction.disclosure,
-            recovered_context
+        require_ok(
+            capability::derive_native_registration(
+                &recovered.transaction.disclosure,
+                recovered_context
+            ),
+            "required test value"
         )
-        .unwrap()
     );
     assert_eq!(
         commitment,
-        capability::native_registration_commitment(
-            &recovered.transaction.disclosure,
-            3,
-            125,
-            digest,
-            recovered_context
+        require_ok(
+            capability::native_registration_commitment(
+                &recovered.transaction.disclosure,
+                3,
+                125,
+                digest,
+                recovered_context
+            ),
+            "required test value"
         )
-        .unwrap()
     );
 }
 
@@ -960,8 +1177,10 @@ fn registration_principal_uses_verified_evm_ledger_owner_and_same_fee_account() 
 fn registration_principal_refuses_missing_binding_cross_preparation_and_unbounded_supply() {
     let ledger = Ledger::new();
     let prepared = ledger.register(1000);
-    let principal =
-        VerifiedLedgerPrincipal::resolve(&prepared.transaction, &ledger.reads()).unwrap();
+    let principal = require_ok(
+        VerifiedLedgerPrincipal::resolve(&prepared.transaction, &ledger.reads()),
+        "required test value",
+    );
     let context = NativeRegistrationContext::new(principal, FEE_ASSET);
     assert!(
         capability::derive_native_registration(&prepared.transaction.disclosure, FEE_ASSET)
@@ -974,8 +1193,10 @@ fn registration_principal_refuses_missing_binding_cross_preparation_and_unbounde
     .is_err());
     for supply in [0, u128::MAX] {
         let changed = ledger.register(supply);
-        let principal =
-            VerifiedLedgerPrincipal::resolve(&changed.transaction, &ledger.reads()).unwrap();
+        let principal = require_ok(
+            VerifiedLedgerPrincipal::resolve(&changed.transaction, &ledger.reads()),
+            "required test value",
+        );
         assert!(capability::derive_native_registration(
             &changed.transaction.disclosure,
             NativeRegistrationContext::new(principal, FEE_ASSET)
@@ -1002,9 +1223,11 @@ fn registration_principal_refuses_missing_binding_cross_preparation_and_unbounde
         )
         .is_err());
     }
-    let mut unbound = ledger.state.lock().unwrap().unified.clone();
+    let mut unbound = require_ok(ledger.state.lock(), "required test value")
+        .unified
+        .clone();
     unbound[64..96].fill(0);
-    ledger.state.lock().unwrap().unified = unbound;
+    require_ok(ledger.state.lock(), "required test value").unified = unbound;
     assert!(VerifiedLedgerPrincipal::resolve(&prepared.transaction, &ledger.reads()).is_err());
 }
 
@@ -1013,17 +1236,19 @@ fn registration_principal_refuses_owner_drift_and_unrelated_evm_join() {
     let ledger = Ledger::new();
     let prepared = ledger.register(1_000);
     let original = ledger.owner();
-    ledger.state.lock().unwrap().owner = [93; 32];
-    let principal =
-        VerifiedLedgerPrincipal::resolve(&prepared.transaction, &ledger.reads()).unwrap();
+    require_ok(ledger.state.lock(), "required test value").owner = [93; 32];
+    let principal = require_ok(
+        VerifiedLedgerPrincipal::resolve(&prepared.transaction, &ledger.reads()),
+        "required test value",
+    );
     assert!(capability::derive_native_registration(
         &prepared.transaction.disclosure,
         NativeRegistrationContext::new(principal, FEE_ASSET)
     )
     .is_err());
-    ledger.state.lock().unwrap().owner = [0; 32];
+    require_ok(ledger.state.lock(), "required test value").owner = [0; 32];
     assert!(VerifiedLedgerPrincipal::resolve(&prepared.transaction, &ledger.reads()).is_err());
-    ledger.state.lock().unwrap().owner = original;
-    ledger.state.lock().unwrap().unified[31] ^= 1;
+    require_ok(ledger.state.lock(), "required test value").owner = original;
+    require_ok(ledger.state.lock(), "required test value").unified[31] ^= 1;
     assert!(VerifiedLedgerPrincipal::resolve(&prepared.transaction, &ledger.reads()).is_err());
 }

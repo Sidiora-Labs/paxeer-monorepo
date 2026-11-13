@@ -43,10 +43,7 @@ impl fmt::Display for AgentRpcTlsError {
 
 impl std::error::Error for AgentRpcTlsError {}
 
-fn certificates(
-    path: &Path,
-    what: &str,
-) -> Result<Vec<CertificateDer<'static>>, AgentRpcTlsError> {
+fn certificates(path: &Path, what: &str) -> Result<Vec<CertificateDer<'static>>, AgentRpcTlsError> {
     let certificates = CertificateDer::pem_file_iter(path)
         .map_err(|error| AgentRpcTlsError::Pem(format!("{what} {}: {error:?}", path.display())))?
         .collect::<Result<Vec<_>, _>>()
@@ -61,6 +58,9 @@ fn certificates(
 }
 
 impl AgentRpcTls {
+    /// # Errors
+    /// Returns an error for an inexact DNS peer, unreadable or invalid PEM material,
+    /// untrusted client roots, or an invalid TLS server configuration.
     pub fn from_paths(paths: &AgentRpcTlsPaths) -> Result<Self, AgentRpcTlsError> {
         if paths.peer.is_empty() || paths.peer.contains('*') {
             return Err(AgentRpcTlsError::Config(
@@ -106,6 +106,9 @@ impl AgentRpcTls {
         })
     }
 
+    /// # Errors
+    /// Returns TLS setup or handshake I/O errors, or `Peer` when the authenticated
+    /// client certificate does not contain the configured exact DNS identity.
     pub fn accept<S: Read + Write>(
         &self,
         mut stream: S,

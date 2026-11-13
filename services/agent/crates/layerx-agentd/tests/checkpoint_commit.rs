@@ -63,7 +63,7 @@ fn committed_block(
     for index in signers {
         let timestamp = CommitTimestamp {
             seconds: 1_700_000_001,
-            nanos: *index as u32,
+            nanos: u32::try_from(*index).unwrap_or_else(|error| panic!("signer index: {error}")),
         };
         let signature = keys[*index]
             .sign(&commit.vote_sign_bytes(&header.chain_id, timestamp))
@@ -80,39 +80,7 @@ fn committed_block(
 
 #[test]
 fn checkpoint_is_the_committed_block_at_the_height() {
-    // Match consensus/types/block_test.go::TestHeaderHash independently of commit signing.
-    let hash = |bytes: &[u8]| -> [u8; 32] { Sha256::digest(bytes).into() };
-    let mut proposer_address = [0; 20];
-    proposer_address.copy_from_slice(&hash(b"proposer_address")[..20]);
-    let header_vector = CheckpointHeader {
-        version_block: 1,
-        version_app: 2,
-        chain_id: "chainId".to_owned(),
-        height: 3,
-        time: CommitTimestamp {
-            seconds: 1_570_983_284,
-            nanos: 0,
-        },
-        last_block_id: Some(BlockId {
-            hash: [0; 32],
-            part_set_total: 6,
-            part_set_hash: [0; 32],
-        }),
-        last_commit_hash: Some(hash(b"last_commit_hash")),
-        data_hash: Some(hash(b"data_hash")),
-        validators_hash: hash(b"validators_hash"),
-        next_validators_hash: hash(b"next_validators_hash"),
-        consensus_hash: hash(b"consensus_hash"),
-        app_hash: hash(b"app_hash"),
-        last_results_hash: Some(hash(b"last_results_hash")),
-        evidence_hash: Some(hash(b"evidence_hash")),
-        proposer_address,
-    };
-    assert_eq!(
-        hex::encode(header_vector.block_hash()),
-        "f740121f553b5418c3efbd343c2dbfe9e007bb67b0d020a0741374bab65242a4"
-    );
-
+    assert_consensus_header_hash_vector();
     for (powers, signers) in [
         (vec![4, 3, 2], vec![0, 1]),
         (vec![7, 1, 1], vec![0]),
@@ -178,35 +146,7 @@ fn checkpoint_is_the_committed_block_at_the_height() {
         );
     }
 
-    // CanonicalVote is length-delimited protobuf, with sfixed64 height/round.
-    let vector = BlockCommit {
-        height: 1,
-        round: 1,
-        block_id: BlockId {
-            hash: [0x11; 32],
-            part_set_total: 1,
-            part_set_hash: [0x22; 32],
-        },
-        votes: Vec::new(),
-    };
-    let expected = hex::decode(concat!(
-        "68080211010000000000000019010000000000000022480a20",
-        "1111111111111111111111111111111111111111111111111111111111111111",
-        "122408011220",
-        "2222222222222222222222222222222222222222222222222222222222222222",
-        "2a020801320470617878"
-    ))
-    .unwrap_or_else(|error| panic!("canonical vector: {error}"));
-    assert_eq!(
-        vector.vote_sign_bytes(
-            "paxx",
-            CommitTimestamp {
-                seconds: 1,
-                nanos: 0
-            }
-        ),
-        expected
-    );
+    assert_consensus_vote_sign_bytes_vector();
 }
 
 #[test]
@@ -248,5 +188,72 @@ fn checkpoint_with_insufficient_commit_power_is_refused() {
     assert_eq!(
         checkpoint(8, "paxeer-test", &header, &commit, &validators),
         Err(CheckpointReadError::Commit)
+    );
+}
+
+fn assert_consensus_header_hash_vector() {
+    // Match consensus/types/block_test.go::TestHeaderHash independently of commit signing.
+    let hash = |bytes: &[u8]| -> [u8; 32] { Sha256::digest(bytes).into() };
+    let mut proposer_address = [0; 20];
+    proposer_address.copy_from_slice(&hash(b"proposer_address")[..20]);
+    let header_vector = CheckpointHeader {
+        version_block: 1,
+        version_app: 2,
+        chain_id: "chainId".to_owned(),
+        height: 3,
+        time: CommitTimestamp {
+            seconds: 1_570_983_284,
+            nanos: 0,
+        },
+        last_block_id: Some(BlockId {
+            hash: [0; 32],
+            part_set_total: 6,
+            part_set_hash: [0; 32],
+        }),
+        last_commit_hash: Some(hash(b"last_commit_hash")),
+        data_hash: Some(hash(b"data_hash")),
+        validators_hash: hash(b"validators_hash"),
+        next_validators_hash: hash(b"next_validators_hash"),
+        consensus_hash: hash(b"consensus_hash"),
+        app_hash: hash(b"app_hash"),
+        last_results_hash: Some(hash(b"last_results_hash")),
+        evidence_hash: Some(hash(b"evidence_hash")),
+        proposer_address,
+    };
+    assert_eq!(
+        hex::encode(header_vector.block_hash()),
+        "f740121f553b5418c3efbd343c2dbfe9e007bb67b0d020a0741374bab65242a4"
+    );
+}
+
+fn assert_consensus_vote_sign_bytes_vector() {
+    // CanonicalVote is length-delimited protobuf, with sfixed64 height/round.
+    let vector = BlockCommit {
+        height: 1,
+        round: 1,
+        block_id: BlockId {
+            hash: [0x11; 32],
+            part_set_total: 1,
+            part_set_hash: [0x22; 32],
+        },
+        votes: Vec::new(),
+    };
+    let expected = hex::decode(concat!(
+        "68080211010000000000000019010000000000000022480a20",
+        "1111111111111111111111111111111111111111111111111111111111111111",
+        "122408011220",
+        "2222222222222222222222222222222222222222222222222222222222222222",
+        "2a020801320470617878"
+    ))
+    .unwrap_or_else(|error| panic!("canonical vector: {error}"));
+    assert_eq!(
+        vector.vote_sign_bytes(
+            "paxx",
+            CommitTimestamp {
+                seconds: 1,
+                nanos: 0
+            }
+        ),
+        expected
     );
 }

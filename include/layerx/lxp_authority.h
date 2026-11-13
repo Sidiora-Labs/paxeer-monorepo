@@ -77,6 +77,8 @@ typedef struct lxp_authority_grant {
 } lxp_authority_grant;
 #define lxp_authority_grant lxp_authority_grant
 
+/* Canonical authorization-grant codecs are shared by governance, session keys
+ * and debit allowances. Their wire format and identifiers remain protocol data. */
 lxp_result lxp_grant_encode(const lxp_authority_grant *grant,
                             lxp_arena *arena, lxp_byte_span *encoded);
 lxp_result lxp_grant_id_compute(const lxp_authority_grant *grant,

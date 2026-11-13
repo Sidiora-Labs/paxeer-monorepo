@@ -14,6 +14,9 @@ pub struct AbciResultProof {
 impl AbciResultProof {
     /// The first field carries the version, total, index and exact protobuf
     /// leaf; remaining fields are the producer's bottom-up SHA-256 aunts.
+    /// # Errors
+    /// Returns an error if node acquisition fails or the committed checkpoint, target, result
+    /// root or proof cannot be verified.
     pub fn encode(&self) -> Result<Vec<Vec<u8>>, CheckpointReadError> {
         if self.proof.total <= 0
             || self.proof.index < 0
@@ -32,6 +35,9 @@ impl AbciResultProof {
         Ok(fields)
     }
 
+    /// # Errors
+    /// Returns an error if node acquisition fails or the committed checkpoint, target, result
+    /// root or proof cannot be verified.
     pub fn decode(fields: &[Vec<u8>]) -> Result<Self, CheckpointReadError> {
         use sha2::{Digest, Sha256};
         let bad = || CheckpointReadError::InvalidProof;
@@ -67,6 +73,9 @@ impl AbciResultProof {
         })
     }
 
+    /// # Errors
+    /// Returns an error if node acquisition fails or the committed checkpoint, target, result
+    /// root or proof cannot be verified.
     pub fn verify(&self, root: [u8; 32], index: u64) -> Result<(), CheckpointReadError> {
         if u64::try_from(self.proof.index).ok() != Some(index) || self.proof.aunts.len() > 64 {
             return Err(CheckpointReadError::TargetMismatch);
@@ -76,6 +85,9 @@ impl AbciResultProof {
             .map_err(|_| CheckpointReadError::RootMismatch)
     }
 
+    /// # Errors
+    /// Returns an error if node acquisition fails or the committed checkpoint, target, result
+    /// root or proof cannot be verified.
     pub fn verify_committed(
         &self,
         result_height: u64,
@@ -174,9 +186,8 @@ pub(crate) fn evm_response(result: &[u8]) -> Result<&[u8], CheckpointReadError> 
         }
         previous = number;
         match (number, value) {
-            (1, ProtoValue::Integer(0)) => {}
             (2, ProtoValue::Bytes(bytes)) => data = Some(bytes),
-            (5 | 6, ProtoValue::Integer(_)) => {}
+            (1, ProtoValue::Integer(0)) | (5 | 6, ProtoValue::Integer(_)) => {}
             _ => return Err(CheckpointReadError::InvalidProof),
         }
     }

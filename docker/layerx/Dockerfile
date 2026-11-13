@@ -15,7 +15,6 @@ COPY tools/paxeer-x/build tools/paxeer-x/build/
 COPY services/platform/Makefile.inc services/platform/
 COPY include include/
 COPY spec/layerx-merge/contracts/address-table.md spec/layerx-merge/contracts/
-COPY contracts/config/checkpoint-settlement.json contracts/config/
 COPY services/agent services/agent/
 COPY programs programs/
 COPY src src/
@@ -25,11 +24,9 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     set -eu; \
     make -j"$(nproc)" paxd-native-libs; \
     test -s build/liblayerx.a; \
-    test -s build/generated/lxp_checkpoint_settlement.h; \
     test -s programs/target/release/liblayerx_programs_sandbox.a; \
-    mkdir -p /out/build/generated /out/programs/target/release; \
+    mkdir -p /out/build /out/programs/target/release; \
     cp build/liblayerx.a /out/build/; \
-    cp build/generated/lxp_checkpoint_settlement.h /out/build/generated/; \
     cp programs/target/release/liblayerx_programs_sandbox.a /out/programs/target/release/
 
 FROM docker.io/golang:1.25.8-bookworm@sha256:4557cf171e3cdf5053a298d5171b1a5f5734d920260c25f22c79e94760eb2084 AS builder

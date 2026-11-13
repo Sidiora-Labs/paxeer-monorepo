@@ -15,6 +15,12 @@ func TestCorrelationNameRejectsForeignIdentity(t *testing.T) {
 	}
 }
 func TestActualProviderCorrelationAdoptsExistingProvision(t *testing.T) {
+	for _, name := range []string{"L40_TEST_LIVEPEER_URL", "L40_TEST_LIVEPEER_KEY", "L40_TEST_LIVEPEER_OPERATION_ID"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	endpoint := os.Getenv("L40_TEST_LIVEPEER_URL")
 	key := os.Getenv("L40_TEST_LIVEPEER_KEY")
 	operation := os.Getenv("L40_TEST_LIVEPEER_OPERATION_ID")

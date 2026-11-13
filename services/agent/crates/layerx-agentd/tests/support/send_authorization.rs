@@ -101,6 +101,7 @@ pub fn preparation(id: u8) -> SigningPreparation {
 // Compatibility entry for out-of-scope fixture callers. Decode every field,
 // then ask the production typed producer to authorize it; never patch signatures.
 pub fn sign(payload: Vec<u8>) -> Vec<u8> {
+    let payload = payload.into_boxed_slice();
     let mut decoder = Decoder::new(&payload, 1_024);
     assert_eq!(must(decoder.u16()), 0x5301);
     assert_eq!(must(decoder.u16()), 10);

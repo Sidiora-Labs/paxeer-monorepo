@@ -1,0 +1,24 @@
+[repair]
+task = "22.39.353"
+decision = "3232"
+gotcha = "4159"
+base_revision = "7618069d673f331028924a8bd75e85e1b9201b30"
+defect = "The host binary includes signal.rs and deals.rs outside cfg(test); deals.rs unconditionally initializes SignalListener.address and exposes local_addr returning SocketAddr although all three names are test-only in signal.rs, causing E0560, E0412 and E0599."
+signal_commit = "45307a6758 (22.39.347): made the signal listener address, SocketAddr import and address reader test-only."
+deal_commit = "62bbc852a9 (22.38.17): added the deal listener against the earlier signal listener shape; the textually clean merge retained ungated address uses."
+change = "Apply cfg(test) to the deal listener's bound-address binding, SignalListener.address initializer and forwarding local_addr method; preserve connection handling, admission, negotiation, polling and shutdown."
+
+[search]
+scope = "services/agent/crates/layerx-agentd/src and host package path/include sources, including main.rs, layerx-agentd-host/src/payer.rs and tests/proof_serve_errors.rs."
+members = "SignalListener.address; approval after_prepare and before_decision; program correlation_id, program_id and guest_abi_version; protocol receipt operation."
+result = "The signal address uses in deals.rs are the only additional ungated uses found; the signal initializer and reader already carry cfg(test), and the other inspected member initializers and test readers retain their gates."
+outside_scope_defects = "None found."
+
+[qualification]
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host && cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --all-targets"
+verify_command = "test -s services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-353.kvx && cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_deals --test inference_signal"
+tests = "Existing inference_deals and inference_signal integration tests execute unchanged through hf-done."
+result = "The authoritative result and verified candidate revision are the build and verify entries in the private gate ledger /out/run/gates.jsonl; qualification requires both exit codes zero at the same revision."
+build_log = "/out/logs/build-1.log"
+verify_log = "/out/logs/verify-1.log"
+revision_source = "/out/run/gates.jsonl: revision field of the final build and verify entries, also printed by hf-build and hf-done."

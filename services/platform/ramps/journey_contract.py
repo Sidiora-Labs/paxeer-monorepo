@@ -106,7 +106,8 @@ def load_inputs(path):
 
 
 def observe_rebalance(value, terms, previous=None):
-    require(isinstance(value, dict) and value["settlement_domain"] == "paxeer", "rebalance_domain")
+    require(isinstance(value, dict) and type(value["chain_id"]) is int
+            and value["chain_id"] == 125, "rebalance_chain")
     require(value["idempotency_key"] == hash_bytes(terms["idempotency_key"])
             and value["asset"] == hash_bytes(terms["asset"])
             and type(value["amount"]) is int and value["amount"] == int(terms["amount"])

@@ -31,11 +31,11 @@ func (k Keeper) SequencerAuthorizationForBatch(ctx sdk.Context, batchNumber uint
 	return covering[0], true
 }
 
-// CustodyAnchor adapts the anchor keeper to the four-method reader the
-// custody module verifies withdrawals and forced exits against
-// (modules/layerxcustody/types.AnchorReader). Only finalized checkpoints are
-// ever returned.
+// CustodyAnchor implements modules/layerxcustody/types.AnchorReader for the
+// retained pre-merge custody surface. Only finalized checkpoints are returned.
 type CustodyAnchor struct{ k Keeper }
+
+var _ custodytypes.AnchorReader = CustodyAnchor{}
 
 func NewCustodyAnchor(k Keeper) CustodyAnchor { return CustodyAnchor{k: k} }
 

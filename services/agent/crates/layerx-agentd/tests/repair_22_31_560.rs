@@ -1,3 +1,11 @@
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 include!("native_send_preview_evm.rs");
 
 use layerx_agent_api::identity::{NativeSendPurposeV2, SignedNativeSendPurposeV2};
@@ -94,11 +102,57 @@ fn committed_native_send_calls(binding: &SignedBinding) -> CommittedNativeCalls 
     assert_eq!(decoded.record().asset_id, asset);
     assert_eq!(decoded.record().remaining(), record.remaining());
 
+    continue_committed_native_send_calls_1_repair_22_31_560(
+        ContinueCommittedNativeSendCalls1Repair2231560Context {
+            word,
+            public,
+            owner,
+            asset,
+            main,
+            address,
+            did_binding,
+            metadata,
+            record,
+            budget,
+        },
+    )
+}
+
+struct ContinueCommittedNativeSendCalls1Repair2231560Context<F0> {
+    word: F0,
+    public: [u8; 32],
+    owner: [u8; 32],
+    asset: [u8; 32],
+    main: [u8; 32],
+    address: [u8; 32],
+    did_binding: Vec<u8>,
+    metadata: Vec<u8>,
+    record: layerx_client::budget::ProtocolBudgetRecord,
+    budget: Vec<u8>,
+}
+
+fn continue_committed_native_send_calls_1_repair_22_31_560(
+    context: ContinueCommittedNativeSendCalls1Repair2231560Context<impl Fn(u128) -> [u8; 32]>,
+) -> BTreeMap<(String, Vec<u8>), Vec<u8>> {
+    let ContinueCommittedNativeSendCalls1Repair2231560Context {
+        word,
+        public,
+        owner,
+        asset,
+        main,
+        address,
+        did_binding,
+        metadata,
+        record,
+        budget,
+    } = context;
+
     let mut calls = BTreeMap::new();
     let mut add = |target: [u8; 20], signature: &[u8], args: &[u8], answer: Vec<u8>| {
-        let selector: [u8; 4] = layerx_crypto::evm_transaction::transaction_hash(signature)[..4]
-            .try_into()
-            .expect("four-byte selector");
+        let selector: [u8; 4] = require_ok(
+            layerx_crypto::evm_transaction::transaction_hash(signature)[..4].try_into(),
+            "four-byte selector",
+        );
         let calldata = [selector.as_slice(), args].concat();
         assert!(calls
             .insert((format!("0x{}", hex::encode(target)), calldata), answer)
@@ -174,9 +228,7 @@ fn native_send_history_commits(
     validators: &Value,
     upstream: &str,
 ) -> BTreeMap<u64, Value> {
-    use layerx_agentd::read::{
-        BlockCommit, BlockId, CheckpointHeader, CommitTimestamp, CommitValidator, CommitVote,
-    };
+    use layerx_agentd::read::{BlockId, CheckpointHeader, CommitTimestamp, CommitValidator};
     let verifier = layerx_programs::chain_proof::ChainProofVerifier {
         chain_id: "125".to_owned(),
         validators: must(layerx_client::rpc::commit::decode_validators(validators)),
@@ -196,16 +248,18 @@ fn native_send_history_commits(
     };
     let h = &recorded["signedHeader"]["header"];
     let digest = |name: &str| -> [u8; 32] {
-        must(hex::decode(text(h, name)))
-            .try_into()
-            .expect("recorded header digest")
+        require_ok(
+            must(hex::decode(text(h, name))).try_into(),
+            "recorded header digest",
+        )
     };
     let empty_results = layerx_programs::chain_proof::merkle::hash_from_byte_slices(&[]);
-    let head_seconds = must(i64::try_from(original.time_ms())) / 1000;
+    let head_seconds = original.time_ms() / 1000;
     assert_eq!(h["time"], "2026-09-14T05:59:04Z");
-    let mut parent: [u8; 32] = must(hex::decode(text(&h["last_block_id"], "hash")))
-        .try_into()
-        .expect("recorded predecessor");
+    let mut parent: [u8; 32] = require_ok(
+        must(hex::decode(text(&h["last_block_id"], "hash"))).try_into(),
+        "recorded predecessor",
+    );
     let mut commits = BTreeMap::new();
     for (height, seconds, timestamp) in [
         (HEAD - 1, head_seconds - 11, "2026-09-14T05:58:53Z"),
@@ -244,52 +298,105 @@ fn native_send_history_commits(
             evidence_hash: Some(digest("evidence_hash")),
             proposer_address: validator.address,
         };
-        let mut commit = BlockCommit {
-            height,
-            round: 1,
-            block_id: BlockId {
-                hash: header.block_hash(),
-                part_set_total: 1,
-                part_set_hash: [9; 32],
+        continue_native_send_history_commits_1_repair_22_31_560(
+            ContinueNativeSendHistoryCommits1Repair2231560Context {
+                recorded,
+                verifier: &verifier,
+                original: &original,
+                key: &key,
+                validator,
+                empty_results,
+                parent: &mut parent,
+                commits: &mut commits,
+                height,
+                seconds,
+                timestamp,
+                header,
             },
-            votes: Vec::new(),
-        };
-        let signature = key
-            .sign(&commit.vote_sign_bytes("125", header.time))
-            .to_bytes();
-        commit.votes.push(CommitVote {
-            validator_address: validator.address,
-            voting_power: validator.voting_power,
-            timestamp: header.time,
-            signature,
-        });
-        let checkpoint = must(layerx_agentd::read::checkpoint(
-            height,
-            "125",
-            &header,
-            &commit,
-            &[validator],
-        ));
-        let mut signed = recorded["signedHeader"].clone();
-        signed["header"]["height"] = json!(height.to_string());
-        signed["header"]["time"] = json!(timestamp);
-        signed["header"]["last_block_id"]["hash"] = json!(hex::encode(parent));
-        signed["header"]["last_results_hash"] = json!(hex::encode(empty_results));
-        signed["commit"]["height"] = json!(height.to_string());
-        signed["commit"]["block_id"]["hash"] = json!(hex::encode(checkpoint.block_hash));
-        signed["commit"]["signatures"][0]["timestamp"] = json!(timestamp);
-        signed["commit"]["signatures"][0]["signature"] =
-            json!(openssl::base64::encode_block(&signature));
-        let verified = must(layerx_client::rpc::commit::verify_commit_material(
-            &signed, &verifier,
-        ));
-        assert_eq!(verified.header_hash(), checkpoint.block_hash);
-        assert_eq!(verified.app_hash(), original.app_hash());
-        assert_eq!(verified.time_ms(), seconds * 1000);
-        parent = checkpoint.block_hash;
-        assert!(commits.insert(height, signed).is_none());
+        );
     }
     commits
+}
+
+struct ContinueNativeSendHistoryCommits1Repair2231560Context<'a> {
+    recorded: &'a Value,
+    verifier: &'a layerx_programs::ChainProofVerifier,
+    original: &'a layerx_client::rpc::VerifiedChainHead,
+    key: &'a ed25519_dalek::SigningKey,
+    validator: layerx_agentd::read::CommitValidator,
+    empty_results: [u8; 32],
+    parent: &'a mut [u8; 32],
+    commits: &'a mut BTreeMap<u64, Value>,
+    height: u64,
+    seconds: i64,
+    timestamp: &'static str,
+    header: layerx_agentd::read::CheckpointHeader,
+}
+
+fn continue_native_send_history_commits_1_repair_22_31_560(
+    context: ContinueNativeSendHistoryCommits1Repair2231560Context<'_>,
+) {
+    use layerx_agentd::read::{BlockCommit, BlockId, CommitVote};
+
+    let ContinueNativeSendHistoryCommits1Repair2231560Context {
+        recorded,
+        verifier,
+        original,
+        key,
+        validator,
+        empty_results,
+        parent,
+        commits,
+        height,
+        seconds,
+        timestamp,
+        header,
+    } = context;
+
+    let mut commit = BlockCommit {
+        height,
+        round: 1,
+        block_id: BlockId {
+            hash: header.block_hash(),
+            part_set_total: 1,
+            part_set_hash: [9; 32],
+        },
+        votes: Vec::new(),
+    };
+    let signature = key
+        .sign(&commit.vote_sign_bytes("125", header.time))
+        .to_bytes();
+    commit.votes.push(CommitVote {
+        validator_address: validator.address,
+        voting_power: validator.voting_power,
+        timestamp: header.time,
+        signature,
+    });
+    let checkpoint = must(layerx_agentd::read::checkpoint(
+        height,
+        "125",
+        &header,
+        &commit,
+        &[validator],
+    ));
+    let mut signed = recorded["signedHeader"].clone();
+    signed["header"]["height"] = json!(height.to_string());
+    signed["header"]["time"] = json!(timestamp);
+    signed["header"]["last_block_id"]["hash"] = json!(hex::encode(*parent));
+    signed["header"]["last_results_hash"] = json!(hex::encode(empty_results));
+    signed["commit"]["height"] = json!(height.to_string());
+    signed["commit"]["block_id"]["hash"] = json!(hex::encode(checkpoint.block_hash));
+    signed["commit"]["signatures"][0]["timestamp"] = json!(timestamp);
+    signed["commit"]["signatures"][0]["signature"] =
+        json!(openssl::base64::encode_block(&signature));
+    let authenticated_receipt = must(layerx_client::rpc::commit::verify_commit_material(
+        &signed, verifier,
+    ));
+    assert_eq!(authenticated_receipt.header_hash(), checkpoint.block_hash);
+    assert_eq!(authenticated_receipt.app_hash(), original.app_hash());
+    assert_eq!(authenticated_receipt.time_ms(), seconds * 1000);
+    *parent = checkpoint.block_hash;
+    assert!(commits.insert(height, signed).is_none());
 }
 
 fn fixture_with_receipt_keys() -> Fixture {
@@ -318,12 +425,12 @@ fn fixture_with_receipt_keys() -> Fixture {
         "support/human_budget_checkpoint.json"
     )));
     let checkpoint_result = |method: &str| {
-        checkpoint_reads
-            .iter()
-            .find(|recorded| {
+        require_some(
+            checkpoint_reads.iter().find(|recorded| {
                 recorded["method"] == method && recorded["params"] == json!([HEAD.to_string()])
-            })
-            .expect("checkpoint RPC recorded at the fixture head")["result"]
+            }),
+            "checkpoint RPC recorded at the fixture head",
+        )["result"]
             .clone()
     };
     let commit = checkpoint_result("px_getCommit");
@@ -346,105 +453,18 @@ fn fixture_with_receipt_keys() -> Fixture {
     must(binding.verify());
     let committed_calls = committed_native_send_calls(&binding);
     let history_account = format!("0x{}", hex::encode(fixture.account.evm_address()));
-    let peer = Peer::spawn(move |stop| {
-        let _receipt_key = receipt_key;
-        while !stop.load(Ordering::Acquire) {
-            let Some(mut stream) = incoming(&listener) else {
-                continue;
-            };
-            let (_, body) = http_request(&mut stream);
-            let request: Value = must(serde_json::from_slice(&body));
-            let method = text(&request, "method");
-            let response = if method == "px_getReceiptKeys" {
-                json!({"jsonrpc": "2.0", "id": request["id"], "result": keys})
-            } else if method == "px_getCommit" || method == "px_getValidators" {
-                assert_eq!(request["params"], json!([HEAD.to_string()]));
-                let result = if method == "px_getCommit" {
-                    &commit
-                } else {
-                    &validators
-                };
-                json!({"jsonrpc": "2.0", "id": request["id"], "result": result})
-            } else if method == "px_getHistory" {
-                assert_eq!(request["params"][0], history_account);
-                assert!(request["params"][1].is_null() || request["params"][1].is_string());
-                assert_eq!(request["params"][2], 100);
-                json!({"jsonrpc":"2.0", "id":request["id"], "result":{
-                    "account":history_account, "items":[], "next_cursor":null,
-                    "indexedHeight":HEAD, "chainHeight":HEAD,
-                    "freshness":{"version":1, "database":"ok", "status":"ready",
-                        "sources":[{"source":"comet", "source_head":HEAD,
-                            "indexed_cursor":HEAD, "finalized_cursor":HEAD,
-                            "last_success_at":timestamp, "freshness_secs":0,
-                            "last_error_at":null, "reconciled":true,
-                            "consecutive_failures":0, "state":"ready"}]}
-                }})
-            } else if method == "commit" || method == "block_results" {
-                let height = must(text(&request["params"], "height").parse::<u64>());
-                let signed = history_commits
-                    .get(&height)
-                    .expect("covered policy history block");
-                let result = if method == "commit" {
-                    json!({"signed_header":signed})
-                } else {
-                    assert!((HEAD - 1..=HEAD).contains(&height));
-                    json!({"height":height.to_string(), "txs_results":[]})
-                };
-                eprintln!("repair_22_31_560 chain peer: authenticated history method={method} height={height}");
-                json!({"jsonrpc":"2.0", "id":request["id"], "result":result})
-            } else if method == "eth_call" && request["params"][1] == format!("0x{HEAD:x}") {
-                let call = &request["params"][0];
-                let data = call
-                    .get("data")
-                    .or_else(|| call.get("input"))
-                    .and_then(Value::as_str)
-                    .expect("committed call data");
-                let data = must(hex::decode(data.trim_start_matches("0x")));
-                assert!(data.len() >= 4, "committed call selector: {request}");
-                let target = text(call, "to").to_owned();
-                if let Some(answer) = committed_calls.get(&(target.clone(), data.clone())) {
-                    eprintln!("repair_22_31_560 chain peer: served committed call target={target} selector=0x{}", hex::encode(&data[..4]));
-                    json!({"jsonrpc": "2.0", "id": request["id"],
-                        "result": format!("0x{}", hex::encode(answer))})
-                } else {
-                    assert!(
-                        !committed_calls
-                            .keys()
-                            .any(|(address, expected)| address == &target
-                                && expected[..4] == data[..4]),
-                        "committed call arguments: {request}"
-                    );
-                    let response = rpc(&upstream, &request);
-                    if response.get("error").is_some() {
-                        eprintln!(
-                            "repair_22_31_560 chain peer: request={request} response={response}"
-                        );
-                    }
-                    response
-                }
-            } else {
-                if method == "eth_getProof" || method == "abci_query" {
-                    eprintln!("repair_22_31_560 chain peer: committed proof request={request}");
-                }
-                let mut response = rpc(&upstream, &request);
-                if response.get("error").is_some() {
-                    eprintln!("repair_22_31_560 chain peer: request={request} response={response}");
-                }
-                if method == "eth_getBlockByNumber"
-                    && (request["params"][0] == format!("0x{HEAD:x}")
-                        || request["params"][0] == "latest")
-                {
-                    assert!(response.get("error").is_none(), "{response}");
-                    let block = &mut response["result"];
-                    assert_eq!(block["number"], format!("0x{HEAD:x}"));
-                    block["hash"] = json!(format!("0x{}", hex::encode(head.header_hash())));
-                    block["stateRoot"] = json!(format!("0x{}", hex::encode(head.app_hash())));
-                    block["timestamp"] = json!(format!("0x{timestamp:x}"));
-                }
-                response
-            };
-            http_response(&mut stream, &response);
-        }
+    let peer = receipt_key_peer(ReceiptKeyPeer {
+        listener,
+        receipt_key,
+        keys,
+        commit,
+        validators,
+        history_account,
+        timestamp,
+        history_commits,
+        committed_calls,
+        upstream,
+        head,
     });
     fixture.peers.push(peer);
     std::env::set_var("LAYERX_AGENT_NODE_RPC_URL", &url);
@@ -484,7 +504,7 @@ fn owner_preview_over_unix(
     request.extend_from_slice(&prepare.fee_limit.to_be_bytes());
     bytes(&mut request, &prepare.payload);
     request.extend_from_slice(&prepare.payload_hash);
-    request.extend_from_slice(&prepare.capability_id.expect("capability"));
+    request.extend_from_slice(&require_some(prepare.capability_id, "capability"));
     request.extend_from_slice(&fixture.account.layerx_public_key());
     request.extend_from_slice(&prepare.not_after_height.to_be_bytes());
     request.extend_from_slice(&[11; 32]);
@@ -617,7 +637,7 @@ fn preview(
 }
 
 fn successful_preparation(
-    response: AgentRpcResponse,
+    response: &AgentRpcResponse,
 ) -> layerx_agent_api::identity::NativePrepareResultV1 {
     assert_eq!(
         response.status,
@@ -637,10 +657,7 @@ fn assert_durable(fixture: &Fixture, id: [u8; 32], canonical: &[u8]) {
     let key = must(DurablePreparation::store_key(tenant, id));
     let durable = must(DurablePreparation::decode(
         tenant.clone(),
-        store
-            .get(&key)
-            .expect("durable preparation at preview identifier")
-            .bytes(),
+        require_some(store.get(&key), "durable preparation at preview identifier").bytes(),
     ));
     assert_eq!(durable.preparation_id, id);
     assert_eq!(durable.session_id, fixture.credential.session_id().0);
@@ -659,10 +676,7 @@ fn assert_durable(fixture: &Fixture, id: [u8; 32], canonical: &[u8]) {
         references[0].clone(),
     ));
     assert_eq!(
-        store
-            .get(&reference_key)
-            .expect("authorization reference")
-            .bytes(),
+        require_some(store.get(&reference_key), "authorization reference").bytes(),
         id
     );
     let transport_tenant = must(TenantId::new(fixture.peer.transport_tenant().to_owned()));
@@ -679,6 +693,10 @@ fn assert_durable(fixture: &Fixture, id: [u8; 32], canonical: &[u8]) {
     assert!(store.get(&transport_reference_key).is_none());
 }
 
+#[allow(
+    deprecated,
+    reason = "Retains archived forms to exercise their compatibility and rejection boundaries."
+)]
 fn reopen_daemon(fixture: &mut Fixture) {
     let retained = must(fixture.owner.lock()).session_control.store();
     {
@@ -715,9 +733,10 @@ fn reopen_daemon(fixture: &mut Fixture) {
             &endpoint, HEAD, None, "125",
         ),
     );
-    let core_time_ms = must(u64::try_from(checkpoint.header.time.seconds))
-        .checked_mul(1000)
-        .expect("checkpoint time in milliseconds");
+    let core_time_ms = require_some(
+        must(u64::try_from(checkpoint.header.time.seconds)).checked_mul(1000),
+        "checkpoint time in milliseconds",
+    );
     let (clock, clock_worker) = clock_peer_at(&clock_root, core_time_ms);
     let trust = must(layerx_agentd::export::ExportTrustSource::new(
         must(endpoint.receipt_keys()),
@@ -728,6 +747,50 @@ fn reopen_daemon(fixture: &mut Fixture) {
         &must(AccountId::for_asset(&fixture.account.did(), asset, asset)),
         3,
     ));
+    finish_reopen_daemon_2_repair_22_31_560(FinishReopenDaemon2Repair2231560Context {
+        fixture,
+        retained,
+        authority,
+        authority_worker,
+        restart,
+        config,
+        clock,
+        clock_worker,
+        trust,
+        asset,
+        account,
+    });
+}
+
+struct FinishReopenDaemon2Repair2231560Context<'a> {
+    fixture: &'a mut Fixture,
+    retained: Arc<Mutex<Store>>,
+    authority: RemoteHumanAuthority,
+    authority_worker: Peer,
+    restart: String,
+    config: NodeRpcConfig,
+    clock: Arc<RuntimeClock>,
+    clock_worker: Peer,
+    trust: layerx_agentd::export::ExportTrustSource,
+    asset: [u8; 32],
+    account: [u8; 32],
+}
+
+fn finish_reopen_daemon_2_repair_22_31_560(context: FinishReopenDaemon2Repair2231560Context<'_>) {
+    let FinishReopenDaemon2Repair2231560Context {
+        fixture,
+        retained,
+        authority,
+        authority_worker,
+        restart,
+        config,
+        clock,
+        clock_worker,
+        trust,
+        asset,
+        account,
+    } = context;
+
     let commitment = [11_u8; 32];
     let destination = [9_u8; 32];
     let policy = json!({
@@ -790,6 +853,53 @@ fn reopen_daemon(fixture: &mut Fixture) {
         &limit.scope,
         &limit.id,
     );
+    finish_reopen_daemon_1_repair_22_31_560(FinishReopenDaemon1Repair2231560Context {
+        fixture,
+        retained,
+        authority_worker,
+        restart,
+        clock_worker,
+        trust,
+        asset,
+        account,
+        peers,
+        operations,
+        limit,
+        stable_id,
+    });
+}
+
+struct FinishReopenDaemon1Repair2231560Context<'a> {
+    fixture: &'a mut Fixture,
+    retained: Arc<Mutex<Store>>,
+    authority_worker: Peer,
+    restart: String,
+    clock_worker: Peer,
+    trust: layerx_agentd::export::ExportTrustSource,
+    asset: [u8; 32],
+    account: [u8; 32],
+    peers: BTreeMap<u32, (String, String)>,
+    operations: ProductionHumanOperations<RemoteHumanAuthority>,
+    limit: LimitConfig,
+    stable_id: [u8; 32],
+}
+
+fn finish_reopen_daemon_1_repair_22_31_560(context: FinishReopenDaemon1Repair2231560Context<'_>) {
+    let FinishReopenDaemon1Repair2231560Context {
+        fixture,
+        retained,
+        authority_worker,
+        restart,
+        clock_worker,
+        trust,
+        asset,
+        account,
+        peers,
+        mut operations,
+        limit,
+        stable_id,
+    } = context;
+
     let denominations_path = fixture
         .root
         .join(format!("native-send-denominations-{restart}.json"));
@@ -926,14 +1036,14 @@ fn native_send_first_prepare_and_reopened_prepare_match_owner_preview() {
             assert_eq!(signing.transaction.call.encode_unsigned(), canonical);
             assert_eq!(signing.transaction.signing_hash.as_slice(), preimage);
         }
-        let first = successful_preparation(response);
+        let first = successful_preparation(&response);
         assert_eq!(first.preparation_id, purpose.preparation_id);
         assert_eq!(first.canonical_bytes, canonical);
         assert_eq!(first.signing_preimage.as_slice(), preimage);
         assert_durable(&fixture, purpose.preparation_id, &canonical);
         reopen_daemon(&mut fixture);
         assert_durable(&fixture, purpose.preparation_id, &canonical);
-        let second = successful_preparation(prepare_rpc(&fixture, &human, purpose, &grant, 81));
+        let second = successful_preparation(&prepare_rpc(&fixture, &human, purpose, &grant, 81));
         assert_eq!(second, first);
     });
 }
@@ -956,4 +1066,141 @@ fn native_send_prepare_refuses_a_different_signed_preparation_identifier() {
         let response: Value = must(serde_json::from_slice(&response.body));
         assert_eq!(response["reason"], "owner.refused", "{response}");
     });
+}
+
+struct ReceiptKeyPeer {
+    listener: TcpListener,
+    receipt_key: ed25519_dalek::SigningKey,
+    keys: Value,
+    commit: Value,
+    validators: Value,
+    history_account: String,
+    timestamp: u64,
+    history_commits: BTreeMap<u64, Value>,
+    committed_calls: CommittedNativeCalls,
+    upstream: String,
+    head: layerx_programs::chain_proof::VerifiedChainHead,
+}
+fn receipt_key_peer(peer: ReceiptKeyPeer) -> Peer {
+    let ReceiptKeyPeer {
+        listener,
+        receipt_key,
+        keys,
+        commit,
+        validators,
+        history_account,
+        timestamp,
+        history_commits,
+        committed_calls,
+        upstream,
+        head,
+    } = peer;
+    Peer::spawn(move |stop| {
+        let _receipt_key = receipt_key;
+        while !stop.load(Ordering::Acquire) {
+            let Some(mut stream) = incoming(&listener) else {
+                continue;
+            };
+            let (_, body) = http_request(&mut stream);
+            let request: Value = must(serde_json::from_slice(&body));
+            let method = text(&request, "method");
+            let response = if method == "px_getReceiptKeys" {
+                json!({"jsonrpc": "2.0", "id": request["id"], "result": keys})
+            } else if method == "px_getCommit" || method == "px_getValidators" {
+                assert_eq!(request["params"], json!([HEAD.to_string()]));
+                let result = if method == "px_getCommit" {
+                    &commit
+                } else {
+                    &validators
+                };
+                json!({"jsonrpc": "2.0", "id": request["id"], "result": result})
+            } else if method == "px_getHistory" {
+                assert_eq!(request["params"][0], history_account);
+                assert!(request["params"][1].is_null() || request["params"][1].is_string());
+                assert_eq!(request["params"][2], 100);
+                json!({"jsonrpc":"2.0", "id":request["id"], "result":{
+                    "account":history_account, "items":[], "next_cursor":null,
+                    "indexedHeight":HEAD, "chainHeight":HEAD,
+                    "freshness":{"version":1, "database":"ok", "status":"ready",
+                        "sources":[{"source":"comet", "source_head":HEAD,
+                            "indexed_cursor":HEAD, "finalized_cursor":HEAD,
+                            "last_success_at":timestamp, "freshness_secs":0,
+                            "last_error_at":null, "reconciled":true,
+                            "consecutive_failures":0, "state":"ready"}]}
+                }})
+            } else if method == "commit" || method == "block_results" {
+                let height = must(text(&request["params"], "height").parse::<u64>());
+                let signed =
+                    require_some(history_commits.get(&height), "covered policy history block");
+                let result = if method == "commit" {
+                    json!({"signed_header":signed})
+                } else {
+                    assert!((HEAD - 1..=HEAD).contains(&height));
+                    json!({"height":height.to_string(), "txs_results":[]})
+                };
+                eprintln!("repair_22_31_560 chain peer: authenticated history method={method} height={height}");
+                json!({"jsonrpc":"2.0", "id":request["id"], "result":result})
+            } else if method == "eth_call" && request["params"][1] == format!("0x{HEAD:x}") {
+                committed_native_call_answer(&committed_calls, &upstream, &request)
+            } else {
+                if method == "eth_getProof" || method == "abci_query" {
+                    eprintln!("repair_22_31_560 chain peer: committed proof request={request}");
+                }
+                let mut response = rpc(&upstream, &request);
+                if response.get("error").is_some() {
+                    eprintln!("repair_22_31_560 chain peer: request={request} response={response}");
+                }
+                if method == "eth_getBlockByNumber"
+                    && (request["params"][0] == format!("0x{HEAD:x}")
+                        || request["params"][0] == "latest")
+                {
+                    assert!(response.get("error").is_none(), "{response}");
+                    let block = &mut response["result"];
+                    assert_eq!(block["number"], format!("0x{HEAD:x}"));
+                    block["hash"] = json!(format!("0x{}", hex::encode(head.header_hash())));
+                    block["stateRoot"] = json!(format!("0x{}", hex::encode(head.app_hash())));
+                    block["timestamp"] = json!(format!("0x{timestamp:x}"));
+                }
+                response
+            };
+            http_response(&mut stream, &response);
+        }
+    })
+}
+
+fn committed_native_call_answer(
+    committed_calls: &CommittedNativeCalls,
+    upstream: &str,
+    request: &Value,
+) -> Value {
+    let call = &request["params"][0];
+    let data = require_some(
+        call.get("data")
+            .or_else(|| call.get("input"))
+            .and_then(Value::as_str),
+        "committed call data",
+    );
+    let data = must(hex::decode(data.trim_start_matches("0x")));
+    assert!(data.len() >= 4, "committed call selector: {request}");
+    let target = text(call, "to").to_owned();
+    if let Some(answer) = committed_calls.get(&(target.clone(), data.clone())) {
+        eprintln!(
+            "repair_22_31_560 chain peer: served committed call target={target} selector=0x{}",
+            hex::encode(&data[..4])
+        );
+        json!({"jsonrpc": "2.0", "id": request["id"],
+                        "result": format!("0x{}", hex::encode(answer))})
+    } else {
+        assert!(
+            !committed_calls
+                .keys()
+                .any(|(address, expected)| address == &target && expected[..4] == data[..4]),
+            "committed call arguments: {request}"
+        );
+        let response = rpc(upstream, request);
+        if response.get("error").is_some() {
+            eprintln!("repair_22_31_560 chain peer: request={request} response={response}");
+        }
+        response
+    }
 }

@@ -66,7 +66,7 @@ func newHarness(t *testing.T) *harness {
 	clamHost, clamPort := internaltest.NewClamd(t)
 	gateway := internaltest.NewGateway(t, dsn, redisURL, objects, webOrigin)
 
-	if _, err := pool.Exec(context.Background(), metadata.LegacyPublicationDDL); err != nil {
+	if _, err := pool.Exec(context.Background(), "SELECT operation,token,state,staged,retired,created_at FROM metadata.legacy_publications LIMIT 0"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -225,6 +225,35 @@ func (h *harness) imageRows(t *testing.T, addr string) []sqlcdb.MetadataTokenIma
 		t.Fatal(err)
 	}
 	return rows
+}
+
+func TestMetadataReadDependencyFailures(t *testing.T) {
+	h := newHarness(t)
+	address := tokenAddr(932)
+	ctx := context.Background()
+	for _, tc := range []struct {
+		schema, table string
+		paths         []string
+	}{
+		{"indexer", "pools", []string{"/metadata/" + address, "/metadata/batch?addresses=" + address}},
+		{"metadata", "token_metadata", []string{"/metadata/" + address, "/metadata/batch?addresses=" + address}},
+		{"metadata", "token_images", []string{"/metadata/" + address, "/metadata/batch?addresses=" + address, "/logo/" + address + ".png"}},
+	} {
+		t.Run(tc.table, func(t *testing.T) {
+			full := tc.schema + "." + tc.table
+			if _, err := h.pool.Exec(ctx, "ALTER TABLE "+full+" RENAME TO "+tc.table+"_unavailable"); err != nil {
+				t.Fatal(err)
+			}
+			for _, path := range tc.paths {
+				if status := getJSON(t, h.baseURL+path, nil); status != http.StatusInternalServerError {
+					t.Fatalf("%s with unavailable %s = %d", path, full, status)
+				}
+			}
+			if _, err := h.pool.Exec(ctx, "ALTER TABLE "+tc.schema+"."+tc.table+"_unavailable RENAME TO "+tc.table); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
 }
 
 func TestMetadataService(t *testing.T) {

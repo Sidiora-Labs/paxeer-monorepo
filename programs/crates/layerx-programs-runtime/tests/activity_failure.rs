@@ -34,7 +34,7 @@ fn section(id: u8, payload: &[u8]) -> Vec<u8> {
 fn signed_leb(mut value: i32) -> Vec<u8> {
     let mut encoded = Vec::new();
     loop {
-        let byte = (value as u8) & 0x7f;
+        let byte = value.to_le_bytes()[0] & 0x7f;
         value >>= 7;
         let done = (value == 0 && byte & 0x40 == 0) || (value == -1 && byte & 0x40 != 0);
         encoded.push(if done { byte } else { byte | 0x80 });
@@ -57,10 +57,15 @@ fn data_section(segments: &[(i32, &[u8])]) -> Vec<u8> {
 }
 
 fn refusing_program(reason: &[u8], class: RefusalClass) -> Vec<u8> {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     refusal_writer_program(
         reason,
         class,
-        &[(0, reason.len() as i32)],
+        &[(
+            0,
+            i32::try_from(reason.len()).assert_success("fixture fits i32"),
+        )],
         CANDIDATE_REFUSAL_SENTINEL,
         false,
     )
@@ -73,7 +78,15 @@ fn refusal_writer_program(
     returned: i32,
     trap: bool,
 ) -> Vec<u8> {
-    raw_refusal_writer_program(reason, class.code() as i32, writes, returned, trap, true)
+    raw_refusal_writer_program(
+        reason,
+        i32::try_from(class.code())
+            .unwrap_or_else(|error| panic!("refusal class fits i32: {error}")),
+        writes,
+        returned,
+        trap,
+        true,
+    )
 }
 
 fn raw_refusal_writer_program(
@@ -136,6 +149,8 @@ fn raw_refusal_writer_program(
 }
 
 fn refusal_then_exhaust_program(reason: &[u8], class: RefusalClass) -> Vec<u8> {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let types = type_section(&[
         (&[TYPE_I32, TYPE_I32, TYPE_I32], &[TYPE_I32]),
         (&[TYPE_I32], &[TYPE_I32]),
@@ -155,11 +170,16 @@ fn refusal_then_exhaust_program(reason: &[u8], class: RefusalClass) -> Vec<u8> {
         exports.extend_from_slice(&[kind, index]);
     }
     let mut entry = vec![0x41];
-    entry.extend(signed_leb(class.code() as i32));
+    entry
+        .extend(signed_leb(i32::try_from(class.code()).unwrap_or_else(
+            |error| panic!("refusal class fits i32: {error}"),
+        )));
     entry.push(0x41);
     entry.extend(signed_leb(0));
     entry.push(0x41);
-    entry.extend(signed_leb(reason.len() as i32));
+    entry.extend(signed_leb(
+        i32::try_from(reason.len()).assert_success("fixture fits i32"),
+    ));
     entry.extend_from_slice(&[
         0x10, 0, 0x1a, // publish and ignore status
         0x03, 0x40, // loop
@@ -257,6 +277,8 @@ fn response_forwarder_with_capabilities(
     capacity: i32,
     capabilities: &[u8],
 ) -> Vec<u8> {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let types = type_section(&[
         (
             &[TYPE_I32; 8],
@@ -285,7 +307,7 @@ fn response_forwarder_with_capabilities(
         32,
         0,
         32,
-        capabilities.len() as i32,
+        i32::try_from(capabilities.len()).assert_success("fixture fits i32"),
         1024,
         capacity,
     ] {
@@ -310,6 +332,8 @@ fn response_forwarder_with_capabilities(
 }
 
 fn staged_forwarder(callee: ProgramId, capabilities: &[u8]) -> Vec<u8> {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let types = type_section(&[
         (&[TYPE_I32; 4], &[TYPE_I32]),
         (
@@ -356,7 +380,16 @@ fn staged_forwarder(callee: ProgramId, capabilities: &[u8]) -> Vec<u8> {
     body.extend_from_slice(&[0x41, 32, 0x41]);
     body.extend(signed_leb(160));
     body.extend_from_slice(&[0x41, 32, 0x10, 2, 0x1a]);
-    for value in [64i32, 32, 96, 0, 256, capabilities.len() as i32, 1024, 0] {
+    for value in [
+        64i32,
+        32,
+        96,
+        0,
+        256,
+        i32::try_from(capabilities.len()).assert_success("fixture fits i32"),
+        1024,
+        0,
+    ] {
         body.push(0x41);
         body.extend(signed_leb(value));
     }
@@ -380,6 +413,8 @@ fn staged_forwarder(callee: ProgramId, capabilities: &[u8]) -> Vec<u8> {
 }
 
 fn staged_refusing_program(reason: &[u8]) -> Vec<u8> {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let types = type_section(&[
         (&[TYPE_I32; 4], &[TYPE_I32]),
         (
@@ -423,7 +458,9 @@ fn staged_refusing_program(reason: &[u8]) -> Vec<u8> {
     body.extend_from_slice(&[0x41, 32, 0x41]);
     body.extend(signed_leb(160));
     body.extend_from_slice(&[0x41, 32, 0x10, 2, 0x1a, 0x41, 1, 0x41, 2, 0x41]);
-    body.extend(signed_leb(reason.len() as i32));
+    body.extend(signed_leb(
+        i32::try_from(reason.len()).assert_success("fixture fits i32"),
+    ));
     body.extend_from_slice(&[0x10, 3, 0x1a, 0x41]);
     body.extend(signed_leb(CANDIDATE_REFUSAL_SENTINEL));
     body.push(0x0b);
@@ -584,6 +621,8 @@ fn execute_root(
 
 #[test]
 fn start_refusal_publication_is_preconfigured_sticky_metered_and_atomic() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let reason = [0, 0xff, 0x81];
     let capabilities = CapabilitySet::new([Capability::StorageWrite])
         .unwrap_or_else(|error| panic!("capability: {error}"));
@@ -592,9 +631,10 @@ fn start_refusal_publication_is_preconfigured_sticky_metered_and_atomic() {
     let record = execute_root(
         &start_refusing_program(
             &reason,
-            RefusalClass::Conflict.code() as i32,
+            i32::try_from(RefusalClass::Conflict.code())
+                .unwrap_or_else(|error| panic!("refusal class fits i32: {error}")),
             0,
-            reason.len() as i32,
+            i32::try_from(reason.len()).assert_success("fixture fits i32"),
             CANDIDATE_REFUSAL_SENTINEL,
             true,
             true,
@@ -618,9 +658,10 @@ fn start_refusal_publication_is_preconfigured_sticky_metered_and_atomic() {
     let completed = run_root(
         &start_refusing_program(
             &reason,
-            RefusalClass::Conflict.code() as i32,
+            i32::try_from(RefusalClass::Conflict.code())
+                .unwrap_or_else(|error| panic!("refusal class fits i32: {error}")),
             0,
-            reason.len() as i32,
+            i32::try_from(reason.len()).assert_success("fixture fits i32"),
             CANDIDATE_REFUSAL_SENTINEL,
             false,
             false,
@@ -638,7 +679,8 @@ fn start_refusal_publication_is_preconfigured_sticky_metered_and_atomic() {
     let invalid = execute_root(
         &start_refusing_program(
             &[7],
-            RefusalClass::Rejected.code() as i32,
+            i32::try_from(RefusalClass::Rejected.code())
+                .unwrap_or_else(|error| panic!("refusal class fits i32: {error}")),
             -1,
             1,
             CANDIDATE_REFUSAL_SENTINEL,
@@ -664,6 +706,8 @@ fn start_refusal_publication_is_preconfigured_sticky_metered_and_atomic() {
 
 #[test]
 fn nested_start_refusal_preserves_leaf_identity_usage_and_rollback() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let engine = WasmEngine::declared().unwrap_or_else(|error| panic!("engine: {error}"));
     let root_id = ProgramId::new([92; 32]).unwrap_or_else(|error| panic!("root: {error}"));
     let child_id = ProgramId::new([93; 32]).unwrap_or_else(|error| panic!("child: {error}"));
@@ -671,9 +715,10 @@ fn nested_start_refusal_preserves_leaf_identity_usage_and_rollback() {
     let child = engine
         .validate_candidate_v2(&start_refusing_program(
             &reason,
-            RefusalClass::NotFound.code() as i32,
+            i32::try_from(RefusalClass::NotFound.code())
+                .unwrap_or_else(|error| panic!("refusal class fits i32: {error}")),
             0,
-            reason.len() as i32,
+            i32::try_from(reason.len()).assert_success("fixture fits i32"),
             CANDIDATE_REFUSAL_SENTINEL,
             true,
             true,
@@ -684,7 +729,7 @@ fn nested_start_refusal_preserves_leaf_identity_usage_and_rollback() {
     let root = engine
         .validate_candidate_v2(&response_forwarder_with_capabilities(
             child_id,
-            reason.len() as i32,
+            i32::try_from(reason.len()).assert_success("fixture fits i32"),
             &delegated.canonical_encoding(),
         ))
         .unwrap_or_else(|error| panic!("root validation: {error}"));
@@ -856,6 +901,8 @@ fn root_binary_refusal_is_receipt_carriable_with_usage() {
 
 #[test]
 fn depth_one_refusal_preserves_leaf_and_reason_usage() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let engine = WasmEngine::declared().unwrap_or_else(|error| panic!("engine: {error}"));
     let leaf_id = ProgramId::new([7; 32]).unwrap_or_else(|error| panic!("leaf: {error}"));
     let root_id = ProgramId::new([6; 32]).unwrap_or_else(|error| panic!("root: {error}"));
@@ -864,7 +911,10 @@ fn depth_one_refusal_preserves_leaf_and_reason_usage() {
         .validate_candidate_v2(&refusing_program(&reason, RefusalClass::Conflict))
         .unwrap_or_else(|error| panic!("leaf validation: {error}"));
     let root = engine
-        .validate_candidate_v2(&response_forwarder(leaf_id, reason.len() as i32))
+        .validate_candidate_v2(&response_forwarder(
+            leaf_id,
+            i32::try_from(reason.len()).assert_success("fixture fits i32"),
+        ))
         .unwrap_or_else(|error| panic!("root validation: {error}"));
     let mut catalog = ProgramCatalog::new();
     catalog.insert(leaf_id, leaf);
@@ -899,6 +949,8 @@ fn depth_one_refusal_preserves_leaf_and_reason_usage() {
 
 #[test]
 fn declared_maximum_depth_preserves_the_actual_leaf_failure() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let engine = WasmEngine::declared().unwrap_or_else(|error| panic!("engine: {error}"));
     let ids: Vec<_> = (1u8..=9)
         .map(|byte| ProgramId::new([byte; 32]).unwrap_or_else(|error| panic!("id: {error}")))
@@ -919,7 +971,7 @@ fn declared_maximum_depth_preserves_the_actual_leaf_failure() {
         .unwrap_or_else(|error| panic!("delegated capabilities: {error}"));
         let forwarder = response_forwarder_with_capabilities(
             ids[index + 1],
-            reason.len() as i32,
+            i32::try_from(reason.len()).assert_success("fixture fits i32"),
             &delegated.canonical_encoding(),
         );
         catalog.insert(
@@ -939,7 +991,7 @@ fn declared_maximum_depth_preserves_the_actual_leaf_failure() {
     let root = engine
         .validate_candidate_v2(&response_forwarder_with_capabilities(
             ids[1],
-            reason.len() as i32,
+            i32::try_from(reason.len()).assert_success("fixture fits i32"),
             &root_delegation.canonical_encoding(),
         ))
         .unwrap_or_else(|error| panic!("root validation: {error}"));
@@ -971,7 +1023,10 @@ fn declared_maximum_depth_preserves_the_actual_leaf_failure() {
     for (index, edge) in record.call_graph().edges().iter().enumerate() {
         assert_eq!(edge.caller(), ids[index]);
         assert_eq!(edge.callee(), ids[index + 1]);
-        assert_eq!(edge.depth(), (index + 1) as u32);
+        assert_eq!(
+            edge.depth(),
+            u32::try_from(index + 1).assert_success("fixture fits u32")
+        );
     }
 }
 
@@ -1204,8 +1259,10 @@ fn refusal_host_boundary_is_exact_bounded_and_first_publication_wins() {
         ));
     }
     for invalid_class in [
-        RefusalClass::RuntimeFault.code() as i32,
-        RefusalClass::Legacy.code() as i32,
+        i32::try_from(RefusalClass::RuntimeFault.code())
+            .unwrap_or_else(|error| panic!("refusal class fits i32: {error}")),
+        i32::try_from(RefusalClass::Legacy.code())
+            .unwrap_or_else(|error| panic!("refusal class fits i32: {error}")),
         999,
     ] {
         assert!(matches!(
@@ -1233,7 +1290,8 @@ fn refusal_host_boundary_is_exact_bounded_and_first_publication_wins() {
             run_root(
                 &raw_refusal_writer_program(
                     &[7],
-                    RefusalClass::Rejected.code() as i32,
+                    i32::try_from(RefusalClass::Rejected.code())
+                        .unwrap_or_else(|error| panic!("refusal class fits i32: {error}")),
                     &[(pointer, 1)],
                     CANDIDATE_REFUSAL_SENTINEL,
                     false,
@@ -1338,6 +1396,8 @@ fn refusal_meter_boundary_and_fee_evidence_are_exact() {
 
 #[test]
 fn published_refusal_survives_same_frame_cpu_exhaustion_at_root_and_nested_leaf() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let reason = [0, 0xff, 0x55];
     let root_budget =
         ResourceBudget::new(500, 65_536, 1_024, 1_024, 1, 1).with_output_bytes(reason.len() as u64);
@@ -1371,7 +1431,10 @@ fn published_refusal_survives_same_frame_cpu_exhaustion_at_root_and_nested_leaf(
         ))
         .unwrap_or_else(|error| panic!("leaf validation: {error}"));
     let root_module = engine
-        .validate_candidate_v2(&response_forwarder(leaf_id, reason.len() as i32))
+        .validate_candidate_v2(&response_forwarder(
+            leaf_id,
+            i32::try_from(reason.len()).assert_success("fixture fits i32"),
+        ))
         .unwrap_or_else(|error| panic!("root validation: {error}"));
     let mut catalog = ProgramCatalog::new();
     catalog.insert(leaf_id, leaf);

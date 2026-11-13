@@ -173,6 +173,7 @@ func TestRepair_35_QuoteUint256(t *testing.T) {
 			t.Run(side+"/refuse-"+amount, func(t *testing.T) {
 				_, serviceErr := service.Quote(t.Context(), &types.QueryQuoteRequest{Denom: market.Denom, IsBuy: side == "buy", AmountIn: amount})
 				require.Equal(t, codes.InvalidArgument, status.Code(serviceErr))
+				require.Equal(t, "invalid request", status.Convert(serviceErr).Message())
 				for _, ctx := range []client.Context{clientCtx, {}} {
 					output, err := clitestutil.ExecTestCLICmd(ctx, cli.CmdQueryQuote(), []string{"--output=json", "--", market.Denom, side, amount})
 					require.ErrorContains(t, err, "amount-in must be a positive base-10 uint256 integer")
@@ -185,8 +186,10 @@ func TestRepair_35_QuoteUint256(t *testing.T) {
 				require.NoError(t, err)
 				response, err := validator.RPCClient.ABCIQueryWithOptions(t.Context(), "/paxprotocol.paxchain.launchpad.Query/Quote", request, rpcclient.ABCIQueryOptions{Height: height})
 				require.NoError(t, err)
-				require.NotZero(t, response.Response.Code)
-				require.Contains(t, response.Response.Log, "amount_in must be a positive base-10 integer")
+				require.Equal(t, uint32(18), response.Response.Code)
+				require.Equal(t, "sdk", response.Response.Codespace)
+				require.Equal(t, "invalid request", response.Response.Log)
+				require.Equal(t, response.Response.Log, status.Convert(serviceErr).Message())
 			})
 		}
 	}

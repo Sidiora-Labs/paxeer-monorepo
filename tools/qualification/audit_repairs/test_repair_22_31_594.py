@@ -1,5 +1,6 @@
 """Qualify the hosted gateway's public mainnet node configuration."""
 
+from copy import deepcopy
 import json
 from pathlib import Path
 import re
@@ -453,3 +454,85 @@ def test_gateway_cross_namespace_peer_policies(documents):
         and entry.get("protocol", "TCP") == "TCP"
         for entry in gateway["ports"]
     )
+
+
+def test_gateway_ingress_admits_existing_control_namespace_and_pods(documents):
+    checker = ROOT / "services/platform/hosted/tests/topology-check.sh"
+    code = checker.read_text(encoding="utf-8").split("<<'PY'\n", 1)[1]
+    code = code.split("\nPY\n", 1)[0].rsplit("sys.exit(main())", 1)[0]
+    module = {}
+    exec(compile(code, str(checker), "exec"), module)
+    topology = module["Topology"]()
+    for document in documents:
+        topology.add(document, str(MANIFEST))
+    control_manifest = ROOT / "services/platform/hosted/testnet/deployment.yaml"
+    for document in yaml.safe_load_all(control_manifest.read_text(encoding="utf-8")):
+        topology.add(document, str(control_manifest))
+
+    (gateway,) = [
+        workload
+        for workload in topology.workloads
+        if workload["kind"] == "Deployment" and workload["name"] == "layerx-gateway"
+    ]
+    (control,) = [
+        workload
+        for workload in topology.workloads
+        if workload["kind"] == "Deployment"
+        and workload["name"] == "layerx-testnet-control"
+    ]
+    assert gateway["ns"] != control["ns"]
+    assert control["labels"]["layerx-plane"] == "control"
+    assert topology.namespaces[control["ns"]]["layerx-control-plane"] == "enabled"
+    (policy,) = [
+        policy
+        for policy in topology.policies
+        if policy["name"] == "layerx-gateway" and policy["ns"] == gateway["ns"]
+    ]
+    control_peer = {
+        "namespaceSelector": {"matchLabels": {"layerx-control-plane": "enabled"}},
+        "podSelector": {"matchLabels": {"layerx-plane": "control"}},
+    }
+    control_rules = [
+        rule for rule in policy["ingress"] if control_peer in rule.get("from", [])
+    ]
+    assert len(control_rules) == 1
+    assert control_rules[0]["from"].count(control_peer) == 1
+    assert control_rules[0]["ports"] == [{"protocol": "TCP", "port": 9443}]
+
+    admitted, reason = topology.ingress_admits(gateway, "9443", "TCP", control)
+    assert admitted, reason
+
+    without_namespace_label = deepcopy(topology)
+    del without_namespace_label.namespaces[control["ns"]]["layerx-control-plane"]
+    admitted, reason = without_namespace_label.ingress_admits(
+        gateway, "9443", "TCP", control
+    )
+    assert not admitted, reason
+
+    for labels in (
+        {key: value for key, value in control["labels"].items() if key != "layerx-plane"},
+        {**control["labels"], "layerx-plane": "public"},
+    ):
+        caller = {**control, "labels": labels}
+        admitted, reason = topology.ingress_admits(gateway, "9443", "TCP", caller)
+        assert not admitted, reason
+
+    unlabelled_namespace = deepcopy(topology)
+    namespace = deepcopy(topology.namespaces[control["ns"]])
+    del namespace["layerx-control-plane"]
+    namespace["kubernetes.io/metadata.name"] = "unlabelled-control"
+    unlabelled_namespace.namespaces["unlabelled-control"] = namespace
+    caller = {**control, "ns": "unlabelled-control"}
+    admitted, reason = unlabelled_namespace.ingress_admits(
+        gateway, "9443", "TCP", caller
+    )
+    assert not admitted, reason
+
+    for port, protocol in (("9443", "UDP"), ("9444", "TCP")):
+        admitted, reason = topology.ingress_admits(gateway, port, protocol, control)
+        assert not admitted, reason
+
+    admitted, reason = topology.ingress_admits(
+        gateway, "9443", "TCP", module["INGRESS_CONTROLLER"]
+    )
+    assert admitted, reason

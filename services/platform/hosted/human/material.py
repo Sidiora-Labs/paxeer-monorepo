@@ -843,6 +843,8 @@ def install(root, network, chain, policy_path='', binding_path=''):
         'MODE': 'human-owner',
         'HUMAN_AUTHORITY_CA_DER': '/run/human-private/agent/ca.der',
         'AUTHORITY_CA_DER': '/run/human-private/agent/ca.der',
+        'NODE_RPC_URL': config['PAXEER_RPC_URL'],
+        'NODE_CHAIN_ID': chain,
         'HUMAN_NODE_LNI': '/run/layerx/node/layerxd.lni.sock',
         'HUMAN_STORE': '/var/lib/layerx/human/agent/store',
         'HUMAN_SOCKET': '/run/layerx/human/owner/agent.sock',

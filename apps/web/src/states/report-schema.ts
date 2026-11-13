@@ -1,4 +1,4 @@
-import { errorCodeVariants } from "../api/generated/index.ts";
+import { errorCodeVariants } from "../api/index.ts";
 import { supportReportRoute, type SupportReportRoute } from "./report-routes.ts";
 
 export type ReportShell = "mobile" | "desktop";

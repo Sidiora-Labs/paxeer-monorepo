@@ -287,13 +287,14 @@ func TestActualNFTOwnerRemainsPinnedAfterTwoTransfers(t *testing.T) {
 	c.transact(t, nft, "grantRole", crypto.Keccak256Hash([]byte("MINTER_ROLE")), c.owner)
 	pool := common.HexToAddress("0x0000000000000000000000000000000000000123")
 	mint := c.transact(t, nft, "mint", c.owner, pool, uint8(0))
-	second := common.HexToAddress("0x0000000000000000000000000000000000000222")
+	secondKey, err := crypto.HexToECDSA(strings.Repeat("0", 61) + "222")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second := crypto.PubkeyToAddress(secondKey.PublicKey)
 	third := common.HexToAddress("0x0000000000000000000000000000000000000333")
 	c.transact(t, nft, "approve", c.owner, big.NewInt(1))
 	c.transact(t, nft, "transferFrom", c.owner, second, big.NewInt(1))
-	if err := c.client.Client().CallContext(c.ctx, nil, "anvil_impersonateAccount", second); err != nil {
-		t.Fatal(err)
-	}
 	if err := c.client.Client().CallContext(c.ctx, nil, "anvil_setBalance", second, "0xde0b6b3a7640000"); err != nil {
 		t.Fatal(err)
 	}
@@ -301,11 +302,14 @@ func TestActualNFTOwnerRemainsPinnedAfterTwoTransfers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var hash common.Hash
-	if err := c.client.Client().CallContext(c.ctx, &hash, "eth_sendTransaction", map[string]any{"from": second.Hex(), "to": d.Address.Hex(), "data": "0x" + common.Bytes2Hex(data), "gas": "0x30d40"}); err != nil {
+	secondAuth, err := bind.NewKeyedTransactorWithChainID(secondKey, big.NewInt(125))
+	if err != nil {
 		t.Fatal(err)
 	}
-	tx, _, err := c.client.TransactionByHash(c.ctx, hash)
+	secondAuth.Context = c.ctx
+	parsed, _ := actualArtifact(t, "SidioraNFT")
+	secondNFT := bind.NewBoundContract(d.Address, parsed, c.client, c.client, c.client)
+	tx, err := secondNFT.RawTransact(secondAuth, data)
 	if err != nil {
 		t.Fatal(err)
 	}

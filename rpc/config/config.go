@@ -54,7 +54,10 @@ const (
 
 // EVMRPC Config defines configurations for EVM RPC server on this node
 type Config struct {
-	// PxIndexerURL supplies /v1/assets enumeration; empty means unavailable.
+	PxInferenceProgram string `mapstructure:"px_inference_program"`
+	PxInferenceReader  string `mapstructure:"px_inference_reader"`
+
+	// PxIndexerURL supplies px_listAssets and history reads from one indexer; empty means unavailable.
 	PxIndexerURL string `mapstructure:"px_indexer_url"`
 
 	// Maximum number of requests in an RPC batch.
@@ -315,6 +318,8 @@ func duration(value interface{}) (time.Duration, error) {
 
 func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 	cfg := DefaultConfig // copy
+	cfg.PxInferenceProgram, _ = cast.ToStringE(opts.Get("evm.px_inference_program"))
+	cfg.PxInferenceReader, _ = cast.ToStringE(opts.Get("evm.px_inference_reader"))
 	var err error
 	if v := opts.Get("evm.px_indexer_url"); v != nil {
 		if cfg.PxIndexerURL, err = cast.ToStringE(v); err != nil {
@@ -575,7 +580,7 @@ http_enabled = {{ .EVM.HTTPEnabled }}
 http_port = {{ .EVM.HTTPPort }}
 http_address = "{{ .EVM.HTTPAddress }}"
 
-# Optional indexer for px_listAssets; metadata comes from this node.
+# Optional single indexer for px_listAssets and history reads; asset metadata comes from this node.
 px_indexer_url = "{{ .EVM.PxIndexerURL }}"
 
 # controls whether a websocket server is enabled

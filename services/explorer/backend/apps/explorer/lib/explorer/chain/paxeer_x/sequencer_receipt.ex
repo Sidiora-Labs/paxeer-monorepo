@@ -6,7 +6,9 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceipt do
   sequencer contract (section a1): protocol version 2 or 3, structure tag 0x5201,
   no program outcome, and a trailing signature flag followed by a 64-byte Ed25519
   signature. `verify/4` runs the client checks R1-R8 against the pinned
-  governed ReceiptKeys list configured independently of the router.
+  governed ReceiptKeys list configured independently of the router. Key IDs are
+  non-zero 32-byte governance identifiers, including SHA-256 public-key digests;
+  configured validity ranges must be positive, ordered uint64 heights.
   """
 
   alias Explorer.Chain.Hash
@@ -77,8 +79,8 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceipt do
   @type receipt_key :: %{
           key_id: <<_::256>>,
           public_key: <<_::256>>,
-          first_height: non_neg_integer(),
-          last_height: non_neg_integer()
+          first_height: pos_integer(),
+          last_height: pos_integer()
         }
 
   @type decode_error ::

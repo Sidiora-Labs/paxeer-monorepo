@@ -1,10 +1,10 @@
 //! `layerx-indexer`: a durable, decoded history of Paxeer blocks.
 //!
-//! Walks EVM blocks, receipts and logs plus CometBFT `tx_search` pages,
+//! Walks EVM blocks, receipts and logs plus `CometBFT` `tx_search` pages,
 //! decoding ERC-20 and pointer transfers, native value transfers, bank and
-//! tokenfactory typed events, LayerX anchor string events and every precompile
+//! tokenfactory typed events, `LayerX` anchor string events and every precompile
 //! ABI event found in the configured ABI directory. Everything lands in one
-//! SQLite file with checkpointed cursors and reorg rollback to a configured
+//! `SQLite` file with checkpointed cursors and reorg rollback to a configured
 //! finality depth.
 
 pub mod abi;
@@ -12,6 +12,7 @@ pub mod ai_health;
 pub mod ai_market;
 pub mod ai_reputation;
 pub mod ai_runtime;
+pub mod ai_source;
 pub mod ai_views;
 pub mod api;
 pub mod backfill;

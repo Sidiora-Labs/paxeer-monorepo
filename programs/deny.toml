@@ -7,6 +7,7 @@ yanked = "deny"
 unmaintained = "all"
 ignore = [
     { id = "RUSTSEC-2024-0436", reason = "paste is a compile-time proc macro inside the pinned vendored engine tree" },
+    { id = "RUSTSEC-2026-0387", reason = "The runtime member uses the secp256k1 crate for verification and key recovery over public inputs only" },
 ]
 
 [licenses]

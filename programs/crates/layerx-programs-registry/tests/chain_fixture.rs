@@ -1,3 +1,5 @@
+#[allow(dead_code)]
+#[path = "support/mod.rs"]
 mod support;
 
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
@@ -15,27 +17,10 @@ use layerx_programs::{
 };
 use support::chain::{ChainFixture, STATE_HEIGHT, STORE_NAME};
 
-#[test]
-fn chain_fixture_proofs_verify_through_chain_proof_verifier() -> Result<(), ChainProofError> {
-    let seeds = [[1; 32], [2; 32], [3; 32], [4; 32]];
-    let pairs = [b"b", b"d", b"h", b"j", b"n"]
-        .into_iter()
-        .rev()
-        .map(|suffix| {
-            (
-                programs_state_key(suffix),
-                [b"value:".as_slice(), suffix].concat(),
-            )
-        })
-        .collect::<Vec<_>>();
-    let fixture = ChainFixture::new("paxeer-fixture-test", &seeds, pairs.clone())?;
-    let head = fixture
-        .verifier
-        .verify_head(&fixture.header, &fixture.commit)?;
-    assert_eq!(head.chain_id(), "paxeer-fixture-test");
-    assert_eq!(head.height(), STATE_HEIGHT + 1);
-    assert_eq!(head.app_hash().as_slice(), fixture.header.app_hash);
-    assert_eq!(fixture.commit.signatures.len(), seeds.len());
+fn verify_fixture_votes(
+    fixture: &ChainFixture,
+    head: &layerx_programs::chain_proof::VerifiedChainHead,
+) -> Result<(), ChainProofError> {
     for (validator, signature) in fixture
         .verifier
         .validators
@@ -58,18 +43,26 @@ fn chain_fixture_proofs_verify_through_chain_proof_verifier() -> Result<(), Chai
             Signature::from_slice(&signature.signature).map_err(|_| ChainProofError::Mismatch)?;
         assert!(key.verify(&bytes, &sig).is_ok());
     }
-    for (key, value) in &pairs {
+    Ok(())
+}
+
+fn verify_fixture_membership(
+    fixture: &ChainFixture,
+    head: &layerx_programs::chain_proof::VerifiedChainHead,
+    pairs: &[(Vec<u8>, Vec<u8>)],
+) -> Result<(), ChainProofError> {
+    for (key, value) in pairs {
         let ops = fixture.prove(key)?;
         assert_eq!(ops.len(), 2);
         assert_eq!(ops[0].op_type, "ics23:iavl");
         assert_eq!(ops[1].op_type, "ics23:simple");
         assert_eq!(
-            verify_state(&head, STORE_NAME, key, value, &ops),
+            verify_state(head, STORE_NAME, key, value, &ops),
             Ok(STATE_HEIGHT)
         );
-        assert!(verify_state(&head, STORE_NAME, key, b"changed", &ops).is_err());
-        assert!(verify_state(&head, "bank", key, value, &ops).is_err());
-        assert!(verify_absent(&head, STORE_NAME, key, &ops).is_err());
+        assert!(verify_state(head, STORE_NAME, key, b"changed", &ops).is_err());
+        assert!(verify_state(head, "bank", key, value, &ops).is_err());
+        assert!(verify_absent(head, STORE_NAME, key, &ops).is_err());
         assert_eq!(fixture.prove_absent(key), Err(ChainProofError::Mismatch));
     }
     for suffix in [b"".as_slice(), b"a", b"c", b"e", b"i", b"k", b"o", &[0xff]] {
@@ -77,10 +70,10 @@ fn chain_fixture_proofs_verify_through_chain_proof_verifier() -> Result<(), Chai
         let ops = fixture.prove_absent(&key)?;
         assert_eq!(ops.len(), 2);
         assert_eq!(
-            verify_absent(&head, STORE_NAME, &key, &ops),
+            verify_absent(head, STORE_NAME, &key, &ops),
             Ok(STATE_HEIGHT)
         );
-        assert!(verify_absent(&head, "bank", &key, &ops).is_err());
+        assert!(verify_absent(head, "bank", &key, &ops).is_err());
         assert_eq!(fixture.prove(&key), Err(ChainProofError::Absent));
         let encoded = fixture.encode_key(&key)?;
         let decoded = decode_commitment_proof(&encoded)?;
@@ -88,11 +81,19 @@ fn chain_fixture_proofs_verify_through_chain_proof_verifier() -> Result<(), Chai
         assert_eq!(decoded.value, None);
         assert_eq!(decoded.proof_ops, ops);
         assert_eq!(
-            verify_absent(&head, &decoded.store_name, &decoded.key, &decoded.proof_ops),
+            verify_absent(head, &decoded.store_name, &decoded.key, &decoded.proof_ops),
             Ok(STATE_HEIGHT)
         );
     }
 
+    Ok(())
+}
+
+fn verify_fixture_encoding(
+    fixture: &ChainFixture,
+    head: &layerx_programs::chain_proof::VerifiedChainHead,
+    expected_validators: usize,
+) -> Result<layerx_programs::chain_proof::decode::CommitmentProof, ChainProofError> {
     let encoded = fixture.encode()?;
     assert_eq!(&encoded[..5], b"LXCP\x01");
     let decoded = decode_commitment_proof(&encoded)?;
@@ -104,11 +105,11 @@ fn chain_fixture_proofs_verify_through_chain_proof_verifier() -> Result<(), Chai
     assert_eq!(header, fixture.header);
     assert_eq!(
         fixture.verifier.verify_head(&header, &fixture.commit)?,
-        head
+        head.clone()
     );
     assert_eq!(
         verify_state(
-            &head,
+            head,
             &decoded.store_name,
             &decoded.key,
             decoded.value.as_deref().ok_or(ChainProofError::Absent)?,
@@ -135,12 +136,12 @@ fn chain_fixture_proofs_verify_through_chain_proof_verifier() -> Result<(), Chai
         match (field.number, field.value) {
             (1, ProtoValue::Bytes(_)) => validator_count += 1,
             (2, ProtoValue::Bytes(_)) => {}
-            (3, ProtoValue::Varint(power)) => assert_eq!(power, seeds.len() as u64),
+            (3, ProtoValue::Varint(power)) => assert_eq!(power, expected_validators as u64),
             _ => return Err(ChainProofError::NonCanonical),
         }
     }
     validator_reader.finish()?;
-    assert_eq!(validator_count, seeds.len());
+    assert_eq!(validator_count, expected_validators);
     let mut store_reader = ProtoReader::new(&decoded.proof_ops[1].data);
     let store_field = store_reader.next_field()?.ok_or(ChainProofError::Absent)?;
     assert_eq!(store_field.number, 1);
@@ -151,6 +152,16 @@ fn chain_fixture_proofs_verify_through_chain_proof_verifier() -> Result<(), Chai
     assert_eq!(store.path.len(), 2);
     store_reader.finish()?;
 
+    Ok(decoded)
+}
+
+fn verify_fixture_rejections(
+    fixture: &ChainFixture,
+    head: &layerx_programs::chain_proof::VerifiedChainHead,
+    decoded: &layerx_programs::chain_proof::decode::CommitmentProof,
+    pairs: &[(Vec<u8>, Vec<u8>)],
+    seeds: &[[u8; 32]; 4],
+) -> Result<(), ChainProofError> {
     let mut forged_commit = fixture.commit.clone();
     forged_commit.signatures[0].signature[0] ^= 1;
     assert!(fixture
@@ -163,9 +174,9 @@ fn chain_fixture_proofs_verify_through_chain_proof_verifier() -> Result<(), Chai
         .verifier
         .verify_head(&changed_header, &fixture.commit)
         .is_err());
-    let mut changed_pairs = pairs.clone();
+    let mut changed_pairs = pairs.to_vec();
     changed_pairs[0].1.push(1);
-    let other = ChainFixture::new("paxeer-fixture-test", &seeds, changed_pairs)?;
+    let other = ChainFixture::new("paxeer-fixture-test", seeds, changed_pairs)?;
     let other_head = other.verifier.verify_head(&other.header, &other.commit)?;
     assert_ne!(other_head.app_hash(), head.app_hash());
     assert!(verify_state(
@@ -196,16 +207,105 @@ fn chain_fixture_proofs_verify_through_chain_proof_verifier() -> Result<(), Chai
             );
         }
     }
-    assert!(ChainFixture::new("empty", &seeds, Vec::new()).is_err());
-    assert!(ChainFixture::new("no-validators", &[], pairs.clone()).is_err());
-    assert!(ChainFixture::new("duplicate-validators", &[[1; 32]; 2], pairs.clone()).is_err());
+    assert!(ChainFixture::new("empty", seeds, Vec::new()).is_err());
+    assert!(ChainFixture::new("no-validators", &[], pairs.to_vec()).is_err());
+    assert!(ChainFixture::new("duplicate-validators", &[[1; 32]; 2], pairs.to_vec()).is_err());
     assert!(ChainFixture::new(
         "duplicate-key",
-        &seeds,
+        seeds,
         vec![pairs[0].clone(), pairs[0].clone()]
     )
     .is_err());
     Ok(())
+}
+
+#[test]
+fn chain_fixture_proofs_verify_through_chain_proof_verifier() -> Result<(), ChainProofError> {
+    let seeds = [[1; 32], [2; 32], [3; 32], [4; 32]];
+    let pairs = [b"b", b"d", b"h", b"j", b"n"]
+        .into_iter()
+        .rev()
+        .map(|suffix| {
+            (
+                programs_state_key(suffix),
+                [b"value:".as_slice(), suffix].concat(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let fixture = ChainFixture::new("paxeer-fixture-test", &seeds, pairs.clone())?;
+    let head = fixture
+        .verifier
+        .verify_head(&fixture.header, &fixture.commit)?;
+    assert_eq!(head.chain_id(), "paxeer-fixture-test");
+    assert_eq!(head.height(), STATE_HEIGHT + 1);
+    assert_eq!(head.app_hash().as_slice(), fixture.header.app_hash);
+    assert_eq!(fixture.commit.signatures.len(), seeds.len());
+    verify_fixture_votes(&fixture, &head)?;
+    verify_fixture_membership(&fixture, &head, &pairs)?;
+
+    let decoded = verify_fixture_encoding(&fixture, &head, seeds.len())?;
+
+    verify_fixture_rejections(&fixture, &head, &decoded, &pairs, &seeds)?;
+    Ok(())
+}
+
+fn verify_upgrade_and_call_fixtures() {
+    use layerx_programs::ProgramLifecycle;
+    use support::{code_hash, program, verifier_for_fixture, NOW, WASM_V1, WASM_V2};
+
+    let upgrade = support::upgrade_fixture(WASM_V1, WASM_V2, 71, NOW);
+    let verifier = verifier_for_fixture(&upgrade, 1_000);
+    let evidence = verifier
+        .verify_deployment(&upgrade.proof, NOW)
+        .unwrap_or_else(|error| panic!("verify upgrade fixture: {error}"));
+    assert_eq!(evidence.version(), 2);
+    assert_eq!(evidence.code_hash(), code_hash(WASM_V2));
+    assert_eq!(evidence.module(), WASM_V2);
+    assert_eq!(evidence.freshness().observed_sequence, 72);
+    let deprecated = support::deprecated_state(&upgrade, NOW + 1);
+    let head = verifier
+        .verify_current_program(&deprecated, program(), NOW + 1)
+        .unwrap_or_else(|error| panic!("verify deprecated upgrade: {error}"));
+    assert_eq!(head.lifecycle(), ProgramLifecycle::Deprecated);
+    assert_eq!(head.version(), 2);
+    assert_eq!(head.code_hash(), code_hash(WASM_V2));
+
+    let call = support::programs_call_fixture(b"program call payload", 5, NOW);
+    let verifier = verifier_for_fixture(&call, 1_000);
+    let head = verifier
+        .verify_current_program(&call.proof.state, program(), NOW)
+        .unwrap_or_else(|error| panic!("verify call fixture: {error}"));
+    assert_eq!(head.freshness().observed_sequence, 6);
+    assert_eq!(head.receipt_digest(), code_hash(b"program call payload"));
+    assert_eq!(call.proof.state.transaction, b"program call payload");
+    let wrong_abi = support::wrong_abi_fixture(4, NOW);
+    assert!(verifier.verify_deployment(&wrong_abi.proof, NOW).is_err());
+}
+
+fn verify_fixture_chain_state(fixture: &support::ProtocolFixture) {
+    let head = fixture
+        .chain
+        .verifier
+        .verify_head(&fixture.chain.header, &fixture.chain.commit)
+        .unwrap_or_else(|error| panic!("verify fixture header: {error:?}"));
+    let record = fixture
+        .proof
+        .state
+        .state
+        .verify(&head)
+        .unwrap_or_else(|error| panic!("verify fixture record: {error}"));
+    assert_eq!(record.state_height(), 4);
+    assert_eq!(fixture.block_height, 4);
+    assert_eq!(
+        verify_state(
+            &head,
+            STORE_NAME,
+            &programs_state_key(&fixture.interface_witness.key),
+            &fixture.interface_witness.value,
+            &fixture.interface_witness.proof,
+        ),
+        Ok(4),
+    );
 }
 
 #[test]
@@ -253,29 +353,7 @@ fn support_fixture_verifies_through_public_verifier() {
                 observed_at: NOW + 123,
             }
         );
-        let head = fixture
-            .chain
-            .verifier
-            .verify_head(&fixture.chain.header, &fixture.chain.commit)
-            .unwrap_or_else(|error| panic!("verify fixture header: {error:?}"));
-        let record = fixture
-            .proof
-            .state
-            .state
-            .verify(&head)
-            .unwrap_or_else(|error| panic!("verify fixture record: {error}"));
-        assert_eq!(record.state_height(), 4);
-        assert_eq!(fixture.block_height, 4);
-        assert_eq!(
-            verify_state(
-                &head,
-                STORE_NAME,
-                &programs_state_key(&fixture.interface_witness.key),
-                &fixture.interface_witness.value,
-                &fixture.interface_witness.proof,
-            ),
-            Ok(4),
-        );
+        verify_fixture_chain_state(&fixture);
         let encoded = fixture
             .proof
             .canonical_encoding()
@@ -317,31 +395,5 @@ fn support_fixture_verifies_through_public_verifier() {
         assert_eq!(current.policy(), policy);
     }
 
-    let upgrade = support::upgrade_fixture(WASM_V1, WASM_V2, 71, NOW);
-    let verifier = verifier_for_fixture(&upgrade, 1_000);
-    let evidence = verifier
-        .verify_deployment(&upgrade.proof, NOW)
-        .unwrap_or_else(|error| panic!("verify upgrade fixture: {error}"));
-    assert_eq!(evidence.version(), 2);
-    assert_eq!(evidence.code_hash(), code_hash(WASM_V2));
-    assert_eq!(evidence.module(), WASM_V2);
-    assert_eq!(evidence.freshness().observed_sequence, 72);
-    let deprecated = support::deprecated_state(&upgrade, NOW + 1);
-    let head = verifier
-        .verify_current_program(&deprecated, program(), NOW + 1)
-        .unwrap_or_else(|error| panic!("verify deprecated upgrade: {error}"));
-    assert_eq!(head.lifecycle(), ProgramLifecycle::Deprecated);
-    assert_eq!(head.version(), 2);
-    assert_eq!(head.code_hash(), code_hash(WASM_V2));
-
-    let call = support::programs_call_fixture(b"program call payload", 5, NOW);
-    let verifier = verifier_for_fixture(&call, 1_000);
-    let head = verifier
-        .verify_current_program(&call.proof.state, program(), NOW)
-        .unwrap_or_else(|error| panic!("verify call fixture: {error}"));
-    assert_eq!(head.freshness().observed_sequence, 6);
-    assert_eq!(head.receipt_digest(), code_hash(b"program call payload"));
-    assert_eq!(call.proof.state.transaction, b"program call payload");
-    let wrong_abi = support::wrong_abi_fixture(4, NOW);
-    assert!(verifier.verify_deployment(&wrong_abi.proof, NOW).is_err());
+    verify_upgrade_and_call_fixtures();
 }

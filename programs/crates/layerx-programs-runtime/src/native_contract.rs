@@ -15,6 +15,7 @@ pub struct CallPayloadLayout {
 }
 
 /// Decodes offsets into the complete authenticated activity, including its replay wrapper.
+#[must_use]
 pub fn call_payload_layout(payload: &[u8]) -> Option<CallPayloadLayout> {
     let offset = if payload.get(..34)? == [0; 34] {
         let prefix = 34 + REPLAY_PROFILE_DOMAIN.len();
@@ -75,6 +76,9 @@ pub struct CanonicalCall<'a> {
 }
 
 impl CanonicalCall<'_> {
+    /// # Errors
+    ///
+    /// Returns a framing refusal when the CALL payload is truncated, oversized, or has inconsistent field lengths.
     pub fn canonical_bytes(
         &self,
         profile: Option<crate::ProgramReplayProfile>,
@@ -154,6 +158,7 @@ impl CanonicalCall<'_> {
     }
 }
 
+#[must_use]
 pub fn sandbox_execution_principal(
     host_program: ProgramId,
     lease: [u8; 32],

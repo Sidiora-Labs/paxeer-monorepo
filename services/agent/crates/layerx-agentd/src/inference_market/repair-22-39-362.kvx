@@ -1,0 +1,494 @@
+[repair]
+task = "22.39.362"
+decision = "3250"
+gotcha = "4178"
+base_revision = "a218f66d178c12b0d1a127bc798e86bfe0299935"
+scope = "signal.rs, deals.rs, laps.rs and serve.rs included by the host binary and inference tests."
+wire_contract = "Keep public item names/signatures, serialized frame shapes, validation bounds, operation order and existing tests unchanged."
+
+[inventory]
+host_command = "cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --no-deps --bin layerx-agentd --message-format short -- -D warnings"
+host_log = "/tmp/lint-22-39-362-initial-bin.log"
+test_command = "cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --test inference_deals --test inference_laps --test inference_signal --message-format short -- -D warnings"
+test_log = "/tmp/lint-22-39-362-initial-tests.log"
+test_result = "No inference_market diagnostic was emitted: two existing missing_errors_doc errors in layerx-agentd/src/node_rpc.rs prevented compilation of the integration test targets."
+
+[lint.1]
+target = "bin"
+file = "signal.rs"
+line = 432
+column = 12
+lint = "dead_code"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/signal.rs:432:12: error: associated function `start` is never used"
+repair = "Compile this API only under cfg(test), retaining it for the existing including tests and removing the unused host item; no test is changed."
+
+[lint.2]
+target = "bin"
+file = "signal.rs"
+line = 530
+column = 4
+lint = "dead_code"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/signal.rs:530:4: error: function `serve_connection` is never used"
+repair = "Compile this API only under cfg(test), retaining it for the existing including tests and removing the unused host item; no test is changed."
+
+[lint.3]
+target = "bin"
+file = "deals.rs"
+line = 23
+column = 12
+lint = "dead_code"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/deals.rs:23:12: error: field `0` is never read"
+repair = "Read the Client payload in Display while preserving its previous debug-formatted message."
+
+[lint.4]
+target = "bin"
+file = "deals.rs"
+line = 26
+column = 13
+lint = "dead_code"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/deals.rs:26:13: error: field `0` is never read"
+repair = "Read the Invalid payload in Display while preserving its previous debug-formatted message."
+
+[lint.5]
+target = "bin"
+file = "deals.rs"
+line = 27
+column = 8
+lint = "dead_code"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/deals.rs:27:8: error: field `0` is never read"
+repair = "Read the Io payload in Display while preserving its previous debug-formatted message."
+
+[lint.6]
+target = "bin"
+file = "deals.rs"
+line = 197
+column = 12
+lint = "dead_code"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/deals.rs:197:12: error: methods `verify_recorded` and `acknowledgement` are never used"
+repair = "Compile this API only under cfg(test), retaining it for the existing including tests and removing the unused host item; no test is changed."
+
+[lint.7]
+target = "bin"
+file = "deals.rs"
+line = 618
+column = 12
+lint = "dead_code"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/deals.rs:618:12: error: method `excluded` is never used"
+repair = "Compile this API only under cfg(test), retaining it for the existing including tests and removing the unused host item; no test is changed."
+
+[lint.8]
+target = "bin"
+file = "deals.rs"
+line = 991
+column = 12
+lint = "dead_code"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/deals.rs:991:12: error: associated function `start` is never used"
+repair = "Remove the obsolete deal-only listener startup/connection path because neither main.rs nor any test target calls it."
+
+[lint.9]
+target = "bin"
+file = "deals.rs"
+line = 1181
+column = 4
+lint = "dead_code"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/deals.rs:1181:4: error: function `serve_deal_connection` is never used"
+repair = "Remove the obsolete deal-only listener startup/connection path because neither main.rs nor any test target calls it."
+
+[lint.10]
+target = "bin"
+file = "deals.rs"
+line = 1293
+column = 8
+lint = "dead_code"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/deals.rs:1293:8: error: function `receive_deal` is never used"
+repair = "Compile this API only under cfg(test), retaining it for the existing including tests and removing the unused host item; no test is changed."
+
+[lint.11]
+target = "bin"
+file = "laps.rs"
+line = 11
+column = 10
+lint = "dead_code"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/laps.rs:11:10: error: field `0` is never read"
+repair = "Read the Deal payload in Display while preserving its previous debug-formatted message."
+
+[lint.12]
+target = "bin"
+file = "laps.rs"
+line = 12
+column = 13
+lint = "dead_code"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/laps.rs:12:13: error: field `0` is never read"
+repair = "Read the Invalid payload in Display while preserving its previous debug-formatted message."
+
+[lint.13]
+target = "bin"
+file = "laps.rs"
+line = 13
+column = 12
+lint = "dead_code"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/laps.rs:13:12: error: field `0` is never read"
+repair = "Read the Client payload in Display while preserving its previous debug-formatted message."
+
+[lint.14]
+target = "bin"
+file = "laps.rs"
+line = 15
+column = 8
+lint = "dead_code"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/laps.rs:15:8: error: field `0` is never read"
+repair = "Read the Io payload in Display while preserving its previous debug-formatted message."
+
+[lint.15]
+target = "bin"
+file = "laps.rs"
+line = 14
+column = 5
+lint = "dead_code"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/laps.rs:14:5: error: variant `Signal` is never constructed"
+repair = "Compile this API only under cfg(test), retaining it for the existing including tests and removing the unused host item; no test is changed."
+
+[lint.16]
+target = "bin"
+file = "laps.rs"
+line = 122
+column = 12
+lint = "dead_code"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/laps.rs:122:12: error: method `countersign` is never used"
+repair = "Compile this API only under cfg(test), retaining it for the existing including tests and removing the unused host item; no test is changed."
+
+[lint.17]
+target = "bin"
+file = "laps.rs"
+line = 554
+column = 12
+lint = "dead_code"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/laps.rs:554:12: error: methods `end_deal` and `receipts` are never used"
+repair = "Compile this API only under cfg(test), retaining it for the existing including tests and removing the unused host item; no test is changed."
+
+[lint.18]
+target = "bin"
+file = "laps.rs"
+line = 1258
+column = 8
+lint = "dead_code"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/laps.rs:1258:8: error: function `receive_countersignature` is never used"
+repair = "Compile this API only under cfg(test), retaining it for the existing including tests and removing the unused host item; no test is changed."
+
+[lint.19]
+target = "bin"
+file = "serve.rs"
+line = 316
+column = 12
+lint = "dead_code"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/serve.rs:316:12: error: struct `CompletionWriter` is never constructed"
+repair = "Compile this API only under cfg(test), retaining it for the existing including tests and removing the unused host item; no test is changed."
+
+[lint.20]
+target = "bin"
+file = "serve.rs"
+line = 321
+column = 12
+lint = "dead_code"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/serve.rs:321:12: error: associated items `accept`, `request`, `lap`, and `finish` are never used"
+repair = "Compile this API only under cfg(test), retaining it for the existing including tests and removing the unused host item; no test is changed."
+
+[lint.21]
+target = "bin"
+file = "deals.rs"
+line = 149
+column = 24
+lint = "cast_possible_truncation"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/deals.rs:149:24: error: casting `u32` to `u16` may truncate the value"
+repair = "Use u16::try_from and refuse with DealError::Invalid on failed conversion."
+
+[lint.22]
+target = "bin"
+file = "deals.rs"
+line = 260
+column = 21
+lint = "cast_possible_truncation"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/deals.rs:260:21: error: casting `usize` to `u16` may truncate the value"
+repair = "Use u16::try_from and refuse with DealError::Invalid on failed conversion."
+
+[lint.23]
+target = "bin"
+file = "deals.rs"
+line = 321
+column = 1
+lint = "large_enum_variant"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/deals.rs:321:1: error: large size difference between variants: the entire enum is at least 432 bytes"
+repair = "Retain the externally constructed variant shape with one large_enum_variant allowance naming tests/inference_deals.rs."
+
+[lint.24]
+target = "bin"
+file = "deals.rs"
+line = 676
+column = 5
+lint = "too_many_lines"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/deals.rs:676:5: error: this function has too many lines (189/100)"
+repair = "Split poll into refresh_negotiation, plan_candidates and negotiate, preserving finalized-record, book-view, expiry, planning and persistence order."
+
+[lint.25]
+target = "bin"
+file = "deals.rs"
+line = 856
+column = 34
+lint = "useless_conversion"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/deals.rs:856:34: error: useless conversion to the same type: `u64`: help: consider removing `u64::from()`: `room.profile.acknowledgement_window_ms`"
+repair = "Use the acknowledgement_window_ms u64 directly."
+
+[lint.26]
+target = "bin"
+file = "deals.rs"
+line = 1040
+column = 97
+lint = "used_underscore_binding"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/deals.rs:1040:97: error: used underscore-prefixed binding"
+repair = "Remove the unused DealSignalListener::start and serve_deal_connection path; no main or test caller uses it."
+
+[lint.27]
+target = "bin"
+file = "deals.rs"
+line = 1252
+column = 21
+lint = "semicolon_if_nothing_returned"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/deals.rs:1252:21: error: consider adding a `;` to the last statement for consistent formatting: help: add a `;` here: `relay_description(&connection.shared, &hello.peer_key, &to, description)?;`"
+repair = "Remove serve_deal_connection with its unused listener startup path."
+
+[lint.28]
+target = "bin"
+file = "deals.rs"
+line = 1343
+column = 33
+lint = "cast_possible_truncation"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/deals.rs:1343:33: error: casting `u64` to `usize` may truncate the value on targets with 32-bit wide pointers"
+repair = "Use usize::try_from and refuse with SignalError::FrameTooLarge on failed conversion."
+
+[lint.29]
+target = "bin"
+file = "deals.rs"
+line = 1351
+column = 13
+lint = "match_same_arms"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/deals.rs:1351:13: error: these match arms have identical bodies: the wildcard arm"
+repair = "Let the existing wildcard arm reject opcode 8 with the same error."
+
+[lint.30]
+target = "bin"
+file = "laps.rs"
+line = 206
+column = 5
+lint = "too_many_lines"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/laps.rs:206:5: error: this function has too many lines (162/100)"
+repair = "Split peer validation and retained-journal restoration into validate_deal_peers and restore in the same file."
+
+[lint.31]
+target = "bin"
+file = "laps.rs"
+line = 336
+column = 17
+lint = "assigning_clones"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/laps.rs:336:17: error: assigning the result of `Clone::clone()` may be inefficient: help: use `clone_from()`: `original.host_signature.clone_from(&proof.frame.receipt.host_signature)`"
+repair = "Use clone_from for the original host signature."
+
+[lint.32]
+target = "bin"
+file = "laps.rs"
+line = 593
+column = 5
+lint = "too_many_lines"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/laps.rs:593:5: error: this function has too many lines (146/100)"
+repair = "Extract prepare_manifest and archive_batch, preserving evidence sealing, settlement, archival and meter order."
+
+[lint.33]
+target = "bin"
+file = "laps.rs"
+line = 861
+column = 96
+lint = "used_underscore_binding"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/laps.rs:861:96: error: used underscore-prefixed binding"
+repair = "Use the captured Connection directly under its ordinary name; its destructor still runs after the connection handler returns."
+
+[lint.34]
+target = "bin"
+file = "laps.rs"
+line = 895
+column = 19
+lint = "needless_pass_by_value"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/laps.rs:895:19: error: this argument is passed by value, but not consumed in the function body"
+repair = "Retain the main.rs tick signature with one needless_pass_by_value allowance naming src/main.rs."
+
+[lint.35]
+target = "bin"
+file = "laps.rs"
+line = 917
+column = 13
+lint = "map_entry"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/laps.rs:917:13: error: usage of `contains_key` followed by `insert` on a `BTreeMap`"
+repair = "Insert a new lap engine through BTreeMap::entry and Entry::Vacant."
+
+[lint.36]
+target = "bin"
+file = "laps.rs"
+line = 1040
+column = 1
+lint = "too_many_lines"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/laps.rs:1040:1: error: this function has too many lines (108/100)"
+repair = "Extract handle_lap_frame while retaining admission guards and connection-error reporting in serve_lap_connection."
+
+[lint.37]
+target = "bin"
+file = "laps.rs"
+line = 1208
+column = 33
+lint = "cast_possible_truncation"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/laps.rs:1208:33: error: casting `u64` to `usize` may truncate the value on targets with 32-bit wide pointers"
+repair = "Use usize::try_from and refuse with SignalError::FrameTooLarge on failed conversion."
+
+[lint.38]
+target = "bin"
+file = "laps.rs"
+line = 1216
+column = 13
+lint = "match_same_arms"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/laps.rs:1216:13: error: these match arms have identical bodies: the wildcard arm"
+repair = "Let the existing wildcard arm reject opcode 8 with the same error."
+
+[lint.39]
+target = "bin"
+file = "serve.rs"
+line = 171
+column = 22
+lint = "large_types_passed_by_value"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/serve.rs:171:22: error: this argument (272 byte) is passed by value, but might be more efficient if passed by reference (limit: 256 byte): help: consider passing by reference instead: `&RoomRecord`"
+repair = "Retain the CompletionBinding::new signature with one large_types_passed_by_value allowance naming tests/inference_serve.rs."
+
+[lint.40]
+target = "bin"
+file = "serve.rs"
+line = 171
+column = 40
+lint = "large_types_passed_by_value"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/serve.rs:171:40: error: this argument (1376 byte) is passed by value, but might be more efficient if passed by reference (limit: 256 byte): help: consider passing by reference instead: `&DealRecord`"
+repair = "Retain the CompletionBinding::new signature with one large_types_passed_by_value allowance naming tests/inference_serve.rs."
+
+[lint.41]
+target = "bin"
+file = "serve.rs"
+line = 565
+column = 19
+lint = "needless_pass_by_value"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/serve.rs:565:19: error: this argument is passed by value, but not consumed in the function body"
+repair = "Retain the ServeRoutes::new signature with one needless_pass_by_value allowance naming src/main.rs and tests/inference_serve.rs."
+
+[lint.42]
+target = "bin"
+file = "serve.rs"
+line = 611
+column = 5
+lint = "too_many_lines"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/serve.rs:611:5: error: this function has too many lines (193/100)"
+repair = "Split header routing, completion body framing and JSON validation into read_request, read_completion and parse_completion."
+
+[lint.43]
+target = "bin"
+file = "serve.rs"
+line = 813
+column = 18
+lint = "needless_pass_by_value"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/serve.rs:813:18: error: this argument is passed by value, but not consumed in the function body"
+repair = "Retain respond signatures used by tests/inference_serve.rs with one needless_pass_by_value allowance."
+
+[lint.44]
+target = "bin"
+file = "serve.rs"
+line = 814
+column = 15
+lint = "needless_pass_by_value"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/serve.rs:814:15: error: this argument is passed by value, but not consumed in the function body"
+repair = "Retain respond signatures used by tests/inference_serve.rs with one needless_pass_by_value allowance."
+
+[lint.45]
+target = "bin"
+file = "serve.rs"
+line = 815
+column = 18
+lint = "needless_pass_by_value"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/serve.rs:815:18: error: this argument is passed by value, but not consumed in the function body"
+repair = "Retain respond signatures used by tests/inference_serve.rs with one needless_pass_by_value allowance."
+
+[lint.46]
+target = "bin"
+file = "serve.rs"
+line = 856
+column = 5
+lint = "too_many_lines"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/serve.rs:856:5: error: this function has too many lines (224/100)"
+repair = "Extract prepare_runtime_request and CompletionSession receive/accept_lap; preserve receipt validation and durable debits before token emission."
+
+[lint.47]
+target = "bin"
+file = "serve.rs"
+line = 1129
+column = 40
+lint = "needless_pass_by_value"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/serve.rs:1129:40: error: this argument is passed by value, but not consumed in the function body"
+repair = "Borrow both private chunk JSON inputs instead of taking owned Value arguments."
+
+[lint.48]
+target = "bin"
+file = "serve.rs"
+line = 1129
+column = 55
+lint = "needless_pass_by_value"
+diagnostic = "crates/layerx-agentd-host/../layerx-agentd/src/inference_market/serve.rs:1129:55: error: this argument is passed by value, but not consumed in the function body"
+repair = "Borrow both private chunk JSON inputs instead of taking owned Value arguments."
+
+[allowances]
+deal_server_frame = "large_enum_variant: tests/inference_deals.rs constructs the unboxed Deal variant; preserve its public shape and wire representation."
+lap_listener_tick = "needless_pass_by_value: src/main.rs calls tick with an owned FinalizedSnapshot; preserve its signature."
+completion_binding_new = "large_types_passed_by_value: tests/inference_serve.rs calls new with RoomRecord and DealRecord values; preserve its signature."
+serve_routes_new = "needless_pass_by_value: src/main.rs and tests/inference_serve.rs call new with owned receipt paths; preserve its signature."
+serve_routes_respond = "needless_pass_by_value: tests/inference_serve.rs calls respond with owned request, gate and binding values; preserve its signature."
+level = "Every allowance is attached to exactly the affected item; no crate/module lint level changes."
+
+[qualification]
+build = "hf-build"
+verify = "hf-done"
+build_log = "/out/logs/build-1.log"
+verify_log = "/out/logs/verify-1.log"
+verified_revision = "The revision field of the final passing verify entry in /out/run/gates.jsonl, printed by hf-done; its build entry must name the same revision."
+result = "The private gate ledger records the authoritative final command, revision, exit and log; qualification requires hf-build and hf-done to pass at that revision."
+
+[finding.1]
+task = "22.39.362"
+file = "services/agent/crates/layerx-agentd/src/node_rpc.rs"
+symbol = "NodeRpc"
+observed = "At base a218f66d178c12b0d1a127bc798e86bfe0299935, cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --test inference_deals --test inference_laps --test inference_signal --message-format short -- -D warnings exits 101 with missing_errors_doc at lines 225 and 409; private evidence is /tmp/lint-22-39-362-initial-tests.log."
+assumption = "These existing documentation errors are outside inference_market and remain for their owning task."
+severity = "note"
+
+[cleanup.1]
+file = "laps.rs"
+line = 1202
+lint = "semicolon_if_nothing_returned"
+repair = "Terminate the extracted handle_lap_frame candidate relay and rejection return with semicolons; results and SignalError remain unchanged."
+log = "/tmp/lint-22-39-362-cleanup-bin-1.log"
+
+[lint_result]
+host_log = "/tmp/lint-22-39-362-cleanup-bin-2.log"
+host_exit = 101
+host_inference_market_diagnostics = 0
+test_log = "/tmp/lint-22-39-362-cleanup-tests-1.log"
+test_exit = 101
+test_inference_market_diagnostics = 0
+result = "The two declared lint commands emit no inference_market diagnostics; their remaining failures are outside scope. The counted gates below qualify the candidate and run the three unchanged behavioral test targets."
+
+[finding.2]
+task = "22.39.362"
+file = "services/agent/crates/layerx-agentd/src/main.rs"
+symbol = "main"
+observed = "At base a218f66d178c12b0d1a127bc798e86bfe0299935, cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --no-deps --bin layerx-agentd --message-format short -- -D warnings exits 101 with diagnostics outside inference_market; private evidence is /tmp/lint-22-39-362-initial-bin.log."
+assumption = "The host diagnostics in main.rs, payer.rs and proof_serve_errors.rs belong to their existing lint tasks."
+severity = "note"

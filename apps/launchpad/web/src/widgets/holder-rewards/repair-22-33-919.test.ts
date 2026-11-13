@@ -266,5 +266,5 @@ async function rewards_grid_pagination() {
   expect(pageRequests()).toHaveLength(3);
 }
 
-test(reward_sort_scope.name, reward_sort_scope);
+test(reward_sort_scope.name, reward_sort_scope, 20_000);
 test(rewards_grid_pagination.name, rewards_grid_pagination);

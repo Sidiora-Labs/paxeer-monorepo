@@ -455,6 +455,7 @@ lxp_result lxp_ctx_verified_receipt_facts(
                                               receipt_digest, facts);
 }
 
+/* Programs consumes the execution context's committed receipt index here. */
 lxp_result lxp_ctx_verified_receipt_authority_facts(
     const lxp_module_ctx *ctx, const uint8_t receipt_digest[32],
     lxp_verified_receipt_authority_facts *facts)

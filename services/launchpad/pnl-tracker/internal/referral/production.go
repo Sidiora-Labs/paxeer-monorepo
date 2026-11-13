@@ -57,7 +57,7 @@ func validProductionWallet(s string) bool {
 		return false
 	}
 	for _, c := range strings.ToLower(s[2:]) {
-		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
 			return false
 		}
 	}
@@ -298,7 +298,7 @@ func (h HTTP) command(w http.ResponseWriter, r *http.Request, operation string) 
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(response)
+	_, _ = w.Write(response) //nolint:gosec // The response is JSON under the application/json content type and preserves its wire bytes.
 }
 func decodeReferralBody(raw []byte, out any) error {
 	raw = bytes.TrimSpace(raw)

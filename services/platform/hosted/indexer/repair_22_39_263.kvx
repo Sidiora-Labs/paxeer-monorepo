@@ -1,0 +1,665 @@
+[repair]
+task = "22.39.263"
+acceptance = "22998.1"
+decisions = ["3101", "3104", "3125"]
+base_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+inventory_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path services/platform/hosted/indexer --path services/platform/hosted/registry --path services/platform/hosted/core --path services/platform/hosted/authority --path services/platform/hosted/agent-boundary --path services/platform/hosted/testnet --path services/platform/hosted/webhooks"
+inventory_exit = 1
+inventory_findings = 59
+inventory_state = "Initial merged working tree; no prior gate ledger or task source edits were present."
+qualification = "hf-build followed by hf-done; the private gates.jsonl and final gate JSON identify the exact candidate revision, command, exit code and evidence location, including this record."
+scope_resolution = "Attempt 2 explicitly includes tools/paxeer-x/retired_callers.json and authorizes seven directory allowances for the 55 retained findings under decision 3125."
+implementation = "Correct obsolete transport documentation and annotate why the still-live APIs, compatibility fields, producer identities, wire rank and refusal regressions remain; no symbol is renamed and no test or assertion is weakened."
+allowance_status = "Applied one allowed_references entry per shipping crate directory, in path order, containing the exact catalogue symbols listed in the 55 retained finding records below; the original source lines remain as inventory evidence."
+continuation_base_revision = "8742bd00eb3acc490f28e5d26038636590216955"
+previous_attempt_revision = "9b8bb85c74208ef85a960b38edf58aa20bd044f0"
+continuation_findings = 55
+qualification_revision_source = "/out/run/gates.jsonl: final hf-build and hf-done rows name the identical verified candidate revision including this record."
+
+[finding.1]
+path = "services/platform/hosted/agent-boundary/src/deployment.rs"
+line = 30
+component = "programs-ingress"
+symbol = "/v1/programs/deploy"
+disposition = "allowed_reference"
+reason = "These obsolete internal mutation paths are matched only to return a refusal; deleting the match would change entitlement and not-found behavior."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "\"/internal/v1/programs/deploy\" | \"/internal/v1/programs/upgrade\""
+
+[finding.2]
+path = "services/platform/hosted/agent-boundary/src/deployment.rs"
+line = 30
+component = "programs-ingress"
+symbol = "/v1/programs/upgrade"
+disposition = "allowed_reference"
+reason = "These obsolete internal mutation paths are matched only to return a refusal; deleting the match would change entitlement and not-found behavior."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "\"/internal/v1/programs/deploy\" | \"/internal/v1/programs/upgrade\""
+
+[finding.3]
+path = "services/platform/hosted/authority/README.md"
+line = 133
+component = "layerxctl-port"
+symbol = "LNI"
+disposition = "repaired_documentation"
+reason = "Replace obsolete transport wording with the node JSON-RPC submission or receipt-sourcing path already implemented in this crate."
+
+[finding.4]
+path = "services/platform/hosted/authority/README.md"
+line = 133
+component = "lni"
+symbol = "LNI"
+disposition = "repaired_documentation"
+reason = "Replace obsolete transport wording with the node JSON-RPC submission or receipt-sourcing path already implemented in this crate."
+
+[finding.5]
+path = "services/platform/hosted/authority/src/lib.rs"
+line = 206
+component = "finality-authority"
+symbol = "authority_replica"
+disposition = "allowed_reference"
+reason = "The strict historical receipt evidence decoder still requires this wire identity and pins it to the independently configured producer without authorizing chain finality."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "authority_replica_id: String,"
+
+[finding.6]
+path = "services/platform/hosted/authority/src/lib.rs"
+line = 277
+component = "finality-authority"
+symbol = "authority_replica"
+disposition = "allowed_reference"
+reason = "The strict historical receipt evidence decoder still requires this wire identity and pins it to the independently configured producer without authorizing chain finality."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "let replica_id = hex::decode32(&document.authority_replica_id)"
+
+[finding.7]
+path = "services/platform/hosted/core/src/lib.rs"
+line = 179
+component = "layerxctl-port"
+symbol = "LNI"
+disposition = "repaired_documentation"
+reason = "Replace obsolete transport wording with the node JSON-RPC submission or receipt-sourcing path already implemented in this crate."
+
+[finding.8]
+path = "services/platform/hosted/core/src/lib.rs"
+line = 179
+component = "lni"
+symbol = "LNI"
+disposition = "repaired_documentation"
+reason = "Replace obsolete transport wording with the node JSON-RPC submission or receipt-sourcing path already implemented in this crate."
+
+[finding.9]
+path = "services/platform/hosted/core/src/lib.rs"
+line = 364
+component = "envelope-signing"
+symbol = "sign_disclosed"
+disposition = "allowed_reference"
+reason = "The live sign_disclosed_call helper validates a disclosure-bound EIP-1559 transaction, signs through Signer::sign_transaction and recovers the secp256k1 sender; it is distinct from retired envelope signing."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "let signature = complete(layerx_crypto::signer::sign_disclosed_call("
+
+[finding.10]
+path = "services/platform/hosted/indexer/src/abi.rs"
+line = 360
+component = "anchor"
+symbol = "layerxanchor"
+disposition = "allowed_reference"
+reason = "These names exclude disabled executors from ABI ingestion and assert that neither their names nor their addresses acquire event decoders; retaining them preserves the refusal regression."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "\"layerxverify\" | \"layerxcustody\" | \"layerxanchor\""
+
+[finding.11]
+path = "services/platform/hosted/indexer/src/abi.rs"
+line = 360
+component = "custody-deposit"
+symbol = "layerxcustody"
+disposition = "allowed_reference"
+reason = "These names exclude disabled executors from ABI ingestion and assert that neither their names nor their addresses acquire event decoders; retaining them preserves the refusal regression."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "\"layerxverify\" | \"layerxcustody\" | \"layerxanchor\""
+
+[finding.12]
+path = "services/platform/hosted/indexer/src/abi.rs"
+line = 360
+component = "verify"
+symbol = "layerxverify"
+disposition = "allowed_reference"
+reason = "These names exclude disabled executors from ABI ingestion and assert that neither their names nor their addresses acquire event decoders; retaining them preserves the refusal regression."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "\"layerxverify\" | \"layerxcustody\" | \"layerxanchor\""
+
+[finding.13]
+path = "services/platform/hosted/indexer/src/abi.rs"
+line = 744
+component = "verify"
+symbol = "layerxverify"
+disposition = "allowed_reference"
+reason = "These names exclude disabled executors from ABI ingestion and assert that neither their names nor their addresses acquire event decoders; retaining them preserves the refusal regression."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "(\"layerxverify\", 0x1012),"
+
+[finding.14]
+path = "services/platform/hosted/indexer/src/abi.rs"
+line = 745
+component = "custody-deposit"
+symbol = "layerxcustody"
+disposition = "allowed_reference"
+reason = "These names exclude disabled executors from ABI ingestion and assert that neither their names nor their addresses acquire event decoders; retaining them preserves the refusal regression."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "(\"layerxcustody\", 0x1013),"
+
+[finding.15]
+path = "services/platform/hosted/indexer/src/abi.rs"
+line = 746
+component = "anchor"
+symbol = "layerxanchor"
+disposition = "allowed_reference"
+reason = "These names exclude disabled executors from ABI ingestion and assert that neither their names nor their addresses acquire event decoders; retaining them preserves the refusal regression."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "(\"layerxanchor\", 0x1014),"
+
+[finding.16]
+path = "services/platform/hosted/indexer/src/ai_market.rs"
+line = 28
+component = "checkpoint-finality"
+symbol = "FINALIZED_RANK"
+disposition = "allowed_reference"
+reason = "The live program query codec retains the rank constant as its wire publication threshold while the indexer establishes finality by verifying the exact block commit and ICS23 state membership."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "CURSOR_TOKEN_BYTES, FINALIZED_RANK, PAGE_MAX_BYTES, PAGE_MAX_ROWS,"
+
+[finding.17]
+path = "services/platform/hosted/indexer/src/ai_market.rs"
+line = 48
+component = "checkpoint-finality"
+symbol = "FINALIZED_RANK"
+disposition = "allowed_reference"
+reason = "The live program query codec retains the rank constant as its wire publication threshold while the indexer establishes finality by verifying the exact block commit and ICS23 state membership."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "pub const MINIMUM_PUBLICATION_RANK: u8 = FINALIZED_RANK;"
+
+[finding.18]
+path = "services/platform/hosted/indexer/src/ai_reputation.rs"
+line = 22
+component = "checkpoint-finality"
+symbol = "FINALIZED_RANK"
+disposition = "allowed_reference"
+reason = "The live program query codec retains the rank constant and the reputation publisher supplies it only after authenticating the block commit and exact state membership."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "FINALIZED_RANK,"
+
+[finding.19]
+path = "services/platform/hosted/indexer/src/ai_reputation.rs"
+line = 447
+component = "checkpoint-finality"
+symbol = "FINALIZED_RANK"
+disposition = "allowed_reference"
+reason = "The live program query codec retains the rank constant and the reputation publisher supplies it only after authenticating the block commit and exact state membership."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "rank: FINALIZED_RANK,"
+
+[finding.20]
+path = "services/platform/hosted/indexer/src/config.rs"
+line = 321
+component = "layerxctl-port"
+symbol = "LNI"
+disposition = "allowed_reference"
+reason = "The obsolete socket environment variable is test input asserting that RPC configuration never reads it."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "(\"LAYERX_INDEXER_LNI_SOCKET\", \"\"),"
+
+[finding.21]
+path = "services/platform/hosted/indexer/src/config.rs"
+line = 321
+component = "lni"
+symbol = "LNI"
+disposition = "allowed_reference"
+reason = "The obsolete socket environment variable is test input asserting that RPC configuration never reads it."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "(\"LAYERX_INDEXER_LNI_SOCKET\", \"\"),"
+
+[finding.22]
+path = "services/platform/hosted/registry/src/committed_head_route.rs"
+line = 53
+component = "finality-authority"
+symbol = "authority_replica"
+disposition = "allowed_reference"
+reason = "The independently authenticated committed-head response still carries this producer identity and the route rejects documents that do not match its pin."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "|| document[\"authority_replica_id\"].as_str() != Some(replica.as_str())"
+
+[finding.23]
+path = "services/platform/hosted/registry/src/lib.rs"
+line = 50
+component = "layerxctl-port"
+symbol = "lni"
+disposition = "allowed_reference"
+reason = "The hosted registry retains independent evidence endpoint credentials and a replica identity for proof cross-checks; its unused optional socket field remains a public compatibility member asserted absent by retained integration tests."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "pub deployment_lni_socket: Option<PathBuf>,"
+
+[finding.24]
+path = "services/platform/hosted/registry/src/lib.rs"
+line = 50
+component = "lni"
+symbol = "lni"
+disposition = "allowed_reference"
+reason = "The hosted registry retains independent evidence endpoint credentials and a replica identity for proof cross-checks; its unused optional socket field remains a public compatibility member asserted absent by retained integration tests."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "pub deployment_lni_socket: Option<PathBuf>,"
+
+[finding.25]
+path = "services/platform/hosted/registry/src/lib.rs"
+line = 50
+component = "lni"
+symbol = "lni_"
+disposition = "allowed_reference"
+reason = "The hosted registry retains independent evidence endpoint credentials and a replica identity for proof cross-checks; its unused optional socket field remains a public compatibility member asserted absent by retained integration tests."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "pub deployment_lni_socket: Option<PathBuf>,"
+
+[finding.26]
+path = "services/platform/hosted/registry/src/lib.rs"
+line = 72
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed_reference"
+reason = "The hosted registry retains independent evidence endpoint credentials and a replica identity for proof cross-checks; its unused optional socket field remains a public compatibility member asserted absent by retained integration tests."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "pub receipt_authority_endpoint: String,"
+
+[finding.27]
+path = "services/platform/hosted/registry/src/lib.rs"
+line = 73
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed_reference"
+reason = "The hosted registry retains independent evidence endpoint credentials and a replica identity for proof cross-checks; its unused optional socket field remains a public compatibility member asserted absent by retained integration tests."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "pub receipt_authority_authorization: String,"
+
+[finding.28]
+path = "services/platform/hosted/registry/src/lib.rs"
+line = 74
+component = "finality-authority"
+symbol = "authority_replica"
+disposition = "allowed_reference"
+reason = "The hosted registry retains independent evidence endpoint credentials and a replica identity for proof cross-checks; its unused optional socket field remains a public compatibility member asserted absent by retained integration tests."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "pub receipt_authority_replica_id: [u8; 32],"
+
+[finding.29]
+path = "services/platform/hosted/registry/src/lib.rs"
+line = 74
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed_reference"
+reason = "The hosted registry retains independent evidence endpoint credentials and a replica identity for proof cross-checks; its unused optional socket field remains a public compatibility member asserted absent by retained integration tests."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "pub receipt_authority_replica_id: [u8; 32],"
+
+[finding.30]
+path = "services/platform/hosted/registry/src/main.rs"
+line = 440
+component = "layerxctl-port"
+symbol = "lni"
+disposition = "allowed_reference"
+reason = "The executable constructs the live independent hosted evidence configuration and explicitly leaves its public compatibility socket unset."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "deployment_lni_socket: None,"
+
+[finding.31]
+path = "services/platform/hosted/registry/src/main.rs"
+line = 440
+component = "lni"
+symbol = "lni"
+disposition = "allowed_reference"
+reason = "The executable constructs the live independent hosted evidence configuration and explicitly leaves its public compatibility socket unset."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "deployment_lni_socket: None,"
+
+[finding.32]
+path = "services/platform/hosted/registry/src/main.rs"
+line = 440
+component = "lni"
+symbol = "lni_"
+disposition = "allowed_reference"
+reason = "The executable constructs the live independent hosted evidence configuration and explicitly leaves its public compatibility socket unset."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "deployment_lni_socket: None,"
+
+[finding.33]
+path = "services/platform/hosted/registry/src/main.rs"
+line = 494
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed_reference"
+reason = "The executable constructs the live independent hosted evidence configuration and explicitly leaves its public compatibility socket unset."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "receipt_authority_endpoint: env::var(\"LAYERX_REGISTRY_RECEIPT_AUTHORITY_ENDPOINT\")"
+
+[finding.34]
+path = "services/platform/hosted/registry/src/main.rs"
+line = 496
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed_reference"
+reason = "The executable constructs the live independent hosted evidence configuration and explicitly leaves its public compatibility socket unset."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "receipt_authority_authorization: env::var("
+
+[finding.35]
+path = "services/platform/hosted/registry/src/main.rs"
+line = 502
+component = "finality-authority"
+symbol = "authority_replica"
+disposition = "allowed_reference"
+reason = "The executable constructs the live independent hosted evidence configuration and explicitly leaves its public compatibility socket unset."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "receipt_authority_replica_id: hex::decode_digest("
+
+[finding.36]
+path = "services/platform/hosted/registry/src/main.rs"
+line = 502
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed_reference"
+reason = "The executable constructs the live independent hosted evidence configuration and explicitly leaves its public compatibility socket unset."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "receipt_authority_replica_id: hex::decode_digest("
+
+[finding.37]
+path = "services/platform/hosted/registry/src/node_state.rs"
+line = 131
+component = "finality-authority"
+symbol = "authority_replica"
+disposition = "allowed_reference"
+reason = "The node consumer retains the independent producer pin and compares node and authority evidence before verifying the committed chain head with its configured chain trust."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "authority_replica_id: [u8; 32],"
+
+[finding.38]
+path = "services/platform/hosted/registry/src/node_state.rs"
+line = 146
+component = "finality-authority"
+symbol = "authority_replica"
+disposition = "allowed_reference"
+reason = "The node consumer retains the independent producer pin and compares node and authority evidence before verifying the committed chain head with its configured chain trust."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "authority_replica_id: [u8; 32],"
+
+[finding.39]
+path = "services/platform/hosted/registry/src/node_state.rs"
+line = 156
+component = "finality-authority"
+symbol = "authority_replica"
+disposition = "allowed_reference"
+reason = "The node consumer retains the independent producer pin and compares node and authority evidence before verifying the committed chain head with its configured chain trust."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "authority_replica_id,"
+
+[finding.40]
+path = "services/platform/hosted/registry/src/node_state.rs"
+line = 171
+component = "finality-authority"
+symbol = "authority_replica"
+disposition = "allowed_reference"
+reason = "The node consumer retains the independent producer pin and compares node and authority evidence before verifying the committed chain head with its configured chain trust."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "authority_replica_id: [u8; 32],"
+
+[finding.41]
+path = "services/platform/hosted/registry/src/node_state.rs"
+line = 178
+component = "finality-authority"
+symbol = "authority_replica"
+disposition = "allowed_reference"
+reason = "The node consumer retains the independent producer pin and compares node and authority evidence before verifying the committed chain head with its configured chain trust."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "|| authority_replica_id == [0; 32]"
+
+[finding.42]
+path = "services/platform/hosted/registry/src/node_state.rs"
+line = 211
+component = "finality-authority"
+symbol = "authority_replica"
+disposition = "allowed_reference"
+reason = "The node consumer retains the independent producer pin and compares node and authority evidence before verifying the committed chain head with its configured chain trust."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "authority_replica_id,"
+
+[finding.43]
+path = "services/platform/hosted/registry/src/node_state.rs"
+line = 650
+component = "finality-authority"
+symbol = "authority_replica"
+disposition = "allowed_reference"
+reason = "The node consumer retains the independent producer pin and compares node and authority evidence before verifying the committed chain head with its configured chain trust."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "|| hex::decode_digest(field(&independent, \"authority_replica_id\")?)"
+
+[finding.44]
+path = "services/platform/hosted/registry/src/node_state.rs"
+line = 652
+component = "finality-authority"
+symbol = "authority_replica"
+disposition = "allowed_reference"
+reason = "The node consumer retains the independent producer pin and compares node and authority evidence before verifying the committed chain head with its configured chain trust."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "!= self.authority_replica_id"
+
+[finding.45]
+path = "services/platform/hosted/registry/src/routes.rs"
+line = 2019
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed_reference"
+reason = "The registry constructs its live node source with independently authenticated evidence credentials and a producer pin while using persisted chain trust for verification."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "&config.receipt_authority_endpoint,"
+
+[finding.46]
+path = "services/platform/hosted/registry/src/routes.rs"
+line = 2020
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed_reference"
+reason = "The registry constructs its live node source with independently authenticated evidence credentials and a producer pin while using persisted chain trust for verification."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "config.receipt_authority_authorization.clone(),"
+
+[finding.47]
+path = "services/platform/hosted/registry/src/routes.rs"
+line = 2021
+component = "finality-authority"
+symbol = "authority_replica"
+disposition = "allowed_reference"
+reason = "The registry constructs its live node source with independently authenticated evidence credentials and a producer pin while using persisted chain trust for verification."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "config.receipt_authority_replica_id,"
+
+[finding.48]
+path = "services/platform/hosted/registry/src/routes.rs"
+line = 2021
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed_reference"
+reason = "The registry constructs its live node source with independently authenticated evidence credentials and a producer pin while using persisted chain trust for verification."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "config.receipt_authority_replica_id,"
+
+[finding.49]
+path = "services/platform/hosted/testnet/README.md"
+line = 11
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed_reference"
+reason = "These identifiers document the still-shipping hosted receipt service and its payment and receipt-inspection readiness dependencies."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "| `receipt_authority` | `receipt-authority`, `services/platform/hosted/node/deployment.yaml` |"
+
+[finding.50]
+path = "services/platform/hosted/testnet/README.md"
+line = 23
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed_reference"
+reason = "These identifiers document the still-shipping hosted receipt service and its payment and receipt-inspection readiness dependencies."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "| `/v1/journeys/payment` | `payment` | `identity`, `gateway`, `core`, `receipt_authority` |"
+
+[finding.51]
+path = "services/platform/hosted/testnet/README.md"
+line = 24
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed_reference"
+reason = "These identifiers document the still-shipping hosted receipt service and its payment and receipt-inspection readiness dependencies."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "| `/v1/journeys/receipt-inspection` | `receipt_inspection` | `gateway`, `receipt_authority`, `core` |"
+
+[finding.52]
+path = "services/platform/hosted/testnet/src/main.rs"
+line = 112
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed_reference"
+reason = "These identifiers configure, probe and assert readiness failures for the still-shipping hosted receipt inspection service; removing them would weaken journey admission."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "receipt_authority: Endpoint,"
+
+[finding.53]
+path = "services/platform/hosted/testnet/src/main.rs"
+line = 191
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed_reference"
+reason = "These identifiers configure, probe and assert readiness failures for the still-shipping hosted receipt inspection service; removing them would weaken journey admission."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "Self::ReceiptAuthority => \"receipt_authority\","
+
+[finding.54]
+path = "services/platform/hosted/testnet/src/main.rs"
+line = 824
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed_reference"
+reason = "These identifiers configure, probe and assert readiness failures for the still-shipping hosted receipt inspection service; removing them would weaken journey admission."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "receipt_authority: Endpoint::parse("
+
+[finding.55]
+path = "services/platform/hosted/testnet/src/main.rs"
+line = 1073
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed_reference"
+reason = "These identifiers configure, probe and assert readiness failures for the still-shipping hosted receipt inspection service; removing them would weaken journey admission."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "Dependency::ReceiptAuthority => probe(ca, &config.receipt_authority),"
+
+[finding.56]
+path = "services/platform/hosted/testnet/src/main.rs"
+line = 1579
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed_reference"
+reason = "These identifiers configure, probe and assert readiness failures for the still-shipping hosted receipt inspection service; removing them would weaken journey admission."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "serde_json::json!([\"receipt_authority\"])"
+
+[finding.57]
+path = "services/platform/hosted/webhooks/src/ai_market.rs"
+line = 20
+component = "checkpoint-finality"
+symbol = "FINALIZED_RANK"
+disposition = "allowed_reference"
+reason = "The live program query codec retains the publication rank while the webhook adapter independently requires the pinned block commit and program-state proof."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "use layerx_programs_ai_market::queries::{SnapshotBinding, BINDING_MAX_BYTES, FINALIZED_RANK};"
+
+[finding.58]
+path = "services/platform/hosted/webhooks/src/ai_market.rs"
+line = 47
+component = "checkpoint-finality"
+symbol = "FINALIZED_RANK"
+disposition = "allowed_reference"
+reason = "The live program query codec retains the publication rank while the webhook adapter independently requires the pinned block commit and program-state proof."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "pub const MINIMUM_PUBLICATION_RANK: u8 = FINALIZED_RANK;"
+
+[finding.59]
+path = "services/platform/hosted/webhooks/src/repair_22_33_1328_authority.rs"
+line = 35
+component = "finality-authority"
+symbol = "authority_replica"
+disposition = "allowed_reference"
+reason = "This retained regression drives the real historical evidence decoder through HTTPS with its required producer identity and preserves malformed-evidence refusal assertions."
+allowance_path = "tools/paxeer-x/retired_callers.json"
+allowance_line = "\"authority_replica_id\":\"01\".repeat(32), \"sequencer_public_key\":maintained[\"sequencer_public_key\"],"
+
+[qualification.attempt_1_build]
+revision = "2d92de729cc76b9ce563a0fde42ed20e6f9a2158"
+command = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer -p layerx-platform-registry -p layerx-platform-core -p layerx-platform-authority -p layerx-platform-agent-boundary -p layerx-platform-testnet -p layerx-platform-webhooks --lib"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.attempt_1_verify]
+revision = "2d92de729cc76b9ce563a0fde42ed20e6f9a2158"
+command = "cg spec done 22.39.263 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+library_tests_passed = 65
+remaining_scan_findings = 55
+state = "Not qualified; no repair rerun can apply the required catalogue allowances within the authorized file scope."
+
+[qualification.attempt_1_scope_blocker]
+task = "22.39.263"
+file = "tools/paxeer-x/retired_callers.json"
+symbol = "allowed_references"
+observed = "Revision 2d92de729cc76b9ce563a0fde42ed20e6f9a2158, command cg spec done 22.39.263 -f layerx-merge --root /work/paxeer-monorepo, exit 1, log /out/logs/verify-1.log: all 65 library tests passed but the final scan reports 55 retained live references whose required catalogue allowances are excluded from task scope."
+assumption = "The catalogue must be included in the task scope before exact source-line allowances can be applied without removing live APIs or weakening refusal regressions."
+severity = "blocker"
+resolved = "Attempt 2 expands the authorized catalogue scope and applies the seven directory allowances under decision 3125."
+
+[allowance.agent_boundary]
+path = "services/platform/hosted/agent-boundary"
+symbols = ["/v1/programs/deploy", "/v1/programs/upgrade"]
+reason = "Decision 3125 retains the obsolete internal deployment and upgrade route names solely for explicit mutation refusals in the shipping agent boundary."
+catalogue = "tools/paxeer-x/retired_callers.json"
+
+[allowance.authority]
+path = "services/platform/hosted/authority"
+symbols = ["authority_replica"]
+reason = "Decision 3125 retains authority_replica_id as the historical receipt evidence wire identity pinned to the configured producer independently of committed-chain verification."
+catalogue = "tools/paxeer-x/retired_callers.json"
+
+[allowance.core]
+path = "services/platform/hosted/core"
+symbols = ["sign_disclosed"]
+reason = "Decision 3125 retains the live sign_disclosed_call helper that validates disclosure-bound EIP-1559 transactions and signs through the secp256k1 Signer trait."
+catalogue = "tools/paxeer-x/retired_callers.json"
+
+[allowance.indexer]
+path = "services/platform/hosted/indexer"
+symbols = ["FINALIZED_RANK", "LNI", "layerxanchor", "layerxcustody", "layerxverify"]
+reason = "Decision 3125 retains disabled-precompile ABI exclusions and historical decoder regression rows, the committed-block publication rank, and obsolete socket input used to assert node RPC configuration ignores it."
+catalogue = "tools/paxeer-x/retired_callers.json"
+
+[allowance.registry]
+path = "services/platform/hosted/registry"
+symbols = ["authority_replica", "lni", "lni_", "receipt_authority"]
+reason = "Decision 3125 retains the shipping independent receipt evidence endpoint and producer pins used to cross-check committed-chain proofs, plus the public compatibility socket field that remains unset."
+catalogue = "tools/paxeer-x/retired_callers.json"
+
+[allowance.testnet]
+path = "services/platform/hosted/testnet"
+symbols = ["receipt_authority"]
+reason = "Decision 3125 retains the shipping receipt_authority readiness dependency and its documented payment and receipt-inspection admission checks."
+catalogue = "tools/paxeer-x/retired_callers.json"
+
+[allowance.webhooks]
+path = "services/platform/hosted/webhooks"
+symbols = ["FINALIZED_RANK", "authority_replica"]
+reason = "Decision 3125 retains the publication rank gated by verified block commits and native store proofs and the historical authority evidence regression using its pinned producer identity."
+catalogue = "tools/paxeer-x/retired_callers.json"

@@ -1,4 +1,10 @@
-import { decodeEventLog, decodeFunctionResult, encodeFunctionData, encodeFunctionResult, type Hex } from 'viem';
+import {
+  decodeEventLog,
+  decodeFunctionResult,
+  encodeFunctionData,
+  encodeFunctionResult,
+  type Hex,
+} from 'viem';
 import { publicClient } from './chainReads.js';
 
 /**
@@ -32,7 +38,7 @@ export const PRECOMPILE_ADDRESSES = Object.freeze({
 export const UNSERVED_PRECOMPILES: ReadonlySet<keyof typeof PRECOMPILE_ADDRESSES> = new Set();
 
 export function unservedPrecompileAt(
-  to: string | undefined,
+  to: string | undefined
 ): keyof typeof PRECOMPILE_ADDRESSES | null {
   if (to === undefined) return null;
   const address = to.toLowerCase();
@@ -45,7 +51,7 @@ export function unservedPrecompileAt(
 export class PrecompileNotServedError extends Error {
   constructor(public readonly precompile: keyof typeof PRECOMPILE_ADDRESSES) {
     super(
-      `precompile ${precompile} at ${PRECOMPILE_ADDRESSES[precompile]} is not served by the node`,
+      `precompile ${precompile} at ${PRECOMPILE_ADDRESSES[precompile]} is not served by the node`
     );
   }
 }
@@ -84,7 +90,7 @@ export type TeeFamilyName = keyof typeof TEE_FAMILIES;
 export function precompileAddressBook() {
   const keys = Object.keys(PRECOMPILE_ADDRESSES) as (keyof typeof PRECOMPILE_ADDRESSES)[];
   const served = Object.fromEntries(
-    keys.map((key) => [key, !UNSERVED_PRECOMPILES.has(key)]),
+    keys.map((key) => [key, !UNSERVED_PRECOMPILES.has(key)])
   ) as Record<keyof typeof PRECOMPILE_ADDRESSES, boolean>;
   return { addresses: PRECOMPILE_ADDRESSES, served, tee_families: TEE_FAMILIES };
 }
@@ -150,7 +156,83 @@ export const SCHEDULER_ABI = [
     name: 'pending',
     stateMutability: 'view',
     inputs: [{ name: 'creator', type: 'address' }],
-    outputs: [{ name: '', type: 'uint256[]' }],
+    outputs: [{ name: 'jobIds', type: 'uint256[]' }],
+  },
+  {
+    type: 'event',
+    name: 'JobScheduled',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'jobId',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'creator',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'target',
+        type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'executeAtBlock',
+        type: 'uint64',
+        indexed: false,
+      },
+      {
+        name: 'gasLimit',
+        type: 'uint64',
+        indexed: false,
+      },
+      {
+        name: 'deposit',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'JobCancelled',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'jobId',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'creator',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'refund',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'JobRescheduled',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'jobId',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'newBlock',
+        type: 'uint64',
+        indexed: false,
+      },
+    ],
   },
 ] as const;
 
@@ -326,6 +408,95 @@ export const AttestationVerified = {
 } as const;
 
 export const TEE_ATTESTOR_ABI = [
+  {
+    type: 'function',
+    name: 'bindPeer',
+    stateMutability: 'nonpayable',
+    inputs: [
+      {
+        name: 'family',
+        type: 'uint8',
+      },
+      {
+        name: 'envelope',
+        type: 'bytes',
+      },
+      {
+        name: 'peerKey',
+        type: 'bytes32',
+      },
+      {
+        name: 'modelDigest',
+        type: 'bytes32',
+      },
+      {
+        name: 'runtimeDigest',
+        type: 'bytes32',
+      },
+    ],
+    outputs: [
+      {
+        name: 'bound',
+        type: 'bool',
+      },
+    ],
+  },
+  {
+    type: 'function',
+    name: 'peerBinding',
+    stateMutability: 'view',
+    inputs: [
+      {
+        name: 'peerKey',
+        type: 'bytes32',
+      },
+    ],
+    outputs: [
+      {
+        name: 'family',
+        type: 'uint8',
+      },
+      {
+        name: 'modelDigest',
+        type: 'bytes32',
+      },
+      {
+        name: 'runtimeDigest',
+        type: 'bytes32',
+      },
+      {
+        name: 'blockHeight',
+        type: 'uint64',
+      },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'PeerAttestationBound',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'peerKey',
+        type: 'bytes32',
+        indexed: true,
+      },
+      {
+        name: 'family',
+        type: 'uint8',
+        indexed: false,
+      },
+      {
+        name: 'modelDigest',
+        type: 'bytes32',
+        indexed: false,
+      },
+      {
+        name: 'runtimeDigest',
+        type: 'bytes32',
+        indexed: false,
+      },
+    ],
+  },
   {
     type: 'function',
     name: 'verify',
@@ -617,7 +788,7 @@ async function domainSeparator(args: {
 async function recoverTypedSigner(
   domainSeparator: Hex,
   structHash: Hex,
-  signature: Hex,
+  signature: Hex
 ): Promise<Hex> {
   await ensureServed('eip712');
   const { data } = await publicClient().call({
@@ -672,7 +843,9 @@ function shapeAttestation(r: {
 export function decodeTeeAttestationResult(data: Hex, expectedFamily: number): Attestation {
   const result = decodeFunctionResult({ abi: TEE_ATTESTOR_ABI, functionName: 'verify', data });
   const canonical = encodeFunctionResult({
-    abi: TEE_ATTESTOR_ABI, functionName: 'verify', result,
+    abi: TEE_ATTESTOR_ABI,
+    functionName: 'verify',
+    result,
   });
   if (
     canonical.toLowerCase() !== data.toLowerCase() ||
@@ -689,18 +862,28 @@ export async function verify(family: number, quote: Hex): Promise<Attestation> {
   await ensureServed('teeAttestor');
   const { data } = await publicClient().call({
     to: servedAddress('teeAttestor'),
-    data: encodeFunctionData({ abi: TEE_ATTESTOR_ABI, functionName: 'verify', args: [family, quote] }),
+    data: encodeFunctionData({
+      abi: TEE_ATTESTOR_ABI,
+      functionName: 'verify',
+      args: [family, quote],
+    }),
   });
   if (!data) throw new Error('missing attestation result');
   return decodeTeeAttestationResult(data, family);
 }
 
-export async function verifyAndExpect(family: number, quote: Hex, expectedReportData: Hex): Promise<Attestation> {
+export async function verifyAndExpect(
+  family: number,
+  quote: Hex,
+  expectedReportData: Hex
+): Promise<Attestation> {
   await ensureServed('teeAttestor');
   const { data } = await publicClient().call({
     to: servedAddress('teeAttestor'),
     data: encodeFunctionData({
-      abi: TEE_ATTESTOR_ABI, functionName: 'verifyAndExpect', args: [family, quote, expectedReportData],
+      abi: TEE_ATTESTOR_ABI,
+      functionName: 'verifyAndExpect',
+      args: [family, quote, expectedReportData],
     }),
   });
   if (!data) throw new Error('missing attestation result');
@@ -710,16 +893,20 @@ export async function verifyAndExpect(family: number, quote: Hex, expectedReport
 export async function rootOf(family: number, index: bigint): Promise<Hex> {
   await ensureServed('teeAttestor');
   return publicClient().readContract({
-    address: servedAddress('teeAttestor'), abi: TEE_ATTESTOR_ABI,
-    functionName: 'rootOf', args: [family, index],
+    address: servedAddress('teeAttestor'),
+    abi: TEE_ATTESTOR_ABI,
+    functionName: 'rootOf',
+    args: [family, index],
   });
 }
 
 export async function rootCount(family: number): Promise<string> {
   await ensureServed('teeAttestor');
   const count = await publicClient().readContract({
-    address: servedAddress('teeAttestor'), abi: TEE_ATTESTOR_ABI,
-    functionName: 'rootCount', args: [family],
+    address: servedAddress('teeAttestor'),
+    abi: TEE_ATTESTOR_ABI,
+    functionName: 'rootCount',
+    args: [family],
   });
   return count.toString();
 }

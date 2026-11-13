@@ -1,0 +1,276 @@
+[repair.22.39.251]
+criterion = "22998.1"
+decisions = ["3101", "3104", "2324", "3125"]
+starting_revision = "c316eaa48ffd5caf98844f92b05056a5be7fd4e6"
+status = "implemented-awaiting-qualification"
+verified_revision = "/out/run/gates.jsonl: only matching passing build and verify rows establish a qualified candidate revision, including this record."
+qualification = "This record does not claim qualification; hf-build and hf-done retain exact candidate revisions, commands, exits and private logs."
+
+[inventory]
+revision = "c316eaa48ffd5caf98844f92b05056a5be7fd4e6"
+command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path programs/crates/layerx-programs-runtime"
+exit = 1
+findings = 30
+files = 4
+
+[qualification.build]
+revision = "fb88bc0a314f3e9230697239a256a723b0aa3c98"
+command = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --tests"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.verify]
+revision = "fb88bc0a314f3e9230697239a256a723b0aa3c98"
+command = "cg spec done 22.39.251 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The library suite passed 246 tests and failed terminal::source_vectors::traced_abi_one_execution_v3_is_not_candidate_evidence at terminal.rs:1263 with traced ABI1 producer vector rejected; cargo exited 101, so the verify command stopped before the retired-caller scan."
+assumption = "This failure is pre-existing because this attempt changed only this repair record and no Rust source."
+severity = "blocker"
+disposition = "Historical attempt-1 failure; do_4 now explicitly authorizes repairing the producer vector and qualifying the continuation without weakening the decoder."
+
+[scope.conflict]
+observed = "All thirty diagnostics match substrings of live sandbox receipt framing or live native V2 receipt projection helpers, rather than references to the deleted settlement export or daemon authority modules."
+constraint = "Attempt 1 excluded tools/paxeer-x/retired_callers.json; do_4 now admits the catalogue while retaining the prohibition on equivalent renames."
+required_resolution = "Resolved by decision 3125: two symbol-specific allowed_references entries cover programs/crates/layerx-programs-runtime/src with separate reasons for live sandbox framing and V2 CALL projection."
+source_changes = "Preserved public identifiers and wire bytes, documented retained APIs, and replaced the malformed ABI1 test vector with canonical evidence from a real traced execution."
+
+[retained.sandbox]
+symbol = "SANDBOX_SETTLEMENT_DOMAIN"
+reason = "This constant tags the live sandbox usage-receipt envelope, not an offline settlement trust domain, and its exact wire bytes are consumed by terminal decoding and the native-producer regression."
+producer = "programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs: attach_sandbox_settlement authenticates the usage receipt digest and writes the envelope."
+consumer = "programs/crates/layerx-programs-runtime/src/terminal.rs: unwrap decodes the envelope and refuses nested duplicate wrappers."
+regression = "programs/crates/layerx-programs-runtime/tests/repair_22_31_488.rs: native_producer_frame_is_accepted_by_the_terminal_reader imports the public constant and consumes a real native producer recording."
+resolution = "tools/paxeer-x/retired_callers.json allows SETTLEMENT_DOMAIN under programs/crates/layerx-programs-runtime/src by decision 3125; the public constant and wire bytes remain intact."
+
+[retained.native_projection]
+symbols = ["read_native_receipt_authority", "decode_native_receipt_authority", "native_receipt_authority_length"]
+reason = "These helpers project the live native CALL arbiter frame's V2 receipt facts by block height and digest; they do not call the retired finality daemon, and V1 remains explicitly refused."
+producer = "src/modules/programs/call.c: layerx_programs_call_arbiter_authority_begin reads verified receipt facts, requires V2, validates network, digest and height, and serializes the 151-byte projection."
+consumer = "programs/crates/layerx-programs-runtime/src/ffi_call.rs: layerx_programs_call_arbiter_authority_check calls read_native_receipt_authority, whose decoder checks version, length, supported protocol, nonzero fields, expected height and digest."
+proof = "Decision 2324 assigns this host-ffi path to tests/proof/lxp_proof_lxp_receipt_h.c; the declared pure-Rust gates do not enable host-ffi."
+resolution = "tools/paxeer-x/retired_callers.json allows receipt_authority under programs/crates/layerx-programs-runtime/src by decision 3125; every decoder refusal assertion and the public API remain intact."
+
+[gotcha.scope]
+observed = "Attempt 1 excluded the catalogue; the continuation admits it but still excludes root gotcha/spec ledgers."
+resolution = "Decision 3125 resolves the catalogue conflict; record task findings here and leave root ledgers unchanged under the explicit scope."
+
+[finding.1]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 2441
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+resolution = "retained.sandbox: allowed SETTLEMENT_DOMAIN in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.2]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 3916
+component = "finality-authority"
+symbol = "receipt_authority"
+resolution = "retained.native_projection: allowed receipt_authority in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.3]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4284
+component = "finality-authority"
+symbol = "receipt_authority"
+resolution = "retained.native_projection: allowed receipt_authority in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.4]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4300
+component = "finality-authority"
+symbol = "receipt_authority"
+resolution = "retained.native_projection: allowed receipt_authority in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.5]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4304
+component = "finality-authority"
+symbol = "receipt_authority"
+resolution = "retained.native_projection: allowed receipt_authority in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.6]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4311
+component = "finality-authority"
+symbol = "receipt_authority"
+resolution = "retained.native_projection: allowed receipt_authority in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.7]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4321
+component = "finality-authority"
+symbol = "receipt_authority"
+resolution = "retained.native_projection: allowed receipt_authority in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.8]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4324
+component = "finality-authority"
+symbol = "receipt_authority"
+resolution = "retained.native_projection: allowed receipt_authority in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.9]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4329
+component = "finality-authority"
+symbol = "receipt_authority"
+resolution = "retained.native_projection: allowed receipt_authority in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.10]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4350
+component = "finality-authority"
+symbol = "receipt_authority"
+resolution = "retained.native_projection: allowed receipt_authority in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.11]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4357
+component = "finality-authority"
+symbol = "receipt_authority"
+resolution = "retained.native_projection: allowed receipt_authority in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.12]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4363
+component = "finality-authority"
+symbol = "receipt_authority"
+resolution = "retained.native_projection: allowed receipt_authority in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.13]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4369
+component = "finality-authority"
+symbol = "receipt_authority"
+resolution = "retained.native_projection: allowed receipt_authority in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.14]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4375
+component = "finality-authority"
+symbol = "receipt_authority"
+resolution = "retained.native_projection: allowed receipt_authority in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.15]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4444
+component = "finality-authority"
+symbol = "receipt_authority"
+resolution = "retained.native_projection: allowed receipt_authority in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.16]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4451
+component = "finality-authority"
+symbol = "receipt_authority"
+resolution = "retained.native_projection: allowed receipt_authority in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.17]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4458
+component = "finality-authority"
+symbol = "receipt_authority"
+resolution = "retained.native_projection: allowed receipt_authority in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.18]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4517
+component = "finality-authority"
+symbol = "receipt_authority"
+resolution = "retained.native_projection: allowed receipt_authority in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.19]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4539
+component = "finality-authority"
+symbol = "receipt_authority"
+resolution = "retained.native_projection: allowed receipt_authority in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.20]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4550
+component = "finality-authority"
+symbol = "receipt_authority"
+resolution = "retained.native_projection: allowed receipt_authority in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.21]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4580
+component = "finality-authority"
+symbol = "receipt_authority"
+resolution = "retained.native_projection: allowed receipt_authority in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.22]
+path = "programs/crates/layerx-programs-runtime/src/lib.rs"
+line = 53
+component = "finality-authority"
+symbol = "receipt_authority"
+resolution = "retained.native_projection: allowed receipt_authority in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.23]
+path = "programs/crates/layerx-programs-runtime/src/terminal.rs"
+line = 8
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+resolution = "retained.sandbox: allowed SETTLEMENT_DOMAIN in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.24]
+path = "programs/crates/layerx-programs-runtime/src/terminal.rs"
+line = 391
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+resolution = "retained.sandbox: allowed SETTLEMENT_DOMAIN in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.25]
+path = "programs/crates/layerx-programs-runtime/src/terminal.rs"
+line = 392
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+resolution = "retained.sandbox: allowed SETTLEMENT_DOMAIN in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.26]
+path = "programs/crates/layerx-programs-runtime/src/terminal.rs"
+line = 415
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+resolution = "retained.sandbox: allowed SETTLEMENT_DOMAIN in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.27]
+path = "programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs"
+line = 6
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+resolution = "retained.sandbox: allowed SETTLEMENT_DOMAIN in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.28]
+path = "programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs"
+line = 321
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+resolution = "retained.sandbox: allowed SETTLEMENT_DOMAIN in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.29]
+path = "programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs"
+line = 331
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+resolution = "retained.sandbox: allowed SETTLEMENT_DOMAIN in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[finding.30]
+path = "programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs"
+line = 332
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+resolution = "retained.sandbox: allowed SETTLEMENT_DOMAIN in tools/paxeer-x/retired_callers.json for programs/crates/layerx-programs-runtime/src (decision 3125)"
+
+[continuation]
+base_revision = "5a7cab8cd9a24af7c32d40ef715bd4c09f7aae5c"
+seed_revision = "4cf37a697dc43858c9d0004006662779c93944d7"
+main_ancestor = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9 is already an ancestor of the supplied base; no rebase changes are needed."
+findings = "All 30 original path, line, component and symbol records are retained above, with each disposition mapped to its catalogue allowance."
+first_rejecting_check = "decode_legacy reads the zero-sized trace and validate_trace_evidence rejects it because bytes.get(..2) has no version header, returning TerminalDecodeError::Malformed."
+repair = "traced_abi_one_execution_v3_is_not_candidate_evidence now executes a real ABI1 guest with a trace policy and feeds ExecutionRecord::canonical_evidence from execute.rs to decode_terminal_payload, so the producer writes the v3 layout and canonical arbitration trace."
+assertions = "The original Legacy encoding_version 3 assertion remains, with exact runtime, ABI, metering, output, usage and trace equality added; neither decoder nor refusal checks changed."
+evidence = "/out/run/gates.jsonl records the exact qualified candidate revision, command, exit and private log for both hf-build and hf-done; the historical qualification sections above describe attempt 1 only."

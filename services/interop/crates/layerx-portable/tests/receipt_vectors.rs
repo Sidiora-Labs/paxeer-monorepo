@@ -118,8 +118,12 @@ fn a_v2_proof_without_raw_transaction_still_verifies() {
     let exported = PortableReceiptV2::export(&v2_signed_bytes(), &keys[1], 951)
         .unwrap_or_else(|error| panic!("existing v2 proof exports: {error:?}"));
     assert_eq!(exported.to_json(), Ok(V2_RECEIPT_JSON.as_bytes().to_vec()));
-    let json: serde_json::Value = serde_json::from_slice(&exported.to_json().unwrap())
-        .unwrap_or_else(|error| panic!("exported v2 JSON parses: {error:?}"));
+    let json: serde_json::Value = serde_json::from_slice(
+        &exported
+            .to_json()
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("exported v2 JSON parses: {error:?}"));
     assert!(json.get("rawTransaction").is_none());
 }
 

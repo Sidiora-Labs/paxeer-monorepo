@@ -1,0 +1,63 @@
+[manifest]
+task = "22.41.55"
+pages = 15
+
+[page.1]
+path = "deploy/launchpad/README.md"
+status = "corrected"
+
+[page.2]
+path = "deploy/launchpad/production/bootstrap/README.md"
+status = "corrected"
+
+[page.3]
+path = "deploy/launchpad/production/observability/README.md"
+status = "reviewed"
+
+[page.4]
+path = "deploy/launchpad/production/observability/phase2/runbooks/activation.md"
+status = "reviewed"
+
+[page.5]
+path = "deploy/launchpad/production/observability/phase2/runbooks/capacity.md"
+status = "reviewed"
+
+[page.6]
+path = "deploy/launchpad/production/observability/runbooks/availability.md"
+status = "reviewed"
+
+[page.7]
+path = "deploy/launchpad/production/observability/runbooks/integrity.md"
+status = "reviewed"
+
+[page.8]
+path = "deploy/launchpad/production/observability/runbooks/storage.md"
+status = "reviewed"
+
+[page.9]
+path = "deploy/launchpad/production/observability/runbooks/synthetic.md"
+status = "reviewed"
+
+[page.10]
+path = "deploy/launchpad/production/observability/runbooks/telemetry.md"
+status = "corrected"
+
+[page.11]
+path = "deploy/launchpad/production/recovery/README.md"
+status = "reviewed"
+
+[page.12]
+path = "deploy/launchpad/production/recovery/phase2/runbook.md"
+status = "reviewed"
+
+[page.13]
+path = "deploy/launchpad/production/recovery/phase4/runbook.md"
+status = "reviewed"
+
+[page.14]
+path = "deploy/launchpad/production/topology/README.md"
+status = "corrected"
+
+[page.15]
+path = "deploy/launchpad/production/topology/phase2/operator-runbook.md"
+status = "corrected"

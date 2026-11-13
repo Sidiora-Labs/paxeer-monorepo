@@ -1,13 +1,13 @@
 //! Repair record 22.33.226 for audit 22.30.126: receipt-trace-bound.
-//! Proving tests: receipt_trace_real_producer_round_trips,
-//! receipt_trace_maximum_malformed_is_not_copied,
-//! receipt_trace_one_past_limit_is_rejected_before_verification,
-//! receipt_trace_truncated_length_is_rejected,
-//! receipt_response_keeps_its_own_bound, and receipt_graph_keeps_its_own_bound.
+//! Proving tests: `receipt_trace_real_producer_round_trips`,
+//! `receipt_trace_maximum_malformed_is_not_copied`,
+//! `receipt_trace_one_past_limit_is_rejected_before_verification`,
+//! `receipt_trace_truncated_length_is_rejected`,
+//! `receipt_response_keeps_its_own_bound`, and `receipt_graph_keeps_its_own_bound`.
 //! Prerequisite 22.31.259 already installed the pre-copy trace length check.
 //! This repair shares bounded field reads and spells out the v2 encoding bound.
 //! Baseline verification was not run: the ordered implementation-first gates
-//! prohibit invoking verify_cmd by hand, overriding the conflicting audit step 5.
+//! prohibit invoking `verify_cmd` by hand, overriding the conflicting audit step 5.
 //! No pre-change test failure is claimed. No out-of-path wiring is required.
 //! The gate runner records the verified revision and private evidence location.
 
@@ -75,16 +75,18 @@ unsafe impl GlobalAlloc for ObservedAllocator {
 static ALLOCATOR: ObservedAllocator = ObservedAllocator;
 
 fn decode_observed(bytes: &[u8]) -> (Result<V2ActivityReceipt, FailureEncodingError>, Allocations) {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     ALLOCATIONS.with(|slot| slot.set(Some(Allocations::default())));
     let decoded = V2ActivityReceipt::canonical_decode(bytes);
-    let allocations = ALLOCATIONS.with(|slot| slot.replace(None).unwrap());
+    let allocations = ALLOCATIONS.with(|slot| slot.replace(None).assert_success("test value"));
     (decoded, allocations)
 }
 
 fn push_i32(bytes: &mut Vec<u8>, mut value: i32) {
     bytes.push(0x41);
     loop {
-        let low = (value & 0x7f) as u8;
+        let low = value.to_le_bytes()[0] & 0x7f;
         value >>= 7;
         let done = value == 0 && low & 0x40 == 0 || value == -1 && low & 0x40 != 0;
         bytes.push(if done { low } else { low | 0x80 });
@@ -95,10 +97,16 @@ fn push_i32(bytes: &mut Vec<u8>, mut value: i32) {
 }
 
 fn responder(response_length: usize) -> Vec<u8> {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let pages = response_length.div_ceil(65_536).max(1);
     let mut memory = vec![1, 1];
-    memory.extend(unsigned_leb(pages as u64));
-    memory.extend(unsigned_leb(pages as u64));
+    memory.extend(unsigned_leb(
+        u64::try_from(pages).assert_success("fixture page count fits u64"),
+    ));
+    memory.extend(unsigned_leb(
+        u64::try_from(pages).assert_success("fixture page count fits u64"),
+    ));
     let mut exports = unsigned_leb(3);
     for (name, kind, index) in [
         ("layerx_reserve", 0, 1),
@@ -110,7 +118,11 @@ fn responder(response_length: usize) -> Vec<u8> {
         exports.extend([kind, index]);
     }
     let mut body = Vec::new();
-    for value in [7, 0, i32::try_from(response_length).unwrap()] {
+    for value in [
+        7,
+        0,
+        i32::try_from(response_length).assert_success("test value"),
+    ] {
         push_i32(&mut body, value);
     }
     body.extend([0x10, 0, 0x1a, 0x41, 7, 0x0b]);
@@ -129,10 +141,12 @@ fn responder(response_length: usize) -> Vec<u8> {
 }
 
 fn execute(abi: u16, response_length: usize, traced: bool) -> rt::V2AuthorizedExecutionRecord {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let module = WasmEngine::declared()
-        .unwrap()
+        .assert_success("test value")
         .validate_versioned(abi, &responder(response_length))
-        .unwrap();
+        .assert_success("test value");
     let mut executor = Executor::new(
         ResourceBudget::new_complete(
             100_000_000,
@@ -146,16 +160,17 @@ fn execute(abi: u16, response_length: usize, traced: bool) -> rt::V2AuthorizedEx
         FeeSchedule::declared(),
     );
     if traced {
-        executor = executor.with_trace_policy(TracePolicy::new(1, 128).unwrap());
+        executor =
+            executor.with_trace_policy(TracePolicy::new(1, 128).assert_success("test value"));
     }
     let record = executor
         .execute_authorized_versioned_for_qualification(
             &mut Storage::new(),
             AuthorizedExecutionRequest {
                 module: &module,
-                program: ProgramId::new([0x41; 32]).unwrap(),
+                program: ProgramId::new([0x41; 32]).assert_success("test value"),
                 authorization: AuthorizationContext::new(
-                    PrincipalId::new([0x42; 32]).unwrap(),
+                    PrincipalId::new([0x42; 32]).assert_success("test value"),
                     CapabilitySet::empty(),
                 ),
                 receipts: &UnavailableReceiptOracle,
@@ -165,8 +180,8 @@ fn execute(abi: u16, response_length: usize, traced: bool) -> rt::V2AuthorizedEx
                 response_capacity: response_length,
             },
         )
-        .unwrap();
-    let response = record.response().unwrap();
+        .assert_success("test value");
+    let response = record.response().assert_success("test value");
     assert_eq!(response.code, 7);
     assert_eq!(response.bytes, vec![0; response_length]);
     record
@@ -177,7 +192,13 @@ fn graph_length_offset() -> usize {
 }
 
 fn read_length(bytes: &[u8], offset: usize) -> usize {
-    u32::from_be_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    u32::from_be_bytes(
+        bytes[offset..offset + 4]
+            .try_into()
+            .assert_success("test value"),
+    ) as usize
 }
 
 fn trace_length_offset(receipt: &V2ActivityReceipt) -> usize {
@@ -185,6 +206,8 @@ fn trace_length_offset(receipt: &V2ActivityReceipt) -> usize {
 }
 
 fn replace_trace(receipt: &V2ActivityReceipt, length: usize) -> Vec<u8> {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let mut encoded = receipt.canonical_encode();
     let offset = trace_length_offset(receipt);
     let old_length = read_length(&encoded, offset);
@@ -192,19 +215,25 @@ fn replace_trace(receipt: &V2ActivityReceipt, length: usize) -> Vec<u8> {
     let mut trace = encoded[start..start + old_length].to_vec();
     trace.resize(length, 0);
     encoded.splice(start..start + old_length, trace);
-    encoded[offset..offset + 4].copy_from_slice(&u32::try_from(length).unwrap().to_be_bytes());
+    encoded[offset..offset + 4].copy_from_slice(
+        &u32::try_from(length)
+            .assert_success("test value")
+            .to_be_bytes(),
+    );
     encoded
 }
 
 #[test]
 fn receipt_trace_real_producer_round_trips() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     for abi in 2..=5 {
         let record = execute(abi, 3, true);
-        let trace = record.execution().trace().unwrap();
-        let legacy_length = trace.canonical_bytes().unwrap().len();
+        let trace = record.execution().trace().assert_success("test value");
+        let legacy_length = trace.canonical_bytes().assert_success("test value").len();
         let arbitration_length = trace.arbitration_commitments().len() * (2 + 8 + 32 + 4 + 8);
         let receipt = record.receipt_projection();
-        let encoded_trace = receipt.trace_evidence().unwrap();
+        let encoded_trace = receipt.trace_evidence().assert_success("test value");
         assert_eq!(
             encoded_trace.len(),
             2 + 4 + legacy_length + 4 + arbitration_length + 8 + 8
@@ -214,9 +243,10 @@ fn receipt_trace_real_producer_round_trips() {
             60 + rt::MAX_TRACE_COMMITMENTS * (52 + 54)
         );
         assert!(encoded_trace.len() <= MAX_CANONICAL_ARBITRATION_TRACE_BYTES);
-        rt::ExecutionTrace::verify_canonical_arbitration_bytes(encoded_trace).unwrap();
+        rt::ExecutionTrace::verify_canonical_arbitration_bytes(encoded_trace)
+            .assert_success("test value");
         let transport = receipt.canonical_encode();
-        let decoded = V2ActivityReceipt::canonical_decode(&transport).unwrap();
+        let decoded = V2ActivityReceipt::canonical_decode(&transport).assert_success("test value");
         assert_eq!(decoded, receipt);
         assert_eq!(decoded.canonical_encode(), transport);
     }
@@ -256,9 +286,14 @@ fn receipt_trace_one_past_limit_is_rejected_before_verification() {
 
 #[test]
 fn receipt_trace_truncated_length_is_rejected() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let receipt = execute(4, 3, true).receipt_projection();
     let offset = trace_length_offset(&receipt);
-    for length in [MAX_CANONICAL_ARBITRATION_TRACE_BYTES as u32, u32::MAX] {
+    for length in [
+        u32::try_from(MAX_CANONICAL_ARBITRATION_TRACE_BYTES).assert_success("fixture fits u32"),
+        u32::MAX,
+    ] {
         let mut truncated = receipt.canonical_encode();
         truncated[offset..offset + 4].copy_from_slice(&length.to_be_bytes());
         truncated.truncate(offset + 4);
@@ -271,10 +306,12 @@ fn receipt_trace_truncated_length_is_rejected() {
 
 #[test]
 fn receipt_response_keeps_its_own_bound() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let receipt = execute(4, rt::MAX_CALL_RESPONSE_BYTES, false).receipt_projection();
     assert!(receipt.trace_evidence().is_none());
     let mut transport = receipt.canonical_encode();
-    let decoded = V2ActivityReceipt::canonical_decode(&transport).unwrap();
+    let decoded = V2ActivityReceipt::canonical_decode(&transport).assert_success("test value");
     assert_eq!(decoded, receipt);
     let V2ReceiptOutcome::Success(response) = decoded.outcome() else {
         panic!("expected real guest response");
@@ -287,7 +324,7 @@ fn receipt_response_keeps_its_own_bound() {
     );
     transport[length_offset..length_offset + 4].copy_from_slice(
         &u32::try_from(rt::MAX_CALL_RESPONSE_BYTES + 1)
-            .unwrap()
+            .assert_success("test value")
             .to_be_bytes(),
     );
     transport.push(0);
@@ -299,6 +336,8 @@ fn receipt_response_keeps_its_own_bound() {
 
 #[test]
 fn receipt_graph_keeps_its_own_bound() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let receipt = execute(4, 3, true).receipt_projection();
     let maximum_graph = b"LayerX/programs/call-graph/v1\0".len()
         + 32
@@ -312,8 +351,11 @@ fn receipt_graph_keeps_its_own_bound() {
     let mut graph = receipt.graph_evidence().to_vec();
     graph.resize(maximum_graph + 1, 0);
     transport.splice(offset + 4..offset + 4 + old_length, graph);
-    transport[offset..offset + 4]
-        .copy_from_slice(&u32::try_from(maximum_graph + 1).unwrap().to_be_bytes());
+    transport[offset..offset + 4].copy_from_slice(
+        &u32::try_from(maximum_graph + 1)
+            .assert_success("test value")
+            .to_be_bytes(),
+    );
     let (decoded, allocations) = decode_observed(&transport);
     assert_eq!(decoded, Err(FailureEncodingError::Malformed));
     assert_eq!(allocations.calls, 0, "{allocations:?}");

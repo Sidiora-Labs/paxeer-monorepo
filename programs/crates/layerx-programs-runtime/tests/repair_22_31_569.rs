@@ -26,7 +26,7 @@ mod market_tests {
     fn i32_const(code: &mut Vec<u8>, mut value: i32) {
         code.push(0x41);
         loop {
-            let byte = (value & 0x7f) as u8;
+            let byte = value.to_le_bytes()[0] & 0x7f;
             value >>= 7;
             if (value == 0 && byte & 0x40 == 0) || (value == -1 && byte & 0x40 != 0) {
                 code.push(byte);
@@ -47,27 +47,39 @@ mod market_tests {
         leaves: &[Vec<u8>],
         header: &layerx_programs_runtime::replay_record::ReplayRecordHeader,
     ) {
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
         let expected = [0, 0, 8193, 8193, 8193];
         let mut calls = 0;
         let module = WasmEngine::declared()
-            .unwrap()
+            .assert_success("test value")
             .validate_v2(&large_state_guest())
-            .unwrap();
-        let mut memory = module.initial_replay_memory().unwrap();
+            .assert_success("test value");
+        let mut memory = module.initial_replay_memory().assert_success("test value");
         for leaf in leaves {
             let mut boundary =
-                PortableBoundary::decode_with_header(leaf, MAXIMUM_BYTES as usize, header).unwrap();
-            memory = boundary.rebuild_memory(&memory).unwrap();
+                PortableBoundary::decode_with_header(leaf, MAXIMUM_BYTES as usize, header)
+                    .assert_success("test value");
+            memory = boundary
+                .rebuild_memory(&memory)
+                .assert_success("test value");
             let snapshot = &boundary.replay.snapshot;
             if snapshot.canonical_instruction != [0x1a] {
                 continue;
             }
             assert!(calls < expected.len());
-            assert_eq!(snapshot.value_stack.last().unwrap().bits, expected[calls]);
+            assert_eq!(
+                snapshot
+                    .value_stack
+                    .last()
+                    .assert_success("test value")
+                    .bits,
+                expected[calls]
+            );
             if calls >= 2 {
-                assert_eq!(&snapshot.linear_memory[12288..20480], VALUE.as_slice());
-                assert_eq!(snapshot.linear_memory[12288], 0x5a);
-                assert_eq!(snapshot.linear_memory[20479], 0x5a);
+                assert_eq!(&snapshot.linear_memory[12_288..20_480], VALUE.as_slice());
+                assert_eq!(snapshot.linear_memory[12_288], 0x5a);
+                assert_eq!(snapshot.linear_memory[20_479], 0x5a);
             }
             calls += 1;
         }
@@ -89,11 +101,11 @@ mod market_tests {
         host_call(&mut entry, 1, &[2, 8, 5, 1024, 8192]);
         host_call(&mut entry, 2, &[16, 5, 1024, 4]);
         for _ in 0..3 {
-            host_call(&mut entry, 0, &[2, 8, 5, 12288, 8192]);
+            host_call(&mut entry, 0, &[2, 8, 5, 12_288, 8192]);
         }
         entry.extend([0x41, 0, 0x0b]);
         let mut reserve = Vec::new();
-        i32_const(&mut reserve, 32768);
+        i32_const(&mut reserve, 32_768);
         reserve.push(0x0b);
         let mut data = unsigned_leb(3);
         for (offset, bytes) in [
@@ -130,28 +142,32 @@ mod market_tests {
     fn run(
         profile: ProgramReplayProfile,
     ) -> (Storage, Result<V2AuthorizedExecutionRecord, ExecutionError>) {
-        let program = ProgramId::new([1; 32]).unwrap();
-        let payer = PrincipalId::new([2; 32]).unwrap();
-        let binding = ActivityBudgetBinding::new([3; 32]).unwrap();
-        let engine = WasmEngine::declared().unwrap();
-        let validated = engine.validate_v2(&large_state_guest()).unwrap();
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+        let program = ProgramId::new([1; 32]).assert_success("test value");
+        let payer = PrincipalId::new([2; 32]).assert_success("test value");
+        let binding = ActivityBudgetBinding::new([3; 32]).assert_success("test value");
+        let engine = WasmEngine::declared().assert_success("test value");
+        let validated = engine
+            .validate_v2(&large_state_guest())
+            .assert_success("test value");
         let executor = Executor::declared().with_program_replay_profile(profile);
         let declared = DeclaredBudget::new(
             1_000_000, 16_777_216, 1_048_576, 1_048_576, 64, 1_048_576, 4096,
         )
-        .unwrap();
+        .assert_success("test value");
         let admitted = executor
             .admit_activity_budget_for_qualification(declared, payer, binding, u128::MAX)
-            .unwrap();
+            .assert_success("test value");
         let capabilities = CapabilitySet::new([
             Capability::SharedStorageRead,
             Capability::SharedStorageWrite,
             Capability::EmitEvent,
         ])
-        .unwrap();
+        .assert_success("test value");
         let mut storage = Storage::new();
         let mut seed = storage.transaction(StorageNamespace::shared(program));
-        seed.write(KEY, &[0x33; 4096]).unwrap();
+        seed.write(KEY, &[0x33; 4096]).assert_success("test value");
         assert_eq!(seed.commit(), 1);
         let result = executor.execute_authorized_authenticated(
             &mut storage,
@@ -178,16 +194,19 @@ mod market_tests {
 
     #[test]
     fn authenticated_profiled_call_admits_large_shared_state_and_retains_replay() {
-        let (mut storage, result) = run(ProgramReplayProfile::new(128, MAXIMUM_BYTES).unwrap());
-        let record = result.unwrap();
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+        let (mut storage, result) =
+            run(ProgramReplayProfile::new(128, MAXIMUM_BYTES).assert_success("test value"));
+        let record = result.assert_success("test value");
         assert!(matches!(
             record.outcome(),
             V2ActivityOutcome::Success { .. }
         ));
-        let replay = record.replay_record().unwrap();
+        let replay = record.replay_record().assert_success("test value");
         assert_eq!(replay.terminal_status(), 0);
-        let (decoded, leaves) =
-            decode_record(replay.canonical_bytes(), MAXIMUM_BYTES as usize).unwrap();
+        let (decoded, leaves) = decode_record(replay.canonical_bytes(), MAXIMUM_BYTES as usize)
+            .assert_success("test value");
         assert_eq!(&decoded, replay);
         assert_eq!(leaves.len(), replay.boundary_count() as usize);
         assert_host_boundaries(&leaves, decoded.header());
@@ -198,27 +217,44 @@ mod market_tests {
             3 * (8192 + KEY.len() as u64)
         );
         assert!(record.execution().usage().cpu_fuel < 1_000_000);
-        let effects = record.effects().unwrap();
+        let effects = record.effects().assert_success("test value");
         assert_eq!(effects.events.len(), 1);
         assert_eq!(effects.events[0].topic, b"event");
         assert_eq!(effects.events[0].data, VALUE[..4]);
-        let transaction =
-            storage.transaction(StorageNamespace::shared(ProgramId::new([1; 32]).unwrap()));
-        assert_eq!(transaction.read(KEY).unwrap().unwrap(), VALUE);
+        let transaction = storage.transaction(StorageNamespace::shared(
+            ProgramId::new([1; 32]).assert_success("test value"),
+        ));
+        assert_eq!(
+            transaction
+                .read(KEY)
+                .assert_success("test value")
+                .assert_success("test value"),
+            VALUE
+        );
     }
 
     #[test]
     #[allow(non_snake_case)]
     fn SupplementRejected() {
-        let (mut storage, result) = run(ProgramReplayProfile::new(128, 512).unwrap());
+        use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+        let (mut storage, result) =
+            run(ProgramReplayProfile::new(128, 512).assert_success("test value"));
         assert_eq!(
         result,
         Err(ExecutionError::Fault(ExecutionFault::EngineFault {
             reason: "deterministic execution observer refused: SupplementRejected at retain_boundary_capture.source".to_string(),
         })),
     );
-        let transaction =
-            storage.transaction(StorageNamespace::shared(ProgramId::new([1; 32]).unwrap()));
-        assert_eq!(transaction.read(KEY).unwrap().unwrap(), [0x33; 4096]);
+        let transaction = storage.transaction(StorageNamespace::shared(
+            ProgramId::new([1; 32]).assert_success("test value"),
+        ));
+        assert_eq!(
+            transaction
+                .read(KEY)
+                .assert_success("test value")
+                .assert_success("test value"),
+            [0x33; 4096]
+        );
     }
 }

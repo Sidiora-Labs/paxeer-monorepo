@@ -97,6 +97,12 @@ func TestPostgresDeclinedConsentStopsBeforeProviderContact(t *testing.T) {
 	}
 }
 func TestRealLiveKitProviderOwnedSessionLifecycle(t *testing.T) {
+	for _, name := range []string{"L38_LIVEKIT_URL", "L38_LIVEKIT_API_KEY", "L38_LIVEKIT_API_SECRET"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	endpoint, key, secret := os.Getenv("L38_LIVEKIT_URL"), os.Getenv("L38_LIVEKIT_API_KEY"), os.Getenv("L38_LIVEKIT_API_SECRET")
 	p, e := NewLiveKit(endpoint, key, secret, S3RecordingOutput{})
 	if e != nil {
@@ -145,6 +151,12 @@ func phase3Room(t *testing.T, c *Control, ctx context.Context) Room {
 	return r
 }
 func TestRealLiveKitCreateCrashAdoptsOneSessionAndEndCrashReconciles(t *testing.T) {
+	for _, name := range []string{"L38_LIVEKIT_URL", "L38_LIVEKIT_API_KEY", "L38_LIVEKIT_API_SECRET"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	c, ctx := fixture(t)
 	phase3Schema(t, c, ctx)
 	p := phase3Provider(t)
@@ -215,6 +227,12 @@ func TestRealLiveKitCreateCrashAdoptsOneSessionAndEndCrashReconciles(t *testing.
 	t.Logf(`{"scenario":"provider-create-end-crash","reconciliation":{"adopted":%d,"terminated":%d,"orphans":%d}}`, result.Adopted, finished.Terminated, result.Orphans)
 }
 func TestRealLiveKitSpeakerEjectionClosesConnectionAndRejectsOldTicket(t *testing.T) {
+	for _, name := range []string{"L38_LIVEKIT_URL", "L38_LIVEKIT_API_KEY", "L38_LIVEKIT_API_SECRET"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	c, ctx := fixture(t)
 	phase3Schema(t, c, ctx)
 	p := phase3Provider(t)

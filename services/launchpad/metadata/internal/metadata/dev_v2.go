@@ -50,11 +50,11 @@ type DevelopmentV2Reads struct {
 	Pool  *pgxpool.Pool
 	Chain DevelopmentReceipts // nil when RPC_URL is unset: /metadata answers 503
 	Clock func() time.Time
+	// CanonicalStore retains receipt identities independently of upload admission.
+	CanonicalStore *ProductionStore
 	// Connected, when set, is the development-wired production media store
 	// (see DevelopmentConnectedSchema). Tokens with a published v2 document
-	// are then served by the production ConnectedMedia read handlers, and
-	// resolved chain identities persist in its development_canonical_tokens
-	// table so reads survive the pruned RPC dropping old receipts.
+	// are then served by the production ConnectedMedia read handlers.
 	Connected *ConnectedMedia
 
 	mu     *sync.Mutex
@@ -62,11 +62,11 @@ type DevelopmentV2Reads struct {
 }
 
 // NewDevelopmentV2Reads builds the development v2 read adapter.
-func NewDevelopmentV2Reads(pool *pgxpool.Pool, chain DevelopmentReceipts, clock func() time.Time) *DevelopmentV2Reads {
+func NewDevelopmentV2Reads(pool *pgxpool.Pool, chain DevelopmentReceipts, clock func() time.Time, canonicalStore *ProductionStore) *DevelopmentV2Reads {
 	if clock == nil {
 		clock = time.Now
 	}
-	return &DevelopmentV2Reads{Pool: pool, Chain: chain, Clock: clock, mu: &sync.Mutex{}, tokens: map[string]iface.Token{}}
+	return &DevelopmentV2Reads{Pool: pool, Chain: chain, Clock: clock, CanonicalStore: canonicalStore, mu: &sync.Mutex{}, tokens: map[string]iface.Token{}}
 }
 
 // CheckChain refreshes admission before cached or published development reads.
@@ -136,7 +136,7 @@ func developmentPoolRowFrom(ctx context.Context, q developmentQuerier, token str
 // token with no legacy row reads as revision 0 with an empty display, the
 // same shape production serves before the creator's first edit.
 func (d *DevelopmentV2Reads) legacyData(ctx context.Context, row developmentPoolRow) (V2Data, bool, error) {
-	data := V2Data{ChainID: 125, PoolAddress: row.Pool, TokenAddress: row.Token, Revision: "0", Display: V2Display{Tags: []string{}, Socials: []V2Social{}}, Source: "creator", ModerationStatus: "allowed"}
+	data := V2Data{ChainID: 125, PoolAddress: row.Pool, TokenAddress: row.Token, Revision: "0", Display: V2Display{Tags: []string{}, Socials: []V2Social{}}, Source: "creator", ModerationStatus: metadataVisibilityAllowed}
 	meta, err := sqlcdb.New(d.Pool).GetTokenMetadata(ctx, row.Token)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return data, false, nil
@@ -242,22 +242,22 @@ func (d *DevelopmentV2Reads) chainToken(ctx context.Context, row developmentPool
 		}
 		match = l
 	}
-	if match == nil || match.BlockNumber != uint64(row.CreatedBlock) || !strings.EqualFold(match.TxHash.Hex(), row.TxHash) {
+	if match == nil || row.CreatedBlock < 0 || match.BlockNumber != uint64(row.CreatedBlock) || !strings.EqualFold(match.TxHash.Hex(), row.TxHash) {
 		return iface.Token{}, ErrUnrepresentable
 	}
 	values := map[string]any{}
 	if err = event.Inputs.NonIndexed().UnpackIntoMap(values, match.Data); err != nil {
 		return iface.Token{}, ErrUnrepresentable
 	}
-	name, okName := values["name"].(string)
-	symbol, okSymbol := values["symbol"].(string)
+	name, okName := values[metadataNameKey].(string)
+	symbol, okSymbol := values[metadataSymbolKey].(string)
 	decimals, okDecimals := values["decimals"].(uint8)
 	supply, okSupply := values["totalSupply"].(*big.Int)
 	if !okName || !okSymbol || !okDecimals || !okSupply || supply.Sign() < 0 || !canonicalUint(values["blockNumber"], strconv.FormatInt(row.CreatedBlock, 10)) {
 		return iface.Token{}, ErrUnrepresentable
 	}
 	position := map[string]string{"chainId": "125", "height": strconv.FormatUint(match.BlockNumber, 10), "transactionIndex": strconv.FormatUint(uint64(match.TxIndex), 10), "logIndex": strconv.FormatUint(uint64(match.Index), 10), "transactionHash": strings.ToLower(match.TxHash.Hex()), "blockHash": strings.ToLower(match.BlockHash.Hex())}
-	raw, err := json.Marshal(map[string]any{"address": row.Token, "name": name, "symbol": symbol, "decimals": decimals, "decimalsQuality": "verified", "totalSupplyRaw": supply.String(), "supplyQuality": "verified", "metadataRevision": "0", "logoAssetId": nil, "sourcePosition": position})
+	raw, err := json.Marshal(map[string]any{"address": row.Token, metadataNameKey: name, metadataSymbolKey: symbol, "decimals": decimals, "decimalsQuality": metadataVerifiedQuality, "totalSupplyRaw": supply.String(), "supplyQuality": metadataVerifiedQuality, "metadataRevision": "0", metadataLogoAssetIDKey: nil, "sourcePosition": position})
 	if err != nil {
 		return iface.Token{}, err
 	}
@@ -374,14 +374,14 @@ func (d *DevelopmentV2Reads) respond(w http.ResponseWriter, data any, cache stri
 		developmentFailure(w, err)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", metadataJSONType)
 	w.Header().Set("Cache-Control", cache)
-	json.NewEncoder(w).Encode(response)
+	writeJSON(w, response)
 }
 
 func developmentFailure(w http.ResponseWriter, err error) {
 	if errors.Is(err, ErrChainUnavailable) {
-		v2Error(w, http.StatusServiceUnavailable, "unavailable")
+		v2Error(w, http.StatusServiceUnavailable, metadataUnavailableQuality)
 		return
 	}
 	v2Failure(w, err)

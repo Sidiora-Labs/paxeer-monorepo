@@ -5,16 +5,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
-	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
-	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
 	"unicode/utf8"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 )
 
 func (s Service) RegisterHTTP(router chi.Router) {
@@ -130,14 +131,14 @@ func (s Service) servePortfolioHTTP(w http.ResponseWriter, r *http.Request, wall
 		return
 	}
 	for k, v := range query {
-		if (k != "cursor" && k != "limit") || len(v) != 1 {
+		if (k != "cursor" && k != queryLimit) || len(v) != 1 {
 			writeFailure(w, ErrInvalid)
 			return
 		}
 	}
 	limit := 0
-	if query.Get("limit") != "" {
-		limit, e = strconv.Atoi(query.Get("limit"))
+	if query.Get(queryLimit) != "" {
+		limit, e = strconv.Atoi(query.Get(queryLimit))
 		if e != nil {
 			writeFailure(w, ErrInvalid)
 			return
@@ -175,9 +176,9 @@ func (s Service) servePortfolioHTTP(w http.ResponseWriter, r *http.Request, wall
 		writeFailure(w, e)
 		return
 	}
-	quality := "complete"
-	if data.Summary.BasisQuality != "complete" || data.Summary.PricingQuality != "complete" {
-		quality = "partial"
+	quality := statusComplete
+	if data.Summary.BasisQuality != statusComplete || data.Summary.PricingQuality != statusComplete {
+		quality = statusPartial
 	}
 	response := interfaces.PortfolioResponse{RequestId: requestID, Data: data, Watermark: &watermark, Revision: &revision, Quality: quality, NextCursor: next, GeneratedAt: now.Format("2006-01-02T15:04:05.000Z")}
 	view := struct {
@@ -233,7 +234,7 @@ func (s Service) exportStatusHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if job.Expires != nil && !time.Now().Before(*job.Expires) {
 		job.Manifest = nil
-		job.State = "expired"
+		job.State = statusExpired
 	}
 	writeJSON(w, 200, job)
 }
@@ -262,12 +263,12 @@ func (s Service) downloadHTTP(w http.ResponseWriter, r *http.Request) {
 		writeFailure(w, e)
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	w.Header().Set("Cache-Control", "private, no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Disposition", `attachment; filename="portfolio.`+manifest.Format+`"`)
 	w.Header().Set("Content-Type", "application/x-ndjson")
-	if manifest.Format == "csv" {
+	if manifest.Format == formatCSV {
 		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	}
 	_, _ = io.Copy(w, file)
@@ -318,7 +319,7 @@ func (s Service) revokeCardHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, 202, struct {
 		State string `json:"state"`
-	}{"revoked"})
+	}{statusRevoked})
 }
 func (s Service) publicCardHTTP(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "cardId")
@@ -407,7 +408,7 @@ func (s Service) historyHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for key, values := range query {
-		if (key != "from" && key != "to" && key != "interval" && key != "limit") || len(values) != 1 {
+		if (key != "from" && key != "to" && key != "interval" && key != queryLimit) || len(values) != 1 {
 			writeFailure(w, ErrInvalid)
 			return
 		}
@@ -423,8 +424,8 @@ func (s Service) historyHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	limit := 0
-	if query.Get("limit") != "" {
-		limit, e = strconv.Atoi(query.Get("limit"))
+	if query.Get(queryLimit) != "" {
+		limit, e = strconv.Atoi(query.Get(queryLimit))
 		if e != nil {
 			writeFailure(w, ErrInvalid)
 			return
@@ -450,8 +451,8 @@ func (s Service) historyHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		watermark = &wm
 	}
-	response := interfaces.PnlHistoryResponse{RequestId: id, Data: interfaces.PnlHistoryData{Items: items}, Revision: revision, Watermark: watermark, GeneratedAt: now.Format("2006-01-02T15:04:05.000Z"), NextCursor: nil, Quality: "partial"}
-	historical := HistoricalReturn{Method: "unavailable", Reason: "incomplete_cash_flow_or_valuation_history"}
+	response := interfaces.PnlHistoryResponse{RequestId: id, Data: interfaces.PnlHistoryData{Items: items}, Revision: revision, Watermark: watermark, GeneratedAt: now.Format("2006-01-02T15:04:05.000Z"), NextCursor: nil, Quality: statusPartial}
+	historical := HistoricalReturn{Method: statusUnavailable, Reason: incompleteHistoryReason}
 	if last != nil {
 		historical, e = s.Repository.HistoricalReturn(r.Context(), p.Wallet, p.Wallet, last.SnapshotID, from, to)
 		if e != nil {
@@ -463,7 +464,7 @@ func (s Service) historyHTTP(w http.ResponseWriter, r *http.Request) {
 		interfaces.PnlHistoryResponse
 		Return        HistoricalReturn `json:"historicalReturn"`
 		MoneyWeighted HistoricalReturn `json:"moneyWeightedReturn"`
-	}{response, historical, HistoricalReturn{Method: "unavailable", Reason: "approved_money_weighted_algorithm_unavailable"}}
+	}{response, historical, HistoricalReturn{Method: statusUnavailable, Reason: "approved_money_weighted_algorithm_unavailable"}}
 	raw, e := json.Marshal(view)
 	if e != nil {
 		writeFailure(w, e)

@@ -109,6 +109,7 @@ struct Config {
     faucet: Endpoint,
     core: Endpoint,
     core_admin: Endpoint,
+    // Retained hosted receipt inspection service in the readiness dependency graph.
     receipt_authority: Endpoint,
     redis: Endpoint,
     gateway: Endpoint,

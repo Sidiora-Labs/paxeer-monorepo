@@ -300,6 +300,10 @@ fn deadline_error() -> io::Error {
     io::Error::new(io::ErrorKind::TimedOut, "request deadline exceeded")
 }
 
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "Own the I/O error to match Result::map_err callbacks without changing the error adapter signature."
+)]
 fn source_io(error: io::Error) -> IndexError {
     IndexError::Source(error.to_string())
 }
@@ -355,7 +359,7 @@ fn connect(
             .spawn(move || {
                 let result = (host.as_str(), port)
                     .to_socket_addrs()
-                    .map(|addresses| addresses.collect::<Vec<_>>());
+                    .map(std::iter::Iterator::collect::<Vec<_>>);
                 let _ = send.send(result);
             })
             .map_err(source_io)?;

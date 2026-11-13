@@ -103,7 +103,7 @@ func TestCustomPrecompilesWithheldUntilTheActivationPlanIsApplied(t *testing.T) 
 	anchor := common.HexToAddress(layerxanchor.LayerXAnchorAddress)
 	oracle := common.HexToAddress(agentoracle.OracleAddress)
 	withheld := append(forkPrecompileAddresses(), oracle)
-	require.NotContains(t, full, verify)
+	require.Contains(t, full, verify)
 	require.Contains(t, full, anchor)
 	require.Contains(t, full, oracle)
 	for _, addr := range fork {
@@ -126,7 +126,7 @@ func TestCustomPrecompilesWithheldUntilTheActivationPlanIsApplied(t *testing.T) 
 	// every other custom precompile keeps the set it had.
 	below := k.CustomPrecompiles(ctx)
 	require.Len(t, below, len(full)-len(withheld))
-	require.NotContains(t, below, verify)
+	require.Contains(t, below, verify)
 	require.Contains(t, below, anchor)
 	for addr := range full {
 		if contains(withheld, addr) {
@@ -146,7 +146,7 @@ func TestCustomPrecompilesWithheldUntilTheActivationPlanIsApplied(t *testing.T) 
 	k.UpgradeKeeper().SetDone(ctx.WithBlockHeight(forkHeight), app.ActivationUpgrade)
 	for _, height := range []int64{1, forkHeight - 1} {
 		at := k.CustomPrecompiles(ctx.WithBlockHeight(height))
-		require.Len(t, at, len(below)-1, height)
+		require.Len(t, at, len(below)-2, height)
 		require.NotContains(t, at, verify, height)
 		require.NotContains(t, at, anchor, height)
 		for _, addr := range withheld {
@@ -155,7 +155,7 @@ func TestCustomPrecompilesWithheldUntilTheActivationPlanIsApplied(t *testing.T) 
 	}
 	for _, height := range []int64{forkHeight, forkHeight + 1} {
 		at := k.CustomPrecompiles(ctx.WithBlockHeight(height))
-		require.Len(t, at, len(full), height)
+		require.Len(t, at, len(full)-1, height)
 		require.Contains(t, at, verify, height)
 		require.NotContains(t, at, oracle, height)
 		require.Same(t, full[anchor], at[anchor], height)

@@ -1,44 +1,27 @@
-//! Task 22.33.1540; audit 22.30.95; acceptance 22998.1.
-//! Finding 35: creation_onboarding_consent, creation_recovery_policy,
-//! creation_recovery_policy_with_delay_bounds, creation_budget_v1,
-//! creation_open_account, and creation_inventory_is_exact.
-//! Finding 36: recovery_zero_did_is_refused, recovery_zero_root_is_refused,
-//! recovery_zero_threshold_is_refused and their extended-policy counterparts.
-//! Baseline was not run: the explicit implementation-first and hf-build/hf-done
-//! order prohibits the contradictory unchanged-tree verification step. No
-//! baseline failures are claimed. This is the task record because spec edits
-//! are forbidden; the gate ledger records the candidate revision and evidence.
-//! Continued baseline (attempt 2): 2 passed, 11 failed; onboarding consent
-//! failed binding with MalformedPayload, and the recovery signing path failed
-//! with FieldMismatch("source"). The current gate ledger retains exact evidence.
-//! KMS call binding now retains the EIP-1559 source, binds the recorded consent
-//! shape, and refuses zero recovery fields before nonce reservation/signing.
-//! Wiring request (Agent/Crypto domain 9): services/agent/crates/layerx-crypto/src/disclosure/call.rs must expose native onboarding consent binding for consumers outside KMS.
-//! Wiring request (Human domain 10): services/human/crates/layerx-human-service/src/custody/provider.rs must use the call-specific re-encoder and the KMS native consent binding when constructing signing frames.
-//! First current qualification: c97e9c3d0e63cce2ab438715139ef3b907f0316a,
-//! cg spec done 22.33.1540 -f layerx-merge --root /work/paxeer-monorepo,
-//! exit 1, /out/logs/verify-1.log: twelve cases refused the seeded host's
-//! literal owner assertions before reaching binding. The fixture now produces
-//! signed, current owner JWTs and each peer checks the exact issued assertion.
-//! The production server, durable store, wire codec and remote client run in
-//! process. Committed loopback signing peers use independent fixture keys and
-//! the real EIP-1559 signing producer; no external toolchain is invoked.
+//! Native onboarding consent and recovery fields are bound before EVM signing.
 
 #![allow(dead_code)]
 
 pub use layerx_human_kms::attestor;
+#[allow(dead_code)]
 #[path = "../src/config.rs"]
 mod config;
+#[allow(dead_code)]
 #[path = "../src/evm.rs"]
 mod evm;
+#[allow(dead_code)]
 #[path = "../src/evm_types.rs"]
 mod evm_types;
+#[allow(dead_code)]
 #[path = "../src/export.rs"]
 mod export;
+#[allow(dead_code)]
 #[path = "../src/send.rs"]
 mod send;
+#[allow(dead_code)]
 #[path = "../src/store.rs"]
 mod store;
+#[allow(dead_code)]
 #[path = "../src/wire.rs"]
 mod wire;
 mod server {
@@ -46,11 +29,19 @@ mod server {
 
     pub fn serve_connection(
         tcp: std::net::TcpStream,
-        config: &crate::config::Config,
-        store: &std::sync::Mutex<crate::store::Store>,
-        clock: &dyn layerx_types::clock::Clock,
+        config: std::sync::Arc<crate::config::Config>,
+        store: std::sync::Arc<std::sync::Mutex<crate::store::Store>>,
+        clock: std::sync::Arc<dyn layerx_types::clock::Clock>,
     ) -> crate::wire::Result<()> {
-        connection(tcp, config, store, clock)
+        spawn_connection(
+            tcp,
+            config,
+            store,
+            clock,
+            std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+        )?
+        .join()
+        .map_err(|_| crate::wire::Error::Unavailable)
     }
 }
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
@@ -154,28 +145,11 @@ fn creation_before_and_after_restart(kind: &str) -> Result<()> {
         let disclosure = bind_call(&tx, wallet.evm_secp256k1).map_err(|error| {
             format!("native creation {kind}, pass {pass}: bind_call: {error:?}")
         })?;
-        match checked(disclosure.construct_method())? {
-            Some(ConstructMethod::AuthLifecycle {
-                payload: actual,
-                idempotency_key,
-            }) => {
-                assert_eq!(
-                    actual,
-                    payload.as_bytes(),
-                    "{kind}: retained lifecycle body"
-                );
-                assert_eq!(idempotency_key, [4; 32], "{kind}: retained action key");
-            }
-            Some(ConstructMethod::PayBudgetCreate { payload: actual }) => {
-                assert_eq!(actual, payload.as_bytes(), "{kind}: retained budget body");
-            }
-            Some(ConstructMethod::LedgerOpenAccount { asset }) => {
-                assert_eq!(asset, payload.as_bytes()[2..34], "{kind}: retained asset");
-            }
-            other => {
-                return Err(format!("native creation {kind}: unexpected binding {other:?}").into())
-            }
-        }
+        assert_creation_method(
+            kind,
+            payload.as_bytes(),
+            checked(disclosure.construct_method())?,
+        )?;
         let canonical = attestor::unsigned_evm_transaction(&tx);
         assert_eq!(attestor::decode_unsigned_evm_transaction(&canonical)?, tx);
         assert_eq!(checked(disclosure.reencode())?, canonical);
@@ -451,6 +425,32 @@ fn onboarding_rejects_malformed_body_limits_and_abi_through_real_server() -> Res
             wire::response(7, 5, Err(wire::Error::Refused)),
             "consent {field} must be typed Refused without a signature"
         );
+    }
+    Ok(())
+}
+
+fn assert_creation_method(
+    kind: &str,
+    payload: &[u8],
+    method: Option<ConstructMethod>,
+) -> Result<()> {
+    match method {
+        Some(ConstructMethod::AuthLifecycle {
+            payload: actual,
+            idempotency_key,
+        }) => {
+            assert_eq!(actual, payload, "{kind}: retained lifecycle body");
+            assert_eq!(idempotency_key, [4; 32], "{kind}: retained action key");
+        }
+        Some(ConstructMethod::PayBudgetCreate { payload: actual }) => {
+            assert_eq!(actual, payload, "{kind}: retained budget body");
+        }
+        Some(ConstructMethod::LedgerOpenAccount { asset }) => {
+            assert_eq!(asset, payload[2..34], "{kind}: retained asset");
+        }
+        other => {
+            return Err(format!("native creation {kind}: unexpected binding {other:?}").into())
+        }
     }
     Ok(())
 }

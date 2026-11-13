@@ -24,6 +24,7 @@ pub struct UnknownCeilingReservation {
 pub struct RecoveryInputs<'a, E = crate::protocol_evidence::RawReceiptEvidence> {
     pub verifier: EvidenceAuthority,
     pub unknown_budget_ids: &'a [[u8; 32]],
+    /// Current receipts retain the requested spend; legacy receipts retain their receipt amount.
     pub budget_receipts: &'a [PersistedReceipt<E>],
     pub protocol_budget: ProtocolBudgetState,
     pub ceiling_maximum: u128,
@@ -138,11 +139,8 @@ pub(crate) fn recover_with_evidence<E: Clone + Into<budget::BudgetReceiptEvidenc
                 evidence: receipt.evidence.clone(),
             })
             .collect();
-        let mut local = LocalAccounting {
-            consumed: budget_accounting.receipt_consumed,
-            window_start_sequence: 0,
-            last_receipt: None,
-        };
+        let mut local =
+            LocalAccounting::at_period_start(budget_accounting.receipt_consumed, 0, None);
         let reconciliation = budget::reconcile_with_evidence(
             &mut local,
             &inputs.protocol_budget,

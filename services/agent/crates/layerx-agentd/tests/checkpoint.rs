@@ -4,9 +4,8 @@ use layerx_agentd::read::{
     CheckpointReadError, CommitTimestamp, CommitValidator, CommitVote, ProofBundleRequest,
 };
 use layerx_proof::inclusion::SequencerAuthorization;
-use layerx_proof::merkle::{build_proof, Proof};
+use layerx_proof::merkle::build_proof;
 use layerx_types::rung::Rung;
-use layerx_types::verify::VerificationLevel;
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::batch_header_digest;
 
@@ -93,17 +92,14 @@ fn committed_block() -> (CheckpointHeader, BlockCommit, Vec<CommitValidator>) {
 
 struct InclusionFixture {
     state: Vec<u8>,
-    state_proof: Proof,
     state_root: [u8; 32],
-    header: Vec<u8>,
-    header_signature: [u8; 64],
     authorization: SequencerAuthorization,
 }
 
 fn inclusion_fixture() -> InclusionFixture {
     let state = b"state-leaf".to_vec();
     let activity = b"activity-leaf".to_vec();
-    let (state_proof, state_root) = build_proof(&[state.as_slice()], 0)
+    let (_, state_root) = build_proof(&[state.as_slice()], 0)
         .unwrap_or_else(|error| panic!("state proof: {error:?}"));
     let (_, activity_root) = build_proof(&[activity.as_slice()], 0)
         .unwrap_or_else(|error| panic!("activity proof: {error:?}"));
@@ -112,12 +108,11 @@ fn inclusion_fixture() -> InclusionFixture {
     let header = header_bytes(state_root, activity_root, sequencer_id);
     let digest =
         batch_header_digest(&header).unwrap_or_else(|error| panic!("header digest: {error:?}"));
+    // These checkpoint cases use the state root and authorization, not the signature.
+    let _header_signature = key.sign(&digest).to_bytes();
     InclusionFixture {
         state,
-        state_proof,
         state_root,
-        header,
-        header_signature: key.sign(&digest).to_bytes(),
         authorization: SequencerAuthorization::new(sequencer_id, sequencer_id, 8, 8),
     }
 }
@@ -164,19 +159,23 @@ fn verified_checkpoint_derives_block_commit_without_anchor_escalation() {
         validators: &validators,
         account_proof: None,
     };
-    let error =
-        proof_bundle(&request).expect_err("receipt bundle cannot provide the committed rung");
+    let error = assert_err(
+        proof_bundle(&request),
+        "receipt bundle cannot provide the committed rung",
+    );
     assert_eq!(error, CheckpointReadError::BelowRequestedRung);
     assert_eq!(error.reason(), "read.below_requested_rung");
 
     let mut uncommitted_receipt = receipt.clone();
     uncommitted_receipt.metadata.rung = Rung::Receipted;
-    let error = proof_bundle(&ProofBundleRequest {
-        receipt: &uncommitted_receipt,
-        commit: Some(&commit),
-        ..request
-    })
-    .expect_err("commit requires a committed receipt");
+    let error = assert_err(
+        proof_bundle(&ProofBundleRequest {
+            receipt: &uncommitted_receipt,
+            commit: Some(&commit),
+            ..request
+        }),
+        "commit requires a committed receipt",
+    );
     assert_eq!(error, CheckpointReadError::NotCommitted);
     assert_eq!(error.reason(), "read.not_committed");
 }
@@ -210,4 +209,12 @@ fn missing_subthreshold_duplicate_and_chain_mismatch_are_refused() {
         checkpoint(8, "paxeer-test", &header, &commit, &untrusted),
         Err(CheckpointReadError::Commit)
     );
+}
+
+#[track_caller]
+fn assert_err<T: std::fmt::Debug, E>(result: Result<T, E>, message: &str) -> E {
+    match result {
+        Err(error) => error,
+        Ok(value) => panic!("{message}: {value:?}"),
+    }
 }

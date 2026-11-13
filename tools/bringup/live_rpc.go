@@ -384,18 +384,31 @@ type SearchOffer struct {
 	} `json:"extra"`
 }
 
-func ValidateSearchPrice(offer SearchOffer, assets json.RawMessage) error {
-	var listed struct {
-		Height *uint64 `json:"height"`
-		Assets []struct {
-			ID           string `json:"asset_id"`
-			Symbol       string `json:"symbol"`
-			Decimals     *int   `json:"decimals"`
-			Paused       *bool  `json:"paused"`
-			Verification string `json:"verification"`
-		} `json:"assets"`
+type committedAssetInventory struct {
+	Height *uint64 `json:"height"`
+	Assets []struct {
+		ID           string `json:"asset_id"`
+		Symbol       string `json:"symbol"`
+		Decimals     *int   `json:"decimals"`
+		Paused       *bool  `json:"paused"`
+		Verification string `json:"verification"`
+	} `json:"assets"`
+}
+
+func readCommittedAssetInventory(raw json.RawMessage) (committedAssetInventory, error) {
+	var inventory committedAssetInventory
+	if uniqueJSON(raw) != nil || json.Unmarshal(raw, &inventory) != nil || inventory.Height == nil || *inventory.Height == 0 {
+		return inventory, errors.New("hosted asset inventory lacks an unambiguous committed height")
 	}
-	if json.Unmarshal(assets, &listed) != nil || listed.Height == nil || *listed.Height == 0 || offer.Scheme != "metered" || offer.Network != "eip155:125" || offer.Extra.LayerX.Currency != "PAX" {
+	return inventory, nil
+}
+
+func ValidateSearchPrice(offer SearchOffer, assets json.RawMessage) error {
+	listed, err := readCommittedAssetInventory(assets)
+	if err != nil {
+		return err
+	}
+	if offer.Scheme != "metered" || offer.Network != "eip155:125" || offer.Extra.LayerX.Currency != "PAX" {
 		return errors.New("search offer or hosted asset response malformed")
 	}
 	found := 0

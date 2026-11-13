@@ -49,6 +49,12 @@ type capacityRequest struct {
 }
 
 func TestPhase2AdmittedOriginCapacity(t *testing.T) {
+	for _, name := range []string{"L15_CAPACITY_ORIGIN", "L15_CAPACITY_WORKLOAD_FILE"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	base := os.Getenv("L15_CAPACITY_ORIGIN")
 	path := os.Getenv("L15_CAPACITY_WORKLOAD_FILE")
 	if base == "" || path == "" {
@@ -1701,6 +1707,12 @@ func phase4CloseManifest(archive *phase4Archive, plan phase4Plan, summary phase4
 	return os.WriteFile(filepath.Join(archive.dir, "manifest.json"), append(raw, '\n'), 0600)
 }
 func TestPhase4LaneMeasurementHarness(t *testing.T) {
+	for _, name := range []string{"L15_PHASE4_PLAN", "L15_PHASE4_OUTPUT"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	planPath, output := os.Getenv("L15_PHASE4_PLAN"), os.Getenv("L15_PHASE4_OUTPUT")
 	if planPath == "" || output == "" {
 		t.Fatal("explicit real L15_PHASE4_PLAN and new private L15_PHASE4_OUTPUT required")

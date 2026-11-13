@@ -52,6 +52,12 @@ func TestPublicationExactBodyBounds(t *testing.T) {
 }
 
 func TestPublicationRealCreatorQueueRecovery(t *testing.T) {
+	for _, name := range []string{"KINDLE_PUBLICATION_TEST_URL"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	required := func(name string) string {
 		t.Helper()
 		v := os.Getenv(name)

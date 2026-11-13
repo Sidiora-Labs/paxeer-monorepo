@@ -10,6 +10,7 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/httpapi"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/internaltest"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/projectionstats"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/store"
 )
 
@@ -166,7 +167,7 @@ func TestPressureRoute(t *testing.T) {
 
 func TestPlatformRoute(t *testing.T) {
 	ctx := context.Background()
-	st := store.New(internaltest.NewPostgres(t))
+	st := newPlatformStore(t)
 	rdb := internaltest.NewRedis(t)
 	r := chi.NewRouter()
 	httpapi.RegisterPlatform(r, st, rdb)
@@ -206,6 +207,23 @@ func TestPlatformRoute(t *testing.T) {
 			t.Fatal("platform cache not populated on miss")
 		}
 	})
+}
+
+func newPlatformStore(t *testing.T) *store.Store {
+	t.Helper()
+	pool := internaltest.NewPostgres(t)
+	repo, err := projectionstats.NewRepository(pool, "stats")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(context.Background(), repo.MigrationSQL()); err != nil {
+		t.Fatal(err)
+	}
+	st := store.New(pool)
+	if err = st.SetAccountingProjection("platform-http-v1"); err != nil {
+		t.Fatal(err)
+	}
+	return st
 }
 
 func TestSearchRoute(t *testing.T) {

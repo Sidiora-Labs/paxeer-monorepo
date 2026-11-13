@@ -46,10 +46,6 @@ fn only_declared_account_namespaces_construct() {
         ("system:insurance", AccountNamespace::SystemInsurance),
         ("system:fees", AccountNamespace::SystemFees),
         (
-            "system:paxeer-reserve",
-            AccountNamespace::SystemPaxeerReserve,
-        ),
-        (
             "system:paxeer-withdrawals",
             AccountNamespace::SystemPaxeerWithdrawals,
         ),
@@ -72,10 +68,19 @@ fn only_declared_account_namespaces_construct() {
     ] {
         assert!(AccountId::parse(rejected).is_err(), "accepted {rejected}");
     }
-    assert_eq!(
-        AccountId::parse("system:paxeer-reserve:pax"),
-        Err(AccountError::UnknownNamespace)
-    );
+    for retired in [
+        "system:paxeer-reserve",
+        "system:paxeer-reserve:pax",
+        "system:paxeer-reserve:sid",
+        "system:paxeer-reserve:usdc",
+        "system:paxeer-reserve:usdl",
+    ] {
+        assert_eq!(
+            AccountId::parse(retired),
+            Err(AccountError::UnknownNamespace),
+            "accepted retired account {retired}"
+        );
+    }
 }
 
 #[test]

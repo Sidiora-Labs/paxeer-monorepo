@@ -16,34 +16,34 @@ use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRe
 fn registry() -> ModuleRegistry {
     ModuleRegistry::new(&[ModuleRegistration::new(
         ModuleId::Budget,
-        &[ActivityType::new(ModuleId::Budget, 8).expect("defund activity")],
+        &[ActivityType::new(ModuleId::Budget, 8).or_fail("defund activity")],
     )
-    .expect("budget registration")])
-    .expect("module registry")
+    .or_fail("budget registration")])
+    .or_fail("module registry")
 }
 
 fn request(key: u8, nonce: u64, agent: &str) -> ReclaimRequest {
     ReclaimRequest {
-        journey_id: JourneyId::new(format!("jrn_reclaimnonce{key}")).expect("journey id"),
+        journey_id: JourneyId::new(format!("jrn_reclaimnonce{key}")).or_fail("journey id"),
         idempotency_key: [key; 32],
-        owner: AccountId::parse("agent:did:layerx:human:main").expect("owner account"),
+        owner: AccountId::parse("agent:did:layerx:human:main").or_fail("owner account"),
         agent_account: AccountId::parse(&format!("agent:did:layerx:{agent}:main"))
-            .expect("agent account"),
+            .or_fail("agent account"),
         asset: AssetId::new([0x33; 32]),
         amount: Amount::from_u128(1),
         mechanism: ReclaimMechanism::BudgetDefund {
             budget_account: AccountId::parse(&format!(
                 "agent:did:layerx:{agent}:budget:operations"
             ))
-            .expect("budget account"),
+            .or_fail("budget account"),
             budget_id: BudgetId::new([0x41; 32]),
             revocation_sequence: Sequence::from_u64(4),
         },
         agent: ReclaimAgentContext {
             label: "worker".to_owned(),
-            actor: AgentDid::new(format!("did:layerx:{agent}")).expect("agent DID"),
-            authority: AuthorityRef::new("custody-human-primary").expect("authority"),
-            custody_key: KeyId::new("human-primary").expect("custody key"),
+            actor: AgentDid::new(format!("did:layerx:{agent}")).or_fail("agent DID"),
+            authority: AuthorityRef::new("custody-human-primary").or_fail("authority"),
+            custody_key: KeyId::new("human-primary").or_fail("custody key"),
             account_sequence: nonce,
             nonce,
             not_before: 995,
@@ -62,17 +62,17 @@ fn assert_pending_nonce(scope: &PrincipalScope<'_>, request: &ReclaimRequest) {
             serde_json::from_slice(
                 scope
                     .get(Table::Journeys, key)
-                    .expect("journey row")
+                    .or_fail("journey row")
                     .bytes(),
             )
-            .expect("stored journey JSON")
+            .or_fail("stored journey JSON")
         })
         .filter(|record: &serde_json::Value| {
             record["journey_id"].as_str() == Some(request.journey_id.as_str())
         })
         .collect();
     assert_eq!(records.len(), 1);
-    let legs = records[0]["legs"].as_array().expect("journey legs");
+    let legs = records[0]["legs"].as_array().or_fail("journey legs");
     assert_eq!(legs.len(), 1);
     assert_eq!(
         legs[0]["preparation"]["account_sequence"].as_u64(),
@@ -83,7 +83,7 @@ fn assert_pending_nonce(scope: &PrincipalScope<'_>, request: &ReclaimRequest) {
         Some(request.agent.actor.as_str())
     );
     assert!(JourneyEngine::load(scope, &request.journey_id)
-        .expect("valid durable engine")
+        .or_fail("valid durable engine")
         .is_some());
 }
 
@@ -92,41 +92,42 @@ fn reclaim_starts_with_the_pending_nonce() {
     let root = directory("reclaim-pending-nonce");
     let digest = tenancy(&[("alice", "tenant-a")])
         .install(&root)
-        .expect("install tenancy");
+        .or_fail("install tenancy");
     let owner = principal("alice");
     let mut store = PrincipalStore::open(&root, retention_uniform(10_000), digest)
-        .expect("open principal store");
+        .or_fail("open principal store");
     {
-        let mut scope = store.principal(&owner).expect("principal scope");
+        let mut scope = store.principal(&owner).or_fail("principal scope");
         for (key, nonce) in [(1, 0), (2, 42), (3, u64::MAX)] {
             let request = request(key, nonce, "worker");
             let reclaim = Reclaim::start(&mut scope, &request, &registry(), 1_000)
-                .expect("start with pending nonce");
+                .or_fail("start with pending nonce");
             assert_eq!(
-                reclaim.status().expect("reclaim status").stage(),
+                reclaim.status().or_fail("reclaim status").stage(),
                 ReclaimStage::GettingReady
             );
             assert_pending_nonce(&scope, &request);
             assert_eq!(
                 reclaim,
-                Reclaim::start(&mut scope, &request, &registry(), 1_000)
-                    .expect("idempotent restart with same nonce")
+                Reclaim::start(&mut scope, &request, &registry(), 1_000).unwrap_or_else(
+                    |error| panic!("{}: {error:?}", "idempotent restart with same nonce")
+                )
             );
         }
     }
     drop(store);
     let mut reopened = PrincipalStore::open(&root, retention_uniform(10_000), digest)
-        .expect("reopen principal store");
-    let scope = reopened.principal(&owner).expect("reopened scope");
+        .or_fail("reopen principal store");
+    let scope = reopened.principal(&owner).or_fail("reopened scope");
     assert_pending_nonce(&scope, &request(3, u64::MAX, "worker"));
     assert!(
         Reclaim::load(&scope, &request(3, u64::MAX, "worker").journey_id)
-            .expect("reload reclaim")
+            .or_fail("reload reclaim")
             .is_some()
     );
     drop(scope);
     drop(reopened);
-    std::fs::remove_dir_all(root).expect("remove fixture");
+    std::fs::remove_dir_all(root).or_fail("remove fixture");
 }
 
 #[test]
@@ -134,18 +135,18 @@ fn reclaim_refuses_a_stale_nonce() {
     let root = directory("reclaim-stale-nonce");
     let digest = tenancy(&[("alice", "tenant-a")])
         .install(&root)
-        .expect("install tenancy");
+        .or_fail("install tenancy");
     let owner = principal("alice");
     {
         let mut store = PrincipalStore::open(&root, retention_uniform(10_000), digest)
-            .expect("open principal store");
-        let mut scope = store.principal(&owner).expect("principal scope");
+            .or_fail("open principal store");
+        let mut scope = store.principal(&owner).or_fail("principal scope");
         Reclaim::start(&mut scope, &request(1, 42, "worker"), &registry(), 1_000)
-            .expect("record first pending nonce");
+            .or_fail("record first pending nonce");
     }
     let mut store = PrincipalStore::open(&root, retention_uniform(10_000), digest)
-        .expect("reopen principal store");
-    let mut scope = store.principal(&owner).expect("reopened scope");
+        .or_fail("reopen principal store");
+    let mut scope = store.principal(&owner).or_fail("reopened scope");
     let mut stale = request(2, 41, "worker");
     stale.agent.label = "renamed-worker".to_owned();
     let keys_before = scope.keys(Table::Journeys);
@@ -158,22 +159,22 @@ fn reclaim_refuses_a_stale_nonce() {
     ));
     assert_eq!(scope.keys(Table::Journeys), keys_before);
     assert!(Reclaim::load(&scope, &stale.journey_id)
-        .expect("lookup refused reclaim")
+        .or_fail("lookup refused reclaim")
         .is_none());
     assert!(JourneyEngine::load(&scope, &stale.journey_id)
-        .expect("lookup refused engine")
+        .or_fail("lookup refused engine")
         .is_none());
 
     let other = request(3, 1, "another");
     Reclaim::start(&mut scope, &other, &registry(), 1_001)
-        .expect("another agent has an independent nonce");
+        .or_fail("another agent has an independent nonce");
     assert_pending_nonce(&scope, &other);
     let equal = request(4, 42, "worker");
     Reclaim::start(&mut scope, &equal, &registry(), 1_002)
-        .expect("equal pending nonce is not stale");
+        .or_fail("equal pending nonce is not stale");
     assert_pending_nonce(&scope, &equal);
     let newer = request(5, 45, "worker");
-    Reclaim::start(&mut scope, &newer, &registry(), 1_003).expect("advance the agent nonce");
+    Reclaim::start(&mut scope, &newer, &registry(), 1_003).or_fail("advance the agent nonce");
     assert_pending_nonce(&scope, &newer);
     assert!(matches!(
         Reclaim::start(&mut scope, &request(6, 44, "worker"), &registry(), 1_004),
@@ -184,5 +185,11 @@ fn reclaim_refuses_a_stale_nonce() {
     ));
     drop(scope);
     drop(store);
-    std::fs::remove_dir_all(root).expect("remove fixture");
+    std::fs::remove_dir_all(root).or_fail("remove fixture");
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

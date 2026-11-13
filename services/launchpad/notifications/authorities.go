@@ -27,7 +27,7 @@ func (p CanonicalPools) CanonicalPool(ctx context.Context, pool string) (bool, e
 	if !notificationWalletPattern.MatchString(pool) || pool != strings.ToLower(pool) {
 		return false, ErrInvalid
 	}
-	_, err := p.ResolvePublic(ctx, "pool", pool)
+	_, err := p.ResolvePublic(ctx, resourcePool, pool)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
@@ -46,7 +46,7 @@ func (p CanonicalPools) ResolvePublic(ctx context.Context, kind, id string) (dis
 	if p.DB == nil {
 		return out, ErrUnavailable
 	}
-	if kind != "pool" {
+	if kind != resourcePool {
 		return out, ErrUnavailable
 	}
 	if !notificationWalletPattern.MatchString(id) || strings.ToLower(id) != id {
@@ -70,7 +70,7 @@ func (p CanonicalPools) ResolvePublic(ctx context.Context, kind, id string) (dis
 	if pool != id || height <= 0 || timestamp <= 0 || logIndex > uint64(^uint32(0)) || !canonicalHash.MatchString(blockHash) || !canonicalHash.MatchString(txHash) {
 		return out, ErrInvalid
 	}
-	out.Ref = discovery.SourceRef{ID: pool, Kind: "pool", EventID: txHash + ":" + strconv.FormatUint(logIndex, 10), CreatorPublicID: creator, Pools: []string{pool}, SourceRevision: uint64(height), VisibilityRevision: 1, PublishedAt: time.Unix(timestamp, 0).UTC(), Public: true, Authorized: true}
+	out.Ref = discovery.SourceRef{ID: pool, Kind: resourcePool, EventID: txHash + ":" + strconv.FormatUint(logIndex, 10), CreatorPublicID: creator, Pools: []string{pool}, SourceRevision: uint64(height), VisibilityRevision: 1, PublishedAt: time.Unix(timestamp, 0).UTC(), Public: true, Authorized: true}
 	return out, out.Ref.Validate()
 }
 
@@ -86,19 +86,17 @@ func (p CanonicalPools) PublicSources(ctx context.Context) ([]discovery.SourceRe
 	for rows.Next() {
 		var id string
 		if err = rows.Scan(&id); err != nil {
-			rows.Close()
-			return nil, err
+			return nil, errors.Join(err, rows.Close())
 		}
 		ids = append(ids, id)
 	}
-	err = rows.Err()
-	rows.Close()
+	err = errors.Join(rows.Err(), rows.Close())
 	if err != nil {
 		return nil, err
 	}
 	out := make([]discovery.SourceRef, 0, len(ids))
 	for _, id := range ids {
-		resource, err := p.ResolvePublic(ctx, "pool", id)
+		resource, err := p.ResolvePublic(ctx, resourcePool, id)
 		if err != nil {
 			return nil, err
 		}

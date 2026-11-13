@@ -1,0 +1,39 @@
+[repair]
+task = "22.39.372"
+base_revision = "c4c825fac5b7889cae3dec4dbdd984c1e8f4191e"
+scope = "Development API handlers, development read stores, stream projection, and real integration tests; production handlers are unchanged."
+qualification = "The runner records the final candidate revision, command, exit and private evidence log in hf-build and hf-done; those records identify the verified revision without a self-referential source hash."
+
+[candles]
+cause = "The real daily read reproduced DEPENDENCY_UNAVAILABLE with error_class deadline_exceeded at DevelopmentCandlePage. Per-candle contract validation and snapshot JSON rewriting ran inside the bounded read transaction before its final watermark query and commit. The chart writer also commits before the stream projector, and source-backed revision lag was classified as integrity failure."
+change = "Drain the bounded repeatable-read SQL page and watermark and commit before contract validation and JSON snapshot rewriting, preserving both validations and all existing deadlines. Read a repeatable-read projection snapshot; distinguish source-backed revision movement (409 RESNAPSHOT_REQUIRED) from legacy rows (503 INTEGRITY_QUARANTINED) and dependency errors (503 DEPENDENCY_UNAVAILABLE). Include committed payload hashes in the snapshot identity."
+diagnostics = "Every development history and market 503 logs one fixed route template and error class; PostgreSQL errors use SQLSTATE only, never their argument-bearing error string. Candle-page failures identify DevelopmentCandlePage as their operation."
+test = "TestRepair_22_39_372_candle_read_survives_swaps_and_replay records real daily candles, forces source/projector overlap with a real database lock, reads during projector commits, rejects a stale cursor, restarts both consumers and replays durable source claims, and checks a genuinely unavailable dependency."
+
+[trades]
+change = "Persist the validated Trade in api_stream_dev.trade_projection in the same transaction as its stream frame and cursor. Recover retained canonical stream frames on upgrade. Refuse scopes with missing or contradictory source projections, including rows outside the returned page."
+bound = "One page only: default 50, maximum 100 (store.MaxCanonicalTrades); no nextCursor. Sort height, transaction index, log index and event ID descending, matching production. Preserve side and request validation. Quality is partial and every item retains its actual transaction hash and chain position."
+tests = "TestRepair_22_39_372_trade_read_serves_committed_swaps checks ordering, side filters, limit, invalid requests, upgrade recovery, outbox pruning and API restart. TestRepair_22_39_372_trade_read_keeps_legacy_rows_quarantined uses a real receipt contradiction that the real projector refuses."
+
+[token]
+change = "Call ERC20 name, symbol, decimals and totalSupply at the answer watermark using EIP-1898 blockHash plus requireCanonical. Populate TokenCreationMetadata and tokenDocument when all values exist; independently unavailable methods retain unavailable fields. Anchor verified values to the last actual transaction/log of that same block."
+test = "TestRepair_22_39_372_pool_detail_serves_the_verified_token deploys the real SidioraERC20 bytecode, checks all values and source position, then checks an address with no code remains unavailable. The copied artifact contains the real constructor bytecode and ABI, with no test replacement runtime."
+updated_pin = "internal/rest/dev_market_test.go::TestDevelopmentMarketReadsPools now deploys a real token and requires verified metadata instead of the old address-only unavailable token."
+outside_pin = "apps/launchpad/web/src/widgets/trading/tv-chart.tsx:98-101 verifiedSupplyKey requires verified supply and decimals before enabling supply-based chart modes; retained unchanged outside scope."
+
+[qualification]
+rest_store_command = "cd services/launchpad/api && go test -count=1 -timeout 20m ./internal/rest/ ./internal/store/"
+rest_store_result = "Exit 1 at the implemented working tree on base c4c825fac5b7889cae3dec4dbdd984c1e8f4191e; private evidence /out/logs/rest-store-1.log. The new development log test and updated pool metadata pin produced no failing case."
+rest_store_unrelated_red = "TestFrozenV2ResponseSchemasMatchHandlerBytes/GET_/v2/leaderboards/{category}: frozen_response_schema_test.go:109: /v2/leaderboards/trader?window=24h status=503 INTEGRITY_QUARANTINED. Other unrelated failures were TestLeaderboardProductionRead with the same 503 and TestProductionCanonicalAccountingPagesKeepCommittedFrontier at production_readmodel_test.go:283: timeout: context deadline exceeded. Missing generated SDK dist/index.js and absolute SHA-bound measurement/generator input fixtures also failed their production qualification tests. These production paths are unchanged; no failure was chased or rerun."
+declared_build = "hf-build"
+declared_verify = "hf-done"
+initial_build_result = "revision 27efdbcaf99a42cb93a3c3938978c479362255f4; command cd services/launchpad/api && go build ./... && go vet ./internal/app/ ./internal/store/ ./internal/rest/; exit 0; private log /out/logs/build-1.log."
+initial_verify_result = "revision 27efdbcaf99a42cb93a3c3938978c479362255f4; command cg spec done 22.39.372 -f layerx-merge --root /work/paxeer-monorepo; exit 1; private log /out/logs/verify-1.log. The daily read reached coherent history and returned 503 with deadline_exceeded; the required trade and token cases produced no failing case."
+repair = "Finish the transaction's SQL and commit before the existing Candle contract checks and JSON rewriting; no time limit, assertion, schema check or test bound changes."
+gate_results = "Final qualification is identified by the runner's matching candidate revision and command/exit/log records for the repaired hf-build and hf-done; gate evidence remains outside the source tree to avoid a self-referential revision."
+
+[gotcha]
+area = "tooling"
+symptom = "A broad Codify survey or full gotcha ledger read can exceed the response budget."
+cause = "The repository graph and historical ledger are large."
+action = "Read the named task, requirement, relevant gotcha and file-scoped context in bounded sections; preserve task scope instead of changing the root ledger."

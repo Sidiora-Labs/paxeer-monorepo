@@ -59,7 +59,7 @@ const TokenTransfer = ({ transfersQuery, tokenId, tokenQuery, tokenInstance, sho
     topic: `tokens:${ router.query.hash?.toString().toLowerCase() }`,
     onSocketClose: handleSocketClose,
     onSocketError: handleSocketError,
-    isDisabled: isPlaceholderData || isError || pagination.page !== 1,
+    isDisabled: isPlaceholderData || isError || displayPagination.page !== 1,
   });
   useSocketMessage({
     channel,
@@ -79,7 +79,7 @@ const TokenTransfer = ({ transfersQuery, tokenId, tokenQuery, tokenInstance, sho
         <TokenTransferTable
           data={ items }
           top={ 0 }
-          showSocketInfo={ pagination.page === 1 }
+          showSocketInfo={ displayPagination.page === 1 }
           showSocketErrorAlert={ showSocketErrorAlert }
           socketInfoNum={ newItemsCount }
           tokenId={ tokenId }
@@ -89,7 +89,7 @@ const TokenTransfer = ({ transfersQuery, tokenId, tokenQuery, tokenInstance, sho
         />
       </Box>
       <Box display={{ base: 'block', lg: 'none' }}>
-        { pagination.page === 1 && (
+        { displayPagination.page === 1 && (
           <SocketNewItemsNotice.Mobile
             num={ newItemsCount }
             showErrorAlert={ showSocketErrorAlert }

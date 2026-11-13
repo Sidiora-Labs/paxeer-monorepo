@@ -177,16 +177,14 @@ impl Display for SubscriptionError {
             Self::Paused => formatter.write_str("subscription is paused"),
             Self::CursorOutOfOrder { expected, received } => write!(
                 formatter,
-                "delivery cursor {} arrived out of order; expected {}",
-                received, expected
+                "delivery cursor {received} arrived out of order; expected {expected}"
             ),
             Self::CursorNeverDelivered { cursor } => {
-                write!(formatter, "cursor {} was never delivered", cursor)
+                write!(formatter, "cursor {cursor} was never delivered")
             }
             Self::CursorRegressed { current, received } => write!(
                 formatter,
-                "cursor {} precedes acknowledged cursor {}",
-                received, current
+                "cursor {received} precedes acknowledged cursor {current}"
             ),
             Self::SequenceExhausted => formatter.write_str("subscription cursor is exhausted"),
             Self::CursorResetRequired => formatter.write_str("subscription.cursor_reset_required"),
@@ -220,7 +218,7 @@ impl From<StoreError> for SubscriptionError {
 /// Durable state either owned by one subscription collection or shared with the runtime owner.
 #[derive(Debug)]
 pub(crate) enum DurableBacking {
-    Owned(DurableStore),
+    Owned(Box<DurableStore>),
     Shared(Arc<Mutex<DurableStore>>),
 }
 
@@ -262,7 +260,7 @@ impl Store {
     pub fn open(mut durable: DurableStore, tenant: TenantId) -> Result<Self, SubscriptionError> {
         let records = Self::load_records(&mut durable, &tenant)?;
         Ok(Self {
-            durable: DurableBacking::Owned(durable),
+            durable: DurableBacking::Owned(Box::new(durable)),
             tenant,
             records,
         })
@@ -994,7 +992,7 @@ impl Store {
     /// Returns the collection unchanged when its durable state is shared.
     pub fn into_durable(self) -> Result<DurableStore, Self> {
         match self.durable {
-            DurableBacking::Owned(durable) => Ok(durable),
+            DurableBacking::Owned(durable) => Ok(*durable),
             DurableBacking::Shared(shared) => Err(Self {
                 durable: DurableBacking::Shared(shared),
                 tenant: self.tenant,
@@ -1068,8 +1066,7 @@ impl Store {
         &self,
         target: &SubscriptionTarget,
     ) -> Result<DispatchGate, SubscriptionError> {
-        static GATES: OnceLock<Mutex<BTreeMap<(PathBuf, String, String), Weak<AtomicBool>>>> =
-            OnceLock::new();
+        static GATES: OnceLock<DispatchGates> = OnceLock::new();
         let key = (
             self.durable()?
                 .root()
@@ -1112,6 +1109,9 @@ impl Store {
     }
 
     /// Persists a per-subscription delivery quota. Existing outstanding deliveries may not be dropped.
+    /// # Errors
+    /// Returns an error if the subscription authorization, retained state or outstanding window
+    /// is invalid or unavailable.
     pub fn set_outstanding_window(
         &mut self,
         target: &SubscriptionTarget,
@@ -1121,6 +1121,9 @@ impl Store {
         self.set_window_inner(target, limit)
     }
 
+    /// # Errors
+    /// Returns an error if the subscription authorization, retained state or outstanding window
+    /// is invalid or unavailable.
     pub fn set_outstanding_window_authorized(
         &mut self,
         sessions: &SessionRegistry,
@@ -1160,6 +1163,9 @@ impl Store {
         })
     }
 
+    /// # Errors
+    /// Returns an error if the subscription authorization, retained state or outstanding window
+    /// is invalid or unavailable.
     pub fn outstanding_window(
         &self,
         target: &SubscriptionTarget,
@@ -1190,6 +1196,9 @@ impl Store {
     /// Operator-owned, backed-up conversion of incompatible cursor records. All events after
     /// `replay_from` replay, including previously accepted events; consumers must deduplicate.
     /// The original bytes and chosen replacement are committed atomically as a tenant audit.
+    /// # Errors
+    /// Returns an error if the subscription authorization, retained state or outstanding window
+    /// is invalid or unavailable.
     pub fn recover_legacy(
         durable: &mut DurableStore,
         target: &SubscriptionTarget,
@@ -1383,13 +1392,13 @@ impl Store {
         &mut self,
         control: &SessionControl,
         permit: &OperationPermit,
-        target: SubscriptionTarget,
+        target: &SubscriptionTarget,
     ) -> Result<Result<SubscriptionRecord, SubscriptionError>, SessionControlError> {
         permit.with_subscription_authority(
             control,
             Operation::SubscriptionPause,
             |sessions, token, observability, core_sequence| {
-                self.pause_authorized(sessions, token, observability, core_sequence, &target)
+                self.pause_authorized(sessions, token, observability, core_sequence, target)
             },
         )
     }
@@ -1404,13 +1413,13 @@ impl Store {
         &mut self,
         control: &SessionControl,
         permit: &OperationPermit,
-        target: SubscriptionTarget,
+        target: &SubscriptionTarget,
     ) -> Result<Result<SubscriptionRecord, SubscriptionError>, SessionControlError> {
         permit.with_subscription_authority(
             control,
             Operation::SubscriptionResume,
             |sessions, token, observability, core_sequence| {
-                self.resume_authorized(sessions, token, observability, core_sequence, &target)
+                self.resume_authorized(sessions, token, observability, core_sequence, target)
             },
         )
     }
@@ -1425,13 +1434,13 @@ impl Store {
         &mut self,
         control: &SessionControl,
         permit: &OperationPermit,
-        target: SubscriptionTarget,
+        target: &SubscriptionTarget,
     ) -> Result<Result<(), SubscriptionError>, SessionControlError> {
         permit.with_subscription_authority(
             control,
             Operation::SubscriptionDelete,
             |sessions, token, observability, core_sequence| {
-                self.delete_authorized(sessions, token, observability, core_sequence, &target)
+                self.delete_authorized(sessions, token, observability, core_sequence, target)
             },
         )
     }
@@ -1447,13 +1456,13 @@ impl Store {
         &mut self,
         control: &SessionControl,
         permit: &OperationPermit,
-        ack: CursorAcknowledgement,
+        ack: &CursorAcknowledgement,
     ) -> Result<Result<SubscriptionRecord, SubscriptionError>, SessionControlError> {
         permit.with_subscription_authority(
             control,
             Operation::SubscriptionAcknowledge,
             |sessions, token, observability, core_sequence| {
-                self.acknowledge_authorized(sessions, token, observability, core_sequence, &ack)
+                self.acknowledge_authorized(sessions, token, observability, core_sequence, ack)
             },
         )
     }
@@ -1652,38 +1661,17 @@ fn decode_record_version(bytes: &[u8], recovery: bool) -> Result<DurableRecord, 
     match decoder.take(4)? {
         value if value == RECORD_MAGIC => {}
         value if value == PREVIOUS_RECORD_MAGIC || value == LEGACY_RECORD_MAGIC => {
-            if !recovery {
-                return Err(SubscriptionError::CursorResetRequired);
-            }
+            crate::reject_if(!recovery, || SubscriptionError::CursorResetRequired)?;
         }
         _ => return Err(SubscriptionError::Corrupt),
-    };
+    }
     let subscription_id =
         SubscriptionId::new(decoder.string()?).map_err(|_| SubscriptionError::Corrupt)?;
     let tenant = ApiTenantId::new(decoder.string()?).map_err(|_| SubscriptionError::Corrupt)?;
     let agent = AgentDid::new(decoder.string()?).map_err(|_| SubscriptionError::Corrupt)?;
     let capability =
         CapabilityId::new(decoder.string()?).map_err(|_| SubscriptionError::Corrupt)?;
-    let session = match if unbound_legacy { 0 } else { decoder.byte()? } {
-        0 => None,
-        1 => {
-            let mut session_id = [0_u8; 32];
-            session_id.copy_from_slice(decoder.take(32)?);
-            let mut token_id = [0_u8; 32];
-            token_id.copy_from_slice(decoder.take(32)?);
-            let generation = decoder.u64()?;
-            if token_id == [0; 32] || generation == 0 {
-                return Err(SubscriptionError::Corrupt);
-            }
-            Some(SessionCredential::new(
-                TenantId::new(tenant.as_str()).map_err(|_| SubscriptionError::Corrupt)?,
-                crate::session::SessionId(session_id),
-                token_id,
-                generation,
-            ))
-        }
-        _ => return Err(SubscriptionError::Corrupt),
-    };
+    let session = decode_record_session(&mut decoder, &tenant, unbound_legacy)?;
     let delivery_target =
         DeliveryTarget::new(decoder.string()?).map_err(|_| SubscriptionError::Corrupt)?;
     let read_cursor = |decoder: &mut Decoder<'_>| -> Result<Cursor, SubscriptionError> {
@@ -1702,14 +1690,13 @@ fn decode_record_version(bytes: &[u8], recovery: bool) -> Result<DurableRecord, 
     let delivered_count = decoder.len()?;
     let mut delivered_unacknowledged = BTreeSet::new();
     for _ in 0..delivered_count {
-        if !delivered_unacknowledged.insert(read_cursor(&mut decoder)?) {
-            return Err(SubscriptionError::Corrupt);
-        }
+        crate::reject_if(
+            !delivered_unacknowledged.insert(read_cursor(&mut decoder)?),
+            || SubscriptionError::Corrupt,
+        )?;
     }
     let paused = decoder.byte()?;
-    if paused > 1 {
-        return Err(SubscriptionError::Corrupt);
-    }
+    crate::reject_if(paused > 1, || SubscriptionError::Corrupt)?;
     let continuity = decode_continuity(&mut decoder)?;
     let termination = match decoder.byte()? {
         0 => None,
@@ -1725,18 +1712,18 @@ fn decode_record_version(bytes: &[u8], recovery: bool) -> Result<DurableRecord, 
         capability,
     };
     let filter = decode_filter(&mut decoder)?;
-    if !decoder.is_empty()
-        || validate_filter(&scope, &filter).is_err()
-        || Cursor::from(last_acknowledged) < Cursor::from(start)
-    {
-        return Err(SubscriptionError::Corrupt);
-    }
-    if delivered_unacknowledged
-        .iter()
-        .any(|delivered| *delivered <= Cursor::from(last_acknowledged))
-    {
-        return Err(SubscriptionError::Corrupt);
-    }
+    crate::reject_if(
+        !decoder.is_empty()
+            || validate_filter(&scope, &filter).is_err()
+            || Cursor::from(last_acknowledged) < Cursor::from(start),
+        || SubscriptionError::Corrupt,
+    )?;
+    crate::reject_if(
+        delivered_unacknowledged
+            .iter()
+            .any(|delivered| *delivered <= Cursor::from(last_acknowledged)),
+        || SubscriptionError::Corrupt,
+    )?;
     Ok(DurableRecord {
         public: SubscriptionRecord {
             subscription_id,
@@ -1753,6 +1740,34 @@ fn decode_record_version(bytes: &[u8], recovery: bool) -> Result<DurableRecord, 
         termination,
         session,
     })
+}
+fn decode_record_session(
+    decoder: &mut Decoder<'_>,
+    tenant: &ApiTenantId,
+    unbound_legacy: bool,
+) -> Result<Option<SessionCredential>, SubscriptionError> {
+    let session = match if unbound_legacy { 0 } else { decoder.byte()? } {
+        0 => None,
+        1 => {
+            let mut session_id = [0_u8; 32];
+            session_id.copy_from_slice(decoder.take(32)?);
+            let mut token_id = [0_u8; 32];
+            token_id.copy_from_slice(decoder.take(32)?);
+            let generation = decoder.u64()?;
+            crate::reject_if(token_id == [0; 32] || generation == 0, || {
+                SubscriptionError::Corrupt
+            })?;
+            Some(SessionCredential::new(
+                TenantId::new(tenant.as_str()).map_err(|_| SubscriptionError::Corrupt)?,
+                crate::session::SessionId(session_id),
+                token_id,
+                generation,
+            ))
+        }
+        _ => return Err(SubscriptionError::Corrupt),
+    };
+
+    Ok(session)
 }
 
 fn encode_continuity(bytes: &mut Vec<u8>, continuity: Continuity) {
@@ -2002,3 +2017,6 @@ impl Drop for DispatchLease {
         self.0.store(false, Ordering::Release);
     }
 }
+
+type DispatchGateKey = (PathBuf, String, String);
+type DispatchGates = Mutex<BTreeMap<DispatchGateKey, Weak<AtomicBool>>>;

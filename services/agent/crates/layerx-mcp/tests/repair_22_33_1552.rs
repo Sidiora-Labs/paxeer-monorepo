@@ -1,19 +1,22 @@
 //! Task 22.33.1552 repair record.
-//! connect_deadline: connect_deadline_backlog, connect_deadline_stalled_response,
-//! connect_deadline_trickled_response.
-//! hex_length_validation: hex32_tools_call_rejects_before_daemon,
-//! hex64_tools_call_rejects_before_authenticated_codec.
-//! approval_page_bound: approval_page_bound_authenticated_transport.
-//! listener_monopolisation: listener_monopolisation_active_connection_yields.
+//! `connect_deadline`: `connect_deadline_backlog`, `connect_deadline_stalled_response`,
+//! `connect_deadline_trickled_response`.
+//! `hex_length_validation`: `hex32_tools_call_rejects_before_daemon`,
+//! `hex64_tools_call_rejects_before_authenticated_codec`.
+//! `approval_page_bound`: `approval_page_bound_authenticated_transport`.
+//! `listener_monopolisation`: `listener_monopolisation_active_connection_yields`.
 //! No proposal requires out-of-scope wiring.
 //! Baseline: no prior gate ledger or repair test existed; the ordered implementation-first,
 //! wrapper-only gate instructions preclude the conflicting additional baseline test run.
 //! Attempt 1: 5d7dbb8964d5e13b338899173cf38d8be1564a22; hf-build passed;
-//! hf-done exited 1 (/out/logs/verify-1.log). Six cases passed; the approval fixture
+//! hf-done exited 1 (/`out/logs/verify-1.log`). Six cases passed; the approval fixture
 //! failed and the nested write fixture deadlocked, so the stalled test process was stopped.
 //! Repair: keep the authenticated approval dispatch audit separate from the calling session;
 //! let the write peer consume its signature with the real codec after the session's write gate.
-//! Final revision and private evidence are recorded by hf-build/hf-done.
+//! Final revision and private evidence are recorded by hf-`build/hf-done.`
+
+use layerx_mcp_test_support::option_assertion;
+use layerx_mcp_test_support::result_assertion;
 
 use std::collections::BTreeSet;
 use std::fs;
@@ -60,40 +63,51 @@ const DEADLINE: Duration = Duration::from_millis(150);
 const SCHEDULING_MARGIN: Duration = Duration::from_millis(100);
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    layerx_programs::hex::encode(bytes)
 }
 fn unhex(value: &Value) -> Vec<u8> {
-    let text = value.as_str().expect("hex string");
+    let text = option_assertion::required(value.as_str(), "hex string");
     (0..text.len())
         .step_by(2)
-        .map(|offset| u8::from_str_radix(&text[offset..offset + 2], 16).expect("hex byte"))
+        .map(|offset| {
+            result_assertion::required(
+                u8::from_str_radix(&text[offset..offset + 2], 16),
+                "hex byte",
+            )
+        })
         .collect()
 }
 
 struct Directory(PathBuf);
 impl Directory {
     fn new() -> Self {
-        let root = fs::canonicalize(std::env::temp_dir())
-            .expect("temporary root")
-            .join(format!(
-                "repair-22-33-1552-{}-{}",
-                std::process::id(),
-                NEXT.fetch_add(1, Ordering::Relaxed)
-            ));
-        fs::create_dir(&root).expect("directory");
-        fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).expect("directory mode");
+        let root =
+            result_assertion::required(fs::canonicalize(std::env::temp_dir()), "temporary root")
+                .join(format!(
+                    "repair-22-33-1552-{}-{}",
+                    std::process::id(),
+                    NEXT.fetch_add(1, Ordering::Relaxed)
+                ));
+        result_assertion::required(fs::create_dir(&root), "directory");
+        result_assertion::required(
+            fs::set_permissions(&root, fs::Permissions::from_mode(0o700)),
+            "directory mode",
+        );
         Self(root)
     }
     fn secret(&self, name: &str, contents: &str) -> PathBuf {
         let path = self.0.join(name);
-        fs::write(&path, contents).expect("protected file");
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).expect("file mode");
+        result_assertion::required(fs::write(&path, contents), "protected file");
+        result_assertion::required(
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o600)),
+            "file mode",
+        );
         path
     }
 }
 impl Drop for Directory {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).expect("remove state");
+        result_assertion::required(fs::remove_dir_all(&self.0), "remove state");
     }
 }
 
@@ -114,26 +128,28 @@ struct Enrolled {
 impl Enrolled {
     fn new(scopes: &[&str], agent: &str) -> Self {
         let directory = Directory::new();
-        let tenant = TenantId::new("tenant-a").expect("tenant");
-        let mut store = Store::open(directory.0.join("store")).expect("store");
-        let capability = Capability::new(
-            CapabilityId([9; 32]),
-            tenant.clone(),
-            CapabilityDimensions {
-                activity_types: BTreeSet::from([7]),
-                counterparties: BTreeSet::from([[2; 32]]),
-                assets: BTreeSet::from([[3; 32]]),
-                amount_ceiling: 100,
-                rate_ceiling: RateCeiling {
-                    maximum_uses: 100,
-                    window_sequences: 10,
+        let tenant = result_assertion::required(TenantId::new("tenant-a"), "tenant");
+        let mut store = result_assertion::required(Store::open(directory.0.join("store")), "store");
+        let capability = result_assertion::required(
+            Capability::new(
+                CapabilityId([9; 32]),
+                tenant.clone(),
+                CapabilityDimensions {
+                    activity_types: BTreeSet::from([7]),
+                    counterparties: BTreeSet::from([[2; 32]]),
+                    assets: BTreeSet::from([[3; 32]]),
+                    amount_ceiling: 100,
+                    rate_ceiling: RateCeiling {
+                        maximum_uses: 100,
+                        window_sequences: 10,
+                    },
+                    purposes: BTreeSet::from(["service-payment".to_owned()]),
+                    expiry_sequence: 400,
                 },
-                purposes: BTreeSet::from(["service-payment".to_owned()]),
-                expiry_sequence: 400,
-            },
-        )
-        .expect("capability");
-        capability.persist(&mut store).expect("persist capability");
+            ),
+            "capability",
+        );
+        result_assertion::required(capability.persist(&mut store), "persist capability");
         let mut ledger = IdentityLedger(CoreIdentity {
             canonical_bytes: agent.as_bytes().to_vec(),
             head_sequence: 10,
@@ -142,40 +158,47 @@ impl Enrolled {
             frozen: false,
             authorities: vec![ProtocolAuthority::CapabilityGrant(capability.id.0)],
         });
-        let identity = register(
-            &mut store,
-            tenant.clone(),
-            Did::new(agent.as_bytes()).expect("DID"),
-            &mut ledger,
-        )
-        .expect("register");
+        let identity = result_assertion::required(
+            register(
+                &mut store,
+                tenant.clone(),
+                result_assertion::required(Did::new(agent.as_bytes()), "DID"),
+                &mut ledger,
+            ),
+            "register",
+        );
         let mut sessions = SessionRegistry::default();
-        let credential = open(
-            &mut store,
-            &mut sessions,
-            &identity,
-            OpenRequest {
-                session_id: SessionId([7; 32]),
-                token_id: [8; 32],
-                tenant,
-                agent: identity.did().clone(),
-                authority: ProtocolAuthority::CapabilityGrant(capability.id.0),
-                permitted_activity_types: BTreeSet::from([7]),
-                scopes: scopes.iter().map(|scope| (*scope).to_owned()).collect(),
-                expiry_seconds: None,
-                expiry_sequence: 300,
-                opening_client: "mcp".to_owned(),
-                policy_version: "policy-v1".to_owned(),
-            },
-            HEIGHT,
+        let credential = result_assertion::required(
+            open(
+                &mut store,
+                &mut sessions,
+                &identity,
+                OpenRequest {
+                    session_id: SessionId([7; 32]),
+                    token_id: [8; 32],
+                    tenant,
+                    agent: identity.did().clone(),
+                    authority: ProtocolAuthority::CapabilityGrant(capability.id.0),
+                    permitted_activity_types: BTreeSet::from([7]),
+                    scopes: scopes.iter().map(|scope| (*scope).to_owned()).collect(),
+                    expiry_seconds: None,
+                    expiry_sequence: 300,
+                    opening_client: "mcp".to_owned(),
+                    policy_version: "policy-v1".to_owned(),
+                },
+                HEIGHT,
+            ),
+            "open authenticated session",
         )
-        .expect("open authenticated session")
         .credential();
         let control = SessionControl::new(
             Arc::new(Mutex::new(store)),
             sessions,
             Arc::new(PreparationLifecycle::default()),
-            Arc::new(BudgetLimiter::new(vec![limit()]).expect("limiter")),
+            Arc::new(result_assertion::required(
+                BudgetLimiter::new(vec![limit()]),
+                "limiter",
+            )),
         );
         Self {
             directory,
@@ -195,27 +218,27 @@ impl Enrolled {
     }
     fn bound(&self, mode: DeploymentMode) -> Bound {
         if mode == DeploymentMode::Full {
-            Bound::Full(Box::new(
+            Bound::Full(Box::new(result_assertion::required(
                 Server::bind(
                     self.control.clone(),
                     self.credential.clone(),
                     CapabilityId([9; 32]),
                     HEIGHT,
                     self.directory.0.join("audit"),
-                )
-                .expect("full binding"),
-            ))
+                ),
+                "full binding",
+            )))
         } else {
-            Bound::ReadOnly(Box::new(
+            Bound::ReadOnly(Box::new(result_assertion::required(
                 ReadOnly::bind(
                     self.control.clone(),
                     self.credential.clone(),
                     CapabilityId([9; 32]),
                     HEIGHT,
                     self.directory.0.join("audit"),
-                )
-                .expect("read-only binding"),
-            ))
+                ),
+                "read-only binding",
+            )))
         }
     }
 }
@@ -228,20 +251,23 @@ fn limit() -> LimitConfig {
         consumed: 0,
     }
 }
-fn rpc<B: ToolBoundary>(session: &mut Session<B>, tool: &str, arguments: Value) -> Value {
+fn rpc<B: ToolBoundary>(session: &mut Session<B>, tool: &str, arguments: &Value) -> Value {
     let input = json!({"jsonrpc":"2.0", "id":1, "method":"tools/call",
         "params":{"name":tool,"arguments":arguments}});
     let mut source = std::io::Cursor::new(format!("{input}\n"));
     let mut output = Vec::new();
-    session
-        .serve(&mut source, &mut output)
-        .expect("MCP line transport");
-    serde_json::from_slice(&output).expect("MCP response")
+    result_assertion::required(
+        session.serve(&mut source, &mut output),
+        "MCP line transport",
+    );
+    result_assertion::required(serde_json::from_slice(&output), "MCP response")
 }
 
 fn surface(endpoint: &str) -> AgentSurface {
-    AgentSurface::new(endpoint, "b".repeat(48), &"cc".repeat(32), DEADLINE)
-        .expect("loopback surface")
+    result_assertion::required(
+        AgentSurface::new(endpoint, "b".repeat(48), &"cc".repeat(32), DEADLINE),
+        "loopback surface",
+    )
 }
 
 fn assert_unavailable_by_deadline(surface: &AgentSurface) {
@@ -260,10 +286,13 @@ fn assert_unavailable_by_deadline(surface: &AgentSurface) {
 
 #[test]
 fn connect_deadline_backlog() {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("backlog listener");
-    rustix::net::listen(&listener, 0).expect("one queued connection");
-    let address = listener.local_addr().expect("address");
-    let queued = TcpStream::connect_timeout(&address, DEADLINE).expect("fill backlog");
+    let listener = result_assertion::required(TcpListener::bind("127.0.0.1:0"), "backlog listener");
+    result_assertion::required(rustix::net::listen(&listener, 0), "one queued connection");
+    let address = result_assertion::required(listener.local_addr(), "address");
+    let queued = result_assertion::required(
+        TcpStream::connect_timeout(&address, DEADLINE),
+        "fill backlog",
+    );
     let saturated = TcpStream::connect_timeout(&address, Duration::from_millis(40));
     assert!(
         matches!(saturated, Err(ref error) if error.kind() == std::io::ErrorKind::TimedOut),
@@ -274,32 +303,35 @@ fn connect_deadline_backlog() {
 }
 
 fn read_http(stream: &mut TcpStream) -> String {
-    stream
-        .set_read_timeout(Some(Duration::from_secs(2)))
-        .expect("fixture deadline");
+    result_assertion::required(
+        stream.set_read_timeout(Some(Duration::from_secs(2))),
+        "fixture deadline",
+    );
     let mut bytes = Vec::new();
     let mut byte = [0];
     while !bytes.ends_with(b"\r\n\r\n") {
-        stream.read_exact(&mut byte).expect("HTTP request");
+        result_assertion::required(stream.read_exact(&mut byte), "HTTP request");
         bytes.push(byte[0]);
         assert!(bytes.len() < 8192, "bounded request");
     }
-    let text = String::from_utf8(bytes).expect("HTTP text");
+    let text = result_assertion::required(String::from_utf8(bytes), "HTTP text");
     assert!(text.contains(&format!("Authorization: Bearer {}\r\n", "b".repeat(48))));
     text
 }
 
 fn delayed_response(trickle: bool) {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("response listener");
-    let endpoint = listener.local_addr().expect("address").to_string();
+    let listener =
+        result_assertion::required(TcpListener::bind("127.0.0.1:0"), "response listener");
+    let endpoint = result_assertion::required(listener.local_addr(), "address").to_string();
     let (stop, stopped) = mpsc::channel();
     let peer = thread::spawn(move || {
-        let (mut stream, _) = listener.accept().expect("accepted request");
+        let (mut stream, _) = result_assertion::required(listener.accept(), "accepted request");
         read_http(&mut stream);
         if trickle {
-            stream
-                .write_all(b"HTTP/1.1 200 OK\r\n\r\n{")
-                .expect("response prefix");
+            result_assertion::required(
+                stream.write_all(b"HTTP/1.1 200 OK\r\n\r\n{"),
+                "response prefix",
+            );
             for _ in 0..40 {
                 match stopped.recv_timeout(Duration::from_millis(20)) {
                     Ok(()) | Err(mpsc::RecvTimeoutError::Disconnected) => return,
@@ -314,8 +346,8 @@ fn delayed_response(trickle: bool) {
         }
     });
     assert_unavailable_by_deadline(&surface(&endpoint));
-    stop.send(()).expect("stop fixture");
-    peer.join().expect("response fixture");
+    result_assertion::required(stop.send(()), "stop fixture");
+    result_assertion::required(peer.join(), "response fixture");
 }
 
 #[test]
@@ -346,21 +378,20 @@ fn connect_deadline_requires_parsed_loopback() {
 #[test]
 fn hex32_tools_call_rejects_before_daemon() {
     let fixture = Enrolled::new(&["read:receipt", "read:balance"], "did:layerx:model");
-    let listener = TcpListener::bind("127.0.0.1:0").expect("native reads listener");
-    let endpoint = listener.local_addr().expect("address").to_string();
+    let listener =
+        result_assertion::required(TcpListener::bind("127.0.0.1:0"), "native reads listener");
+    let endpoint = result_assertion::required(listener.local_addr(), "address").to_string();
     let paths = Arc::new(Mutex::new(Vec::new()));
     let observed = Arc::clone(&paths);
     // Two successful calls each obtain freshness and then read their requested evidence.
     let peer = thread::spawn(move || {
         for _ in 0..4 {
-            let (mut stream, _) = listener.accept().expect("read connection");
+            let (mut stream, _) = result_assertion::required(listener.accept(), "read connection");
             let request = read_http(&mut stream);
-            let path = request
-                .split_ascii_whitespace()
-                .nth(1)
-                .expect("request path")
-                .to_owned();
-            observed.lock().expect("paths").push(path.clone());
+            let path =
+                option_assertion::required(request.split_ascii_whitespace().nth(1), "request path")
+                    .to_owned();
+            result_assertion::required(observed.lock(), "paths").push(path.clone());
             let body = if path.starts_with("/v1/programs/") {
                 json!({"program":"cc".repeat(32), "lifecycle":"Active", "accounts":[],
                     "freshness":{"observed_sequence":HEIGHT}})
@@ -369,12 +400,14 @@ fn hex32_tools_call_rejects_before_daemon() {
                 json!({"activity_id":"11".repeat(32), "evidence":"receipt recording"})
             };
             let body = body.to_string();
-            write!(
-                stream,
-                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-                body.len()
-            )
-            .expect("native response");
+            result_assertion::required(
+                write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                ),
+                "native response",
+            );
         }
     });
     let mut session = Session::new(
@@ -388,14 +421,14 @@ fn hex32_tools_call_rejects_before_daemon() {
             "11".repeat(33),
             "gg".repeat(32),
         ] {
-            let response = rpc(&mut session, tool, json!({(field):text}));
+            let response = rpc(&mut session, tool, &json!({(field):text}));
             assert_eq!(response["result"]["isError"], true, "{response}");
             assert_eq!(
                 response["result"]["structuredContent"]["stage"],
                 "arguments"
             );
             assert!(
-                paths.lock().expect("paths").is_empty(),
+                result_assertion::required(paths.lock(), "paths").is_empty(),
                 "malformed request reached daemon"
             );
         }
@@ -403,7 +436,7 @@ fn hex32_tools_call_rejects_before_daemon() {
     let receipt = rpc(
         &mut session,
         "receipt.get",
-        json!({"activity_id":"11".repeat(32)}),
+        &json!({"activity_id":"11".repeat(32)}),
     );
     assert_eq!(receipt["result"]["isError"], false, "{receipt}");
     assert_eq!(
@@ -413,11 +446,11 @@ fn hex32_tools_call_rejects_before_daemon() {
     let balance = rpc(
         &mut session,
         "balance.get",
-        json!({"program":"cc".repeat(32)}),
+        &json!({"program":"cc".repeat(32)}),
     );
     assert_eq!(balance["result"]["isError"], false, "{balance}");
-    peer.join().expect("native reads producer");
-    assert_eq!(paths.lock().expect("paths").len(), 4);
+    result_assertion::required(peer.join(), "native reads producer");
+    assert_eq!(result_assertion::required(paths.lock(), "paths").len(), 4);
 }
 
 // This fixture connects the production MCP session to the SDK envelope producer, daemon
@@ -440,79 +473,110 @@ impl ToolBoundary for OwnerTransport<'_> {
         let sequence = NEXT.fetch_add(1, Ordering::Relaxed);
         let mut key = [1; 32];
         key[..8].copy_from_slice(&sequence.to_be_bytes());
-        let credential =
-            EnvelopeCredential::new("tenant-a", [7; 32], self.fixture.credential.token_id(), 1)
-                .expect("SDK credential");
-        let wire = encode_envelope(
-            layerx_agent_api::Operation::McpInvoke,
-            RequestId(sequence),
-            &json!({"tool":tool.name,"arguments":arguments}),
-            Some(&credential),
-            Some(layerx_agent_api::idempotency::Key::new(key).expect("key")),
-        )
-        .expect("SDK envelope producer");
-        let bytes = serde_json::to_vec(&wire).expect("wire bytes");
-        let listener = TcpListener::bind("127.0.0.1:0").expect("authenticated owner listener");
-        let address = listener.local_addr().expect("owner address");
+        let credential = result_assertion::required(
+            EnvelopeCredential::new("tenant-a", [7; 32], self.fixture.credential.token_id(), 1),
+            "SDK credential",
+        );
+        let wire = result_assertion::required(
+            encode_envelope(
+                layerx_agent_api::Operation::McpInvoke,
+                RequestId(sequence),
+                &json!({"tool":tool.name,"arguments":arguments}),
+                Some(&credential),
+                Some(result_assertion::required(
+                    layerx_agent_api::idempotency::Key::new(key),
+                    "key",
+                )),
+            ),
+            "SDK envelope producer",
+        );
+        let bytes = result_assertion::required(serde_json::to_vec(&wire), "wire bytes");
+        let listener = result_assertion::required(
+            TcpListener::bind("127.0.0.1:0"),
+            "authenticated owner listener",
+        );
+        let address = result_assertion::required(listener.local_addr(), "owner address");
         thread::scope(|scope| {
             let server = scope.spawn(|| {
-                let (mut stream, _) = listener.accept().expect("owner accepted transport");
-                stream
-                    .set_read_timeout(Some(Duration::from_secs(2)))
-                    .expect("owner read bound");
-                stream
-                    .set_write_timeout(Some(Duration::from_secs(2)))
-                    .expect("owner write bound");
+                let (mut stream, _) =
+                    result_assertion::required(listener.accept(), "owner accepted transport");
+                result_assertion::required(
+                    stream.set_read_timeout(Some(Duration::from_secs(2))),
+                    "owner read bound",
+                );
+                result_assertion::required(
+                    stream.set_write_timeout(Some(Duration::from_secs(2))),
+                    "owner write bound",
+                );
                 let mut body = Vec::new();
-                (&mut stream)
-                    .take(1_048_577)
-                    .read_to_end(&mut body)
-                    .expect("owner envelope bytes");
-                let value = self.consume(tool, &body).expect("real owner consumer");
-                serde_json::to_writer(&mut stream, &value).expect("owner response");
+                result_assertion::required(
+                    (&mut stream).take(1_048_577).read_to_end(&mut body),
+                    "owner envelope bytes",
+                );
+                let value =
+                    result_assertion::required(self.consume(tool, &body), "real owner consumer");
+                result_assertion::required(
+                    serde_json::to_writer(&mut stream, &value),
+                    "owner response",
+                );
             });
-            let mut stream = TcpStream::connect_timeout(&address, Duration::from_secs(2))
-                .expect("owner transport");
-            stream
-                .set_read_timeout(Some(Duration::from_secs(2)))
-                .expect("response bound");
-            stream
-                .set_write_timeout(Some(Duration::from_secs(2)))
-                .expect("request bound");
-            stream.write_all(&bytes).expect("SDK envelope transport");
-            stream
-                .shutdown(std::net::Shutdown::Write)
-                .expect("complete request");
+            let mut stream = result_assertion::required(
+                TcpStream::connect_timeout(&address, Duration::from_secs(2)),
+                "owner transport",
+            );
+            result_assertion::required(
+                stream.set_read_timeout(Some(Duration::from_secs(2))),
+                "response bound",
+            );
+            result_assertion::required(
+                stream.set_write_timeout(Some(Duration::from_secs(2))),
+                "request bound",
+            );
+            result_assertion::required(stream.write_all(&bytes), "SDK envelope transport");
+            result_assertion::required(
+                stream.shutdown(std::net::Shutdown::Write),
+                "complete request",
+            );
             let mut response = Vec::new();
-            stream
-                .read_to_end(&mut response)
-                .expect("owner result transport");
-            server.join().expect("owner server");
-            Ok(serde_json::from_slice(&response).expect("transport result consumer"))
+            result_assertion::required(stream.read_to_end(&mut response), "owner result transport");
+            result_assertion::required(server.join(), "owner server");
+            Ok(result_assertion::required(
+                serde_json::from_slice(&response),
+                "transport result consumer",
+            ))
         })
     }
 }
 impl OwnerTransport<'_> {
     fn consume(&self, tool: ToolDefinition, bytes: &[u8]) -> Result<Value, BoundaryRefusal> {
         self.calls.fetch_add(1, Ordering::SeqCst);
-        let decoded = layerx_agentd::agent_rpc::decode_mcp_invocation(bytes)
-            .unwrap_or_else(|_| panic!("production daemon decoder"))
-            .expect("MCP operation");
+        let decoded = option_assertion::required(
+            layerx_agentd::agent_rpc::decode_mcp_invocation(bytes)
+                .unwrap_or_else(|_| panic!("production daemon decoder")),
+            "MCP operation",
+        );
         assert_eq!(decoded.credential.tenant().as_str(), "tenant-a");
         assert_eq!(
             decoded.credential.token_id(),
             self.fixture.credential.token_id()
         );
         if tool.name == "activity.submit" {
-            let key: [u8; 32] = unhex(&decoded.arguments["signer_public_key"])
-                .try_into()
-                .expect("public key width");
-            let signature = Signature::from_slice(&unhex(&decoded.arguments["signature"]))
-                .expect("real signature codec consumes exactly 64 bytes");
-            ed25519_dalek::VerifyingKey::from_bytes(&key)
-                .expect("public key")
-                .verify_strict(b"catalogue transport signature", &signature)
-                .expect("verified signature");
+            let key: [u8; 32] = result_assertion::required(
+                unhex(&decoded.arguments["signer_public_key"]).try_into(),
+                "public key width",
+            );
+            let signature = result_assertion::required(
+                Signature::from_slice(&unhex(&decoded.arguments["signature"])),
+                "real signature codec consumes exactly 64 bytes",
+            );
+            result_assertion::required(
+                result_assertion::required(
+                    ed25519_dalek::VerifyingKey::from_bytes(&key),
+                    "public key",
+                )
+                .verify_strict(b"catalogue transport signature", &signature),
+                "verified signature",
+            );
             return Ok(json!({"verified":true}));
         }
         let result = self.binding.daemon_invocation(
@@ -526,11 +590,10 @@ impl OwnerTransport<'_> {
                 assert_eq!(credential.token_id(), self.fixture.credential.token_id());
                 match operation {
                     Operation::ApprovalList => {
-                        let service = self.service.as_ref().expect("real approval service");
-                        let limit = request["limit"].as_str().expect("limit").parse().expect("page limit");
-                        let page = service.list(credential.tenant(), None, limit, HEIGHT,
-                            layerx_agent_api::TimestampSeconds(DeterministicClock::new(HEIGHT).now()))
-                            .expect("owning service accepts schema maximum");
+                        let service = option_assertion::required(self.service.as_ref(), "real approval service");
+                        let limit = result_assertion::required(option_assertion::required(request["limit"].as_str(), "limit").parse(), "page limit");
+                        let page = result_assertion::required(service.list(credential.tenant(), None, limit, HEIGHT,
+                            layerx_agent_api::TimestampSeconds(DeterministicClock::new(HEIGHT).now())), "owning service accepts schema maximum");
                         Ok(json!({"approvals": page.approvals.iter().map(|record| json!({"approval_id":hex(&record.approval_id)})).collect::<Vec<_>>(),
                             "next_cursor": page.next_cursor.map(|id| hex(&id))}))
                     }
@@ -538,9 +601,10 @@ impl OwnerTransport<'_> {
                 }
             })
             .unwrap_or_else(|error| panic!("authenticated daemon invocation: {error:?}"));
-        result
-            .release_current(HEIGHT, |value| Ok(value))
-            .expect("authorized result release")
+        result_assertion::required(
+            result.release_current(HEIGHT, Ok),
+            "authorized result release",
+        )
     }
 }
 
@@ -550,8 +614,10 @@ fn hex64_tools_call_rejects_before_authenticated_codec() {
     let calls = Arc::new(AtomicUsize::new(0));
     let boundary = OwnerTransport {
         fixture: &fixture,
-        binding: Binding::parse(&fixture.binding_document("127.0.0.1:9", "full").to_string())
-            .expect("binding"),
+        binding: result_assertion::required(
+            Binding::parse(&fixture.binding_document("127.0.0.1:9", "full").to_string()),
+            "binding",
+        ),
         service: None,
         calls: Arc::clone(&calls),
     };
@@ -568,7 +634,7 @@ fn hex64_tools_call_rejects_before_authenticated_codec() {
     ] {
         let mut invalid = arguments.clone();
         invalid["signature"] = json!(text);
-        let response = rpc(&mut session, "activity.submit", invalid);
+        let response = rpc(&mut session, "activity.submit", &invalid);
         assert_eq!(response["result"]["isError"], true, "{response}");
         assert_eq!(
             response["result"]["structuredContent"]["stage"],
@@ -580,7 +646,7 @@ fn hex64_tools_call_rejects_before_authenticated_codec() {
             "malformed signature reached daemon"
         );
     }
-    let response = rpc(&mut session, "activity.submit", arguments.take());
+    let response = rpc(&mut session, "activity.submit", &arguments.take());
     assert_eq!(response["result"]["isError"], false, "{response}");
     assert_eq!(
         response["result"]["structuredContent"]["result"]["verified"],
@@ -589,11 +655,13 @@ fn hex64_tools_call_rejects_before_authenticated_codec() {
     assert_eq!(calls.load(Ordering::SeqCst), 1);
     // Variable byte strings retain their own bounds, independently of fixed identifiers.
     for count in [1, 31, 32, 64, 65] {
-        catalogue::validate(
-            "activity.disclose",
-            &json!({"canonical_bytes":"ab".repeat(count)}),
-        )
-        .expect("variable byte string");
+        result_assertion::required(
+            catalogue::validate(
+                "activity.disclose",
+                &json!({"canonical_bytes":"ab".repeat(count)}),
+            ),
+            "variable byte string",
+        );
     }
 }
 
@@ -601,13 +669,15 @@ fn hex64_tools_call_rejects_before_authenticated_codec() {
 fn approval_page_bound_authenticated_transport() {
     let fixture = Enrolled::new(&["approve"], "did:layerx:model");
     let registry = ApprovalRegistry::default();
-    let limiter = BudgetLimiter::new(Vec::new()).expect("approval limiter");
-    let expiry = ApprovalExpiry::open(fixture.directory.0.join("approval-decisions"))
-        .expect("approval store");
+    let limiter = result_assertion::required(BudgetLimiter::new(Vec::new()), "approval limiter");
+    let expiry = result_assertion::required(
+        ApprovalExpiry::open(fixture.directory.0.join("approval-decisions")),
+        "approval store",
+    );
     let service = ApprovalService::new(&registry, &limiter, &expiry);
     assert!(matches!(
         service.list(
-            &TenantId::new("tenant-a").expect("tenant"),
+            &result_assertion::required(TenantId::new("tenant-a"), "tenant"),
             None,
             101,
             HEIGHT,
@@ -618,13 +688,16 @@ fn approval_page_bound_authenticated_transport() {
     let calls = Arc::new(AtomicUsize::new(0));
     let boundary = OwnerTransport {
         fixture: &fixture,
-        binding: Binding::parse(&fixture.binding_document("127.0.0.1:9", "full").to_string())
-            .expect("binding"),
+        binding: result_assertion::required(
+            Binding::parse(&fixture.binding_document("127.0.0.1:9", "full").to_string()),
+            "binding",
+        ),
         service: Some(service),
         calls: Arc::clone(&calls),
     };
     let mut session = Session::new(fixture.bound(DeploymentMode::Full), boundary);
-    let schema = catalogue::input_schema("approval.list").expect("approval schema");
+    let schema =
+        option_assertion::required(catalogue::input_schema("approval.list"), "approval schema");
     assert_eq!(
         schema["oneOf"][0]["properties"]["limit"]["layerx/maximum"],
         100
@@ -632,7 +705,7 @@ fn approval_page_bound_authenticated_transport() {
     let response = rpc(
         &mut session,
         "approval.list",
-        json!({"current_sequence":HEIGHT.to_string(),"limit":"100"}),
+        &json!({"current_sequence":HEIGHT.to_string(),"limit":"100"}),
     );
     assert_eq!(response["result"]["isError"], false, "{response}");
     assert_eq!(
@@ -643,7 +716,7 @@ fn approval_page_bound_authenticated_transport() {
     let response = rpc(
         &mut session,
         "approval.list",
-        json!({"current_sequence":HEIGHT.to_string(),"limit":"101"}),
+        &json!({"current_sequence":HEIGHT.to_string(),"limit":"101"}),
     );
     assert_eq!(response["result"]["isError"], true, "{response}");
     assert_eq!(
@@ -668,24 +741,30 @@ fn ping(
     if reader.read_line(&mut response)? == 0 {
         return Err(std::io::Error::from(std::io::ErrorKind::UnexpectedEof));
     }
-    Ok(serde_json::from_str(&response).expect("ping response"))
+    Ok(result_assertion::required(
+        serde_json::from_str(&response),
+        "ping response",
+    ))
 }
 
 #[test]
 fn listener_monopolisation_active_connection_yields() {
     let fixture = Enrolled::new(&["read:receipt"], "did:layerx:model");
     let endpoint = fixture.directory.0.join("mcp.sock");
-    let metadata = fs::metadata(&fixture.directory.0).expect("directory metadata");
+    let metadata =
+        result_assertion::required(fs::metadata(&fixture.directory.0), "directory metadata");
     let lifetime = Duration::from_millis(250);
-    let listener = Listener::bind(ListenerConfig {
-        endpoint: endpoint.clone(),
-        owner_uid: metadata.uid(),
-        owner_gid: metadata.gid(),
-        mode: 0o600,
-        admitted_uids: vec![metadata.uid()],
-        deadline: lifetime,
-    })
-    .expect("admitted listener");
+    let listener = result_assertion::required(
+        Listener::bind(ListenerConfig {
+            endpoint: endpoint.clone(),
+            owner_uid: metadata.uid(),
+            owner_gid: metadata.gid(),
+            mode: 0o600,
+            admitted_uids: vec![metadata.uid()],
+            deadline: lifetime,
+        }),
+        "admitted listener",
+    );
     let mut session = Session::new(
         fixture.bound(DeploymentMode::Full),
         ProgramReads::new(surface("127.0.0.1:9")),
@@ -693,13 +772,14 @@ fn listener_monopolisation_active_connection_yields() {
     thread::spawn(move || {
         let _ = listener.serve(&mut session);
     });
-    let mut first = UnixStream::connect(&endpoint).expect("first client");
-    first
-        .set_read_timeout(Some(Duration::from_secs(2)))
-        .expect("client bound");
-    let mut reader = BufReader::new(first.try_clone().expect("reader"));
+    let mut first = result_assertion::required(UnixStream::connect(&endpoint), "first client");
+    result_assertion::required(
+        first.set_read_timeout(Some(Duration::from_secs(2))),
+        "client bound",
+    );
+    let mut reader = BufReader::new(result_assertion::required(first.try_clone(), "reader"));
     assert_eq!(
-        ping(&mut first, &mut reader, 1).expect("first admitted ping")["id"],
+        result_assertion::required(ping(&mut first, &mut reader, 1), "first admitted ping")["id"],
         1
     );
     let (finished, hold_open) = mpsc::channel();
@@ -709,33 +789,41 @@ fn listener_monopolisation_active_connection_yields() {
         for id in 2..100 {
             thread::sleep(Duration::from_millis(15));
             if ping(&mut first, &mut reader, id).is_err() {
-                closed.send(count).expect("connection expiry observation");
+                result_assertion::required(closed.send(count), "connection expiry observation");
                 // The peer retains its connection until the second client has been served.
-                hold_open
-                    .recv_timeout(Duration::from_secs(2))
-                    .expect("second client served");
+                result_assertion::required(
+                    hold_open.recv_timeout(Duration::from_secs(2)),
+                    "second client served",
+                );
                 return;
             }
             count += 1;
         }
         panic!("active connection monopolised listener");
     });
-    let mut second = UnixStream::connect(&endpoint).expect("second admitted client");
-    second
-        .set_read_timeout(Some(lifetime + SCHEDULING_MARGIN))
-        .expect("service bound");
-    let mut second_reader = BufReader::new(second.try_clone().expect("second reader"));
+    let mut second =
+        result_assertion::required(UnixStream::connect(&endpoint), "second admitted client");
+    result_assertion::required(
+        second.set_read_timeout(Some(lifetime + SCHEDULING_MARGIN)),
+        "service bound",
+    );
+    let mut second_reader = BufReader::new(result_assertion::required(
+        second.try_clone(),
+        "second reader",
+    ));
     let started = Instant::now();
-    let response =
-        ping(&mut second, &mut second_reader, 999).expect("second client must receive service");
+    let response = result_assertion::required(
+        ping(&mut second, &mut second_reader, 999),
+        "second client must receive service",
+    );
     assert_eq!(response["id"], 999);
     assert!(started.elapsed() < lifetime + SCHEDULING_MARGIN);
     assert!(
-        observed_close
-            .recv_timeout(SCHEDULING_MARGIN)
-            .expect("first connection expired")
-            >= 3
+        result_assertion::required(
+            observed_close.recv_timeout(SCHEDULING_MARGIN),
+            "first connection expired"
+        ) >= 3
     );
-    finished.send(()).expect("release first client socket");
-    active.join().expect("active client");
+    result_assertion::required(finished.send(()), "release first client socket");
+    result_assertion::required(active.join(), "active client");
 }

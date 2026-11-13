@@ -1,0 +1,202 @@
+[meta]
+task = "22.39.332"
+acceptance = "22998.1"
+base_revision = "329173f5052d5d15727e220f85682e3cfe54d4da"
+revision = "refs/heads/task/22.39.332"
+
+[baseline]
+revision = "1a315827bebd"
+case = "signature_route_returns_verified_receipt"
+first_error = "transaction_signature_controller_test.exs:32: expected HTTP 200, received HTTP 404 with Not found for the first accepted vector (task-supplied observation, gotcha 4112)."
+starting_revision = "329173f5052d5d15727e220f85682e3cfe54d4da"
+
+[inventory.receipted]
+producer = "apps/explorer/test/support/fixture/paxeer_x/receipt_vectors.json"
+producer_commit = "20d1e29d9db5eb4f8302db67a034d9b2bb91a71a"
+guard_commit = "6c6128318f5950e38d52e01ecc678f1ec2a69c8c"
+cause = "governed_keys requires nonempty chain_id and configured receipt_keys; setup and RPC helpers replaced authority with router_url alone."
+repair = "Require the existing GovernedReceiptFixtures module, configure_receipted and restore_on_exit; preserve governed configuration when attaching each test RPC URL. No router URL exists until the test serves its own RPC answers."
+
+[inventory.committed]
+producer = "committed_evidence.exs; fixtures/vector-v4-committed.json"
+producer_commit = "8072ba2be216f834be0451ce4659f001ae4d9d04"
+cause = "These suites already configure the distinct v4 settlement authority through Evidence.serve_rpc, including governed receipt keys, chain_id and execution checkpoint."
+repair = "Retain Evidence.authority and original configuration restoration. configure_committed is for committed_vectors.json, whose different signing key must not replace the v4 fixture authority. Keep the valid committed answers and assert refusal for malformed inclusion batches."
+
+[gotcha.generated_sequence]
+cause = "invalid_sequence signs with a newly generated key; the recorded public-key pin would stop it at R3 before the asserted R6 sequence refusal."
+repair = "Independently configure the explicit generated key through GovernedReceiptFixtures.configure_keys before verifying this negative, and reinstall recorded authority for each other rejection. Preserve every refusal, response, rung and RPC-call assertion."
+
+[case.1]
+file = "apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs"
+case = "signature_route_returns_verified_receipt"
+producer_commit = "6e6cb10a92fcdecfc8070aa45bce0ab2167044af"
+guard_commit = "6c6128318f5950e38d52e01ecc678f1ec2a69c8c"
+cause = "Recorded HTTP 404 instead of 200; router-only configuration removes governed chain and pins."
+repair = "Install recorded receipt authority in setup and preserve it in serve_rpc, including repeated accepted vectors and claimed committed answers."
+
+[case.2]
+file = "apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs"
+case = "signature_route_404_when_unverified"
+producer_commit = "6e6cb10a92fcdecfc8070aa45bce0ab2167044af"
+guard_commit = "6c6128318f5950e38d52e01ecc678f1ec2a69c8c"
+cause = "Absent governed trust masks later R4/R5/R6 refusals; generated sequence key needs explicit governance."
+repair = "Install recorded authority for all recorded negatives and explicit generated-key authority for R6; retain all R1-R6 and HTTP/RPC assertions."
+
+[case.3]
+file = "apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs"
+case = "rejects a malformed hash"
+producer_commit = "c04f3042d5e929a1e84c739bf66612f23f6d753f"
+guard_commit = "6c6128318f5950e38d52e01ecc678f1ec2a69c8c"
+cause = "No key-guard failure claimed; malformed/unknown hashes or indexed database status do not require receipt promotion."
+repair = "Run unchanged assertions with governed setup and router unset until explicitly serving RPC answers."
+
+[case.4]
+file = "apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs"
+case = "answers 404 for a hash the chain does not carry"
+producer_commit = "c04f3042d5e929a1e84c739bf66612f23f6d753f"
+guard_commit = "6c6128318f5950e38d52e01ecc678f1ec2a69c8c"
+cause = "No key-guard failure claimed; malformed/unknown hashes or indexed database status do not require receipt promotion."
+repair = "Run unchanged assertions with governed setup and router unset until explicitly serving RPC answers."
+
+[case.5]
+file = "apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs"
+case = "answers 404 for an unindexed hash while no router is configured"
+producer_commit = "c04f3042d5e929a1e84c739bf66612f23f6d753f"
+guard_commit = "6c6128318f5950e38d52e01ecc678f1ec2a69c8c"
+cause = "No key-guard failure claimed; malformed/unknown hashes or indexed database status do not require receipt promotion."
+repair = "Run unchanged assertions with governed setup and router unset until explicitly serving RPC answers."
+
+[case.6]
+file = "apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs"
+case = "a committed block answers committed with the three fields"
+producer_commit = "c04f3042d5e929a1e84c739bf66612f23f6d753f"
+guard_commit = "6c6128318f5950e38d52e01ecc678f1ec2a69c8c"
+cause = "No key-guard failure claimed; malformed/unknown hashes or indexed database status do not require receipt promotion."
+repair = "Run unchanged assertions with governed setup and router unset until explicitly serving RPC answers."
+
+[case.7]
+file = "apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs"
+case = "a block below the committed head answers committed"
+producer_commit = "c04f3042d5e929a1e84c739bf66612f23f6d753f"
+guard_commit = "6c6128318f5950e38d52e01ecc678f1ec2a69c8c"
+cause = "No key-guard failure claimed; malformed/unknown hashes or indexed database status do not require receipt promotion."
+repair = "Run unchanged assertions with governed setup and router unset until explicitly serving RPC answers."
+
+[case.8]
+file = "apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs"
+case = "an indexed transaction without a block answers submitted while no router is configured"
+producer_commit = "c04f3042d5e929a1e84c739bf66612f23f6d753f"
+guard_commit = "6c6128318f5950e38d52e01ecc678f1ec2a69c8c"
+cause = "No key-guard failure claimed; malformed/unknown hashes or indexed database status do not require receipt promotion."
+repair = "Run unchanged assertions with governed setup and router unset until explicitly serving RPC answers."
+
+[case.9]
+file = "apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs"
+case = "a transaction in a non-consensus block is not committed"
+producer_commit = "c04f3042d5e929a1e84c739bf66612f23f6d753f"
+guard_commit = "6c6128318f5950e38d52e01ecc678f1ec2a69c8c"
+cause = "No key-guard failure claimed; malformed/unknown hashes or indexed database status do not require receipt promotion."
+repair = "Run unchanged assertions with governed setup and router unset until explicitly serving RPC answers."
+
+[case.10]
+file = "apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs"
+case = "a transaction in a non-consensus block with a verified sequencer receipt is receipted"
+producer_commit = "c04f3042d5e929a1e84c739bf66612f23f6d753f"
+guard_commit = "6c6128318f5950e38d52e01ecc678f1ec2a69c8c"
+cause = "Router-only configuration rejects the valid recorded key before receipt verification and prevents receipted promotion."
+repair = "Install recorded receipt authority in setup and preserve it in serve_router; retain the exact body, rung and recorded calls."
+
+[case.11]
+file = "apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs"
+case = "a hash with a verified sequencer receipt and no indexed transaction answers receipted"
+producer_commit = "c04f3042d5e929a1e84c739bf66612f23f6d753f"
+guard_commit = "6c6128318f5950e38d52e01ecc678f1ec2a69c8c"
+cause = "Router-only configuration rejects the valid recorded key before receipt verification and prevents receipted promotion."
+repair = "Install recorded receipt authority in setup and preserve it in serve_router; retain the exact body, rung and recorded calls."
+
+[case.12]
+file = "apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs"
+case = "an indexed transaction without a block and a verified sequencer receipt answers receipted"
+producer_commit = "c04f3042d5e929a1e84c739bf66612f23f6d753f"
+guard_commit = "6c6128318f5950e38d52e01ecc678f1ec2a69c8c"
+cause = "Router-only configuration rejects the valid recorded key before receipt verification and prevents receipted promotion."
+repair = "Install recorded receipt authority in setup and preserve it in serve_router; retain the exact body, rung and recorded calls."
+
+[case.13]
+file = "apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs"
+case = "a hash whose sequencer receipt fails verification answers 404"
+producer_commit = "c04f3042d5e929a1e84c739bf66612f23f6d753f"
+guard_commit = "6c6128318f5950e38d52e01ecc678f1ec2a69c8c"
+cause = "Missing configured authority can mask the intended unverified receipt, untrusted key or malformed discovery refusal."
+repair = "Exercise the unchanged refusal assertions under recorded governance; preserve each supplied RPC answer."
+
+[case.14]
+file = "apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs"
+case = "a hash whose receipt key is not pinned answers 404"
+producer_commit = "c04f3042d5e929a1e84c739bf66612f23f6d753f"
+guard_commit = "6c6128318f5950e38d52e01ecc678f1ec2a69c8c"
+cause = "Missing configured authority can mask the intended unverified receipt, untrusted key or malformed discovery refusal."
+repair = "Exercise the unchanged refusal assertions under recorded governance; preserve each supplied RPC answer."
+
+[case.15]
+file = "apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs"
+case = "a hash with a bare receipt key list answers 404"
+producer_commit = "c04f3042d5e929a1e84c739bf66612f23f6d753f"
+guard_commit = "6c6128318f5950e38d52e01ecc678f1ec2a69c8c"
+cause = "Missing configured authority can mask the intended unverified receipt, untrusted key or malformed discovery refusal."
+repair = "Exercise the unchanged refusal assertions under recorded governance; preserve each supplied RPC answer."
+
+[case.16]
+file = "apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs"
+case = "a hash the sequencer reports only as submitted answers 404"
+producer_commit = "c04f3042d5e929a1e84c739bf66612f23f6d753f"
+guard_commit = "6c6128318f5950e38d52e01ecc678f1ec2a69c8c"
+cause = "Missing configured authority can mask the intended unverified receipt, untrusted key or malformed discovery refusal."
+repair = "Exercise the unchanged refusal assertions under recorded governance; preserve each supplied RPC answer."
+
+[case.17]
+file = "apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_committed_test.exs"
+case = "signature_route_reports_committed_rung"
+producer_commit = "8072ba2be216f834be0451ce4659f001ae4d9d04"
+guard_commit = "6c6128318f5950e38d52e01ecc678f1ec2a69c8c"
+cause = "Already supplies governed v4 authority; included as a regression, no baseline failure claimed."
+repair = "Keep existing authority, assertions and RPC answers unchanged."
+
+[case.18]
+file = "apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_committed_test.exs"
+case = "signature_route_refuses_malformed_gateway_batch"
+producer_commit = "8072ba2be216f834be0451ce4659f001ae4d9d04"
+inclusion_producer_commit = "bd50fa0d6a"
+guard_commit = "6c6128318f5950e38d52e01ecc678f1ec2a69c8c"
+observed_revision = "15b518d646b75cde3217040eb881343eaa924ee3"
+first_error = "The first malformed batch with height 11 returned HTTP 404 and Not found where the case expected HTTP 200 receipted."
+cause = "The case expected a receipted fallback for four malformed gateway batches; producer bd50fa0d6a removed on_invalid_inclusion and that fallback, so invalid inclusion fails R8 and the route returns HTTP 404."
+repair = "Rename the case and helper to signature_route_refuses_malformed_gateway_batch and update the repair test inventory; assert HTTP 404 with exactly the Not found message and every recorded RPC call for all four batches."
+
+[case.19]
+file = "apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_committed_test.exs"
+case = "signature route rejects a bare receipt key list"
+producer_commit = "8072ba2be216f834be0451ce4659f001ae4d9d04"
+guard_commit = "6c6128318f5950e38d52e01ecc678f1ec2a69c8c"
+cause = "Already supplies governed v4 authority; included as a regression, no baseline failure claimed."
+repair = "Keep existing authority, assertions and RPC answers unchanged."
+
+[case.20]
+file = "apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_committed_test.exs"
+case = "status_answers_committed_for_router_verified_hash"
+producer_commit = "8072ba2be216f834be0451ce4659f001ae4d9d04"
+inclusion_producer_commit = "bd50fa0d6a"
+guard_commit = "6c6128318f5950e38d52e01ecc678f1ec2a69c8c"
+observed_revision = "15b518d646b75cde3217040eb881343eaa924ee3"
+first_error = "After the valid committed request, the first truncated batch returned HTTP 404 and Not found where the case expected HTTP 200 receipted."
+cause = "The valid committed request passes with governed v4 authority, but four altered batches still expected the receipted fallback removed by producer bd50fa0d6a; the route correctly refuses their invalid inclusion at R8."
+repair = "Keep the valid request and exact committed answer; assert HTTP 404 with exactly the Not found message and every recorded RPC call for each of the four altered batches."
+
+[case.21]
+file = "apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_committed_test.exs"
+case = "status_answers_receipted_for_gateway_receipt_keys_envelope"
+producer_commit = "8072ba2be216f834be0451ce4659f001ae4d9d04"
+guard_commit = "6c6128318f5950e38d52e01ecc678f1ec2a69c8c"
+cause = "Already supplies governed v4 authority; included as a regression, no baseline failure claimed."
+repair = "Keep existing authority, assertions and RPC answers unchanged."

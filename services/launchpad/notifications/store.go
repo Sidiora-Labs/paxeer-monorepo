@@ -10,11 +10,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jackc/pgx/v5/stdlib"
+	"log"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
 )
 
 //go:embed schema.sql
@@ -31,7 +33,7 @@ func (s Store) CommitTrigger(ctx context.Context, n InboxItem, deliveries []Deli
 		return n, false, ErrInvalid
 	}
 	n.ID = key
-	if n.Category == "market" || n.Category == "watchlist" {
+	if n.Category == "market" || n.Category == categoryWatchlist {
 		n.ExpiresAt = n.CreatedAt.Add(15 * time.Minute)
 	}
 	seen := map[string]bool{}
@@ -62,7 +64,7 @@ func (s Store) CommitTrigger(ctx context.Context, n InboxItem, deliveries []Deli
 	if err != nil {
 		return n, false, err
 	}
-	defer tx.Rollback()
+	defer rollbackNotificationTx(tx)
 	accountKey := erasedAccountKey(n.Identity.AccountID)
 	if _, err = tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,210029))`, accountKey); err != nil {
 		return n, false, err
@@ -107,7 +109,7 @@ func (s Store) Claim(ctx context.Context, owner string, now time.Time, limit int
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback()
+	defer rollbackNotificationTx(tx)
 	rows, err := tx.QueryContext(ctx, `WITH due AS (SELECT id FROM discovery_notifications.outbox WHERE NOT terminal AND next_at<=$1 AND (lease_until IS NULL OR lease_until<=$1) ORDER BY next_at,id FOR UPDATE SKIP LOCKED LIMIT $2) UPDATE discovery_notifications.outbox o SET lease_owner=$3,lease_until=$1+interval '30 seconds',fence=o.fence+1 FROM due WHERE o.id=due.id RETURNING o.id,o.fence,o.deliveries,(SELECT document FROM discovery_notifications.inbox i WHERE i.id=o.id)`, now, limit, owner)
 	if err != nil {
 		return nil, err
@@ -119,21 +121,18 @@ func (s Store) Claim(ctx context.Context, owner string, now time.Time, limit int
 		var fence int64
 		var ds, b []byte
 		if err = rows.Scan(&id, &fence, &ds, &b); err != nil {
-			rows.Close()
-			return nil, err
+			return nil, errors.Join(err, rows.Close())
 		}
 		n.ID = fmt.Sprintf("%s:%d", id, fence)
 		if err = json.Unmarshal(b, &n.Notification); err == nil {
 			err = json.Unmarshal(ds, &n.Deliveries)
 		}
 		if err != nil {
-			rows.Close()
-			return nil, err
+			return nil, errors.Join(err, rows.Close())
 		}
 		result = append(result, n)
 	}
-	err = rows.Err()
-	rows.Close()
+	err = errors.Join(rows.Err(), rows.Close())
 	if err != nil {
 		return nil, err
 	}
@@ -141,11 +140,11 @@ func (s Store) Claim(ctx context.Context, owner string, now time.Time, limit int
 }
 func (s Store) Complete(ctx context.Context, owner, claim string, attempt DeliveryAttempt) error {
 	switch attempt.State {
-	case "accepted", "unknown", "retry", "rejected":
+	case stateAccepted, stateUnknown, stateRetry, stateRejected:
 		if ValidateResult(SendResult{State: attempt.State, Receipt: attempt.ProviderReceipt}) != nil {
 			return ErrInvalid
 		}
-	case "suppressed", "dead":
+	case stateSuppressed, stateDead:
 	default:
 		return ErrInvalid
 	}
@@ -161,7 +160,7 @@ func (s Store) Complete(ctx context.Context, owner, claim string, attempt Delive
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer rollbackNotificationTx(tx)
 	var body []byte
 	err = tx.QueryRowContext(ctx, `SELECT deliveries FROM discovery_notifications.outbox WHERE id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp() FOR UPDATE`, parts[0], owner, fence).Scan(&body)
 	if err != nil {
@@ -176,7 +175,7 @@ func (s Store) Complete(ctx context.Context, owner, claim string, attempt Delive
 	next := time.Now().Add(24 * time.Hour)
 	for i, d := range ds {
 		if d.Channel == attempt.Channel && d.TargetID == attempt.TargetID {
-			validAttempt := attempt.Attempt == d.Attempt+1 || (d.State == "unknown" && d.Reason == "send_interrupted" && attempt.Attempt == d.Attempt)
+			validAttempt := attempt.Attempt == d.Attempt+1 || (d.State == stateUnknown && d.Reason == "send_interrupted" && attempt.Attempt == d.Attempt)
 			if terminalDelivery(d) || attempt.NotificationID != parts[0] || !validAttempt || attempt.Attempt > 20 || !attempt.ExpiresAt.Equal(d.ExpiresAt) {
 				return ErrInvalid
 			}
@@ -266,7 +265,7 @@ func (s Store) DeleteAccount(ctx context.Context, account string) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer rollbackNotificationTx(tx)
 	key := erasedAccountKey(account)
 	if _, err = tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,210029))`, key); err != nil {
 		return err
@@ -298,7 +297,6 @@ func (s Store) List(ctx context.Context, account string, limit int) ([]InboxItem
 	if e != nil {
 		return nil, e
 	}
-	defer rows.Close()
 	out := []InboxItem{}
 	for rows.Next() {
 		var b []byte
@@ -307,11 +305,11 @@ func (s Store) List(ctx context.Context, account string, limit int) ([]InboxItem
 			e = json.Unmarshal(b, &n)
 		}
 		if e != nil {
-			return nil, e
+			return nil, errors.Join(e, rows.Close())
 		}
 		out = append(out, n)
 	}
-	return out, rows.Err()
+	return out, errors.Join(rows.Err(), rows.Close())
 }
 
 type InboxPageItem struct {
@@ -355,7 +353,6 @@ func (s Store) ListPage(ctx context.Context, account string, unreadOnly bool, cu
 	if err != nil {
 		return InboxPage{}, err
 	}
-	defer rows.Close()
 	page := InboxPage{Items: []InboxPageItem{}}
 	var lastCreatedAt time.Time
 	var lastID string
@@ -368,21 +365,21 @@ func (s Store) ListPage(ctx context.Context, account string, unreadOnly bool, cu
 		var createdAt time.Time
 		var id string
 		if err = rows.Scan(&document, &item.V2ID, &createdAt, &id, &readAt, &deliveries, &terminal); err != nil {
-			return InboxPage{}, err
+			return InboxPage{}, errors.Join(err, rows.Close())
 		}
 		if len(page.Items) == limit {
 			page.NextCursor = base64.RawURLEncoding.EncodeToString([]byte(lastCreatedAt.UTC().Format(time.RFC3339Nano) + "|" + lastID))
 			break
 		}
 		if err = json.Unmarshal(document, &item.InboxItem); err != nil {
-			return InboxPage{}, err
+			return InboxPage{}, errors.Join(err, rows.Close())
 		}
 		if item.Read && readAt.Valid {
 			item.ReadAt = &readAt.Time
 		}
 		var attempts []DeliveryAttempt
 		if err = json.Unmarshal(deliveries, &attempts); err != nil {
-			return InboxPage{}, err
+			return InboxPage{}, errors.Join(err, rows.Close())
 		}
 		item.DeliveryState = "pending"
 		if terminal {
@@ -392,7 +389,7 @@ func (s Store) ListPage(ctx context.Context, account string, unreadOnly bool, cu
 			item.DeliveryState = "sent"
 		}
 		for _, attempt := range attempts {
-			if attempt.State == "accepted" {
+			if attempt.State == stateAccepted {
 				item.DeliveryState = "sent"
 				break
 			}
@@ -401,9 +398,9 @@ func (s Store) ListPage(ctx context.Context, account string, unreadOnly bool, cu
 		lastCreatedAt, lastID = createdAt, id
 	}
 	if err = rows.Err(); err != nil {
-		return InboxPage{}, err
+		return InboxPage{}, errors.Join(err, rows.Close())
 	}
-	return page, nil
+	return page, rows.Close()
 }
 
 var _ Repository = Store{}
@@ -438,10 +435,10 @@ func NewStore(pool *pgxpool.Pool) (Store, error) {
 
 func terminalDelivery(d DeliveryAttempt) bool {
 	switch d.State {
-	case "accepted", "rejected", "suppressed", "dead":
+	case stateAccepted, stateRejected, stateSuppressed, stateDead:
 		return true
-	case "unknown":
-		return d.Reason == "expired_uncertain" || d.Reason == "attempts_exhausted_uncertain" || d.Reason == "stopped_uncertain"
+	case stateUnknown:
+		return d.Reason == "expired_uncertain" || d.Reason == reasonAttemptsExhaustedUncertain || d.Reason == "stopped_uncertain"
 	}
 	return false
 }
@@ -459,7 +456,7 @@ func (s Store) BeginSend(ctx context.Context, owner, claim string, attempt Deliv
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer rollbackNotificationTx(tx)
 	var body []byte
 	err = tx.QueryRowContext(ctx, `SELECT deliveries FROM discovery_notifications.outbox WHERE id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp() FOR UPDATE`, parts[0], owner, fence).Scan(&body)
 	if err != nil {
@@ -479,7 +476,7 @@ func (s Store) BeginSend(ctx context.Context, owner, claim string, attempt Deliv
 		}
 		found = true
 		d = attempt
-		d.State = "unknown"
+		d.State = stateUnknown
 		d.Reason = "send_interrupted"
 		d.AcceptanceUnknown = true
 		d.TargetRevision = attempt.TargetRevision
@@ -499,4 +496,10 @@ func (s Store) BeginSend(ctx context.Context, owner, claim string, attempt Deliv
 		return err
 	}
 	return tx.Commit()
+}
+
+func rollbackNotificationTx(tx *sql.Tx) {
+	if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+		log.Printf("notification transaction rollback: %v", err)
+	}
 }

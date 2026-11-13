@@ -1,5 +1,34 @@
-#[path = "../../../layerx-programs-registry/tests/support/chain.rs"]
-pub(crate) mod chain;
+trait Checked<T> {
+    fn checked(self) -> T;
+}
+
+impl<T, E: core::fmt::Debug> Checked<T> for Result<T, E> {
+    #[track_caller]
+    fn checked(self) -> T {
+        match self {
+            Ok(value) => value,
+            Err(error) => panic!("{error:?}"),
+        }
+    }
+}
+
+impl<T> Checked<T> for Option<T> {
+    #[track_caller]
+    fn checked(self) -> T {
+        match self {
+            Some(value) => value,
+            None => panic!("expected a value"),
+        }
+    }
+}
+
+#[allow(dead_code)]
+pub(crate) mod chain {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../layerx-programs-registry/tests/support/chain.rs"
+    ));
+}
 
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_programs::chain_proof::{
@@ -48,7 +77,7 @@ pub(crate) fn read(name: &str) -> Vec<u8> {
 }
 pub(crate) fn signed(header: &ChainHeader, mut commit: Commit) -> Commit {
     commit.height = header.height;
-    commit.block_id.hash = header.hash().unwrap().to_vec();
+    commit.block_id.hash = header.hash().checked().to_vec();
     let key = SigningKey::from_bytes(&SEED);
     let timestamp = Timestamp {
         seconds: header.time.seconds,
@@ -61,7 +90,7 @@ pub(crate) fn signed(header: &ChainHeader, mut commit: Commit) -> Commit {
         Some(&commit.block_id),
         timestamp,
     )
-    .unwrap();
+    .checked();
     commit.signatures = vec![CommitSig {
         flag: BlockIdFlag::Commit,
         validator_address: Sha256::digest(key.verifying_key().as_bytes())[..20].to_vec(),
@@ -72,10 +101,10 @@ pub(crate) fn signed(header: &ChainHeader, mut commit: Commit) -> Commit {
 }
 pub(crate) fn varint(mut n: u64, out: &mut Vec<u8>) {
     while n >= 128 {
-        out.push((n as u8 & 127) | 128);
+        out.push(u8::try_from(n & 127).checked() | 128);
         n >>= 7;
     }
-    out.push(n as u8);
+    out.push(u8::try_from(n).checked());
 }
 pub(crate) fn field(n: u8, value: &[u8], out: &mut Vec<u8>) {
     out.push(n << 3 | 2);
@@ -85,7 +114,7 @@ pub(crate) fn field(n: u8, value: &[u8], out: &mut Vec<u8>) {
 pub(crate) fn ops(encoded: &[u8]) -> Vec<ProofOp> {
     let mut reader = ProtoReader::new(encoded);
     let mut out = Vec::new();
-    while let Some(f) = reader.next_field().unwrap() {
+    while let Some(f) = reader.next_field().checked() {
         let ProtoValue::Bytes(bytes) = f.value else {
             panic!("proof op bytes")
         };
@@ -96,12 +125,12 @@ pub(crate) fn ops(encoded: &[u8]) -> Vec<ProofOp> {
             key: Vec::new(),
             data: Vec::new(),
         };
-        while let Some(f) = r.next_field().unwrap() {
+        while let Some(f) = r.next_field().checked() {
             let ProtoValue::Bytes(b) = f.value else {
                 panic!("proof op field")
             };
             match f.number {
-                1 => op.op_type = String::from_utf8(b.to_vec()).unwrap(),
+                1 => op.op_type = String::from_utf8(b.to_vec()).checked(),
                 2 => op.key = b.to_vec(),
                 3 => op.data = b.to_vec(),
                 _ => panic!("unknown proof op"),
@@ -119,8 +148,9 @@ pub(crate) fn commitment(
     store: &str,
     key: Vec<u8>,
 ) -> CommitmentProof {
-    let mut proof = decode_commitment_proof(&fixture.encode().unwrap()).unwrap();
-    proof.store_name = store.to_owned();
+    let mut proof = decode_commitment_proof(&fixture.encode().checked()).checked();
+    proof.store_name.clear();
+    proof.store_name.push_str(store);
     proof.key = key;
     proof.value = Some(read(&format!("{prefix}.{label}.value")));
     proof.proof_ops = ops(&read(&format!("{prefix}.{label}.ops")));
@@ -144,9 +174,9 @@ pub(crate) fn evidence(
 ) {
     let submission = SandboxSubmission::decode(
         &read(&format!("{name}.payload")),
-        SandboxProtocolContext::new(3, 4).unwrap(),
+        SandboxProtocolContext::new(3, 4).checked(),
     )
-    .unwrap();
+    .checked();
     let tx = read(&format!("{name}.tx"));
     let tx_hash = Sha256::digest(&tx);
     let result = TxResult {
@@ -161,7 +191,7 @@ pub(crate) fn evidence(
         &[SEED],
         vec![(b"encoder".to_vec(), vec![1])],
     )
-    .unwrap();
+    .checked();
     fixture.header.height = 101;
     fixture.header.time.seconds = 1_700_000_001;
     fixture.header.time.nanos = 123_000_000;
@@ -171,7 +201,7 @@ pub(crate) fn evidence(
     current.app_hash = read(&format!("{name}.before.root"));
     current.data_hash = hash_from_byte_slices(&[&tx_hash]).to_vec();
     let current_commit = signed(&current, fixture.commit.clone());
-    fixture.header.last_block_id.hash = current.hash().unwrap().to_vec();
+    fixture.header.last_block_id.hash = current.hash().checked().to_vec();
     fixture.header.last_results_hash = hash_from_byte_slices(&[&result_leaf]).to_vec();
     fixture.header.app_hash = read(&format!("{name}.after.root"));
     fixture.commit = signed(&fixture.header, fixture.commit.clone());
@@ -181,7 +211,7 @@ pub(crate) fn evidence(
         &format!("{name}.after"),
         "state",
         "lxphost",
-        sandbox_state_key(kind, submission.lease().bytes()).unwrap(),
+        sandbox_state_key(kind, submission.lease().bytes()).checked(),
     );
     let chain = SandboxReceiptEvidence {
         tx,
@@ -218,7 +248,7 @@ pub(crate) fn evidence(
             &format!("{name}.before"),
             "lease",
             "lxphost",
-            sandbox_state_key(0, submission.lease().bytes()).unwrap(),
+            sandbox_state_key(0, submission.lease().bytes()).checked(),
         ))
     };
     fixture.header = next;
@@ -245,14 +275,14 @@ pub(crate) fn terminal_evidence() -> (chain::ChainFixture, LeaseId, TerminalRece
         &[SEED],
         vec![(b"encoder".to_vec(), vec![1])],
     )
-    .unwrap();
+    .checked();
     fixture.header.height = 101;
     fixture.header.time.seconds = 1_700_000_001;
     fixture.header.time.nanos = 123_000_000;
     fixture.header.app_hash = read("terminal.root");
     fixture.commit = signed(&fixture.header, fixture.commit.clone());
     let recorded_key = read("terminal.state.key");
-    let lease = LeaseId::new(recorded_key[5..].try_into().unwrap()).unwrap();
+    let lease = LeaseId::new(recorded_key[5..].try_into().checked()).checked();
     assert_eq!(recorded_key, sandbox_terminal_key(lease.bytes()));
     let proof = commitment(&fixture, "terminal", "state", "lxphost", recorded_key);
     let evidence = TerminalReceiptEvidence {
@@ -267,22 +297,22 @@ pub(crate) fn terminal_evidence() -> (chain::ChainFixture, LeaseId, TerminalRece
 pub(crate) fn reprove_state(
     evidence: &mut AuthenticatedSandboxReceiptEvidence,
     store: &str,
-    key: Vec<u8>,
+    key: &[u8],
     value: Vec<u8>,
 ) {
     let mut fixture = chain::ChainFixture::new_in_store(
         store,
         "repair-native",
         &[SEED],
-        vec![(key.clone(), value)],
+        vec![(key.to_vec(), value)],
     )
-    .unwrap();
+    .checked();
     let mut header = evidence.chain.result_proof.header.clone();
-    header.app_hash = fixture.header.app_hash.clone();
-    fixture.header = header.clone();
+    header.app_hash.clone_from(&fixture.header.app_hash);
+    fixture.header.clone_from(&header);
     fixture.commit = signed(&header, fixture.commit.clone());
     evidence.chain.commitment =
-        decode_commitment_proof(&fixture.encode_key(&key).unwrap()).unwrap();
+        decode_commitment_proof(&fixture.encode_key(key).checked()).checked();
     evidence.chain.usage_ops = evidence.chain.commitment.proof_ops.clone();
     evidence.chain.result_proof.header = header;
     evidence.chain.result_proof.commit = fixture.commit;
@@ -293,7 +323,7 @@ pub(crate) fn frames() -> Vec<Vec<u8>> {
     let mut input = bytes.as_slice();
     let mut out = Vec::new();
     while !input.is_empty() {
-        let length = u32::from_be_bytes(input[..4].try_into().unwrap()) as usize;
+        let length = u32::from_be_bytes(input[..4].try_into().checked()) as usize;
         out.push(input[4..4 + length].to_vec());
         input = &input[4 + length..];
     }

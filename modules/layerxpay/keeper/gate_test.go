@@ -55,7 +55,9 @@ func TestCheckWritePauseExitPaths(t *testing.T) {
 	}
 	require.Len(t, exits, 9)
 	seenExits := 0
-	for _, method := range payGateMethods(t, false) {
+	methods := payGateMethods(t, false)
+	require.Contains(t, methods, "streamOpenForAsk")
+	for _, method := range methods {
 		t.Run(method, func(t *testing.T) {
 			require.Contains(t, types.MethodActivity, method)
 			moduleBefore := payStoreSnapshot(h.ctx, h.storeKey)
@@ -182,7 +184,7 @@ func TestCheckWriteFamilyDisabled(t *testing.T) {
 func TestCheckWriteViewsUngated(t *testing.T) {
 	h := newPayHarness(t)
 	views := payGateMethods(t, true)
-	require.Len(t, views, 17)
+	require.Len(t, views, 18)
 	for _, view := range views {
 		require.NotContains(t, types.MethodActivity, view)
 	}

@@ -795,7 +795,7 @@
       "id": "core-manifest",
       "path": "deployments/paxeer-x-network-addresses.json",
       "proofKind": "source",
-      "sha256": "a35ff7c6f532d2f92e4ca59e4ef2cf0a105d551ae9ac3eba68b95f79a355df4a"
+      "sha256": "6ec466f0cade69ad3da3ea55485afe6d13ec47722bba46864df156ea0900ee6b"
     },
     {
       "id": "readiness",

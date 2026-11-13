@@ -89,6 +89,7 @@ func (g GenesisState) Validate() error {
 	// Kernel families retain records across their lifetime without an aggregate
 	// admission limit. Bound each record rather than rejecting valid exports by
 	// count; MaxKernelRecords bounds recovery chunks and admitted agent metadata.
+	// Record links below require the full envelope, including across recovery chunks.
 	records := make(map[string][]byte, len(g.KernelRecords))
 	for i, record := range g.KernelRecords {
 		if len(record.Key) < 4 || len(record.Key) > 3+MaxKernelKeyBytes || record.Key[0] != KernelKVPrefix[0] {

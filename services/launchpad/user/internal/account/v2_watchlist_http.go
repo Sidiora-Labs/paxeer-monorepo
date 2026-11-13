@@ -83,6 +83,7 @@ func writeV2AccountResponse(w http.ResponseWriter, id uuid.UUID, raw []byte, err
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(raw)
+	_, _ = w.Write(raw) //nolint:gosec // The account response is a JSON envelope with its original wire bytes.
 }

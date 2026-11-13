@@ -229,19 +229,13 @@ fn invalid_inputs_never_advance_or_persist_the_stream() {
 
 #[test]
 fn emitted_receipts_keep_exact_bytes_and_positions_through_backpressure_and_restart() {
-    use layerx_agentd::approval::{ApprovalEventKind, ApprovalEvents, ApprovalLifecycle};
-    use layerx_agentd::audit::{Coverage, Log};
-    use layerx_agentd::events::gap::EthLogSource;
-    use layerx_agentd::read::HistoryLimits;
-    use layerx_agentd::session::SessionId;
-    use layerx_client::subscription::{subscribe, SubscriptionTopic};
-    use layerx_types::ids::Did;
-    use layerx_types::rung::Rung;
-    use serde_json::{json, Value};
+    use serde_json::Value;
 
-    let fixture: Value =
-        serde_json::from_str(include_str!("fixtures/receipted-log-transition.json")).unwrap();
-    let receipts = fixture["receipted"].as_array().unwrap();
+    let fixture: Value = assert_ok(
+        serde_json::from_str(include_str!("fixtures/receipted-log-transition.json")),
+        "unexpected error",
+    );
+    let receipts = assert_some(fixture["receipted"].as_array(), "expected Some value");
     let attributes = EventAttributes {
         agent: "agent-a".to_owned(),
         account: "account-a".to_owned(),
@@ -253,71 +247,19 @@ fn emitted_receipts_keep_exact_bytes_and_positions_through_backpressure_and_rest
     };
     let root = test_directory("producer-backpressure");
     let tenant_id = tenant("producer-backpressure");
-    let mut ingestor =
-        EventIngestor::open(Store::open(&root).unwrap(), tenant_id.clone(), 2, 39).unwrap();
-    let mut audit = Log::open(root.join("audit"), &tenant_id).unwrap();
-    let seed = ApprovalEvents::emit(
-        &mut ingestor,
-        &mut audit,
-        &mut Coverage::default(),
-        &ApprovalLifecycle {
-            tenant: tenant_id.clone(),
-            agent: Did::new(b"agent-a").unwrap(),
-            session: SessionId([1; 32]),
-            capability: [2; 32],
-            policy_version: "producer-backpressure".to_owned(),
-            approval_id: [3; 32],
-            canonical_digest: [4; 32],
-            activity_type: 9,
-            asset: "LXR".to_owned(),
-            kind: ApprovalEventKind::Created,
-            principal: None,
-            observed_at_ms: 1,
-        },
-    )
-    .unwrap();
-    let seed_event = ingestor.take_next().unwrap();
-    assert_eq!(seed_event.global_sequence, 39);
-    assert_eq!(seed_event.canonical_bytes, seed.canonical_event_bytes);
-    assert_eq!(
-        ingestor
-            .store()
-            .get(&key(
-                &tenant_id,
-                ObjectKind::Event,
-                39_u64.to_be_bytes().to_vec()
-            ))
-            .unwrap()
-            .class(),
-        StorageClass::LocalOnly
+    let mut ingestor = assert_ok(
+        EventIngestor::open(
+            assert_ok(Store::open(&root), "unexpected error"),
+            tenant_id.clone(),
+            2,
+            39,
+        ),
+        "unexpected error",
     );
+    let seed_event = seed_backpressure(&mut ingestor, &root, &tenant_id);
     let initial = ingestor.watermark();
     assert_eq!(initial.next_expected, 40);
-    let server = SubscriptionServer::new(
-        json!(["logs", {"topics": []}]),
-        vec![
-            receipts[1].clone(),
-            receipts[0].clone(),
-            receipts[2].clone(),
-        ],
-    );
-    let mut logs = subscribe(
-        &server.url,
-        &[],
-        SubscriptionTopic::Logs {
-            address: None,
-            topics: vec![],
-        },
-    )
-    .unwrap();
-    ingestor.read_log(&mut logs, attributes.clone()).unwrap();
-    ingestor.read_log(&mut logs, attributes.clone()).unwrap();
-    assert!(matches!(
-        ingestor.read_log(&mut logs, attributes.clone()),
-        Err(IngestError::Backpressure { capacity: 2 })
-    ));
-    server.finish();
-    drop(logs);
+    fill_receipt_buffer(&mut ingestor, &attributes, receipts);
     assert_eq!(ingestor.buffered_len(), 2);
     assert_eq!(ingestor.watermark(), initial);
     assert!(ingestor.take_next().is_none());
@@ -327,105 +269,51 @@ fn emitted_receipts_keep_exact_bytes_and_positions_through_backpressure_and_rest
             .list_object_ids(&tenant_id, ObjectKind::Event),
         vec![39_u64.to_be_bytes().to_vec()]
     );
-    assert_eq!(ingestor.retained_event(39).unwrap(), seed_event);
+    assert_eq!(
+        assert_ok(ingestor.retained_event(39), "unexpected error"),
+        seed_event
+    );
     drop(ingestor);
 
-    let mut ingestor =
-        EventIngestor::open(Store::open(&root).unwrap(), tenant_id.clone(), 2, 0).unwrap();
+    let mut ingestor = assert_ok(
+        EventIngestor::open(
+            assert_ok(Store::open(&root), "unexpected error"),
+            tenant_id.clone(),
+            2,
+            0,
+        ),
+        "unexpected error",
+    );
     assert_eq!(ingestor.buffered_len(), 2);
     assert_eq!(ingestor.watermark(), initial);
-    assert_eq!(ingestor.retained_event(39).unwrap(), seed_event);
+    assert_eq!(
+        assert_ok(ingestor.retained_event(39), "unexpected error"),
+        seed_event
+    );
     assert!(ingestor.take_next().is_none());
     let expected: Vec<_> = receipts[..2]
         .iter()
-        .map(|receipt| CoreEvent::from_log(receipt, attributes.clone()).unwrap())
+        .map(|receipt| {
+            assert_ok(
+                CoreEvent::from_log(receipt, attributes.clone()),
+                "unexpected error",
+            )
+        })
         .collect();
-    let height = expected[0].position().unwrap().block_height;
-    let server = SubscriptionServer::new(
-        json!(["newHeads"]),
-        vec![json!({"number": format!("0x{:x}", height + 1)})],
-    );
-    let mut heads = subscribe(&server.url, &[], SubscriptionTopic::NewHeads).unwrap();
-    // The first head closes the pending block without requesting a history range.
-    let source = EthLogSource::new(
-        &server.url.replacen("ws://", "http://", 1),
-        &[],
-        SubscriptionTopic::Logs {
-            address: None,
-            topics: vec![],
-        },
+    let height = committed_checkpoint(
+        assert_some(expected[0].position(), "expected Some value").block_height,
     )
-    .unwrap();
-    ingestor
-        .read_head(
-            &mut heads,
-            &source,
-            HistoryLimits {
-                maximum_items: 2,
-                maximum_response_bytes: 1_048_576,
-            },
-            2,
-            attributes,
-        )
-        .unwrap();
-    server.finish();
-    for (offset, expected) in expected.iter().enumerate() {
-        let mut expected = expected.clone();
-        expected.global_sequence = 40 + offset as u64;
-        let delivered = ingestor.take_next().unwrap();
-        assert_eq!(delivered, expected);
-        assert_eq!(delivered.rung(), Some(Rung::Receipted));
-        let decoded = delivered.log().unwrap();
-        assert_eq!(decoded.seq, Some(0xf1));
-        assert_eq!(decoded.block_hash, None);
-        assert!(decoded.transaction_hash.is_some());
-        let stored = ingestor
-            .store()
-            .get(&key(
-                &tenant_id,
-                ObjectKind::Event,
-                delivered.global_sequence.to_be_bytes().to_vec(),
-            ))
-            .unwrap();
-        assert_eq!(stored.class(), StorageClass::CoreProducedCache);
-        assert_eq!(stored.bytes(), delivered.canonical_bytes);
-        assert_eq!(
-            ingestor.retained_event(delivered.global_sequence).unwrap(),
-            delivered
-        );
-    }
+    .height;
+    close_receipt_block(&mut ingestor, height, attributes);
+    assert_delivered_receipts(&mut ingestor, &tenant_id, &expected);
     assert!(ingestor.take_next().is_none());
     assert_eq!(ingestor.watermark().next_expected, 42);
     assert_eq!(ingestor.watermark().last_position, expected[1].position());
     let watermark = ingestor.watermark();
     drop(ingestor);
 
-    let mut ingestor =
-        EventIngestor::open(Store::open(&root).unwrap(), tenant_id.clone(), 2, 0).unwrap();
-    assert_eq!(ingestor.watermark(), watermark);
-    assert_eq!(ingestor.buffered_len(), 0);
-    assert!(ingestor.take_next().is_none());
-    assert_eq!(
-        ingestor
-            .store()
-            .list_object_ids(&tenant_id, ObjectKind::Event),
-        vec![
-            39_u64.to_be_bytes().to_vec(),
-            40_u64.to_be_bytes().to_vec(),
-            41_u64.to_be_bytes().to_vec()
-        ]
-    );
-    assert_eq!(ingestor.retained_event(39).unwrap(), seed_event);
-    for (offset, expected) in expected.iter().enumerate() {
-        let mut expected = expected.clone();
-        expected.global_sequence = 40 + offset as u64;
-        assert_eq!(
-            ingestor.retained_event(expected.global_sequence).unwrap(),
-            expected
-        );
-    }
-    drop(ingestor);
-    fs::remove_dir_all(root).unwrap();
+    assert_reopened_receipts(&root, &tenant_id, watermark, &seed_event, &expected);
+    assert_ok(fs::remove_dir_all(root), "unexpected error");
 }
 
 pub struct SubscriptionServer {
@@ -434,72 +322,89 @@ pub struct SubscriptionServer {
 }
 
 impl SubscriptionServer {
+    #[must_use = "use the constructed fixture value"]
+    /// # Panics
+    /// Panics if the fixture data, codec, signatures, or required node exchanges fail validation.
     pub fn new(topic: serde_json::Value, events: Vec<serde_json::Value>) -> Self {
         use std::io::{Read, Write};
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        let url = format!("ws://{}/", listener.local_addr().unwrap());
+        let listener = assert_ok(
+            std::net::TcpListener::bind("127.0.0.1:0"),
+            "unexpected error",
+        );
+        let url = format!(
+            "ws://{}/",
+            assert_ok(listener.local_addr(), "unexpected error")
+        );
         let server = std::thread::spawn(move || {
-            let (mut socket, _) = listener.accept().unwrap();
-            socket
-                .set_read_timeout(Some(std::time::Duration::from_secs(3)))
-                .unwrap();
+            let (mut socket, _) = assert_ok(listener.accept(), "unexpected error");
+            assert_ok(
+                socket.set_read_timeout(Some(std::time::Duration::from_secs(3))),
+                "unexpected error",
+            );
             let mut request = Vec::new();
             while !request.ends_with(b"\r\n\r\n") {
                 let mut byte = [0];
-                socket.read_exact(&mut byte).unwrap();
+                assert_ok(socket.read_exact(&mut byte), "unexpected error");
                 request.push(byte[0]);
             }
-            let request = String::from_utf8(request).unwrap();
-            let key = request
-                .lines()
-                .find_map(|line| {
+            let request = assert_ok(String::from_utf8(request), "unexpected error");
+            let key = assert_some(
+                request.lines().find_map(|line| {
                     let (name, value) = line.split_once(':')?;
                     name.eq_ignore_ascii_case("sec-websocket-key")
                         .then(|| value.trim())
-                })
-                .unwrap();
+                }),
+                "expected Some value",
+            );
             let digest =
                 openssl::sha::sha1(format!("{key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11").as_bytes());
-            write!(socket, "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {}\r\n\r\n", openssl::base64::encode_block(&digest)).unwrap();
+            assert_ok(write!(socket, "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {}\r\n\r\n", openssl::base64::encode_block(&digest)), "unexpected error");
             let mut header = [0; 2];
-            socket.read_exact(&mut header).unwrap();
+            assert_ok(socket.read_exact(&mut header), "unexpected error");
             assert_eq!(header[0], 0x81);
             assert_ne!(header[1] & 0x80, 0);
             let length = match header[1] & 0x7f {
                 126 => {
                     let mut bytes = [0; 2];
-                    socket.read_exact(&mut bytes).unwrap();
+                    assert_ok(socket.read_exact(&mut bytes), "unexpected error");
                     usize::from(u16::from_be_bytes(bytes))
                 }
                 127 => panic!("unexpected subscription frame length"),
                 value => usize::from(value),
             };
             let mut mask = [0; 4];
-            socket.read_exact(&mut mask).unwrap();
+            assert_ok(socket.read_exact(&mut mask), "unexpected error");
             let mut payload = vec![0; length];
-            socket.read_exact(&mut payload).unwrap();
+            assert_ok(socket.read_exact(&mut payload), "unexpected error");
             for (offset, byte) in payload.iter_mut().enumerate() {
                 *byte ^= mask[offset % 4];
             }
-            let request: serde_json::Value = serde_json::from_slice(&payload).unwrap();
+            let request: serde_json::Value =
+                assert_ok(serde_json::from_slice(&payload), "unexpected error");
             assert_eq!(
                 request,
                 serde_json::json!({"jsonrpc":"2.0","id":1,"method":"eth_subscribe","params":topic})
             );
             let send = |socket: &mut std::net::TcpStream, value: serde_json::Value| {
-                let bytes = serde_json::to_vec(&value).unwrap();
-                socket.write_all(&[0x81]).unwrap();
+                let bytes = assert_ok(serde_json::to_vec(&value), "unexpected error");
+                assert_ok(socket.write_all(&[0x81]), "unexpected error");
                 if bytes.len() < 126 {
-                    socket
-                        .write_all(&[u8::try_from(bytes.len()).unwrap()])
-                        .unwrap();
+                    assert_ok(
+                        socket
+                            .write_all(&[assert_ok(u8::try_from(bytes.len()), "unexpected error")]),
+                        "unexpected error",
+                    );
                 } else {
-                    socket.write_all(&[126]).unwrap();
-                    socket
-                        .write_all(&u16::try_from(bytes.len()).unwrap().to_be_bytes())
-                        .unwrap();
+                    assert_ok(socket.write_all(&[126]), "unexpected error");
+                    assert_ok(
+                        socket.write_all(
+                            &assert_ok(u16::try_from(bytes.len()), "unexpected error")
+                                .to_be_bytes(),
+                        ),
+                        "unexpected error",
+                    );
                 }
-                socket.write_all(&bytes).unwrap();
+                assert_ok(socket.write_all(&bytes), "unexpected error");
             };
             send(
                 &mut socket,
@@ -514,11 +419,16 @@ impl SubscriptionServer {
         });
         Self { url, server }
     }
+    /// # Panics
+    /// Panics if the fixture server thread panics.
     pub fn finish(self) {
-        self.server.join().unwrap();
+        assert_ok(self.server.join(), "unexpected error");
     }
 }
 
+#[must_use = "use the constructed fixture value"]
+/// # Panics
+/// Panics if the signed checkpoint or its validator signatures fail verification.
 pub fn committed_checkpoint(height: u64) -> layerx_agentd::read::ServedCheckpoint {
     use ed25519_dalek::{Signer, SigningKey};
     use layerx_agentd::read::{
@@ -571,5 +481,240 @@ pub fn committed_checkpoint(height: u64) -> layerx_agentd::read::ServedCheckpoin
             .sign(&commit.vote_sign_bytes("events-test", timestamp))
             .to_bytes(),
     });
-    checkpoint(height, "events-test", &header, &commit, &[validator]).unwrap()
+    assert_ok(
+        checkpoint(height, "events-test", &header, &commit, &[validator]),
+        "unexpected error",
+    )
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn assert_some<T>(value: Option<T>, message: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{message}"),
+    }
+}
+
+fn seed_backpressure(
+    ingestor: &mut EventIngestor,
+    root: &std::path::Path,
+    tenant_id: &TenantId,
+) -> CoreEvent {
+    use layerx_agentd::approval::{ApprovalEventKind, ApprovalEvents, ApprovalLifecycle};
+    use layerx_agentd::audit::{Coverage, Log};
+    use layerx_agentd::session::SessionId;
+    use layerx_types::ids::Did;
+    let mut audit = assert_ok(Log::open(root.join("audit"), tenant_id), "unexpected error");
+    let seed = assert_ok(
+        ApprovalEvents::emit(
+            ingestor,
+            &mut audit,
+            &mut Coverage::default(),
+            &ApprovalLifecycle {
+                tenant: tenant_id.clone(),
+                agent: assert_ok(Did::new(b"agent-a"), "unexpected error"),
+                session: SessionId([1; 32]),
+                capability: [2; 32],
+                policy_version: "producer-backpressure".to_owned(),
+                approval_id: [3; 32],
+                canonical_digest: [4; 32],
+                activity_type: 9,
+                asset: "LXR".to_owned(),
+                kind: ApprovalEventKind::Created,
+                principal: None,
+                observed_at_ms: 1,
+            },
+        ),
+        "unexpected error",
+    );
+    let seed_event = assert_some(ingestor.take_next(), "expected Some value");
+    assert_eq!(seed_event.global_sequence, 39);
+    assert_eq!(seed_event.canonical_bytes, seed.canonical_event_bytes);
+    assert_eq!(
+        assert_some(
+            ingestor.store().get(&key(
+                tenant_id,
+                ObjectKind::Event,
+                39_u64.to_be_bytes().to_vec()
+            )),
+            "expected Some value"
+        )
+        .class(),
+        StorageClass::LocalOnly
+    );
+    seed_event
+}
+
+fn close_receipt_block(ingestor: &mut EventIngestor, height: u64, attributes: EventAttributes) {
+    use layerx_agentd::events::gap::EthLogSource;
+    use layerx_agentd::read::HistoryLimits;
+    use layerx_client::subscription::{subscribe, SubscriptionTopic};
+    use serde_json::json;
+    let server = SubscriptionServer::new(
+        json!(["newHeads"]),
+        vec![json!({"number": format!("0x{:x}", height + 1)})],
+    );
+    let mut heads = assert_ok(
+        subscribe(&server.url, &[], SubscriptionTopic::NewHeads),
+        "unexpected error",
+    );
+    // The first head closes the pending block without requesting a history range.
+    let source = assert_ok(
+        EthLogSource::new(
+            &server.url.replacen("ws://", "http://", 1),
+            &[],
+            SubscriptionTopic::Logs {
+                address: None,
+                topics: vec![],
+            },
+        ),
+        "unexpected error",
+    );
+    assert_ok(
+        ingestor.read_head(
+            &mut heads,
+            &source,
+            HistoryLimits {
+                maximum_items: 2,
+                maximum_response_bytes: 1_048_576,
+            },
+            2,
+            attributes,
+        ),
+        "unexpected error",
+    );
+    server.finish();
+}
+
+fn assert_delivered_receipts(
+    ingestor: &mut EventIngestor,
+    tenant_id: &TenantId,
+    expected: &[CoreEvent],
+) {
+    use layerx_types::rung::Rung;
+    for (offset, expected) in expected.iter().enumerate() {
+        let mut expected = expected.clone();
+        expected.global_sequence = 40 + offset as u64;
+        let delivered = assert_some(ingestor.take_next(), "expected Some value");
+        assert_eq!(delivered, expected);
+        assert_eq!(delivered.rung(), Some(Rung::Receipted));
+        let decoded = assert_ok(delivered.log(), "unexpected error");
+        assert_eq!(decoded.seq, Some(0xf1));
+        assert_eq!(decoded.block_hash, None);
+        assert!(decoded.transaction_hash.is_some());
+        let stored = assert_some(
+            ingestor.store().get(&key(
+                tenant_id,
+                ObjectKind::Event,
+                delivered.global_sequence.to_be_bytes().to_vec(),
+            )),
+            "expected Some value",
+        );
+        assert_eq!(stored.class(), StorageClass::CoreProducedCache);
+        assert_eq!(stored.bytes(), delivered.canonical_bytes);
+        assert_eq!(
+            assert_ok(
+                ingestor.retained_event(delivered.global_sequence),
+                "unexpected error"
+            ),
+            delivered
+        );
+    }
+}
+
+fn assert_reopened_receipts(
+    root: &std::path::Path,
+    tenant_id: &TenantId,
+    watermark: Watermark,
+    seed_event: &CoreEvent,
+    expected: &[CoreEvent],
+) {
+    let mut ingestor = assert_ok(
+        EventIngestor::open(
+            assert_ok(Store::open(root), "unexpected error"),
+            tenant_id.clone(),
+            2,
+            0,
+        ),
+        "unexpected error",
+    );
+    assert_eq!(ingestor.watermark(), watermark);
+    assert_eq!(ingestor.buffered_len(), 0);
+    assert!(ingestor.take_next().is_none());
+    assert_eq!(
+        ingestor
+            .store()
+            .list_object_ids(tenant_id, ObjectKind::Event),
+        vec![
+            39_u64.to_be_bytes().to_vec(),
+            40_u64.to_be_bytes().to_vec(),
+            41_u64.to_be_bytes().to_vec()
+        ]
+    );
+    assert_eq!(
+        assert_ok(ingestor.retained_event(39), "unexpected error"),
+        *seed_event
+    );
+    for (offset, expected) in expected.iter().enumerate() {
+        let mut expected = expected.clone();
+        expected.global_sequence = 40 + offset as u64;
+        assert_eq!(
+            assert_ok(
+                ingestor.retained_event(expected.global_sequence),
+                "unexpected error"
+            ),
+            expected
+        );
+    }
+    drop(ingestor);
+}
+
+fn fill_receipt_buffer(
+    ingestor: &mut EventIngestor,
+    attributes: &EventAttributes,
+    receipts: &[serde_json::Value],
+) {
+    use layerx_client::subscription::{subscribe, SubscriptionTopic};
+    use serde_json::json;
+    let server = SubscriptionServer::new(
+        json!(["logs", {"topics": []}]),
+        vec![
+            receipts[1].clone(),
+            receipts[0].clone(),
+            receipts[2].clone(),
+        ],
+    );
+    let mut logs = assert_ok(
+        subscribe(
+            &server.url,
+            &[],
+            SubscriptionTopic::Logs {
+                address: None,
+                topics: vec![],
+            },
+        ),
+        "unexpected error",
+    );
+    assert_ok(
+        ingestor.read_log(&mut logs, attributes.clone()),
+        "unexpected error",
+    );
+    assert_ok(
+        ingestor.read_log(&mut logs, attributes.clone()),
+        "unexpected error",
+    );
+    assert!(matches!(
+        ingestor.read_log(&mut logs, attributes.clone()),
+        Err(IngestError::Backpressure { capacity: 2 })
+    ));
+    server.finish();
+    drop(logs);
 }

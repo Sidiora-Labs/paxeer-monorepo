@@ -35,18 +35,18 @@ type ReportedHeaderReader interface {
 
 func headerIdentity(ctx context.Context, r Reader, block common.Hash) (*types.Header, error) {
 	if block == (common.Hash{}) {
-		return nil, Issue{Code: "block_identity_unverified"}
+		return nil, Issue{Code: valueBlockIdentityUnverified}
 	}
 	if rr, ok := r.(ReportedHeaderReader); ok {
 		h, err := rr.HeaderByReportedHash(ctx, block)
 		if err != nil || h == nil || h.Number == nil || !h.Number.IsUint64() {
-			return nil, Issue{Code: "block_identity_unverified"}
+			return nil, Issue{Code: valueBlockIdentityUnverified}
 		}
 		return h, nil
 	}
 	h, err := r.HeaderByHash(ctx, block)
 	if err != nil || h == nil || h.Number == nil || !h.Number.IsUint64() || h.Hash() != block {
-		return nil, Issue{Code: "block_identity_unverified"}
+		return nil, Issue{Code: valueBlockIdentityUnverified}
 	}
 	return h, nil
 }
@@ -139,7 +139,7 @@ func Attest(ctx context.Context, r Reader, m Manifest, block common.Hash, p Poli
 		return ActivationAttestation{}, err
 	}
 	if r == nil || block == (common.Hash{}) {
-		return ActivationAttestation{}, Issue{Code: "identity_unverified"}
+		return ActivationAttestation{}, Issue{Code: valueIdentityUnverified}
 	}
 	ctx, cancel := context.WithTimeout(ctx, p.Timeout)
 	defer cancel()
@@ -154,9 +154,13 @@ func Attest(ctx context.Context, r Reader, m Manifest, block common.Hash, p Poli
 	if err != nil {
 		return ActivationAttestation{}, err
 	}
+	if h.Time > 1<<63-1 || p.Now.Unix() < 0 {
+		return ActivationAttestation{}, Issue{Code: valueAttestationStale}
+	}
+	//nolint:gosec // Header time is bounded to the signed Unix range above.
 	bt := time.Unix(int64(h.Time), 0).UTC()
-	if h.Time > uint64(p.Now.Unix()) || p.Now.Sub(bt) > p.MaxAge {
-		return ActivationAttestation{}, Issue{Code: "attestation_stale"}
+	if bt.After(p.Now) || p.Now.Sub(bt) > p.MaxAge {
+		return ActivationAttestation{}, Issue{Code: valueAttestationStale}
 	}
 	if h.Number.Uint64() < m.ActivationHeight {
 		return ActivationAttestation{}, Issue{Code: "deployment_not_activated"}
@@ -173,23 +177,24 @@ func Attest(ctx context.Context, r Reader, m Manifest, block common.Hash, p Poli
 		id := Identity{Role: name, Address: role.Address}
 		add := func(code string) { id.Issues = append(id.Issues, Issue{code, name}) }
 		addr := common.HexToAddress(role.Address)
-		if role.Kind == "precompile" {
+		if role.Kind == valuePrecompile {
 			// Precompile code is not EVM bytecode: the identity is the fixed address.
 			if !validAddress(role.Address) || addr != common.HexToAddress(LaunchpadPrecompileAddress) {
-				add("identity_unverified")
+				add(valueIdentityUnverified)
 			}
 		} else {
 			id.RuntimeHash, err = codeHash(ctx, r, addr, block)
 			if err != nil {
 				add("code_read_failed")
-			} else if !equalHash(id.RuntimeHash, role.RuntimeHash) {
+			} else if !role.AcceptsRuntimeHash(id.RuntimeHash) {
 				add("unknown_runtime_hash")
 			}
 		}
 		var impl common.Address
-		if role.Kind == "erc1967" || role.Kind == "beacon_proxy" {
+		switch role.Kind {
+		case valueErc1967, valueBeaconProxy:
 			slot := ImplementationSlot
-			if role.Kind == "beacon_proxy" {
+			if role.Kind == valueBeaconProxy {
 				slot = BeaconSlot
 			}
 			var b []byte
@@ -198,8 +203,8 @@ func Attest(ctx context.Context, r Reader, m Manifest, block common.Hash, p Poli
 				impl, err = wordAddress(b)
 			}
 			if err != nil || impl == (common.Address{}) {
-				add("identity_unverified")
-			} else if role.Kind == "beacon_proxy" {
+				add(valueIdentityUnverified)
+			} else if role.Kind == valueBeaconProxy {
 				id.BeaconAddress = impl.Hex()
 				if impl != common.HexToAddress(role.BeaconAddress) {
 					add("beacon_mismatch")
@@ -207,7 +212,7 @@ func Attest(ctx context.Context, r Reader, m Manifest, block common.Hash, p Poli
 				beaconHash, e := codeHash(ctx, r, impl, block)
 				known := false
 				for _, candidate := range m.Roles {
-					if candidate.Kind == "beacon" && common.HexToAddress(candidate.Address) == impl && equalHash(candidate.RuntimeHash, beaconHash) {
+					if candidate.Kind == valueBeacon && common.HexToAddress(candidate.Address) == impl && equalHash(candidate.RuntimeHash, beaconHash) {
 						known = true
 					}
 				}
@@ -216,13 +221,13 @@ func Attest(ctx context.Context, r Reader, m Manifest, block common.Hash, p Poli
 				}
 				impl, err = implementationAt(ctx, r, impl, "implementation()", block)
 				if err != nil {
-					add("identity_unverified")
+					add(valueIdentityUnverified)
 				}
 			}
-		} else if role.Kind == "beacon" {
+		case valueBeacon:
 			impl, err = implementationAt(ctx, r, addr, "implementation()", block)
 			if err != nil {
-				add("identity_unverified")
+				add(valueIdentityUnverified)
 			}
 		}
 		if hasImplementation(role.Kind) {
@@ -244,36 +249,36 @@ func Attest(ctx context.Context, r Reader, m Manifest, block common.Hash, p Poli
 		a.Issues = append(a.Issues, id.Issues...)
 	}
 	// Do not decode getters for contracts whose runtime and implementation failed.
-	if a.Identities["PoolBeacon"].Verified {
-		addr := common.HexToAddress(m.Roles["PoolBeacon"].Address)
+	if a.Identities[valuePoolBeacon].Verified {
+		addr := common.HexToAddress(m.Roles[valuePoolBeacon].Address)
 		owner, e1 := implementationAt(ctx, r, addr, "owner()", block)
 		pending, e2 := implementationAt(ctx, r, addr, "pendingOwner()", block)
 		if e1 != nil || e2 != nil {
-			a.Issues = append(a.Issues, Issue{"governance_read_failed", "PoolBeacon"})
+			a.Issues = append(a.Issues, Issue{"governance_read_failed", valuePoolBeacon})
 		} else {
 			a.ActualOwner = owner.Hex()
 			a.PendingOwner = pending.Hex()
 			if owner != common.HexToAddress(m.Governance.ExpectedBeaconOwner) || pending != (common.Address{}) {
-				a.Issues = append(a.Issues, Issue{"governance_handoff_pending", "PoolBeacon"})
+				a.Issues = append(a.Issues, Issue{valueGovernanceHandoffPending, valuePoolBeacon})
 			}
 		}
 	}
-	if a.Identities["ProtocolConfig"].Verified && a.Identities["USDL"].Verified {
-		cfg := common.HexToAddress(m.Roles["ProtocolConfig"].Address)
+	if a.Identities[valueProtocolConfig].Verified && a.Identities[valueUSDL].Verified {
+		cfg := common.HexToAddress(m.Roles[valueProtocolConfig].Address)
 		a.PolicyValues = map[string]string{}
 		for _, signature := range []string{"minFeeBps()", "maxFeeBps()", "baseFeeBps()", "protocolFeeBps()", "virtualUsdlDefault()", "virtualTokenDefault()", "feeDecayRate()", "volatilityWeight()", "concentrationWeight()"} {
 			value, readErr := callWord(ctx, r, cfg, signature, block)
 			if readErr != nil {
-				a.Issues = append(a.Issues, Issue{Code: "configuration_policy_read_failed", Role: "ProtocolConfig"})
+				a.Issues = append(a.Issues, Issue{Code: "configuration_policy_read_failed", Role: valueProtocolConfig})
 			} else {
 				a.PolicyValues[signature] = new(big.Int).SetBytes(value).String()
 			}
 		}
 		fee, e1 := callWord(ctx, r, cfg, "creationFee()", block)
 		usdl, e2 := implementationAt(ctx, r, cfg, "usdlAddress()", block)
-		dec, e3 := callWord(ctx, r, common.HexToAddress(m.Roles["USDL"].Address), "decimals()", block)
+		dec, e3 := callWord(ctx, r, common.HexToAddress(m.Roles[valueUSDL].Address), "decimals()", block)
 		if e1 != nil || e2 != nil || e3 != nil {
-			a.Issues = append(a.Issues, Issue{"creation_policy_read_failed", "ProtocolConfig"})
+			a.Issues = append(a.Issues, Issue{"creation_policy_read_failed", valueProtocolConfig})
 		} else {
 			a.SettlementAddress = usdl.Hex()
 			a.CreationFeeRaw = new(big.Int).SetBytes(fee).String()
@@ -281,15 +286,15 @@ func Attest(ctx context.Context, r Reader, m Manifest, block common.Hash, p Poli
 			if d.IsInt64() && d.Int64() <= 255 {
 				a.USDLDecimals = int(d.Int64())
 			}
-			if a.CreationFeeRaw != CreationFeeRaw || a.USDLDecimals != 6 || usdl != common.HexToAddress(m.Roles["USDL"].Address) {
-				a.Issues = append(a.Issues, Issue{"creation_policy_mismatch", "ProtocolConfig"})
+			if a.CreationFeeRaw != CreationFeeRaw || a.USDLDecimals != 6 || usdl != common.HexToAddress(m.Roles[valueUSDL].Address) {
+				a.Issues = append(a.Issues, Issue{valueCreationPolicyMismatch, valueProtocolConfig})
 			}
 		}
 	}
-	if m.Status == "pending-beacon-acceptance" {
-		a.Issues = append(a.Issues, Issue{"manifest_governance_pending", "PoolBeacon"})
-	} else if m.Status != "active" && m.Status != "eligible" {
-		a.Issues = append(a.Issues, Issue{Code: "manifest_not_eligible"})
+	if m.Status == valuePendingBeaconAcceptance {
+		a.Issues = append(a.Issues, Issue{"manifest_governance_pending", valuePoolBeacon})
+	} else if m.Status != valueActive && m.Status != valueEligible {
+		a.Issues = append(a.Issues, Issue{Code: valueManifestNotEligible})
 	}
 	if ctx.Err() != nil {
 		return a, Issue{Code: "attestation_canceled"}
@@ -298,16 +303,16 @@ func Attest(ctx context.Context, r Reader, m Manifest, block common.Hash, p Poli
 	return a, nil
 }
 func hasImplementation(kind string) bool {
-	return kind != "direct" && kind != "surface" && kind != "precompile"
+	return kind != valueDirect && kind != valueSurface && kind != valuePrecompile
 }
 
 // runtimeIdentity is the positive identity check of an attested role: the
 // runtime hash for EVM code, the fixed precompile address for a precompile.
 func runtimeIdentity(r Role, id Identity) bool {
-	if r.Kind == "precompile" {
+	if r.Kind == valuePrecompile {
 		return id.RuntimeHash == "" && validAddress(r.Address) && common.HexToAddress(r.Address) == common.HexToAddress(LaunchpadPrecompileAddress)
 	}
-	return equalHash(id.RuntimeHash, r.RuntimeHash)
+	return r.AcceptsRuntimeHash(id.RuntimeHash)
 }
 func equalHash(a, b string) bool {
 	return validHash(a) && validHash(b) && common.HexToHash(a) == common.HexToHash(b)
@@ -323,10 +328,10 @@ func (a ActivationAttestation) ValidateFor(m Manifest, p Policy) error {
 		return err
 	}
 	if a.ManifestHash != hash || a.DeploymentVersion != m.DeploymentVersion {
-		return Issue{Code: "attestation_revision_mismatch"}
+		return Issue{Code: valueAttestationRevisionMismatch}
 	}
 	if !validHash(a.BlockHash) || a.BlockNumber < m.ActivationHeight || a.ObservedAt.IsZero() || a.BlockTime.IsZero() || a.ObservedAt.After(p.Now) || a.BlockTime.After(a.ObservedAt) || p.Now.Sub(a.ObservedAt) > p.MaxAge || p.Now.Sub(a.BlockTime) > p.MaxAge {
-		return Issue{Code: "attestation_stale"}
+		return Issue{Code: valueAttestationStale}
 	}
 	if !a.Eligible || len(a.Issues) > 0 {
 		blocked := []error{Issue{Code: "activation_blocked"}}
@@ -338,24 +343,24 @@ func (a ActivationAttestation) ValidateFor(m Manifest, p Policy) error {
 	for name, r := range m.Roles {
 		id, ok := a.Identities[name]
 		if !ok || !id.Verified || len(id.Issues) > 0 || !validAddress(id.Address) || common.HexToAddress(id.Address) != common.HexToAddress(r.Address) || !runtimeIdentity(r, id) {
-			return Issue{"identity_unverified", name}
+			return Issue{valueIdentityUnverified, name}
 		}
 		if hasImplementation(r.Kind) && (!validAddress(id.ImplementationAddress) || common.HexToAddress(id.ImplementationAddress) != common.HexToAddress(r.ImplementationAddress) || !equalHash(id.ImplementationHash, r.ImplementationHash)) {
-			return Issue{"identity_unverified", name}
+			return Issue{valueIdentityUnverified, name}
 		}
-		if r.Kind == "beacon_proxy" && (!validAddress(id.BeaconAddress) || common.HexToAddress(id.BeaconAddress) != common.HexToAddress(r.BeaconAddress)) {
-			return Issue{"identity_unverified", name}
+		if r.Kind == valueBeaconProxy && (!validAddress(id.BeaconAddress) || common.HexToAddress(id.BeaconAddress) != common.HexToAddress(r.BeaconAddress)) {
+			return Issue{valueIdentityUnverified, name}
 		}
 	}
 	var errs []error
-	if m.Status != "eligible" && m.Status != "active" {
-		errs = append(errs, Issue{Code: "manifest_not_eligible"})
+	if m.Status != valueEligible && m.Status != valueActive {
+		errs = append(errs, Issue{Code: valueManifestNotEligible})
 	}
 	if !validAddress(a.ActualOwner) || common.HexToAddress(a.ActualOwner) != common.HexToAddress(m.Governance.ExpectedBeaconOwner) || a.PendingOwner != (common.Address{}).Hex() {
-		errs = append(errs, Issue{"governance_handoff_pending", "PoolBeacon"})
+		errs = append(errs, Issue{valueGovernanceHandoffPending, valuePoolBeacon})
 	}
 	if a.CreationFeeRaw != CreationFeeRaw || a.USDLDecimals != 6 || !validAddress(a.SettlementAddress) || common.HexToAddress(a.SettlementAddress) != common.HexToAddress(SettlementAddress) {
-		errs = append(errs, Issue{Code: "creation_policy_mismatch"})
+		errs = append(errs, Issue{Code: valueCreationPolicyMismatch})
 	}
 	return errors.Join(errs...)
 }
@@ -372,19 +377,19 @@ func (a ActivationAttestation) ValidateFamilyFor(m Manifest, p Policy, roles []s
 		return err
 	}
 	if hash != a.ManifestHash || m.DeploymentVersion != a.DeploymentVersion {
-		return Issue{Code: "attestation_revision_mismatch"}
+		return Issue{Code: valueAttestationRevisionMismatch}
 	}
 	if !validHash(a.BlockHash) || a.BlockNumber < m.ActivationHeight || a.ObservedAt.IsZero() || a.BlockTime.IsZero() || a.ObservedAt.After(p.Now) || a.BlockTime.After(a.ObservedAt) || p.Now.Sub(a.ObservedAt) > p.MaxAge || p.Now.Sub(a.BlockTime) > p.MaxAge {
-		return Issue{Code: "attestation_stale"}
+		return Issue{Code: valueAttestationStale}
 	}
-	if m.Status != "eligible" && m.Status != "active" {
-		if m.Status == "pending-beacon-acceptance" {
-			return Issue{Code: "manifest_governance_pending", Role: "PoolBeacon"}
+	if m.Status != valueEligible && m.Status != valueActive {
+		if m.Status == valuePendingBeaconAcceptance {
+			return Issue{Code: "manifest_governance_pending", Role: valuePoolBeacon}
 		}
-		return Issue{Code: "manifest_not_eligible"}
+		return Issue{Code: valueManifestNotEligible}
 	}
 	if !validAddress(a.ActualOwner) || common.HexToAddress(a.ActualOwner) != common.HexToAddress(m.Governance.ExpectedBeaconOwner) || a.PendingOwner != (common.Address{}).Hex() {
-		return Issue{"governance_handoff_pending", "PoolBeacon"}
+		return Issue{valueGovernanceHandoffPending, valuePoolBeacon}
 	}
 	for _, issue := range a.Issues {
 		if issue.Code == "configuration_policy_read_failed" {
@@ -399,22 +404,22 @@ func (a ActivationAttestation) ValidateFamilyFor(m Manifest, p Policy, roles []s
 		r, ok := m.Roles[name]
 		id, found := a.Identities[name]
 		if !ok || !found || !id.Verified || len(id.Issues) != 0 || !validAddress(id.Address) || common.HexToAddress(r.Address) != common.HexToAddress(id.Address) || !runtimeIdentity(r, id) {
-			return Issue{"identity_unverified", name}
+			return Issue{valueIdentityUnverified, name}
 		}
 		if hasImplementation(r.Kind) && (!validAddress(id.ImplementationAddress) || common.HexToAddress(id.ImplementationAddress) != common.HexToAddress(r.ImplementationAddress) || !equalHash(id.ImplementationHash, r.ImplementationHash)) {
-			return Issue{"identity_unverified", name}
+			return Issue{valueIdentityUnverified, name}
 		}
-		if r.Kind == "beacon_proxy" && (!validAddress(id.BeaconAddress) || common.HexToAddress(id.BeaconAddress) != common.HexToAddress(r.BeaconAddress)) {
-			return Issue{"identity_unverified", name}
+		if r.Kind == valueBeaconProxy && (!validAddress(id.BeaconAddress) || common.HexToAddress(id.BeaconAddress) != common.HexToAddress(r.BeaconAddress)) {
+			return Issue{valueIdentityUnverified, name}
 		}
 	}
 	for _, name := range roles {
-		if name == "USDL" && (a.USDLDecimals != 6 || !validAddress(a.SettlementAddress) || common.HexToAddress(a.SettlementAddress) != common.HexToAddress(SettlementAddress)) {
-			return Issue{Code: "settlement_policy_mismatch", Role: "USDL"}
+		if name == valueUSDL && (a.USDLDecimals != 6 || !validAddress(a.SettlementAddress) || common.HexToAddress(a.SettlementAddress) != common.HexToAddress(SettlementAddress)) {
+			return Issue{Code: "settlement_policy_mismatch", Role: valueUSDL}
 		}
 	}
 	if creation && (a.CreationFeeRaw != CreationFeeRaw || a.USDLDecimals != 6) {
-		return Issue{Code: "creation_policy_mismatch"}
+		return Issue{Code: valueCreationPolicyMismatch}
 	}
 	return nil
 }

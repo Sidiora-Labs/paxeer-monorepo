@@ -1,6 +1,8 @@
 package runtimedocs
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -15,6 +17,12 @@ const surfaceRuntimeHash = "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825
 func TestReceiptOptionsBindPrecompile(t *testing.T) {
 	in := realInputs(t)
 	in.Manifest = deployment.Current()
+	// This case attests the current precompile, while realInputs retains history.
+	reviewed, err := os.ReadFile(filepath.Join(repoRoot(t), "sdk", "launchpad", "protocol", "catalog", "reviewed.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	in.ReviewedCatalog = reviewed
 	in.PoolRuntimeHash = common.HexToHash(surfaceRuntimeHash)
 	in.Anchor = receipt.BlockAnchor{Height: in.Manifest.ActivationHeight, Hash: realAnchor.Hash}
 	o, catalog, err := ReceiptOptions(in)

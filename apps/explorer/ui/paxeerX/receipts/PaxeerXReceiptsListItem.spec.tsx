@@ -37,12 +37,23 @@ describe('PaxeerXReceiptsListItem', () => {
     expect(screen.getByText('Block')).toBeTruthy();
   });
 
-  it('links the receipt id to its page and the block to the block page', () => {
+  it('links the receipt id to its transaction and the block to the block page', () => {
     const { container } = renderItem();
 
-    expect(container.querySelector(`a[href="/paxeer-x/receipts/${ receipt.id }"]`)).toBeTruthy();
+    expect(container.querySelector(`a[href="/tx/${ receipt.transaction_hash }"]`)).toBeTruthy();
+    expect(container.querySelectorAll('a')).toHaveLength(2);
+    expect(container.querySelector('a[href^="/paxeer-x/receipts"]')).toBeNull();
     expect(container.querySelector(`a[href="/block/${ receipt.block_number }"]`)?.textContent)
       .toBe(String(receipt.block_number));
+  });
+
+  it('kernel_receipt_id_remains_copyable_without_a_transaction_link', function kernelReceiptIdRemainsCopyableWithoutATransactionLink() {
+    const { container } = renderItem(PAXEER_X_KERNEL_RECEIPTS_ITEM);
+
+    expect(screen.getByText('0x0000000000...0033')).toBeTruthy();
+    expect(screen.getAllByLabelText('copy')).toHaveLength(2);
+    expect(container.querySelector('a')).toBeNull();
+    expect(container.querySelector('[data-rung]')).toBeNull();
   });
 
   it('renders the archive entry without a settlement badge', () => {

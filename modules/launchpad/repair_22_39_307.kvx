@@ -1,0 +1,44 @@
+[repair.22.39.307]
+requirement = "22998.1"
+base_revision = "2ce65ef1b65c7b37530e7fcccde49f13209ca848"
+site = "sdk/baseapp/abci.go: gRPCErrorToSDKError maps codes.InvalidArgument to the bare sdkerrors.ErrInvalidRequest; handleQueryGRPC encodes it with QueryResultWithDebug. sdk/client/query.go: sdkErrorToGRPCError preserves ResponseQuery.Log when converting ABCI code 18 back to codes.InvalidArgument. The gateway forwards that client status."
+producer_commit = "665402f6ca09c0fe6882fbd30d2779d1630ec6cc"
+producer_record = "spec/layerx-merge/programme/issues/1678.kvx and task.18.1678.1 do_1 explicitly retain mapped client-status codes with safe public messages; sdk/baseapp/query_grpc_error_test.go asserts sdk/18/invalid request in non-debug mode and original diagnostics in trace mode."
+former_text = "Malformed addresses: rpc error: code = InvalidArgument desc = <field> must be a 0x-prefixed 40-hex-digit address: invalid address; malformed quote amounts: rpc error: code = InvalidArgument desc = amount_in must be a positive base-10 integer. Before the producer commit, the ABCI log wrapped these diagnostics under invalid request."
+current_text = "Non-debug ABCI log and client gRPC status message: exactly invalid request; ABCI codespace sdk, code 18; client gRPC code InvalidArgument. Direct keeper gRPC validation messages remain unchanged. Registered launchpad errors, including zero addresses and invalid epochs, retain their codespaces, codes and safe messages."
+rule = "The replacement is a deliberate producer change. Follow task 22.39.307 do_2 and gotcha 3046: preserve the producer and align consumer expectations to its registered public text, without weakening refusal, status, identity, output or state assertions."
+tests = "TestCmdQueryAirdropNetwork, TestCmdQueryFeeRightNetwork, TestRepair_35_QuoteUint256 and TestRESTRegistryRoutes assert exact public messages; ABCI callers assert sdk/18 and gRPC callers assert InvalidArgument. TestQueryAirdropEpochABCICodes also asserts the public log while retaining and strengthening direct keeper validation assertions. All original input cases remain."
+build_cmd = "go build ./modules/launchpad/... && go vet ./modules/launchpad/client/..."
+verify_cmd = "test -s modules/launchpad/repair_22_39_307.kvx && go test -count=1 ./modules/launchpad/client/... && go test -count=1 ./modules/launchpad/keeper/..."
+qualification = "No gate claimed before execution. The private /out/run/gates.jsonl final verify row names the verified revision, command, exit and log; its revision must equal the final build row revision. The final hf-done JSON receipt is the qualification reference for this record, avoiding a self-referential revision hash."
+
+[qualification.22.39.307]
+revision = "0b313c5a8d641a38d32458be96c488110e94018d"
+build_command = "go build ./modules/launchpad/... && go vet ./modules/launchpad/client/..."
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+command = "cg spec done 22.39.307 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+result = "Implemented, not qualified: the declared client test command passed and verification advanced to the keeper command, which failed only at inherited assertions outside the changed message expectations. No completion claimed; no gate rerun to chase unrelated failures. This result record was appended after the gates and is not claimed as a newly verified candidate."
+
+[finding.22.39.307]
+task = "22.39.307"
+file = "modules/launchpad/keeper/grpc_query_airdrop_epoch_test.go:217,219; modules/launchpad/keeper/market_test.go:325; modules/launchpad/keeper/migrate_v6120_test.go:450"
+symbol = "TestQueryAirdropEpochABCICodes; TestCreateMarket; TestEveryPoolMigrates"
+observed = "At revision 0b313c5a8d641a38d32458be96c488110e94018d, cg spec done 22.39.307 -f layerx-merge --root /work/paxeer-monorepo exited 1 in /out/logs/verify-1.log: the keeper ABCI cases received height 0 instead of 1 or sdk instead of launchpad, and the market creation and migration cases expected 41-byte pool code but received 51-byte pool code."
+assumption = "These inherited fixture and bytecode expectations are independent of the public validation-message alignment, so the task's instruction to record unrelated failures prohibits repairing or re-investigating them here."
+severity = "blocker"
+
+[continuation.22.39.307]
+attempt = 2
+seed_revision = "98d21e7362dd2b694de834554723bdf665ecf281"
+base_revision = "58b13adf38b27ead85e97d36ab93c545d1b59cae"
+merged_start_revision = "28a75c3757f41abea9046306cf4ad6ed81321ebb"
+prerequisite = "Task 22.39.315 is already merged into the starting checkout through d29145783bda980116433507d4909900fdc4df5f; no additional rebase or source replacement is needed."
+resolution = "Keep the current committed-state setup, registered-error routing assertions and height-0/height-1 protobuf checks in TestQueryAirdropEpochABCICodes. Retain the seed's exact direct gRPC diagnostic assertion beside them. The seed's duplicate ABCI block is superseded by the current stronger path."
+context_rule = "Keep the malformed-pool context as pool must be a 0x-prefixed 40-hex-digit address: the current test uses it to assert direct keeper details and their absence from the public protobuf response, whose log remains exactly invalid request. Replacing that diagnostic context with invalid request would contradict both assertions."
+producer = "The keeper validation wrapper and registered AirdropEpoch wrapper remain unchanged by task 22.39.315; issue 1678 commit 665402f6ca09c0fe6882fbd30d2779d1630ec6cc still governs all four client suites. Retain their exact invalid request, InvalidArgument and sdk/18 assertions and every existing input case."
+previous_finding = "The qualification and finding sections above describe attempt 1 only. Decisions 3162 and 3163 assigned those inherited failures to task 22.39.315, whose landed implementation is preserved; the final gate receipt alone establishes this continuation's result."
+gotcha = "The seed merge carried the old malformed-pool public text into the current test's diagnostic context outside its conflict hunk; restoring that context preserves the landed direct-message and redaction assertions. Root GOTCHA.kvx bookkeeping is outside this task's authorized scope."
+verified_revision = "The final hf-done receipt in /out/run/gates.jsonl names the verified revision, command, exit and private log; it must match the hf-build candidate. Do not edit this candidate after the gates."

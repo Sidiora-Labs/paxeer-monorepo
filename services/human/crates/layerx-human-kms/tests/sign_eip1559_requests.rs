@@ -21,8 +21,7 @@ mod attestor_cluster;
 mod principal_attestors;
 static ATTESTOR_FIXTURE: Mutex<()> = Mutex::new(());
 
-#[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
-mod runtime_clock_server;
+use attestor_cluster::runtime_clock_server;
 
 struct Runtime {
     stop: Arc<AtomicBool>,
@@ -364,6 +363,7 @@ fn facts(bytes: &[u8]) -> Result<([u8; 32], [u8; 32])> {
     Ok((bytes[12..44].try_into()?, bytes[44..76].try_into()?))
 }
 
+#[allow(dead_code)]
 #[path = "../src/wire.rs"]
 mod wire;
 
@@ -456,85 +456,15 @@ fn lxkp_sign_accepts_an_unsigned_type2_transaction() -> Result<()> {
         from
     );
 
-    let mut mismatch = disclosure.clone();
-    mismatch.asset[0] ^= 1;
-    assert_eq!(
-        host.call(&signing_request(
-            &handle,
-            from,
-            &canonical,
-            &checked(wire::disclosure(&mismatch))?
-        )?)?[7],
-        1
-    );
-    mismatch = disclosure.clone();
-    mismatch.fee_limit += 1;
-    assert_eq!(
-        host.call(&signing_request(
-            &handle,
-            from,
-            &canonical,
-            &checked(wire::disclosure(&mismatch))?
-        )?)?[7],
-        1
-    );
-    mismatch = disclosure.clone();
-    mismatch.authority[0] ^= 1;
-    assert_eq!(
-        host.call(&signing_request(
-            &handle,
-            from,
-            &canonical,
-            &checked(wire::disclosure(&mismatch))?
-        )?)?[7],
-        1
-    );
-
-    let mut changed = call.clone();
-    changed.chain_id = 126;
-    assert_eq!(
-        host.call(&signing_request(
-            &handle,
-            from,
-            &unsigned(&changed)?,
-            &encoded
-        )?)?[7],
-        1
-    );
-    changed = call.clone();
-    changed.to[0] ^= 1;
-    assert_eq!(
-        host.call(&signing_request(
-            &handle,
-            from,
-            &unsigned(&changed)?,
-            &encoded
-        )?)?[7],
-        1
-    );
-    changed = call.clone();
-    changed.data[0] ^= 1;
-    assert_eq!(
-        host.call(&signing_request(
-            &handle,
-            from,
-            &unsigned(&changed)?,
-            &encoded
-        )?)?[7],
-        1
-    );
-    changed = call.clone();
-    changed.data[4] ^= 1;
-    assert_eq!(
-        host.call(&signing_request(
-            &handle,
-            from,
-            &unsigned(&changed)?,
-            &encoded
-        )?)?[7],
-        1
-    );
-
+    assert_sign_request_mutations(
+        &host,
+        &handle,
+        from,
+        &canonical,
+        &disclosure,
+        &call,
+        &encoded,
+    )?;
     let mut value = canonical.clone();
     // This fixture's destination is followed by the canonical zero value.
     let destination = value
@@ -658,5 +588,96 @@ fn lxkp_sign_refuses_bytes_that_are_not_a_type2_transaction() -> Result<()> {
     assert_ne!(response[7], 0);
     assert_eq!(response, b"LXKP\0\x07\x05\x01");
     assert_eq!(response.len(), 8);
+    Ok(())
+}
+
+fn assert_sign_request_mutations(
+    host: &Host,
+    handle: &[u8; 32],
+    from: [u8; 20],
+    canonical: &[u8],
+    disclosure: &layerx_crypto::disclosure::Disclosure,
+    call: &layerx_crypto::evm_transaction::Eip1559Call,
+    encoded: &[u8],
+) -> Result<()> {
+    let mut mismatch = disclosure.clone();
+    mismatch.asset[0] ^= 1;
+    assert_eq!(
+        host.call(&signing_request(
+            handle,
+            from,
+            canonical,
+            &checked(wire::disclosure(&mismatch))?
+        )?)?[7],
+        1
+    );
+    mismatch = disclosure.clone();
+    mismatch.fee_limit += 1;
+    assert_eq!(
+        host.call(&signing_request(
+            handle,
+            from,
+            canonical,
+            &checked(wire::disclosure(&mismatch))?
+        )?)?[7],
+        1
+    );
+    mismatch = disclosure.clone();
+    mismatch.authority[0] ^= 1;
+    assert_eq!(
+        host.call(&signing_request(
+            handle,
+            from,
+            canonical,
+            &checked(wire::disclosure(&mismatch))?
+        )?)?[7],
+        1
+    );
+
+    let mut changed = call.clone();
+    changed.chain_id = 126;
+    assert_eq!(
+        host.call(&signing_request(
+            handle,
+            from,
+            &unsigned(&changed)?,
+            encoded
+        )?)?[7],
+        1
+    );
+    changed = call.clone();
+    changed.to[0] ^= 1;
+    assert_eq!(
+        host.call(&signing_request(
+            handle,
+            from,
+            &unsigned(&changed)?,
+            encoded
+        )?)?[7],
+        1
+    );
+    changed = call.clone();
+    changed.data[0] ^= 1;
+    assert_eq!(
+        host.call(&signing_request(
+            handle,
+            from,
+            &unsigned(&changed)?,
+            encoded
+        )?)?[7],
+        1
+    );
+    changed = call.clone();
+    changed.data[4] ^= 1;
+    assert_eq!(
+        host.call(&signing_request(
+            handle,
+            from,
+            &unsigned(&changed)?,
+            encoded
+        )?)?[7],
+        1
+    );
+
     Ok(())
 }

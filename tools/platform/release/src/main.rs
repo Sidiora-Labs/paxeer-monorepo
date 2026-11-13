@@ -641,6 +641,23 @@ fn provenance_recogniser(provenance: &str) -> Result<&'static str, String> {
 /// signature, SBOM, provenance or install check, or a release gate is
 /// missing, conditional or absent from the release job's dependencies.
 pub fn release_pipeline(manifest: &str, workflow_source: &str) -> Result<ReleasePipeline, String> {
+    release_pipeline_in_repository(
+        manifest,
+        workflow_source,
+        &PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../.."),
+    )
+}
+
+/// Validates a release workflow and its local reusable workflows in a repository.
+///
+/// # Errors
+///
+/// Returns release validation errors, including unreadable or invalid called workflows.
+pub fn release_pipeline_in_repository(
+    manifest: &str,
+    workflow_source: &str,
+    repository: &Path,
+) -> Result<ReleasePipeline, String> {
     let declarations = registries_declarations(manifest)?;
     let workflow =
         workflow::parse(workflow_source).map_err(|error| format!("release workflow: {error}"))?;
@@ -650,7 +667,7 @@ pub fn release_pipeline(manifest: &str, workflow_source: &str) -> Result<Release
         .filter(|jobs| !jobs.entries().is_empty())
         .ok_or_else(|| "release workflow declares no jobs".to_owned())?;
     release_pipeline_workflow_job(jobs)?;
-    let gates = gate_jobs(jobs)?;
+    let gates = gate_jobs(jobs, repository)?;
     let publications = declarations
         .registries
         .iter()
@@ -727,7 +744,86 @@ fn release_pipeline_workflow_job(jobs: &Node) -> Result<(), String> {
     Ok(())
 }
 
-fn gate_jobs(jobs: &Node) -> Result<Vec<GateJob>, String> {
+fn gate_steps(
+    node: &Node,
+    repository: &Path,
+    location: &str,
+    called: &mut Vec<String>,
+    steps: &mut Vec<(String, String)>,
+) -> Result<(), String> {
+    if let Some(uses) = node.get("uses").and_then(Node::as_str) {
+        let relative = uses.strip_prefix("./").ok_or_else(|| {
+            format!("{location}: release gates require a reusable workflow of this repository, got {uses}")
+        })?;
+        let path = Path::new(relative);
+        if !relative.starts_with(".github/workflows/")
+            || !matches!(
+                path.extension().and_then(|value| value.to_str()),
+                Some("yml" | "yaml")
+            )
+            || path.components().count() != 3
+            || !path
+                .components()
+                .all(|part| matches!(part, Component::Normal(_)))
+        {
+            return Err(format!(
+                "{location}: invalid local reusable workflow {uses}"
+            ));
+        }
+        if called.iter().any(|active| active == relative) {
+            return Err(format!(
+                "{location}: reusable workflow cycle through {relative}"
+            ));
+        }
+        let source = read(&repository.join(path))
+            .map_err(|error| format!("{location}: called workflow {relative}: {error}"))?;
+        let document = workflow::parse(&source)
+            .map_err(|error| format!("{location}: called workflow {relative}: {error}"))?;
+        if document.path(&["on", "workflow_call"]).is_none() {
+            return Err(format!(
+                "{location}: called workflow {relative} declares no workflow_call"
+            ));
+        }
+        let jobs = document
+            .get("jobs")
+            .filter(|jobs| !jobs.entries().is_empty())
+            .ok_or_else(|| format!("{location}: called workflow {relative} declares no jobs"))?;
+        called.push(relative.to_owned());
+        for (id, job) in jobs.entries() {
+            gate_steps(
+                job,
+                repository,
+                &format!("{relative} job {id}"),
+                called,
+                steps,
+            )?;
+        }
+        called.pop();
+    } else {
+        for (index, step) in node
+            .get("steps")
+            .map(Node::items)
+            .unwrap_or_default()
+            .iter()
+            .enumerate()
+        {
+            if let Some(run) = step.get("run").and_then(Node::as_str) {
+                let name = step
+                    .get("name")
+                    .and_then(Node::as_str)
+                    .or_else(|| step.get("id").and_then(Node::as_str))
+                    .unwrap_or("unnamed");
+                steps.push((
+                    format!("{location} step {} ({name})", index + 1),
+                    run.to_owned(),
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn gate_jobs(jobs: &Node, repository: &Path) -> Result<Vec<GateJob>, String> {
     let mut gates = Vec::new();
     for gate in &RELEASE_GATES {
         let node = job(jobs, gate.job)?;
@@ -739,17 +835,46 @@ fn gate_jobs(jobs: &Node) -> Result<Vec<GateJob>, String> {
                 ));
             }
         }
-        let text = node.text();
-        if !text.contains(GATE_RUNNER) {
+        let mut steps = Vec::new();
+        gate_steps(
+            node,
+            repository,
+            &format!("{WORKFLOW_PATH} job {}", gate.job),
+            &mut Vec::new(),
+            &mut steps,
+        )?;
+        let command_steps = steps
+            .iter()
+            .filter(|(_, run)| run.contains(gate.command))
+            .collect::<Vec<_>>();
+        if !command_steps.is_empty()
+            && !command_steps
+                .iter()
+                .any(|(_, run)| run.contains(GATE_RUNNER))
+        {
             return Err(format!(
-                "release gate {} must run through {GATE_RUNNER} so its gate record is emitted",
-                gate.job
+                "release gate {} must run through {GATE_RUNNER} so its gate record is emitted; {}",
+                gate.job,
+                command_steps
+                    .iter()
+                    .map(|(location, _)| location.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
             ));
         }
-        if !text.contains(gate.command) {
+        if command_steps.is_empty() {
             return Err(format!(
-                "release gate {} must run `{}`",
-                gate.job, gate.command
+                "release gate {} must run `{}` through {GATE_RUNNER}; inspected {}: {}",
+                gate.job,
+                gate.command,
+                node.get("uses")
+                    .and_then(Node::as_str)
+                    .unwrap_or(WORKFLOW_PATH),
+                steps
+                    .iter()
+                    .map(|(location, _)| location.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
             ));
         }
         gates.push(GateJob {
@@ -784,6 +909,51 @@ fn explicit_packages(text: &str, flags: &[&str]) -> Vec<String> {
         }
     }
     packages
+}
+
+fn configuration_presence_guard(expression: &str) -> bool {
+    let Some(name) = expression
+        .strip_prefix("vars.")
+        .and_then(|guard| guard.strip_suffix("''"))
+        .and_then(|guard| guard.trim_end().strip_suffix("!="))
+        .map(str::trim_end)
+    else {
+        return false;
+    };
+    let mut characters = name.chars();
+    characters
+        .next()
+        .is_some_and(|character| character.is_ascii_alphabetic() || character == '_')
+        && characters.all(|character| character.is_ascii_alphanumeric() || character == '_')
+}
+
+fn publication_condition(expression: &str) -> bool {
+    if expression == RELEASE_CONDITION {
+        return true;
+    }
+    let release = format!("({RELEASE_CONDITION})");
+    let mut release_count = 0;
+    let mut guard_count = 0;
+    for conjunct in expression.split("&&").map(str::trim) {
+        if conjunct == release {
+            release_count += 1;
+            continue;
+        }
+        let presence_disjunction = conjunct
+            .strip_prefix('(')
+            .and_then(|guard| guard.strip_suffix(')'))
+            .is_some_and(|guards| {
+                guards.contains("||")
+                    && guards
+                        .split("||")
+                        .all(|guard| configuration_presence_guard(guard.trim()))
+            });
+        if !configuration_presence_guard(conjunct) && !presence_disjunction {
+            return false;
+        }
+        guard_count += 1;
+    }
+    release_count == 1 && guard_count > 0
 }
 
 fn publication_job(jobs: &Node, registry: &Registry) -> Result<PublicationJob, String> {
@@ -823,9 +993,9 @@ fn publication_job(jobs: &Node, registry: &Registry) -> Result<PublicationJob, S
             registry.name
         ));
     }
-    if condition(node) != Some(RELEASE_CONDITION) {
+    if !condition(node).is_some_and(publication_condition) {
         return Err(format!(
-            "job {id} must run under the release condition `{RELEASE_CONDITION}`"
+            "job {id} must run under the release condition `{RELEASE_CONDITION}` alone or as a conjunction of `({RELEASE_CONDITION})` and configuration presence guards `vars.NAME != ''` or parenthesised disjunctions of those guards `(vars.NAME != '' || vars.OTHER != '')`"
         ));
     }
     if !needs(node).contains(&RELEASE_JOB) {
@@ -961,9 +1131,9 @@ fn verification_job(
     publications: &[PublicationJob],
 ) -> Result<VerificationJob, String> {
     let node = job(jobs, VERIFICATION_JOB)?;
-    if condition(node) != Some(RELEASE_CONDITION) {
+    if !condition(node).is_some_and(publication_condition) {
         return Err(format!(
-            "job {VERIFICATION_JOB} must run under the release condition `{RELEASE_CONDITION}`"
+            "job {VERIFICATION_JOB} must run under the release condition `{RELEASE_CONDITION}` alone or as a conjunction of `({RELEASE_CONDITION})` and configuration presence guards `vars.NAME != ''` or parenthesised disjunctions of those guards `(vars.NAME != '' || vars.OTHER != '')`"
         ));
     }
     let dependencies = needs(node);
@@ -2285,11 +2455,24 @@ fn run_check(arguments: &[String]) -> Result<(), String> {
     if arguments.len() > 3 || !matches!(mode, "--check" | "--plan") {
         return Err(USAGE.to_owned());
     }
-    let pipeline = release_pipeline(&read(&manifest_path)?, &read(&workflow_path)?)?;
+    let pipeline = read_pipeline(&manifest_path, &workflow_path)?;
     if mode == "--plan" {
         print!("{}", plan(&pipeline)?);
     }
     Ok(())
+}
+
+fn read_pipeline(manifest_path: &Path, workflow_path: &Path) -> Result<ReleasePipeline, String> {
+    let workflow_path = workflow_path
+        .canonicalize()
+        .map_err(|error| format!("resolve {}: {error}", workflow_path.display()))?;
+    let repository = workflow_path.ancestors().nth(3).ok_or_else(|| {
+        format!(
+            "workflow {} has no repository root",
+            workflow_path.display()
+        )
+    })?;
+    release_pipeline_in_repository(&read(manifest_path)?, &read(&workflow_path)?, repository)
 }
 
 fn run_manifest(arguments: &[String]) -> Result<(), String> {
@@ -2311,7 +2494,7 @@ fn run_manifest(arguments: &[String]) -> Result<(), String> {
         option(&values, "--registries").map_or_else(|| PathBuf::from(MANIFEST_PATH), PathBuf::from);
     let workflow_path =
         option(&values, "--workflow").map_or_else(|| PathBuf::from(WORKFLOW_PATH), PathBuf::from);
-    let pipeline = release_pipeline(&read(&manifest_path)?, &read(&workflow_path)?)?;
+    let pipeline = read_pipeline(&manifest_path, &workflow_path)?;
     let manifest = artifact_manifest(&pipeline, &release_dir, rollback_version)?;
     let rendered = render_artifact_manifest(&manifest)?;
     if let Some(parent) = output

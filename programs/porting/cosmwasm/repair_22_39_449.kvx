@@ -1,0 +1,18 @@
+[repair]
+member = "layerx-porting-cosmwasm"
+guest_member = "layerx-porting-cosmwasm-guest"
+guest_lint_locations = 0
+sources = ["src/shared_orderbook.rs", "tests/repair_22_33_235.rs", "tests/repair_22_33_240.rs"]
+wildcard_imports = 1
+too_many_lines = 5
+cast_possible_truncation = 2
+cast_possible_wrap = 6
+needless_raw_string_hashes = 16
+doc_markdown = 9
+semicolon_if_nothing_returned = 1
+too_many_arguments = 1
+test_cases = 20
+test_case_names_preserved = true
+test_outcomes_preserved = true
+workspace_all_targets_compiles = true
+behavior = "The bounded order book retains its storage operations, integer word encoding, and emitted module instruction order; the integration cases retain their assertions."

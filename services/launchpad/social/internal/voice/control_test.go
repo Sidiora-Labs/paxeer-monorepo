@@ -211,7 +211,7 @@ func TestPostgresVoicePolicyPreservesUnavailable(t *testing.T) {
 	if e := c.permission(ctx, host, "room-a", "known-pool"); !errors.Is(e, safety.ErrForbidden) {
 		t.Fatal("ban allowed", e)
 	}
-	if _, e := c.DB.Exec(ctx, `DROP TABLE safety_bans`); e != nil {
+	if _, e := c.DB.Exec(ctx, `DROP TABLE safety_bans CASCADE`); e != nil {
 		t.Fatal(e)
 	}
 	if e := c.permission(ctx, host, "room-a", "known-pool"); !errors.Is(e, ErrUnavailable) {

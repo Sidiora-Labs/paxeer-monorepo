@@ -1,8 +1,7 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+import { TestChain } from './support/chain.js';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { once } from 'node:events';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { createPublicClient, http, keccak256, type Hex } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
@@ -14,7 +13,7 @@ const chainId = 125;
 const account = privateKeyToAccount(generatePrivateKey());
 const calls: { path: string; method: string; params: unknown[] }[] = [];
 const errors: unknown[] = [];
-let node: ChildProcess;
+const node = new TestChain(chainId, 'evm');
 let proxy: Server;
 let postgres: EphemeralPostgres;
 let rpc: RpcPool;
@@ -24,32 +23,8 @@ let readUrl: string;
 let nodeUrl: string;
 
 beforeAll(async () => {
-  node = spawn(process.env.ANVIL_BIN ?? 'anvil', ['--port', '0', '--chain-id', String(chainId)], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  nodeUrl = await new Promise<string>((resolve, reject) => {
-    let output = '';
-    const timer = setTimeout(() => reject(new Error(`anvil did not start: ${output}`)), 10_000);
-    node.once('error', (error) => {
-      clearTimeout(timer);
-      reject(error);
-    });
-    node.once('exit', (code) => {
-      clearTimeout(timer);
-      reject(new Error(`anvil exited with ${code}: ${output}`));
-    });
-    node.stderr!.on('data', (chunk: Buffer) => {
-      output += chunk.toString();
-    });
-    node.stdout!.on('data', (chunk: Buffer) => {
-      output += chunk.toString();
-      const match = /Listening on (127\.0\.0\.1:\d+)/u.exec(output);
-      if (match) {
-        clearTimeout(timer);
-        resolve(`http://${match[1]}`);
-      }
-    });
-  });
+  await node.start();
+  nodeUrl = node.url;
   proxy = createServer(async (req, res) => {
     try {
       const chunks: Buffer[] = [];
@@ -96,11 +71,7 @@ afterAll(async () => {
       proxy.close((error) => (error ? reject(error) : resolve()))
     );
   }
-  if (node && node.exitCode === null && node.signalCode === null) {
-    const exited = once(node, 'exit');
-    node.kill('SIGTERM');
-    await exited;
-  }
+  await node.stop();
 }, 120_000);
 
 async function retainedSubmissionReachesSequencer(): Promise<void> {
@@ -124,17 +95,9 @@ async function retainedSubmissionReachesSequencer(): Promise<void> {
     idempotencyKey: randomUUID(),
     request: {},
   });
-  const funding = await fetch(nodeUrl, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'anvil_setBalance',
-      params: [account.address, '0xde0b6b3a7640000'],
-    }),
-  });
-  expect(await funding.json()).toMatchObject({ result: null });
+  node.balances.set(account.address.toLowerCase(), 10n ** 18n);
+  const fundedClient = createPublicClient({ transport: http(nodeUrl) });
+  expect(await fundedClient.getBalance({ address: account.address })).toBe(10n ** 18n);
   const draft: ActionTransactionDraft = {
     chainId,
     to: '0x000000000000000000000000000000000000c0de',

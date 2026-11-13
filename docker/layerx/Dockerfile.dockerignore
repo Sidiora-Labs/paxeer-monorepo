@@ -1,4 +1,3 @@
-contracts/config/checkpoint-settlement.json
 build/
 **/node_modules/
 **/target/
@@ -64,7 +63,6 @@ tests
 !services/agent/crates/layerx-client/**
 !services/agent/crates/layerx-crypto/**
 !services/agent/crates/layerx-identity-binding/**
-!services/agent/crates/layerx-paxeer-verifier/**
 !services/agent/crates/layerx-proof/**
 !services/agent/crates/layerx-sdk/**
 !services/agent/crates/layerx-types/**
@@ -91,7 +89,6 @@ tests
 !services/platform/hosted/gateway/**
 !services/platform/hosted/indexer/**
 !services/platform/hosted/internal/**
-!programs/crates/layerx-programs-protocol-adapter/**
 !programs/crates/layerx-programs-registry/**
 !programs/crates/layerx-programs-runtime/**
 !programs/sdk/rust/**
@@ -110,7 +107,6 @@ tests
 !services/agent/unsafe-allowlist.toml
 !services/interop/specs/vendor/x402/x402-specification-v2.md
 !spec/layerx-merge/contracts/address-table.md
-!contracts/config/checkpoint-settlement.json
 !programs/vendor/**
 
 **/.env

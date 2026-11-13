@@ -30,16 +30,17 @@ Constructing a requested level does not construct verified evidence.
 
 [`layerx-wire`](../services/agent/crates/layerx-wire/src/lib.rs) owns canonical
 encoding/decoding, hashing domains and bounded signed-message codecs. Modules
-include `account`, `activity`, `batch_maintenance`, `handover`, `decode`,
-`encode`, `hash`, `limits` and `sign`. Preserve exact byte widths, supported
-protocol versions and native activity identifiers. Reject truncation, trailing
+include `account`, `batch_maintenance`, `handover`, `decode`, `encode`,
+`hash`, `limits`, `maintenance` and `receipt`. The `historical` namespace
+contains `activity`, `sign` and the historical hashing API. Preserve exact byte
+widths, supported protocol versions and native activity identifiers. Reject truncation, trailing
 data and out-of-bound messages through the real decoder.
 
 ## Crypto
 
 [`layerx-crypto`](../services/agent/crates/layerx-crypto/src/lib.rs) provides
 `SignatureMessage`, `VerifyError`, `ed25519`, `secp256k1`, `evm_transaction`,
-`purpose` and `settlement_recipient`. `SignatureMessage::new` validates the
+and `purpose`. `SignatureMessage::new` validates the
 supported protocol and nonzero network scope; `digest()` hashes the selected
 domain tag followed by canonical bytes. Key/signature verification failures
 retain the exact protocol classification via `VerifyError::result_code`.
@@ -53,7 +54,7 @@ custody modules. Secrets belong behind the signer boundary; debug output for
 ## Proof
 
 [`layerx-proof`](../services/agent/crates/layerx-proof/src/lib.rs) owns offline
-verification in `receipt`, `inclusion`, `sequencer_logs`, `checkpoint`, `state`,
+verification in `receipt`, `inclusion`, `sequencer_logs`, `state`,
 `state_witness`, `state_range`, `program`, `signed_authority`, `merkle`,
 `availability`, `evidence`, `level`, `export` and `export_codec`.
 `level::achieved` and `achieved_rung` read the token inseparably carried by
@@ -61,9 +62,8 @@ verified evidence. The achieved-token constructor is private; caller-selected
 rank integers and RPC-published authority do not establish trust.
 
 Use the exact producer's bytes, pinned receipt keys and protected commit trust.
-The retained `settlement` module is compatibility code, not an additional
-network finality requirement. [Exports](agent-formats.md#offline-export) carry
-facts and evidence for independent verification.
+[Exports](agent-formats.md#offline-export) carry chain identity, committed
+headers and validator sets for independent verification.
 
 ## Client
 
@@ -99,7 +99,8 @@ a previously authenticated session is not perpetual permission.
 
 `UnifiedAgentOwner` and `ProductionHumanOperations` bind the
 [Human peer](agent-human-peer.md) to real runtime operations. The binary has
-full and human-owner modes; see [its actual environment](agent-config.md#agentd-env).
+`full`, `human-owner` and `inference-market` modes; see
+[its actual environment](agent-config.md#agentd-env).
 `Store` keys always include `TenantId`. Keep Unknown, pending, failed and
 executed states distinct during recovery; absent evidence is not an executed
 result.
@@ -108,7 +109,7 @@ result.
 
 [`layerx-agentd-host`](../services/agent/crates/layerx-agentd-host/Cargo.toml)
 integrates the executable's host dependencies. Its
-[`ProductionWebPayer`](../services/agent/crates/layerx-agentd-host/src/payer.rs)
+[`ProductionWebPayer`](../services/agent/crates/layerx-agentd-host/src/payer/implementation.rs)
 uses the owner, KMS attestor, native precompile calls and node receipts for web
 payments. The payer fixes mainnet-beta chain ID 125 and a 30-second receipt
 timeout. A payment boundary refusal, attestor refusal and node refusal remain
@@ -149,9 +150,10 @@ lengths under the `layerx-human/subject-tenant/v1` domain. Retain the returned
 transport binding and agent tenant; do not accept a request's arbitrary tenant
 as the storage authority.
 
-## Paxeer verifier
+## Commit verification
 
-The former `layerx-paxeer-verifier` crate is removed from the current agent
-workspace. This anchor remains for historical registry links. Current node
-receipt and commit acquisition belongs to [client](#client), verification to
-[proof](#proof), and runtime trust/receipt storage to [agentd](#agentd).
+Acquire node receipts and commits through [client](#client), verify the CometBFT
+commit and header at the selected height, and verify per-key native state proofs
+against the committed app hash. The retained node commit/header verifier is
+[custodyproof.Verify](../custodyproof/verify.go); [proof](#proof) owns the current
+Rust evidence API, and [agentd](#agentd) owns runtime trust and receipt storage.

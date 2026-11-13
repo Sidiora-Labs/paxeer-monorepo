@@ -1,0 +1,44 @@
+[meta]
+task = "22.39.284"
+acceptance = "22998.1"
+decisions = [3101, 3104, 3122]
+base_revision = "6e0e54cb0d6bd765033a719097d606ca59593444"
+scan_path = "services/agent/crates/layerx-wire"
+inventory = "The three findings supplied by the merged-main inventory are confirmed by source inspection at base_revision; no baseline scan is rerun because the explicit gate order requires complete implementation before testing and verification only through hf-done."
+finding_count = 3
+
+[finding.1]
+path = "services/agent/crates/layerx-wire/src/hash.rs"
+line = 38
+component = "human-two-domain"
+symbol = "EvmPayoutBinding"
+repair = "Retain the declared domain variant and document its historical core compatibility; add an allowed reference limited to this file and symbol in tools/paxeer-x/retired_callers.json."
+reason = "The shipped core still declares LXP_DOMAIN_EVM_PAYOUT_BINDING in include/layerx/lxp_protocol.h and uses it in src/state/lxp_identity.c::lxp_identity_evm_binding_digest, although the human binding journey is retired."
+
+[finding.2]
+path = "services/agent/crates/layerx-wire/src/hash.rs"
+line = 72
+component = "human-two-domain"
+symbol = "EvmPayoutBinding"
+repair = "Retain the exact NUL-terminated core domain tag under the same file-and-symbol allowance and assert its exact bytes in the existing domain separation test."
+reason = "Historical core digest compatibility requires the original LXP/v1/evm-payout-binding tag, so replacing or renaming this live domain would change the protocol surface."
+
+[finding.3]
+path = "services/agent/crates/layerx-wire/src/hash.rs"
+line = 819
+component = "human-two-domain"
+symbol = "EvmPayoutBinding"
+repair = "Retain the domain in all_domains_separate_identical_canonical_bytes under the same file-and-symbol allowance, preserving every pairwise separation assertion and adding the exact-tag assertion."
+reason = "The compatibility domain remains part of the shipped wire API and must continue to be covered by the existing separation test."
+
+[qualification]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-wire --tests"
+verify_cmd = "test -s services/agent/crates/layerx-wire/repair_22_39_284.kvx && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-wire --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-wire"
+verified_revision = "The matching revision of the final passing build and verify rows in the private /out/run/gates.jsonl ledger, which records the candidate containing this repair record."
+evidence = "hf-build and hf-done record the exact revision, command, exit code and private log path in /out/run/gates.jsonl; no gate result is claimed before execution."
+scan_success = "Qualification requires hf-done to pass the complete verify_cmd, ending with a zero-exit retired-caller scan of scan_path."
+
+[gotcha.inventory]
+symptom = "The human-two-domain catalogue entry also matches a wire hashing domain that still ships in the core protocol."
+cause = "Retirement of the human binding journey does not remove the core domain declaration or its identity digest implementation."
+do = "Keep the core-compatible name and exact tag, cite the live core declarations in a file-and-symbol allowance, and retain domain separation coverage."

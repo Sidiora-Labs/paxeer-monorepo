@@ -90,7 +90,7 @@ func (s Store) mutate(ctx context.Context, r Request, fn func(pgx.Tx, Request) e
 	if _, e = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1,0))", "mutation:"+r.Actor+":"+r.Key); e != nil {
 		return e
 	}
-	if r.Action == "comment" && !r.Remove && r.ID == "" {
+	if r.Action == commentAction && !r.Remove && r.ID == "" {
 		var previous []byte
 		err := tx.QueryRow(ctx, "SELECT payload FROM interaction_mutations WHERE actor=$1 AND key=$2", r.Actor, r.Key).Scan(&previous)
 		if err == nil {
@@ -137,13 +137,13 @@ func (s Store) mutate(ctx context.Context, r Request, fn func(pgx.Tx, Request) e
 	return tx.Commit(ctx)
 }
 func mutationAggregate(r Request) string {
-	if r.Action == "follow" {
+	if r.Action == followAction {
 		return "follow:" + strings.ToLower(strings.TrimSpace(r.Actor)) + ":" + r.ID
 	}
-	if r.Action == "comment_hide" {
+	if r.Action == commentHideAction {
 		return "comment:" + r.ID
 	}
-	if r.Action == "reaction" {
+	if r.Action == reactionAction {
 		return "reaction:" + strings.ToLower(strings.TrimSpace(r.Actor)) + ":" + r.ID + ":" + r.Kind
 	}
 	return r.Action + ":" + r.ID
@@ -173,7 +173,7 @@ func (s Store) Follow(ctx context.Context, r Request) error {
 	}
 	r.Actor = a
 	r.ID = b
-	r.Action = "follow"
+	r.Action = followAction
 	return s.mutate(ctx, r, func(tx pgx.Tx, r Request) error {
 		var affected int64
 		if r.Remove {
@@ -292,7 +292,7 @@ func (s Store) CreateComment(ctx context.Context, r Request) error {
 		return e
 	}
 	r.Pool = p
-	r.Action = "comment"
+	r.Action = commentAction
 	r.Remove = false
 	return s.mutate(ctx, r, func(tx pgx.Tx, r Request) error {
 		depth := 1
@@ -327,7 +327,7 @@ func (s Store) EditComment(ctx context.Context, r Request) error {
 	if r.Remove {
 		r.Body = ""
 	}
-	r.Action = "comment"
+	r.Action = commentAction
 	return s.mutate(ctx, r, func(tx pgx.Tx, r Request) error {
 		var author string
 		var rev int64
@@ -361,7 +361,7 @@ func (s Store) HideComment(ctx context.Context, r Request) error {
 	if err != nil {
 		return err
 	}
-	r.Pool, r.Action, r.Remove = pool, "comment_hide", true
+	r.Pool, r.Action, r.Remove = pool, commentHideAction, true
 	creator, ok := s.Authority.(CreatorAuthority)
 	if !ok {
 		return ErrDenied
@@ -394,10 +394,10 @@ func (s Store) HideComment(ctx context.Context, r Request) error {
 
 func (s Store) React(ctx context.Context, r Request) error {
 	// Frozen legacy reaction is like. Additional enum values require contract review.
-	if r.Kind != "like" {
+	if r.Kind != likeAction {
 		return ErrReactionKind
 	}
-	r.Action = "reaction"
+	r.Action = reactionAction
 	return s.mutate(ctx, r, func(tx pgx.Tx, r Request) error {
 		var affected int64
 		if r.Remove {
@@ -431,7 +431,7 @@ func (s Store) Count(ctx context.Context, id, kind string) (int64, error) {
 	if s.DB == nil {
 		return 0, ErrDependency
 	}
-	if kind != "like" {
+	if kind != likeAction {
 		return 0, ErrReactionKind
 	}
 	e := s.DB.QueryRow(ctx, `SELECT count(*) FROM interaction_reactions r JOIN interaction_comments c ON c.id=r.target WHERE r.target=$1 AND r.kind=$2 AND NOT c.removed AND NOT EXISTS(SELECT 1 FROM interaction_erased_wallets e WHERE e.wallet=r.actor OR e.wallet=c.author)`, id, kind).Scan(&n)
@@ -487,7 +487,7 @@ func (s Store) ReferenceCallout(ctx context.Context, r Request, recipients []str
 		return err
 	}
 	attachment := Provenance(ctx, hash, verifier)
-	r.Action = "callout_reference"
+	r.Action = calloutReferenceAction
 	r.Remove = false
 	// Bind metadata to idempotency, including normalized mentioned-wallet order.
 	payload, _ := json.Marshal(struct {
@@ -515,7 +515,7 @@ func (s Store) ReferenceCallout(ctx context.Context, r Request, recipients []str
 				continue
 			}
 			decision := r
-			decision.Action = "mention"
+			decision.Action = mentionAction
 			decision.Parent = recipient
 			if err := s.Authority.Check(ctx, tx, decision); err != nil {
 				if errors.Is(err, ErrDenied) {

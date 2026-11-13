@@ -177,6 +177,10 @@ func TestProofLaunchpadErrorsKeeper(t *testing.T) {
 	// lets the real EVM produce empty return data at the decoding boundary.
 	gs.Treasury = []types.TreasuryBalance{{Token: types.DefaultQuoteToken, Ledger: sdk.ZeroInt(), Held: sdk.NewInt(10)}}
 	k.InitGenesis(ctx, *gs)
+	require.NoError(t, k.InstallRoleSurfaces(ctx, &app.EvmKeeper))
+	for _, address := range keeper.Generation2Surfaces {
+		require.Equal(t, keeper.SurfaceRuntime, app.EvmKeeper.GetCode(ctx, address))
+	}
 	factory := k.Generation2().SidioraFactory
 	who := common.HexToAddress(holder)
 	other := common.HexToAddress(operator)
@@ -216,20 +220,25 @@ func TestProofLaunchpadErrorsKeeper(t *testing.T) {
 
 	want := keeper.Surface{Role: types.RoleFactory, Generation: types.Generation2}
 	for i := 0; i < 2; i++ {
-		require.NoError(t, k.SetSurface(ctx, factory, want))
-		got, found, err := k.GetSurface(ctx, factory)
+		surfaceCtx, _ := ctx.CacheContext()
+		require.NoError(t, k.SetSurface(surfaceCtx, factory, want))
+		got, found, err := k.GetSurface(surfaceCtx, factory)
 		require.NoError(t, err)
 		require.True(t, found)
 		require.Equal(t, want, got)
 		// Damage the real producer's encoded record, then make the consumer
 		// read it again. A cached answer would incorrectly pass this read.
-		store := ctx.KVStore(sdk.NewKVStoreKey(types.StoreKey))
+		store := surfaceCtx.KVStore(sdk.NewKVStoreKey(types.StoreKey))
 		encoded := append([]byte(nil), store.Get(types.SurfaceKey(factory))...)
 		store.Set(types.SurfaceKey(factory), encoded[:len(encoded)-1])
-		_, found, err = k.GetSurface(ctx, factory)
+		_, found, err = k.GetSurface(surfaceCtx, factory)
 		require.False(t, found)
 		require.ErrorIs(t, err, types.ErrInvalidParams)
 		proofLaunchpadTransport(t, err, "launchpad", 2)
+		err = k.SetSurface(surfaceCtx, factory, want)
+		require.ErrorIs(t, err, types.ErrInvalidParams)
+		proofLaunchpadTransport(t, err, "launchpad", 2)
+		require.Equal(t, encoded[:len(encoded)-1], store.Get(types.SurfaceKey(factory)))
 	}
 	require.NoError(t, k.SetSurface(ctx, factory, want))
 

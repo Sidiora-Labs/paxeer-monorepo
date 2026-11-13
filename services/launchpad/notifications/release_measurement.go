@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -159,12 +160,12 @@ func (c ReleaseConfig) Validate() error {
 	origins := map[string]bool{}
 	for _, origin := range c.AllowedOrigins {
 		u, err := url.Parse(origin)
-		if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		if err != nil || u.Scheme != httpsScheme || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
 			return ErrInvalid
 		}
 		origins[origin] = true
 	}
-	required := map[string]bool{"pool_launch": false, "callout_publish": false, "follow_author": false, "squad_join": false, "threshold_alert": false, "inbox": false, "feed": false, "leaderboard": false}
+	required := map[string]bool{"pool_launch": false, stepCalloutPublish: false, "follow_author": false, "squad_join": false, stepThresholdAlert: false, "inbox": false, "feed": false, "leaderboard": false}
 	seen := map[string]bool{}
 	for _, step := range c.Steps {
 		if _, ok := required[step.Name]; !ok || seen[step.Name] || step.Status < 200 || step.Status >= 300 || len(step.Assertions) == 0 {
@@ -182,7 +183,7 @@ func (c ReleaseConfig) Validate() error {
 				return ErrInvalid
 			}
 		}
-		if step.Name == "callout_publish" || step.Name == "threshold_alert" {
+		if step.Name == stepCalloutPublish || step.Name == stepThresholdAlert {
 			bound := false
 			for _, assertion := range step.Assertions {
 				if assertion.FromStep == "pool_launch" {
@@ -196,7 +197,7 @@ func (c ReleaseConfig) Validate() error {
 		if step.Name == "feed" {
 			bound := false
 			for _, assertion := range step.Assertions {
-				if assertion.FromStep == "callout_publish" {
+				if assertion.FromStep == stepCalloutPublish {
 					bound = true
 				}
 			}
@@ -207,7 +208,7 @@ func (c ReleaseConfig) Validate() error {
 		if step.Name == "inbox" {
 			bound := false
 			for _, assertion := range step.Assertions {
-				if assertion.FromStep == "threshold_alert" {
+				if assertion.FromStep == stepThresholdAlert {
 					bound = true
 				}
 			}
@@ -223,7 +224,7 @@ func (c ReleaseConfig) Validate() error {
 			return ErrInvalid
 		}
 	}
-	if c.DeviceReceiptFile == "" || len(c.DeviceCaptureKeys) == 0 || !releaseDigest(c.AppBuildDigests["apns"]) || !releaseDigest(c.AppBuildDigests["fcm"]) {
+	if c.DeviceReceiptFile == "" || len(c.DeviceCaptureKeys) == 0 || !releaseDigest(c.AppBuildDigests[providerAPNS]) || !releaseDigest(c.AppBuildDigests[providerFCM]) {
 		return fmt.Errorf("real sandbox device capture inputs: %w", ErrUnavailable)
 	}
 	return nil
@@ -301,12 +302,12 @@ func (w *releaseCapture) append(record any) error {
 	return err
 }
 
-func releaseLimitedFile(path string, max int64) ([]byte, error) {
-	file, err := os.Open(path)
+func releaseLimitedFile(path string, max int64) (data []byte, fileErr error) {
+	file, err := os.Open(path) //nolint:gosec // Release measurement reads the configured input path.
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { fileErr = errors.Join(fileErr, file.Close()) }()
 	raw, err := io.ReadAll(io.LimitReader(file, max+1))
 	if err != nil {
 		return nil, err
@@ -317,12 +318,12 @@ func releaseLimitedFile(path string, max int64) ([]byte, error) {
 	return raw, nil
 }
 
-func releaseFileDigest(path string) (string, error) {
-	file, err := os.Open(path)
+func releaseFileDigest(path string) (digest string, fileErr error) {
+	file, err := os.Open(path) //nolint:gosec // Release measurement reads the configured input path.
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer func() { fileErr = errors.Join(fileErr, file.Close()) }()
 	h := sha256.New()
 	if _, err = io.Copy(h, file); err != nil {
 		return "", err
@@ -349,7 +350,9 @@ func (c ReleaseConfig) bindSource() error {
 	sort.Strings(names)
 	h := sha256.New()
 	for _, name := range names {
-		fmt.Fprintf(h, "%s\x00%s\n", name, c.SourceFiles[name])
+		if _, err := fmt.Fprintf(h, "%s\x00%s\n", name, c.SourceFiles[name]); err != nil {
+			return err
+		}
 	}
 	if hex.EncodeToString(h.Sum(nil)) != c.Binding.CandidateDigest {
 		return fmt.Errorf("candidate manifest digest mismatch")
@@ -373,12 +376,12 @@ func (c ReleaseConfig) bindSource() error {
 	return nil
 }
 
-func releaseReadTriggers(path string, consume func(discovery.AlertTrigger, json.RawMessage) error) error {
-	f, err := os.Open(path)
+func releaseReadTriggers(path string, consume func(discovery.AlertTrigger, json.RawMessage) error) (fileErr error) {
+	f, err := os.Open(path) //nolint:gosec // Release measurement reads a configured evidence path.
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { fileErr = errors.Join(fileErr, f.Close()) }()
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 4096), 65536)
 	for scanner.Scan() {
@@ -409,8 +412,11 @@ func releasePrepareCohort(ctx context.Context, db *sql.DB, c ReleaseConfig) (*sq
 		return nil, err
 	}
 	if _, err = conn.ExecContext(ctx, `CREATE TEMP TABLE release_notification_cohort(id text PRIMARY KEY,trigger_id text UNIQUE NOT NULL,account_id text NOT NULL,document jsonb NOT NULL) ON COMMIT PRESERVE ROWS`); err != nil {
-		conn.Close()
-		return nil, err
+		return nil, errors.Join(err, conn.Close())
+	}
+	cleanup := func(prior error) error {
+		_, dropErr := conn.ExecContext(context.Background(), `DROP TABLE IF EXISTS release_notification_cohort`)
+		return errors.Join(prior, dropErr, conn.Close())
 	}
 	accounts := map[string]bool{}
 	for _, a := range c.AllowedAccounts {
@@ -457,9 +463,7 @@ func releasePrepareCohort(ctx context.Context, db *sql.DB, c ReleaseConfig) (*sq
 		err = fmt.Errorf("need 1200000 actual trigger events; got %d", total)
 	}
 	if err != nil {
-		conn.ExecContext(context.Background(), `DROP TABLE IF EXISTS release_notification_cohort`)
-		conn.Close()
-		return nil, err
+		return nil, cleanup(err)
 	}
 	var missingAuthority int64
 	err = conn.QueryRowContext(ctx, `SELECT count(*) FROM release_notification_cohort c LEFT JOIN narrative_discovery.triggers t ON t.id=c.trigger_id AND t.document=c.document WHERE t.id IS NULL`).Scan(&missingAuthority)
@@ -467,9 +471,7 @@ func releasePrepareCohort(ctx context.Context, db *sql.DB, c ReleaseConfig) (*sq
 		err = fmt.Errorf("trigger dataset lacks %d exact canonical durable source events", missingAuthority)
 	}
 	if err != nil {
-		conn.ExecContext(context.Background(), `DROP TABLE IF EXISTS release_notification_cohort`)
-		conn.Close()
-		return nil, err
+		return nil, cleanup(err)
 	}
 	var existing int64
 	err = conn.QueryRowContext(ctx, `SELECT count(*) FROM release_notification_cohort c JOIN discovery_notifications.inbox i ON i.id=c.id`).Scan(&existing)
@@ -477,9 +479,7 @@ func releasePrepareCohort(ctx context.Context, db *sql.DB, c ReleaseConfig) (*sq
 		err = fmt.Errorf("trigger cohort already has inbox effects")
 	}
 	if err != nil {
-		conn.ExecContext(context.Background(), `DROP TABLE IF EXISTS release_notification_cohort`)
-		conn.Close()
-		return nil, err
+		return nil, cleanup(err)
 	}
 	return conn, nil
 }
@@ -521,8 +521,8 @@ func releaseJourney(ctx context.Context, c ReleaseConfig, client *http.Client, c
 			return fmt.Errorf("real %s transport unavailable", step.Name)
 		}
 		raw, readErr := io.ReadAll(io.LimitReader(response.Body, 1048577))
-		response.Body.Close()
-		if readErr != nil || len(raw) > 1048576 {
+		closeErr := response.Body.Close()
+		if readErr != nil || closeErr != nil || len(raw) > 1048576 {
 			return ErrUnavailable
 		}
 		sample.Status = response.StatusCode
@@ -678,7 +678,7 @@ func releaseDevices(ctx context.Context, db *sql.DB, c ReleaseConfig, started ti
 	seen := map[string]bool{}
 	latency := map[string][]int64{}
 	for _, receipt := range receipts {
-		if receipt.Provider != "apns" && receipt.Provider != "fcm" {
+		if receipt.Provider != providerAPNS && receipt.Provider != providerFCM {
 			return ErrInvalid
 		}
 		if !receipt.Sandbox || receipt.ProviderReceipt == "" || receipt.NotificationID == "" || receipt.DeviceInstallationID == "" || receipt.AppBuildDigest != c.AppBuildDigests[receipt.Provider] || receipt.ReceivedAt.Before(started) || receipt.ReceivedAt.After(time.Now()) {
@@ -714,7 +714,7 @@ func releaseDevices(ctx context.Context, db *sql.DB, c ReleaseConfig, started ti
 			return err
 		}
 	}
-	if !seen["apns"] || !seen["fcm"] {
+	if !seen[providerAPNS] || !seen[providerFCM] {
 		return fmt.Errorf("both actual signed application device receipts required")
 	}
 	for provider, samples := range latency {
@@ -770,7 +770,7 @@ func releaseRawGlobal(c ReleaseConfig, a ReleaseGlobalArtifact) (releaseGlobalTo
 	}
 	sort.Strings(files)
 	for _, path := range files {
-		f, err := os.Open(path)
+		f, err := os.Open(path) //nolint:gosec // Release measurement reads a configured evidence path.
 		if err != nil {
 			return total, err
 		}
@@ -781,50 +781,42 @@ func releaseRawGlobal(c ReleaseConfig, a ReleaseGlobalArtifact) (releaseGlobalTo
 			decoder := json.NewDecoder(bytes.NewReader(scanner.Bytes()))
 			decoder.DisallowUnknownFields()
 			if err = decoder.Decode(&o); err != nil {
-				f.Close()
-				return total, err
+				return total, errors.Join(err, f.Close())
 			}
 			var extra any
 			if err = decoder.Decode(&extra); err != io.EOF {
-				f.Close()
-				return total, ErrInvalid
+				return total, errors.Join(ErrInvalid, f.Close())
 			}
 			signature, err := base64.StdEncoding.DecodeString(o.Signature)
 			if err != nil {
-				f.Close()
-				return total, ErrForbidden
+				return total, errors.Join(ErrForbidden, f.Close())
 			}
 			key, err := base64.StdEncoding.DecodeString(c.GlobalCaptureKeys[o.CaptureKeyID])
 			if err != nil || len(key) != ed25519.PublicKeySize {
-				f.Close()
-				return total, ErrForbidden
+				return total, errors.Join(ErrForbidden, f.Close())
 			}
 			o.Signature = ""
 			message, err := json.Marshal(o)
 			if err != nil || !ed25519.Verify(ed25519.PublicKey(key), message, signature) {
-				f.Close()
-				return total, ErrForbidden
+				return total, errors.Join(ErrForbidden, f.Close())
 			}
 			identity := sha256.Sum256(message)
 			sampleID := hex.EncodeToString(identity[:])
 			if total.seen[sampleID] || len(total.seen) >= 2000000 {
-				f.Close()
-				return total, fmt.Errorf("duplicated or unbounded global raw capture")
+				return total, errors.Join(fmt.Errorf("duplicated or unbounded global raw capture"), f.Close())
 			}
 			total.seen[sampleID] = true
 			if o.Binding != c.Binding || o.Gate != a.Gate || o.At.Before(a.StartedAt) || o.At.After(a.FinishedAt) || (!total.last.IsZero() && o.At.Before(total.last)) {
-				f.Close()
-				return total, ErrInvalid
+				return total, errors.Join(ErrInvalid, f.Close())
 			}
 			if total.first.IsZero() {
 				total.first = o.At
 			}
 			total.last = o.At
 			switch a.Gate {
-			case "socket_surge":
+			case gateSocketSurge:
 				if c.MaxSocketQueueMessages <= 0 || o.Kind != "sockets" || o.ActiveSockets < 0 || o.MaxQueuedMessages < 0 || o.MaxQueuedMessages > c.MaxSocketQueueMessages || o.SnapshotRecoveryFailures != 0 {
-					f.Close()
-					return total, fmt.Errorf("socket recovery or queue bound failed")
+					return total, errors.Join(fmt.Errorf("socket recovery or queue bound failed"), f.Close())
 				}
 				total.peak = max(total.peak, o.ActiveSockets)
 				if o.ActiveSockets >= 200000 {
@@ -836,27 +828,24 @@ func releaseRawGlobal(c ReleaseConfig, a ReleaseGlobalArtifact) (releaseGlobalTo
 					total.surgeFirst = time.Time{}
 					total.surgeLast = time.Time{}
 				}
-			case "az_loss":
+			case gateAZLoss:
 				if o.Kind != "recovery" || o.LostAZCount < 0 || o.MissingAcknowledgedRules != 0 || o.MissingAcknowledgedInbox != 0 || o.CatchupNS < 0 || time.Duration(o.CatchupNS) > 10*time.Minute {
-					f.Close()
-					return total, fmt.Errorf("actual AZ recovery integrity failed")
+					return total, errors.Join(fmt.Errorf("actual AZ recovery integrity failed"), f.Close())
 				}
 				if o.LostAZCount >= 1 {
 					total.observedAZ = true
 				}
-			case "mixed_soak":
+			case gateMixedSoak:
 				switch o.Kind {
 				case "origin":
 					if o.HTTPRequestsTotal < 0 || o.HTTPRequestsTotal < total.requestLast || len(o.OriginHistogram) == 0 || len(o.OriginHistogram) > 256 {
-						f.Close()
-						return total, ErrInvalid
+						return total, errors.Join(ErrInvalid, f.Close())
 					}
 					var measured int64
 					for bound, count := range o.OriginHistogram {
 						upper, e := strconv.ParseInt(bound, 10, 64)
 						if e != nil || upper < 0 || upper > int64(time.Minute) || count < 0 || count > 1000000000 || measured > 1000000000-count {
-							f.Close()
-							return total, ErrInvalid
+							return total, errors.Join(ErrInvalid, f.Close())
 						}
 						measured += count
 						if upper <= int64(150*time.Millisecond) {
@@ -867,8 +856,7 @@ func releaseRawGlobal(c ReleaseConfig, a ReleaseGlobalArtifact) (releaseGlobalTo
 						}
 					}
 					if measured != o.HTTPRequestsTotal-total.requestLast {
-						f.Close()
-						return total, fmt.Errorf("latency histogram does not cover actual origin request counter")
+						return total, errors.Join(fmt.Errorf("latency histogram does not cover actual origin request counter"), f.Close())
 					}
 					if total.originFirst.IsZero() {
 						total.originFirst = o.At
@@ -877,8 +865,7 @@ func releaseRawGlobal(c ReleaseConfig, a ReleaseGlobalArtifact) (releaseGlobalTo
 					if !total.originLast.IsZero() {
 						seconds := o.At.Sub(total.originLast).Seconds()
 						if seconds <= 0 {
-							f.Close()
-							return total, ErrInvalid
+							return total, errors.Join(ErrInvalid, f.Close())
 						}
 						total.maxRPS = max(total.maxRPS, float64(measured)/seconds)
 					}
@@ -887,21 +874,17 @@ func releaseRawGlobal(c ReleaseConfig, a ReleaseGlobalArtifact) (releaseGlobalTo
 					total.origin += measured
 				case "channel":
 					if o.Channel == "" || o.ChannelLatencyNS < 0 {
-						f.Close()
-						return total, ErrInvalid
+						return total, errors.Join(ErrInvalid, f.Close())
 					}
 					total.channelSamples++
 				default:
-					f.Close()
-					return total, ErrInvalid
+					return total, errors.Join(ErrInvalid, f.Close())
 				}
 			default:
-				f.Close()
-				return total, ErrInvalid
+				return total, errors.Join(ErrInvalid, f.Close())
 			}
 		}
-		err = scanner.Err()
-		f.Close()
+		err = errors.Join(scanner.Err(), f.Close())
 		if err != nil {
 			return total, err
 		}
@@ -910,15 +893,15 @@ func releaseRawGlobal(c ReleaseConfig, a ReleaseGlobalArtifact) (releaseGlobalTo
 		return total, ErrUnavailable
 	}
 	switch a.Gate {
-	case "socket_surge":
+	case gateSocketSurge:
 		if total.peak < 200000 || total.surgeFirst.IsZero() || total.surgeLast.Sub(total.surgeFirst) < 600*time.Second {
 			return total, fmt.Errorf("actual 200000 socket ten-minute surge missing")
 		}
-	case "az_loss":
+	case gateAZLoss:
 		if !total.observedAZ {
 			return total, fmt.Errorf("actual AZ loss observation missing")
 		}
-	case "mixed_soak":
+	case gateMixedSoak:
 		elapsed := total.originLast.Sub(total.originFirst)
 		if total.last.Sub(total.first) < 24*time.Hour || elapsed <= 0 || total.origin == 0 || total.within150*100 < total.origin*95 || total.within400*100 < total.origin*99 || total.channelSamples == 0 || total.maxRPS < 10000 {
 			return total, fmt.Errorf("actual mixed soak percentile/rate/channel bounds failed")
@@ -928,7 +911,7 @@ func releaseRawGlobal(c ReleaseConfig, a ReleaseGlobalArtifact) (releaseGlobalTo
 }
 
 func releaseGlobals(c ReleaseConfig, result *ReleaseResult) error {
-	gates := []string{"socket_surge", "az_loss", "mixed_soak"}
+	gates := []string{gateSocketSurge, gateAZLoss, gateMixedSoak}
 	for _, gate := range gates {
 		path := c.GlobalArtifacts[gate]
 		if path == "" {
@@ -1003,7 +986,7 @@ func RunReleaseMeasurements(ctx context.Context, c ReleaseConfig, db *sql.DB, au
 		return result, e
 	}
 	rawPath := filepath.Join(c.OutputDir, "raw.jsonl")
-	file, e := os.OpenFile(rawPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	file, e := os.OpenFile(rawPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600) //nolint:gosec // The output path is the configured isolated capture directory.
 	if e != nil {
 		return result, e
 	}

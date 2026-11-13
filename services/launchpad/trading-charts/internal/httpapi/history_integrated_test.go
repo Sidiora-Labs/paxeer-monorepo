@@ -59,6 +59,38 @@ func TestProductionUnavailableSupplyPreservesPrice(t *testing.T) {
 	if body.Status != "ok" || body.Available || len(body.Close) != 1 || body.Close[0] != 2 {
 		t.Fatalf("price availability lost: %s", raw)
 	}
+	unavailable, err := valuationHistory(context.Background(), CanonicalCandlePage{Items: []interfaces.Candle{bar}}, nil, modeTotalSupplyValuation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var valuation map[string]json.RawMessage
+	if err := json.Unmarshal(unavailable, &valuation); err != nil {
+		t.Fatal(err)
+	}
+	if string(valuation["s"]) != `"unavailable"` || len(valuation["priceHistory"]) == 0 || len(valuation["c"]) != 0 {
+		t.Fatalf("unavailable valuation retains price history: %s", unavailable)
+	}
+}
+
+func TestValuationHistoryRejectsInvalidCandleScope(t *testing.T) {
+	price := interfaces.Price{Numerator: "2", Denominator: "1"}
+	bar := interfaces.Candle{Start: "2026-10-12T00:00:00.000Z", Open: price, High: price, Low: price, Close: price, VolumeUsdlRaw: "1000000"}
+	for _, tc := range []struct {
+		name, mode string
+		items      []interfaces.Candle
+	}{
+		{"unsupported mode", "other", []interfaces.Candle{bar}},
+		{"bad candle start", modePrice, []interfaces.Candle{func() interfaces.Candle { copy := bar; copy.Start = "later"; return copy }()}},
+		{"duplicate candle start", modePrice, []interfaces.Candle{bar, bar}},
+		{"bad price denominator", modePrice, []interfaces.Candle{func() interfaces.Candle { copy := bar; copy.Open.Denominator = "0"; return copy }()}},
+		{"bad settlement volume", modePrice, []interfaces.Candle{func() interfaces.Candle { copy := bar; copy.VolumeUsdlRaw = "invalid"; return copy }()}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if raw, err := valuationHistory(context.Background(), CanonicalCandlePage{Items: tc.items}, nil, tc.mode); err == nil || raw != nil {
+				t.Fatalf("invalid valuation scope: %s, %v", raw, err)
+			}
+		})
+	}
 }
 func TestProductionSlowSupplyRPCPreservesPrice(t *testing.T) {
 	release := make(chan struct{})
@@ -128,6 +160,12 @@ func TestProductionRevisionChangesOnHistoricalCorrection(t *testing.T) {
 	}
 }
 func TestProductionConcurrentCanonicalHistory(t *testing.T) {
+	for _, name := range []string{"L11_CANONICAL_ENDPOINT"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	endpoint := os.Getenv("L11_CANONICAL_ENDPOINT")
 	dsn := os.Getenv("L11_HISTORY_POSTGRES_DSN")
 	redisURL := os.Getenv("L11_HISTORY_REDIS_URL")
@@ -192,6 +230,12 @@ func TestProductionConcurrentCanonicalHistory(t *testing.T) {
 }
 
 func TestProductionCachePoisoningAndETagIsolation(t *testing.T) {
+	for _, name := range []string{"L11_CANONICAL_ENDPOINT"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	endpoint, dsn, redisURL := os.Getenv("L11_CANONICAL_ENDPOINT"), os.Getenv("L11_HISTORY_POSTGRES_DSN"), os.Getenv("L11_HISTORY_REDIS_URL")
 	if endpoint == "" || dsn == "" || redisURL == "" {
 		t.Fatal("real canonical API, PostgreSQL and Redis required")
@@ -336,6 +380,41 @@ func TestProductionCacheRejectsMalformedValues(t *testing.T) {
 	if !validChartCache(value, key, request, "price", page.Algorithm) {
 		t.Fatal("typed adapter output rejected", string(body))
 	}
+	unavailableBody, err := valuationHistory(context.Background(), page, nil, modeTotalSupplyValuation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unavailable := value
+	unavailable.Body = unavailableBody
+	unavailable.ETag = chartETag(key, unavailable.Watermark, unavailable.Body)
+	if !validChartCache(unavailable, key, request, modeTotalSupplyValuation, page.Algorithm) {
+		t.Fatalf("unavailable supply retains verified price history: %s", unavailable.Body)
+	}
+	for _, tc := range []struct {
+		name  string
+		times []int64
+	}{
+		{"different price count", []int64{}},
+		{"different price time", []int64{90}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var fields map[string]any
+			if err := json.Unmarshal(unavailableBody, &fields); err != nil {
+				t.Fatal(err)
+			}
+			prices := fields["priceHistory"].(map[string]any)
+			prices["t"] = tc.times
+			candidate := unavailable
+			candidate.Body, err = json.Marshal(fields)
+			if err != nil {
+				t.Fatal(err)
+			}
+			candidate.ETag = chartETag(key, candidate.Watermark, candidate.Body)
+			if validChartCache(candidate, key, request, modeTotalSupplyValuation, page.Algorithm) {
+				t.Fatal("unbound fallback price history accepted")
+			}
+		})
+	}
 	for _, field := range []string{"s", "mode", "algorithmVersion", "snapshotId", "t", "o", "v"} {
 		var poisoned map[string]any
 		if err := json.Unmarshal(body, &poisoned); err != nil {
@@ -389,6 +468,12 @@ func TestProductionCacheRejectsMalformedValues(t *testing.T) {
 }
 
 func TestProductionOriginTelemetryUsesActualFetch(t *testing.T) {
+	for _, name := range []string{"L11_CANONICAL_ENDPOINT"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	endpoint, dsn := os.Getenv("L11_CANONICAL_ENDPOINT"), os.Getenv("L11_HISTORY_POSTGRES_DSN")
 	if endpoint == "" || dsn == "" {
 		t.Fatal("real canonical API and PostgreSQL required")

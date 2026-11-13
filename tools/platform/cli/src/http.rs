@@ -282,13 +282,12 @@ fn configured_client_identity(endpoint: &str) -> Result<Option<ureq::tls::Client
         }
     }
     let mut keys = ureq::tls::parse_pem(&key);
-    let private_key = match keys
+    let Some(ureq::tls::PemItem::PrivateKey(private_key)) = keys
         .next()
         .transpose()
         .map_err(|_| "client private-key PEM is invalid".to_owned())?
-    {
-        Some(ureq::tls::PemItem::PrivateKey(value)) => value,
-        _ => return Err("client private-key file contains no private key".into()),
+    else {
+        return Err("client private-key file contains no private key".into());
     };
     if chain.is_empty() || keys.next().is_some() {
         return Err(

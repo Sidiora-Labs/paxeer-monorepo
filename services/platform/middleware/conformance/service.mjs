@@ -872,7 +872,7 @@ class AuthenticatedObservationTransport {
     });
     strictAssert.equal(value.submission.receipt_ref, toHex(verified.receiptDigest));
     this.observation = structuredClone(value);
-    return { ...value, receipt: portable };
+    return value;
   }
 }
 
@@ -1151,7 +1151,8 @@ function receiptRpc(request, body, receipt) {
     return jsonReply(400, { jsonrpc: "2.0", id: call.id, error: { code: -32601, message: "unknown method" } });
   }
   return jsonReply(200, { jsonrpc: "2.0", id: call.id, result: {
-    txHash: receipt.txHash, rung: "receipted", receipt: receipt.signedReceipt,
+    ...receipt.receiptJson, txHash: receipt.txHash, rung: "receipted",
+    keyId: receipt.receiptKey.keyId, receipt: receipt.signedReceipt,
   } });
 }
 

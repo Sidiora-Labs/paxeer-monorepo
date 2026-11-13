@@ -1,0 +1,15 @@
+[release_candidate]
+source_revision = "13acd98f6525972dddccb0be9813fadc4657bc0f"
+report = "docs/release/7.0.0-candidate-report.md"
+candidate_evidence = "Candidate evidence G1, G2, G3, R1, A1, P1, P2, C1 and D1"
+build_reference = "Candidate evidence B1"
+verification_reference = "Candidate evidence V1"
+
+[checklist]
+ticked_items = ["A 7.0.0 consensus-commit ledger", "Candidate release evidence", "Golden-vector checks", "The retired-caller scan", "The four ordered rehearsal tests", "Bond return and custody release tests", "Retired anchor writes", "Retired custody balances", "Refusal tests", "The programme rehearsal", "Pool-parity comparison rules"]
+ticked_lines = [24, 29, 30, 32, 33, 34, 35, 36, 37, 38, 39]
+
+[release_evidence]
+programme_final = "Final programme qualification and SDK/native parity retain their checklist items."
+owner_inputs = "The governed plan, staging, waiver records, signed tag, publication and independent rebuild retain their checklist items."
+after_cutover = "Service acceptance, receipt-key responses and settlement records retain their checklist items."

@@ -18,7 +18,7 @@ impl ApplicationError {
             .iter()
             .position(|registered| *registered == code)
             .ok_or(NON_CANONICAL)?;
-        NonZeroU8::new((index + 1) as u8)
+        NonZeroU8::new(u8::try_from(index + 1).map_err(|_| NON_CANONICAL)?)
             .map(Self)
             .ok_or(NON_CANONICAL)
     }
@@ -86,10 +86,10 @@ const APPLICATION_ERROR_CODES: [u16; APPLICATION_ERRORS.len()] = {
 // The private nonzero index leaves zero for success without carrying wire-code
 // padding through every codec Result. Wire codes remain the registry's u16 values.
 const fn application_error(code: u16) -> ApplicationError {
-    let mut index = 0;
-    while index < APPLICATION_ERROR_CODES.len() {
-        if APPLICATION_ERROR_CODES[index] == code {
-            return match NonZeroU8::new((index + 1) as u8) {
+    let mut index = 0_u8;
+    while (index as usize) < APPLICATION_ERROR_CODES.len() {
+        if APPLICATION_ERROR_CODES[index as usize] == code {
+            return match NonZeroU8::new(index + 1) {
                 Some(index) => ApplicationError(index),
                 None => panic!("application error index must be nonzero"),
             };

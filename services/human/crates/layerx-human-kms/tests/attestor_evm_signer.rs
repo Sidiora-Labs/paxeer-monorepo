@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[path = "support/attestor_cluster.rs"]
 mod attestor_cluster;
 
@@ -131,7 +132,7 @@ fn attestor_signs_an_eip1559_transaction_that_recovers_to_the_evm_address() -> R
 }
 
 #[test]
-fn attestor_signer_config_without_evm_key_is_refused() -> Result<()> {
+fn attestor_signer_config_without_evm_key_is_refused() {
     let mut config = AttestorSignerConfig {
         nodes: Vec::new(),
         trust_anchors: Vec::new(),
@@ -154,5 +155,4 @@ fn attestor_signer_config_without_evm_key_is_refused() -> Result<()> {
         AttestorSigner::from_config(&config),
         Err(AttestorError::Configuration("EVM key id"))
     ));
-    Ok(())
 }

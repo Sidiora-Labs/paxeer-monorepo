@@ -1,15 +1,15 @@
 //! Task 22.33.261 / audit 22.30.130 / acceptance 22998.1.
-//! reward-finality-proof-origin -> reward_finality_proof_origin: committed routed reads,
-//! production ICS23 IAVL/multistore verification, authenticated header and SnapshotBinding;
+//! reward-finality-proof-origin -> `reward_finality_proof_origin`: committed routed reads,
+//! production ICS23 IAVL/multistore verification, authenticated header and `SnapshotBinding`;
 //! modified value, key, block and app-hash witnesses refuse before reward authorization.
-//! reward-native-reopen -> reward_native_reopen: exact signed Claim and RefundFree requests
+//! reward-native-reopen -> `reward_native_reopen`: exact signed Claim and `RefundFree` requests
 //! survive termination of the writer process and reopening production Storage, preserving
 //! retained results, ledger balances, payout plans, events and reward rows without replanning
 //! a second transfer. Native bank execution remains the wiring request below.
-//! task-active-admission-fixture -> task_active_admission_fixture: routed lifecycle,
+//! task-active-admission-fixture -> `task_active_admission_fixture`: routed lifecycle,
 //! participant-specific enrollment, signed consent, approval and admission across epochs;
 //! two-worker policy is staged before the final opening, and foreign approval is refused.
-//! Wiring request (domain 13): tests/programs/test_ai_host_boundary.c must persist/reopen
+//! Wiring request (domain 13): `tests/programs/test_ai_host_boundary.c` must persist/reopen
 //! its actual native store and expose signed Claim/Refund replies, recipient bank balances,
 //! events and rows after lost replies; no native executable or guest artifact is required here.
 //! Baseline aa5e0820b3652890f3812a220f4b91f4f8a45387: this target did not exist; no baseline
@@ -17,18 +17,27 @@
 //! The exact candidate revision, command, exit and private evidence log are recorded by the gate ledger.
 //! Qualification blocker at c348ddaa3798a9a2a8e46e74427c2ed53b5d635f:
 //! command = cargo check --locked --manifest-path /work/paxeer-monorepo/services/platform/Cargo.toml --all-targets -p layerx-ai-evaluator -p layerx-indexer -p layerx-paxai-worker -p layerx-platform-agent-boundary -p layerx-platform-authority -p layerx-platform-core -p layerx-platform-dashboard -p layerx-platform-gateway -p layerx-platform-registry -p layerx-platform-webhooks -p layerx-ramp-toolkit -p layerx-reference-ramp -p layerx-runtime-clock
-//! exit = 101; log = /out/logs/dependents-1.log; hf-done exit = 7 before verify_cmd.
-//! Observed: platform-core public_reads.rs uses unavailable Uint256::to_be_bytes,
+//! exit = 101; log = /out/logs/dependents-1.log; hf-done exit = 7 before `verify_cmd`.
+//! Observed: platform-core `public_reads.rs` uses unavailable `Uint256::to_be_bytes`,
 //! PxAssetEntry.layerx/paxeer, incompatible asset-id types and a non-AsRef<str> asset key.
 //! Assumption: these out-of-scope dependency errors require the platform domain; no focused tests ran.
 //! Attempt 4 baseline: one of six cases passed; the continued fixture now proves and
 //! respects F02's eight-height metadata cooldown before capturing the next epoch roster.
-//! Attempt 7: direct rewards::apply read the joint F07 prefix as the F08 schema version
-//! (BAD_VERSION); payouts now use dispatch's production epoch::carry_reputation adapter.
+//! Attempt 7: direct `rewards::apply` read the joint F07 prefix as the F08 schema version
+//! (`BAD_VERSION`); payouts now use dispatch's production `epoch::carry_reputation` adapter.
 //! The commit child asserts the original refusal and compares the adapted state and event
 //! with real dispatch before persisting either payout; recovery assertions remain intact.
+//! Task 18.1749.1 continuation: -601 is a resource refusal, not a bank balance.
+//! The inherited 10,000,000-fuel settlement declaration exceeded the production
+//! 1,000,000-fuel maximum and refused admission as `NON_CANONICAL`; use ordinary CALLs.
+//! At d76f56c9762480af423addbb3b90cd9211b31209, /out/logs/verify-1.log
+//! records `BeginAggregation`'s Cpu `BudgetExceeded` (limit 1000000, attempted 1000009).
+//! F02 limits enrolment consent to 128 heights. The native journey enrols at 84
+//! with the same 120-height lifetime as the in-memory cases, so the worker is
+//! eligible when the production Enrolled roster freezes at height 192.
 
 use ed25519_dalek::{Signer, SigningKey};
+use layerx_ai_market_test_values::RequiredValue as _;
 use layerx_programs_ai_market::{
     admission::{AdmissionTable, EvaluatorConsent, Participant},
     aggregation,
@@ -54,6 +63,7 @@ use layerx_programs_ai_market::{
     workers::{self, WorkerTable},
     MAX_CHUNK_BYTES, MAX_ENVELOPE_BYTES, MAX_EVENT_BYTES, MAX_RESULT_BYTES, MAX_STATE_BYTES,
 };
+use std::io::Write as _;
 use std::{
     collections::BTreeMap,
     fs,
@@ -80,12 +90,33 @@ fn key(n: u8) -> SigningKey {
 fn public(k: &SigningKey) -> PublicKey32 {
     PublicKey32(k.verifying_key().to_bytes())
 }
+static NEXT: AtomicU64 = AtomicU64::new(0);
 const OWNER: u8 = 12;
 const WORKER: u8 = 1;
 const ORIGIN: u64 = 64;
 const KEEPER: u8 = 127;
 
+#[derive(Clone, Copy)]
+pub(crate) struct NativeRewardDomain {
+    pub chain: ChainDomain,
+    pub program: ProgramId,
+    pub principals: [PrincipalId; 6],
+}
+#[allow(
+    dead_code,
+    reason = "Shared market producers expose these values to other integration targets."
+)]
+pub(crate) struct RewardCall {
+    pub actor: usize,
+    pub height: u64,
+    pub envelope: Vec<u8>,
+    pub state: Vec<u8>,
+    pub result: Vec<u8>,
+    pub event: Vec<u8>,
+}
 struct World {
+    native: Option<NativeRewardDomain>,
+    calls: Vec<RewardCall>,
     bytes: Vec<u8>,
     sequences: BTreeMap<u8, u64>,
     request: u64,
@@ -94,6 +125,38 @@ struct World {
     last_frozen: Option<epoch::Frozen>,
 }
 impl World {
+    fn principal(&self, n: u8) -> PrincipalId {
+        self.native
+            .map_or_else(|| principal(n), |d| d.principals[Self::native_actor(n)])
+    }
+    fn native_actor(n: u8) -> usize {
+        match n {
+            OWNER | KEEPER => 0,
+            1..=4 => usize::from(n),
+            _ => panic!("unknown native actor"),
+        }
+    }
+    fn call_context(&self, actor: u8, height: u64) -> CallContext {
+        self.native.map_or_else(
+            || Self::context(actor, height),
+            |d| CallContext {
+                chain: d.chain,
+                program: d.program,
+                principal: self.principal(actor),
+                height,
+            },
+        )
+    }
+    fn asset(&self) -> [u8; 32] {
+        self.native.map_or([13; 32], |_| {
+            let mut a = [0; 32];
+            a[0] = 9;
+            a
+        })
+    }
+    fn refund_recipient(&self) -> [u8; 32] {
+        self.native.map_or([14; 32], |d| d.principals[5].bytes())
+    }
     fn context(actor: u8, height: u64) -> CallContext {
         CallContext {
             chain: ok!(ChainDomain::new([10; 32])),
@@ -109,17 +172,21 @@ impl World {
     }
     fn market(&self) -> layerx_programs_ai_market::MarketId {
         ok!(codec::derive_market(
-            Self::context(OWNER, ORIGIN).chain,
-            Self::context(OWNER, ORIGIN).program,
+            self.call_context(OWNER, ORIGIN).chain,
+            self.call_context(OWNER, ORIGIN).program,
         ))
     }
     fn worker(&self, n: u8) -> WorkerId {
-        ok!(codec::derive_worker(self.market(), principal(n), [n; 32]))
+        ok!(codec::derive_worker(
+            self.market(),
+            self.principal(n),
+            [n; 32]
+        ))
     }
     fn evaluator(&self, n: u8) -> EvaluatorId {
         ok!(codec::derive_evaluator(
             self.market(),
-            principal(n),
+            self.principal(n),
             [n; 32],
         ))
     }
@@ -139,14 +206,7 @@ impl World {
         .unwrap_or_else(|| panic!("missing opening"))
         .binding
     }
-    fn header(&mut self, height: u64) -> codec::ReadHeader {
-        ok!(codec::decode_read_header(&self.call(
-            KEEPER,
-            dispatch::READ_HEADER,
-            &[],
-            height,
-        )))
-    }
+
     fn encoded_call(&mut self, actor: u8, op: Operation, payload: &[u8], height: u64) -> Vec<u8> {
         self.request += 1;
         let mut request = [0x71; 32];
@@ -181,13 +241,13 @@ impl World {
         } else {
             0
         };
-        let ctx = Self::context(actor, height);
+        let ctx = self.call_context(actor, height);
         let e = Envelope {
             operation: op,
             chain: ctx.chain,
             program: ctx.program,
             market: self.market(),
-            actor: principal(actor),
+            actor: self.principal(actor),
             epoch,
             config: if read {
                 0
@@ -237,7 +297,7 @@ impl World {
         self.last_event.clear();
         self.last_result.clear();
         let routed = ok!(dispatch::route(
-            &Self::context(actor, height),
+            &self.call_context(actor, height),
             encoded,
             if self.bytes.is_empty() {
                 None
@@ -283,14 +343,27 @@ impl World {
         self.last_result = result[..result_len].to_vec();
         let decoded = ok!(codec::decode_result(&result[..result_len]));
         assert_eq!(decoded.error, None);
+        if self.native.is_some() {
+            self.calls.push(RewardCall {
+                actor: Self::native_actor(actor),
+                height,
+                envelope: encoded.to_vec(),
+                state: self.bytes.clone(),
+                result: self.last_result.clone(),
+                event: self.last_event.clone(),
+            });
+        }
         Ok(decoded.payload.to_vec())
     }
     fn call(&mut self, actor: u8, op: Operation, payload: &[u8], height: u64) -> Vec<u8> {
         self.route(actor, op, payload, height)
             .unwrap_or_else(|e| panic!("{} at {height}: {e:?}", op.metadata().name))
     }
-    fn create() -> Self {
+
+    fn create_with(native: Option<&NativeRewardDomain>) -> Self {
         let mut w = Self {
+            native: native.copied(),
+            calls: Vec::new(),
             bytes: Vec::new(),
             sequences: BTreeMap::new(),
             request: 0,
@@ -314,18 +387,22 @@ impl World {
             1,
         ));
         policy.task_timeout_heights = 8;
+        if native.is_some() {
+            policy.max_workers = 1;
+            policy.max_evaluators = u8::try_from(aggregation::QUORUM).required();
+        }
         let mut policy_bytes = vec![0; TASK_POLICY_BYTES];
         ok!(policy.encode(&mut policy_bytes));
-        let mut payload = principal(OWNER).bytes().to_vec();
-        payload.extend_from_slice(&[13; 32]);
+        let mut payload = w.principal(OWNER).bytes().to_vec();
+        payload.extend_from_slice(&w.asset());
         payload.extend_from_slice(
             ok!(derive_rewards_account(
-                Self::context(OWNER, ORIGIN).program,
-                ok!(AssetId::new([13; 32])),
+                w.call_context(OWNER, ORIGIN).program,
+                ok!(AssetId::new(w.asset())),
             ))
             .as_bytes(),
         );
-        payload.extend_from_slice(&[14; 32]);
+        payload.extend_from_slice(&w.refund_recipient());
         payload.push(0);
         payload.extend_from_slice(&policy_bytes);
         payload.extend_from_slice(&[16; 32]);
@@ -353,7 +430,7 @@ impl World {
             Participant::Evaluator(_) => 2,
         }];
         payload.extend_from_slice(&participant.bytes());
-        payload.extend_from_slice(principal(owner).as_bytes());
+        payload.extend_from_slice(self.principal(owner).as_bytes());
         payload.extend_from_slice(digest(owner).as_bytes());
         payload.extend_from_slice(&delegate.0);
         payload.extend_from_slice(&1u64.to_be_bytes());
@@ -374,11 +451,12 @@ impl World {
     }
     fn enroll_identity(&mut self, n: u8, at: u64) {
         let k = key(n);
-        let mut payload = principal(n).bytes().to_vec();
+        let mut payload = self.principal(n).bytes().to_vec();
         payload.extend_from_slice(&[n; 32]);
         payload.extend_from_slice(&public(&k).0);
         payload.extend_from_slice(&[0x44; 32]);
-        payload.extend_from_slice(&(at + 120).to_be_bytes());
+        let expiry = at + 120;
+        payload.extend_from_slice(&expiry.to_be_bytes());
         self.call(OWNER, dispatch::EnrollWorker, &payload, at);
         let record = self.worker_record(n);
         let consent = ok!(workers::consent_digest(
@@ -437,7 +515,7 @@ impl World {
         } else {
             (at - ORIGIN) / 128 + 1
         };
-        let mut payload = principal(n).bytes().to_vec();
+        let mut payload = self.principal(n).bytes().to_vec();
         payload.extend_from_slice(&[n; 32]);
         payload.extend_from_slice(&[4; 32]);
         payload.extend_from_slice(&public(&key(n)).0);
@@ -468,11 +546,11 @@ impl World {
         );
         // The signed consent carries the same request ID as its real envelope.
         let consent = EvaluatorConsent {
-            chain: Self::context(n, at).chain,
-            program: Self::context(n, at).program,
+            chain: self.call_context(n, at).chain,
+            program: self.call_context(n, at).program,
             market: self.market(),
             evaluator: grant.evaluator,
-            owner: principal(n),
+            owner: self.principal(n),
             signing_key: grant.signing_key,
             enrollment_nonce: [n; 32],
             rubric: grant.rubric,
@@ -525,7 +603,7 @@ impl World {
         manifest.extend_from_slice(&1u16.to_be_bytes());
         manifest.push(1);
         let uri = b"https://worker.example/paxai/v1";
-        manifest.extend_from_slice(&(uri.len() as u32).to_be_bytes());
+        manifest.extend_from_slice(&(u32::try_from(uri.len()).required()).to_be_bytes());
         manifest.extend_from_slice(uri);
         manifest.extend_from_slice(&[70; 32]);
         manifest.push(1);
@@ -541,7 +619,7 @@ impl World {
         payload.extend_from_slice(m.digest.as_bytes());
         payload.extend_from_slice(&m.valid_from.to_be_bytes());
         payload.extend_from_slice(&m.expiry.to_be_bytes());
-        payload.extend_from_slice(&(manifest.len() as u32).to_be_bytes());
+        payload.extend_from_slice(&(u32::try_from(manifest.len()).required()).to_be_bytes());
         payload.extend_from_slice(&manifest);
         let mut encoded = self.encoded_call(n, dispatch::PublishMetadata, &payload, at);
         let signed = ok!(codec::decode_envelope(&encoded));
@@ -583,17 +661,26 @@ impl World {
         assert_eq!(self.binding().epoch, epoch);
     }
     fn first_open() -> Self {
-        let mut w = Self::create();
+        Self::first_open_with(None)
+    }
+    fn first_open_with(native: Option<&NativeRewardDomain>) -> Self {
+        let mut w = Self::create_with(native);
         let mut schedule = 1u64.to_be_bytes().to_vec();
         schedule.extend_from_slice(&1u64.to_be_bytes());
         w.call(OWNER, dispatch::SCHEDULE_ACTIVATION, &schedule, 65);
-        w.enroll(WORKER, 66);
+        if native.is_none() {
+            w.enroll(WORKER, 66);
+        }
         for n in 2..=4 {
             w.nominate(n, 64 + 4 * u64::from(n));
         }
-        w.publish(WORKER, 84);
+        if native.is_some() {
+            w.enroll(WORKER, 84);
+        } else {
+            w.publish(WORKER, 84);
+        }
         let mut fund = 500u128.to_be_bytes().to_vec();
-        fund.extend_from_slice(&[14; 32]);
+        fund.extend_from_slice(&w.refund_recipient());
         fund.extend_from_slice(&1u64.to_be_bytes());
         fund.push(1);
         w.call(OWNER, dispatch::FUND, &fund, 90);
@@ -728,6 +815,10 @@ impl World {
     }
 }
 
+#[allow(
+    dead_code,
+    reason = "Shared market producers expose these values to other integration targets."
+)]
 pub(crate) struct ExecutionFixture {
     pub bytes: Vec<u8>,
     pub owner_sequence: u64,
@@ -767,6 +858,10 @@ fn execution_world() -> World {
     w
 }
 
+#[allow(
+    dead_code,
+    reason = "Shared market producers expose these values to other integration targets."
+)]
 pub(crate) fn execution_height_fixture() -> ExecutionFixture {
     let w = execution_world();
     let frozen = w
@@ -906,6 +1001,7 @@ mod chain_proof {
         UnknownField,
         Mismatch,
     }
+    #[allow(dead_code)]
     pub mod proto {
         include!(concat!(
             env!("CARGO_MANIFEST_DIR"),
@@ -924,6 +1020,7 @@ mod chain_proof {
             "/../layerx-programs-registry/src/chain_proof/multistore.rs"
         ));
     }
+    #[allow(dead_code)]
     pub mod header {
         include!(concat!(
             env!("CARGO_MANIFEST_DIR"),
@@ -957,10 +1054,10 @@ fn commit_market(store: &mut Storage, state: &[u8]) {
 fn varint(mut n: usize) -> Vec<u8> {
     let mut out = Vec::new();
     while n >= 128 {
-        out.push((n as u8 & 127) | 128);
+        out.push((n.to_le_bytes()[0] & 127) | 128);
         n >>= 7;
     }
-    out.push(n as u8);
+    out.push(n.to_le_bytes()[0]);
     out
 }
 fn protobuf_bytes(field: u8, value: &[u8]) -> Vec<u8> {
@@ -1090,8 +1187,8 @@ impl CommittedRead {
                 &codec::ChunkRequest {
                     revision: pin.0,
                     digest: pin.1,
-                    offset: offset as u32,
-                    requested: MAX_CHUNK_BYTES as u16,
+                    offset: u32::try_from(offset).required(),
+                    requested: u16::try_from(MAX_CHUNK_BYTES).required(),
                 },
                 &mut payload,
             ));
@@ -1346,6 +1443,18 @@ fn commit_payout(
     assert_eq!(w.last_event, event[..event_len]);
     assert!(!w.last_event.is_empty());
     assert_eq!(ledger(&w.bytes), after);
+    persist_payout(store, label, encoded, signature, w, recipient, amount);
+    drop(body);
+}
+fn persist_payout(
+    store: &mut Storage,
+    label: &[u8],
+    encoded: &[u8],
+    signature: &[u8],
+    w: &World,
+    recipient: AccountId,
+    amount: u128,
+) {
     let mut plan = recipient.bytes().to_vec();
     plan.extend_from_slice(&amount.to_be_bytes());
     let mut tx = store.transaction(namespace());
@@ -1363,8 +1472,8 @@ fn commit_payout(
     }
     assert_eq!(tx.commit(), 6);
     // The application reply is discarded; recovery reads only the committed store.
-    drop(body);
 }
+
 fn write_recovery_store(path: &std::path::Path) {
     let mut w = settled();
     let mut store = Storage::default();
@@ -1400,7 +1509,6 @@ fn write_recovery_store(path: &std::path::Path) {
     );
     let encoded = ok!(store.replay_state_bytes(RECOVERY_BYTES));
     let mut file = ok!(std::fs::File::create(path));
-    use std::io::Write as _;
     ok!(file.write_all(&encoded));
     ok!(file.sync_all());
 }
@@ -1412,6 +1520,8 @@ fn reopen_recovery_store(path: &std::path::Path) {
     ));
     let committed = store_value(&mut store, layerx_programs_ai_market::SHARED_STATE_KEY);
     let mut w = World {
+        native: None,
+        calls: Vec::new(),
         bytes: committed.clone(),
         sequences: BTreeMap::new(),
         request: 0,
@@ -1443,59 +1553,174 @@ fn reopen_recovery_store(path: &std::path::Path) {
     };
     let entitlement = ok!(rewards::entitlement_id(allocation, w.worker(WORKER)));
     for (label, at) in [(b"claim".as_slice(), 293), (b"refund".as_slice(), 294)] {
-        let get = |store: &mut Storage, suffix: &[u8]| {
-            let mut key = label.to_vec();
-            key.extend_from_slice(suffix);
-            store_value(store, &key)
-        };
-        let request = get(&mut store, b"-request");
-        let signature = get(&mut store, b"-signature");
-        let original_result = get(&mut store, b"-result");
-        let original_event = get(&mut store, b"-event");
-        let original_plan = get(&mut store, b"-plan");
-        authenticate_request(&request, &signature);
-        let mut corrupted = request.clone();
-        let last = corrupted.len() - 1;
-        corrupted[last] ^= 1;
-        assert!(key(KEEPER)
-            .verifying_key()
-            .verify_strict(
-                &corrupted,
-                &ed25519_dalek::Signature::from_slice(&signature)
-                    .unwrap_or_else(|e| panic!("signature: {e}"))
-            )
-            .is_err());
-        let body = ok!(w.route_encoded(KEEPER, at, &request));
-        assert_eq!(
-            ok!(codec::decode_result(&w.last_result)).status,
-            codec::ResultStatus::AlreadyApplied
-        );
-        let original = ok!(codec::decode_result(&original_result));
-        let expected = if label == b"claim" {
-            entitlement.bytes()
-        } else {
-            original.digest.bytes()
-        };
-        assert_eq!(body, expected);
-        assert_eq!(w.bytes, committed);
-        assert!(w.last_event.is_empty());
-        assert_eq!(ledger(&w.bytes), settled);
-        let bound = ok!(RewardsAccount::for_ledger(
-            World::context(KEEPER, at).program,
-            &settled,
-        ));
-        let replayed = rewards::RewardEffect::AlreadyApplied(ok!(Digest32::new(expected)));
-        assert_eq!(
-            ok!(value_adapter::plan(&bound, &settled, &settled, replayed)),
-            ValueAction::None
-        );
-        assert_eq!(ok!(value_adapter::cover(&settled, 0, ValueAction::None)), 0);
-        assert_eq!(get(&mut store, b"-result"), original_result);
-        assert_eq!(get(&mut store, b"-event"), original_event);
-        assert_eq!(get(&mut store, b"-plan"), original_plan);
+        verify_recovered_payout(&mut store, &mut w, &committed, entitlement, label, at);
     }
     assert_eq!(ok!(store.replay_state_bytes(RECOVERY_BYTES)), encoded);
     assert_eq!(ok!(fs::read(path)), encoded);
+}
+fn verify_recovered_payout(
+    store: &mut Storage,
+    w: &mut World,
+    committed: &[u8],
+    entitlement: Digest32,
+    label: &[u8],
+    at: u64,
+) {
+    let settled = ledger(committed);
+    let shared = ok!(state::decode_shared_state(committed));
+    let rewards = ok!(rewards::decode_reward_state(
+        &shared.feature_sections[Section::SettlementClaims.index()][..rewards::REWARD_STATE_BYTES]
+    ));
+    let row = ok!(rewards.row(1));
+
+    let get = |store: &mut Storage, suffix: &[u8]| {
+        let mut key = label.to_vec();
+        key.extend_from_slice(suffix);
+        store_value(store, &key)
+    };
+    let request = get(store, b"-request");
+    let signature = get(store, b"-signature");
+    let original_result = get(store, b"-result");
+    let original_event = get(store, b"-event");
+    let original_plan = get(store, b"-plan");
+    verify_corrupted_payout_request(&request, &signature);
+    let body = ok!(w.route_encoded(KEEPER, at, &request));
+    assert_eq!(
+        ok!(codec::decode_result(&w.last_result)).status,
+        codec::ResultStatus::AlreadyApplied
+    );
+    let original = ok!(codec::decode_result(&original_result));
+    let expected = if label == b"claim" {
+        entitlement.bytes()
+    } else {
+        original.digest.bytes()
+    };
+    assert_eq!(body, expected);
+    assert_eq!(w.bytes, committed);
+    assert!(w.last_event.is_empty());
+    assert_eq!(ledger(&w.bytes), settled);
+    let bound = ok!(RewardsAccount::for_ledger(
+        World::context(KEEPER, at).program,
+        &settled,
+    ));
+    let envelope = ok!(codec::decode_envelope(&request));
+    let mut reward_next = vec![0; rewards::REWARD_STATE_BYTES];
+    let (replayed_state, replayed) = if label == b"claim" {
+        let replayed = ok!(rewards.claim(
+            envelope.envelope.epoch,
+            &ok!(rewards::ClaimRequest::decode(envelope.envelope.payload)),
+            at,
+            &mut reward_next,
+        ));
+        assert_eq!(
+            replayed.1,
+            rewards::RewardEffect::AlreadyApplied(entitlement)
+        );
+        replayed
+    } else {
+        let replayed = ok!(rewards.refund_free(
+            rewards::FundingPhase::Closing,
+            &ok!(rewards::RefundRequest::decode(envelope.envelope.payload)),
+            ok!(envelope.request_digest()),
+            original.digest,
+            &mut reward_next,
+        ));
+        assert_eq!(
+            replayed.1,
+            rewards::RewardEffect::RepeatedRefund(original.digest)
+        );
+        replayed
+    };
+    assert_eq!(ok!(replayed_state.ledger()), settled);
+    assert_eq!(ok!(replayed_state.row(1)), row);
+    let mut next = vec![0; MAX_STATE_BYTES];
+    let mut carry = vec![0; epoch::CARRY_SCRATCH_BYTES];
+    let mut scratch = vec![0; rewards::SCRATCH_BYTES];
+    let mut event = vec![0; MAX_EVENT_BYTES];
+    let (outcome, carried_len) = ok!(epoch::carry_reputation(
+        committed,
+        &mut next,
+        &mut carry,
+        |current, next| {
+            let outcome = rewards::apply(
+                &World::context(KEEPER, at),
+                &envelope,
+                current,
+                next,
+                &mut scratch,
+                &mut event,
+            )?;
+            Ok((outcome, None))
+        },
+    ));
+    assert!(matches!(outcome, rewards::Outcome::AlreadyApplied { subject } if subject == expected));
+    assert_eq!(carried_len, None);
+    assert_eq!(
+        ok!(value_adapter::plan(&bound, &settled, &settled, replayed)),
+        ValueAction::None
+    );
+    assert_eq!(ok!(value_adapter::cover(&settled, 0, ValueAction::None)), 0);
+    assert_eq!(get(store, b"-result"), original_result);
+    assert_eq!(get(store, b"-event"), original_event);
+    assert_eq!(get(store, b"-plan"), original_plan);
+}
+fn verify_corrupted_payout_request(request: &[u8], signature: &[u8]) {
+    authenticate_request(request, signature);
+    let mut corrupted = request.to_vec();
+    let last = corrupted.len() - 1;
+    corrupted[last] ^= 1;
+    assert!(key(KEEPER)
+        .verifying_key()
+        .verify_strict(
+            &corrupted,
+            &ed25519_dalek::Signature::from_slice(signature)
+                .unwrap_or_else(|e| panic!("signature: {e}"))
+        )
+        .is_err());
+}
+
+#[allow(
+    dead_code,
+    reason = "Shared market producers expose these values to other integration targets."
+)]
+pub(crate) fn native_reward_calls(domain: NativeRewardDomain) -> Vec<RewardCall> {
+    let mut w = World::first_open_with(Some(&domain));
+    let shared = ok!(state::decode_shared_state(&w.bytes));
+    let captured =
+        ok!(epoch::captured_roster(&shared)).unwrap_or_else(|| panic!("missing native opening"));
+    assert_eq!(captured.workers().len(), 1);
+    let snapshot = ok!(authority::evaluator_region(
+        shared.feature_sections[Section::IdentityRoster.index()]
+    ));
+    assert_eq!(
+        snapshot
+            .snapshot()
+            .unwrap_or_else(|| panic!("missing native evaluator snapshot"))
+            .len(),
+        aggregation::QUORUM
+    );
+    w.score(1_000_000);
+    w.settle();
+    let payload = claim_payload(&w);
+    w.call(KEEPER, dispatch::CLAIM, &payload, 290);
+    let mut close = ok!(state::decode_shared_state(&w.bytes))
+        .revision
+        .to_be_bytes()
+        .to_vec();
+    close.extend_from_slice(&[0xcc; 32]);
+    w.call(OWNER, dispatch::REQUEST_CLOSE, &close, 291);
+    let mut refund = 0u128.to_be_bytes().to_vec();
+    refund.extend_from_slice(&400u128.to_be_bytes());
+    refund.extend_from_slice(&w.refund_recipient());
+    w.call(KEEPER, dispatch::REFUND_FREE, &refund, 292);
+    assert_eq!(
+        (
+            ledger(&w.bytes).total_claimed,
+            ledger(&w.bytes).tracked_refunds
+        ),
+        (100, 400)
+    );
+    w.calls
 }
 
 #[test]
@@ -1509,7 +1734,6 @@ pub(crate) fn reward_native_reopen() {
         }
         return;
     }
-    static NEXT: AtomicU64 = AtomicU64::new(0);
     let dir = std::env::temp_dir().join(format!(
         "paxai-repair-261-{}-{}",
         std::process::id(),

@@ -1,10 +1,19 @@
 import { Agent, request as httpsRequest } from 'node:https';
 import { createHash, randomUUID, X509Certificate } from 'node:crypto';
 import type { TLSSocket } from 'node:tls';
-import { loadWalletInventory, publishCustodyAuthority, requireInventoryKey } from '../agent/authority.js';
+import {
+  CustodyAuthorityError,
+  loadWalletInventory,
+  publishCustodyAuthority,
+  requireInventoryKey,
+} from '../agent/authority.js';
 import { readFileSync } from 'node:fs';
 import {
-  concat, encodeAbiParameters, hashMessage, keccak256, toRlp,
+  concat,
+  encodeAbiParameters,
+  hashMessage,
+  keccak256,
+  toRlp,
   getTransactionType,
   getTypesForEIP712Domain,
   hexToBytes,
@@ -86,13 +95,21 @@ export interface AgentReauthorization {
 }
 
 export function parseAgentReauthorization(value: unknown): AgentReauthorization {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('invalid attestor reauthorization');
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    throw new Error('invalid attestor reauthorization');
   const record = value as Record<string, unknown>;
-  if (Object.keys(record).sort().join(',') !== 'body,expiry,nonce,signature'
-    || typeof record.body !== 'string' || Buffer.byteLength(record.body) > 65_536
-    || typeof record.nonce !== 'string' || !/^[0-9a-f]{32}$/.test(record.nonce)
-    || typeof record.expiry !== 'number' || !Number.isSafeInteger(record.expiry) || record.expiry <= 0
-    || typeof record.signature !== 'string' || !/^[0-9a-f]{128}$/.test(record.signature)) {
+  if (
+    Object.keys(record).sort().join(',') !== 'body,expiry,nonce,signature' ||
+    typeof record.body !== 'string' ||
+    Buffer.byteLength(record.body) > 65_536 ||
+    typeof record.nonce !== 'string' ||
+    !/^[0-9a-f]{32}$/.test(record.nonce) ||
+    typeof record.expiry !== 'number' ||
+    !Number.isSafeInteger(record.expiry) ||
+    record.expiry <= 0 ||
+    typeof record.signature !== 'string' ||
+    !/^[0-9a-f]{128}$/.test(record.signature)
+  ) {
     throw new Error('invalid attestor reauthorization');
   }
   return record as unknown as AgentReauthorization;
@@ -100,8 +117,19 @@ export function parseAgentReauthorization(value: unknown): AgentReauthorization 
 
 export type Authorisation =
   | { scheme: 'supabase_jwt'; token: string }
-  | { scheme: 'agent_request'; publicKey: string; origin: AgentOriginalRequest; reauthorization?: AgentReauthorization }
-  | { scheme: 'agent_ed25519'; publicKey: string; nonce: string; expiry: number; signature: string };
+  | {
+      scheme: 'agent_request';
+      publicKey: string;
+      origin: AgentOriginalRequest;
+      reauthorization?: AgentReauthorization;
+    }
+  | {
+      scheme: 'agent_ed25519';
+      publicKey: string;
+      nonce: string;
+      expiry: number;
+      signature: string;
+    };
 
 export interface GrantWire {
   from: string;
@@ -150,7 +178,12 @@ export type SignPayload =
   | { kind: 'personal_message'; message: Hex }
   | { kind: 'eth_sign_digest'; digest: Hex; construction: ConstructionWire }
   | { kind: 'eip7702_authorization'; construction: ConstructionWire }
-  | { kind: 'lx_send_authorization'; activity: Hex; disclosure: ActivityDisclosureWire; approval: ActivityApprovalWire }
+  | {
+      kind: 'lx_send_authorization';
+      activity: Hex;
+      disclosure: ActivityDisclosureWire;
+      approval: ActivityApprovalWire;
+    }
   | { kind: 'lx_bind'; message: Hex }
   | { kind: 'lx_grant'; grant: GrantWire };
 
@@ -190,8 +223,15 @@ export function decimalWire(value: bigint, bits: 64 | 128): DecimalWire {
 }
 
 function checkDecimal(label: string, value: unknown, bits: 64 | 128): void {
-  if (typeof value !== 'string' || !CANONICAL_DECIMAL.test(value) || BigInt(value) >= 1n << BigInt(bits)) {
-    throw new AttestorSessionError('session_bad_request', `${label} is not a canonical u${bits} decimal string`);
+  if (
+    typeof value !== 'string' ||
+    !CANONICAL_DECIMAL.test(value) ||
+    BigInt(value) >= 1n << BigInt(bits)
+  ) {
+    throw new AttestorSessionError(
+      'session_bad_request',
+      `${label} is not a canonical u${bits} decimal string`
+    );
   }
 }
 
@@ -275,7 +315,7 @@ export class AttestorError extends Error {
     code: string,
     reason: string,
     nodeId: string | null = null,
-    policyCode: string | null = null,
+    policyCode: string | null = null
   ) {
     super(`${category}: ${code}: ${reason}`);
     this.name = 'AttestorError';
@@ -295,15 +335,27 @@ export class AttestorTokenError extends AttestorError {
 
 export class AttestorReauthorizationRequired extends AttestorTokenError {
   readonly kind: SignKind;
-  constructor(readonly request: string, readonly keyId: string) {
-    super('agent_reauthorization_required', 'the exact attestor request requires the registered agent signature');
+  constructor(
+    readonly request: string,
+    readonly keyId: string
+  ) {
+    super(
+      'agent_reauthorization_required',
+      'the exact attestor request requires the registered agent signature'
+    );
     const wire = JSON.parse(request) as SignRequestWire;
-    this.kind = wire.construction?.kind === 'eip7702_authorization' ? 'eip7702_authorization' : wire.kind;
+    this.kind =
+      wire.construction?.kind === 'eip7702_authorization' ? 'eip7702_authorization' : wire.kind;
   }
 }
 
 export class AttestorPolicyError extends AttestorError {
-  constructor(code: string, reason: string, nodeId: string | null = null, policyCode: string | null = null) {
+  constructor(
+    code: string,
+    reason: string,
+    nodeId: string | null = null,
+    policyCode: string | null = null
+  ) {
     super('policy', code, reason, nodeId, policyCode);
     this.name = 'AttestorPolicyError';
   }
@@ -369,10 +421,18 @@ export function attestorErrorBody(err: AttestorError): {
 export function refusalFromWire(body: unknown, nodeId: string | null): AttestorError {
   const e = (body as Partial<RefusalWire> | null)?.error;
   if (!e || typeof e.code !== 'string' || typeof e.message !== 'string') {
-    return new AttestorSessionError('malformed_refusal', 'participant answered with an unreadable error', nodeId);
+    return new AttestorSessionError(
+      'malformed_refusal',
+      'participant answered with an unreadable error',
+      nodeId
+    );
   }
   if (e.policy_code !== undefined && typeof e.policy_code !== 'string') {
-    return new AttestorSessionError('malformed_refusal', 'participant answered with an unreadable policy code', nodeId);
+    return new AttestorSessionError(
+      'malformed_refusal',
+      'participant answered with an unreadable policy code',
+      nodeId
+    );
   }
   switch (e.category) {
     case 'token':
@@ -388,7 +448,11 @@ export function refusalFromWire(body: unknown, nodeId: string | null): AttestorE
     case 'store':
       return new AttestorStoreError(e.code, e.message, nodeId);
     default:
-      return new AttestorSessionError('unknown_refusal_category', `category ${String(e.category)}: ${e.message}`, nodeId);
+      return new AttestorSessionError(
+        'unknown_refusal_category',
+        `category ${String(e.category)}: ${e.message}`,
+        nodeId
+      );
   }
 }
 
@@ -453,7 +517,14 @@ interface HttpResult {
   body: unknown;
 }
 
-const REFUSAL_PRIORITY: Record<RefusalCategory, number> = { token: 0, policy: 1, key: 2, quorum: 3, session: 4, store: 5 };
+const REFUSAL_PRIORITY: Record<RefusalCategory, number> = {
+  token: 0,
+  policy: 1,
+  key: 2,
+  quorum: 3,
+  session: 4,
+  store: 5,
+};
 
 const HEX_RE = /^[0-9a-f]+$/;
 
@@ -461,7 +532,12 @@ function bareHex(value: string): string {
   return (value.startsWith('0x') ? value.slice(2) : value).toLowerCase();
 }
 
-export function signRequestBody(sessionId: string, keyId: string, signers: string[], payload: SignPayload): SignRequestWire {
+export function signRequestBody(
+  sessionId: string,
+  keyId: string,
+  signers: string[],
+  payload: SignPayload
+): SignRequestWire {
   const base = { session_id: sessionId, key_id: keyId, kind: payload.kind, signers };
   switch (payload.kind) {
     case 'evm_tx':
@@ -472,16 +548,30 @@ export function signRequestBody(sessionId: string, keyId: string, signers: strin
     case 'lx_bind':
       return { ...base, message: bareHex(payload.message) };
     case 'eip7702_authorization':
-      if (payload.construction.kind !== 'eip7702_authorization') throw new Error('authorization construction required');
-      return { ...base, kind: 'eth_sign_digest', digest: bareHex(constructionDigest(payload.construction)), construction: payload.construction };
+      if (payload.construction.kind !== 'eip7702_authorization')
+        throw new Error('authorization construction required');
+      return {
+        ...base,
+        kind: 'eth_sign_digest',
+        digest: bareHex(constructionDigest(payload.construction)),
+        construction: payload.construction,
+      };
     case 'eth_sign_digest':
       return { ...base, digest: bareHex(payload.digest), construction: payload.construction };
     case 'lx_send_authorization':
       if (payload.approval.session_id !== sessionId || payload.approval.key_id !== keyId) {
-        throw new AttestorSessionError('session_bad_request', 'the approval binding names another session or key');
+        throw new AttestorSessionError(
+          'session_bad_request',
+          'the approval binding names another session or key'
+        );
       }
       checkApproved(payload.disclosure, payload.approval);
-      return { ...base, activity: bareHex(payload.activity), disclosure: payload.disclosure, approval: payload.approval };
+      return {
+        ...base,
+        activity: bareHex(payload.activity),
+        disclosure: payload.disclosure,
+        approval: payload.approval,
+      };
     case 'lx_grant':
       return { ...base, grant: payload.grant };
   }
@@ -489,7 +579,11 @@ export function signRequestBody(sessionId: string, keyId: string, signers: strin
 
 export function authorisationHeaders(auth: Authorisation): Record<string, string> {
   if (auth.scheme === 'supabase_jwt') return { authorization: `Bearer ${auth.token}` };
-  if (auth.scheme === 'agent_request') throw new AttestorTokenError('agent_reauthorization_required', 'agent signing request is not finalized');
+  if (auth.scheme === 'agent_request')
+    throw new AttestorTokenError(
+      'agent_reauthorization_required',
+      'agent signing request is not finalized'
+    );
   return {
     [AGENT_HEADERS.key]: bareHex(auth.publicKey),
     [AGENT_HEADERS.nonce]: bareHex(auth.nonce),
@@ -498,7 +592,11 @@ export function authorisationHeaders(auth: Authorisation): Record<string, string
   };
 }
 
-function firstRefusal(settled: PromiseSettledResult<unknown>[], members: QuorumMember[], markDown: (endpoint: string, reason: unknown) => void): AttestorError | null {
+function firstRefusal(
+  settled: PromiseSettledResult<unknown>[],
+  members: QuorumMember[],
+  markDown: (endpoint: string, reason: unknown) => void
+): AttestorError | null {
   const refusals: AttestorError[] = [];
   settled.forEach((s, i) => {
     if (s.status === 'fulfilled') return;
@@ -512,8 +610,8 @@ function firstRefusal(settled: PromiseSettledResult<unknown>[], members: QuorumM
       new AttestorSessionError(
         'participant_unreachable',
         s.reason instanceof Error ? s.reason.message : String(s.reason),
-        member.nodeId,
-      ),
+        member.nodeId
+      )
     );
   });
   if (refusals.length === 0) return null;
@@ -531,7 +629,10 @@ export class AttestorClient {
 
   constructor(opts: AttestorClientOptions) {
     if (opts.endpoints.length !== 5 || opts.quorum !== 3) {
-      throw new AttestorQuorumError('inventory_membership_mismatch', 'wallet custody requires exactly five endpoints and threshold three');
+      throw new AttestorQuorumError(
+        'inventory_membership_mismatch',
+        'wallet custody requires exactly five endpoints and threshold three'
+      );
     }
     this.opts = opts;
     this.agent = new Agent({
@@ -588,80 +689,241 @@ export class AttestorClient {
     const inventory = loadWalletInventory();
     const nodes: QuorumMember[] = [];
     for (const node of this.nodes) {
-      if (node.nodeId && node.latencyMs !== null && inventory.members.some((member) => member.id === node.nodeId
-        && member.spki_sha256 === this.peerPins.get(new URL(node.endpoint).origin))) {
+      if (
+        node.nodeId &&
+        node.latencyMs !== null &&
+        inventory.members.some(
+          (member) =>
+            member.id === node.nodeId &&
+            member.spki_sha256 === this.peerPins.get(new URL(node.endpoint).origin)
+        )
+      ) {
         nodes.push({ endpoint: node.endpoint, nodeId: node.nodeId, latencyMs: node.latencyMs });
       }
     }
-    if (nodes.length < required || new Set(nodes.map((node) => node.nodeId)).size !== nodes.length) throw new AttestorQuorumError('inventory_mismatch', 'too few distinct approved participant identities are available');
-    const results = await Promise.allSettled(nodes.map((node) => this.post(node, '/v1/authority', JSON.stringify({ token }), {}, (value) => {
-      const answer = value as { node_id?: string; sequence?: string } | null;
-      if (answer?.node_id !== node.nodeId || answer.sequence !== sequence) throw new AttestorSessionError('authority_ack_mismatch', 'participant acknowledged another snapshot');
-      this.authorityAcks.set(node.nodeId, sequence);
-    })));
-    const refusal = firstRefusal(results, nodes, (endpoint, error) => this.markDown(endpoint, error));
+    if (nodes.length < required || new Set(nodes.map((node) => node.nodeId)).size !== nodes.length)
+      throw new AttestorQuorumError(
+        'inventory_mismatch',
+        'too few distinct approved participant identities are available'
+      );
+    const results = await Promise.allSettled(
+      nodes.map((node) =>
+        this.post(node, '/v1/authority', JSON.stringify({ token }), {}, (value) => {
+          const answer = value as { node_id?: string; sequence?: string } | null;
+          if (answer?.node_id !== node.nodeId || answer.sequence !== sequence)
+            throw new AttestorSessionError(
+              'authority_ack_mismatch',
+              'participant acknowledged another snapshot'
+            );
+          this.authorityAcks.set(node.nodeId, sequence);
+        })
+      )
+    );
+    const refusal = firstRefusal(results, nodes, (endpoint, error) =>
+      this.markDown(endpoint, error)
+    );
     if (results.filter((result) => result.status === 'fulfilled').length < required) {
-      throw refusal ?? new AttestorQuorumError('authority_quorum_unavailable', 'too few participants admitted the current authority snapshot');
+      throw (
+        refusal ??
+        new AttestorQuorumError(
+          'authority_quorum_unavailable',
+          'too few participants admitted the current authority snapshot'
+        )
+      );
     }
   }
 
-  async reviewLxActivity(input: { keyId: string; sessionId: string; activity: string; kind: 'lx_send_authorization'; owner: string; token: string }): Promise<LxReviewResult> {
+  async reviewLxActivity(input: {
+    keyId: string;
+    sessionId: string;
+    activity: string;
+    kind: 'lx_send_authorization';
+    owner: string;
+    token: string;
+  }): Promise<LxReviewResult> {
     const key = requireInventoryKey(input.keyId, 'sign', input.owner);
-    if (key.curve !== 'ed25519') throw new AttestorKeyError('key_curve_mismatch', 'LX review requires the original Ed25519 key');
-    const sequence = await publishCustodyAuthority(this, 3);
-    let members: QuorumMember[];
-    try { members = selectQuorum(this.nodes.filter(node => node.nodeId !== null && this.authorityAcks.get(node.nodeId) === sequence), this.opts.quorum); }
-    catch { throw new AttestorQuorumError('quorum_unavailable', 'the original LX review quorum is unavailable'); }
-    const body = JSON.stringify({ session_id: input.sessionId, key_id: input.keyId, activity: input.activity, kind: input.kind });
-    const headers = authorisationHeaders({ scheme: 'supabase_jwt', token: input.token });
-    const settled = await Promise.allSettled(members.map(member => this.post(member, '/v1/lx/review', body,
-      { ...headers, 'X-Custody-Sequence': sequence }, value => parseLxReview(value, member.nodeId))));
-    const refusal = firstRefusal(settled, members, (endpoint, reason) => this.markDown(endpoint, reason));
-    if (refusal) throw refusal;
-    const answers = settled.map(answer => (answer as PromiseFulfilledResult<LxReviewWire>).value);
-    const first = answers[0]!;
-    const semantic = (answer: LxReviewWire) => JSON.stringify({ kind: answer.kind, key_id: answer.key_id, public_key: answer.public_key,
-      activity: answer.activity, signing_preimage: answer.signing_preimage, network_id: answer.network_id,
-      protocol_version: answer.protocol_version, disclosure: answer.disclosure, not_after: answer.not_after, epoch: answer.epoch });
-    if (first.kind !== input.kind || first.key_id !== input.keyId || first.public_key !== key.public_key || first.epoch !== key.epoch || first.activity !== input.activity
-      || answers.some(answer => semantic(answer) !== semantic(first))) throw new AttestorSessionError('lx_review_disagreement', 'original key or canonical disclosure differs across the real quorum');
-    return { ...first, participants: members.map(member => member.nodeId), audit: answers.map(answer => ({node_id:answer.node_id,audit_sequence:answer.audit_sequence})) };
-  }
-
-  async reviewEvmTransaction(input: { keyId: string; sessionId: string; transaction: string; owner: string; token: string }): Promise<EvmReviewResult> {
-    const key = requireInventoryKey(input.keyId, 'sign', input.owner);
-    if (key.curve !== 'secp256k1') throw new AttestorKeyError('key_curve_mismatch', 'EVM review requires a secp256k1 key');
+    if (key.curve !== 'ed25519')
+      throw new AttestorKeyError(
+        'key_curve_mismatch',
+        'LX review requires the original Ed25519 key'
+      );
     const sequence = await publishCustodyAuthority(this, 3);
     let members: QuorumMember[];
     try {
-      members = selectQuorum(this.nodes.filter(node => node.nodeId !== null && this.authorityAcks.get(node.nodeId) === sequence), this.opts.quorum);
+      members = selectQuorum(
+        this.nodes.filter(
+          (node) => node.nodeId !== null && this.authorityAcks.get(node.nodeId) === sequence
+        ),
+        this.opts.quorum
+      );
+    } catch {
+      throw new AttestorQuorumError(
+        'quorum_unavailable',
+        'the original LX review quorum is unavailable'
+      );
+    }
+    const body = JSON.stringify({
+      session_id: input.sessionId,
+      key_id: input.keyId,
+      activity: input.activity,
+      kind: input.kind,
+    });
+    const headers = authorisationHeaders({ scheme: 'supabase_jwt', token: input.token });
+    const settled = await Promise.allSettled(
+      members.map((member) =>
+        this.post(
+          member,
+          '/v1/lx/review',
+          body,
+          { ...headers, 'X-Custody-Sequence': sequence },
+          (value) => parseLxReview(value, member.nodeId)
+        )
+      )
+    );
+    const refusal = firstRefusal(settled, members, (endpoint, reason) =>
+      this.markDown(endpoint, reason)
+    );
+    if (refusal) throw refusal;
+    const answers = settled.map((answer) => (answer as PromiseFulfilledResult<LxReviewWire>).value);
+    const first = answers[0]!;
+    const semantic = (answer: LxReviewWire) =>
+      JSON.stringify({
+        kind: answer.kind,
+        key_id: answer.key_id,
+        public_key: answer.public_key,
+        activity: answer.activity,
+        signing_preimage: answer.signing_preimage,
+        network_id: answer.network_id,
+        protocol_version: answer.protocol_version,
+        disclosure: answer.disclosure,
+        not_after: answer.not_after,
+        epoch: answer.epoch,
+      });
+    if (
+      first.kind !== input.kind ||
+      first.key_id !== input.keyId ||
+      first.public_key !== key.public_key ||
+      first.epoch !== key.epoch ||
+      first.activity !== input.activity ||
+      answers.some((answer) => semantic(answer) !== semantic(first))
+    )
+      throw new AttestorSessionError(
+        'lx_review_disagreement',
+        'original key or canonical disclosure differs across the real quorum'
+      );
+    return {
+      ...first,
+      participants: members.map((member) => member.nodeId),
+      audit: answers.map((answer) => ({
+        node_id: answer.node_id,
+        audit_sequence: answer.audit_sequence,
+      })),
+    };
+  }
+
+  async reviewEvmTransaction(input: {
+    keyId: string;
+    sessionId: string;
+    transaction: string;
+    owner: string;
+    token: string;
+  }): Promise<EvmReviewResult> {
+    const key = requireInventoryKey(input.keyId, 'sign', input.owner);
+    if (key.curve !== 'secp256k1')
+      throw new AttestorKeyError('key_curve_mismatch', 'EVM review requires a secp256k1 key');
+    const sequence = await publishCustodyAuthority(this, 3);
+    let members: QuorumMember[];
+    try {
+      members = selectQuorum(
+        this.nodes.filter(
+          (node) => node.nodeId !== null && this.authorityAcks.get(node.nodeId) === sequence
+        ),
+        this.opts.quorum
+      );
     } catch {
       throw new AttestorQuorumError('quorum_unavailable', 'the EVM review quorum is unavailable');
     }
-    const body = JSON.stringify({ session_id: input.sessionId, key_id: input.keyId, transaction: input.transaction });
+    const body = JSON.stringify({
+      session_id: input.sessionId,
+      key_id: input.keyId,
+      transaction: input.transaction,
+    });
     const headers = authorisationHeaders({ scheme: 'supabase_jwt', token: input.token });
-    const settled = await Promise.allSettled(members.map(member => this.post(member, '/v1/evm/review', body,
-      { ...headers, 'X-Custody-Sequence': sequence }, value => parseEvmReview(value, member.nodeId))));
-    const refusal = firstRefusal(settled, members, (endpoint, reason) => this.markDown(endpoint, reason));
+    const settled = await Promise.allSettled(
+      members.map((member) =>
+        this.post(
+          member,
+          '/v1/evm/review',
+          body,
+          { ...headers, 'X-Custody-Sequence': sequence },
+          (value) => parseEvmReview(value, member.nodeId)
+        )
+      )
+    );
+    const refusal = firstRefusal(settled, members, (endpoint, reason) =>
+      this.markDown(endpoint, reason)
+    );
     if (refusal) throw refusal;
-    const answers = settled.map(answer => (answer as PromiseFulfilledResult<EvmReviewWire>).value);
+    const answers = settled.map(
+      (answer) => (answer as PromiseFulfilledResult<EvmReviewWire>).value
+    );
     const first = answers[0]!;
-    const semantic = (answer: EvmReviewWire) => JSON.stringify({ key_id: answer.key_id, to: answer.to, value: answer.value,
-      data: answer.data, method: answer.method, destination: answer.destination, signing_hash: answer.signing_hash, chain_id: answer.chain_id });
-    if (first.key_id !== input.keyId || answers.some(answer => semantic(answer) !== semantic(first))) {
-      throw new AttestorSessionError('evm_review_disagreement', 'transaction disclosure or signing hash differs across the quorum');
+    const semantic = (answer: EvmReviewWire) =>
+      JSON.stringify({
+        key_id: answer.key_id,
+        to: answer.to,
+        value: answer.value,
+        data: answer.data,
+        method: answer.method,
+        destination: answer.destination,
+        signing_hash: answer.signing_hash,
+        chain_id: answer.chain_id,
+      });
+    if (
+      first.key_id !== input.keyId ||
+      answers.some((answer) => semantic(answer) !== semantic(first))
+    ) {
+      throw new AttestorSessionError(
+        'evm_review_disagreement',
+        'transaction disclosure or signing hash differs across the quorum'
+      );
     }
-    return { to: first.to, value: first.value, data: first.data, method: first.method, destination: first.destination,
-      signing_hash: first.signing_hash, chain_id: first.chain_id, participants: members.map(member => member.nodeId),
-      audit: answers.map(answer => ({ node_id: answer.node_id, audit_sequence: answer.audit_sequence })) };
+    return {
+      to: first.to,
+      value: first.value,
+      data: first.data,
+      method: first.method,
+      destination: first.destination,
+      signing_hash: first.signing_hash,
+      chain_id: first.chain_id,
+      participants: members.map((member) => member.nodeId),
+      audit: answers.map((answer) => ({
+        node_id: answer.node_id,
+        audit_sequence: answer.audit_sequence,
+      })),
+    };
   }
 
   async sign(input: SignInput): Promise<SignResult> {
     requireInventoryKey(input.keyId, 'sign');
-    const authoritySequence = await publishCustodyAuthority(this, 3);
+    let authoritySequence: string;
+    try {
+      authoritySequence = await publishCustodyAuthority(this, 3);
+    } catch (error) {
+      if (error instanceof CustodyAuthorityError && error.cause instanceof AttestorQuorumError) {
+        throw error.cause;
+      }
+      throw error;
+    }
     let members: QuorumMember[];
     try {
-      members = selectQuorum(this.nodes.filter((node) => node.nodeId !== null && this.authorityAcks.get(node.nodeId) === authoritySequence), this.opts.quorum);
+      members = selectQuorum(
+        this.nodes.filter(
+          (node) =>
+            node.nodeId !== null && this.authorityAcks.get(node.nodeId) === authoritySequence
+        ),
+        this.opts.quorum
+      );
     } catch (err) {
       if (err instanceof QuorumUnavailableError) {
         throw new AttestorQuorumError('quorum_unavailable', err.message);
@@ -669,18 +931,38 @@ export class AttestorClient {
       throw err;
     }
     if (input.participants !== undefined) {
-      if (input.payload.kind !== 'lx_send_authorization' || input.participants.length !== this.opts.quorum || new Set(input.participants).size !== this.opts.quorum) {
-        throw new AttestorSessionError('participant_mismatch', 'only an original approved LX quorum may be pinned');
+      if (
+        input.payload.kind !== 'lx_send_authorization' ||
+        input.participants.length !== this.opts.quorum ||
+        new Set(input.participants).size !== this.opts.quorum
+      ) {
+        throw new AttestorSessionError(
+          'participant_mismatch',
+          'only an original approved LX quorum may be pinned'
+        );
       }
-      members = input.participants.map(id => {
-        const node = this.nodes.find(candidate => candidate.nodeId === id && isHealthy(candidate, this.opts.quorum) && this.authorityAcks.get(id) === authoritySequence);
-        if (!node || node.latencyMs === null) throw new AttestorQuorumError('participant_unavailable', 'an originally reviewed LX participant is unavailable');
-        return {endpoint:node.endpoint,nodeId:id,latencyMs:node.latencyMs};
+      members = input.participants.map((id) => {
+        const node = this.nodes.find(
+          (candidate) =>
+            candidate.nodeId === id &&
+            isHealthy(candidate, this.opts.quorum) &&
+            this.authorityAcks.get(id) === authoritySequence
+        );
+        if (!node || node.latencyMs === null)
+          throw new AttestorQuorumError(
+            'participant_unavailable',
+            'an originally reviewed LX participant is unavailable'
+          );
+        return { endpoint: node.endpoint, nodeId: id, latencyMs: node.latencyMs };
       });
     }
-    const kind = input.payload.kind === 'eip7702_authorization' ? 'eth_sign_digest' : input.payload.kind;
+    const kind =
+      input.payload.kind === 'eip7702_authorization' ? 'eth_sign_digest' : input.payload.kind;
     const curve = KIND_CURVES[kind];
-    let sessionId = input.payload.kind === 'lx_send_authorization' ? input.payload.approval.session_id : randomUUID();
+    let sessionId =
+      input.payload.kind === 'lx_send_authorization'
+        ? input.payload.approval.session_id
+        : randomUUID();
     let participants = members.map((m) => m.nodeId);
     let authorisation = input.authorisation;
     let origin: AgentOriginalRequest | undefined;
@@ -688,45 +970,94 @@ export class AttestorClient {
     if (authorisation.scheme === 'agent_request') {
       origin = authorisation.origin;
       const approved = authorisation.reauthorization;
-      const offered = approved ? JSON.parse(approved.body) as SignRequestWire : undefined;
-      if (approved && offered?.key_id === input.keyId && offered.kind === kind
-        && offered.construction?.kind === ('construction' in input.payload ? input.payload.construction.kind : undefined)) {
-        if (!offered || typeof offered !== 'object' || !offered.origin || offered.origin.did !== origin.did || offered.origin.method !== origin.method
-          || offered.origin.body !== origin.body || typeof offered.session_id !== 'string' || !offered.session_id
-          || !Array.isArray(offered.signers) || offered.signers.length !== this.opts.quorum
-          || new Set(offered.signers).size !== this.opts.quorum) {
-          throw new AttestorTokenError('agent_authorization_mismatch', 'the signed envelope differs from the original request');
+      const offered = approved ? (JSON.parse(approved.body) as SignRequestWire) : undefined;
+      if (
+        approved &&
+        offered?.key_id === input.keyId &&
+        offered.kind === kind &&
+        offered.construction?.kind ===
+          ('construction' in input.payload ? input.payload.construction.kind : undefined)
+      ) {
+        if (
+          !offered ||
+          typeof offered !== 'object' ||
+          !offered.origin ||
+          offered.origin.did !== origin.did ||
+          offered.origin.method !== origin.method ||
+          offered.origin.body !== origin.body ||
+          typeof offered.session_id !== 'string' ||
+          !offered.session_id ||
+          !Array.isArray(offered.signers) ||
+          offered.signers.length !== this.opts.quorum ||
+          new Set(offered.signers).size !== this.opts.quorum
+        ) {
+          throw new AttestorTokenError(
+            'agent_authorization_mismatch',
+            'the signed envelope differs from the original request'
+          );
         }
-        const health = this.nodes.filter((node) => isHealthy(node, this.opts.quorum) && node.nodeId !== null && this.authorityAcks.get(node.nodeId) === authoritySequence);
+        const health = this.nodes.filter(
+          (node) =>
+            isHealthy(node, this.opts.quorum) &&
+            node.nodeId !== null &&
+            this.authorityAcks.get(node.nodeId) === authoritySequence
+        );
         members = offered.signers.map((id) => {
           const node = health.find((item) => item.nodeId === id);
-          if (!node || node.latencyMs === null) throw new AttestorQuorumError('participant_unavailable', 'an approved participant is unavailable');
+          if (!node || node.latencyMs === null)
+            throw new AttestorQuorumError(
+              'participant_unavailable',
+              'an approved participant is unavailable'
+            );
           return { endpoint: node.endpoint, nodeId: id, latencyMs: node.latencyMs };
         });
         sessionId = offered.session_id;
         participants = offered.signers;
         origin = offered.origin;
         suppliedBody = approved.body;
-        authorisation = { scheme: 'agent_ed25519', publicKey: authorisation.publicKey,
-          nonce: approved.nonce, expiry: approved.expiry, signature: approved.signature };
+        authorisation = {
+          scheme: 'agent_ed25519',
+          publicKey: authorisation.publicKey,
+          nonce: approved.nonce,
+          expiry: approved.expiry,
+          signature: approved.signature,
+        };
       }
     }
     const wire = signRequestBody(sessionId, input.keyId, participants, input.payload);
     if (origin) wire.origin = origin;
     const body = JSON.stringify(wire);
-    if (authorisation.scheme === 'agent_request') throw new AttestorReauthorizationRequired(body, input.keyId);
+    if (authorisation.scheme === 'agent_request')
+      throw new AttestorReauthorizationRequired(body, input.keyId);
     if (suppliedBody !== undefined && suppliedBody !== body) {
-      throw new AttestorTokenError('agent_authorization_mismatch', 'transaction bytes, fees, nonce or custody binding differ from the signed envelope');
+      throw new AttestorTokenError(
+        'agent_authorization_mismatch',
+        'transaction bytes, fees, nonce or custody binding differ from the signed envelope'
+      );
     }
-    const headers = { ...authorisationHeaders(authorisation), 'X-Custody-Sequence': authoritySequence };
+    const headers = {
+      ...authorisationHeaders(authorisation),
+      'X-Custody-Sequence': authoritySequence,
+    };
     const settled = await Promise.allSettled(
-      members.map((m) => this.post(m, ATTESTOR_PATHS.sign, body, headers, (b) => parseSignResponse(b, m.nodeId, curve))),
+      members.map((m) =>
+        this.post(m, ATTESTOR_PATHS.sign, body, headers, (b) =>
+          parseSignResponse(b, m.nodeId, curve)
+        )
+      )
     );
     const refusal = firstRefusal(settled, members, (e, r) => this.markDown(e, r));
     if (refusal) {
-      const consumed = (refusal.code === 'agent_invalid' && (refusal.message.includes('agent: nonce replayed') || refusal.message.includes('agent: request expired')))
-        || ['session_open_failed', 'session_failed', 'session_timeout'].includes(refusal.code);
-      if (consumed && input.authorisation.scheme === 'agent_request' && input.authorisation.reauthorization) {
+      const consumed =
+        (refusal.code === 'agent_invalid' &&
+          (refusal.message.includes('agent: nonce replayed') ||
+            refusal.message.includes('agent: request expired'))) ||
+        ['session_open_failed', 'session_failed', 'session_timeout'].includes(refusal.code);
+      if (
+        consumed &&
+        input.authorisation.scheme === 'agent_request' &&
+        input.authorisation.reauthorization
+      ) {
         const next = signRequestBody(randomUUID(), input.keyId, participants, input.payload);
         next.origin = input.authorisation.origin;
         throw new AttestorReauthorizationRequired(JSON.stringify(next), input.keyId);
@@ -740,16 +1071,32 @@ export class AttestorClient {
       const a = answers[i]!;
       const expectedNode = members[i]!.nodeId;
       if (a.node_id !== expectedNode) {
-        throw new AttestorSessionError('participant_mismatch', `expected ${expectedNode}, answered by ${a.node_id}`, a.node_id);
+        throw new AttestorSessionError(
+          'participant_mismatch',
+          `expected ${expectedNode}, answered by ${a.node_id}`,
+          a.node_id
+        );
       }
       if (a.key_id !== input.keyId || a.kind !== kind) {
-        throw new AttestorSessionError('request_mismatch', `participant answered for ${a.key_id} ${a.kind}`, a.node_id);
+        throw new AttestorSessionError(
+          'request_mismatch',
+          `participant answered for ${a.key_id} ${a.kind}`,
+          a.node_id
+        );
       }
       if (a.signed_bytes !== first.signed_bytes) {
-        throw new AttestorSessionError('signed_bytes_disagreement', 'participants signed different bytes', a.node_id);
+        throw new AttestorSessionError(
+          'signed_bytes_disagreement',
+          'participants signed different bytes',
+          a.node_id
+        );
       }
       if (a.signature !== first.signature || a.recovery_id !== first.recovery_id) {
-        throw new AttestorSessionError('signature_disagreement', 'participants returned different signatures', a.node_id);
+        throw new AttestorSessionError(
+          'signature_disagreement',
+          'participants returned different signatures',
+          a.node_id
+        );
       }
     }
     return {
@@ -765,10 +1112,16 @@ export class AttestorClient {
 
   async generateKey(input: GenerateKeyInput): Promise<KeyResult> {
     const admission = requireInventoryKey(input.keyId, 'generate', input.owner);
-    if (admission.curve !== input.curve) throw new AttestorKeyError('inventory_mismatch', 'approved key curve differs');
+    if (admission.curve !== input.curve)
+      throw new AttestorKeyError('inventory_mismatch', 'approved key curve differs');
     await publishCustodyAuthority(this);
     const sessionId = randomUUID();
-    const wire: KeyGenerateWire = { session_id: sessionId, key_id: input.keyId, curve: input.curve, owner: input.owner };
+    const wire: KeyGenerateWire = {
+      session_id: sessionId,
+      key_id: input.keyId,
+      curve: input.curve,
+      owner: input.owner,
+    };
     if (input.account !== undefined) wire.account = input.account;
     return this.keyOperation(ATTESTOR_PATHS.generate, sessionId, wire);
   }
@@ -781,29 +1134,50 @@ export class AttestorClient {
     return this.keyOperation(ATTESTOR_PATHS.refresh, sessionId, wire);
   }
 
-  private async keyOperation(path: string, sessionId: string, wire: KeyGenerateWire | KeyRefreshWire): Promise<KeyResult> {
+  private async keyOperation(
+    path: string,
+    sessionId: string,
+    wire: KeyGenerateWire | KeyRefreshWire
+  ): Promise<KeyResult> {
     const members: QuorumMember[] = this.nodes.map((n) => {
       if (n.nodeId === null || !n.healthy || n.latencyMs === null) {
-        throw new AttestorQuorumError('participant_unavailable', `${n.endpoint} is not ready for a key operation`);
+        throw new AttestorQuorumError(
+          'participant_unavailable',
+          `${n.endpoint} is not ready for a key operation`
+        );
       }
       return { endpoint: n.endpoint, nodeId: n.nodeId, latencyMs: n.latencyMs };
     });
     const body = JSON.stringify(wire);
     const settled = await Promise.allSettled(
-      members.map((m) => this.post(m, path, body, {}, (b) => parseKeyResponse(b, m.nodeId))),
+      members.map((m) => this.post(m, path, body, {}, (b) => parseKeyResponse(b, m.nodeId)))
     );
     const refusal = firstRefusal(settled, members, (e, r) => this.markDown(e, r));
     if (refusal) throw refusal;
     const answers = settled.map((s) => (s as PromiseFulfilledResult<KeyResponseWire>).value);
     const first = answers[0]!;
-    const admittedMembers = loadWalletInventory().members.map((member) => member.id).sort().join(',');
+    const admittedMembers = loadWalletInventory()
+      .members.map((member) => member.id)
+      .sort()
+      .join(',');
     for (const answer of answers) {
-      if (answer.participants.length !== 5 || [...answer.participants].sort().join(',') !== admittedMembers) throw new AttestorKeyError('inventory_mismatch', 'generated or refreshed key membership differs from approved wallet inventory');
+      if (
+        answer.participants.length !== 5 ||
+        [...answer.participants].sort().join(',') !== admittedMembers
+      )
+        throw new AttestorKeyError(
+          'inventory_mismatch',
+          'generated or refreshed key membership differs from approved wallet inventory'
+        );
     }
     for (let i = 0; i < answers.length; i++) {
       const a = answers[i]!;
       if (a.node_id !== members[i]!.nodeId) {
-        throw new AttestorSessionError('participant_mismatch', `expected ${members[i]!.nodeId}, answered by ${a.node_id}`, a.node_id);
+        throw new AttestorSessionError(
+          'participant_mismatch',
+          `expected ${members[i]!.nodeId}, answered by ${a.node_id}`,
+          a.node_id
+        );
       }
       if (
         a.key_id !== wire.key_id ||
@@ -814,7 +1188,11 @@ export class AttestorClient {
         a.epoch !== first.epoch ||
         a.refreshed !== first.refreshed
       ) {
-        throw new AttestorSessionError('key_disagreement', 'participants disagree on the key', a.node_id);
+        throw new AttestorSessionError(
+          'key_disagreement',
+          'participants disagree on the key',
+          a.node_id
+        );
       }
     }
     return {
@@ -836,10 +1214,12 @@ export class AttestorClient {
     try {
       const res = await this.http('GET', `${node.endpoint}${ATTESTOR_PATHS.health}`, null, {});
       const latency = performance.now() - started;
-      if (res.status !== 200 && res.status !== 503) throw new Error(`health answered ${res.status}`);
+      if (res.status !== 200 && res.status !== 503)
+        throw new Error(`health answered ${res.status}`);
       const report = parseHealth(res.body);
       const admitted = loadWalletInventory().members.find((member) => member.id === report.node_id);
-      if (!admitted || admitted.spki_sha256 !== this.peerPins.get(new URL(node.endpoint).origin)) throw new Error('health identity differs from approved TLS inventory');
+      if (!admitted || admitted.spki_sha256 !== this.peerPins.get(new URL(node.endpoint).origin))
+        throw new Error('health identity differs from approved TLS inventory');
       if ((res.status === 200) !== report.ready) {
         throw new Error(`health answered ${res.status} with ready ${String(report.ready)}`);
       }
@@ -847,7 +1227,9 @@ export class AttestorClient {
       node.report = report;
       node.latencyMs = latency;
       node.healthy = report.ready;
-      node.lastError = report.ready ? null : (report.readiness_error ?? report.share_error ?? 'not ready');
+      node.lastError = report.ready
+        ? null
+        : (report.readiness_error ?? report.share_error ?? 'not ready');
     } catch (err) {
       node.healthy = false;
       node.latencyMs = null;
@@ -869,14 +1251,19 @@ export class AttestorClient {
     path: string,
     body: string,
     headers: Record<string, string>,
-    parse: (body: unknown) => T,
+    parse: (body: unknown) => T
   ): Promise<T> {
     const res = await this.http('POST', `${member.endpoint}${path}`, body, headers);
     if (res.status !== 200) throw refusalFromWire(res.body, member.nodeId);
     return parse(res.body);
   }
 
-  private http(method: 'GET' | 'POST', url: string, body: string | null, extra: Record<string, string>): Promise<HttpResult> {
+  private http(
+    method: 'GET' | 'POST',
+    url: string,
+    body: string | null,
+    extra: Record<string, string>
+  ): Promise<HttpResult> {
     return new Promise((resolve, reject) => {
       const req = httpsRequest(
         url,
@@ -885,18 +1272,30 @@ export class AttestorClient {
           agent: this.agent,
           timeout: this.opts.timeoutMs,
           headers: body
-            ? { ...extra, 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) }
+            ? {
+                ...extra,
+                'content-type': 'application/json',
+                'content-length': Buffer.byteLength(body),
+              }
             : { ...extra, accept: 'application/json' },
         },
         (res) => {
           try {
             const certificate = (res.socket as TLSSocket).getPeerCertificate();
             if (!certificate.raw) throw new Error('participant certificate unavailable');
-            const publicKey = new X509Certificate(certificate.raw).publicKey.export({ type: 'spki', format: 'der' });
+            const publicKey = new X509Certificate(certificate.raw).publicKey.export({
+              type: 'spki',
+              format: 'der',
+            });
             const pin = createHash('sha256').update(publicKey).digest('hex');
-            if (!loadWalletInventory().members.some((member) => member.spki_sha256 === pin)) throw new Error('participant TLS authority is outside approved inventory');
+            if (!loadWalletInventory().members.some((member) => member.spki_sha256 === pin))
+              throw new Error('participant TLS authority is outside approved inventory');
             this.peerPins.set(new URL(url).origin, pin);
-          } catch (error) { res.destroy(); reject(error); return; }
+          } catch (error) {
+            res.destroy();
+            reject(error);
+            return;
+          }
           const chunks: Buffer[] = [];
           res.on('data', (c: Buffer) => chunks.push(c));
           res.on('end', () => {
@@ -913,9 +1312,11 @@ export class AttestorClient {
             resolve({ status: res.statusCode ?? 0, body: parsed });
           });
           res.on('error', reject);
-        },
+        }
       );
-      req.on('timeout', () => req.destroy(new Error(`attestor request timed out after ${this.opts.timeoutMs} ms`)));
+      req.on('timeout', () =>
+        req.destroy(new Error(`attestor request timed out after ${this.opts.timeoutMs} ms`))
+      );
       req.on('error', reject);
       if (body) req.write(body);
       req.end();
@@ -967,25 +1368,38 @@ export function parseSignResponse(body: unknown, nodeId: string, curve: Curve): 
     !HEX_RE.test(b.signed_bytes) ||
     typeof b.signature !== 'string' ||
     !HEX_RE.test(b.signature) ||
-    (!isUint(b.audit_sequence) || b.audit_sequence === 0)
+    !isUint(b.audit_sequence) ||
+    b.audit_sequence === 0
   ) {
-    throw new AttestorSessionError('malformed_response', 'sign answer does not match the attestor schema', nodeId);
+    throw new AttestorSessionError(
+      'malformed_response',
+      'sign answer does not match the attestor schema',
+      nodeId
+    );
   }
   const length = b.signature.length / 2;
   if (length !== SIGNATURE_BYTES[curve]) {
     throw new AttestorSessionError(
       'bad_signature_length',
       `expected ${SIGNATURE_BYTES[curve]} ${curve} signature bytes, got ${length}`,
-      nodeId,
+      nodeId
     );
   }
   if (curve === 'secp256k1') {
     const v = Number.parseInt(b.signature.slice(128, 130), 16);
     if (!(b.recovery_id === 0 || b.recovery_id === 1) || v !== b.recovery_id) {
-      throw new AttestorSessionError('bad_recovery_id', 'secp256k1 signature without a matching recovery id', nodeId);
+      throw new AttestorSessionError(
+        'bad_recovery_id',
+        'secp256k1 signature without a matching recovery id',
+        nodeId
+      );
     }
   } else if (b.recovery_id !== undefined) {
-    throw new AttestorSessionError('bad_recovery_id', 'ed25519 signature carries a recovery id', nodeId);
+    throw new AttestorSessionError(
+      'bad_recovery_id',
+      'ed25519 signature carries a recovery id',
+      nodeId
+    );
   }
   return b as SignResponseWire;
 }
@@ -1001,15 +1415,21 @@ export function parseKeyResponse(body: unknown, nodeId: string): KeyResponseWire
     typeof b.public_key !== 'string' ||
     !HEX_RE.test(b.public_key) ||
     b.public_key.length !== (b.curve === 'secp256k1' ? 130 : 64) ||
-    (b.address !== undefined && (typeof b.address !== 'string' || !/^0x[0-9a-fA-F]{40}$/.test(b.address))) ||
+    (b.address !== undefined &&
+      (typeof b.address !== 'string' || !/^0x[0-9a-fA-F]{40}$/.test(b.address))) ||
     (b.did !== undefined && typeof b.did !== 'string') ||
     !isUint(b.epoch) ||
     !Array.isArray(b.participants) ||
     !b.participants.every((p) => typeof p === 'string') ||
     typeof b.refreshed !== 'boolean' ||
-    (!isUint(b.audit_sequence) || b.audit_sequence === 0)
+    !isUint(b.audit_sequence) ||
+    b.audit_sequence === 0
   ) {
-    throw new AttestorSessionError('malformed_response', 'key answer does not match the attestor schema', nodeId);
+    throw new AttestorSessionError(
+      'malformed_response',
+      'key answer does not match the attestor schema',
+      nodeId
+    );
   }
   return b as KeyResponseWire;
 }
@@ -1025,7 +1445,9 @@ export function attestorClientFromConfig(cfg: {
 }): AttestorClient | null {
   if (cfg.ATTESTOR_ENDPOINTS.length === 0) return null;
   if (!cfg.ATTESTOR_CLIENT_CERT_FILE || !cfg.ATTESTOR_CLIENT_KEY_FILE || !cfg.ATTESTOR_CA_FILE) {
-    throw new Error('attestor client certificate, key and CA files are required with ATTESTOR_ENDPOINTS');
+    throw new Error(
+      'attestor client certificate, key and CA files are required with ATTESTOR_ENDPOINTS'
+    );
   }
   return new AttestorClient({
     endpoints: cfg.ATTESTOR_ENDPOINTS,
@@ -1040,18 +1462,27 @@ export function attestorClientFromConfig(cfg: {
   });
 }
 
-export async function signThroughAttestors(client: AttestorClient, input: SignInput): Promise<SignResult> {
+export async function signThroughAttestors(
+  client: AttestorClient,
+  input: SignInput
+): Promise<SignResult> {
   return client.sign(input);
 }
 
 export function splitSignature(result: SignResult): { r: Hex; s: Hex; yParity: number } {
   const bytes = hexToBytes(result.signature);
   if (bytes.length !== SIGNATURE_BYTES.secp256k1) {
-    throw new AttestorSessionError('bad_signature_length', `expected 65 signature bytes, got ${bytes.length}`);
+    throw new AttestorSessionError(
+      'bad_signature_length',
+      `expected 65 signature bytes, got ${bytes.length}`
+    );
   }
   const yParity = bytes[64]!;
   if ((yParity !== 0 && yParity !== 1) || result.recoveryId !== yParity) {
-    throw new AttestorSessionError('bad_recovery_id', 'secp256k1 signature without a matching recovery id');
+    throw new AttestorSessionError(
+      'bad_recovery_id',
+      'secp256k1 signature without a matching recovery id'
+    );
   }
   return {
     r: toHex(bytes.subarray(0, 32)),
@@ -1070,12 +1501,13 @@ export function unsignedTransactionBytes(tx: TransactionSerializable): Hex {
 export function encodeTypedData(td: TypedDataDefinition): string {
   const domain = (td.domain ?? {}) as Record<string, unknown>;
   const types = td.types as Record<string, unknown>;
-  const withDomain = 'EIP712Domain' in types
-    ? types
-    : { EIP712Domain: getTypesForEIP712Domain({ domain: td.domain as never }), ...types };
+  const withDomain =
+    'EIP712Domain' in types
+      ? types
+      : { EIP712Domain: getTypesForEIP712Domain({ domain: td.domain as never }), ...types };
   return JSON.stringify(
     { domain, types: withDomain, primaryType: td.primaryType, message: td.message },
-    (_k, v: unknown) => (typeof v === 'bigint' ? v.toString() : v),
+    (_k, v: unknown) => (typeof v === 'bigint' ? v.toString() : v)
   );
 }
 
@@ -1094,13 +1526,13 @@ export interface AttestorSigner {
 export function attestorSigner(
   client: AttestorClient,
   wallet: { keyId: string; address: `0x${string}`; chainId: number },
-  authorisation: Authorisation,
+  authorisation: Authorisation
 ): AttestorSigner {
   const expectSigner = (recovered: string, sessionId: string): void => {
     if (recovered.toLowerCase() !== wallet.address.toLowerCase()) {
       throw new AttestorSessionError(
         'signer_mismatch',
-        `session ${sessionId} produced a signature for ${recovered}, not the wallet address`,
+        `session ${sessionId} produced a signature for ${recovered}, not the wallet address`
       );
     }
   };
@@ -1113,7 +1545,10 @@ export function attestorSigner(
         authorisation,
       });
       const signed = serializeTransaction(tx, splitSignature(result));
-      expectSigner(await recoverTransactionAddress({ serializedTransaction: signed as never }), result.sessionId);
+      expectSigner(
+        await recoverTransactionAddress({ serializedTransaction: signed as never }),
+        result.sessionId
+      );
       return { value: signed, result };
     },
     async signMessage(message) {
@@ -1139,30 +1574,113 @@ export function attestorSigner(
   };
 }
 
-export function sponsorQuoteDigest(batch:ConstructionWire):Hex {
-  const q=batch.quote!;
-  return hashMessage({raw:keccak256(encodeAbiParameters(
-    [{type:'bytes32'},{type:'uint256'},{type:'address'},{type:'address'},{type:'address'},{type:'uint256'},{type:'uint256'},{type:'uint256'},{type:'uint256'},{type:'uint256'}],
-    [keccak256(stringToHex('Quote(uint256 chainId,address account,address sponsor,address token,uint256 maxTokenAmount,uint256 tokenAmount,uint256 deadline,uint256 quoteNonce,uint256 gasCost)')),BigInt(batch.chainId),batch.account as Hex,q.sponsor as Hex,q.token as Hex,BigInt(q.maxTokenAmount),BigInt(q.tokenAmount),BigInt(q.deadline),BigInt(q.quoteNonce),BigInt(q.gasCost)]))});
+export function sponsorQuoteDigest(batch: ConstructionWire): Hex {
+  const q = batch.quote!;
+  return hashMessage({
+    raw: keccak256(
+      encodeAbiParameters(
+        [
+          { type: 'bytes32' },
+          { type: 'uint256' },
+          { type: 'address' },
+          { type: 'address' },
+          { type: 'address' },
+          { type: 'uint256' },
+          { type: 'uint256' },
+          { type: 'uint256' },
+          { type: 'uint256' },
+          { type: 'uint256' },
+        ],
+        [
+          keccak256(
+            stringToHex(
+              'Quote(uint256 chainId,address account,address sponsor,address token,uint256 maxTokenAmount,uint256 tokenAmount,uint256 deadline,uint256 quoteNonce,uint256 gasCost)'
+            )
+          ),
+          BigInt(batch.chainId),
+          batch.account as Hex,
+          q.sponsor as Hex,
+          q.token as Hex,
+          BigInt(q.maxTokenAmount),
+          BigInt(q.tokenAmount),
+          BigInt(q.deadline),
+          BigInt(q.quoteNonce),
+          BigInt(q.gasCost),
+        ]
+      )
+    ),
+  });
 }
-export function constructionDigest(construction:ConstructionWire):Hex {
-  if(construction.kind==='eip7702_authorization'){
-    const integer=(n:string):Hex=>BigInt(n)===0n?'0x':toHex(BigInt(n));
-    return keccak256(concat(['0x05',toRlp([integer(construction.chainId),construction.address as Hex,integer(construction.nonce)])]));
+export function constructionDigest(construction: ConstructionWire): Hex {
+  if (construction.kind === 'eip7702_authorization') {
+    const integer = (n: string): Hex => (BigInt(n) === 0n ? '0x' : toHex(BigInt(n)));
+    return keccak256(
+      concat([
+        '0x05',
+        toRlp([
+          integer(construction.chainId),
+          construction.address as Hex,
+          integer(construction.nonce),
+        ]),
+      ])
+    );
   }
-  const calls=keccak256(encodeAbiParameters([{type:'tuple[]',components:[{name:'to',type:'address'},{name:'value',type:'uint256'},{name:'data',type:'bytes'}]}],
-    [construction.calls!.map(call=>({to:call.to as Hex,value:BigInt(call.value),data:call.data as Hex}))]));
-  return hashMessage({raw:keccak256(encodeAbiParameters([{type:'bytes32'},{type:'uint256'},{type:'bytes32'},{type:'bytes32'}],
-    [keccak256(stringToHex('SponsoredBatch(uint256 nonce,bytes32 callsHash,bytes32 quoteDigest)')),BigInt(construction.nonce),calls,sponsorQuoteDigest(construction)]))});
+  const calls = keccak256(
+    encodeAbiParameters(
+      [
+        {
+          type: 'tuple[]',
+          components: [
+            { name: 'to', type: 'address' },
+            { name: 'value', type: 'uint256' },
+            { name: 'data', type: 'bytes' },
+          ],
+        },
+      ],
+      [
+        construction.calls!.map((call) => ({
+          to: call.to as Hex,
+          value: BigInt(call.value),
+          data: call.data as Hex,
+        })),
+      ]
+    )
+  );
+  return hashMessage({
+    raw: keccak256(
+      encodeAbiParameters(
+        [{ type: 'bytes32' }, { type: 'uint256' }, { type: 'bytes32' }, { type: 'bytes32' }],
+        [
+          keccak256(
+            stringToHex('SponsoredBatch(uint256 nonce,bytes32 callsHash,bytes32 quoteDigest)')
+          ),
+          BigInt(construction.nonce),
+          calls,
+          sponsorQuoteDigest(construction),
+        ]
+      )
+    ),
+  });
 }
 
 export interface LxReviewWire {
   kind: 'lx_send_authorization';
-  node_id: string; key_id: string; public_key: string; activity: string; signing_preimage: string;
-  network_id: number; protocol_version: number; disclosure: ActivityDisclosureWire;
-  not_after: string; epoch: number; audit_sequence: number;
+  node_id: string;
+  key_id: string;
+  public_key: string;
+  activity: string;
+  signing_preimage: string;
+  network_id: number;
+  protocol_version: number;
+  disclosure: ActivityDisclosureWire;
+  not_after: string;
+  epoch: number;
+  audit_sequence: number;
 }
-export interface LxReviewResult extends LxReviewWire { participants: string[]; audit: NodeAudit[]; }
+export interface LxReviewResult extends LxReviewWire {
+  participants: string[];
+  audit: NodeAudit[];
+}
 export interface EvmReviewResult {
   to: string;
   value: string;
@@ -1181,55 +1699,188 @@ interface EvmReviewWire extends Omit<EvmReviewResult, 'participants' | 'audit'> 
 }
 function parseEvmReview(value: unknown, nodeId: string): EvmReviewWire {
   const answer = value as EvmReviewWire | null;
-  if (!answer || typeof answer !== 'object' || answer.node_id !== nodeId || typeof answer.key_id !== 'string'
-    || typeof answer.to !== 'string' || !/^0x[0-9a-fA-F]{40}$/.test(answer.to)
-    || typeof answer.value !== 'string' || !/^(0|[1-9][0-9]{0,77})$/.test(answer.value) || BigInt(answer.value) >= (1n << 256n)
-    || typeof answer.data !== 'string' || !/^0x(?:[0-9a-fA-F]{2})*$/.test(answer.data) || answer.data.length > 2_097_154
-    || typeof answer.method !== 'string' || (answer.data !== '0x' && !answer.method) || typeof answer.destination !== 'string'
-    || typeof answer.signing_hash !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(answer.signing_hash)
-    || !Number.isSafeInteger(answer.chain_id) || answer.chain_id <= 0
-    || !Number.isSafeInteger(answer.audit_sequence) || answer.audit_sequence < 1) {
-    throw new AttestorSessionError('evm_review_invalid', 'invalid authenticated EVM review evidence');
+  if (
+    !answer ||
+    typeof answer !== 'object' ||
+    answer.node_id !== nodeId ||
+    typeof answer.key_id !== 'string' ||
+    typeof answer.to !== 'string' ||
+    !/^0x[0-9a-fA-F]{40}$/.test(answer.to) ||
+    typeof answer.value !== 'string' ||
+    !/^(0|[1-9][0-9]{0,77})$/.test(answer.value) ||
+    BigInt(answer.value) >= 1n << 256n ||
+    typeof answer.data !== 'string' ||
+    !/^0x(?:[0-9a-fA-F]{2})*$/.test(answer.data) ||
+    answer.data.length > 2_097_154 ||
+    typeof answer.method !== 'string' ||
+    (answer.data !== '0x' && !answer.method) ||
+    typeof answer.destination !== 'string' ||
+    typeof answer.signing_hash !== 'string' ||
+    !/^0x[0-9a-fA-F]{64}$/.test(answer.signing_hash) ||
+    !Number.isSafeInteger(answer.chain_id) ||
+    answer.chain_id <= 0 ||
+    !Number.isSafeInteger(answer.audit_sequence) ||
+    answer.audit_sequence < 1
+  ) {
+    throw new AttestorSessionError(
+      'evm_review_invalid',
+      'invalid authenticated EVM review evidence'
+    );
   }
   return answer;
 }
 export function parseLxReview(value: unknown, nodeId: string): LxReviewWire {
   const answer = value as LxReviewWire | null;
-  if (!struct(answer) || answer.kind !== 'lx_send_authorization' || answer.node_id !== nodeId || typeof answer.key_id !== 'string'
-    || !/^[0-9a-f]{64}$/.test(answer.public_key) || !/^[0-9a-f]{64}$/.test(answer.signing_preimage)
-    || typeof answer.activity !== 'string' || !/^(?:[0-9a-f]{2})+$/.test(answer.activity) || answer.activity.length > 2_097_152
-    || !Number.isSafeInteger(answer.network_id) || answer.network_id < 0 || answer.network_id > 0xffffffff
-    || ![1,2,3].includes(answer.protocol_version) || !Number.isSafeInteger(answer.epoch) || answer.epoch < 0
-    || !Number.isSafeInteger(answer.audit_sequence) || answer.audit_sequence < 1) throw new AttestorSessionError('lx_review_invalid', 'invalid authenticated LX review evidence');
+  if (
+    !struct(answer) ||
+    answer.kind !== 'lx_send_authorization' ||
+    answer.node_id !== nodeId ||
+    typeof answer.key_id !== 'string' ||
+    !/^[0-9a-f]{64}$/.test(answer.public_key) ||
+    !/^[0-9a-f]{64}$/.test(answer.signing_preimage) ||
+    typeof answer.activity !== 'string' ||
+    !/^(?:[0-9a-f]{2})+$/.test(answer.activity) ||
+    answer.activity.length > 2_097_152 ||
+    !Number.isSafeInteger(answer.network_id) ||
+    answer.network_id < 0 ||
+    answer.network_id > 0xffffffff ||
+    ![1, 2, 3].includes(answer.protocol_version) ||
+    !Number.isSafeInteger(answer.epoch) ||
+    answer.epoch < 0 ||
+    !Number.isSafeInteger(answer.audit_sequence) ||
+    answer.audit_sequence < 1
+  )
+    throw new AttestorSessionError('lx_review_invalid', 'invalid authenticated LX review evidence');
   checkDecimal('review.not_after', answer.not_after, 64);
   const d = answer.disclosure;
-  if (!d || !/^[0-9a-f]{64}$/.test(d.account) || typeof d.module !== 'string' || !Number.isInteger(d.operation) || d.operation <= 0 || d.operation > 65535
-    || !Array.isArray(d.amounts) || d.amounts.length > 1024 || !Array.isArray(d.destinations) || d.destinations.length > 1024
-    || d.amounts.some(amount => !/^[0-9a-f]{64}$/.test(amount.asset)) || d.destinations.some(destination => !/^[0-9a-f]{64}$/.test(destination))) throw new AttestorSessionError('lx_review_invalid', 'invalid independently decoded LX disclosure');
-  d.amounts.forEach(amount => checkDecimal('review.amount', amount.amount, 128));
-  for (const field of ['sequence','not_before','not_after'] as const) checkDecimal('review.' + field, d[field], 64);
-  if (d.not_after !== answer.not_after) throw new AttestorSessionError('lx_review_invalid', 'disclosure validity differs');
+  if (
+    !d ||
+    !/^[0-9a-f]{64}$/.test(d.account) ||
+    typeof d.module !== 'string' ||
+    !Number.isInteger(d.operation) ||
+    d.operation <= 0 ||
+    d.operation > 65535 ||
+    !Array.isArray(d.amounts) ||
+    d.amounts.length > 1024 ||
+    !Array.isArray(d.destinations) ||
+    d.destinations.length > 1024 ||
+    d.amounts.some((amount) => !/^[0-9a-f]{64}$/.test(amount.asset)) ||
+    d.destinations.some((destination) => !/^[0-9a-f]{64}$/.test(destination))
+  )
+    throw new AttestorSessionError(
+      'lx_review_invalid',
+      'invalid independently decoded LX disclosure'
+    );
+  d.amounts.forEach((amount) => checkDecimal('review.amount', amount.amount, 128));
+  for (const field of ['sequence', 'not_before', 'not_after'] as const)
+    checkDecimal('review.' + field, d[field], 64);
+  if (d.not_after !== answer.not_after)
+    throw new AttestorSessionError('lx_review_invalid', 'disclosure validity differs');
   return answer;
 }
 
-export function lxSigningPreimage(activity:string,kind:'lx_send_authorization'):string {
-  if(!/^(?:[0-9a-f]{2})+$/.test(activity)||activity.length>2_097_152)throw new AttestorSessionError('lx_canonical_invalid','invalid canonical activity bytes');
-  const raw=Buffer.from(activity,'hex');let offset=0;
-  const take=(count:number):Buffer=>{if(count<0||offset+count>raw.length)throw new AttestorSessionError('lx_canonical_invalid','truncated canonical activity');const bytes=raw.subarray(offset,offset+count);offset+=count;return bytes;};
-  const u8=()=>take(1).readUInt8();const u16=()=>take(2).readUInt16BE();const u32=()=>take(4).readUInt32BE();
-  const tag=(field:number)=>{if(u8()!==field)throw new AttestorSessionError('lx_canonical_invalid','noncanonical activity field');};
-  const bytes=(max:number)=>{const size=u32();if(size>max)throw new AttestorSessionError('lx_canonical_invalid','activity field exceeds bound');return take(size);};
-  const version=u16();if(![1,2,3].includes(version)||u16()!==0x1001||u8()!==11)throw new AttestorSessionError('lx_protocol_unsupported','only existing unsigned protocol1-3 activity is admitted');
-  tag(1);if(u16()!==version)throw new AttestorSessionError('lx_canonical_invalid','activity versions differ');
-  tag(2);const network=u32();tag(3);const operation=u32();tag(4);bytes(255);tag(5);bytes(524288);
-  tag(6);take(8);tag(7);take(16);tag(8);if(bytes(32).length!==32)throw new AttestorSessionError('lx_canonical_invalid','invalid activity idempotency');
-  tag(9);take(16);tag(10);const payloadHash=bytes(32);tag(11);const payload=bytes(524288);
-  if(offset!==raw.length||payloadHash.length!==32||!createHash('sha256').update('LXP/v1/payload-hash\0').update(payload).digest().equals(payloadHash))throw new AttestorSessionError('lx_canonical_invalid','canonical payload hash or trailing bytes differ');
-  if(kind!=='lx_send_authorization'||operation!==0x10005||payload.length<364||payload.length>512||payload.readUInt16BE(0)!==0x5301||payload.readUInt16BE(2)!==10)throw new AttestorSessionError('lx_send_authorization_invalid','owner send authorization layout required');
-  const count=payload[196]!;const end=197+count*9;
-  if(count>8||payload.length!==end+167||payload[end]!==1||payload.subarray(end+65,end+129).some(byte=>byte!==0)
-    ||payload.readUInt32BE(end+161)!==network||payload.readUInt16BE(end+165)!==version)throw new AttestorSessionError('lx_send_authorization_invalid','send authorization signature or scope differs');
-  for(let index=0;index<count;index++)if(![1,2].includes(payload[197+index*9]!))throw new AttestorSessionError('lx_send_authorization_invalid','invalid send condition');
-  const message=Buffer.concat([payload.subarray(0,2),payload.subarray(4,end),payload.subarray(end,end+33),payload.subarray(end+129)]);
+export function lxSigningPreimage(activity: string, kind: 'lx_send_authorization'): string {
+  if (!/^(?:[0-9a-f]{2})+$/.test(activity) || activity.length > 2_097_152)
+    throw new AttestorSessionError('lx_canonical_invalid', 'invalid canonical activity bytes');
+  const raw = Buffer.from(activity, 'hex');
+  let offset = 0;
+  const take = (count: number): Buffer => {
+    if (count < 0 || offset + count > raw.length)
+      throw new AttestorSessionError('lx_canonical_invalid', 'truncated canonical activity');
+    const bytes = raw.subarray(offset, offset + count);
+    offset += count;
+    return bytes;
+  };
+  const u8 = () => take(1).readUInt8();
+  const u16 = () => take(2).readUInt16BE();
+  const u32 = () => take(4).readUInt32BE();
+  const tag = (field: number) => {
+    if (u8() !== field)
+      throw new AttestorSessionError('lx_canonical_invalid', 'noncanonical activity field');
+  };
+  const bytes = (max: number) => {
+    const size = u32();
+    if (size > max)
+      throw new AttestorSessionError('lx_canonical_invalid', 'activity field exceeds bound');
+    return take(size);
+  };
+  const version = u16();
+  if (![1, 2, 3].includes(version) || u16() !== 0x1001 || u8() !== 11)
+    throw new AttestorSessionError(
+      'lx_protocol_unsupported',
+      'only existing unsigned protocol1-3 activity is admitted'
+    );
+  tag(1);
+  if (u16() !== version)
+    throw new AttestorSessionError('lx_canonical_invalid', 'activity versions differ');
+  tag(2);
+  const network = u32();
+  tag(3);
+  const operation = u32();
+  tag(4);
+  bytes(255);
+  tag(5);
+  bytes(524288);
+  tag(6);
+  take(8);
+  tag(7);
+  take(16);
+  tag(8);
+  if (bytes(32).length !== 32)
+    throw new AttestorSessionError('lx_canonical_invalid', 'invalid activity idempotency');
+  tag(9);
+  take(16);
+  tag(10);
+  const payloadHash = bytes(32);
+  tag(11);
+  const payload = bytes(524288);
+  if (
+    offset !== raw.length ||
+    payloadHash.length !== 32 ||
+    !createHash('sha256')
+      .update('LXP/v1/payload-hash\0')
+      .update(payload)
+      .digest()
+      .equals(payloadHash)
+  )
+    throw new AttestorSessionError(
+      'lx_canonical_invalid',
+      'canonical payload hash or trailing bytes differ'
+    );
+  if (
+    kind !== 'lx_send_authorization' ||
+    operation !== 0x10005 ||
+    payload.length < 364 ||
+    payload.length > 512 ||
+    payload.readUInt16BE(0) !== 0x5301 ||
+    payload.readUInt16BE(2) !== 10
+  )
+    throw new AttestorSessionError(
+      'lx_send_authorization_invalid',
+      'owner send authorization layout required'
+    );
+  const count = payload[196]!;
+  const end = 197 + count * 9;
+  if (
+    count > 8 ||
+    payload.length !== end + 167 ||
+    payload[end] !== 1 ||
+    payload.subarray(end + 65, end + 129).some((byte) => byte !== 0) ||
+    payload.readUInt32BE(end + 161) !== network ||
+    payload.readUInt16BE(end + 165) !== version
+  )
+    throw new AttestorSessionError(
+      'lx_send_authorization_invalid',
+      'send authorization signature or scope differs'
+    );
+  for (let index = 0; index < count; index++)
+    if (![1, 2].includes(payload[197 + index * 9]!))
+      throw new AttestorSessionError('lx_send_authorization_invalid', 'invalid send condition');
+  const message = Buffer.concat([
+    payload.subarray(0, 2),
+    payload.subarray(4, end),
+    payload.subarray(end, end + 33),
+    payload.subarray(end + 129),
+  ]);
   return createHash('sha256').update('LXP/v1/signature-preimage\0').update(message).digest('hex');
 }

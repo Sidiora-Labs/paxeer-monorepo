@@ -25,8 +25,10 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/publisher"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/store"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/store/canonicaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -526,18 +528,80 @@ func TestRepairM_996_DeadLetterAuthorizationAndRetention(t *testing.T) {
 }
 
 func TestRepairM_996_NoCompatibilityDeadLetterEscape(t *testing.T) {
-	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+	_, pool := canonicaltest.New(t)
+	for _, schema := range []func(string) (string, error){delivery.SchemaDDL, delivery.WebhookDDL} {
+		ddl, err := schema("indexer")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = pool.Exec(ctx, ddl); err != nil {
+			t.Fatal(err)
+		}
+	}
+	policy := delivery.Policy{Subjects: map[string]bool{"events.swap": true}, EventTypes: map[string]bool{"Swap": true}}
+	durable, err := delivery.NewStore(pool, "indexer", policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	received := make(chan struct{}, 1)
+	target := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case received <- struct{}{}:
+		default:
+		}
 		http.Error(w, "private-target-failure", http.StatusBadRequest)
 	}))
 	defer target.Close()
-	pub := publisher.New(publisher.Options{Targets: []publisher.Target{{URL: target.URL, Secret: "private-webhook-key"}}, Attempts: 1})
-	pub.PublishBatch(context.Background(), []publisher.WebhookEvent{{EventName: "Swap", BlockNumber: 101, TxHash: "private-payload-canary"}})
-	pub.WaitForInflight(5 * time.Second)
-	if pub.DeadLetterCount() != 1 {
-		t.Fatal("real publisher did not create failed delivery", pub.Snapshot())
+	t.Setenv("REPAIR162_WEBHOOK_SECRET", strings.Repeat("private-webhook-key", 2))
+	authorizer := func(c context.Context, action string) error {
+		return store.New(pool).CheckOperationAuthorization(c, store.OperationScope{AuthorizationID: "unissued", Operator: "repair996", Action: action, Target: "webhook", Generation: "repair996", Revision: "repair996", From: 101, To: 101})
 	}
+	bridge, err := delivery.NewWebhookBridge(durable, []delivery.WebhookTarget{{ID: "private-target", URL: target.URL, SecretReference: "REPAIR162_WEBHOOK_SECRET", Subjects: policy.Subjects}}, target.Client(), secrets.EnvProvider{}, authorizer, "repair996", 10*time.Second, time.Second, time.Second, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stager, err := publisher.NewDurableStager(durable, "repair996", map[string]string{"Swap": "events.swap"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	event := publisher.RawCanonicalEvent{EventType: "Swap", TxHash: "0x" + strings.Repeat("9", 64), TraceID: "repair996", SourceOrder: delivery.SourceOrder{Height: "101", TransactionIndex: "0", LogIndex: "0"}, EmittedAt: time.Now().UTC(), Payload: json.RawMessage(`{"canary":"private-payload-canary"}`)}
+	subject, envelope, err := stager.Envelope(event)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	if err = stager.Stage(ctx, tx, event); err != nil {
+		t.Fatal(err)
+	}
+	if err = bridge.StageTx(ctx, tx, "repair996", "market:private", 1, envelope.EventID, "", subject, envelope); err != nil {
+		t.Fatal(err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err = bridge.RunOnce(ctx); err == nil {
+		t.Fatal("failed target was acknowledged")
+	}
+	select {
+	case <-received:
+	default:
+		t.Fatal("durable delivery never reached the real HTTP target")
+	}
+	retained := func() {
+		t.Helper()
+		var quarantined, pending, watermark int
+		if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM indexer.delivery_webhooks WHERE state='quarantined' AND response_status=400), (SELECT count(*) FROM indexer.delivery_outbox WHERE state='pending'), (SELECT committed_sequence FROM indexer.delivery_webhook_cursors)`).Scan(&quarantined, &pending, &watermark); err != nil || quarantined != 1 || pending != 1 || watermark != 0 {
+			t.Fatalf("durable failed delivery state %d/%d/%d: %v", quarantined, pending, watermark, err)
+		}
+	}
+	retained()
 	router := chi.NewRouter()
-	RegisterStatus(router, StatusDeps{Publisher: pub})
+	RegisterStatus(router, StatusDeps{Delivery: durable})
 	server := httptest.NewServer(router)
 	defer server.Close()
 	for _, route := range []struct{ method, path string }{{"GET", "/status/dead-letter"}, {"POST", "/status/dead-letter/drain"}} {
@@ -559,7 +623,5 @@ func TestRepairM_996_NoCompatibilityDeadLetterEscape(t *testing.T) {
 			t.Fatal(route, response.StatusCode, string(body))
 		}
 	}
-	if pub.DeadLetterCount() != 1 {
-		t.Fatal("unconfigured policy drained compatibility state")
-	}
+	retained()
 }

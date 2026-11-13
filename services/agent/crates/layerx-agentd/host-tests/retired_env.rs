@@ -5,6 +5,7 @@ use std::process::Command;
 
 #[test]
 fn retired_trust_variables_are_refused_by_name() -> Result<(), Box<dyn Error>> {
+    // These names are rejection inputs, including empty and non-Unicode values.
     let names = [
         "LAYERX_AGENT_GENESIS_TRUST",
         "LAYERX_AGENT_HANDOVER_FINALITY",

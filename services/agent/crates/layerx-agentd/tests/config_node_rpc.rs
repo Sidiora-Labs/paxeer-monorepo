@@ -45,10 +45,14 @@ impl ConfigFile {
     }
 
     fn write(&self, values: &BTreeMap<String, String>) {
-        let source: String = values
+        use std::fmt::Write as _;
+        let source = values
             .iter()
-            .map(|(key, value)| format!("{key}={value}\n"))
-            .collect();
+            .fold(String::new(), |mut source, (key, value)| {
+                writeln!(source, "{key}={value}")
+                    .unwrap_or_else(|error| panic!("configuration text: {error}"));
+                source
+            });
         fs::write(&self.0, source).unwrap_or_else(|error| panic!("write: {error}"));
         fs::set_permissions(&self.0, fs::Permissions::from_mode(0o600))
             .unwrap_or_else(|error| panic!("permissions: {error}"));

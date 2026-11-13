@@ -9,7 +9,7 @@ use crate::sequencer::ReceiptKeyEntry;
 
 const BATCH_DOMAIN: &[u8] = b"PAXEER/v1/sequence-batch\0";
 
-/// Comet inclusion evidence for the real MsgSequenceBatch transaction. The
+/// Comet inclusion evidence for the real `MsgSequenceBatch` transaction. The
 /// node transport owning the raw block supplies the transaction and its path.
 pub struct ReceiptCommitEvidence<'a> {
     pub verifier: &'a ChainProofVerifier,
@@ -30,7 +30,7 @@ pub enum CoverageError {
     StateRoot,
 }
 
-/// The exact node MsgSequenceBatch wire envelope, including its receipt-key signature.
+/// The exact node `MsgSequenceBatch` wire envelope, including its receipt-key signature.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SequenceBatch {
     pub height: u64,
@@ -44,16 +44,20 @@ pub struct SequenceBatch {
 }
 
 impl SequenceBatch {
+    /// # Errors
+    ///
+    /// Returns `CoverageError::Encoding` for an invalid batch domain, length, height, sequence range or empty-batch roots.
     pub fn decode(bytes: &[u8]) -> Result<Self, CoverageError> {
-        if bytes.len() != 241 || !bytes.starts_with(BATCH_DOMAIN) {
-            return Err(CoverageError::Encoding);
-        }
-        let mut rest = &bytes[BATCH_DOMAIN.len()..];
         fn take<const N: usize>(rest: &mut &[u8]) -> Result<[u8; N], CoverageError> {
             let (value, next) = rest.split_at_checked(N).ok_or(CoverageError::Encoding)?;
             *rest = next;
             value.try_into().map_err(|_| CoverageError::Encoding)
         }
+        if bytes.len() != 241 || !bytes.starts_with(BATCH_DOMAIN) {
+            return Err(CoverageError::Encoding);
+        }
+        let mut rest = &bytes[BATCH_DOMAIN.len()..];
+
         let batch = Self {
             height: u64::from_be_bytes(take(&mut rest)?),
             from_sequence: u64::from_be_bytes(take(&mut rest)?),
@@ -82,6 +86,9 @@ impl SequenceBatch {
         Ok(())
     }
 
+    /// # Errors
+    ///
+    /// Returns `CoverageError::Encoding` for an invalid height, sequence range or empty-batch roots.
     pub fn encode(&self) -> Result<Vec<u8>, CoverageError> {
         self.validate()?;
         let mut bytes = BATCH_DOMAIN.to_vec();
@@ -96,6 +103,9 @@ impl SequenceBatch {
         Ok(bytes)
     }
 
+    /// # Errors
+    ///
+    /// Returns `CoverageError::Encoding` for an empty chain id or invalid batch fields.
     pub fn signing_digest(&self, chain_id: &str) -> Result<[u8; 32], CoverageError> {
         self.validate()?;
         if chain_id.is_empty() {
@@ -114,6 +124,9 @@ impl SequenceBatch {
     }
 }
 
+/// # Errors
+///
+/// Returns encoding, inclusion, height, sequence, signature or root errors when the receipt is not covered by the authenticated batch.
 pub fn verify_receipt_coverage(
     receipt: &ProtocolReceipt,
     execution_height: u64,

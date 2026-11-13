@@ -41,7 +41,8 @@ export function HomeQuickActions({ onNavigate }: Readonly<{ onNavigate: (route: 
 
 export function HomeActivityList({ entries }: Readonly<{ entries: HomeData["entries"] }>) {
   const activity = homeActivityRows(entries);
-  return <KitList>{activity.map((row) => (
+  return <KitList>
+    {activity.map((row) => (
     <KitListItem key={row.id} title={row.title} subtitle={row.when} trailing={
       <span className="flex items-center gap-2">
         {row.amount === undefined || row.currency === undefined ? null : (
@@ -54,7 +55,8 @@ export function HomeActivityList({ entries }: Readonly<{ entries: HomeData["entr
         <StatusPill status={row.status} />
       </span>
     } />
-  ))}</KitList>;
+    ))}
+  </KitList>;
 }
 
 export function Home() {

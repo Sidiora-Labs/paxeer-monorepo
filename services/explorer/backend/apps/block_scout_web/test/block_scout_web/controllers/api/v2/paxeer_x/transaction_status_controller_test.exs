@@ -1,8 +1,10 @@
+Code.require_file("../../../../../../../explorer/test/support/fixture/paxeer_x/governed_receipt_fixtures.exs", __DIR__)
+
 defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusControllerTest do
   use BlockScoutWeb.ConnCase
 
   alias Explorer.Chain.{Block, Transaction}
-  alias Explorer.Chain.PaxeerX.SequencerReceipt
+  alias Explorer.Chain.PaxeerX.{GovernedReceiptFixtures, SequencerReceipt}
   alias Explorer.Repo
   alias Plug.Conn
 
@@ -12,17 +14,16 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusControllerTest do
            )
 
   setup do
-    original = Application.get_env(:explorer, SequencerReceipt)
-    Application.put_env(:explorer, SequencerReceipt, router_url: nil)
+    GovernedReceiptFixtures.restore_on_exit()
+    GovernedReceiptFixtures.configure_receipted()
+    original_adapter = Application.get_env(:tesla, :adapter)
     Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
 
     on_exit(fn ->
-      Application.put_env(:tesla, :adapter, Explorer.Mock.TeslaAdapter)
-
-      if original do
-        Application.put_env(:explorer, SequencerReceipt, original)
+      if original_adapter do
+        Application.put_env(:tesla, :adapter, original_adapter)
       else
-        Application.delete_env(:explorer, SequencerReceipt)
+        Application.delete_env(:tesla, :adapter)
       end
     end)
 
@@ -244,7 +245,12 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusControllerTest do
       |> Conn.resp(200, Jason.encode!(%{"jsonrpc" => "2.0", "id" => id, "result" => Map.fetch!(results, method)}))
     end)
 
-    Application.put_env(:explorer, SequencerReceipt, router_url: "http://localhost:#{bypass.port}/")
+    Application.put_env(
+      :explorer,
+      SequencerReceipt,
+      Application.fetch_env!(:explorer, SequencerReceipt)
+      |> Keyword.put(:router_url, "http://localhost:#{bypass.port}/")
+    )
   end
 
   defp received_calls(calls \\ []) do

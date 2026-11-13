@@ -246,6 +246,9 @@ impl Quota {
         })
     }
 
+    /// # Errors
+    /// Returns an error if quota configuration or a retained decision is invalid, corrupt or
+    /// unavailable.
     pub fn with_observation_bounds(
         mut self,
         bounds: ObservationBounds,
@@ -258,6 +261,9 @@ impl Quota {
     }
 
     /// Migrate the old timestamped layout before attaching an existing store to requests.
+    /// # Errors
+    /// Returns an error if quota configuration or a retained decision is invalid, corrupt or
+    /// unavailable.
     pub fn restore(&mut self, store: &mut Store, observed_at_ms: u64) -> Result<(), QuotaError> {
         for tenant in self.tenants.keys().cloned().collect::<Vec<_>>() {
             self.prepare_index(store, &tenant, observed_at_ms)?;
@@ -291,6 +297,13 @@ impl Quota {
             .count()
     }
 
+    /// # Errors
+    /// Returns an error if quota configuration or a retained decision is invalid, corrupt or
+    /// unavailable.
+    #[allow(
+        clippy::unused_self,
+        reason = "Preserve the public API signature used by daemon consumers."
+    )]
     pub fn retained_decisions(
         &self,
         store: &Store,
@@ -504,11 +517,11 @@ impl Quota {
                     < self.shedding.window_ms
         });
         let key = (activity.tenant.clone(), activity.client_id.clone());
-        if !self.windows.contains_key(&key)
-            && self.active_windows(&activity.tenant) >= self.bounds.maximum_clients_per_tenant
-        {
-            return Err(self.capacity(&activity.tenant));
-        }
+        crate::reject_if(
+            !self.windows.contains_key(&key)
+                && self.active_windows(&activity.tenant) >= self.bounds.maximum_clients_per_tenant,
+            || self.capacity(&activity.tenant),
+        )?;
         let window = self.windows.entry(key).or_insert(ClientWindow {
             start_ms: activity.observed_at_ms,
             last_observed_ms: activity.observed_at_ms,
@@ -517,39 +530,7 @@ impl Quota {
             last_operation: activity.operation_digest,
             identical_operations: 0,
         });
-        if activity.observed_at_ms < window.last_observed_ms {
-            return Err(QuotaError::TimeRegressed);
-        }
-        if activity.observed_at_ms.saturating_sub(window.start_ms) >= self.shedding.window_ms {
-            *window = ClientWindow {
-                start_ms: activity.observed_at_ms,
-                last_observed_ms: activity.observed_at_ms,
-                requests: 0,
-                retries: 0,
-                last_operation: activity.operation_digest,
-                identical_operations: 0,
-            };
-        }
-        window.last_observed_ms = activity.observed_at_ms;
-        window.requests = window
-            .requests
-            .checked_add(1)
-            .ok_or(QuotaError::Arithmetic)?;
-        if activity.retry {
-            window.retries = window
-                .retries
-                .checked_add(1)
-                .ok_or(QuotaError::Arithmetic)?;
-        }
-        if window.last_operation == activity.operation_digest {
-            window.identical_operations = window
-                .identical_operations
-                .checked_add(1)
-                .ok_or(QuotaError::Arithmetic)?;
-        } else {
-            window.last_operation = activity.operation_digest;
-            window.identical_operations = 1;
-        }
+        observe_client_window(window, &activity, self.shedding.window_ms)?;
 
         let reason = if window.retries > self.shedding.maximum_retries {
             Some(SheddingReason::RetryStorm)
@@ -579,11 +560,11 @@ impl Quota {
             identical_operations: window.identical_operations,
             durable_record: durable_record.clone(),
         };
-        if !index.clients.contains_key(&decision.client_id)
-            && index.clients.len() >= self.bounds.maximum_clients_per_tenant
-        {
-            return Err(self.capacity(&activity.tenant));
-        }
+        crate::reject_if(
+            !index.clients.contains_key(&decision.client_id)
+                && index.clients.len() >= self.bounds.maximum_clients_per_tenant,
+            || self.capacity(&activity.tenant),
+        )?;
         let retention = decision
             .shed_until_ms
             .checked_add(self.bounds.audit_retention_ms)
@@ -647,6 +628,47 @@ impl Quota {
             .get(tenant)
             .ok_or_else(|| QuotaError::UnconfiguredTenant(tenant.clone()))
     }
+}
+fn observe_client_window(
+    window: &mut ClientWindow,
+    activity: &ClientActivity,
+    window_ms: u64,
+) -> Result<(), QuotaError> {
+    crate::reject_if(activity.observed_at_ms < window.last_observed_ms, || {
+        QuotaError::TimeRegressed
+    })?;
+    if activity.observed_at_ms.saturating_sub(window.start_ms) >= window_ms {
+        *window = ClientWindow {
+            start_ms: activity.observed_at_ms,
+            last_observed_ms: activity.observed_at_ms,
+            requests: 0,
+            retries: 0,
+            last_operation: activity.operation_digest,
+            identical_operations: 0,
+        };
+    }
+    window.last_observed_ms = activity.observed_at_ms;
+    window.requests = window
+        .requests
+        .checked_add(1)
+        .ok_or(QuotaError::Arithmetic)?;
+    if activity.retry {
+        window.retries = window
+            .retries
+            .checked_add(1)
+            .ok_or(QuotaError::Arithmetic)?;
+    }
+    if window.last_operation == activity.operation_digest {
+        window.identical_operations = window
+            .identical_operations
+            .checked_add(1)
+            .ok_or(QuotaError::Arithmetic)?;
+    } else {
+        window.last_operation = activity.operation_digest;
+        window.identical_operations = 1;
+    }
+
+    Ok(())
 }
 
 fn validate_client(client_id: &str) -> Result<(), QuotaError> {

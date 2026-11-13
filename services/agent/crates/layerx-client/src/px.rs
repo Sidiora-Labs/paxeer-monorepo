@@ -70,10 +70,12 @@ impl std::fmt::Display for Uint256 {
 }
 
 impl Uint256 {
+    #[must_use]
     pub const fn bytes(self) -> [u8; 32] {
         self.0
     }
 
+    #[must_use]
     pub fn decimal(self) -> String {
         let mut value = self.0;
         let mut digits = Vec::new();
@@ -81,10 +83,21 @@ impl Uint256 {
             let mut remainder = 0_u16;
             for byte in &mut value {
                 let part = remainder * 256 + u16::from(*byte);
-                *byte = (part / 10) as u8;
+                #[allow(
+                    clippy::cast_possible_truncation,
+                    reason = "remainder is below 10, so part / 10 is at most 255"
+                )]
+                {
+                    *byte = (part / 10) as u8;
+                }
                 remainder = part % 10;
             }
-            digits.push((b'0' + remainder as u8) as char);
+            #[allow(
+                clippy::cast_possible_truncation,
+                reason = "the remainder modulo 10 is below 10"
+            )]
+            let digit = remainder as u8;
+            digits.push(char::from(b'0' + digit));
         }
         if digits.is_empty() {
             return "0".to_owned();
@@ -92,6 +105,7 @@ impl Uint256 {
         digits.into_iter().rev().collect()
     }
 
+    #[must_use]
     pub fn from_decimal(text: &str) -> Option<Self> {
         if text.is_empty()
             || text.len() > 78
@@ -105,7 +119,7 @@ impl Uint256 {
             let mut carry = u16::from(digit - b'0');
             for byte in out.iter_mut().rev() {
                 let part = u16::from(*byte) * 10 + carry;
-                *byte = part as u8;
+                *byte = part.to_le_bytes()[0];
                 carry = part >> 8;
             }
             if carry != 0 {
@@ -175,12 +189,18 @@ impl From<SequencerEndpoint> for PxEndpoint {
 }
 
 impl PxEndpoint {
+    /// # Errors
+    ///
+    /// Returns an endpoint error for an invalid node URL or trust anchor.
     pub fn new(url: &str, trust_anchors: &[&[u8]]) -> Result<Self, SequencerError> {
         SequencerEndpoint::new_node(url, trust_anchors).map(Self::from)
     }
 
     /// Uses the node for every served read and the gateway only for the two
     /// hosted service operations. A node refusal never retries on the gateway.
+    /// # Errors
+    ///
+    /// Returns an endpoint error for an invalid node or gateway URL or trust anchor.
     pub fn with_gateway(
         node_url: &str,
         node_trust_anchors: &[&[u8]],
@@ -197,6 +217,9 @@ impl PxEndpoint {
         &self.node
     }
 
+    /// # Errors
+    ///
+    /// Returns an endpoint error for an unsupported method or missing hosted endpoint, and propagates transport and node refusals.
     pub fn call(&self, method: &str, params: &Value) -> Result<Value, SequencerError> {
         if NODE_READ_METHODS.contains(&method) {
             self.node.call_raw(method, params)
@@ -210,21 +233,33 @@ impl PxEndpoint {
         }
     }
 
+    /// # Errors
+    ///
+    /// Returns transport or node refusal errors, or `SequencerError::Malformed` for invalid response fields; unavailable consensus is reported as unavailable.
     pub fn account(&self, account: &str) -> Result<PxAccountJoin, SequencerError> {
         let result = self.call("px_getAccount", &json!([account]))?;
         decode_account(&result).ok_or(SequencerError::Malformed)
     }
 
+    /// # Errors
+    ///
+    /// Returns transport or node refusal errors, or `SequencerError::Malformed` for invalid response fields; unavailable consensus is reported as unavailable.
     pub fn balances(&self, account: &str) -> Result<PxAccountBalances, SequencerError> {
         let result = self.call("px_getBalances", &json!([account]))?;
         decode_balances(&result).ok_or(SequencerError::Malformed)
     }
 
+    /// # Errors
+    ///
+    /// Returns transport or node refusal errors, or `SequencerError::Malformed` for invalid response fields; unavailable consensus is reported as unavailable.
     pub fn list_assets(&self) -> Result<PxAssetTable, SequencerError> {
         let result = self.call("px_listAssets", &json!([]))?;
         decode_assets(&result).ok_or(SequencerError::Malformed)
     }
 
+    /// # Errors
+    ///
+    /// Returns transport or node refusal errors, or `SequencerError::Malformed` for invalid response fields; unavailable consensus is reported as unavailable.
     pub fn network(&self) -> Result<PxNetworkHead, SequencerError> {
         let result = self.call("px_getNetwork", &json!([]))?;
         if result.get("consensus") == Some(&Value::Null)
@@ -236,11 +271,11 @@ impl PxEndpoint {
     }
 }
 
-fn nullable<T>(value: &Value, decode: impl FnOnce(&Value) -> Option<T>) -> Option<Option<T>> {
+fn nullable<T>(value: &Value, decode: impl FnOnce(&Value) -> Option<T>) -> Result<Option<T>, ()> {
     if value.is_null() {
-        Some(None)
+        Ok(None)
     } else {
-        decode(value).map(Some)
+        decode(value).map(Some).ok_or(())
     }
 }
 
@@ -306,12 +341,13 @@ fn identities(value: &Value) -> Option<PxResolvedIdentities> {
         let did = value.as_str()?;
         fixed::<32>(did.strip_prefix("did:layerx:")?)?;
         Some(did.to_owned())
-    })?;
+    })
+    .ok()?;
     Some(PxResolvedIdentities {
-        evm_address: nullable(fields.get("evm_address")?, address)?,
-        pax_address: nullable(fields.get("pax_address")?, text)?,
+        evm_address: nullable(fields.get("evm_address")?, address).ok()?,
+        pax_address: nullable(fields.get("pax_address")?, text).ok()?,
         layerx_did,
-        layerx_account: nullable(fields.get("layerx_account")?, asset_id)?,
+        layerx_account: nullable(fields.get("layerx_account")?, asset_id).ok()?,
         bound: fields.get("bound")?.as_bool()?,
     })
 }
@@ -327,10 +363,11 @@ fn decode_account(value: &Value) -> Option<PxAccountJoin> {
                 nonce: count(half.get("nonce")?)?,
                 height: half.get("height")?.as_u64()?,
             })
-        })?,
+        })
+        .ok()?,
         layerx: match fields.get("layerx") {
             None => None,
-            Some(value) => nullable(value, object)?,
+            Some(value) => nullable(value, object).ok()?,
         },
     })
 }
@@ -370,19 +407,26 @@ fn decode_assets(value: &Value) -> Option<PxAssetTable> {
             Some(PxAssetEntry {
                 asset_id: text(entry.get("asset_id")?)?,
                 kind: text(entry.get("kind")?)?,
-                denom: nullable(entry.get("denom")?, text)?,
-                name: nullable(entry.get("name")?, |v| v.as_str().map(str::to_owned))?,
-                symbol: nullable(entry.get("symbol")?, |v| v.as_str().map(str::to_owned))?,
-                decimals: nullable(entry.get("decimals")?, |v| u8::try_from(v.as_u64()?).ok())?,
-                supply: nullable(entry.get("supply")?, |v| Uint256::from_decimal(v.as_str()?))?,
-                paused: entry.get("paused").map(Value::as_bool).transpose_option()?,
+                denom: nullable(entry.get("denom")?, text).ok()?,
+                name: nullable(entry.get("name")?, |v| v.as_str().map(str::to_owned)).ok()?,
+                symbol: nullable(entry.get("symbol")?, |v| v.as_str().map(str::to_owned)).ok()?,
+                decimals: nullable(entry.get("decimals")?, |v| u8::try_from(v.as_u64()?).ok())
+                    .ok()?,
+                supply: nullable(entry.get("supply")?, |v| Uint256::from_decimal(v.as_str()?))
+                    .ok()?,
+                paused: entry
+                    .get("paused")
+                    .map(Value::as_bool)
+                    .transpose_option()
+                    .ok()?,
                 verification: entry
                     .get("verification")
                     .map(|v| {
                         (v.as_str()? == "authenticated_committed_snapshot")
                             .then(|| "authenticated_committed_snapshot".to_owned())
                     })
-                    .transpose_option()?,
+                    .transpose_option()
+                    .ok()?,
             })
         })
         .collect::<Option<Vec<_>>>()?;
@@ -398,13 +442,13 @@ fn decode_assets(value: &Value) -> Option<PxAssetTable> {
 }
 
 trait TransposeOption<T> {
-    fn transpose_option(self) -> Option<Option<T>>;
+    fn transpose_option(self) -> Result<Option<T>, ()>;
 }
 impl<T> TransposeOption<T> for Option<Option<T>> {
-    fn transpose_option(self) -> Option<Option<T>> {
+    fn transpose_option(self) -> Result<Option<T>, ()> {
         match self {
-            None => Some(None),
-            Some(value) => value.map(Some),
+            None => Ok(None),
+            Some(value) => value.map(Some).ok_or(()),
         }
     }
 }
@@ -428,7 +472,7 @@ fn decode_network(value: &Value) -> Option<PxNetworkHead> {
             latest_block,
         },
         layerx: match fields.get("layerx") {
-            Some(value) => nullable(value, object)?,
+            Some(value) => nullable(value, object).ok()?,
             None => None,
         },
         latest_committed_height,

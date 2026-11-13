@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	evmconfig "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/config"
 	bridgetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/types"
 	xwebtestutil "github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/testutil"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/types"
@@ -142,6 +143,12 @@ func checkPreimageVectors(t *testing.T) {
 }
 
 func TestPreimageVectorsFromKeeper(t *testing.T) {
+	// M-1251 freezes the shared corpus on its historical signing domain.
+	// Configure a test-only chain through the real EVM chain-id resolver.
+	const historicalChain = "xweb-frozen-preimage-test"
+	require.NotContains(t, evmconfig.ChainIDMapping, historicalChain)
+	evmconfig.ChainIDMapping[historicalChain] = 713714
+	t.Cleanup(func() { delete(evmconfig.ChainIDMapping, historicalChain) })
 	file := loadVectors(t)
 	for _, v := range file.Vectors {
 		if v.Origin != types.OriginEVM {
@@ -149,7 +156,7 @@ func TestPreimageVectorsFromKeeper(t *testing.T) {
 		}
 		t.Run(v.Name, func(t *testing.T) {
 			testApp := app.Setup(t, false, false, false)
-			ctx := testApp.GetContextForDeliverTx(nil).WithBlockHeight(1)
+			ctx := testApp.GetContextForDeliverTx(nil).WithBlockHeight(1).WithChainID(historicalChain)
 			k, ctx := xwebtestutil.NewKeeper(testApp, ctx)
 			require.Equal(t, new(big.Int).SetUint64(v.NetworkID), testApp.EvmKeeper.ChainID(ctx))
 			requester, err := hexutil.Decode(v.Requester)
@@ -203,6 +210,16 @@ func TestPreimageVectorsFromKeeper(t *testing.T) {
 			require.Equal(t, request, pending)
 			require.Equal(t, genesis.Params.Fee,
 				testApp.BankKeeper.GetBalance(ctx, k.ModuleAddress(), sdk.MustGetBaseDenom()).Amount)
+			mainnetCtx := ctx.WithChainID("hyperpax_125-1")
+			require.Equal(t, big.NewInt(125), testApp.EvmKeeper.ChainID(mainnetCtx))
+			require.NotEqual(t, v.Digest, types.Digest(k.Attestation(mainnetCtx, request, response, content, v.FullLength)).Hex())
+			before := k.ExportGenesis(ctx)
+			_, _, err = k.Fulfil(mainnetCtx, id, response, content, v.FullLength, [][]byte{signature})
+			require.ErrorIs(t, err, types.ErrBadSignature)
+			require.Equal(t, before, k.ExportGenesis(ctx))
+			require.Equal(t, genesis.Params.Fee,
+				testApp.BankKeeper.GetBalance(ctx, k.ModuleAddress(), sdk.MustGetBaseDenom()).Amount)
+			require.True(t, testApp.BankKeeper.GetBalance(ctx, payout, sdk.MustGetBaseDenom()).Amount.IsZero())
 			fulfilled, result, err := k.Fulfil(ctx, id, response, content, v.FullLength, [][]byte{signature})
 			require.NoError(t, err)
 			require.Equal(t, types.StatusFulfilled, fulfilled.Status)

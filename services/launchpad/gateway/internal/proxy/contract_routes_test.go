@@ -119,7 +119,7 @@ func TestWatchlistOwnerRoutesStayOnUserUpstream(t *testing.T) {
 
 // The frozen v2 bounty reads are public social reads; writes stay session-only.
 func TestBountyReadsBelongToSocialUpstream(t *testing.T) {
-	for _, route := range []ConnectedRoute{{Method: "GET", Template: "/v2/bounties/stats"}, {Method: "GET", Template: "/v2/bounties/{bountyId}"}, {Method: "GET", Template: "/v2/bounties/{bountyId}/submissions"}, {Method: "POST", Template: "/v2/bounties/{bountyId}/submissions", Authenticate: true}} {
+	for _, route := range []ConnectedRoute{{Method: "GET", Optional: true, Template: "/v2/bounties/stats"}, {Method: "GET", Optional: true, Template: "/v2/bounties/{bountyId}"}, {Method: "GET", Optional: true, Template: "/v2/bounties/{bountyId}/submissions"}, {Method: "POST", Template: "/v2/bounties/{bountyId}/submissions", Authenticate: true}} {
 		if !allowedConnectedRoute("social", route) {
 			t.Fatal("contract bounty route denied", route)
 		}

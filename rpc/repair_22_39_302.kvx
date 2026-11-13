@@ -1,0 +1,15 @@
+[repair.22.39.302]
+acceptance = "22998.1"
+base_revision = "5a7cab8cd9a24af7c32d40ef715bd4c09f7aae5c"
+decision = "3145"
+gotcha = "4047"
+site = "rpc/subscribe_test.go:338, newAutobahnCommittedTestNode"
+introduced_revision = "229a1ea819"
+former_statement = "storedEnv := *tmClient.Environment"
+repair = "Allocate a fresh environment and share only BlockStore and StateStore with the running node. Its router remains nil, so subscription Block and BlockResults lookups read persisted headers and finalize responses without changing the node's environment or copying its locks."
+allocation = "The environment type belongs to consensus/internal/rpc/core and cannot be imported from rpc. newAutobahnSubscriptionEnvironment infers that concrete type from its pointer and allocates new(T) without dereferencing or copying it."
+proofs = ["TestSubscribeNewHeadsAutobahn", "TestSubscribeNewHeadsAutobahnRejectsMismatchedHash"]
+assertions = "The subscription environment is distinct, the node retains its original environment and non-nil router, and the subscription router is nil. Existing committed-root, WebSocket delivery and mismatched-hash rejection assertions remain intact."
+build_cmd = "go vet ./rpc/"
+verify_cmd = "test -s rpc/repair_22_39_302.kvx && go vet ./rpc/ && go test -count=1 ./rpc/ -run '^TestSubscribeNewHeadsAutobahn'"
+qualification = "The hf-build and hf-done entries in /out/run/gates.jsonl name the verified candidate revision, exact command, exit code and private log location; only passing entries for the same candidate establish qualification."

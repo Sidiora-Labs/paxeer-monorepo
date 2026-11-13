@@ -1,0 +1,82 @@
+[meta]
+task = "22.39.347"
+base_revision = "3dc59b8c44560f3ce5c2e77b309e0b0615303d38"
+decisions = ["3213", "3218"]
+gotchas = ["4135", "4141"]
+verified_revision_source = "The revision field of the final hf-done evidence in /out/run/gates.jsonl names the candidate containing this record; both gates must identify that same revision."
+
+[defect]
+file = "services/agent/crates/layerx-agentd/src/inference_market/signal.rs"
+symbol = "SignalAuthority::admit"
+original_line = 298
+observed = "Admission requires offer_digest in a room answer, but rpc/px_inference.go:96 and :241 never serve that field, so valid peers receive OfferMismatch."
+change = "Validate RoomOffer::digest before chain reads, then compare only room_id, open state, model_digest and runtime_digest with the served room. Invalid layer plans and noncanonical prices still return InvalidOffer."
+
+[reader_audit]
+root = "services/agent/crates/layerx-agentd"
+search = "Searched all Rust sources and tests for inference room, deal, peer and receipt RPC method names, snake-case variants and distinctive answer fields; inspected the matching read sites against rpc/px_inference.go."
+room_reader = "src/inference_market/signal.rs:293-298 (base): SignalAuthority::admit reads room_id, state, model_digest, runtime_digest and the unsupported offer_digest; repaired here."
+peer_reader = "src/inference_market/signal.rs:310-330 (base): SignalAuthority::admit reads peer_key, enrolled, delegate, metadata, worker, generation, key_version, metadata_revision, valid_from and expiry; every field is served by DecodePxInferencePeer."
+test_readers = "tests/inference_signal.rs:285-305 (base): TestChain::read checks room_id, model_digest, runtime_digest and state, all served; :491-501 removes the unsupported field in an obsolete refusal case, repaired to use the real closed-room response."
+deal_readers = "No deal answer reader found in the audit root."
+receipt_readers = "No receipt answer reader found in the audit root."
+outside_scope = "No additional reader of an unserved room, deal, peer or receipt field found outside the task paths in the audit root."
+
+[tests]
+room_answers = "Derive the ten served fields from real answer_room_view and RoomView::decode results, including the exact RPC profile fields. Empty ask streams are asserted against no open asks."
+regression = "hello_is_admitted_against_the_room_fields_the_node_serves asserts the exact field set, successful WebSocket hello admission and OfferMismatch plus connection closure for differing model digest, runtime digest and closed state. The closed state is produced by a signed CloseRoom dispatched through the real market program."
+existing_cases = "Retain signature, challenge replay, connection and frame limits, enrollment, manifest, offer hashing and relay assertions. Rename the hashing test to avoid the removed RPC field spelling while retaining all term-binding assertions."
+input_conflict = "The old missing-field refusal and price-only mismatch refusal contradict removal of the unsupported comparison: absence is the valid RPC schema and price is fixed per deal, not served per room. Preserve both OfferMismatch and connection-close assertions with a real closed room and a differing model digest respectively; no test is skipped or ignored."
+
+[lint]
+file = "services/agent/crates/layerx-agentd/src/inference_market/signal.rs"
+change = "Use checked length conversions, borrowed JSON string comparisons, separated numeric literals, a named connection guard, loop-tail match arms and a leading Base64 constant; retain protocol bounds and error paths without lint allowances. Give SHA-1 working words explicit names."
+external_diagnostics_source = "/tmp/lint-22-39-347.log contains exact file and line diagnostics from the declared host-binary lint gate; diagnostics outside signal.rs are retained and not repaired by this task."
+
+[qualification]
+build = "hf-build"
+verify = "hf-done"
+evidence = "/out/run/gates.jsonl"
+logs = "/out/logs/build-*.log and /out/logs/verify-*.log"
+result = "The final hf-done evidence supplies the verified candidate revision, exact command, exit code and private log; no gate success is asserted before execution."
+
+[repair_cycle.1]
+revision = "d9775a7d60d516190594350980c00307dddf9b5a"
+command = "cg spec done 22.39.347 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+tests = "15 passed, 0 failed, 0 ignored; the named regression executed and passed."
+change = "Restrict the listener address getter, backing field and address-only import to their test consumers, preserving the full production listener and health checks. Add the relay arm semicolon and let the existing wildcard rejection handle the close opcode, retaining InvalidFrame."
+
+[external_lint.1]
+task = "22.39.347"
+file = "services/agent/crates/layerx-agentd/src/main.rs"
+symbol = "Host-binary lint diagnostics at lines 10, 49, 46, 859, 847, 1033, 1228, 1341, 1494, 1487, 1495, 1693, 1694, 1695, 2268"
+observed = "At revision d9775a7d60d516190594350980c00307dddf9b5a, cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --no-deps --bin layerx-agentd --message-format short -- -D warnings exits 101; exact diagnostics are retained in /out/logs/lint-22-39-347-first.log."
+assumption = "These inherited diagnostics are outside the task paths and remain for their owning tasks."
+severity = "note"
+
+[external_lint.2]
+task = "22.39.347"
+file = "services/agent/crates/layerx-agentd-host/src/payer.rs"
+symbol = "Host-binary lint diagnostics at lines 224, 324, 375, 606, 752, 778"
+observed = "At revision d9775a7d60d516190594350980c00307dddf9b5a, cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --no-deps --bin layerx-agentd --message-format short -- -D warnings exits 101; exact diagnostics are retained in /out/logs/lint-22-39-347-first.log."
+assumption = "These inherited diagnostics are outside the task paths and remain for their owning tasks."
+severity = "note"
+
+[external_lint.3]
+task = "22.39.347"
+file = "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"
+symbol = "Host-binary lint diagnostics at lines 18, 1, 7"
+observed = "At revision d9775a7d60d516190594350980c00307dddf9b5a, cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --no-deps --bin layerx-agentd --message-format short -- -D warnings exits 101; exact diagnostics are retained in /out/logs/lint-22-39-347-first.log."
+assumption = "These inherited diagnostics are outside the task paths and remain for their owning tasks."
+severity = "note"
+
+[external_lint.4]
+task = "22.39.347"
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+symbol = "Host-binary lint diagnostics at lines 3, 87, 130, 185"
+observed = "At revision d9775a7d60d516190594350980c00307dddf9b5a, cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --no-deps --bin layerx-agentd --message-format short -- -D warnings exits 101; exact diagnostics are retained in /out/logs/lint-22-39-347-first.log."
+assumption = "These inherited diagnostics are outside the task paths and remain for their owning tasks."
+severity = "note"
+

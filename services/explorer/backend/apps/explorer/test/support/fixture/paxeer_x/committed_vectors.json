@@ -3764,5 +3764,5 @@
       }
     }
   ],
-  "negative_provenance": "Active R7/R8 cases retain V4 signed receipt, transaction and result bytes and mutate only the evidence under test. The unrelated header remains the original independently valid synthetic height-1000 recording. Earlier synthetic receipts are retained under legacy_cases/legacy_refusals; their key IDs do not satisfy the current governed SHA256 public-key identity rule."
+  "negative_provenance": "Active R7/R8 cases retain V4 signed receipt, transaction and result bytes and mutate only the evidence under test. The unrelated header remains the original independently valid synthetic height-1000 recording. Earlier synthetic receipts are retained under legacy_cases/legacy_refusals; their non-digest key IDs remain valid governed identifiers, but these older cases lack the complete authenticated inclusion evidence required for committed promotion."
 }

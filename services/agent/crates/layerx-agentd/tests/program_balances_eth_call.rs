@@ -20,7 +20,12 @@ use layerx_programs::{
     ProgramValueAccountBinding, VerifiedAccountSnapshot,
 };
 
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    clippy::too_many_lines,
+    clippy::manual_let_else,
+    reason = "The registry workspace owns this shared fixture; this target reports dead_code, clippy::too_many_lines and clippy::manual_let_else in chain.rs."
+)]
 #[path = "../../../../../programs/crates/layerx-programs-registry/tests/support/chain.rs"]
 mod chain;
 use serde_json::{json, Value};
@@ -39,7 +44,7 @@ struct Fixture {
 }
 
 struct Account {
-    account: String,
+    id: String,
     asset: String,
     amount: String,
     frozen: bool,
@@ -136,44 +141,7 @@ impl CommittedPrograms {
             &[[1; 32], [2; 32], [3; 32], [4; 32]],
             pairs,
         ));
-        let head = must(chain.verifier.verify_head(&chain.header, &chain.commit));
-        let mut accounts = Vec::new();
-        for (binding, leaf) in bindings.iter().zip(leaves) {
-            let key = programs_state_key(&binding.primary_key());
-            assert_eq!(
-                must(verify_state(
-                    &head,
-                    chain::STORE_NAME,
-                    &key,
-                    &must(binding.primary_value()),
-                    &must(chain.prove(&key))
-                )),
-                chain::STATE_HEIGHT,
-            );
-            let Some(leaf) = leaf else {
-                continue;
-            };
-            let key = programs_state_key(&leaf.primary_key());
-            let verified = must(VerifiedAccountSnapshot::verify_chain(
-                &head,
-                &leaf,
-                &must(chain.prove(&key)),
-            ));
-            assert_eq!(verified.height(), chain::STATE_HEIGHT);
-            let mut changed = leaf.clone();
-            changed.balance ^= 1;
-            assert!(VerifiedAccountSnapshot::verify_chain(
-                &head,
-                &changed,
-                &must(chain.prove(&key))
-            )
-            .is_err());
-            accounts.push(CommittedAccount {
-                leaf: verified.account().clone(),
-                proof: must(chain.prove(&key)),
-                head: head.clone(),
-            });
-        }
+        let accounts = committed_accounts(&chain, &bindings, leaves);
         let fixture = Fixture {
             height: chain::STATE_HEIGHT.unsigned_abs(),
             // The signed successor authenticates the committed state's block ID.
@@ -186,7 +154,7 @@ impl CommittedPrograms {
                 .map(|snapshot| {
                     let leaf = snapshot.account();
                     Account {
-                        account: hex::encode(leaf.account_id),
+                        id: hex::encode(leaf.account_id),
                         asset: hex::encode(leaf.asset_id),
                         amount: leaf.balance.to_string(),
                         frozen: bool::from(leaf.frozen),
@@ -228,13 +196,14 @@ impl CommittedPrograms {
                     request["params"][0]["to"],
                     "0x000000000000000000000000000000000000101d"
                 );
-                let input = must(hex::decode(
-                    request["params"][0]["data"]
-                        .as_str()
-                        .unwrap()
-                        .strip_prefix("0x")
-                        .unwrap(),
-                ));
+                let input = must(hex::decode(lint_present(
+                    lint_present(
+                        request["params"][0]["data"].as_str(),
+                        "required test operation",
+                    )
+                    .strip_prefix("0x"),
+                    "required test operation",
+                )));
                 let selector = |signature: &[u8]| {
                     layerx_crypto::evm_transaction::transaction_hash(signature)[..4].to_vec()
                 };
@@ -255,11 +224,12 @@ impl CommittedPrograms {
                     output
                 } else if input[..4] == selector(b"getProgramAccountById(bytes32)") {
                     assert_eq!(input.len(), 36);
-                    let binding = self
-                        .bindings
-                        .iter()
-                        .find(|binding| binding.account_id == input[4..])
-                        .unwrap();
+                    let binding = lint_present(
+                        self.bindings
+                            .iter()
+                            .find(|binding| binding.account_id == input[4..]),
+                        "required test operation",
+                    );
                     let mut output = binding.program.bytes().to_vec();
                     output.extend_from_slice(&binding.asset_id);
                     output.extend_from_slice(&word(96));
@@ -380,9 +350,10 @@ impl Drop for Relay {
     fn drop(&mut self) {
         self.stopped.store(true, Ordering::Release);
         if let Some(worker) = self.worker.take() {
-            if worker.join().is_err() && !thread::panicking() {
-                panic!("RPC capture relay failed");
-            }
+            assert!(
+                worker.join().is_ok() || thread::panicking(),
+                "RPC capture relay failed"
+            );
         }
     }
 }
@@ -408,7 +379,7 @@ fn program_balance_is_read_by_eth_call_at_a_committed_height() {
             .accounts
             .iter()
             .map(|account| Account {
-                account: account.account.clone(),
+                id: account.id.clone(),
                 asset: account.asset.clone(),
                 amount: account.amount.clone(),
                 frozen: account.frozen,
@@ -420,7 +391,7 @@ fn program_balance_is_read_by_eth_call_at_a_committed_height() {
     let accounts: Vec<_> = fixture
         .accounts
         .iter()
-        .map(|account| id(&account.account))
+        .map(|account| id(&account.id))
         .collect();
     let reader = ProtocolProgramBalanceReader::bind(relay.endpoint());
     let read = must(reader.read(program, &accounts, fixture.height));
@@ -437,59 +408,12 @@ fn program_balance_is_read_by_eth_call_at_a_committed_height() {
     assert_eq!(read.lifecycle, lifecycle);
     assert_eq!(read.accounts.len(), fixture.accounts.len());
     for (actual, expected) in read.accounts.iter().zip(&fixture.accounts) {
-        assert_eq!(actual.account, id(&expected.account));
+        assert_eq!(actual.account, id(&expected.id));
         assert_eq!(actual.asset, id(&expected.asset));
         assert_eq!(actual.amount, must(expected.amount.parse::<u128>()));
         assert_eq!(actual.frozen, None);
     }
-    let requests = must(relay.requests.lock()).clone();
-    assert_eq!(requests.len(), 3 + 2 * accounts.len());
-    for request in [&requests[0], &requests[requests.len() - 1]] {
-        assert_eq!(request["method"], "eth_getBlockByNumber");
-        assert_eq!(
-            request["params"],
-            json!([format!("{:#x}", fixture.height), true])
-        );
-    }
-    for request in &requests[1..requests.len() - 1] {
-        assert_eq!(request["method"], "eth_call");
-        assert_eq!(
-            request["params"][0]["to"],
-            "0x000000000000000000000000000000000000101d"
-        );
-        assert_eq!(request["params"][1], format!("{:#x}", fixture.height));
-    }
-    let wind_down = layerx_crypto::evm_transaction::transaction_hash(b"getWindDown(bytes32)");
-    assert_eq!(
-        requests[1]["params"][0]["data"],
-        format!(
-            "0x{}",
-            hex::encode([wind_down[..4].to_vec(), program.bytes().to_vec()].concat())
-        )
-    );
-    let identity =
-        layerx_crypto::evm_transaction::transaction_hash(b"getProgramAccountById(bytes32)");
-    let selector =
-        layerx_crypto::evm_transaction::transaction_hash(b"getValueAccount(bytes32,bytes32)");
-    for (index, account) in accounts.iter().enumerate() {
-        assert_eq!(
-            requests[2 + 2 * index]["params"][0]["data"],
-            format!(
-                "0x{}",
-                hex::encode([identity[..4].to_vec(), account.to_vec()].concat())
-            )
-        );
-        let expected = [
-            selector[..4].to_vec(),
-            program.bytes().to_vec(),
-            account.to_vec(),
-        ]
-        .concat();
-        assert_eq!(
-            requests[3 + 2 * index]["params"][0]["data"],
-            format!("0x{}", hex::encode(expected))
-        );
-    }
+    assert_balance_rpc_requests(&relay, &fixture, program, &accounts);
     let direct = relay.endpoint();
     let same = must(LayerxdProgramBalanceReader::read_at(
         &direct,
@@ -511,9 +435,12 @@ fn program_balance_is_read_by_eth_call_at_a_committed_height() {
     assert!(reader.read(program, &accounts, fixture.height + 1).is_err());
     let requests = must(relay.requests.lock());
     assert_eq!(requests.len(), request_count + 1);
-    assert_eq!(requests.last().unwrap()["method"], "eth_getBlockByNumber");
     assert_eq!(
-        requests.last().unwrap()["params"],
+        lint_present(requests.last(), "required test operation")["method"],
+        "eth_getBlockByNumber"
+    );
+    assert_eq!(
+        lint_present(requests.last(), "required test operation")["params"],
         json!([format!("{:#x}", fixture.height + 1), true])
     );
 }
@@ -722,7 +649,7 @@ fn agentd_reads_program_balances_through_eth_call() {
 
     let (url, server) = serve(vec![
         json!({"result": "0x7d"}),
-        json!({"error": {"code": -32000, "message": "state unavailable"}}),
+        json!({"error": {"code": -32_000, "message": "state unavailable"}}),
     ]);
     let node = must(NodeRpc::connect(&config(url)));
     assert_eq!(
@@ -739,5 +666,113 @@ fn agentd_reads_program_balances_through_eth_call() {
         include_str!("../../../Cargo.lock"),
     ] {
         assert!(!dependency_file.contains("layerx-programs-protocol-adapter"));
+    }
+}
+
+#[track_caller]
+fn lint_present<T>(value: Option<T>, context: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{context}: required value is absent"),
+    }
+}
+
+fn committed_accounts(
+    chain: &chain::ChainFixture,
+    bindings: &[ProgramValueAccountBinding],
+    leaves: Vec<Option<CanonicalAccountLeaf>>,
+) -> Vec<CommittedAccount> {
+    let head = must(chain.verifier.verify_head(&chain.header, &chain.commit));
+    let mut accounts = Vec::new();
+    for (binding, leaf) in bindings.iter().zip(leaves) {
+        let key = programs_state_key(&binding.primary_key());
+        assert_eq!(
+            must(verify_state(
+                &head,
+                chain::STORE_NAME,
+                &key,
+                &must(binding.primary_value()),
+                &must(chain.prove(&key))
+            )),
+            chain::STATE_HEIGHT,
+        );
+        let Some(leaf) = leaf else {
+            continue;
+        };
+        let key = programs_state_key(&leaf.primary_key());
+        let verified = must(VerifiedAccountSnapshot::verify_chain(
+            &head,
+            &leaf,
+            &must(chain.prove(&key)),
+        ));
+        assert_eq!(verified.height(), chain::STATE_HEIGHT);
+        let mut changed = leaf.clone();
+        changed.balance ^= 1;
+        assert!(
+            VerifiedAccountSnapshot::verify_chain(&head, &changed, &must(chain.prove(&key)))
+                .is_err()
+        );
+        accounts.push(CommittedAccount {
+            leaf: verified.account().clone(),
+            proof: must(chain.prove(&key)),
+            head: head.clone(),
+        });
+    }
+    accounts
+}
+
+fn assert_balance_rpc_requests(
+    relay: &Relay,
+    fixture: &Fixture,
+    program: ProgramId,
+    accounts: &[[u8; 32]],
+) {
+    let requests = must(relay.requests.lock()).clone();
+    assert_eq!(requests.len(), 3 + 2 * accounts.len());
+    for request in [&requests[0], &requests[requests.len() - 1]] {
+        assert_eq!(request["method"], "eth_getBlockByNumber");
+        assert_eq!(
+            request["params"],
+            json!([format!("{:#x}", fixture.height), true])
+        );
+    }
+    for request in &requests[1..requests.len() - 1] {
+        assert_eq!(request["method"], "eth_call");
+        assert_eq!(
+            request["params"][0]["to"],
+            "0x000000000000000000000000000000000000101d"
+        );
+        assert_eq!(request["params"][1], format!("{:#x}", fixture.height));
+    }
+    let wind_down = layerx_crypto::evm_transaction::transaction_hash(b"getWindDown(bytes32)");
+    assert_eq!(
+        requests[1]["params"][0]["data"],
+        format!(
+            "0x{}",
+            hex::encode([wind_down[..4].to_vec(), program.bytes().to_vec()].concat())
+        )
+    );
+    let identity =
+        layerx_crypto::evm_transaction::transaction_hash(b"getProgramAccountById(bytes32)");
+    let selector =
+        layerx_crypto::evm_transaction::transaction_hash(b"getValueAccount(bytes32,bytes32)");
+    for (index, account) in accounts.iter().enumerate() {
+        assert_eq!(
+            requests[2 + 2 * index]["params"][0]["data"],
+            format!(
+                "0x{}",
+                hex::encode([identity[..4].to_vec(), account.to_vec()].concat())
+            )
+        );
+        let expected = [
+            selector[..4].to_vec(),
+            program.bytes().to_vec(),
+            account.to_vec(),
+        ]
+        .concat();
+        assert_eq!(
+            requests[3 + 2 * index]["params"][0]["data"],
+            format!("0x{}", hex::encode(expected))
+        );
     }
 }

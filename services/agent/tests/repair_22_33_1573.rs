@@ -26,7 +26,8 @@ fn provisioned_corpus() -> (Vec<adversarial::CorpusCase>, AuthenticatedCumulativ
     let mut cases = agent_policy_adversarial_corpus();
     let request = cases[0].session.request.clone();
     let root = support::directory("repair-22-33-1573-policy");
-    let mut store = Store::open(&root).expect("production session store");
+    let mut store = Store::open(&root)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "production session store"));
     let (mut authority, worker) = repair_support::authority_peer(vec![(
         200,
         repair_support::identity_document(120, false, std::slice::from_ref(&request.authority)),
@@ -41,18 +42,25 @@ fn provisioned_corpus() -> (Vec<adversarial::CorpusCase>, AuthenticatedCumulativ
             peer: &peer,
         },
     )
-    .expect("verified identity through production authority client");
-    worker.join().expect("identity transcript");
+    .unwrap_or_else(|error| {
+        panic!(
+            "{}: {error:?}",
+            "verified identity through production authority client"
+        )
+    });
+    worker
+        .join()
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "identity transcript"));
     let mut sessions = SessionRegistry::default();
     let token = open(&mut store, &mut sessions, &identity, request.clone(), 120)
-        .expect("production session admission");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "production session admission"));
     assert_eq!(
         token.authorize(&sessions, &request.tenant, &request.agent, "prepare", 120),
         Ok(request.session_id)
     );
     let session = sessions
         .get(&request.tenant, request.session_id)
-        .expect("admitted session")
+        .unwrap_or_else(|| panic!("{}", "admitted session"))
         .clone();
     for case in &mut cases {
         case.session = session.clone();
@@ -67,12 +75,17 @@ fn provisioned_corpus() -> (Vec<adversarial::CorpusCase>, AuthenticatedCumulativ
             },
             &entries,
         )
-        .expect("complete signed activity and receipt window");
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "complete signed activity and receipt window"
+            )
+        });
     assert_eq!(cumulative.amount(), 25);
     assert_eq!(cumulative.count(), 1);
     let mut wrong_actor = cases[0].clone();
-    wrong_actor.session.request.agent =
-        layerx_types::ids::Did::new(b"did:layerx:other-agent").expect("different actor");
+    wrong_actor.session.request.agent = layerx_types::ids::Did::new(b"did:layerx:other-agent")
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "different actor"));
     assert_decision(
         &wrong_actor.evaluate(&cumulative),
         Outcome::Deny,
@@ -86,7 +99,8 @@ fn provisioned_corpus() -> (Vec<adversarial::CorpusCase>, AuthenticatedCumulativ
         DecisionReason::InvalidContext,
     );
     drop(store);
-    std::fs::remove_dir_all(root).expect("remove test session store");
+    std::fs::remove_dir_all(root)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "remove test session store"));
     (cases, cumulative)
 }
 
@@ -113,9 +127,13 @@ fn restore_constraint(
     name: &str,
 ) {
     match dimension {
-        ConstraintDimension::ActivityType => actual.activity_types = control.activity_types.clone(),
-        ConstraintDimension::Counterparty => actual.counterparties = control.counterparties.clone(),
-        ConstraintDimension::Asset => actual.assets = control.assets.clone(),
+        ConstraintDimension::ActivityType => {
+            actual.activity_types.clone_from(&control.activity_types);
+        }
+        ConstraintDimension::Counterparty => {
+            actual.counterparties.clone_from(&control.counterparties);
+        }
+        ConstraintDimension::Asset => actual.assets.clone_from(&control.assets),
         ConstraintDimension::Amount => actual.maximum_amount = control.maximum_amount,
         ConstraintDimension::CumulativeRate if name == "cumulative-amount-boundary-plus-one" => {
             actual.maximum_cumulative_amount = control.maximum_cumulative_amount;
@@ -124,14 +142,16 @@ fn restore_constraint(
             assert_eq!(name, "cumulative-count-boundary-plus-one");
             actual.maximum_cumulative_count = control.maximum_cumulative_count;
         }
-        ConstraintDimension::Purpose => actual.purposes = control.purposes.clone(),
-        ConstraintDimension::Capability => actual.capability_ids = control.capability_ids.clone(),
-        ConstraintDimension::Session => actual.session_ids = control.session_ids.clone(),
-        ConstraintDimension::Agent => actual.agents = control.agents.clone(),
-        ConstraintDimension::Tenant => actual.tenants = control.tenants.clone(),
+        ConstraintDimension::Purpose => actual.purposes.clone_from(&control.purposes),
+        ConstraintDimension::Capability => {
+            actual.capability_ids.clone_from(&control.capability_ids);
+        }
+        ConstraintDimension::Session => actual.session_ids.clone_from(&control.session_ids),
+        ConstraintDimension::Agent => actual.agents.clone_from(&control.agents),
+        ConstraintDimension::Tenant => actual.tenants.clone_from(&control.tenants),
         ConstraintDimension::TimeWindow => actual.sequence_window = control.sequence_window,
         ConstraintDimension::RequiredApproval => {
-            actual.required_approval = control.required_approval
+            actual.required_approval = control.required_approval;
         }
     }
 }
@@ -159,7 +179,7 @@ fn policy_control_denies_independently_varied_constraints() {
         let dimension = *case
             .blocked_dimensions
             .first()
-            .expect("one varied constraint");
+            .unwrap_or_else(|| panic!("{}", "one varied constraint"));
         assert_eq!(case.request, control.request, "{}", case.name);
         assert_eq!(case.session, control.session, "{}", case.name);
         assert_eq!(case.capability, control.capability, "{}", case.name);
@@ -211,11 +231,13 @@ fn missing_evidence_is_distinct_from_constraint_denial_and_versions_remain_bound
         );
     }
     let control = &cases[0];
-    let mut registry = PolicyRegistry::new(control.policy.clone()).expect("valid control policy");
+    let mut registry = PolicyRegistry::new(control.policy.clone())
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "valid control policy"));
     let snapshot = registry.begin_request();
     let mut later = control.policy.clone();
     later.version = "corpus-v2".to_owned();
-    activate(&mut registry, later).expect("activate next policy version");
+    activate(&mut registry, later)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "activate next policy version"));
     let input = EvaluationInput::with_authenticated_cumulative_use(
         &control.request,
         &control.session,

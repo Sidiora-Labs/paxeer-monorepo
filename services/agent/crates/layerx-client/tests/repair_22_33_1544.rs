@@ -1,5 +1,5 @@
 //! Retirement regression proof; finding mapping and baseline limits are in
-//! src/lni/repair_22_33_1544.kvx. No retired protocol module is compiled.
+//! `src/lni/repair_22_33_1544.kvx`. No retired protocol module is compiled.
 use layerx_client::frame::framing::{read_frame, write_frame};
 use layerx_client::frame::transport::{FrameViolation, TransportError};
 use layerx_client::rpc::commit::{acquire_committed_header, decode_validators, CommitError};
@@ -25,8 +25,9 @@ fn retired(file: &str) {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("src/lni")
         .join(file);
-    let error = std::fs::symlink_metadata(&path)
-        .expect_err("retired protocol source must remain absent, including symlinks");
+    let Err(error) = std::fs::symlink_metadata(&path) else {
+        panic!("retired protocol source must remain absent, including symlinks");
+    };
     assert_eq!(error.kind(), ErrorKind::NotFound, "{}", path.display());
     let library = include_str!("../src/lib.rs");
     assert!(!library.contains("pub mod lni"));
@@ -47,7 +48,9 @@ fn receipt_case() -> Value {
 }
 
 fn unhex(value: &Value) -> Vec<u8> {
-    let digits = value.as_str().expect("producer hex string");
+    let Some(digits) = value.as_str() else {
+        panic!("producer hex string")
+    };
     let digits = digits.strip_prefix("0x").unwrap_or(digits);
     assert_eq!(digits.len() % 2, 0);
     digits
@@ -57,10 +60,10 @@ fn unhex(value: &Value) -> Vec<u8> {
         .collect()
 }
 
-fn frame_crossing(payload: Vec<u8>) {
+fn frame_crossing(payload: &[u8]) {
     let listener = must(TcpListener::bind("127.0.0.1:0"));
     let address = must(listener.local_addr());
-    let expected = payload.clone();
+    let expected = payload.to_owned();
     let maximum = payload.len();
     let worker = std::thread::spawn(move || {
         let (mut stream, _) = must(listener.accept());
@@ -73,7 +76,7 @@ fn frame_crossing(payload: Vec<u8>) {
     let mut stream = must(TcpStream::connect(address));
     must(stream.set_read_timeout(Some(Duration::from_secs(5))));
     must(stream.set_write_timeout(Some(Duration::from_secs(5))));
-    must(write_frame(&mut stream, &payload, maximum));
+    must(write_frame(&mut stream, payload, maximum));
     assert_eq!(must(read_frame(&mut stream, maximum)), payload);
     must(worker.join());
 }
@@ -82,7 +85,7 @@ fn frame_crossing(payload: Vec<u8>) {
 fn f19_retired_module_leaves_real_generic_frame_transport() {
     retired("mod.rs");
     let case = receipt_case();
-    frame_crossing(must(serde_json::to_vec(&case["receiptJson"])));
+    frame_crossing(&must(serde_json::to_vec(&case["receiptJson"])));
 }
 
 #[test]
@@ -91,7 +94,7 @@ fn f20_retired_provider_abi_leaves_bounded_canonical_frame_codec() {
     let bytes = unhex(&receipt_case()["signedReceipt"]);
     let receipt = must(layerx_wire::receipt::decode(&bytes));
     assert_eq!(must(layerx_wire::receipt::encode(&receipt)), bytes);
-    frame_crossing(bytes.clone());
+    frame_crossing(&bytes);
     let mut encoded = Vec::new();
     must(write_frame(&mut encoded, &bytes, bytes.len()));
     let mut receiver = std::io::Cursor::new(encoded);
@@ -113,19 +116,28 @@ fn f20_retired_provider_abi_leaves_bounded_canonical_frame_codec() {
 fn f21_capability_advertisements_cannot_replace_receipt_key_pins() {
     retired("capabilities.rs");
     let case = receipt_case();
-    let served = case.clone();
+    let response_case = case.clone();
     let server = Server::start(move |request| {
-        let result = match request["method"].as_str().expect("method") {
+        let result = match match request["method"].as_str() {
+            Some(required_value) => required_value,
+            None => panic!("method"),
+        } {
             "px_getReceiptKeys" => {
                 assert_eq!(request["params"], json!([]));
-                json!({"keys":[served["pinnedKey"]]})
+                json!({"keys":[response_case["pinnedKey"]]})
             }
             "pax_sequencerReceipt" => {
-                assert_eq!(request["params"], json!([served["receiptJson"]["txHash"]]));
-                served["receiptJson"].clone()
+                assert_eq!(
+                    request["params"],
+                    json!([response_case["receiptJson"]["txHash"]])
+                );
+                response_case["receiptJson"].clone()
             }
             "eth_getTransactionReceipt" => {
-                assert_eq!(request["params"], json!([served["receiptJson"]["txHash"]]));
+                assert_eq!(
+                    request["params"],
+                    json!([response_case["receiptJson"]["txHash"]])
+                );
                 Value::Null
             }
             other => panic!("retired or unexpected method: {other}"),
@@ -196,25 +208,30 @@ fn f22_handshake_is_replaced_by_explicit_chain_and_verified_commit() {
         "fixtures/repair_22_33_1546_node.json"
     )));
     let record = corpus["storage"].clone();
-    let height = record["height"].as_u64().expect("height");
+    let Some(height) = record["height"].as_u64() else {
+        panic!("height")
+    };
     let trust = ChainProofVerifier {
         chain_id: "hyperpax_125-1".to_owned(),
         validators: must(decode_validators(&record["validators"])),
     };
-    let served = record.clone();
+    let response_record = record.clone();
     let server = Server::start(move |request| {
-        let result = match request["method"].as_str().expect("method") {
+        let result = match match request["method"].as_str() {
+            Some(required_value) => required_value,
+            None => panic!("method"),
+        } {
             "eth_chainId" => {
                 assert_eq!(request["params"], json!([]));
                 json!("0x7d")
             }
             "px_getCommit" => {
                 assert_eq!(request["params"], json!([height.to_string()]));
-                served["material"].clone()
+                response_record["material"].clone()
             }
             "px_getValidators" => {
                 assert_eq!(request["params"], json!([height.to_string()]));
-                served["validators"].clone()
+                response_record["validators"].clone()
             }
             other => panic!("retired or unexpected method: {other}"),
         };

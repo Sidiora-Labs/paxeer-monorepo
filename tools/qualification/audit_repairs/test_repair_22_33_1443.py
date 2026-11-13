@@ -208,9 +208,18 @@ def test_real_recorded_unified_answer_validates_every_closed_history_object():
         assert row["tx_hash"] == row["tx_id"]
         assert row["account"] == result["accounts"][0]["account"]
     properties = schema["properties"]
-    assert properties["accounts"]["minItems"] == properties["accounts"]["maxItems"] == 1
-    assert properties["accounts"]["items"]["properties"]["side"]["enum"] == ["paxeer"]
-    assert properties["items"]["items"]["properties"]["side"]["enum"] == ["paxeer"]
+    assert properties["accounts"]["minItems"] == 1
+    assert properties["accounts"]["maxItems"] == 16
+    assert properties["accounts"]["items"]["properties"]["side"]["enum"] == ["paxeer", "layerx"]
+    assert properties["items"]["items"]["properties"]["side"]["enum"] == ["paxeer", "layerx"]
+    assert properties["accounts"]["items"]["oneOf"] == [
+        {"properties": {
+            "side": {"const": "paxeer"}, "account": {"pattern": "^0x[0-9a-f]{40}$"},
+        }},
+        {"properties": {
+            "side": {"const": "layerx"}, "account": {"pattern": "^[0-9a-f]{64}$"},
+        }},
+    ]
     account_schema = deepcopy(result_schema("px_getAccount")["properties"]["account"])
     actual = deepcopy(properties["account"])
     actual.pop("description")
@@ -279,12 +288,23 @@ def test_closed_history_contracts_reject_extra_missing_and_malformed_fields():
         for invalid in (None, 7, "0x1234", "0x" + "g" * 64, "f" * 64):
             with pytest.raises(ValidationError):
                 Draft7Validator(row["properties"]["tx_hash"]).validate(invalid)
-    for accounts in ([], result["accounts"] * 2, [{"side": "layerx", "account": "ab" * 32}]):
+    accounts_schema = schema["properties"]["accounts"]
+    for accounts in (
+        result["accounts"] * 16,
+        [*result["accounts"], {"side": "layerx", "account": "ab" * 32}],
+    ):
+        Draft7Validator(accounts_schema).validate(accounts)
+    for accounts in (
+        [], result["accounts"] * 17,
+        [{"side": "layerx", "account": result["accounts"][0]["account"]}],
+        [{"side": "paxeer", "account": "ab" * 32}],
+        [{"side": "unknown", "account": "ab" * 32}],
+    ):
         invalid = deepcopy(result)
         invalid["accounts"] = accounts
         with pytest.raises(ValidationError):
             Draft7Validator(schema).validate(invalid)
-    for field, value in (("side", "layerx"), ("amount", 1), ("blockHeight", -1)):
+    for field, value in (("side", "unknown"), ("amount", 1), ("blockHeight", -1)):
         invalid = deepcopy(result)
         invalid["items"][0][field] = value
         with pytest.raises(ValidationError):

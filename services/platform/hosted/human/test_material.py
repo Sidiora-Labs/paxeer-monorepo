@@ -252,86 +252,112 @@ class MaterialTests(unittest.TestCase):
 
     def test_bring_up_publishes_the_web_origin_the_ceremony_configuration_uses(self):
         cluster = (ROOT / 'services/platform/hosted/tests/beta-cluster.sh').read_text()
-        material_source = (ROOT / 'services/platform/hosted/human/material.sh').read_text()
+        material_source = (HERE / 'material.sh').read_text()
         self.assertIn('HUMAN_WEB_HOST=paxportwallet.com\n', cluster)
-        self.assertIn('HUMAN_WEB_URL="https://$HUMAN_WEB_HOST"\n', cluster)
+        self.assertIn('HUMAN_WEB_PORT=${LAYERX_BETA_HUMAN_WEB_PORT-443}\n', cluster)
         self.assertIn('"$LAYERX_BETA_HUMAN_POLICY_FILE" "${HUMAN_WEB_URL:-}"\n', material_source)
-        node = yaml.safe_load_all((ROOT / 'services/platform/hosted/node/deployment.yaml').read_text())
-        human = next(c for d in node if d['kind'] == 'StatefulSet'
-                     for c in d['spec']['template']['spec']['containers'] if c['name'] == 'human')
-        origin = next(e['value'] for e in human['env'] if e['name'] == 'LAYERX_HUMAN_WEB_ORIGIN')
-        self.assertEqual(origin, 'https://paxportwallet.com')
-        web = next(c for d in yaml.safe_load_all((ROOT / 'services/platform/hosted/human/web-deployment.yaml').read_text())
+        web = next(c for d in yaml.safe_load_all((HERE / 'web-deployment.yaml').read_text())
                    if d['kind'] == 'Deployment'
                    for c in d['spec']['template']['spec']['containers'] if c['name'] == 'web')
-        self.assertEqual(next(e['value'] for e in web['env'] if e['name'] == 'LAYERX_HUMAN_WEB_ORIGIN'), origin)
-        self.assertEqual(material.passkey_relying_party(origin)[1], origin)
+        origin = next(e['value'] for e in web['env'] if e['name'] == 'LAYERX_HUMAN_WEB_ORIGIN')
+        self.assertEqual(origin, 'https://paxportwallet.com')
+        self.assertEqual(material.passkey_relying_party(''), ('paxportwallet.com', origin))
+        self.assertEqual(material.passkey_relying_party(origin), ('paxportwallet.com', origin))
+        for configured in ('', origin):
+            with self.subTest(configured=configured), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory) / 'human'
+                root.mkdir(mode=0o700)
+                for name in ('components', 'kms', 'config', 'agent-config'):
+                    (root / name).mkdir(mode=0o700)
+                (root.parent / 'receipt-authority-replica-id').write_text(
+                    '6c61796572782d626574612d726563656970742d617574686f726974792d3031')
+                subprocess.run([sys.executable, str(HERE / 'material.py'), str(root),
+                                '402', '31337', '', configured], check=True)
+                self.assertEqual((root / 'config/LAYERX_HUMAN_ORIGIN').read_text(), origin)
+                self.assertEqual((root / 'config/LAYERX_HUMAN_RP_ID').read_text(), 'paxportwallet.com')
 
     def test_explorer_read_principal_is_generated_admitted_and_published(self):
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
         cluster = (ROOT / 'services/platform/hosted/tests/beta-cluster.sh').read_text()
-        provision = (ROOT / 'services/platform/hosted/human/provision.sh').read_text()
+        script = (HERE / 'provision.sh').read_text()
         self.assertEqual(cluster.count('    explorer_read_principal_generate "$d"\n'), 1)
-        self.assertIn('openssl genpkey -algorithm ed25519 -out "$d/explorer-read.key"', cluster)
         self.assertNotIn('LAYERX_BETA_EXPLORER_READ', cluster)
-        self.assertNotIn('LAYERX_BETA_EXPLORER_READ', provision)
-        published = next(line for line in cluster.replace('\\\n', '').splitlines()
-                         if 'apply_secret "$ns" layerx-explorer-index ' in line)
-        self.assertIn('--from-file=program-token="$s/explorer-program.token"', published)
-        self.assertIn('--from-file=read-key="$s/explorer-read.seed.hex"', published)
-        self.assertIn('--from-file=sequencer-public-key="$s/sequencer-public-key"', published)
-        self.assertIn('explorer_did="did:layerx:$explorer_public"\n', provision)
-        self.assertIn('cat "$input/owner-admission.txt" > "$input/genesis-admission.txt"\n', provision)
-        self.assertIn("    ' < \"$input/genesis-admission.txt\"\n", provision)
-        self.assertNotIn("' < \"$input/owner-admission.txt\"", provision)
-        self.assertIn('--actor "$explorer_did"', provision)
-        self.assertIn('fail "explorer-read.pub.hex: the explorer read principal key is missing from $SECRETS_DIR"', provision)
+        self.assertNotIn('LAYERX_BETA_EXPLORER_READ', script)
+        functions = ''
+        for name in ('ed25519_public_hex', 'explorer_read_principal_generate'):
+            functions += name + '() {' + cluster.split(name + '() {', 1)[1].split('\n}\n', 1)[0] + '\n}\n'
+        with tempfile.TemporaryDirectory() as directory:
+            subprocess.run(['bash', '-ec', 'set -euo pipefail\numask 077\n' + functions
+                            + 'explorer_read_principal_generate "$1"\n', 'explorer', directory], check=True)
+            root = Path(directory)
+            public = (root / 'explorer-read.pub.hex').read_text()
+            seed = bytes.fromhex((root / 'explorer-read.seed.hex').read_text())
+            self.assertRegex(public, r'\A[0-9a-f]{64}\Z')
+            self.assertEqual(len(seed), 32)
+            self.assertEqual(Ed25519PrivateKey.from_private_bytes(seed).public_key().public_bytes(
+                Encoding.Raw, PublicFormat.Raw).hex(), public)
+            exported = subprocess.run(['openssl', 'pkey', '-in', str(root / 'explorer-read.key'),
+                                       '-pubout', '-outform', 'DER'], capture_output=True, check=True)
+            self.assertEqual(exported.stdout[-32:].hex(), public)
+            for path in root.iterdir():
+                self.assertEqual(path.stat().st_mode & 0o777, 0o600)
         registry = list(yaml.safe_load_all((ROOT / 'services/platform/hosted/registry/deployment.yaml').read_text()))
         pod = next(d for d in registry if d['kind'] == 'StatefulSet')['spec']['template']['spec']
-        index = next(c for c in pod['containers'] if c['name'] == 'explorer-index')
+        self.assertEqual({c['name'] for c in pod['containers']}, {'registry', 'chain-indexer'})
+        index = next(c for c in pod['containers'] if c['name'] == 'chain-indexer')
+        self.assertEqual(index['command'], ['/usr/local/bin/layerx-indexer'])
         env = {e['name']: e for e in index['env']}
-        mount = next(m for m in index['volumeMounts'] if m['name'] == 'explorer-read')
+        for name, key in (('EVM_URL', 'evm-url'), ('COMET_URL', 'comet-url'), ('START_BLOCK', 'start-block')):
+            self.assertEqual(env['LAYERX_INDEXER_' + name]['valueFrom']['configMapKeyRef'],
+                             {'name': 'layerx-chain-indexer-chain', 'key': key})
+        self.assertEqual(env['LAYERX_INDEXER_EVM_CHAIN_ID']['value'], '125')
+        mount = next(m for m in index['volumeMounts'] if m['name'] == 'indexer-tls')
         self.assertTrue(mount['readOnly'])
-        volume = next(v for v in pod['volumes'] if v['name'] == 'explorer-read')['secret']
-        self.assertEqual(volume['secretName'], 'layerx-explorer-index')
+        volume = next(v for v in pod['volumes'] if v['name'] == mount['name'])['secret']
+        self.assertEqual(volume['secretName'], 'layerx-chain-indexer-tls')
         self.assertNotIn('optional', volume)
-        self.assertEqual({item['key'] for item in volume['items']}, {'read-key', 'sequencer-public-key'})
-        paths = {mount['mountPath'] + '/' + item['path'] for item in volume['items']}
-        self.assertEqual({env['LAYERX_EXPLORER_READ_KEY_FILE']['value'],
-                          env['LAYERX_EXPLORER_READ_SEQUENCER_PUBLIC_KEY_FILE']['value']}, paths)
-        self.assertEqual(env['LAYERX_EXPLORER_READ_ENDPOINT']['value'],
-                         'https://layerx-pending-core.layerx-testnet.svc.cluster.local:9443')
-        self.assertEqual(env['LAYERX_EXPLORER_READ_CA_DER']['value'], env['LAYERX_EXPLORER_AUTHORITY_CA_DER']['value'])
-        self.assertEqual(env['LAYERX_EXPLORER_READ_NETWORK_ID']['valueFrom']['configMapKeyRef'],
-                         {'name': 'layerx-node-config', 'key': 'network-id'})
-        self.assertEqual(env['LAYERX_EXPLORER_READ_FEE_LIMIT']['value'], '50000000')
-        self.assertIn('[ -s "$LAYERX_EXPLORER_OBSERVATION_DIR/naming-program" ]', index['args'][0])
-        self.assertIn('export LAYERX_EXPLORER_NAMING_PROGRAM\n', index['args'][0])
-        bridge = next(d for d in registry if d['kind'] == 'NetworkPolicy' and d['metadata']['name'] == 'layerx-registry-lni-bridge')
-        self.assertEqual(bridge['spec']['podSelector'], {'matchLabels': {'app': 'layerx-node'}})
-        self.assertIn({'protocol': 'TCP', 'port': 9443}, bridge['spec']['ingress'][0]['ports'])
+        self.assertEqual({mount['mountPath'] + '/' + item['path'] for item in volume['items']},
+                         {env['LAYERX_INDEXER_TLS_CERT_DER']['value'],
+                          env['LAYERX_INDEXER_TLS_KEY_DER']['value']})
+        web = next(d for d in yaml.safe_load_all((HERE / 'web-deployment.yaml').read_text())
+                   if d['kind'] == 'Deployment')
+        env = {e['name']: e for c in web['spec']['template']['spec']['containers']
+               if c['name'] == 'web' for e in c['env']}
+        self.assertEqual(env['PAXEER_X_EXPLORER_BASE_URL']['valueFrom']['configMapKeyRef'],
+                         {'name': 'layerx-human-web-explorer', 'key': 'base-url'})
+        self.assertNotIn('optional', env['PAXEER_X_EXPLORER_BASE_URL']['valueFrom']['configMapKeyRef'])
 
     def test_bootstrap_has_no_unpublished_human_secret_dependencies(self):
         deployment = ROOT / 'services/platform/hosted/node/deployment.yaml'
         declared = next(d for d in yaml.safe_load_all(deployment.read_text()) if d['kind'] == 'StatefulSet')
-        self.assertFalse(any(c['name'].startswith('guarantor')
-                             for c in declared['spec']['template']['spec']['containers']))
-        expected = {c['name'] for c in declared['spec']['template']['spec']['containers']
-                    if c['name'] not in {'human', 'components'} and not c['name'].startswith('human-')}
+        pod = declared['spec']['template']['spec']
+        self.assertEqual([c['name'] for c in pod['containers']], ['paxd'])
+        self.assertEqual([c['name'] for c in pod['initContainers']], ['native-home'])
+        self.assertFalse(any(c['name'].startswith(('human', 'guarantor'))
+                             for c in pod['containers'] + pod['initContainers']))
+        secrets = {v['secret']['secretName'] for v in pod['volumes'] if 'secret' in v}
+        self.assertEqual(secrets, {'layerx-native-inputs'})
+        self.assertFalse(any(v.get('persistentVolumeClaim', {}).get('claimName') == 'layerx-human-state'
+                             for v in pod['volumes']))
+        self.assertEqual([v['metadata']['name'] for v in declared['spec']['volumeClaimTemplates']], ['data'])
+        cluster = (ROOT / 'services/platform/hosted/tests/beta-cluster.sh').read_text()
+        native = (ROOT / 'services/platform/hosted/tests/beta-native.sh').read_text()
+        self.assertIn('beta_cluster_up() {\n    native_cluster_up "$1"\n}', cluster)
+        self.assertIn('secrets_apply() {\n    native_secrets_apply\n}', cluster)
+        self.assertIn('manifests_render() {\n    native_manifests_render\n}', cluster)
+        self.assertIn('render_manifest "$NODE_MANIFEST" "$MANIFESTS_DIR/node.yaml"', native)
+        self.assertIn('kube apply -f "$MANIFESTS_DIR/node.yaml"', native)
+        self.assertIn('beta_tool native-secret "$SECRETS_DIR/native"', native)
+        self.assertNotIn('bootstrap.py', native)
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / 'node.yaml'
-            subprocess.run([sys.executable, str(HERE / 'bootstrap.py'),
-                            str(deployment), str(output)], check=True)
-            stateful = next(d for d in yaml.safe_load_all(output.read_text()) if d['kind'] == 'StatefulSet')
-            pod = stateful['spec']['template']['spec']
-            self.assertIn('paxd', {c['name'] for c in pod['containers']})
-            self.assertNotIn('layerxd', {c['name'] for c in pod['containers']})
-            self.assertEqual({c['name'] for c in pod['containers']}, expected)
-            self.assertFalse(any(c['name'].startswith('guarantor') for c in pod['containers']))
-            self.assertFalse(any(c['name'].startswith('human') for c in pod['containers']))
-            self.assertFalse(any(v.get('secret', {}).get('secretName', '').startswith('layerx-human-')
-                                 for v in pod['volumes']))
-            self.assertTrue(any(v.get('persistentVolumeClaim', {}).get('claimName') == 'layerx-human-state'
-                                for v in pod['volumes']))
+            result = subprocess.run([sys.executable, str(HERE / 'bootstrap.py'),
+                                     str(deployment), str(output)], text=True, capture_output=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("if c['name'] == 'receipt-authority'", result.stderr)
+            self.assertIn('StopIteration', result.stderr)
+            self.assertFalse(output.exists())
 
     def test_real_boundary_certificate_names_and_kms_client_issuance(self):
         cluster = (ROOT / 'services/platform/hosted/tests/beta-cluster.sh').read_text()

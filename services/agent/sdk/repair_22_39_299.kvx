@@ -1,0 +1,60 @@
+[repair.22.39.299]
+base_revision = "4c8fbfbc58ea1f896b2120f30d0387dbf86550f9"
+requirement = "22998.1"
+decision = "3140"
+prior_gotchas = ["4030", "4031"]
+scope = "Refresh the committed producer recording and make the web-search aggregator and sequencer consume the same untouched exact exchange. Preserve every existing test and refusal."
+
+[recording.committed]
+source = "daemon/committed-fixture/vectors/vector-v4-committed.json"
+former_sha256 = "fc3fe1494c91ff8720a8d8fced398ea6c483c7aa70e3b655212e2b68de75eaab"
+current_sha256 = "5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b"
+capture = "PYTHONDONTWRITEBYTECODE=1 python3 services/agent/sdk/typescript/test/record-committed.py"
+conversion = "The existing conformance converter refreshes the entire positive case, including rawTransaction, receiptJson, signedReceipt, receiptDigest, pin, sequence root, inclusion proofs, execution and successor evidence, and the insufficient-power refusal from that same source. No receipt is re-signed."
+test = "repair_22_33_24_preserves_recorded_producer_provenance checks the source digest and copied transaction, receipt and inclusion bytes; verify_committed_receipt_recorded_inclusion verifies the original signatures and full inclusion path."
+
+[shared_state.recordings]
+value = "Module-level sellerExchange, exactRecording, meteredRules and their shared webRpcRules entries in test/recorded-web-search.ts."
+producer = "test/record-web-search.mjs produced the retained local client-exchange.json; the upstream services/interop/crates/x-websearch/tests/fixtures/client-exchange.json and gateway/exact.json now carry newer exact transactions."
+observed = "At the base revision the local SID receipt activityId and settlement name 279eaded4748e0c59f93a58779ecf7d1cc8c2ac690ce9dcfa3e8351efbfda58c, while exactRecording.payments.SID names 8708f0f135af62405c07333728bb01eb2d6690b7a223400ecf251c40673ec70c; PAX, USDC and USDL have the same split. The bytes already disagree on disk before any test runs."
+assumption_correction = "No imported sibling that mutates those shared objects was found at this base; do not attribute the static mismatch to a runtime mutation or claim the historical standalone pass applies to this tree. The verifier cache is a WeakMap keyed by verification identity, not a replaceable module-level lookup key."
+repair = "Copy all eight exact challenge/paid entries from the current upstream exchange, leaving the regenerated metered cases intact. Pin both upstream exchange and exact gateway digests. Restrict future recorder replacement to the metered pair. Freeze the shared JSON recordings recursively; webSearchClientTests and sequencer refusal cases work on clones of the same sellerExchange."
+test = "web_search_recordings_preserve_producer_bytes checks all four original exact exchanges, receipt bytes, transaction hashes and frozen shared objects, then mutates a clone and proves the recording stays unchanged. Existing exact transport, negative mutation and client cases remain registered."
+
+[shared_state.verifier_inputs]
+value = "Caller-owned receipt key byte arrays and rawTransaction passed to verifySequencerReceipt."
+producer = "test/recorded-web-search.ts exports webReceiptKeys; verifySequencerReceipt previously retained active key references across the digest await and copied the cached transaction only after verification."
+repair = "Snapshot keys and raw transaction at invocation, before the first await, and retain those same snapshots in authenticatedReceipts so concurrent caller mutation cannot change verification inputs or cached evidence."
+test = "web_search_receipt_verification_snapshots_inputs starts verification of original exact and metered receipts, overwrites its private receipt, transaction and key copies before completion, and asserts the original canonical bytes, receipt key and transaction identity remain verified."
+
+[qualification]
+verified_revision = "By reference: the hf-done candidate revision in /out/run/gates.jsonl; successful qualification requires exit zero at the same candidate as hf-build."
+build = "npm --prefix services/agent/sdk/typescript ci --no-audit --no-fund && pnpm --dir services/agent/sdk/typescript run build"
+verify = "test -s services/agent/sdk/repair_22_39_299.kvx && cd services/agent/sdk/typescript && node dist/test/repair-22-33-24.test.js && node dist/test/web-search-sequencer.test.js"
+evidence = "The runner records exact revision, command, exit code and private log in /out/run/gates.jsonl and /out/logs/build-1.log or /out/logs/verify-1.log; the final response copies the last gate evidence. No gate is claimed before execution."
+baseline = "Initial git status and diff contained only runner bookkeeping, no in-scope edits, and no gate ledger. The ordered gates prohibit running verification by hand or before implementation; no unchanged-tree run was performed or claimed. Gotchas 4030/4031 and repair_22_39_297.kvx retain the historical failed aggregator and standalone results with their actual revisions."
+
+[gotcha.stale_local_exact_exchange]
+observed = "The sibling client test previously bypassed the stale local exact exchange with a private upstream overlay while the sequencer used the stale module-level copy. A standalone result at another fixture revision cannot establish process contamination. Pin and compare the shared exchange to its upstream recording."
+
+[gotcha.scope]
+observed = "Record task findings here because the task expressly prohibits edits to GOTCHA.kvx and spec files. No baseline or extra test gate, commit or push is authorized. The runner owns final publication."
+
+[qualification.first_attempt]
+revision = "bf356487b922e112a8846ffc43de4c65d2ed6a57"
+command = "cg spec done 22.39.299 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed; aggregator ran 52 tests: 51 passed, one failed, zero skipped/cancelled. All provenance and web-search cases passed. The recorded committed-proof loader passed a null absent-vote signature to Buffer.from; the shell stopped before the standalone sequencer command."
+repair = "Decode the producer's exact discriminated absent-vote representation (flag 1, empty address, zero timestamp, null signature) as Comet's empty signature bytes. Keep the flag-2/3 signature type and cryptographic/quorum checks strict. No assertion in sequencer-receipt-verify.test.ts is changed."
+
+[finding.committed_power]
+task = "22.39.299"
+file = "services/agent/sdk/typescript/test/sequencer-receipt-verify.test.ts"
+symbol = "verify_committed_receipt_recorded_inclusion"
+observed = "At revision bf356487b922e112a8846ffc43de4c65d2ed6a57, cg spec done 22.39.299 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log) while decoding the refreshed commit; inspection of that recording shows a signed validator with power 7000000000 and an absent validator with power 1, whereas the existing test requires signedPower === totalPower."
+assumption = "The unchanged unanimity assertion contradicts the required current producer recording; preserve it and report the final bounded gate result rather than weakening it or altering the recorded validator set."
+severity = "blocker"
+
+[gotcha.comet_absent_vote]
+observed = "Current Comet evidence uses null signature, empty validator address and the zero timestamp for an absent vote; decoding null as base64 throws before the production verifier can apply its existing flag and voting-power rules. Decode that explicit variant, never substitute bytes for a missing flag-2 signature."

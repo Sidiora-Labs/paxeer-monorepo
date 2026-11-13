@@ -45,7 +45,7 @@ function tableRows(start: string, end: string): string[][] {
       line
         .split('|')
         .slice(1, -1)
-        .map((cell) => cell.trim()),
+        .map((cell) => cell.trim())
     );
 }
 
@@ -87,13 +87,13 @@ const abiRoutes = [
   { key: 'scheduler', abi: SCHEDULER_ABI, count: 5 },
   { key: 'streams', abi: STREAMS_ABI, count: 6 },
   { key: 'eip712', abi: EIP712_ABI, count: 3 },
-  { key: 'teeAttestor', abi: TEE_ATTESTOR_ABI, count: 4 },
+  { key: 'teeAttestor', abi: TEE_ATTESTOR_ABI, count: 6 },
 ] as const;
 
 function registeredAddress(source: (typeof registrationSources)[number]): string {
   const file = `precompiles/${source.package}/${source.file}`;
   const match = readRepositoryFile(file).match(
-    new RegExp(`\\b${source.symbol}\\s*=\\s*"(0x[0-9a-fA-F]{40})"`),
+    new RegExp(`\\b${source.symbol}\\s*=\\s*"(0x[0-9a-fA-F]{40})"`)
   );
   if (!match?.[1]) throw new Error(`Missing ${source.key} address constant in ${file}`);
   return match[1].toLowerCase();
@@ -110,7 +110,7 @@ describe('route map', () => {
     expect(address, key).toBe(expectedRoutes[key]);
     expect(
       addressRows.some((row) => row[0]?.toLowerCase() === address),
-      key,
+      key
     ).toBe(true);
   });
 
@@ -119,9 +119,9 @@ describe('route map', () => {
     (source) => {
       expect(PRECOMPILE_ADDRESSES[source.key], source.key).toBe(registeredAddress(source));
       expect(setup, source.key).toMatch(
-        new RegExp(`ecommon\\.HexToAddress\\(\\s*${source.package}\\.${source.symbol}\\s*\\)`),
+        new RegExp(`ecommon\\.HexToAddress\\(\\s*${source.package}\\.${source.symbol}\\s*\\)`)
       );
-    },
+    }
   );
 
   it.each(routeKeys)('%s resolves to a Go registration or a new merge entry', (key) => {
@@ -129,7 +129,7 @@ describe('route map', () => {
     if (source) {
       expect(PRECOMPILE_ADDRESSES[key], key).toBe(registeredAddress(source));
       expect(setup, key).toMatch(
-        new RegExp(`ecommon\\.HexToAddress\\(\\s*${source.package}\\.${source.symbol}\\s*\\)`),
+        new RegExp(`ecommon\\.HexToAddress\\(\\s*${source.package}\\.${source.symbol}\\s*\\)`)
       );
     } else {
       const entry = addressRows.find((row) => row[0]?.toLowerCase() === PRECOMPILE_ADDRESSES[key]);
@@ -142,7 +142,7 @@ describe('route map', () => {
   it('bech32 targets the addr ABI getPaxAddr and getEvmAddr views', () => {
     const abi = JSON.parse(readRepositoryFile('precompiles/addr/abi.json')) as Abi;
     const methods = abi.filter(
-      (item) => item.type === 'function' && ['getPaxAddr', 'getEvmAddr'].includes(item.name),
+      (item) => item.type === 'function' && ['getPaxAddr', 'getEvmAddr'].includes(item.name)
     );
     expect(PRECOMPILE_ADDRESSES.bech32).toBe(registeredAddress(registrationSources[1]));
     expect(
@@ -155,7 +155,7 @@ describe('route map', () => {
             item.outputs.map((output) => output.type),
           ];
         })
-        .sort(),
+        .sort()
     ).toEqual([
       ['getEvmAddr(string)', 'view', ['address']],
       ['getPaxAddr(address)', 'view', ['string']],
@@ -165,20 +165,26 @@ describe('route map', () => {
 
 describe('agent ABI selectors', () => {
   it.each(abiRoutes)(
-    '$key exactly matches every section (a2) signature and selector',
+    '$key exactly matches every registered node signature and selector',
     ({ key, abi, count }) => {
-      const address = `0x${PRECOMPILE_ADDRESSES[key].slice(-4)}`;
-      const expected = selectorRows
-        .filter((row) => row[0]?.toLowerCase() === address)
-        .map((row) => [row[1], row[2]])
+      const packageName = key.toLowerCase();
+      const source = readRepositoryFile(`precompiles/layerxagent/${packageName}/${packageName}.go`);
+      const match = source.match(/\babiJSON\s*=\s*`([\s\S]*?)`/);
+      expect(match).not.toBeNull();
+      const nativeAbi = JSON.parse(match![1]!) as Abi;
+      const expected = nativeAbi
+        .filter((item) => item.type === 'function')
+        .map((method) => [toFunctionSignature(method), toFunctionSelector(method)])
         .sort();
+      expect(abi).toEqual(nativeAbi);
       const actual = abi
+        .filter((item) => item.type === 'function')
         .map((method) => [toFunctionSignature(method), toFunctionSelector(method)])
         .sort();
       expect(expected, key).toHaveLength(count);
       expect(actual, key).toEqual(expected);
       expect(new Set(actual.map(([, selector]) => selector)).size, key).toBe(count);
-    },
+    }
   );
 });
 
@@ -238,7 +244,7 @@ function unservedSetMatchesNodeRegistrations() {
   const registeredAddresses = new Set<string>();
   for (const { file, source } of sources) {
     const registrations = source.matchAll(
-      /\bprecompiles\.RegisterMergeConstructor\(\s*\w+\.HexToAddress\(\s*(\w+)\s*\)\s*,/g,
+      /\bprecompiles\.RegisterMergeConstructor\(\s*\w+\.HexToAddress\(\s*(\w+)\s*\)\s*,/g
     );
     for (const registration of registrations) {
       const symbol = registration[1];
@@ -256,14 +262,14 @@ function unservedSetMatchesNodeRegistrations() {
     ?.split('\n}')[0];
   expect(mergeTable).toBeDefined();
   const agentKeys = routeKeys.filter((key) =>
-    PRECOMPILE_ADDRESSES[key].startsWith('0x00000000000000000000000000000000000009'),
+    PRECOMPILE_ADDRESSES[key].startsWith('0x00000000000000000000000000000000000009')
   );
   expect(agentKeys).toHaveLength(8);
   for (const key of agentKeys) {
     expect(mergeTable, key).toContain(`HexToAddress("${PRECOMPILE_ADDRESSES[key]}")`);
   }
   const unregisteredKeys = agentKeys.filter(
-    (key) => !registeredAddresses.has(PRECOMPILE_ADDRESSES[key]),
+    (key) => !registeredAddresses.has(PRECOMPILE_ADDRESSES[key])
   );
   expect([...UNSERVED_PRECOMPILES].sort()).toEqual(unregisteredKeys.sort());
 }
@@ -288,7 +294,7 @@ async function servedAddressReturnsAgentAddresses() {
     expect(() => servedAddress('scheduler')).toThrowError(PrecompileNotServedError);
     expect(() => servedAddress('streams')).toThrowError(PrecompileNotServedError);
     await expect(scheduler.pending(PRECOMPILE_ADDRESSES.orob)).rejects.toBeInstanceOf(
-      PrecompileNotServedError,
+      PrecompileNotServedError
     );
     await expect(streams.accrued(1n)).rejects.toBeInstanceOf(PrecompileNotServedError);
   } finally {
@@ -358,7 +364,7 @@ const unservedPrecompileTests = {
                 ip: null,
                 user_agent: null,
               },
-            }),
+            })
           ).resolves.toEqual({
             status: 503,
             body: { error: 'precompile_not_served', precompile: key, address },
@@ -382,7 +388,7 @@ const unservedPrecompileTests = {
     for (const key of Object.keys(PRECOMPILE_ADDRESSES) as (keyof typeof PRECOMPILE_ADDRESSES)[]) {
       expect(book.served[key], key).toBe(!UNSERVED_PRECOMPILES.has(key));
       expect(unservedPrecompileAt(PRECOMPILE_ADDRESSES[key]), key).toBe(
-        UNSERVED_PRECOMPILES.has(key) ? key : null,
+        UNSERVED_PRECOMPILES.has(key) ? key : null
       );
     }
   },
@@ -436,7 +442,7 @@ describe('unserved agent precompiles', () => {
         await chain.request({
           method: 'eth_getCode',
           params: [clearing, 'latest'],
-        }),
+        })
       ).toBe('0x');
       const unserved = ensureServed('clearing');
       await expect(unserved).rejects.toBeInstanceOf(PrecompileNotServedError);
@@ -449,7 +455,7 @@ describe('unserved agent precompiles', () => {
         await chain.request({
           method: 'eth_getCode',
           params: [clearing, 'latest'],
-        }),
+        })
       ).toBe(runtime);
       await expect(ensureServed('clearing')).resolves.toBeUndefined();
       expect(emptyCodeRequests).toEqual([
@@ -478,7 +484,7 @@ describe('unserved agent precompiles', () => {
       server.closeAllConnections();
       if (server.listening) {
         await new Promise<void>((resolve, reject) =>
-          server.close((error) => (error ? reject(error) : resolve())),
+          server.close((error) => (error ? reject(error) : resolve()))
         );
       }
     }
@@ -486,7 +492,7 @@ describe('unserved agent precompiles', () => {
 
   it('lists every 0x09xx route while no node package links a layerxagent precompile', () => {
     const agentKeys = routeKeys.filter((key) =>
-      PRECOMPILE_ADDRESSES[key].startsWith('0x00000000000000000000000000000000000009'),
+      PRECOMPILE_ADDRESSES[key].startsWith('0x00000000000000000000000000000000000009')
     );
     expect(agentKeys).toHaveLength(8);
     const files = goSources('node');
@@ -494,7 +500,7 @@ describe('unserved agent precompiles', () => {
     const imports = new Set(files.flatMap((file) => goImports(readRepositoryFile(file))));
     const unlinkedKeys = agentKeys.filter((key) => {
       const linked = imports.has(
-        `github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/${key.toLowerCase()}`,
+        `github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/${key.toLowerCase()}`
       );
       expect(UNSERVED_PRECOMPILES.has(key), key).toBe(!linked);
       return !linked;
@@ -508,24 +514,24 @@ describe('unserved agent precompiles', () => {
     ],
     unservedPrecompileTests[
       'refuses a raw send to an unserved precompile address before any wallet read'
-    ],
+    ]
   );
 
   test(
     unservedPrecompileTests['address book marks each unserved precompile as not served'],
-    unservedPrecompileTests['address book marks each unserved precompile as not served'],
+    unservedPrecompileTests['address book marks each unserved precompile as not served']
   );
 
   it('lists the agent routes whose constructor package is not linked by the node', () => {
     const agentKeys = routeKeys.filter(
-      (key) => !registrationSources.some((source) => source.key === key),
+      (key) => !registrationSources.some((source) => source.key === key)
     );
     const imports = goImports(readRepositoryFile('node/precompiles.go'));
     const unlinkedKeys = agentKeys.filter(
       (key) =>
         !imports.includes(
-          `github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/${key.toLowerCase()}`,
-        ),
+          `github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/${key.toLowerCase()}`
+        )
     );
     expect([...UNSERVED_PRECOMPILES].sort()).toEqual(unlinkedKeys.sort());
   });
@@ -539,7 +545,7 @@ describe('unserved agent precompiles', () => {
           executeAtBlock: 1n,
           gasLimit: 1n,
           depositWei: 1n,
-        }),
+        })
       ).toThrowError(PrecompileNotServedError);
       expect(() => scheduler.cancel(1n)).toThrowError(PrecompileNotServedError);
       expect(() =>
@@ -548,7 +554,7 @@ describe('unserved agent precompiles', () => {
           token: '0x000000000000000000000000000000000000dEaD',
           ratePerSecond: 1n,
           cap: 1n,
-        }),
+        })
       ).toThrowError(PrecompileNotServedError);
     } finally {
       restore();
@@ -559,7 +565,7 @@ describe('unserved agent precompiles', () => {
     const restore = temporarilyUnserve('scheduler', 'streams');
     try {
       await expect(
-        scheduler.pending('0x000000000000000000000000000000000000dEaD'),
+        scheduler.pending('0x000000000000000000000000000000000000dEaD')
       ).rejects.toBeInstanceOf(PrecompileNotServedError);
       await expect(streams.accrued(1n)).rejects.toBeInstanceOf(PrecompileNotServedError);
       await expect(streams.getStream(1n)).rejects.toBeInstanceOf(PrecompileNotServedError);
@@ -636,7 +642,7 @@ async function ensureServedTreatsUnknownMethodRejectionAsServed() {
           },
           'latest',
         ],
-      })),
+      }))
     );
     expect(requests.some(({ method }) => method === 'eth_getCode')).toBe(false);
   } finally {
@@ -645,14 +651,14 @@ async function ensureServedTreatsUnknownMethodRejectionAsServed() {
     vi.resetModules();
     server.closeAllConnections();
     await new Promise<void>((resolve, reject) =>
-      server.close((err) => (err ? reject(err) : resolve())),
+      server.close((err) => (err ? reject(err) : resolve()))
     );
   }
 }
 
 test(
   ensureServedTreatsUnknownMethodRejectionAsServed,
-  ensureServedTreatsUnknownMethodRejectionAsServed,
+  ensureServedTreatsUnknownMethodRejectionAsServed
 );
 
 const chainProbeTests = {
@@ -688,8 +694,8 @@ const chainProbeTests = {
                 jsonrpc: '2.0',
                 id: request.id,
                 error: { code: -32601, message: 'Method not found' },
-              },
-        ),
+              }
+        )
       );
     });
     await new Promise<void>((resolve, reject) => {
@@ -749,7 +755,7 @@ const chainProbeTests = {
         reads.map(({ key }) => ({
           method: 'eth_call',
           params: [{ to: PRECOMPILE_ADDRESSES[key], data: '0xffffffff' }, 'latest'],
-        })),
+        }))
       );
 
       served = true;
@@ -773,7 +779,7 @@ const chainProbeTests = {
       vi.resetModules();
       server.closeAllConnections();
       await new Promise<void>((resolve, reject) =>
-        server.close((err) => (err ? reject(err) : resolve())),
+        server.close((err) => (err ? reject(err) : resolve()))
       );
     }
   },
@@ -781,17 +787,23 @@ const chainProbeTests = {
 
 test(
   chainProbeTests['probes the chain before serving a linked agent precompile'],
-  chainProbeTests['probes the chain before serving a linked agent precompile'],
+  chainProbeTests['probes the chain before serving a linked agent precompile']
 );
 
 function eip712RefusesMalformedReturnWords() {
   for (const method of ['hashTypedData', 'domainSeparator', 'recoverTypedSigner'] as const) {
-    for (const data of [undefined, '0x', '0x01', `0x${'00'.repeat(31)}`, `0x${'00'.repeat(33)}`] as const) {
+    for (const data of [
+      undefined,
+      '0x',
+      '0x01',
+      `0x${'00'.repeat(31)}`,
+      `0x${'00'.repeat(33)}`,
+    ] as const) {
       expect(() => decodeEip712Result(method, data)).toThrow('expected one ABI word');
     }
   }
   expect(() => decodeEip712Result('recoverTypedSigner', `0x01${'00'.repeat(31)}`)).toThrow(
-    'nonzero address padding',
+    'nonzero address padding'
   );
 }
 
@@ -803,7 +815,9 @@ function teeAttestorFrozenEventParity() {
   expect(match).not.toBeNull();
   const nativeAbi = JSON.parse(match![1]!) as Abi;
   expect(TEE_ATTESTOR_ABI).toEqual(nativeAbi);
-  expect(AttestationVerified.inputs.filter((input) => input.indexed).map((input) => input.name)).toEqual(['family', 'mrtd']);
+  expect(
+    AttestationVerified.inputs.filter((input) => input.indexed).map((input) => input.name)
+  ).toEqual(['family', 'mrtd']);
 }
 
 function teeAttestorRejectsMalformedResults() {

@@ -1,0 +1,25 @@
+[repair]
+module = "services/launchpad/discovery"
+scope = "Discovery source and package tests"
+
+[findings.errcheck]
+count = 11
+change = "Database row and transaction cleanup errors are returned with operation errors."
+
+[findings.goconst]
+count = 40
+change = "Repeated discovery states, roles, policies, kinds and quality values use shared constants."
+
+[findings.goimports]
+count = 2
+change = "Source imports follow the Go import groups."
+
+[findings.gosec]
+count = 3
+change = "Revision conversions require positive inputs and squad JSON responses use HTML-safe encoding."
+
+[comments]
+nolint = []
+
+[external]
+changes = []

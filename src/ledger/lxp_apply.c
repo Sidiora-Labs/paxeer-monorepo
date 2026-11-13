@@ -273,7 +273,10 @@ lxp_result lxp_precondition_check(const lxp_transfer_leg *legs,
                         protocol_system_capability &&
                         context->origin_module_id == LXP_MODULE_PROGRAMS &&
                         leg->reason == LXP_REASON_STORAGE_OCCUPANCY &&
-                        leg->from->kind == LX_ACCOUNT_AGENT_MAIN &&
+                        (leg->from->kind == LX_ACCOUNT_AGENT_MAIN ||
+                         (leg->from->kind == LX_ACCOUNT_AGENT_ASSET &&
+                          leg->from->has_asset &&
+                          memcmp(leg->from->asset_id, leg->asset_id, 32U) == 0)) &&
                         memcmp(authorized_from, leg->from->id, 32U) == 0;
     if (authority_kind ==
             LXP_AUTH_OCCUPANCY_RESPONSIBILITY && !occupancy_mandate)

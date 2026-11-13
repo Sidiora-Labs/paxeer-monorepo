@@ -67,19 +67,19 @@ fn hex(data: &[u8]) -> String {
     })
 }
 
+fn decode<const N: usize>(value: &Value) -> [u8; N] {
+    let text = value.as_str().unwrap_or_else(|| panic!("hex string"));
+    assert_eq!(text.len(), N * 2);
+    text.as_bytes()
+        .chunks_exact(2)
+        .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).must(), 16).must())
+        .collect::<Vec<_>>()
+        .try_into()
+        .must()
+}
+
 #[test]
 fn storage_witness_replaces_the_account_proof() {
-    fn decode<const N: usize>(value: &Value) -> [u8; N] {
-        let text = value.as_str().unwrap_or_else(|| panic!("hex string"));
-        assert_eq!(text.len(), N * 2);
-        text.as_bytes()
-            .chunks_exact(2)
-            .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).must(), 16).must())
-            .collect::<Vec<_>>()
-            .try_into()
-            .must()
-    }
-
     let vector: Value = serde_json::from_str(include_str!(
         "../../../../../programs/tests/vectors/ics23-evm-storage-app-hash.json"
     ))
@@ -193,8 +193,8 @@ fn history_sends_px_get_history_with_a_32_hex_cursor_and_refuses_other_forms() {
         json!({"kind": "call"}),
     ];
     let result = json!({
-        "account": account, "chainHeight": 44000, "freshness": recorded_freshness(),
-        "items": items, "next_cursor": next, "indexedHeight": 43982
+        "account": account, "chainHeight": 44_000, "freshness": recorded_freshness(),
+        "items": items, "next_cursor": next, "indexedHeight": 43_982
     });
     let mut exchanges = vec![
         ("px_getHistory", result.clone()),
@@ -230,8 +230,8 @@ fn history_sends_px_get_history_with_a_32_hex_cursor_and_refuses_other_forms() {
             freshness: recorded_freshness(),
             items: items.clone(),
             next_cursor: Some(next.to_owned()),
-            indexed_height: Some(43982),
-            chain_height: Some(44000),
+            indexed_height: Some(43_982),
+            chain_height: Some(44_000),
         }
     );
     assert_eq!(
@@ -259,7 +259,7 @@ fn history_sends_px_get_history_with_a_32_hex_cursor_and_refuses_other_forms() {
             items,
             next_cursor: Some(next.to_owned()),
             indexed_height: None,
-            chain_height: Some(44000),
+            chain_height: Some(44_000),
         }
     );
     let seen = handle.join().must();
@@ -270,6 +270,10 @@ fn history_sends_px_get_history_with_a_32_hex_cursor_and_refuses_other_forms() {
         assert_eq!(params, &json!([account, cursor, 2]));
     }
 
+    assert_invalid_history_cursors(account, cursor);
+}
+
+fn assert_invalid_history_cursors(account: &str, cursor: &str) {
     let listener = TcpListener::bind("127.0.0.1:0").must();
     listener.set_nonblocking(true).must();
     let endpoint =

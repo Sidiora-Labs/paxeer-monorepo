@@ -1,0 +1,29 @@
+[repair]
+task = "22.39.370"
+route = "POST /enrol_peer on the signalling listener, within MAX_CONNECTIONS"
+document = "Content-Length checked before body allocation; at most 262144 bytes of one JSON object: manifest_v1, manifest_v2, enroll, accept, publish, lock_bond, post_bid, expiry"
+validation = "Shared EnrolmentDocument parser checks every transaction's chain/program and expiry, manifest versions/template/model/runtime and peer consent before the existing EnrolmentRelay submits all five records in order; host signs nothing for peers"
+answers = "200 enrolled + manifest_digest + acceptance + bond_lock + bid; stable JSON error reasons with 400 malformed framing/JSON, 411 missing length, 413 size, 415 content type, 422 document refusal, 409 program refusal, 502 relay failure, 503 missing enrolment configuration or unavailable chain"
+peer = "join --enrolment sends the file verbatim; without the option no enrolment request; retired Ed25519/quote request and bind_peer call removed; local attestation validation retained"
+vector = "test/fixtures/host-enrol-route.json contains deterministic signed native transactions and host answers, consumed by Rust listener and JavaScript loopback tests"
+open_point = "The peer owner must prepare the signed native document; product document preparation and signing authority outside a proof remain open under decision 3271"
+evidence = "The final matching build and verify entries in /out/run/gates.jsonl name the exact verified revision, command, exit and private log; no gate result is claimed before those entries exist"
+
+[repair.first_qualification]
+revision = "c2a4839103f12eaa775ef9cece2069bc01ada9f7"
+command = "cg spec done 22.39.370 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The accepted document returned a program refusal; OPEN_EPOCH is object-local and consumes no owner replay sequence, so the vector must use the producer's next owner sequence 12 and transaction nonce 11"
+change = "Corrected the signed proposal vector, added exact-byte reproduction through sign_market_envelope and an assertion against the producer's owner sequence, retained every refusal assertion, and asserted the resulting enrolled identity"
+
+[repair.continuation]
+decision = "3286 (gotcha 4214)"
+source_revision = "b3ea1c24541eff08ebd23782d1f5235b907a3b62"
+clone_repair = "Fixture::bootstrap_roster copies state with clone_from instead of assigning a clone"
+argument_repair = "Fixture::sign takes SigningSequences to group replay and account sequence numbers, reducing its argument count to seven including self; all signed values and assertions are preserved"
+lint_repair = "SigningSequences derives Clone and Copy for its two u64 fields, resolving needless_pass_by_value without a lint allowance"
+route_result = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test inference_enrol_route exited 0: 3 passed, 0 failed, 0 ignored; private log /out/logs/attempt-2-route.log"
+lint_result = "cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --test inference_enrol_route -- -D warnings exited 0; private log /out/logs/attempt-2-clippy-repaired.log"
+peer_result = "node --test apps/inference-peer/test/enrol.test.mjs apps/inference-peer/test/cli.test.mjs apps/inference-peer/test/identity.test.mjs exited 0: 22 passed, 0 failed, 0 cancelled, 0 skipped; private log /out/logs/attempt-2-peer.log"
+qualification = "These continuation checks precede the counted gates; the verified revision is the revision field of the final successful hf-done entry in /out/run/gates.jsonl, which must match hf-build"

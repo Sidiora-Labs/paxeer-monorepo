@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -107,7 +108,7 @@ func (h HTTP) Handler() http.Handler {
 			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
-		next := Callout{ID: input.ID, AuthorAccountID: actor, PoolAddress: input.PoolAddress, Body: input.Body, Direction: input.Direction, Disclosure: input.Disclosure, PositionDisclosure: input.PositionDisclosure, ModerationStatus: "approved", Revision: 1, CreatedAt: time.Now().UTC()}
+		next := Callout{ID: input.ID, AuthorAccountID: actor, PoolAddress: input.PoolAddress, Body: input.Body, Direction: input.Direction, Disclosure: input.Disclosure, PositionDisclosure: input.PositionDisclosure, ModerationStatus: statusApproved, Revision: 1, CreatedAt: time.Now().UTC()}
 		e = h.Callouts.Publish(r.Context(), actor, input.SquadID, next)
 		reply(w, r, next, e)
 	})
@@ -249,10 +250,10 @@ func (h HTTP) Handler() http.Handler {
 			reply(w, r, nil, e)
 			return
 		}
-		if q.Visibility == "private" {
+		if q.Visibility == visibilityPrivate {
 			active := false
 			for _, m := range members {
-				if m.AccountID == actor && m.Status == "active" {
+				if m.AccountID == actor && m.Status == statusActive {
 					active = true
 				}
 			}
@@ -326,6 +327,10 @@ func (h HTTP) Handler() http.Handler {
 			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
+		if in.Expected < 1 {
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
+			return
+		}
 		result, e := h.Store.RedeemInvitation(r.Context(), actor, r.PathValue("id"), in.Token, uint64(in.Expected), time.Now().UTC())
 		if e != nil {
 			reply(w, r, nil, e)
@@ -345,7 +350,7 @@ func (h HTTP) Handler() http.Handler {
 			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
-		q := Squad{ID: input.ID, OwnerAccountID: actor, Name: input.Name, Policy: input.Policy, Visibility: "private", Revision: 1}
+		q := Squad{ID: input.ID, OwnerAccountID: actor, Name: input.Name, Policy: input.Policy, Visibility: visibilityPrivate, Revision: 1}
 		e = h.Store.CreateSquad(r.Context(), actor, q)
 		connectedSquadReply(w, r, q, e)
 	})
@@ -396,7 +401,7 @@ func (h HTTP) Handler() http.Handler {
 			return
 		}
 		e = h.Store.Invite(r.Context(), actor, r.PathValue("id"), in.Account, in.Token, in.Expected, in.Expires)
-		reply(w, r, map[string]bool{"invited": e == nil}, e)
+		reply(w, r, map[string]bool{statusInvited: e == nil}, e)
 	})
 	mux.HandleFunc("POST /v2/discovery/squads/{id}/accept", func(w http.ResponseWriter, r *http.Request) {
 		actor, e := h.actor(r)
@@ -483,10 +488,10 @@ func replyV2Squad(w http.ResponseWriter, r *http.Request, status int, body []byt
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "private, no-store")
 	w.WriteHeader(status)
-	_, _ = w.Write(body)
+	_ = json.NewEncoder(w).Encode(json.RawMessage(body))
 }
 
-func (h HTTP) squadMembers(ctx context.Context, id string) ([]Membership, error) {
+func (h HTTP) squadMembers(ctx context.Context, id string) (members []Membership, err error) {
 	if h.Store.DB == nil {
 		return nil, ErrUnavailable
 	}
@@ -494,8 +499,8 @@ func (h HTTP) squadMembers(ctx context.Context, id string) ([]Membership, error)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	members := []Membership{}
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	members = []Membership{}
 	for rows.Next() {
 		var body []byte
 		var m Membership

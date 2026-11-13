@@ -81,7 +81,8 @@ func (gs StoreGenesis) Validate() error {
 			if len(record.Key) < 4 || len(record.Key) > 3+C.LXP_MODULE_MAX_KEY_BYTES {
 				return invalid("invalid ledger key length")
 			}
-			if binary.BigEndian.Uint16(record.Key[1:3]) != C.LXP_MODULE_ASSET {
+			module := binary.BigEndian.Uint16(record.Key[1:3])
+			if module != C.LXP_MODULE_ASSET && module != C.LXP_MODULE_PROGRAMS {
 				return invalid("foreign module row")
 			}
 			if len(record.Value) > C.LXP_MODULE_MAX_VALUE_BYTES {
@@ -120,7 +121,7 @@ func ExportStoreGenesis(ctx sdk.Context, key sdk.StoreKey) (*StoreGenesis, error
 		return nil, err
 	}
 	gs := &StoreGenesis{LastSequence: last}
-	for _, prefix := range [][]byte{{moduleKVPrefix, 0, C.LXP_MODULE_ASSET}, {identitySequencePrefix}, {idempotencyPrefix}, {accountPrefix}} {
+	for _, prefix := range [][]byte{{moduleKVPrefix, 0, C.LXP_MODULE_ASSET}, {moduleKVPrefix, 0, C.LXP_MODULE_PROGRAMS}, {identitySequencePrefix}, {idempotencyPrefix}, {accountPrefix}} {
 		iterator := sdk.KVStorePrefixIterator(branch.store, prefix)
 		for ; iterator.Valid(); iterator.Next() {
 			if prefix[0] == idempotencyPrefix {

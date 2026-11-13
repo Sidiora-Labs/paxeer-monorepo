@@ -108,10 +108,44 @@ public sealed class PortableReceiptTests
         }
 
         var revert = document.RootElement.GetProperty("cases").EnumerateArray()
-            .Single(vector => vector.GetProperty("vector").GetString() == "V2");
+            .Single(vector => vector.GetProperty("id").GetString() == "V2-layerxledger-revert");
         var reverted = PortableReceipt.export(revert.GetProperty("receiptJson"), Hex(revert, "rawTransaction"), Keys(revert));
         Assert.Equal(0U, PortableReceipt.verify(reverted.export(), Keys(revert)).Verification.Status);
         Assert.NotNull(reverted.Verification.Revert);
+        Assert.Equal(revert.GetProperty("lxpCode").GetString(), reverted.Verification.Revert.Code);
+        Assert.Equal("LXP_INSUFFICIENT_BALANCE: insufficient balance", reverted.Verification.Revert.Reason);
+
+        var refused = document.RootElement.GetProperty("cases").EnumerateArray()
+            .Single(vector => vector.GetProperty("id").GetString() == "V2-pax-transfer-insufficient-funds");
+        var refusedView = refused.GetProperty("receiptJson");
+        Assert.Equal("V2", refused.GetProperty("vector").GetString());
+        Assert.Equal("accepts", refused.GetProperty("expected").GetProperty("verifier").GetString());
+        var refusal = PortableReceipt.export(refusedView, Hex(refused, "rawTransaction"), Keys(refused));
+        var refusalBytes = refusal.export();
+        var refusalRoundTrip = PortableReceipt.verify(refusalBytes, Keys(refused));
+        foreach (var bundle in new[] { refusal, refusalRoundTrip })
+        {
+            Assert.Equal(refused.GetProperty("expected").GetProperty("rung").GetString(), bundle.VerificationLevel);
+            Assert.Equal("receipted", bundle.VerificationLevel);
+            var result = bundle.Verification;
+            Assert.Equal(VerificationLevel.Receipted, result.Level);
+            Assert.Equal(0U, result.Status);
+            Assert.Equal(1, result.Receipt.ResultCode);
+            Assert.Equal(Hex(refused, "signedReceipt"), result.CanonicalBytes);
+            Assert.Equal(Hex(refused, "receiptDigest"), result.ReceiptDigest);
+            Assert.Equal(Hex(refusedView, "returnData"), result.ReturnData);
+            Assert.Empty(result.ReturnData);
+            Assert.Empty(refusedView.GetProperty("logs").EnumerateArray());
+            Assert.Single(result.Receipt.Effects);
+            Assert.False(refused.TryGetProperty("lxpCode", out _));
+            var error = Assert.IsType<SequencerRevert>(result.Revert);
+            Assert.Null(error.Code);
+            Assert.Null(error.Reason);
+            Assert.Equal("insufficient balance for transfer", refusedView.GetProperty("vmError").GetString());
+            Assert.Equal(refusedView.GetProperty("vmError").GetString(), error.VmError);
+            Assert.Equal(result.ReturnData, error.ReturnData);
+            Assert.Equal(refusalBytes, bundle.export());
+        }
 
         var committed = CreateCommitted(cases[0], out var trust);
         var committedBytes = committed.export();
@@ -179,8 +213,8 @@ public sealed class PortableReceiptTests
         var commit = vector.GetProperty("commit").Deserialize<CometCommit>()!;
         var validators = vector.GetProperty("validatorSet").Deserialize<CometValidator[]>()!;
         var trust = PublishedTrust();
-        Assert.Equal(153256047, commit.Signatures[0].Timestamp.Nanoseconds);
-        Assert.Equal(245437229, inclusion.NextCommit.Signatures[0].Timestamp.Nanoseconds);
+        Assert.Equal(706362949, commit.Signatures[0].Timestamp.Nanoseconds);
+        Assert.Equal(778303533, inclusion.NextCommit.Signatures[0].Timestamp.Nanoseconds);
         var exported = PortableReceipt.export(vector.GetProperty("receiptJson"), Hex(vector, "rawTransaction"),
             keys, header, inclusion, commit, validators, trust).export();
         Assert.Equal(expectedBytes, exported);

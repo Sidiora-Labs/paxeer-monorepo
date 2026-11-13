@@ -8,8 +8,17 @@ export * from "./production.js";
 export * from "./programs.js";
 export * from "./stream.js";
 export * from "./verifier.js";
-export { cometCommitHash, cometValidatorsHash, verifyCometProof, verifyReceiptInclusion, unwrapCometEvmTransaction } from "./committed-proof.js";
-export type { CometProof, CommittedReceiptInclusion } from "./committed-proof.js";
+export {
+  cometCommitHash,
+  cometValidatorsHash,
+  verifyCometProof,
+  verifyReceiptInclusion,
+  unwrapCometEvmTransaction,
+} from "./committed-proof.js";
+export type {
+  CometProof,
+  CommittedReceiptInclusion,
+} from "./committed-proof.js";
 export { encodeSequencerReceipt } from "./sequencer-receipt-codec.js";
 export * from "./native-program-call.js";
 export * from "./program-lifecycle.js";
@@ -42,3 +51,4 @@ export * from "./web-search.js";
 export * from "./xweb-api.js";
 export * from "./revert.js";
 export * as aiMarket from "./ai_market.js";
+export * from "./inference_market.js";

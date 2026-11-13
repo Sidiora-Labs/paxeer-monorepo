@@ -58,11 +58,13 @@ fn chain_head_documents_preserve_the_commitment_and_transaction_proof() {
 }
 
 #[test]
-fn chain_head_documents_refuse_non_canonical_encodings() {
+fn chain_head_documents_refuse_non_canonical_encodings() -> Result<(), &'static str> {
     let (document, evidence) = chain_document();
     let mut refused = Vec::new();
     for field in ["commitment_hex", "transaction_hex"] {
-        let text = document["chain_evidence"][field].as_str().unwrap();
+        let text = document["chain_evidence"][field]
+            .as_str()
+            .ok_or("canonical chain evidence field is a string")?;
         for replacement in [text.to_uppercase(), format!("{text}0"), format!("{text}gg")] {
             let mut changed = document.clone();
             changed["chain_evidence"][field] = json!(replacement);
@@ -104,7 +106,7 @@ fn chain_head_documents_refuse_non_canonical_encodings() {
         let mut changed = document.clone();
         changed["chain_evidence"]
             .as_object_mut()
-            .unwrap()
+            .ok_or("chain evidence is an object")?
             .remove(field);
         refused.push(changed);
     }
@@ -112,7 +114,7 @@ fn chain_head_documents_refuse_non_canonical_encodings() {
         let mut changed = document.clone();
         changed["chain_evidence"]["transaction_proof"]
             .as_object_mut()
-            .unwrap()
+            .ok_or("transaction proof is an object")?
             .remove(field);
         refused.push(changed);
     }
@@ -124,4 +126,5 @@ fn chain_head_documents_refuse_non_canonical_encodings() {
             "{changed}"
         );
     }
+    Ok(())
 }

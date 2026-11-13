@@ -25,7 +25,7 @@ inclusion. Tenant domains are database namespaces within the network. See the
 | [`src/chain_receipt.rs`](src/chain_receipt.rs) | `pax_sequencerReceipt` HTTP transport, protected receipt-key list, signature and height-range checks |
 | [`src/trust.rs`](src/trust.rs) | Pinned key history and independent signed batch-header verification |
 | [`src/committed.rs`](src/committed.rs) | Committed receipt landing, Comet/EVM header binding and native-store ICS23 membership |
-| [`../registry/src/committed_head_route.rs`](../registry/src/committed_head_route.rs) | Authenticated committed-head relay mounted by the authority |
+| [`src/committed_head_route.rs`](src/committed_head_route.rs) | Authenticated committed-head relay mounted by the authority |
 | [`src/human.rs`](src/human.rs) | Human agent routes, principal policy and retained evidence |
 | [`src/human/dynamic.rs`](src/human/dynamic.rs) | Subject-scoped requests and optional identity binding |
 | [`src/human/budget_state.rs`](src/human/budget_state.rs) | Budget state and proof export |
@@ -58,15 +58,9 @@ cover mixed receipt sequences and block heights, retained-state reopening,
 native proof refusals and budget
 export across TLS. Recorded inputs live in [`tests/fixtures`](tests/fixtures).
 
-Human integration evidence is mandatory before enabling human routes in a
-deployment. Retain the tested revision, exact command, exit code and private
-log location for the real `RemoteHumanAuthority` TLS client/server contract,
-native identity/capability/key-policy verification, retained-state restart and
-budget proof export. Include malformed-proof, wrong-key, out-of-range,
-unauthenticated and changed-block refusals. The targets above identify the
-relevant paths; a historical anchor fixture in `human_tls.rs` does not prove
-the current committed-state boundary. `/readyz` and the documentation gate do
-not supply this human integration evidence.
+Human routes require configured native identity, capability and key-policy
+evidence, retained-state recovery and budget proof export. `/readyz` reports
+dependency readiness separately from those per-request proof checks.
 
 ## Service routes and configuration
 
@@ -88,13 +82,13 @@ settings below. Human settings are listed separately in this README.
 
 | Variable | Meaning |
 | --- | --- |
-| `LAYERX_AUTHORITY_LISTEN` | Optional socket address; defaults to `0.0.0.0:9445` |
+| `LAYERX_AUTHORITY_LISTEN` | Optional socket address; defaults to all IPv4 interfaces on port `9445` |
 | `LAYERX_AUTHORITY_TLS_CERT_DER`, `LAYERX_AUTHORITY_TLS_KEY_DER` | Server certificate and PKCS#8 private key, DER |
 | `LAYERX_AUTHORITY_CLIENT_CA_DER` | Optional; a presented client certificate must chain to it |
 | `LAYERX_AUTHORITY_TOKEN_FILES` | Colon-separated files, one service bearer token each |
 | `LAYERX_AUTHORITY_REPLICA_URL`, `LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE`, `LAYERX_AUTHORITY_REPLICA_ID` | Required loopback HTTP receipt-authority replica at its root URL, bearer-token file and nonzero 64-hex identity |
 | `LAYERX_AUTHORITY_EVIDENCE_READ_TOKEN_FILE` | Optional protected file containing 32..4096 printable bytes without whitespace; bearer must differ from all general and replica tokens and may read only the receipt-authority relay route |
-| `LAYERX_AUTHORITY_CHAIN_RPC_URL` | Required loopback HTTP node endpoint serving receipts and committed-state evidence, normally `http://127.0.0.1:PORT/evm`; native proofs use `/comet` on the same origin |
+| `LAYERX_AUTHORITY_CHAIN_RPC_URL` | Required loopback HTTP node endpoint serving receipts and committed-state evidence at the root or `/evm`; native proofs use `/comet` on the same origin |
 | `LAYERX_AUTHORITY_RECEIPT_KEYS_FILE` | Required protected JSON array of pinned receipt keys and height ranges |
 | `LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID` | Nonzero 32-bit protocol network ID checked in signed evidence |
 | `LAYERX_AUTHORITY_NETWORK_ID`, `LAYERX_AUTHORITY_WIRE_VERSION` | Required deployment identifier of 1..64 ASCII letters, digits, `-`, `_` or `.`; optional wire version defaults to the built protocol version (`3`) and must parse to that version |
@@ -113,8 +107,9 @@ limited to 256 KiB and rejects unknown fields. Protect it as described below.
 
 Receipt HTTP requests preserve the configured path, including `/evm`; the
 combined committed-state reader supports the root or `/evm` endpoint and derives
-the sibling `/comet` path. Use `http://` with an explicit nonzero port and host
-`127.0.0.1`, `localhost` or `[::1]`. This is a local node trust boundary.
+the sibling `/comet` path. Use `http://` with an explicit nonzero port and one
+of the canonical loopback hosts accepted by `loopback_http` in
+[`src/lib.rs`](src/lib.rs). This is a local node trust boundary.
 
 The route's `activity_id` is the transaction's 32-byte hexadecimal identifier
 without `0x`; the upstream JSON-RPC call adds the prefix. Null or submitted-only
@@ -130,19 +125,12 @@ and validates native-store membership through [`src/committed.rs`](src/committed
 it checks chain ID 125, the node's Comet commit and EVM block projection, and
 ICS23 membership against the committed app root. A header at H authenticates
 state at H-1. The configured loopback node is the committed-header trust boundary;
-this is not an independently bootstrapped light client. LNI receipt sourcing is retired.
+this is not an independently bootstrapped light client. Receipt sourcing uses the
+node JSON-RPC endpoint.
 
 `/readyz` returns 200 only when both chain and replica probes are ready, otherwise
 503 with retry guidance. It does not assert that all optional human-state proofs
 or downstream services are available.
-
-The focused target includes `readme_matches_service_sources_and_configuration`,
-which checks linked sources and documented settings;
-`documented_receipt_transport_and_tls_refusals`, which exercises receipt lookup
-and TLS refusal paths; and `documented_protected_key_list_and_restart_rules`,
-which checks protected key files and restart behavior. These checks cover the
-receipt-source configuration and transport described here. They do not replace
-the Human integration evidence required above.
 
 ## Human agent contract
 

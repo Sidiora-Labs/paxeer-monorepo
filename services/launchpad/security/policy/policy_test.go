@@ -62,8 +62,11 @@ func TestRequestParsing(t *testing.T) {
 		}
 	}
 	var dst struct{ Name string }
-	if e := DecodeMutation(httptest.NewRequest("POST", "/", strings.NewReader(`{"name":"ok"}`)), &dst, 65536); e != nil {
+	if e := DecodeMutation(httptest.NewRequest("POST", "/", strings.NewReader(`{"Name":"ok"}`)), &dst, 65536); e != nil {
 		t.Fatal(e)
+	}
+	if dst.Name != "ok" {
+		t.Fatalf("canonical field was not decoded: %q", dst.Name)
 	}
 }
 func TestSSRF(t *testing.T) {

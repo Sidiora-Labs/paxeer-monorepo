@@ -434,11 +434,11 @@ const BLAKE3_OFFICIAL_VECTORS: [(usize, &str); 35] = [
         "bab6c09cb8ce8cf459261398d2e7aef35700bf488116ceb94a36d0f5f1b7bc3b",
     ),
     (
-        16384,
+        16_384,
         "f875d6646de28985646f34ee13be9a576fd515f76b5b0a26bb324735041ddde4",
     ),
     (
-        31744,
+        31_744,
         "62b6960e1a44bcc1eb1a611a8d6235b6b4b78f32e7abc4fb4c6cdcce94895c47",
     ),
     (

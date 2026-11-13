@@ -267,6 +267,29 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(idempotency_key, "idempotency_key");
             }
         }
+        public record Eip1559PrepareResult(String preparation_ref, String chain_id, String nonce, String max_priority_fee_per_gas, String max_fee_per_gas, String gas_limit, String to, String data, String signing_hash, String activity_type, String actor, String authority, String account_sequence, String not_before, String not_after, String fee_limit, String payload, String payload_hash, String idempotency_key) implements SchemaTypes.GeneratedResponse {
+            public Eip1559PrepareResult {
+                Objects.requireNonNull(preparation_ref, "preparation_ref");
+                Objects.requireNonNull(chain_id, "chain_id");
+                Objects.requireNonNull(nonce, "nonce");
+                Objects.requireNonNull(max_priority_fee_per_gas, "max_priority_fee_per_gas");
+                Objects.requireNonNull(max_fee_per_gas, "max_fee_per_gas");
+                Objects.requireNonNull(gas_limit, "gas_limit");
+                Objects.requireNonNull(to, "to");
+                Objects.requireNonNull(data, "data");
+                Objects.requireNonNull(signing_hash, "signing_hash");
+                Objects.requireNonNull(activity_type, "activity_type");
+                Objects.requireNonNull(actor, "actor");
+                Objects.requireNonNull(authority, "authority");
+                Objects.requireNonNull(account_sequence, "account_sequence");
+                Objects.requireNonNull(not_before, "not_before");
+                Objects.requireNonNull(not_after, "not_after");
+                Objects.requireNonNull(fee_limit, "fee_limit");
+                Objects.requireNonNull(payload, "payload");
+                Objects.requireNonNull(payload_hash, "payload_hash");
+                Objects.requireNonNull(idempotency_key, "idempotency_key");
+            }
+        }
         public enum ErrorClass {
             TRANSPORTFAILURE("TransportFailure"),
             DEADLINE("Deadline"),
@@ -404,11 +427,12 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(signer_public_key, "signer_public_key");
             }
         }
-        public record NativeActivityV1(String version, String module, String ordinal) implements SchemaTypes.GeneratedResponse {
+        public record NativeActivityV1(@JsonProperty(value = "version", required = true) String version, @JsonProperty(value = "module", required = true) String module, @JsonProperty(value = "ordinal", required = true) String ordinal) implements SchemaTypes.GeneratedResponse {
             public NativeActivityV1 {
                 Objects.requireNonNull(version, "version");
                 Objects.requireNonNull(module, "module");
                 Objects.requireNonNull(ordinal, "ordinal");
+                if (!"1".equals(version)) throw new IllegalArgumentException("invalid native version");
             }
         }
         public record NativeApprovalDecisionV1(String variant, String approval_id, String held_digest, String current_sequence) implements SchemaTypes.GeneratedResponse {
@@ -526,16 +550,15 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(purpose, "purpose");
             }
         }
-        public record NativePrepareResultV1(BigInteger chainId, BigInteger nonce, BigInteger gas, String to, String data) implements SchemaTypes.GeneratedResponse {
+        public record NativePrepareResultV1(@JsonProperty(value = "version", required = true) String version, @JsonProperty(value = "preparation_id", required = true) String preparation_id, @JsonProperty(value = "canonical_bytes", required = true) String canonical_bytes, @JsonProperty(value = "signing_preimage", required = true) String signing_preimage, @JsonProperty(value = "activity", required = true) AgentModels.NativeActivityV1 activity, @JsonProperty(value = "approval_required", required = true) boolean approval_required, @JsonProperty(value = "approval_id", required = true) String approval_id) implements SchemaTypes.GeneratedResponse {
             public NativePrepareResultV1 {
-                Objects.requireNonNull(chainId, "chainId");
-                SchemaTypes.protocolU64(chainId);
-                Objects.requireNonNull(nonce, "nonce");
-                SchemaTypes.protocolU64(nonce);
-                Objects.requireNonNull(gas, "gas");
-                SchemaTypes.protocolU64(gas);
-                Objects.requireNonNull(to, "to");
-                Objects.requireNonNull(data, "data");
+                Objects.requireNonNull(version, "version");
+                Objects.requireNonNull(preparation_id, "preparation_id");
+                Objects.requireNonNull(canonical_bytes, "canonical_bytes");
+                Objects.requireNonNull(signing_preimage, "signing_preimage");
+                Objects.requireNonNull(activity, "activity");
+                if (!"1".equals(version)) throw new IllegalArgumentException("invalid native version");
+                if (approval_required != (approval_id != null)) throw new IllegalArgumentException("invalid native approval reference");
             }
         }
         public record NativeProgramCallFields(String to, String data, BigInteger chainId) implements SchemaTypes.GeneratedResponse {
@@ -652,6 +675,27 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(capability_id, "capability_id");
                 Objects.requireNonNull(protocol_version, "protocol_version");
                 Objects.requireNonNull(network_id, "network_id");
+                Objects.requireNonNull(activity, "activity");
+                Objects.requireNonNull(preparation_id, "preparation_id");
+                Objects.requireNonNull(canonical_digest, "canonical_digest");
+                Objects.requireNonNull(economic_action, "economic_action");
+                Objects.requireNonNull(idempotency_key, "idempotency_key");
+                Objects.requireNonNull(commitment, "commitment");
+            }
+        }
+        public record NativeSendPurposeV2(String tenant, String agent_did, String owner_did, String consent_public_key, String evm_sender, String session_id, String generation, String expires_at_ms, String capability_id, String transaction_type, String chain_id, AgentModels.NativeActivityV1 activity, String preparation_id, String canonical_digest, String economic_action, String idempotency_key, String commitment) implements SchemaTypes.GeneratedResponse {
+            public NativeSendPurposeV2 {
+                Objects.requireNonNull(tenant, "tenant");
+                Objects.requireNonNull(agent_did, "agent_did");
+                Objects.requireNonNull(owner_did, "owner_did");
+                Objects.requireNonNull(consent_public_key, "consent_public_key");
+                Objects.requireNonNull(evm_sender, "evm_sender");
+                Objects.requireNonNull(session_id, "session_id");
+                Objects.requireNonNull(generation, "generation");
+                Objects.requireNonNull(expires_at_ms, "expires_at_ms");
+                Objects.requireNonNull(capability_id, "capability_id");
+                Objects.requireNonNull(transaction_type, "transaction_type");
+                Objects.requireNonNull(chain_id, "chain_id");
                 Objects.requireNonNull(activity, "activity");
                 Objects.requireNonNull(preparation_id, "preparation_id");
                 Objects.requireNonNull(canonical_digest, "canonical_digest");
@@ -864,6 +908,12 @@ public final class GeneratedSchema {
             public SignedNativeSendPurposeV1 {
                 Objects.requireNonNull(purpose, "purpose");
                 Objects.requireNonNull(owner_public_key, "owner_public_key");
+                Objects.requireNonNull(signature, "signature");
+            }
+        }
+        public record SignedNativeSendPurposeV2(AgentModels.NativeSendPurposeV2 purpose, String signature) implements SchemaTypes.GeneratedResponse {
+            public SignedNativeSendPurposeV2 {
+                Objects.requireNonNull(purpose, "purpose");
                 Objects.requireNonNull(signature, "signature");
             }
         }
@@ -1234,7 +1284,7 @@ public final class GeneratedSchema {
                 evidence = List.copyOf(Objects.requireNonNull(evidence, "evidence"));
             }
         }
-        public record ApprovalDetail(String approval_id, String agent_id, String agent_name, HumanModels.ApprovalState state, String state_copy_key, String reason_copy_key, HumanModels.ApprovalFacts facts, HumanModels.VerifiedMoney budget_remaining_after, String created_at, List<HumanModels.EvidenceRef> evidence) implements SchemaTypes.GeneratedResponse {
+        public record ApprovalDetail(String approval_id, String agent_id, String agent_name, HumanModels.ApprovalState state, String state_copy_key, String reason_copy_key, HumanModels.ApprovalFacts facts, HumanModels.VerifiedMoney budget_remaining_after, String created_at, List<HumanModels.EvidenceRef> evidence, String operation_digest) implements SchemaTypes.GeneratedResponse {
             public ApprovalDetail {
                 Objects.requireNonNull(approval_id, "approval_id");
                 Objects.requireNonNull(agent_id, "agent_id");
@@ -1415,7 +1465,7 @@ public final class GeneratedSchema {
                 throw new IllegalArgumentException("unknown schema variant");
             }
         }
-        public record EvidenceMaterial(String evidence_id, @JsonProperty("class") HumanModels.EvidenceClass class_, HumanModels.HumanVerificationLevel verification, String content_type, String bytes_base64, HumanModels.Rung rung, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) Long inclusion_height) implements SchemaTypes.GeneratedResponse {
+        public record EvidenceMaterial(String evidence_id, @JsonProperty("class") HumanModels.EvidenceClass class_, HumanModels.HumanVerificationLevel verification, String content_type, String bytes_base64, @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) HumanModels.Rung rung, @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) Long inclusion_height) implements SchemaTypes.GeneratedResponse {
             public EvidenceMaterial {
                 Objects.requireNonNull(evidence_id, "evidence_id");
                 Objects.requireNonNull(class_, "class");
@@ -1501,7 +1551,7 @@ public final class GeneratedSchema {
                 throw new IllegalArgumentException("unknown schema variant");
             }
         }
-        public record IntentEndpoint(HumanModels.IntentEndpointKind kind, String account, String layerx_public_key, String evm_address, HumanModels.IntentAddressResolution resolution) implements SchemaTypes.GeneratedResponse {
+        public record IntentEndpoint(HumanModels.IntentEndpointKind kind, @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) String account, @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) String layerx_public_key, @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) String evm_address, @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) HumanModels.IntentAddressResolution resolution) implements SchemaTypes.GeneratedResponse {
             public IntentEndpoint {
                 Objects.requireNonNull(kind, "kind");
             }
@@ -1519,7 +1569,7 @@ public final class GeneratedSchema {
                 throw new IllegalArgumentException("unknown schema variant");
             }
         }
-        public record IntentLeg(@JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long index, String mechanism, HumanModels.IntentDomain domain, HumanModels.IntentEndpoint source, HumanModels.IntentEndpoint destination, HumanModels.Money money, HumanModels.Money fee, HumanModels.IntentPayment payment, String to, String data, BigInteger chainId) implements SchemaTypes.GeneratedResponse {
+        public record IntentLeg(@JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long index, String mechanism, HumanModels.IntentDomain domain, HumanModels.IntentEndpoint source, HumanModels.IntentEndpoint destination, HumanModels.Money money, HumanModels.Money fee, String to, String calldata, BigInteger chain_id, ProtocolAmount value, BigInteger nonce, BigInteger gas_limit, ProtocolAmount max_fee_per_gas, ProtocolAmount max_priority_fee_per_gas) implements SchemaTypes.GeneratedResponse {
             public IntentLeg {
                 Objects.requireNonNull(mechanism, "mechanism");
                 Objects.requireNonNull(domain, "domain");
@@ -1527,11 +1577,17 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(destination, "destination");
                 Objects.requireNonNull(money, "money");
                 Objects.requireNonNull(fee, "fee");
-                Objects.requireNonNull(payment, "payment");
                 Objects.requireNonNull(to, "to");
-                Objects.requireNonNull(data, "data");
-                Objects.requireNonNull(chainId, "chainId");
-                SchemaTypes.protocolU64(chainId);
+                Objects.requireNonNull(calldata, "calldata");
+                Objects.requireNonNull(chain_id, "chain_id");
+                SchemaTypes.protocolU64(chain_id);
+                Objects.requireNonNull(value, "value");
+                Objects.requireNonNull(nonce, "nonce");
+                SchemaTypes.protocolU64(nonce);
+                Objects.requireNonNull(gas_limit, "gas_limit");
+                SchemaTypes.protocolU64(gas_limit);
+                Objects.requireNonNull(max_fee_per_gas, "max_fee_per_gas");
+                Objects.requireNonNull(max_priority_fee_per_gas, "max_priority_fee_per_gas");
             }
         }
         public record IntentLegBinding(@JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long leg_index, String action_key, String actor, String authority, String relationship, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long account_sequence, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long not_before, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long not_after, HumanModels.Money fee_limit) implements SchemaTypes.GeneratedResponse {
@@ -1628,7 +1684,9 @@ public final class GeneratedSchema {
             DONE_FINALISED("done-finalised"),
             STILL_CHECKING("still-checking"),
             REFUSED("refused"),
-            WAITING_FOR_YOU("waiting-for-you");
+            WAITING_FOR_YOU("waiting-for-you"),
+            CLOSED("closed"),
+            AWAITING_APPROVAL("awaiting-approval");
             private final String wire;
             JourneyState(String wire) { this.wire = wire; }
             @JsonValue public String wire() { return wire; }
@@ -2888,16 +2946,13 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(payload_hash, "payload_hash");
             }
         }
-        public record PrepareResponse(BigInteger chainId, BigInteger nonce, BigInteger gas, String to, String data) implements SchemaTypes.GeneratedResponse {
+        public record PrepareResponse(JsonNode preparation_ref, JsonNode unsigned_canonical_bytes, JsonNode signing_preimage, JsonNode disclosure, JsonNode expiry) implements SchemaTypes.GeneratedResponse {
             public PrepareResponse {
-                Objects.requireNonNull(chainId, "chainId");
-                SchemaTypes.protocolU64(chainId);
-                Objects.requireNonNull(nonce, "nonce");
-                SchemaTypes.protocolU64(nonce);
-                Objects.requireNonNull(gas, "gas");
-                SchemaTypes.protocolU64(gas);
-                Objects.requireNonNull(to, "to");
-                Objects.requireNonNull(data, "data");
+                Objects.requireNonNull(preparation_ref, "preparation_ref");
+                Objects.requireNonNull(unsigned_canonical_bytes, "unsigned_canonical_bytes");
+                Objects.requireNonNull(signing_preimage, "signing_preimage");
+                Objects.requireNonNull(disclosure, "disclosure");
+                Objects.requireNonNull(expiry, "expiry");
             }
         }
         public static final SchemaTypes.TypedOperation<PrepareRequest, PrepareResponse> PREPARE = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "prepare", true, PrepareRequest.class, PrepareResponse.class);
@@ -3401,6 +3456,39 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<WaitRequest, WaitResponse> WAIT = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "wait", false, WaitRequest.class, WaitResponse.class);
+        public record NativePrepareRequest(String variant, AgentModels.NativeActivityV1 activity, String actor, String authority, String account_sequence, String not_before, String not_after, String idempotency_key, String fee_limit, String payload, String payload_hash, String capability_id, AgentModels.SignedNativePreparationPurposeV1 purpose, AgentModels.NativeLocalGrantConsentV1 local_grant) implements SchemaTypes.GeneratedRequest {
+            public NativePrepareRequest {
+                Objects.requireNonNull(variant, "variant");
+                Objects.requireNonNull(activity, "activity");
+                Objects.requireNonNull(actor, "actor");
+                Objects.requireNonNull(authority, "authority");
+                Objects.requireNonNull(account_sequence, "account_sequence");
+                Objects.requireNonNull(not_before, "not_before");
+                Objects.requireNonNull(not_after, "not_after");
+                Objects.requireNonNull(idempotency_key, "idempotency_key");
+                Objects.requireNonNull(fee_limit, "fee_limit");
+                Objects.requireNonNull(payload, "payload");
+                Objects.requireNonNull(payload_hash, "payload_hash");
+                Objects.requireNonNull(capability_id, "capability_id");
+                Objects.requireNonNull(purpose, "purpose");
+            }
+        }
+        public record Eip1559PrepareRequest(String activity_type, String actor, String authority, String account_sequence, String not_before, String not_after, String idempotency_key, String fee_limit, String payload, String payload_hash, String capability_id) implements SchemaTypes.GeneratedRequest {
+            public Eip1559PrepareRequest {
+                Objects.requireNonNull(activity_type, "activity_type");
+                Objects.requireNonNull(actor, "actor");
+                Objects.requireNonNull(authority, "authority");
+                Objects.requireNonNull(account_sequence, "account_sequence");
+                Objects.requireNonNull(not_before, "not_before");
+                Objects.requireNonNull(not_after, "not_after");
+                Objects.requireNonNull(idempotency_key, "idempotency_key");
+                Objects.requireNonNull(fee_limit, "fee_limit");
+                Objects.requireNonNull(payload, "payload");
+                Objects.requireNonNull(payload_hash, "payload_hash");
+            }
+        }
+        public static final SchemaTypes.TypedOperation<NativePrepareRequest, AgentModels.NativePrepareResultV1> NATIVE_PREPARE = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "prepare", true, NativePrepareRequest.class, AgentModels.NativePrepareResultV1.class);
+        public static final SchemaTypes.TypedOperation<Eip1559PrepareRequest, AgentModels.Eip1559PrepareResult> EIP1559_PREPARE = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "prepare", true, Eip1559PrepareRequest.class, AgentModels.Eip1559PrepareResult.class);
     }
     public static final class HumanOperations {
         private HumanOperations() {}
@@ -3686,7 +3774,7 @@ public final class GeneratedSchema {
         public static final SchemaTypes.TypedOperation<ApprovalApproveRequest, ApprovalApproveResponse> APPROVAL_APPROVE = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "approval.approve", true, ApprovalApproveRequest.class, ApprovalApproveResponse.class);
         public record ApprovalGetRequest() implements SchemaTypes.GeneratedRequest {
         }
-        public record ApprovalGetResponse(String approval_id, String agent_id, String agent_name, HumanModels.ApprovalState state, String state_copy_key, String reason_copy_key, HumanModels.ApprovalFacts facts, HumanModels.VerifiedMoney budget_remaining_after, String created_at, List<HumanModels.EvidenceRef> evidence) implements SchemaTypes.GeneratedResponse {
+        public record ApprovalGetResponse(String approval_id, String agent_id, String agent_name, HumanModels.ApprovalState state, String state_copy_key, String reason_copy_key, HumanModels.ApprovalFacts facts, HumanModels.VerifiedMoney budget_remaining_after, String created_at, List<HumanModels.EvidenceRef> evidence, String operation_digest) implements SchemaTypes.GeneratedResponse {
             public ApprovalGetResponse {
                 Objects.requireNonNull(approval_id, "approval_id");
                 Objects.requireNonNull(agent_id, "agent_id");
@@ -3901,7 +3989,7 @@ public final class GeneratedSchema {
         public static final SchemaTypes.TypedOperation<AuthenticatorStatusRequest, AuthenticatorStatusResponse> AUTHENTICATOR_STATUS = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "authenticator.status", false, AuthenticatorStatusRequest.class, AuthenticatorStatusResponse.class);
         public record EvidenceGetRequest() implements SchemaTypes.GeneratedRequest {
         }
-        public record EvidenceGetResponse(String evidence_id, @JsonProperty("class") HumanModels.EvidenceClass class_, HumanModels.HumanVerificationLevel verification, String content_type, String bytes_base64, HumanModels.Rung rung, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) Long inclusion_height) implements SchemaTypes.GeneratedResponse {
+        public record EvidenceGetResponse(String evidence_id, @JsonProperty("class") HumanModels.EvidenceClass class_, HumanModels.HumanVerificationLevel verification, String content_type, String bytes_base64, @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) HumanModels.Rung rung, @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) Long inclusion_height) implements SchemaTypes.GeneratedResponse {
             public EvidenceGetResponse {
                 Objects.requireNonNull(evidence_id, "evidence_id");
                 Objects.requireNonNull(class_, "class");

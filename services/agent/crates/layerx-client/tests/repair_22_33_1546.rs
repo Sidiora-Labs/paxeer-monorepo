@@ -1,5 +1,5 @@
 //! Task 22.33.1546: producer transcripts cross real HTTP and the public Rust APIs.
-//! Finding/test mapping, baseline limitation and wiring requests: repair_22_33_1546.kvx.
+//! Finding/test mapping, baseline limitation and wiring requests: `repair_22_33_1546.kvx`.
 #[path = "support/gateway_22_33_1546.rs"]
 mod gateway;
 #[path = "support/market_22_33_1546.rs"]

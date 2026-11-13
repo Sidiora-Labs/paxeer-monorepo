@@ -318,6 +318,7 @@ mod tests {
             ("LAYERX_INDEXER_SETTLEMENT_POLICY", "invalid\0policy"),
             ("LAYERX_INDEXER_GENESIS_TRUST", "invalid\0trust"),
             ("LAYERX_INDEXER_INITIAL_SEQUENCER_KEY", "not-32-byte-hex"),
+            // An obsolete socket variable must not influence node RPC configuration.
             ("LAYERX_INDEXER_LNI_SOCKET", ""),
         ];
         let mut values: BTreeMap<&str, &str> = [
@@ -332,10 +333,15 @@ mod tests {
             reads.borrow_mut().push(name.to_owned());
             values.get(name).map(|value| (*value).to_owned())
         })
-        .expect("EVM configuration ignores malformed settlement variables");
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "EVM configuration ignores malformed settlement variables"
+            )
+        });
 
         assert_eq!(config.database, PathBuf::from("/tmp/indexer.sqlite"));
-        let paxeer = config.paxeer.expect("EVM source");
+        let paxeer = config.paxeer.unwrap_or_else(|| panic!("EVM source"));
         assert!(paxeer.comet.is_none());
         assert_eq!(paxeer.start_block, 1);
         assert_eq!(paxeer.policy.finality_depth, 0);
@@ -385,9 +391,14 @@ mod tests {
             reads.borrow_mut().push(name.to_owned());
             values.get(name).map(|value| (*value).to_owned())
         })
-        .expect("EVM configuration ignores malformed relay, batch and window variables");
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "EVM configuration ignores malformed relay, batch and window variables"
+            )
+        });
         assert_eq!(config.database, PathBuf::from("/tmp/indexer.sqlite"));
-        let paxeer = config.paxeer.expect("EVM source");
+        let paxeer = config.paxeer.unwrap_or_else(|| panic!("EVM source"));
         assert!(paxeer.comet.is_none());
         assert_eq!(paxeer.start_block, 1);
         assert_eq!(paxeer.policy.finality_depth, 0);
@@ -470,7 +481,11 @@ mod tests {
             }
         );
         assert_eq!(
-            paxeer.comet.as_ref().expect("Comet source").security(),
+            paxeer
+                .comet
+                .as_ref()
+                .unwrap_or_else(|| panic!("Comet source"))
+                .security(),
             &Security::Plaintext {
                 allow_remote: false
             }

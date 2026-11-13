@@ -331,6 +331,7 @@ func TestAccountingIntegrityErrorRollsBackSavepoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer tx.Rollback(context.WithoutCancel(ctx))
 	if _, err = tx.Exec(ctx, "UPDATE "+r.schema+".aggregates SET raw=raw-1 WHERE token=$1 AND raw>0", token); err != nil {
 		t.Fatal(err)
 	}

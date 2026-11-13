@@ -7,7 +7,7 @@ const LIGHT_ROLES = {
   borderStrong: 'rgba(16,18,24,0.16)',
   textPrimary: '#0E1016',
   textSecondary: '#4B5262',
-  textMuted: '#8A91A0',
+  textMuted: '#8A90A0',
   accent: '#2B4FDA',
   accentSoft: 'rgba(43,79,218,0.10)',
   onAccent: '#FFFFFF',

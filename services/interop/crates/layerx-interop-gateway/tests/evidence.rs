@@ -12,8 +12,10 @@ fn recorded_hex(case: &str, field: &str) -> Vec<u8> {
     let value = case
         .split_once(&key)
         .and_then(|(_, rest)| rest.split_once('"'))
-        .map(|(value, _)| value)
-        .unwrap_or_else(|| panic!("missing fixture field {field}"));
+        .map_or_else(
+            || panic!("missing fixture field {field}"),
+            |(value, _)| value,
+        );
     let hex = value
         .strip_prefix("0x")
         .unwrap_or_else(|| panic!("fixture field {field} is not hex"));
@@ -45,8 +47,10 @@ fn settlement_rung_labels_are_submitted_receipted_and_committed() {
 fn canonical_receipt_digest_matches_the_recorded_pay_exact_vector() {
     let case = FIXTURE
         .split_once("\"id\": \"V1-layerxledger-pay-exact\"")
-        .map(|(_, rest)| rest)
-        .unwrap_or_else(|| panic!("missing recorded pay-exact case"));
+        .map_or_else(
+            || panic!("missing recorded pay-exact case"),
+            |(_, rest)| rest,
+        );
     let case = case
         .split("\"id\":")
         .next()

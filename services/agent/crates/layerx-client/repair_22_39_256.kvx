@@ -1,0 +1,90 @@
+[meta]
+task = "22.39.256"
+mode = "BUILD"
+base_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+requirement = "22998.1"
+decisions = ["3101", "3104"]
+status = "implemented_pending_qualification"
+history = "The inventory and bounded_result sections below retain attempt 1 evidence; continuation.attempt_2 records the authorized repair and current qualification evidence location."
+
+[inventory]
+command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-client"
+revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+exit = 1
+finding_count = 1
+output = "services/agent/crates/layerx-client/src/ai_market.rs:695: checkpoint-finality: FINALIZED_RANK"
+
+[finding.1]
+path = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 695
+component = "checkpoint-finality"
+symbol = "FINALIZED_RANK"
+observed = "The live constant in programs/crates/layerx-programs-ai-market/src/queries.rs is the rank required by SnapshotBinding::require_finalized; ObservedSnapshot::finalize uses it only after checking verified Comet commit and program-state witness bindings."
+repair = "Decision 3104 requires an allowed reference for the exact line rank: FINALIZED_RANK, with a citation to the verified block-commit and ICS23 program-state path; the catalogue already allows this constant in the import and request-rank bound."
+status = "blocked: tools/paxeer-x/retired_callers.json is outside the authorized scope"
+
+[scope_conflict]
+file = "tools/paxeer-x/retired_callers.json"
+observed = "The only current finding is an omitted exact-line allowance for a live replacement, and do_2 requires changing the catalogue while the explicit scope excludes it."
+assumption = "Renaming the constant, substituting a numeric literal or rearranging code to match an unrelated allowed line would hide the finding and violate do_2."
+
+[required_paths]
+paths = ["services/agent/crates/layerx-client/src/px.rs", "services/agent/crates/layerx-client/src/rpc/withdrawal.rs", "services/agent/crates/layerx-client/src/rpc/withdrawal_get_asset.json"]
+observed = "The baseline scan reports no findings in these three declared touches; the catalogue already allows historical withdrawal ABI provenance and disabled-module refusal lines."
+assumption = "Artificial changes solely to satisfy the touches check do not repair a retired reference."
+
+[qualification]
+evidence = "/out/run/gates.jsonl"
+verified_revision = "Not yet verified; the final gate ledger row will name the exact candidate revision."
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
+verify_command = "cg spec done 22.39.256 -f layerx-merge --root /work/paxeer-monorepo"
+status = "No build or qualification gate has run."
+
+[bounded_result]
+status = "not-qualified: pre-existing catalogue and scope contradiction"
+record_only = "This result is appended after the failed gate; the candidate identified below excludes this final evidence annotation and no passing qualification is claimed."
+repair_budget = "No task-scoped code repair is available without violating scope or disguising the live symbol; the existing catalogue failure is recorded rather than rerun unchanged."
+
+[bounded_result.build]
+revision = "bed4aea3c7acfc7c44c4876371ac6c0f28769fba"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[bounded_result.verify]
+revision = "bed4aea3c7acfc7c44c4876371ac6c0f28769fba"
+command = "cg spec done 22.39.256 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+library_tests = "12 passed; 0 failed; 0 ignored; 0 filtered out"
+scanner = "services/agent/crates/layerx-client/src/ai_market.rs:695: checkpoint-finality: FINALIZED_RANK"
+
+[qualification_finding]
+task = "22.39.256"
+file = "tools/paxeer-x/retired_callers.json"
+symbol = "FINALIZED_RANK"
+observed = "At revision bed4aea3c7acfc7c44c4876371ac6c0f28769fba, cg spec done 22.39.256 -f layerx-merge --root /work/paxeer-monorepo exited 1 after all 12 library tests passed because the scanner reports the live block-commit rank at ai_market.rs:695; private evidence is /out/logs/verify-1.log."
+assumption = "The missing catalogue allowance is pre-existing and cannot be repaired under the explicit five-file scope; changing the live symbol to evade the scan is forbidden."
+severity = "blocker"
+
+[gotcha.scope]
+symptom = "The task requires a catalogue allowance for a live replacement but excludes the catalogue from scope, and three graph-required touches have no baseline findings."
+resolution = "Retained all production code and checks, recorded the exact inventory and bounded gate evidence in the permitted record, and left the task unqualified pending scope clarification."
+
+[continuation.attempt_2]
+base_revision = "8742bd00eb3acc490f28e5d26038636590216955"
+continued_revision = "a14a6b06ca4353a2d1c7601af5cb35a801841147"
+decisions = ["3101", "3104", "3125"]
+scope_resolution = "Attempt 2 explicitly admits tools/paxeer-x/retired_callers.json and authorizes the live FINALIZED_RANK allowance; attempt 1's scope blocker is resolved."
+path = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 695
+component = "checkpoint-finality"
+symbol = "FINALIZED_RANK"
+repair = "Added an allowed_references entry with the exact ai_market.rs path, symbol FINALIZED_RANK and a one-sentence citation explaining that ObservedSnapshot::finalize matches the verified Comet block commit and ICS23 program-state witness before assigning the live market rank."
+source = "programs/crates/layerx-programs-ai-market/src/queries.rs retains FINALIZED_RANK and SnapshotBinding::require_finalized consumes it; the client checks height, chain, program, native root, digest, revision, byte count and block hash before constructing FinalityEvidence."
+status = "implemented; awaiting the bounded build and verification gates"
+evidence = "/out/run/gates.jsonl"
+verified_revision = "The current attempt's final successful verify row in /out/run/gates.jsonl records the exact built and verified candidate revision, command, exit code and private log location."
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
+verify_command = "cg spec done 22.39.256 -f layerx-merge --root /work/paxeer-monorepo"
+acceptance = "The verification must run every library test and the retired-callers scan unchanged, exit zero and report no retired-reference finding."

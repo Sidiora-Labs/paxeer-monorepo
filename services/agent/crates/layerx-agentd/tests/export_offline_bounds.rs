@@ -28,7 +28,7 @@ fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
 }
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    hex::encode(bytes)
 }
 
 fn fact(value: u8) -> String {
@@ -129,7 +129,7 @@ fn export_request_uses_the_shared_strict_grammar_and_keeps_the_requested_rung() 
         format!("receipts:{}", &fact(1)[8..]),
     ] {
         assert!(
-            validate_export_request(request(&[text.clone()], Rung::Receipted)).is_err(),
+            validate_export_request(request(std::slice::from_ref(&text), Rung::Receipted)).is_err(),
             "accepted {text:?}"
         );
     }

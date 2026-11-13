@@ -35,7 +35,7 @@ fn receive(socket: &mut WebSocket<TcpStream>) -> Value {
     }
 }
 
-fn send(socket: &mut WebSocket<TcpStream>, value: Value) {
+fn send(socket: &mut WebSocket<TcpStream>, value: &Value) {
     socket.send(Message::Text(value.to_string().into())).must();
 }
 
@@ -77,13 +77,13 @@ fn logs_subscription_sends_eth_subscribe_and_yields_each_notification() {
         );
         send(
             &mut socket,
-            json!({"jsonrpc":"2.0", "id":1, "result":"0xlogs"}),
+            &json!({"jsonrpc":"2.0", "id":1, "result":"0xlogs"}),
         );
         socket.send(Message::Ping(vec![1, 2, 3].into())).must();
         for result in sent {
             send(
                 &mut socket,
-                json!({"jsonrpc":"2.0", "method":"eth_subscription", "params":{"subscription":"0xlogs", "result":result}}),
+                &json!({"jsonrpc":"2.0", "method":"eth_subscription", "params":{"subscription":"0xlogs", "result":result}}),
             );
         }
         for frame in [
@@ -93,7 +93,7 @@ fn logs_subscription_sends_eth_subscribe_and_yields_each_notification() {
             json!({"jsonrpc":"2.0", "method":"lx_subscription", "params":{"subscription":"0xlogs", "result":{}}}),
             json!({"jsonrpc":"2.0", "id":1, "method":"eth_subscription", "params":{"subscription":"0xlogs", "result":{}}}),
         ] {
-            send(&mut socket, frame);
+            send(&mut socket, &frame);
         }
         socket.send(Message::Text("invalid json".into())).must();
         socket.send(Message::Binary(vec![1, 2].into())).must();
@@ -101,7 +101,10 @@ fn logs_subscription_sends_eth_subscribe_and_yields_each_notification() {
             receive(&mut socket),
             json!({"jsonrpc":"2.0", "id":2, "method":"eth_unsubscribe", "params":["0xlogs"]})
         );
-        send(&mut socket, json!({"jsonrpc":"2.0", "id":2, "result":true}));
+        send(
+            &mut socket,
+            &json!({"jsonrpc":"2.0", "id":2, "result":true}),
+        );
         assert!(matches!(socket.read().must(), Message::Close(_)));
         assert!(matches!(
             socket.flush(),
@@ -139,11 +142,11 @@ fn new_heads_subscription_sends_eth_unsubscribe_on_close() {
         );
         send(
             &mut socket,
-            json!({"jsonrpc":"2.0", "id":1, "result":"0xheads"}),
+            &json!({"jsonrpc":"2.0", "id":1, "result":"0xheads"}),
         );
         send(
             &mut socket,
-            json!({"jsonrpc":"2.0", "method":"eth_subscription", "params":{"subscription":"0xheads", "result":{"number":"0x2a", "hash":"0xabcd"}}}),
+            &json!({"jsonrpc":"2.0", "method":"eth_subscription", "params":{"subscription":"0xheads", "result":{"number":"0x2a", "hash":"0xabcd"}}}),
         );
         assert_eq!(
             receive(&mut socket),
@@ -151,9 +154,12 @@ fn new_heads_subscription_sends_eth_unsubscribe_on_close() {
         );
         send(
             &mut socket,
-            json!({"jsonrpc":"2.0", "method":"eth_subscription", "params":{"subscription":"0xheads", "result":{"number":"0x2b"}}}),
+            &json!({"jsonrpc":"2.0", "method":"eth_subscription", "params":{"subscription":"0xheads", "result":{"number":"0x2b"}}}),
         );
-        send(&mut socket, json!({"jsonrpc":"2.0", "id":2, "result":true}));
+        send(
+            &mut socket,
+            &json!({"jsonrpc":"2.0", "id":2, "result":true}),
+        );
         assert!(matches!(socket.read().must(), Message::Close(_)));
         assert!(matches!(
             socket.flush(),

@@ -88,7 +88,7 @@ fn randomised_sequence_conserves_reserves_and_fees() {
         match choice {
             0 | 1 => {
                 let amount_in = 1 + u128::from(next(&mut random) % 4096);
-                let a_to_b = next(&mut random) % 2 == 0;
+                let a_to_b = next(&mut random).is_multiple_of(2);
                 let quoted = pool.quote(a_to_b, amount_in);
                 match pool.swap_exact_in(a_to_b, amount_in, 0) {
                     Ok(amount_out) => {

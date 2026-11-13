@@ -765,6 +765,12 @@ func capacityBuiltinCases(config capacityConfig) ([]capacityCase, error) {
 	return cases, nil
 }
 func TestSearchCapacityReleaseMeasurement(t *testing.T) {
+	for _, name := range []string{"L20_MEASUREMENT_CONFIG"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	config, err := capacityConfigRead()
 	if err != nil {
 		t.Fatal(err)

@@ -1,18 +1,7 @@
-import type { PaxeerXArchiveAnchor, PaxeerXArchiveEvmReceipt, PaxeerXArchiveKernelReceipt } from 'types/api/paxeerXArchive';
+import type { PaxeerXArchiveEvmReceipt, PaxeerXArchiveKernelReceipt } from 'types/api/paxeerXArchive';
 import type { PaxeerXTxStatus } from 'types/api/paxeerXLists';
 
 import { TX_HASH } from './tx';
-
-export const PAXEER_X_ANCHORS_ITEM: PaxeerXArchiveAnchor = {
-  frozen: true,
-  batch_number: 1042,
-  checkpoint_id: TX_HASH,
-  checkpoint_height: 8340992,
-  sealed_height: 8340960,
-  state_root: TX_HASH,
-  block_number: 8341004,
-  timestamp: '2023-05-22T18:00:36.000000Z',
-};
 
 export const PAXEER_X_RECEIPTS_ITEM: PaxeerXArchiveEvmReceipt = {
   id: TX_HASH,

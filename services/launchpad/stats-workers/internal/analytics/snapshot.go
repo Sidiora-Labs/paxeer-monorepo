@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v5"
 	"regexp"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 var hashPattern = regexp.MustCompile(`^0x[0-9a-f]{64}$`)
@@ -23,7 +24,7 @@ type Watermark struct {
 }
 
 func (w Watermark) Validate() error {
-	if w.ChainID != "125" || !hashPattern.MatchString(w.BlockHash) || (w.Integrity != "healthy" && w.Integrity != "quarantined") {
+	if w.ChainID != "125" || !hashPattern.MatchString(w.BlockHash) || (w.Integrity != valueHealthy && w.Integrity != "quarantined") {
 		return errors.New("invalid watermark identity")
 	}
 	if _, e := quantity(w.Height); e != nil {
@@ -50,7 +51,7 @@ type Snapshot struct {
 }
 
 func (s Snapshot) Stale(now int64) bool {
-	return s.Watermark.Integrity != "healthy" || now < s.CalculatedAt || now-s.CalculatedAt > 30
+	return s.Watermark.Integrity != valueHealthy || now < s.CalculatedAt || now-s.CalculatedAt > 30
 }
 
 func (s Snapshot) Validate() error {
@@ -84,7 +85,7 @@ func (a ReactionAuthority) PersistSnapshot(ctx context.Context, tx pgx.Tx, s Sna
 	if e := s.Watermark.Validate(); e != nil {
 		return e
 	}
-	if s.Watermark.Integrity != "healthy" {
+	if s.Watermark.Integrity != valueHealthy {
 		return errors.New("quarantined input cannot replace healthy projection")
 	}
 	t, e := a.table("analytics_snapshots")

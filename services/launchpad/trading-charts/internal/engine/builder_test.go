@@ -39,7 +39,7 @@ func newBuilder(t *testing.T) (*engine.Builder, *store.Store, *goredis.Client) {
 	t.Cleanup(func() { _ = rdb.Close() })
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	if _, err := pool.Exec(context.Background(), engine.DevelopmentSchemaDDL); err != nil {
+	if _, err := pool.Exec(context.Background(), `SELECT key,payload FROM candles.development_state LIMIT 0`); err != nil {
 		t.Fatal(err)
 	}
 	st := store.New(pool)
@@ -271,7 +271,7 @@ func TestProcessSwapDedupDurableAcrossInstances(t *testing.T) {
 	rdb := goredis.NewClient(opt)
 	t.Cleanup(func() { _ = rdb.Close() })
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	if _, err := pool.Exec(context.Background(), engine.DevelopmentSchemaDDL); err != nil {
+	if _, err := pool.Exec(context.Background(), `SELECT key,payload FROM candles.development_state LIMIT 0`); err != nil {
 		t.Fatal(err)
 	}
 	st := store.New(pool)

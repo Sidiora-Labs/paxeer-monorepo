@@ -5,11 +5,14 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -17,20 +20,42 @@ import (
 
 	"github.com/BurntSushi/toml"
 	tmconfig "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
+	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	tmhttp "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/client/http"
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	paxdcmd "github.com/Sidiora-Labs/Paxeer-X-Network/daemon/paxd/cmd"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
+	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	seqmodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer"
 	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
+	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/params"
 	seqconfig "github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
+	lp "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms"
 	servercmd "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/cmd"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/version"
+	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/types"
+	upgradetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/types"
+	storekeys "github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/keys"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/require"
+	dbm "github.com/tendermint/tm-db"
 )
 
 func TestMain(m *testing.M) {
 	if os.Getenv("COMMITTED_FIXTURE_EXEC_PAXD") == "1" {
+		revision, err := exec.Command("git", "rev-parse", "HEAD").Output()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		version.Commit = strings.TrimSpace(string(revision))
 		params.SetAddressPrefixes()
 		root, _ := paxdcmd.NewRootCmd()
 		root.SetArgs(os.Args[1:])
@@ -41,6 +66,373 @@ func TestMain(m *testing.M) {
 		os.Exit(0)
 	}
 	os.Exit(m.Run())
+}
+
+func TestRecorderV6GenesisSelection(t *testing.T) {
+	t.Run("V1 programs deploy encoding", assertRecorderV1ProgramsDeployEncoding)
+	t.Run("V1 programs revert reason", assertRecorderV1ProgramsRevertReason)
+	paxd, err := os.Executable()
+	require.NoError(t, err)
+	t.Setenv("COMMITTED_FIXTURE_EXEC_PAXD", "1")
+	params.SetAddressPrefixes()
+	contracts, _, _, err := v6LoadContracts()
+	require.NoError(t, err)
+	require.NotEmpty(t, contracts.Token.RuntimeCode)
+	encoding := app.MakeEncodingConfig()
+	for _, selection := range []struct {
+		name   string
+		filter string
+		token  bool
+	}{
+		{"all", "", true},
+		{"V6", vectorV6Name, true},
+		{"unrelated", v1Name, false},
+	} {
+		t.Run(selection.name, func(t *testing.T) {
+			if selection.filter != "" {
+				require.NotNil(t, vectors[selection.filter])
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+			defer cancel()
+			n, err := prepareHome(ctx, paxd)
+			require.NoError(t, err)
+			t.Cleanup(func() { os.RemoveAll(n.home) })
+			public, actor, err := n.v1ProgramsGenesisIdentity()
+			require.NoError(t, err)
+			require.NotEqual(t, [32]byte{}, actor)
+			require.Equal(t, public, [32]byte(n.programsAuthority.did.Public().(ed25519.PublicKey)))
+			authority, err := lxphost.DIDID([]byte(evmtypes.LayerXDid(public)))
+			require.NoError(t, err)
+			require.Equal(t, authority, actor, "genesis must name the generated authority DID")
+			account, err := n.command("keys", "show", "fixture", "--keyring-backend", "test", "--output", "json")
+			require.NoError(t, err)
+			var fixture struct {
+				Address string `json:"address"`
+			}
+			require.NoError(t, json.Unmarshal(account, &fixture))
+			payer, err := sdk.AccAddressFromBech32(fixture.Address)
+			require.NoError(t, err)
+			require.NotEqual(t, common.BytesToAddress(payer), crypto.PubkeyToAddress(n.programsAuthority.evm.PublicKey), "Programs must leave the fixture address for V4's first DID binding")
+			path := filepath.Join(n.home, "config", "genesis.json")
+			var original map[string]json.RawMessage
+			require.NoError(t, readJSON(path, &original))
+			var originalApp, originalEVM map[string]json.RawMessage
+			require.NoError(t, json.Unmarshal(original["app_state"], &originalApp))
+			require.NoError(t, json.Unmarshal(originalApp["evm"], &originalEVM))
+			var initial evmtypes.GenesisState
+			require.NoError(t, encoding.Marshaler.UnmarshalAsJSON(originalApp["evm"], &initial))
+			require.Empty(t, initial.Codes)
+			unrelated := &evmtypes.Code{Address: common.HexToAddress("0x1234").Hex(), Code: contracts.Token.RuntimeCode}
+			originalEVM["codes"], err = json.Marshal([]*evmtypes.Code{unrelated})
+			require.NoError(t, err)
+			originalApp["evm"], err = json.Marshal(originalEVM)
+			require.NoError(t, err)
+			original["app_state"], err = json.Marshal(originalApp)
+			require.NoError(t, err)
+			data, err := json.Marshal(original)
+			require.NoError(t, err)
+			require.NoError(t, os.WriteFile(path, data, 0600))
+
+			standby, observer, err := n.prepareRecordingPeers(selection.filter)
+			require.NoError(t, err)
+			t.Cleanup(func() { os.RemoveAll(observer.home) })
+			primary, err := os.ReadFile(path)
+			require.NoError(t, err)
+			for _, peer := range []*node{n, standby, observer} {
+				data, err := os.ReadFile(filepath.Join(peer.home, "config", "genesis.json"))
+				require.NoError(t, err)
+				require.Equal(t, primary, data, "every peer must retain identical prepared genesis")
+				require.Nil(t, peer.processDone)
+				require.False(t, peer.bootstrapped)
+				if peer.observer {
+					var config struct {
+						OCC  bool `toml:"occ-enabled"`
+						Giga struct {
+							Enabled bool `toml:"enabled"`
+						} `toml:"giga_executor"`
+					}
+					_, err := toml.DecodeFile(filepath.Join(peer.home, "config", "app.toml"), &config)
+					require.NoError(t, err)
+					require.False(t, config.OCC, "observer must replay the sequential fixture synchronously")
+					require.False(t, config.Giga.Enabled, "observer must replay through the recorder's SDK execution path")
+				}
+				for _, log := range []string{"paxd.log", "bootstrap.log"} {
+					_, err := os.Stat(filepath.Join(peer.home, log))
+					require.True(t, os.IsNotExist(err), "genesis must be prepared before startup")
+				}
+				var doc, state, evm map[string]json.RawMessage
+				require.NoError(t, json.Unmarshal(data, &doc))
+				require.JSONEq(t, string(original["chain_id"]), string(doc["chain_id"]))
+				require.JSONEq(t, string(original["consensus_params"]), string(doc["consensus_params"]))
+				require.NoError(t, json.Unmarshal(doc["app_state"], &state))
+				assertRecorderProgramsGenesis(t, state[storekeys.LayerXHostStoreKey], public, actor)
+				require.NoError(t, json.Unmarshal(state["evm"], &evm))
+				for name, value := range originalEVM {
+					if name != "codes" {
+						require.JSONEq(t, string(value), string(evm[name]), "preserve EVM %s", name)
+					}
+				}
+				var genesis evmtypes.GenesisState
+				require.NoError(t, encoding.Marshaler.UnmarshalAsJSON(state["evm"], &genesis))
+				require.NoError(t, genesis.Validate())
+				tokens, others := 0, 0
+				for _, code := range genesis.Codes {
+					switch common.HexToAddress(code.Address) {
+					case v6Token:
+						tokens++
+						require.Equal(t, []byte(contracts.Token.RuntimeCode), code.Code)
+					case common.HexToAddress(unrelated.Address):
+						others++
+						require.Equal(t, unrelated.Code, code.Code)
+					default:
+						t.Fatalf("unexpected genesis code at %s", code.Address)
+					}
+				}
+				require.Equal(t, 1, others, "preserve unrelated genesis code")
+				wantTokens := 0
+				if selection.token {
+					wantTokens = 1
+				}
+				require.Equal(t, wantTokens, tokens)
+				if selection.filter == "" {
+					var sequencer struct {
+						ActivationHeight uint64 `json:"activation_height"`
+					}
+					require.NoError(t, json.Unmarshal(state["sequencer"], &sequencer))
+					require.Equal(t, uint64(3), sequencer.ActivationHeight)
+					require.Equal(t, int64(2), n.bootstrapHeight)
+					var gov govtypes.GenesisState
+					require.NoError(t, encoding.Marshaler.UnmarshalAsJSON(state[govtypes.ModuleName], &gov))
+					require.Len(t, gov.Proposals, 1)
+					require.Equal(t, govtypes.StatusVotingPeriod, gov.Proposals[0].Status)
+					proposal, ok := gov.Proposals[0].GetContent().(*upgradetypes.SoftwareUpgradeProposal)
+					require.True(t, ok)
+					require.Equal(t, app.MergeUpgrade, proposal.Plan.Name)
+					require.Equal(t, int64(2), proposal.Plan.Height)
+					require.JSONEq(t, string(state["sequencer"]), proposal.Plan.Info)
+					require.Len(t, gov.Votes, 1)
+					require.Equal(t, gov.Proposals[0].ProposalId, gov.Votes[0].ProposalId)
+					require.Len(t, gov.Votes[0].Options, 1)
+					require.Equal(t, govtypes.OptionYes, gov.Votes[0].Options[0].Option)
+				}
+			}
+			if selection.token {
+				require.EqualError(t, n.configureV6Genesis(), "V6 token address already has genesis code")
+				after, err := os.ReadFile(path)
+				require.NoError(t, err)
+				require.Equal(t, primary, after, "duplicate token rejection must leave genesis intact")
+			}
+		})
+	}
+}
+
+func assertRecorderProgramsGenesis(t *testing.T, data json.RawMessage, public, actor [32]byte) {
+	t.Helper()
+	var host lxphost.StoreGenesis
+	require.NoError(t, json.Unmarshal(data, &host))
+	require.Zero(t, host.LastSequence, "genesis schedules do not execute an activity")
+	// Deploy needs both active and historical metering; calls also need the fee
+	// schedule. All four module-9 records must precede the first peer block.
+	require.Len(t, host.Records, 8)
+	require.NoError(t, host.Validate())
+	for i, record := range host.Records {
+		if i > 0 {
+			require.Less(t, bytes.Compare(host.Records[i-1].Key, record.Key), 0)
+		}
+		require.GreaterOrEqual(t, len(record.Key), 3)
+		if record.Key[0] == 1 {
+			require.Contains(t, []byte{1, 9}, record.Key[2])
+			require.Zero(t, record.Key[1])
+		} else {
+			require.Equal(t, byte(6), record.Key[0])
+		}
+	}
+	records := make(map[string][]byte)
+	for _, record := range host.Records {
+		if bytes.HasPrefix(record.Key, []byte{1, 0, 9}) {
+			records[string(record.Key[3:])] = record.Value
+		}
+	}
+	require.Len(t, records, 4, "retain every governance schedule")
+	fee := records["progfee/active/v1"]
+	require.Len(t, fee, 217)
+	require.Equal(t, fee, records["progfee/history/v1/\x00\x00\x00\x01"])
+	require.Equal(t, "LXFR1", string(fee[:5]))
+	require.Equal(t, uint32(1), binary.BigEndian.Uint32(fee[5:9]))
+	for offset := 9; offset < 65; offset += 8 {
+		require.Equal(t, uint64(1), binary.BigEndian.Uint64(fee[offset:offset+8]))
+	}
+	material := append([]byte("LX:ASSET:v1"), actor[:]...)
+	asset := sha256.Sum256(append(material, bytes.Repeat([]byte{0x55}, 32)...))
+	require.Equal(t, asset[:], fee[65:97])
+	for i, want := range []uint64{1000, 8, 1, 8, 1, 100, 1, 0, 1} {
+		require.Equal(t, want, binary.BigEndian.Uint64(fee[97+i*8:105+i*8]))
+	}
+	require.Equal(t, actor[:], fee[169:201])
+	require.Equal(t, make([]byte, 16), fee[201:])
+	metering := records["progmet/active/v1"]
+	require.Len(t, metering, 122)
+	require.Equal(t, metering, records["progmet/history/v1/\x00\x00\x00\x01"])
+	require.Equal(t, "LXMR1", string(metering[:5]))
+	require.Equal(t, uint32(1), binary.BigEndian.Uint32(metering[5:9]))
+	for i, want := range []uint64{1, 1, 1, 1, 1, 8, 8, 64, 8} {
+		require.Equal(t, want, binary.BigEndian.Uint64(metering[9+i*8:17+i*8]))
+	}
+	require.Equal(t, uint64(1), binary.BigEndian.Uint64(metering[81:89]))
+	require.Equal(t, byte(1), metering[89])
+	require.Equal(t, actor[:], metering[90:])
+
+	// Decode the actual genesis with the native host, including the fee asset
+	// required at lxp_kernel_batch_snapshot_create before guest execution.
+	key := sdk.NewKVStoreKey(storekeys.LayerXHostStoreKey)
+	db := dbm.NewMemDB()
+	defer db.Close()
+	cms := store.NewCommitMultiStore(db)
+	cms.MountStoreWithDB(key, sdk.StoreTypeIAVL, db)
+	require.NoError(t, cms.LoadLatestVersion())
+	ctx := sdk.NewContext(cms, tmproto.Header{Height: 1, Time: time.UnixMilli(1)}, false)
+	require.NoError(t, lxphost.InitStoreGenesis(ctx, key, host))
+	native, err := app.NewHost(key, 125)
+	require.NoError(t, err)
+	defer native.Close()
+	registered, err := native.ReadAsset(ctx, asset)
+	require.NoError(t, err)
+	require.Equal(t, actor, registered.IssuerDID)
+	require.Equal(t, int64(1000000000), registered.SupplyCap.Int64())
+	require.Equal(t, int64(500000000), registered.TotalUnits.Int64())
+	require.False(t, registered.Paused)
+	mainName, mainID, err := lxphost.MainAccountID(public)
+	require.NoError(t, err)
+	payerName, payerID, err := lxphost.AssetAccountID(public, asset)
+	require.NoError(t, err)
+	treasuryID, err := codec.DeriveAccountID([]byte("system:fees"))
+	require.NoError(t, err)
+	for _, want := range []struct {
+		name      string
+		id        [32]byte
+		balance   int64
+		kind      uint8
+		authority bool
+	}{
+		{mainName, mainID, 100000000, 1, true},
+		{payerName, payerID, 500000000, 14, true},
+		{"system:fees", treasuryID, 0, 10, false},
+	} {
+		account, err := native.ReadAccount(ctx, want.name, want.id)
+		require.NoError(t, err)
+		require.Equal(t, want.balance, account.Balance.Int64())
+		require.Equal(t, want.kind, account.Kind)
+		accountAsset := asset
+		if want.id == mainID {
+			accountAsset = [32]byte{0x91}
+		}
+		require.Equal(t, accountAsset, account.AssetID)
+		require.True(t, account.HasAsset)
+		require.False(t, account.Frozen)
+		require.Equal(t, want.authority, account.HasAuthorityKey)
+		if want.authority {
+			require.Equal(t, public, account.AuthorityKey)
+		}
+	}
+}
+
+func assertRecorderV1ProgramsRevertReason(t *testing.T) {
+	stringType, err := abi.NewType("string", "", nil)
+	require.NoError(t, err)
+	reason := "LXP_ERR_VERSION_UNSUPPORTED: deploy: layerx kernel result -101"
+	encoded, err := (abi.Arguments{{Type: stringType}}).Pack(reason)
+	require.NoError(t, err)
+	data := append(common.FromHex("0x08c379a0"), encoded...)
+	recorded := v1ProgramsRevertError("deployment", data)
+	require.Contains(t, recorded.Error(), "V1 Programs deployment reverted")
+	require.Contains(t, recorded.Error(), reason)
+	require.Contains(t, recorded.Error(), hex.EncodeToString(data))
+	require.Contains(t, recorded.Error(), "ABI 1")
+	require.Contains(t, recorded.Error(), "activity 0x00090001")
+	call := v1ProgramsRevertError("call", data)
+	require.Contains(t, call.Error(), "V1 Programs call reverted")
+	require.Contains(t, call.Error(), reason)
+	require.Contains(t, call.Error(), "activity 0x00090003")
+	for _, malformed := range [][]byte{nil, data[:4], data[:68]} {
+		recorded := v1ProgramsRevertError("deployment", malformed)
+		require.Contains(t, recorded.Error(), "cannot decode revert data")
+		require.NotNil(t, errors.Unwrap(recorded))
+	}
+}
+
+func assertRecorderV1ProgramsDeployEncoding(t *testing.T) {
+	principal := [32]byte{1}
+	program, deploy, call, err := v1ProgramsRecipe(principal)
+	require.NoError(t, err)
+	method := v1ProgramsABI.Methods["deploy"]
+	require.Equal(t, method.ID, deploy[:4])
+	args, err := method.Inputs.Unpack(deploy[4:])
+	require.NoError(t, err)
+	require.Equal(t, [32]byte(program), args[0])
+	require.Equal(t, uint16(1), args[1])
+	require.Equal(t, uint8(1), args[2])
+	require.Equal(t, principal, args[3])
+	codeHash := args[4].([32]byte)
+	iface, wasm := args[5].([]byte), args[6].([]byte)
+	// Pin the import-free module and its interface: the fixture host has no
+	// transfer accounts or assets for a transfer_402 import.
+	require.Len(t, wasm, 88)
+	require.Equal(t, "5af5abb220f57962dd60df53dbac84c1d06a7aa4154bcd3853dd62f2760f434a", hex.EncodeToString(codeHash[:]))
+	require.Equal(t, sha256.Sum256(wasm), codeHash)
+	require.Len(t, iface, 99)
+	interfaceHash := sha256.Sum256(iface)
+	require.Equal(t, "04f3fe02df679f83ec3d5556c9be235167411fdbecedb15a1427435f7b4e3f60", hex.EncodeToString(interfaceHash[:]))
+	prefix := []byte("LayerX/program-interface/v1\x00")
+	require.Equal(t, prefix, iface[:len(prefix)])
+	require.Equal(t, codeHash[:], iface[len(prefix):len(prefix)+32])
+	require.Equal(t, uint16(1), binary.BigEndian.Uint16(iface[len(prefix)+32:]))
+	payload, err := lp.EncodeDeployPayload([32]byte(program), args[1].(uint16), args[2].(uint8), principal, codeHash, iface, wasm)
+	require.NoError(t, err)
+	require.Equal(t, uint16(1), binary.BigEndian.Uint16(payload[32:34]))
+	require.Equal(t, uint32(len(wasm)), binary.BigEndian.Uint32(payload[100:104]))
+	require.Equal(t, uint32(len(iface)), binary.BigEndian.Uint32(payload[104:108]))
+	require.Equal(t, iface, payload[108:108+len(iface)])
+	require.Equal(t, wasm, payload[108+len(iface):])
+	callArgs, err := v1ProgramsABI.Methods["call"].Inputs.Unpack(call[4:])
+	require.NoError(t, err)
+	require.Equal(t, [32]byte(program), callArgs[0])
+	require.Equal(t, uint16(1), callArgs[1])
+	require.Equal(t, "layerx_call", callArgs[2])
+}
+
+func TestRecorderAllSelectedV6Executes(t *testing.T) {
+	paxd, err := os.Executable()
+	require.NoError(t, err)
+	t.Setenv("COMMITTED_FIXTURE_EXEC_PAXD", "1")
+	params.SetAddressPrefixes()
+	require.NotNil(t, vectors[vectorV6Name])
+	out := filepath.Join(t.TempDir(), "vectors")
+	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Minute)
+	defer cancel()
+	var stderr bytes.Buffer
+	err = run(ctx, []string{"record", "--paxd", paxd, "--out", out}, &stderr)
+	require.NoError(t, err, "all registered recorders must finish: %s", stderr.String())
+	for name := range vectors {
+		data, err := os.ReadFile(filepath.Join(out, name+".json"))
+		require.NoError(t, err, "selected recorder %s must emit its output", name)
+		require.True(t, json.Valid(data), "recorder %s must emit JSON", name)
+		var emitted struct {
+			Name string `json:"name"`
+		}
+		require.NoError(t, json.Unmarshal(data, &emitted))
+		require.Equal(t, name, emitted.Name)
+	}
+	var v v6Vector
+	require.NoError(t, readJSON(filepath.Join(out, vectorV6Name+".json"), &v))
+	require.NoError(t, verifyVectorV6(&v), "verify executed token repayment, DID binding, authorization and receipt signatures")
+	require.Equal(t, "V6-sponsored-bind", v.Positive.ID)
+	require.Equal(t, "V6-plain-transfer", v.Refusal.ID)
+	require.Equal(t, evmtypes.LayerXDid([32]byte(v.DIDPublicKey)), v.BoundDID)
+	for _, entry := range []*v6Case{&v.DelegateDeployment, &v.Positive, &v.Refusal} {
+		require.NoError(t, entry.Receipt.Verify(v.ReceiptKeys))
+		require.Equal(t, "committed", string(entry.Receipt.Rung))
+		require.EqualValues(t, 1, entry.Receipt.Status)
+	}
 }
 
 func TestRecorderHomePinsGeneratedReceiptKey(t *testing.T) {

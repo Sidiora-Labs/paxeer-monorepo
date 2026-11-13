@@ -8,14 +8,16 @@ import { createConfig, WagmiProvider } from 'wagmi';
 import { connect, disconnect } from 'wagmi/actions';
 import { injected } from 'wagmi/connectors';
 import {
-  createPublicClient, createWalletClient, decodeFunctionResult, defineChain, encodeFunctionResult, http, toHex,
+  createPublicClient, createWalletClient, decodeFunctionResult, defineChain, encodeAbiParameters,
+  encodeEventTopics, encodeFunctionData, encodeFunctionResult, http, parseAbi, toHex,
   type EIP1193Provider, type Hex,
 } from 'viem';
 import { expect, test } from 'vitest';
 import vectors from '../../../../../../tests/vectors/chains/abi-vectors.json';
 import blocks from '../../../../../../services/platform/hosted/indexer/tests/fixtures/chains_blocks.json';
 import { chainsAbi } from './chain-adapters';
-import { CHAINS_PRECOMPILE, decodeChainCreated, type ChainDraft } from './chain-domain';
+import { CHAINS_PRECOMPILE, decodeChainCreated, decodeChainLaunched, type ChainDraft } from './chain-domain';
+import { CHAIN_LAUNCH_ABI, LAUNCHPAD_ADDRESS, PROTOCOL_CONFIG_ADDRESS } from '@/core/network/contracts';
 import { ChainDraftStorage } from './chain-storage';
 import ChainWizard from './chain-wizard';
 
@@ -25,7 +27,6 @@ function calldata(name: string): string {
   return vector.calldata;
 }
 
-/** Replay committed registry bytes; never replace a client action or adapter method. */
 async function openChainTranscript() {
   const block = blocks.scope.blocks['42'];
   const transaction = block.transactions[0];
@@ -47,6 +48,37 @@ async function openChainTranscript() {
   expect(decodeChainCreated({ ...created[0], topics: created[0].topics as Hex[], data: created[0].data as Hex })).toEqual({
     id: record[0], name: record[1], operator: record[2].toLowerCase(), chainId: Number(record[4]),
   });
+  const token = '0x3333333333333333333333333333333333333333';
+  const pool = '0x4444444444444444444444444444444444444444';
+  const tokenName = 'My Chain Token';
+  const tokenSymbol = 'MCT';
+  const launchLog = {
+    ...receipt.logs[0], address: LAUNCHPAD_ADDRESS, logIndex: toHex(receipt.logs.length),
+    topics: encodeEventTopics({ abi: CHAIN_LAUNCH_ABI, eventName: 'ChainLaunched',
+      args: { chain: record[0], pool, token } }) as Hex[],
+    data: encodeAbiParameters(
+      [{ type: 'uint64' }, { type: 'uint256' }, { type: 'address' }, { type: 'uint256' }, { type: 'uint256' }],
+      [record[4], 7n, record[2] as Hex, params[1], BigInt(block.number)],
+    ),
+  };
+  receipt.to = LAUNCHPAD_ADDRESS;
+  receipt.logs.push(launchLog);
+  expect(decodeChainLaunched(launchLog)).toEqual({
+    id: record[0], chainId: Number(record[4]), pool, token, nftId: 7n,
+    creator: record[2].toLowerCase(), blockNumber: BigInt(block.number),
+  });
+  const draft: ChainDraft = {
+    draftId: 'chain-launch-path-proof', version: 2, creator: record[2].toLowerCase(), chainId: 125,
+    name: record[1], tokenName, tokenSymbol, feeStrategy: 2,
+    tier: 'starter', feeShareBps: record[7], updatedAt: Date.now(),
+  };
+  const launchCall = encodeFunctionData({ abi: CHAIN_LAUNCH_ABI, functionName: 'launchChain',
+    args: [tokenName, tokenSymbol, draft.feeStrategy, '0x0000000000000000000000000000000000000000',
+      draft.name, 500000n, 65536n, draft.feeShareBps],
+  });
+  const launchedCall = encodeFunctionData({ abi: CHAIN_LAUNCH_ABI, functionName: 'launchedChain', args: [record[0]] });
+  const creationFeeCall = encodeFunctionData({ abi: parseAbi(['function creationFee() view returns (uint256)']), functionName: 'creationFee' });
+  const tokenAbi = parseAbi(['function name() view returns (string)', 'function symbol() view returns (string)']);
 
   type RpcRequest = { id: number; method: string; params?: unknown[] };
   type WireTransaction = { from: string; to: string; data: string; value: Hex };
@@ -74,8 +106,8 @@ async function openChainTranscript() {
         case 'eth_sendTransaction': {
           const sent = args[0] as WireTransaction;
           expect(sent.from.toLowerCase()).toBe(record[2].toLowerCase());
-          expect(sent.to.toLowerCase()).toBe(CHAINS_PRECOMPILE);
-          expect(sent.data).toBe(calldata('createChain'));
+          expect(sent.to.toLowerCase()).toBe(LAUNCHPAD_ADDRESS);
+          expect(sent.data).toBe(launchCall);
           expect(BigInt(sent.value)).toBe(params[1] + params[2]);
           if (rpc.method === 'eth_estimateGas') result = recorded.gasUsed;
           else {
@@ -87,20 +119,37 @@ async function openChainTranscript() {
         }
         case 'eth_call': {
           const call = args[0] as { to: string; data: string };
-          expect(call.to.toLowerCase()).toBe(CHAINS_PRECOMPILE);
-          if (call.data === calldata('params')) result = vectors.params.returndata;
-          else if (call.data === calldata('chainByName')) {
-            result = encodeFunctionResult({ abi: chainsAbi, functionName: 'chainByName', result: submissions.length ? record[0] : 0 });
-          } else {
-            expect(call.data).toBe(calldata('getChain'));
-            expect(args[1]).toBe(block.number);
-            registryReads.push(args);
-            if (!readbackAvailable) {
-              response.setHeader('content-type', 'application/json');
-              response.end(JSON.stringify({ jsonrpc: '2.0', id: rpc.id, error: { code: -32000, message: 'Registry readback interrupted' } }));
-              return;
+          if (call.to.toLowerCase() === PROTOCOL_CONFIG_ADDRESS.toLowerCase()) {
+            expect(call.data).toBe(creationFeeCall);
+            result = encodeAbiParameters([{ type: 'uint256' }], [10n]);
+          } else if (call.to.toLowerCase() === token) {
+            if (call.data === encodeFunctionData({ abi: tokenAbi, functionName: 'name' })) {
+              result = encodeFunctionResult({ abi: tokenAbi, functionName: 'name', result: tokenName });
+            } else {
+              expect(call.data).toBe(encodeFunctionData({ abi: tokenAbi, functionName: 'symbol' }));
+              result = encodeFunctionResult({ abi: tokenAbi, functionName: 'symbol', result: tokenSymbol });
             }
-            result = vectors.getChain.returndata;
+          } else if (call.to.toLowerCase() === LAUNCHPAD_ADDRESS) {
+            expect(call.data).toBe(launchedCall);
+            expect(args[1]).toBe(block.number);
+            result = encodeFunctionResult({ abi: CHAIN_LAUNCH_ABI, functionName: 'launchedChain',
+              result: [record[0], record[4], pool, token, 7n, record[2], BigInt(block.number)] });
+          } else {
+            expect(call.to.toLowerCase()).toBe(CHAINS_PRECOMPILE);
+            if (call.data === calldata('params')) result = vectors.params.returndata;
+            else if (call.data === calldata('chainByName')) {
+              result = encodeFunctionResult({ abi: chainsAbi, functionName: 'chainByName', result: submissions.length ? record[0] : 0 });
+            } else {
+              expect(call.data).toBe(calldata('getChain'));
+              expect(args[1]).toBe(block.number);
+              registryReads.push(args);
+              if (!readbackAvailable) {
+                response.setHeader('content-type', 'application/json');
+                response.end(JSON.stringify({ jsonrpc: '2.0', id: rpc.id, error: { code: -32000, message: 'Registry readback interrupted' } }));
+                return;
+              }
+              result = vectors.getChain.returndata;
+            }
           }
           break;
         }
@@ -135,12 +184,8 @@ async function openChainTranscript() {
     rpcUrls: { default: { http: [origin] } },
     blockExplorers: { default: { name: 'Explorer', url: `${origin}/explorer` } },
   });
-  const draft: ChainDraft = {
-    draftId: 'chain-launch-path-proof', version: 1, creator: record[2].toLowerCase(), chainId: 125,
-    name: record[1], tier: 'starter', feeShareBps: record[7], updatedAt: Date.now(),
-  };
   return {
-    chain, draft, origin, transaction, params, record, submissions, receiptReads, registryReads, walletNetworks, unexpected,
+    chain, draft, origin, transaction, params, record, token, pool, submissions, receiptReads, registryReads, walletNetworks, unexpected,
     enableReadback() { readbackAvailable = true; },
     async close() {
       server.closeAllConnections();
@@ -219,14 +264,14 @@ async function chain_launch_path_proof_recovers_the_submitted_journal_with_one_s
     await rendered('Total: 101 PAX');
     await click('Next');
     expect(transcript.submissions).toHaveLength(0);
-    await click('Launch');
+    await click('Launch chain and token');
     await rendered('Registry readback interrupted');
     expect(transcript.unexpected).toEqual([]);
     expect(transcript.submissions).toHaveLength(1);
     expect(transcript.receiptReads).toHaveLength(1);
     expect(transcript.registryReads.length).toBeGreaterThan(0);
     expect(container.querySelector('[aria-label="Live chain"]')).toBeNull();
-    expect(button('Launch').disabled).toBe(true);
+    expect(button('Launch chain and token').disabled).toBe(true);
     const saved = ChainDraftStorage.restoreSubmission();
     expect(saved).toEqual({
       draft: { ...transcript.draft, updatedAt: expect.any(Number) },
@@ -237,11 +282,11 @@ async function chain_launch_path_proof_recovers_the_submitted_journal_with_one_s
     });
     expect(saved!.draft.updatedAt).toBeGreaterThanOrEqual(transcript.draft.updatedAt);
     expect(saved!.draft.updatedAt).toBeLessThanOrEqual(Date.now());
-    const journal = localStorage.getItem('chain-submission-v1');
+    const journal = localStorage.getItem('chain-submission-v2');
     expect(journal).not.toBeNull();
     await closeWizard();
     localStorage.clear();
-    localStorage.setItem('chain-submission-v1', journal!);
+    localStorage.setItem('chain-submission-v2', journal!);
     transcript.enableReadback();
     await openWizard();
     await rendered('Total: 101 PAX');
@@ -252,12 +297,14 @@ async function chain_launch_path_proof_recovers_the_submitted_journal_with_one_s
     expect(container.querySelector('[aria-current="step"]')?.textContent).toBe('3. Review and launch');
     expect(container.querySelector('[aria-label="Submitted transaction"]')?.textContent).toContain(transcript.transaction.hash);
     expect(ChainDraftStorage.restoreSubmission()).toEqual(saved);
-    expect(button('Launch').disabled).toBe(true);
+    expect(button('Launch chain and token').disabled).toBe(true);
     expect(transcript.submissions).toHaveLength(1);
     await click('Retry confirmation');
     await rendered(`Chain ID: ${transcript.record[4]}`);
     expect(container.querySelector('[aria-label="Live chain"]')?.textContent).toContain(`Chain ID: ${transcript.record[4]}`);
     expect(container.querySelector('[aria-label="Live chain"]')?.textContent).toContain(`Registry ID: ${transcript.record[0]}`);
+    expect(container.querySelector('[aria-label="Live chain"]')?.textContent).toContain(transcript.token);
+    expect(container.querySelector('[aria-label="Live chain"]')?.textContent).toContain(transcript.pool);
     expect(container.querySelector<HTMLInputElement>('#chain-rpc')?.value).toBe(`${transcript.origin}/chain/${transcript.record[0]}`);
     expect(container.querySelector('a')?.getAttribute('href')).toBe(`${transcript.origin}/explorer/chains/${transcript.record[0]}`);
     expect(ChainDraftStorage.restoreSubmission()).toBeNull();

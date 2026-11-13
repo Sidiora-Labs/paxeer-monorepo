@@ -177,6 +177,36 @@ func TestIssue1678GRPCQueryRedaction(t *testing.T) {
 	_, simulateErr := app.GRPCQueryRouter().Route("/cosmos.tx.v1beta1.Service/Simulate")(queryCtx, abci.RequestQuery{Data: simulateData, Height: 1})
 	require.Equal(t, codes.Unknown, grpcstatus.Code(simulateErr))
 
+	for _, tc := range []struct {
+		name   string
+		height int64
+		prove  bool
+		root   *sdkerrors.Error
+		log    string
+	}{
+		{"future height", 2, false, sdkerrors.ErrInvalidHeight, "cannot query with height in the future; please provide a valid height: invalid height"},
+		{"proof before height two", 1, true, sdkerrors.ErrInvalidRequest, "cannot query with proof when height <= 1; please provide a valid height: invalid request"},
+	} {
+		t.Run("query context "+tc.name, func(t *testing.T) {
+			response, err := app.Query(context.Background(), &abci.RequestQuery{
+				Path: "/cosmos.auth.v1beta1.Query/Account", Height: tc.height, Prove: tc.prove,
+			})
+			require.NoError(t, err)
+			require.NotNil(t, response)
+			wire, err := response.Marshal()
+			require.NoError(t, err)
+			var decoded abci.ResponseQuery
+			require.NoError(t, decoded.Unmarshal(wire))
+			require.Equal(t, *response, decoded)
+			require.Equal(t, tc.root.Codespace(), decoded.Codespace)
+			require.Equal(t, tc.root.ABCICode(), decoded.Code)
+			require.Equal(t, tc.height, decoded.Height)
+			require.Equal(t, tc.log, decoded.Log)
+			require.Empty(t, decoded.Value)
+			require.Nil(t, decoded.ProofOps)
+		})
+	}
+
 	testCases := []struct {
 		name       string
 		path       string

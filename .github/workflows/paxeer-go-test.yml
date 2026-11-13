@@ -184,7 +184,7 @@ jobs:
 
   autobahn-integration:
     name: Autobahn integration
-    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
       DOCKER_PLATFORM: linux/amd64

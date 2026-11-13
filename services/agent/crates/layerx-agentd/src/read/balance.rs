@@ -12,6 +12,7 @@ pub enum Block {
 }
 
 impl Block {
+    #[must_use]
     pub fn tag(self) -> String {
         match self {
             Self::Pending => "pending".to_owned(),
@@ -36,6 +37,9 @@ pub struct BalanceRead {
     pub freshness: Freshness,
 }
 
+/// # Errors
+/// Returns an error if the node read or proof acquisition fails, its request is invalid, or
+/// its evidence does not verify.
 pub fn balance(
     config: &NodeRpcConfig,
     account: [u8; 20],
@@ -43,12 +47,12 @@ pub fn balance(
 ) -> Result<BalanceRead, ApiError> {
     let (agent, freshness) = read_context(config, height)?;
     let relative_to = freshness.relative_to;
-    let address: String = account.iter().map(|byte| format!("{byte:02x}")).collect();
+    let address: String = layerx_programs::hex::encode(&account);
     let value = rpc(
         &agent,
         config,
         "eth_getBalance",
-        json!([format!("0x{address}"), relative_to.tag()]),
+        &json!([format!("0x{address}"), relative_to.tag()]),
         height.is_some(),
     )?;
     let digits = quantity(&value).ok_or_else(malformed)?;
@@ -74,6 +78,9 @@ pub struct LedgerBalanceRead {
     pub freshness: Freshness,
 }
 
+/// # Errors
+/// Returns an error if the node read or proof acquisition fails, its request is invalid, or
+/// its evidence does not verify.
 pub fn ledger_balance(
     config: &NodeRpcConfig,
     account: [u8; 32],
@@ -89,7 +96,7 @@ pub fn ledger_balance(
         &agent,
         config,
         "eth_call",
-        json!([{
+        &json!([{
             "to": "0x000000000000000000000000000000000000101a",
             "data": format!("0x{}", layerx_programs::hex::encode(&data)),
         }, freshness.relative_to.tag()]),
@@ -120,7 +127,7 @@ fn read_context(
     config: &NodeRpcConfig,
     height: Option<u64>,
 ) -> Result<(ureq::Agent, Freshness), ApiError> {
-    let _node = NodeRpc::connect(config).map_err(node_error)?;
+    let _node = NodeRpc::connect(config).map_err(|value| node_error(&value))?;
     let certificates = if config.url.starts_with("https://") {
         let loaded = rustls_native_certs::load_native_certs();
         if loaded.certs.is_empty() || !loaded.errors.is_empty() {
@@ -146,7 +153,7 @@ fn read_context(
         )
         .build()
         .into();
-    let head = rpc(&agent, config, "eth_blockNumber", json!([]), false)?;
+    let head = rpc(&agent, config, "eth_blockNumber", &json!([]), false)?;
     let chain_head = quantity(&head)
         .and_then(|digits| u64::from_str_radix(digits, 16).ok())
         .ok_or_else(malformed)?;
@@ -182,7 +189,7 @@ fn rpc(
     agent: &ureq::Agent,
     config: &NodeRpcConfig,
     method: &str,
-    params: Value,
+    params: &Value,
     historical: bool,
 ) -> Result<Value, ApiError> {
     let mut response = agent
@@ -190,7 +197,7 @@ fn rpc(
         .header("Content-Type", "application/json")
         .header("Accept", "application/json")
         .send_json(json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}))
-        .map_err(transport)?;
+        .map_err(|value| transport(&value))?;
     if response.status().as_u16() != 200 {
         return Err(refusal(ErrorClass::TransportFailure, "read.node_http"));
     }
@@ -199,7 +206,7 @@ fn rpc(
         .with_config()
         .limit(64 * 1024)
         .read_to_vec()
-        .map_err(transport)?;
+        .map_err(|value| transport(&value))?;
     let document: Value = serde_json::from_slice(&body).map_err(|_| malformed())?;
     let object = document.as_object().ok_or_else(malformed)?;
     if object.len() != 3 || document["jsonrpc"] != "2.0" || document["id"].as_u64() != Some(1) {
@@ -237,7 +244,7 @@ fn rpc(
     Err(refusal(ErrorClass::CoreRejection, "read.node_refusal"))
 }
 
-fn node_error(error: NodeRpcError) -> ApiError {
+fn node_error(error: &NodeRpcError) -> ApiError {
     match error {
         NodeRpcError::ChainIdMismatch { .. } => refusal(
             ErrorClass::ProtocolIncompatibility,
@@ -248,7 +255,7 @@ fn node_error(error: NodeRpcError) -> ApiError {
     }
 }
 
-fn transport(error: ureq::Error) -> ApiError {
+fn transport(error: &ureq::Error) -> ApiError {
     match error {
         ureq::Error::BodyExceedsLimit(_) | ureq::Error::LargeResponseHeader(..) => malformed(),
         _ => refusal(ErrorClass::TransportFailure, "read.node_unavailable"),

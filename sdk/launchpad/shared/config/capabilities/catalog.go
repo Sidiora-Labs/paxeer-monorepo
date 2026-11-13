@@ -144,11 +144,11 @@ type FamilyCapability struct {
 }
 
 var familyRoles = map[Family][]string{
-	Creation:   {"Router", "SidioraFactory", "ProtocolConfig", "USDL", "PoolBeacon", "PoolRegistry", "EventEmitter", "SidioraNFT", "FeeAccumulator"},
-	Trading:    {"Router", "PoolBeacon", "ProtocolConfig", "USDL", "EventEmitter"},
-	PlainQuote: {"Quoter", "PoolBeacon", "PoolRegistry", "ProtocolConfig", "USDL"},
-	Opticals:   {"OpticalRegistry", "Quoter", "PoolBeacon"},
-	NFTFees:    {"FeesRouter", "FeeAccumulator", "SidioraNFT", "EventEmitter"},
+	Creation:   {valueRouter, valueSidioraFactory, valueProtocolConfig, valueUSDL, valuePoolBeacon, valuePoolRegistry, valueEventEmitter, valueSidioraNFT, valueFeeAccumulator},
+	Trading:    {valueRouter, valuePoolBeacon, valueProtocolConfig, valueUSDL, valueEventEmitter},
+	PlainQuote: {valueQuoter, valuePoolBeacon, valuePoolRegistry, valueProtocolConfig, valueUSDL},
+	Opticals:   {"OpticalRegistry", valueQuoter, valuePoolBeacon},
+	NFTFees:    {"FeesRouter", valueFeeAccumulator, valueSidioraNFT, valueEventEmitter},
 	MetaAG:     {"MetaAG"}, PECOROrders: {"PECOROrders"}, Vault: {"PECORVault"}, DisplayConversion: {"display-provider"},
 }
 
@@ -157,9 +157,9 @@ var familyRoles = map[Family][]string{
 func AssessFamily(f Family, m deployment.Manifest, a deployment.ActivationAttestation, p deployment.Policy) (FamilyCapability, error) {
 	roles, ok := familyRoles[f]
 	if !ok {
-		return FamilyCapability{}, Unavailable{"core_market", UnknownCapability, string(f)}
+		return FamilyCapability{}, Unavailable{valueCoreMarket, UnknownCapability, string(f)}
 	}
-	result := FamilyCapability{CapabilityID: "core_market", Family: f, DeploymentVersion: m.DeploymentVersion, DependencyIDs: append([]string{}, roles...), EventCoverage: []string{}, AttestationReference: a.BlockHash, OracleRequired: false}
+	result := FamilyCapability{CapabilityID: valueCoreMarket, Family: f, DeploymentVersion: m.DeploymentVersion, DependencyIDs: append([]string{}, roles...), EventCoverage: []string{}, AttestationReference: a.BlockHash, OracleRequired: false}
 	switch f {
 	case MetaAG, PECOROrders, Vault:
 		result.ReasonCode = OptionalManifestUnavailable
@@ -175,21 +175,21 @@ func AssessFamily(f Family, m deployment.Manifest, a deployment.ActivationAttest
 	support := ContractSupport()
 	switch f {
 	case Creation:
-		for _, s := range support.Selectors["Router"] {
+		for _, s := range support.Selectors[valueRouter] {
 			if strings.HasPrefix(s.Signature, "createMarket(") {
 				result.Selectors = append(result.Selectors, s)
 			}
 		}
 		result.EventCoverage = []string{"market_creation"}
 	case Trading:
-		for _, s := range support.Selectors["Router"] {
+		for _, s := range support.Selectors[valueRouter] {
 			if strings.HasPrefix(s.Signature, "buy(") || strings.HasPrefix(s.Signature, "sell(") {
 				result.Selectors = append(result.Selectors, s)
 			}
 		}
 		result.EventCoverage = []string{"core_pool_swap"}
 	case PlainQuote:
-		result.Selectors = support.Selectors["Quoter"]
+		result.Selectors = support.Selectors[valueQuoter]
 	case NFTFees:
 		result.Selectors = support.Selectors["FeesRouter"]
 		result.EventCoverage = []string{"fees"}
@@ -219,7 +219,7 @@ type QuoteCapability struct {
 
 // QuoteSupport does not generate quotes or substitute reserve math for Quoter.
 func QuoteSupport(opticalAddress, trader, expectedVersion string, m deployment.Manifest, a deployment.ActivationAttestation, p deployment.Policy) (QuoteCapability, error) {
-	q := QuoteCapability{SimulationMode: "none", BlockHash: a.BlockHash, Trader: trader, DeploymentVersion: m.DeploymentVersion}
+	q := QuoteCapability{SimulationMode: valueNone, BlockHash: a.BlockHash, Trader: trader, DeploymentVersion: m.DeploymentVersion}
 	if expectedVersion != m.DeploymentVersion {
 		q.ReasonCode = RevisionMismatch
 		return q, nil
@@ -271,7 +271,7 @@ func ValidateSellLiquidity(realUSDL, virtualUSDL, requestedOutput string) error 
 		return e
 	}
 	if out.Sign() == 0 || real.Cmp(out) < 0 {
-		return Unavailable{"core_market", UnexecutableQuote, "real_usdl_liquidity"}
+		return Unavailable{valueCoreMarket, UnexecutableQuote, "real_usdl_liquidity"}
 	}
 	return nil
 }

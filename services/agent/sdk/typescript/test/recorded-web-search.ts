@@ -28,7 +28,15 @@ export interface RecordedRpc {
   readonly result?: unknown;
   readonly error?: unknown;
 }
-export const sellerExchange = sellerFixture<{ readonly exchange: readonly SellerStep[] }>("client-exchange.json").exchange;
+function immutableRecording<T>(value: T): T {
+  if (value !== null && typeof value === "object") {
+    for (const child of Object.values(value)) immutableRecording(child);
+    Object.freeze(value);
+  }
+  return value;
+}
+
+export const sellerExchange = immutableRecording(sellerFixture<{ readonly exchange: readonly SellerStep[] }>("client-exchange.json").exchange);
 export const buyer = sellerFixture<{
   readonly sequencerId: string; readonly sequencerPublicKey: string;
   readonly firstBatchNumber: number; readonly lastBatchNumber: number;
@@ -41,13 +49,13 @@ export const webReceiptKeys: readonly SequencerReceiptKey[] = [{
 export const webConfig = sellerFixture<{
   readonly assets: Readonly<Record<WebSearchCurrency, { readonly asset_id: string; readonly price: string }>>;
 }>("config/valid.json");
-export const exactRecording = sellerFixture<{
+export const exactRecording = immutableRecording(sellerFixture<{
   readonly payments: Readonly<Record<WebSearchCurrency, { readonly rawTransaction: string; readonly idempotencyKey: string; readonly txHash: string }>>;
   readonly endpoints: { readonly gateway: { readonly "*": readonly RecordedRpc[] } };
-}>("gateway/exact.json");
-export const meteredRules = sellerFixture<{
+}>("gateway/exact.json"));
+export const meteredRules = immutableRecording(sellerFixture<{
   readonly endpoints: { readonly gateway: { readonly "*": readonly RecordedRpc[] } };
-}>("gateway/metered.json").endpoints.gateway["*"];
+}>("gateway/metered.json").endpoints.gateway["*"]);
 
 export const ledgerRecording = JSON.parse(readFileSync(new URL("../../test/recorded-web-ledger.json", import.meta.url), "utf8")) as {
   readonly producer: string;

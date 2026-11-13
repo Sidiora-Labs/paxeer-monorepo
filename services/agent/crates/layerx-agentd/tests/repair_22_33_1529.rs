@@ -1,20 +1,25 @@
 //! Audit 22.30.94 closure proofs. Each original regression suite is also compiled
 //! into this focused gate, so fixes cannot pass by adding disconnected assertions.
-//! Finding-to-case mapping and qualification constraints: repair_22_33_1529.kvx.
+//! Finding-to-case mapping and qualification constraints: `repair_22_33_1529.kvx`.
 
-#[path = "budget_schema.rs"]
+#[path = "suites/budget_schema.rs"]
 mod budget_schema;
-#[path = "disclosure.rs"]
+#[path = "suites/disclosure.rs"]
 mod disclosure;
-#[path = "grant_revocation_on_chain.rs"]
+#[path = "suites/grant_revocation_on_chain.rs"]
 mod grant_revocation_on_chain;
 #[path = "human_node.rs"]
 mod human_node;
-#[path = "identity.rs"]
+#[path = "suites/identity.rs"]
 mod identity;
-#[path = "operator_route.rs"]
+#[path = "suites/operator_route.rs"]
 mod operator_route;
-#[path = "policy_version.rs"]
+#[path = "suites/policy_version.rs"]
 mod policy_version;
-#[path = "protocol2_restart.rs"]
+#[path = "suites/protocol2_restart.rs"]
 mod protocol2_restart;
+
+mod support;
+use support::send_authorization;
+#[path = "support/repair_22_33_1529.rs"]
+mod repair_support;

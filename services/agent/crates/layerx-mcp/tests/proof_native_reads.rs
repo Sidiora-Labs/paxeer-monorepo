@@ -1,30 +1,32 @@
-//! Proves: NativeReadRoute::read -> daemon::serve_read_routes HTTP -> ProgramReads::execute.
+//! Proves: `NativeReadRoute::read` -> `daemon::serve_read_routes` HTTP -> `ProgramReads::execute.`
 //!
 //! Starts the repository's disposable sequencer and reads its generated localnode.env;
 //! no node, daemon route, HTTP client or consumer is replaced. The daemon is stopped
 //! and reopened between reads, and the same consumer must refuse while it is down.
-//! Repairs layerx-mcp/src/boundary.rs::AgentSurface::native_read accepting JSON null,
-//! arrays and scalars as evidence by decoding through decode_native_read_result.
-//! Repairs produce_transaction requesting a pending nonce from the proposer by
-//! using layerx-client/src/sequencer.rs::SequencerEndpoint::latest_nonce.
-//! Repairs AgentSurface::native_read losing the unavailable history method's
+//! Repairs layerx-`mcp/src/boundary.rs::AgentSurface::native_read` accepting JSON null,
+//! arrays and scalars as evidence by decoding through `decode_native_read_result`.
+//! Repairs `produce_transaction` requesting a pending nonce from the proposer by
+//! using layerx-`client/src/sequencer.rs::SequencerEndpoint::latest_nonce.`
+//! Repairs `AgentSurface::native_read` losing the unavailable history method's
 //! identity when the daemon answers HTTP 503: the consumer receives a typed
-//! refusal naming history.list and px_getHistory instead of a transport status.
+//! refusal naming history.list and `px_getHistory` instead of a transport status.
 //!
 //! The proof belongs to the consumer crate so layerx-agentd does not depend on
 //! layerx-mcp. The shared HTTP implementation is also imported by main.rs through
-//! proof_serve_errors, including its listener, parser, dispatcher and response writer.
-//! Its daemon HTTP assertions remain in the separate agentd proof_serve_errors
+//! `proof_serve_errors`, including its listener, parser, dispatcher and response writer.
+//! Its daemon HTTP assertions remain in the separate agentd `proof_serve_errors`
 //! target and are not included in this disposable-node proof.
-//! Out-of-scope behavior: src/read/native.rs::NativeReadRoute::receipt labels even
+//! Out-of-scope behavior: `src/read/native.rs::NativeReadRoute::receipt` labels even
 //! committed receipts "receipted". Assert that current behavior below; the expected
 //! eventual behavior is to preserve the authenticated receipt's strongest rung.
-//! layerx-client/src/sequencer.rs::SequencerEndpoint::history calls px_getHistory,
-//! which belongs to services/platform/hosted/gateway/src/history.rs. The local
+//! layerx-`client/src/sequencer.rs::SequencerEndpoint::history` calls `px_getHistory`,
+//! which belongs to `services/platform/hosted/gateway/src/history.rs.` The local
 //! node does not serve it, so history.list must remain explicitly unavailable.
 
-#[allow(dead_code)]
-#[path = "../../layerx-agentd/tests/proof_native_reads.rs"]
+use layerx_mcp_test_support::option_assertion;
+use layerx_mcp_test_support::result_assertion;
+
+#[path = "support/native_reads.rs"]
 mod native_reads;
 
 use std::net::{SocketAddr, TcpListener};
@@ -69,25 +71,27 @@ fn producer_read<T>(
     result: Result<T, SequencerError>,
     url: &str,
     method: &str,
-    params: Value,
+    params: &Value,
     expected_fields: &[&str],
 ) -> Result<T, SequencerError> {
     result.inspect_err(|error| {
         let request = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params});
-        let answer = Command::new("curl")
-            .args([
-                "--silent",
-                "--show-error",
-                "--max-time",
-                "5",
-                "-H",
-                "Content-Type: application/json",
-                "--data",
-            ])
-            .arg(request.to_string())
-            .arg(url)
-            .output()
-            .expect("capture refused producer method's raw JSON answer");
+        let answer = result_assertion::required(
+            Command::new("curl")
+                .args([
+                    "--silent",
+                    "--show-error",
+                    "--max-time",
+                    "5",
+                    "-H",
+                    "Content-Type: application/json",
+                    "--data",
+                ])
+                .arg(request.to_string())
+                .arg(url)
+                .output(),
+            "capture refused producer method's raw JSON answer",
+        );
         eprintln!(
             "{method} refused: {error:?}; raw JSON answer: {}",
             String::from_utf8_lossy(&answer.stdout)
@@ -178,6 +182,7 @@ impl Service {
             ca,
             endpoint(config),
         ));
+        must(pool.check());
         Self {
             address,
             _pool: pool,
@@ -196,12 +201,12 @@ impl Service {
     }
 }
 
-fn execute(reads: &mut ProgramReads, address: SocketAddr, name: &str, arguments: Value) -> Value {
-    let tool = *catalogue()
-        .iter()
-        .find(|tool| tool.name == name)
-        .expect("real catalogue tool");
-    let result = reads.execute(tool, &arguments);
+fn execute(reads: &mut ProgramReads, address: SocketAddr, name: &str, arguments: &Value) -> Value {
+    let tool = *option_assertion::required(
+        catalogue().iter().find(|tool| tool.name == name),
+        "real catalogue tool",
+    );
+    let result = reads.execute(tool, arguments);
     if let Err(error) = &result {
         let (kind, selector) = match name {
             "receipt.get" => ("receipt", "activity_id"),
@@ -212,21 +217,23 @@ fn execute(reads: &mut ProgramReads, address: SocketAddr, name: &str, arguments:
         };
         let path = format!(
             "/v1/reads/{kind}/{}",
-            arguments[selector].as_str().expect("proof read selector")
+            option_assertion::required(arguments[selector].as_str(), "proof read selector")
         );
-        let answer = Command::new("curl")
-            .args([
-                "--silent",
-                "--show-error",
-                "--include",
-                "--max-time",
-                "5",
-                "-H",
-            ])
-            .arg(format!("Authorization: Bearer {BEARER}"))
-            .arg(format!("http://{address}{path}"))
-            .output()
-            .expect("capture unexpectedly refused daemon read's status and body");
+        let answer = result_assertion::required(
+            Command::new("curl")
+                .args([
+                    "--silent",
+                    "--show-error",
+                    "--include",
+                    "--max-time",
+                    "5",
+                    "-H",
+                ])
+                .arg(format!("Authorization: Bearer {BEARER}"))
+                .arg(format!("http://{address}{path}"))
+                .output(),
+            "capture unexpectedly refused daemon read's status and body",
+        );
         eprintln!(
             "{name} {path} refused: {error:?}; raw daemon status and body: {}",
             String::from_utf8_lossy(&answer.stdout)
@@ -290,7 +297,7 @@ fn observe(
         reads,
         address,
         "receipt.get",
-        json!({"activity_id": transaction}),
+        &json!({"activity_id": transaction}),
     );
     assert_eq!(receipt["transaction_hash"], transaction);
     assert_eq!(receipt["height"], block.number);
@@ -298,89 +305,13 @@ fn observe(
     assert!(receipt["receipt"]
         .as_str()
         .is_some_and(|value| !value.is_empty()));
-    let height = receipt["height"]
-        .as_u64()
-        .expect("authenticated receipt height");
-    let request = json!({
-        "jsonrpc": "2.0", "id": 1, "method": "eth_getBlockByNumber",
-        "params": [format!("{height:#x}"), true],
-    });
-    let answer = Command::new("curl")
-        .args([
-            "--silent",
-            "--show-error",
-            "--max-time",
-            "5",
-            "-H",
-            "Content-Type: application/json",
-            "--data",
-        ])
-        .arg(request.to_string())
-        .arg(node_url)
-        .output()
-        .expect("read the receipt height directly from the disposable node");
-    eprintln!(
-        "receipt height {height} eth_getBlockByNumber at {node_url}: {}; status: {}; {}",
-        String::from_utf8_lossy(&answer.stdout),
-        answer.status,
-        String::from_utf8_lossy(&answer.stderr)
-    );
-    assert!(answer.status.success(), "direct receipt-height block read");
-    let answer: Value = must(serde_json::from_slice(&answer.stdout));
-    assert!(
-        answer.get("error").is_none(),
-        "receipt-height block RPC error: {answer}"
-    );
-    assert_eq!(
-        answer["result"]["hash"],
-        format!("0x{}", hex::encode(&block.hash)),
-        "the node serving the route must retain the authenticated receipt's block"
-    );
-    let proof = execute(
-        reads,
-        address,
-        "proof.get",
-        json!({"activity_id": transaction}),
-    );
-    assert_eq!(
-        proof["signedReceipt"],
-        format!("0x{}", receipt["receipt"].as_str().expect("signed receipt"))
-    );
-    let receipt_key = &receipt["receipt_key"];
-    assert_eq!(
-        proof["receiptKey"],
-        json!({
-            "keyId": format!("0x{}", receipt_key["key_id"].as_str().expect("receipt key id")),
-            "publicKey": format!("0x{}", receipt_key["public_key"].as_str().expect("receipt public key")),
-            "firstHeight": receipt_key["first_height"].as_u64().expect("receipt key first height").to_string(),
-            "lastHeight": receipt_key["last_height"].as_u64().expect("receipt key last height").to_string(),
-        })
-    );
-    assert_eq!(proof["kind"], "receipt");
-    assert_eq!(proof["format"], "layerx-receipt-proof-v2");
-    assert_eq!(proof["verificationLevel"], "committed");
-    assert_eq!(proof["rung"], "committed");
-    assert_eq!(proof["height"], block.number);
-    assert_eq!(proof["commitment_height"], block.number + 1);
-    assert_eq!(proof["transaction_hash"], transaction);
-    let raw = block
-        .transactions
-        .iter()
-        .find(|raw| transaction_hash(raw) == hash)
-        .expect("the committed block contains the produced transaction");
-    assert_eq!(proof["rawTransaction"], format!("0x{}", hex::encode(raw)));
-    for field in ["blockHeader", "receiptInclusion", "commit", "validatorSet"] {
-        let bytes = proof[field]
-            .as_str()
-            .and_then(|value| value.strip_prefix("0x"))
-            .unwrap_or_else(|| panic!("committed proof must carry {field}"));
-        assert!(!must(hex::decode(bytes)).is_empty(), "{field}");
-    }
+    assert_receipt_block(&receipt, node_url, block);
+    let proof = observe_receipt_proof(reads, address, &transaction, &receipt, hash, block);
     let checkpoint = execute(
         reads,
         address,
         "checkpoint.get",
-        json!({"sequence": block.number.to_string()}),
+        &json!({"sequence": block.number.to_string()}),
     );
     assert_eq!(checkpoint["height"], block.number);
     assert_eq!(checkpoint["block_hash"], hex::encode(&block.hash));
@@ -400,7 +331,7 @@ fn observe(
         reads,
         address,
         "availability.get",
-        json!({"batch": block.number.to_string()}),
+        &json!({"batch": block.number.to_string()}),
     );
     assert_eq!(availability["height"], block.number);
     assert_eq!(availability["complete"], true);
@@ -412,10 +343,10 @@ fn observe(
     assert_eq!(availability["transaction_count"], block.transactions.len());
     assert!(availability["rung"].is_null());
     let account = format!("0x{}", hex::encode(&[21; 20]));
-    let history_tool = *catalogue()
-        .iter()
-        .find(|tool| tool.name == "history.list")
-        .expect("real history catalogue tool");
+    let history_tool = *option_assertion::required(
+        catalogue().iter().find(|tool| tool.name == "history.list"),
+        "real history catalogue tool",
+    );
     assert_eq!(
         reads.execute(history_tool, &json!({"account": account, "limit": "2"})),
         Err(BoundaryRefusal::Unavailable(
@@ -431,37 +362,45 @@ fn native_reads_producer_http_consumer_reopens_and_refuses_malformed_results() {
     let (node, url, key) = LocalNode::start();
     let client = must(SequencerEndpoint::new(&url, &[]));
     let config = NodeRpcConfig {
-        chain_id: producer_read(client.chain_id(), &url, "eth_chainId", json!([]), &[])
-            .expect("producer eth_chainId must decode as a canonical chain-id quantity"),
+        chain_id: result_assertion::required(
+            producer_read(client.chain_id(), &url, "eth_chainId", &json!([]), &[]),
+            "producer eth_chainId must decode as a canonical chain-id quantity",
+        ),
         url,
         deadline: Duration::from_secs(5),
     };
     let (hash, height) = produce_transaction(&client, config.chain_id, &key);
-    let block = producer_read(
-        client.block_by_number(height),
-        &config.url,
-        "eth_getBlockByNumber",
-        json!([format!("{height:#x}"), true]),
-        &[
-            "number",
-            "hash",
-            "parentHash",
-            "timestamp",
-            "transactionsRoot",
-            "receiptsRoot",
-            "transactions",
-        ],
-    )
-    .expect("producer eth_getBlockByNumber must decode the committed block and its transactions")
-    .expect("committed producer block");
-    let keys = producer_read(
-        client.receipt_keys(),
-        &config.url,
-        "px_getReceiptKeys",
-        json!([]),
-        &["keyId", "publicKey", "firstHeight", "lastHeight"],
-    )
-    .expect("producer px_getReceiptKeys must decode the keys object and its numeric height ranges");
+    let block = option_assertion::required(
+        result_assertion::required(
+            producer_read(
+                client.block_by_number(height),
+                &config.url,
+                "eth_getBlockByNumber",
+                &json!([format!("{height:#x}"), true]),
+                &[
+                    "number",
+                    "hash",
+                    "parentHash",
+                    "timestamp",
+                    "transactionsRoot",
+                    "receiptsRoot",
+                    "transactions",
+                ],
+            ),
+            "producer eth_getBlockByNumber must decode the committed block and its transactions",
+        ),
+        "committed producer block",
+    );
+    let keys = result_assertion::required(
+        producer_read(
+            client.receipt_keys(),
+            &config.url,
+            "px_getReceiptKeys",
+            &json!([]),
+            &["keyId", "publicKey", "firstHeight", "lastHeight"],
+        ),
+        "producer px_getReceiptKeys must decode the keys object and its numeric height ranges",
+    );
     let Lookup::Verified(verified) = must(lookup_authenticated(
         &client,
         hash,
@@ -472,7 +411,11 @@ fn native_reads_producer_http_consumer_reopens_and_refuses_malformed_results() {
         panic!("real sequencer must emit a signed receipt for the produced transaction");
     };
 
-    let service = Service::start(&config, "127.0.0.1:0".parse().expect("loopback"), &node);
+    let service = Service::start(
+        &config,
+        result_assertion::required("127.0.0.1:0".parse(), "loopback"),
+        &node,
+    );
     let address = service.address;
     let surface = service.surface(BEARER);
     let wrong_credential = service.surface("wrong-native-reads-agent-credential");
@@ -483,6 +426,128 @@ fn native_reads_producer_http_consumer_reopens_and_refuses_malformed_results() {
         first[0]["receipt_key"]["key_id"],
         hex::encode(&verified.execution().key_id)
     );
+    assert_refused_native_inputs(&surface, &wrong_credential, height, &first);
+    let path = format!("/v1/reads/checkpoint/{height}");
+
+    drop(service);
+    assert!(
+        matches!(
+            surface.native_read(&path),
+            Err(BoundaryRefusal::Unavailable(_))
+        ),
+        "a stopped server must never be answered from a cache"
+    );
+    let reopened = Service::start(&config, address, &node);
+    let second = observe(&mut reads, address, &config.url, hash, &block);
+    assert_eq!(first, second);
+    assert_eq!(must(surface.native_read(&path)), second[2]);
+    drop(reopened);
+}
+
+fn assert_receipt_block(receipt: &Value, node_url: &str, block: &SequencerBlock) {
+    let height =
+        option_assertion::required(receipt["height"].as_u64(), "authenticated receipt height");
+    let request = json!({
+        "jsonrpc": "2.0", "id": 1, "method": "eth_getBlockByNumber",
+        "params": [format!("{height:#x}"), true],
+    });
+    let answer = result_assertion::required(
+        Command::new("curl")
+            .args([
+                "--silent",
+                "--show-error",
+                "--max-time",
+                "5",
+                "-H",
+                "Content-Type: application/json",
+                "--data",
+            ])
+            .arg(request.to_string())
+            .arg(node_url)
+            .output(),
+        "read the receipt height directly from the disposable node",
+    );
+    eprintln!(
+        "receipt height {height} eth_getBlockByNumber at {node_url}: {}; status: {}; {}",
+        String::from_utf8_lossy(&answer.stdout),
+        answer.status,
+        String::from_utf8_lossy(&answer.stderr)
+    );
+    assert!(answer.status.success(), "direct receipt-height block read");
+    let answer: Value = must(serde_json::from_slice(&answer.stdout));
+    assert!(
+        answer.get("error").is_none(),
+        "receipt-height block RPC error: {answer}"
+    );
+    assert_eq!(
+        answer["result"]["hash"],
+        format!("0x{}", hex::encode(&block.hash)),
+        "the node serving the route must retain the authenticated receipt's block"
+    );
+}
+
+fn observe_receipt_proof(
+    reads: &mut ProgramReads,
+    address: SocketAddr,
+    transaction: &str,
+    receipt: &Value,
+    hash: [u8; 32],
+    block: &SequencerBlock,
+) -> Value {
+    let proof = execute(
+        reads,
+        address,
+        "proof.get",
+        &json!({"activity_id": transaction}),
+    );
+    assert_eq!(
+        proof["signedReceipt"],
+        format!(
+            "0x{}",
+            option_assertion::required(receipt["receipt"].as_str(), "signed receipt")
+        )
+    );
+    let receipt_key = &receipt["receipt_key"];
+    assert_eq!(
+        proof["receiptKey"],
+        json!({
+            "keyId": format!("0x{}", option_assertion::required(receipt_key["key_id"].as_str(), "receipt key id")),
+            "publicKey": format!("0x{}", option_assertion::required(receipt_key["public_key"].as_str(), "receipt public key")),
+            "firstHeight": option_assertion::required(receipt_key["first_height"].as_u64(), "receipt key first height").to_string(),
+            "lastHeight": option_assertion::required(receipt_key["last_height"].as_u64(), "receipt key last height").to_string(),
+        })
+    );
+    assert_eq!(proof["kind"], "receipt");
+    assert_eq!(proof["format"], "layerx-receipt-proof-v2");
+    assert_eq!(proof["verificationLevel"], "committed");
+    assert_eq!(proof["rung"], "committed");
+    assert_eq!(proof["height"], block.number);
+    assert_eq!(proof["commitment_height"], block.number + 1);
+    assert_eq!(proof["transaction_hash"], transaction);
+    let raw = option_assertion::required(
+        block
+            .transactions
+            .iter()
+            .find(|raw| transaction_hash(raw) == hash),
+        "the committed block contains the produced transaction",
+    );
+    assert_eq!(proof["rawTransaction"], format!("0x{}", hex::encode(raw)));
+    for field in ["blockHeader", "receiptInclusion", "commit", "validatorSet"] {
+        let bytes = proof[field]
+            .as_str()
+            .and_then(|value| value.strip_prefix("0x"))
+            .unwrap_or_else(|| panic!("committed proof must carry {field}"));
+        assert!(!must(hex::decode(bytes)).is_empty(), "{field}");
+    }
+    proof
+}
+
+fn assert_refused_native_inputs(
+    surface: &AgentSurface,
+    wrong_credential: &AgentSurface,
+    height: u64,
+    first: &[Value],
+) {
     for path in [
         "/v1/reads/receipt/not-a-digest",
         "/v1/reads/proof/not-a-digest",
@@ -522,18 +587,4 @@ fn native_reads_producer_http_consumer_reopens_and_refuses_malformed_results() {
             Err(BoundaryRefusal::Malformed(_))
         ));
     }
-
-    drop(service);
-    assert!(
-        matches!(
-            surface.native_read(&path),
-            Err(BoundaryRefusal::Unavailable(_))
-        ),
-        "a stopped server must never be answered from a cache"
-    );
-    let reopened = Service::start(&config, address, &node);
-    let second = observe(&mut reads, address, &config.url, hash, &block);
-    assert_eq!(first, second);
-    assert_eq!(must(surface.native_read(&path)), second[2]);
-    drop(reopened);
 }

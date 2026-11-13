@@ -149,7 +149,7 @@ fn readiness_gate(
                     ));
                 }
             }
-            let length = length.expect("readiness content length required");
+            let length = assert_some(length, "readiness content length required");
             assert!(length <= 64 * 1024);
             let mut body = vec![0; length];
             must(reader.read_exact(&mut body), "readiness request body");
@@ -229,4 +229,12 @@ pub(super) fn authorize(
         )?;
     }
     result
+}
+
+#[track_caller]
+fn assert_some<T>(value: Option<T>, message: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{message}"),
+    }
 }

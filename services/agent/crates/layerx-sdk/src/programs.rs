@@ -132,16 +132,12 @@ impl NativeProgramCallRequest {
 }
 
 trait BoundProgramRequest {
-    fn request_program(&self) -> [u8; 32];
     fn bound_activity_id(&self) -> [u8; 32];
     fn bound_idempotency_key(&self) -> [u8; 32];
     fn signed_activity(&self) -> &[u8];
 }
 
 impl BoundProgramRequest for ProgramCallRequest {
-    fn request_program(&self) -> [u8; 32] {
-        self.call.callee().bytes()
-    }
     fn bound_activity_id(&self) -> [u8; 32] {
         self.activity_id
     }
@@ -154,9 +150,6 @@ impl BoundProgramRequest for ProgramCallRequest {
 }
 
 impl BoundProgramRequest for NativeProgramCallRequest {
-    fn request_program(&self) -> [u8; 32] {
-        self.program_id
-    }
     fn bound_activity_id(&self) -> [u8; 32] {
         self.activity_id
     }

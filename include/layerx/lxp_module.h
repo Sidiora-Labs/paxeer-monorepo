@@ -34,6 +34,7 @@ typedef struct lxp_transfer_set lxp_transfer_set;
 typedef struct lxp_receipt lxp_receipt;
 typedef struct lxp_ledger_receipt_input lxp_ledger_receipt_input;
 typedef struct lxp_verified_receipt_facts lxp_verified_receipt_facts;
+/* Committed receipt facts supplied to Programs proof consumers. */
 typedef struct lxp_verified_receipt_authority_facts lxp_verified_receipt_authority_facts;
 typedef struct lxp_prepared_module_transition lxp_prepared_module_transition;
 typedef struct lx_account lx_account;

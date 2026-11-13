@@ -6,7 +6,7 @@ import subprocess
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SITE = ROOT / "docs/site/docs"
+SITE = ROOT / "docs/site/paxeer-docs/src/app"
 WIKI = ROOT / "docs/wiki"
 WIKI_PAGES = (
     "Asset.md",
@@ -49,7 +49,7 @@ def test_site_pages_cite_only_tracked_spec_files():
             text=True,
         ).stdout.split("\0")
     )
-    pages = sorted(SITE.rglob("*.md"))
+    pages = sorted(SITE.rglob("page.tsx"))
     assert pages, "No site pages found"
     references = []
     missing = []
@@ -67,7 +67,7 @@ def test_site_pages_cite_only_tracked_spec_files():
 
 
 def test_storage_scan_page_has_no_task_clauses():
-    page = SITE / "programs/storage-scan.md"
+    page = SITE / "storage-scan/page.tsx"
     content = page.read_text(encoding="utf-8")
     assert content.strip(), "Storage scan page is empty"
     clauses = SPEC_CLAUSE.findall(content)

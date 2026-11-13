@@ -171,6 +171,8 @@ impl BoundaryAdmission {
     }
 
     /// Reserves dispatch capacity for submission and receipt traffic and caps each tenant lane.
+    /// # Errors
+    /// Returns an error if the admission configuration or tenant bound is invalid.
     pub fn with_tenant_bound(
         config: AdmissionConfig,
         tenant_bound: QueueBound,

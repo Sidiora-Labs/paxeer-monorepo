@@ -1,5 +1,6 @@
-#[path = "support/repair_22_33_44_approval.rs"]
-mod durable_approval;
+mod durable_approval {
+    include!("support/repair_22_33_44_approval.rs");
+}
 
 #[path = "retired_crypto_codec_2.rs"]
 mod retired_crypto_codec_2;
@@ -115,15 +116,15 @@ fn send_intent(recipient_marker: u64, amount: u128, asset: [u8; 32], key: [u8; 3
 }
 
 fn prepare(intent: &Intent, key: [u8; 32], fee_limit: u128) -> Prepared {
-    let compiled = compile(intent, &registry()).expect("compile real transfer intent");
-    let signing_key = k256::ecdsa::SigningKey::from_slice(&[0x71; 32]).expect("EVM sender key");
+    let compiled = compile(intent, &registry()).or_fail("compile real transfer intent");
+    let signing_key = k256::ecdsa::SigningKey::from_slice(&[0x71; 32]).or_fail("EVM sender key");
     let from = layerx_crypto::secp256k1::evm_address(
         signing_key
             .verifying_key()
             .to_encoded_point(false)
             .as_bytes(),
     )
-    .expect("sender address");
+    .or_fail("sender address");
     let prepared = prepare_bound(
         EvmPreparationState {
             chain_id: 125,
@@ -146,14 +147,14 @@ fn prepare(intent: &Intent, key: [u8; 32], fee_limit: u128) -> Prepared {
         },
         100_000,
     )
-    .expect("real EVM prepare and disclosure");
+    .or_fail("real EVM prepare and disclosure");
     assert_eq!(prepared.disclosure.idempotency_key, nonzero_key(key));
     prepared
 }
 
 fn held_digest(prepared: &Prepared, marker: u8) -> [u8; 32] {
     let root = support::directory("render-durable-approval");
-    let tenant = TenantId::new("tenant-approval-render").expect("tenant");
+    let tenant = TenantId::new("tenant-approval-render").or_fail("tenant");
     let clock = durable_approval::clock();
     let (registry, limiter, expiry) = durable_approval::register_and_reopen(
         &root.join("registry"),
@@ -171,7 +172,7 @@ fn held_digest(prepared: &Prepared, marker: u8) -> [u8; 32] {
             101,
             durable_approval::current_time(clock.as_ref()),
         )
-        .expect("production approval presentation");
+        .or_fail("production approval presentation");
     let digest = record.canonical_bytes_digest;
     assert_eq!(
         digest,
@@ -181,7 +182,7 @@ fn held_digest(prepared: &Prepared, marker: u8) -> [u8; 32] {
     );
     drop(expiry);
     drop(registry);
-    std::fs::remove_dir_all(root).expect("cleanup approval store");
+    std::fs::remove_dir_all(root).or_fail("cleanup approval store");
     digest
 }
 
@@ -298,7 +299,12 @@ fn mismatched_digest_and_unverified_budget_are_refused_before_content() {
     let mut budget = verified_budget(990, 107);
     budget.rung = Rung::Submitted;
     let presentation = DisclosureRenderer::render(&prepared.disclosure, digest, budget)
-        .expect("Submitted budget with evidence renders its unverified context");
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "Submitted budget with evidence renders its unverified context"
+            )
+        });
     assert!(!presentation.can_approve());
     let ApprovalPresentation::Rendered(value) = presentation else {
         panic!("known activity with budget evidence must render");
@@ -370,4 +376,10 @@ proptest! {
             Err(DisclosureRenderError::DefectiveDisclosure(_))
         ));
     }
+}
+
+use self::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

@@ -11,6 +11,7 @@ struct SuspendBody {
     reason: String,
 }
 
+#[must_use]
 pub fn refusal(error: &WebhookError) -> Reply {
     let (status, code, retry) = match error {
         WebhookError::InvalidRequest => (400, "invalid_request", None),
@@ -43,10 +44,14 @@ pub fn encoded<T: Serialize>(status: u16, value: &T) -> Reply {
     )
 }
 
+///
+/// # Errors
+/// Returns an error when the request body is not valid JSON.
 pub fn body<T: for<'de> Deserialize<'de>>(request: &Request) -> Result<T, WebhookError> {
     serde_json::from_slice(&request.body).map_err(|_| WebhookError::InvalidRequest)
 }
 
+#[must_use]
 pub fn page(request: &Request) -> usize {
     request
         .parameter("limit")

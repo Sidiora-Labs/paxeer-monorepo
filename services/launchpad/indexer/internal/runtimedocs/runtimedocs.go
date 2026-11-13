@@ -31,7 +31,7 @@ const PrimaryEndpointID = "paxeer-primary"
 func catalogRole(role string) string {
 	switch role {
 	case "USDL":
-		return "SidioraERC20"
+		return valueSidioraERC20
 	case deployment.LaunchpadPrecompileRole:
 		return "EventEmitter"
 	}
@@ -123,7 +123,7 @@ func TrimCatalog(reviewed []byte, manifest deployment.Manifest) (Catalog, error)
 			return Catalog{}, fmt.Errorf("runtimedocs: duplicate catalog contract %s", c.Name)
 		}
 		out.Revisions[c.Name] = c.ABIRevision
-		if c.Name == "SidioraERC20" {
+		if c.Name == valueSidioraERC20 {
 			for _, spans := range c.ImmutableReferences {
 				for _, s := range spans {
 					out.ERC20Ranges = append(out.ERC20Ranges, receipt.CodeRange{Start: s.Start, Length: s.Length})
@@ -155,7 +155,7 @@ func TrimCatalog(reviewed []byte, manifest deployment.Manifest) (Catalog, error)
 	if out.JSON, err = json.Marshal(trimmed); err != nil {
 		return Catalog{}, err
 	}
-	if _, ok := out.Revisions["SidioraERC20"]; !ok || len(out.ERC20Ranges) == 0 {
+	if _, ok := out.Revisions[valueSidioraERC20]; !ok || len(out.ERC20Ranges) == 0 {
 		return Catalog{}, errors.New("runtimedocs: SidioraERC20 provenance unavailable")
 	}
 	return out, nil
@@ -215,13 +215,22 @@ func ReceiptOptions(in Inputs) (receipt.RPCOptions, Catalog, error) {
 		identity := manifest.Roles[role]
 		epochs = append(epochs, receipt.RPCCodeEpoch{Deployment: decode.Deployment{Address: common.HexToAddress(identity.Address), Role: epochRole(role), ABIRevision: revision, From: decode.Order{Block: manifest.ActivationHeight}}, Identity: identity})
 	}
+	// Earlier markets execute through the manifest's beacon. Only the native
+	// generation installs pool surfaces that forward to the precompile.
+	poolKind := "beacon_proxy"
+	if native, ok := manifest.Roles[deployment.LaunchpadPrecompileRole]; ok {
+		if native.Kind != "precompile" || native.Address != deployment.LaunchpadPrecompileAddress {
+			return receipt.RPCOptions{}, Catalog{}, errors.New("runtimedocs: invalid native pool authority")
+		}
+		poolKind = "surface"
+	}
 	o := receipt.RPCOptions{
 		Manifest:    manifest,
 		CatalogJSON: catalog.JSON,
 		Epochs:      epochs,
 		Discovery: []receipt.RPCDiscovery{
-			{Role: "SidioraPool", Kind: "surface", ABIRevision: catalog.Revisions["SidioraPool"], RuntimeHash: strings.ToLower(in.PoolRuntimeHash.Hex())},
-			{Role: "SidioraERC20", ABIRevision: catalog.Revisions["SidioraERC20"], RuntimeHash: strings.ToLower(erc20.Hex()), Immutables: catalog.ERC20Ranges},
+			{Role: "SidioraPool", Kind: poolKind, ABIRevision: catalog.Revisions["SidioraPool"], RuntimeHash: strings.ToLower(in.PoolRuntimeHash.Hex())},
+			{Role: valueSidioraERC20, ABIRevision: catalog.Revisions[valueSidioraERC20], RuntimeHash: strings.ToLower(erc20.Hex()), Immutables: catalog.ERC20Ranges},
 		},
 		Anchor:        &receipt.BlockAnchor{Height: in.Anchor.Height, Hash: in.Anchor.Hash},
 		BlockIdentity: receipt.BlockIdentityReported,

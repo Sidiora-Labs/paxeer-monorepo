@@ -99,14 +99,15 @@ public final class Repair22331389Test {
             assertArrayEquals(submission.execution().canonicalBytes(), await(client.receipt(KEY, hash)).execution().canonicalBytes());
             assertEquals("0x" + HexFormat.of().formatHex(hash), await(client.activity(hash)).required("hash").textValue());
             assertEquals(List.of("pax_sequencerReceipt", "pax_sequencerReceipt", "eth_getTransactionByHash"), methods);
+            String retainedMethod = methods.getLast();
             var receipt = GeneratedSchema.programTransport(GeneratedSchema.AgentOperations.PROGRAM_RECEIPT);
             var activity = GeneratedSchema.programTransport(GeneratedSchema.AgentOperations.PROGRAM_ACTIVITY);
-            assertEquals(methods.getFirst(), receipt.rpcMethod());
+            assertEquals(retainedMethod, receipt.rpcMethod());
             assertEquals(methods.getLast(), activity.rpcMethod());
             assertEquals("", receipt.to());
             assertEquals("", activity.to());
-            assertEquals(List.of("pax_sequencerReceipt(retainedTransactionHash)"), receipt.calls());
-            assertEquals(List.of("eth_getTransactionByHash(retainedTransactionHash)"), activity.calls());
+            assertEquals(List.of(), receipt.calls());
+            assertEquals(List.of(), activity.calls());
             assertEquals(List.of("unverified", "receipt-verified", "checkpoint-finalised"),
                 Arrays.stream(GeneratedSchema.HumanModels.HumanVerificationLevel.values()).map(value -> value.wire()).toList());
             byte[] portable = PortableReceipt.export(raw, JSON.writeValueAsBytes(vector.required("receiptJson")), key(vector));

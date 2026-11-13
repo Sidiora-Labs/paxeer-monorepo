@@ -31,9 +31,15 @@ import (
 	"time"
 
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production/coordinatortest"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/storage"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func connectedIdentityDDL(t *testing.T) string {
@@ -199,7 +205,37 @@ func TestConnectedEncryptedExportWorkerAndSingleUseDownload(t *testing.T) {
 			t.Fatalf("%s required: encrypted export must use real object storage", name)
 		}
 	}
-	objects, e := storage.New(ctx, storage.Config{Endpoint: os.Getenv(required[0]), AccessKeyID: os.Getenv(required[1]), SecretAccessKey: os.Getenv(required[2]), Bucket: os.Getenv(required[3]), Region: "us-east-1"})
+	bucket := os.Getenv(required[3]) + "-" + uuid.NewString()
+	rawConfig, e := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion("us-east-1"), awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(os.Getenv(required[1]), os.Getenv(required[2]), "")))
+	must(t, e)
+	rawObjects := s3.NewFromConfig(rawConfig, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String(os.Getenv(required[0]))
+		o.UsePathStyle = true
+	})
+	_, e = rawObjects.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: aws.String(bucket)})
+	must(t, e)
+	t.Cleanup(func() {
+		cleanup, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		pages := s3.NewListObjectsV2Paginator(rawObjects, &s3.ListObjectsV2Input{Bucket: aws.String(bucket)})
+		for pages.HasMorePages() {
+			page, err := pages.NextPage(cleanup)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			for _, object := range page.Contents {
+				if _, err := rawObjects.DeleteObject(cleanup, &s3.DeleteObjectInput{Bucket: aws.String(bucket), Key: object.Key}); err != nil {
+					t.Error(err)
+					return
+				}
+			}
+		}
+		if _, err := rawObjects.DeleteBucket(cleanup, &s3.DeleteBucketInput{Bucket: aws.String(bucket)}); err != nil {
+			t.Error(err)
+		}
+	})
+	objects, e := storage.New(ctx, storage.Config{Endpoint: os.Getenv(required[0]), AccessKeyID: os.Getenv(required[1]), SecretAccessKey: os.Getenv(required[2]), Bucket: bucket, Region: "us-east-1"})
 	must(t, e)
 	key := make([]byte, 32)
 	_, e = rand.Read(key)
@@ -610,8 +646,21 @@ func TestConnectedPhase3OwnedHTTPProfileAndWatchlist(t *testing.T) {
 	t.Log(`L35_PHASE3_EVIDENCE {"requirements":["D11_019","D11_020","D11_021"],"limitations":["owner HTTP adapters exercised; external gateway proof is a separate connected gate"]}`)
 }
 
-func connectedLegacyFixture(t *testing.T) Store {
+func connectedLegacyFixture(t *testing.T, coordinator ...bool) Store {
 	t.Helper()
+	if len(coordinator) > 0 && coordinator[0] {
+		// Deletion uses the registered identity owner functions in 330001;
+		// chat_runtime bootstraps their owning schemas without users_runtime's
+		// unrelated operation-ledger sequence grant.
+		database := coordinatortest.Bootstrap(t, os.Getenv("USER_TEST_POSTGRES_DSN"), "chat_runtime")
+		cfg, err := pgxpool.ParseConfig(database.AdminDSN)
+		must(t, err)
+		cfg.ConnConfig.RuntimeParams["search_path"] = "users,public"
+		pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
+		must(t, err)
+		t.Cleanup(pool.Close)
+		return Store{DB: pool, Clock: func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) }}
+	}
 	pool := internaltest.NewPostgres(t)
 	ctx := context.Background()
 	_, e := pool.Exec(ctx, connectedIdentityDDL(t))
@@ -769,6 +818,12 @@ func TestConnectedPhase3DeletionRetryAndImmutableBoundary(t *testing.T) {
 }
 
 func TestConnectedPhase3LiveSocketRevocationAndHTTPWrites(t *testing.T) {
+	for _, name := range []string{"L35_PHASE3_GATEWAY_URL", "L35_PHASE3_STREAM_URL", "L35_PHASE3_ORIGIN", "L35_PHASE3_ACCESS_TOKEN", "L35_PHASE3_WALLET_PRIVATE_KEY", "L35_PHASE3_OPERATION_ENVIRONMENT"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	values := map[string]string{}
 	for _, name := range []string{"L35_PHASE3_GATEWAY_URL", "L35_PHASE3_STREAM_URL", "L35_PHASE3_ORIGIN", "L35_PHASE3_ACCESS_TOKEN", "L35_PHASE3_WALLET_PRIVATE_KEY", "L35_PHASE3_OPERATION_ENVIRONMENT"} {
 		values[name] = os.Getenv(name)

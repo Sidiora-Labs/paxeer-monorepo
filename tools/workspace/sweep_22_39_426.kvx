@@ -1,0 +1,32 @@
+[sweep]
+name = "Workspace recipe coverage"
+
+[sweep.core-test-all]
+target = "core-test-all"
+covers = ["src", "include", "tests/ci", "tests/kernel", "tests/ledger", "tests/modules", "tests/programs", "tests/solidity", "programs/Cargo.toml"]
+tools = ["make", "cc", "ar", "python3", "go", "cargo", "forge", "clang", "sh"]
+
+[sweep.human-test]
+target = "human-test"
+covers = ["services/human/Cargo.toml", "services/human/tools", "apps/web", "services/platform/hosted/webhooks", "services/platform/hosted/human", "programs/Cargo.toml", "go.mod"]
+tools = ["make", "cargo", "npm", "node", "go", "cc", "c++", "cmake", "python3", "sh"]
+
+[sweep.platform-verify-sdks]
+target = "platform-verify-sdks"
+covers = ["sdk/platform", "sdk/platform/conformance", "services/agent/sdk", "sdk/integrations", "programs/Cargo.toml"]
+tools = ["make", "cargo", "npm", "node", "python3", "go", "mvn", "swift", "dotnet", "cc", "sh"]
+
+[sweep.programs-test]
+target = "programs-test"
+covers = ["programs/Cargo.toml", "programs/crates", "programs/sdk", "programs/porting", "tests/programs", "src/modules/programs"]
+tools = ["make", "cargo", "cc", "clang", "npm", "node", "python3", "sh"]
+
+[sweep.specgen-test]
+target = "specgen-test"
+covers = ["tools/specgen", "spec"]
+tools = ["make", "go"]
+
+[sweep.specgen-lint]
+target = "specgen-lint"
+covers = ["tools/specgen", "spec"]
+tools = ["make", "go"]

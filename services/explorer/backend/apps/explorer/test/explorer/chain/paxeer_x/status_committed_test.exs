@@ -1,9 +1,18 @@
+Code.require_file("../../../support/fixture/paxeer_x/governed_receipt_fixtures.exs", __DIR__)
+
 defmodule Explorer.Chain.PaxeerX.StatusCommittedTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias Explorer.Chain.PaxeerX.Finality.Heights
   alias Explorer.Chain.PaxeerX.SequencerReceipt
+  alias Explorer.Chain.PaxeerX.GovernedReceiptFixtures
   alias Explorer.Chain.PaxeerX.Status
+
+  setup do
+    GovernedReceiptFixtures.restore_on_exit()
+    GovernedReceiptFixtures.configure_committed()
+    :ok
+  end
 
   @vectors Path.expand("../../../support/fixture/paxeer_x/committed_vectors.json", __DIR__)
 
@@ -26,21 +35,17 @@ defmodule Explorer.Chain.PaxeerX.StatusCommittedTest do
   end
 
   defp committed_verification_promotes_unindexed_hash(%{test_case: test_case, tx_hash: tx_hash, key: key}) do
-    %{"from_seq" => from_seq, "to_seq" => to_seq} = test_case["batch"]
-
     verification =
-      SequencerReceipt.verify(tx_hash, test_case["receiptJson"], [key],
-        prev_seq_hash: test_case["prevSeqHash"],
-        eth_receipt: test_case["eth_receipt"],
-        batch: %{from_seq: from_seq, to_seq: to_seq},
-        chain_id: test_case["chain_id"],
-        commit: test_case["commit"],
-        validators: test_case["validators"]
+      SequencerReceipt.verify(
+        tx_hash,
+        test_case["receiptJson"],
+        [key],
+        GovernedReceiptFixtures.committed_opts(test_case)
       )
 
-    assert verification == {:committed, key, 1_000}
+    assert verification == {:committed, key, 10}
 
-    for {head, expected_height} <- [{nil, 1_000}, {0, 1_000}, {999, 1_000}, {1_000, 1_000}, {1_001, 1_001}] do
+    for {head, expected_height} <- [{nil, 10}, {0, 10}, {9, 10}, {10, 10}, {11, 11}] do
       heights = %Heights{committed_height: head}
 
       assert Status.of(nil, heights, verification) == %Status{
@@ -53,18 +58,18 @@ defmodule Explorer.Chain.PaxeerX.StatusCommittedTest do
       assert Status.rung(nil, heights, verification) == :committed
     end
 
-    assert Status.of(1_000, %Heights{committed_height: 999}, verification) == %Status{
+    assert Status.of(10, %Heights{committed_height: 9}, verification) == %Status{
              rung: :committed,
              reason: :sequencer_receipt,
-             block_number: 1_000,
-             committed_height: 1_000
+             block_number: 10,
+             committed_height: 10
            }
 
-    assert Status.of(999, %Heights{committed_height: 999}, verification) == %Status{
+    assert Status.of(9, %Heights{committed_height: 9}, verification) == %Status{
              rung: :committed,
              reason: :in_committed_block,
-             block_number: 999,
-             committed_height: 1_000
+             block_number: 9,
+             committed_height: 10
            }
   end
 
@@ -74,7 +79,7 @@ defmodule Explorer.Chain.PaxeerX.StatusCommittedTest do
 
     assert verification == {:receipted, key}
 
-    for head <- [nil, 0, 999, 1_000, 1_001] do
+    for head <- [nil, 0, 9, 10, 11] do
       heights = %Heights{committed_height: head}
 
       assert Status.of(nil, heights, verification) == %Status{

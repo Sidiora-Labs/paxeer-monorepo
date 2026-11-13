@@ -133,7 +133,7 @@ fn snapshot_binding_v2_decodes_absent_optional_fields() {
         assert_eq!(n, expected_len);
         assert_eq!(decode_snapshot_binding(&encoded[..n]), Ok(binding));
         assert_eq!(
-            decode_snapshot_binding(&encoded[..n + 1]),
+            decode_snapshot_binding(&encoded[..=n]),
             Err(noncanonical.clone())
         );
     }

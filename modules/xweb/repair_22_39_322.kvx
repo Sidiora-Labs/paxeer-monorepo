@@ -1,0 +1,44 @@
+[repair.22.39.322]
+acceptance = "22998.1"
+starting_revision = "5df42280640955ac1f70ea7e257ffaed6bb3f0b2"
+scope = "modules/xweb"
+baseline = "No earlier gate ledger or xweb edits were present. No starting-revision test run is claimed: the explicit implementation-first order and prohibition on running verify_cmd by hand take precedence over do_1. The failures below are the supplied inventory evidence, not a new baseline run."
+qualification = "The verified candidate revision, exact command, exit code and private log are named by the final verify row in /out/run/gates.jsonl and the JSON line emitted by hf-done; the build and verify rows must name the same candidate. A source record cannot embed the hash of the commit containing itself."
+build_command = "go build ./modules/xweb/... && go test -count=1 -run '^$' ./modules/xweb/ ./modules/xweb/keeper/... ./modules/xweb/types/..."
+verify_command = "test -s modules/xweb/repair_22_39_322.kvx && go test -count=1 -timeout 30m ./modules/xweb/ ./modules/xweb/keeper/... ./modules/xweb/types/..."
+
+[case.frozen-documentation]
+test = "TestRepairM_1251_FrozenVectorsAndDocumentation"
+first_error = "Inventory at 7de3a9051436: repair_m1251_test.go:268, ATTESTATION.md lacks the frozen compatibility vectors and historical origin-1 test chain id claims."
+producer_commit = "3b394dcea74a63372de77f5ce29353a998fe09a4"
+cause = "M-1251 deliberately retained the historical 713714 corpus. Chain-125 documentation examples from 846408dc54a16551c329b1d10e6f60989ad62ad8 displaced its explicit frozen-corpus description even though the JSON and cross-language consumers remained historical."
+repair = "Describe the shared JSON explicitly as frozen compatibility vectors on historical test chain 713714, separate from the existing chain-125 examples. Keep every vector byte, preimage, digest, signature and generated example unchanged, and retain all M-1251 assertions."
+
+[case.committed-capacity]
+test = "TestFulfilProgramCommittedCapacity"
+first_error = "Inventory at 7de3a9051436: program_fulfil_test.go:650 through :515 expects LXP_ARENA_EXHAUSTED for paid request 65, but fulfilment succeeds."
+producer_commit = "a17cb9ba4d6e239be488fd347afb3dbb86acea7f"
+cause = "Repair 128 intentionally bounds hot answers at 64 while archiving completed answers and preserving their replay tombstones indefinitely; its record identifies the old lifetime-exhaustion assertion as a contract conflict. Admission of request 65 archives answer 1 before settlement."
+repair = "Align the case with the real admission, archival and settlement producer. Assert exact 64/63/64 hot counts, pending counts, escrow before and after settlement, exact signer payouts, byte-for-byte archive preservation, all 65 readable answers, atomic replay rejection for archived and hot answers, and the counters invariant. Independently assert the unchanged LXP_ARENA_EXHAUSTED error and store atomicity when reserving more than the hard 64-slot bound. No arena bound or production behavior changes."
+
+[case.keeper-evm-fetch]
+test = "TestPreimageVectorsFromKeeper/evm-fetch"
+first_error = "Inventory at 7de3a9051436: types/attestation_test.go:154 expects EVM chain 713714 from the frozen vector, but the application fixture resolves to 125."
+producer_commit = "846408dc54a16551c329b1d10e6f60989ad62ad8"
+cause = "The EVM resolver now defaults to 125 and no longer maps foreign networks; the keeper fixture implicitly depended on the former default rather than configuring the historical signing domain. M-1251 makes the frozen vector authoritative for compatibility."
+repair = "Configure an isolated historical test-chain entry through the real EVM resolver and remove it with t.Cleanup. Preserve every preimage/digest/signature, request, fulfilment, tamper rejection and payout assertion. Also prove that mainnet still resolves to 125 and refuses the historical signature without changing state or balances."
+
+[case.keeper-evm-api-single]
+test = "TestPreimageVectorsFromKeeper/evm-api-single"
+first_error = "Inventory at 7de3a9051436: types/attestation_test.go:154 expects 713714 but finds 125."
+producer_commit = "846408dc54a16551c329b1d10e6f60989ad62ad8"
+cause = "The single-attestor compatibility case shares the same implicit-default fixture regression as evm-fetch; its frozen payload also names the historical signer."
+repair = "Use the same explicitly configured historical chain with real request admission, named-signer verification and fee payout, retain exact frozen-byte comparisons, and prove atomic rejection of the historical signature on chain 125."
+
+[gotcha.baseline-order]
+observed = "do_1 asks for a starting-revision verification while the ordered gate rules forbid testing before full implementation or running verify_cmd outside hf-done."
+action = "Use only hf-build followed by hf-done after complete implementation; identify supplied inventory evidence separately from gates actually executed."
+
+[gotcha.scope]
+observed = "The repository workflow asks for root/spec ledger edits and publication, but this task authorizes only modules/xweb and forbids commits and pushes."
+action = "Keep findings in this scoped repair record and let the runner qualify and publish its candidate."

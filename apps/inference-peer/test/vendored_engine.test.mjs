@@ -153,7 +153,7 @@ async function standalonePackageMetadata() {
   const lock = await readJson("package-lock.json");
   assert.equal(manifest.type, "module");
   assert.equal(manifest.scripts.build, undefined);
-  assert.equal(manifest.scripts.test, "node --test test/vendored_engine.test.mjs");
+  assert.equal(manifest.scripts.test, "node --test test/*.test.mjs");
   assert.equal(lock.lockfileVersion, 3);
   assert.equal(lock.name, manifest.name);
   assert.equal(lock.version, manifest.version);

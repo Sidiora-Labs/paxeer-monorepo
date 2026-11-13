@@ -133,17 +133,19 @@ func TestGetBlockRentionHeight(t *testing.T) {
 func TestBaseAppCreateQueryContext(t *testing.T) {
 	t.Parallel()
 
-	db := dbm.NewMemDB()
-	name := t.Name()
-	app := NewBaseApp(name, db, nil, nil, &testutil.TestAppOpts{})
+	app := setupBaseAppWithVersionedState(t)
+	key := []byte("height")
 
 	app.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{Header: &tmproto.Header{ChainID: app.ChainID, Height: 1}})
+	app.deliverState.ctx.KVStore(capKey1).Set(key, []byte("one"))
 	app.SetDeliverStateToCommit()
 	app.Commit(context.Background())
 
 	app.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{Header: &tmproto.Header{ChainID: app.ChainID, Height: 2}})
+	app.deliverState.ctx.KVStore(capKey1).Set(key, []byte("two"))
 	app.SetDeliverStateToCommit()
 	app.Commit(context.Background())
+	requireVersionedTestValue(t, app, 2, capKey1, key, []byte("two"))
 
 	testCases := []struct {
 		name   string
@@ -152,6 +154,8 @@ func TestBaseAppCreateQueryContext(t *testing.T) {
 		expErr bool
 	}{
 		{"valid height", 2, true, false},
+		{"historical height", 1, false, false},
+		{"latest height", 0, false, false},
 		{"future height", 10, true, true},
 		{"negative height, prove=true", -1, true, true},
 		{"negative height, prove=false", -1, false, true},
@@ -159,11 +163,18 @@ func TestBaseAppCreateQueryContext(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := app.CreateQueryContext(tc.height, tc.prove)
+			ctx, err := app.CreateQueryContext(tc.height, tc.prove)
 			if tc.expErr {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
+				if tc.height == 1 {
+					require.Equal(t, int64(1), ctx.BlockHeight())
+					require.Equal(t, []byte("one"), ctx.KVStore(capKey1).Get(key))
+				} else {
+					require.Equal(t, int64(2), ctx.BlockHeight())
+					require.Equal(t, []byte("two"), ctx.KVStore(capKey1).Get(key))
+				}
 			}
 		})
 	}

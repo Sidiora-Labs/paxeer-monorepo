@@ -26,6 +26,9 @@ type sourceCapacityCandidate struct {
 
 func TestSourceCapacityCandidate(t *testing.T) {
 	path := os.Getenv("KINDLE_SOURCE_CAPACITY_CONFIG")
+	if path == "" {
+		t.Skip("source capacity admission requires KINDLE_SOURCE_CAPACITY_CONFIG")
+	}
 	expected := os.Getenv("KINDLE_SOURCE_CAPACITY_CONFIG_SHA256")
 	if !filepath.IsAbs(path) || len(expected) != 64 {
 		t.Fatal("bound actual owned source capacity configuration required")

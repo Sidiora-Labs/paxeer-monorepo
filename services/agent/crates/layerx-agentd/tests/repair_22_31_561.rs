@@ -1,3 +1,11 @@
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 #[path = "export.rs"]
 mod export_fixture;
 
@@ -34,16 +42,21 @@ fn state_fact(fixture: &Fixture) -> FactRef {
 fn with_produced_state(run: impl FnOnce(&Fixture, &OfflineExport)) {
     let fixture = Fixture::new(8, true);
     let vector = storage_vector();
-    let slot: [u8; 32] = must(hex::decode(vector["slot"].as_str().unwrap()))
-        .try_into()
-        .unwrap();
+    let slot: [u8; 32] = require_ok(
+        must(hex::decode(require_some(
+            vector["slot"].as_str(),
+            "required test value",
+        )))
+        .try_into(),
+        "required test value",
+    );
     let block = json!({
         "number":"0x8", "hash":format!("0x{}",hex::encode(fixture.header.block_hash())),
         "parentHash":format!("0x{}",hex::encode([0;32])),
         "timestamp":format!("{:#x}",fixture.header.time.seconds),
         "transactionsRoot":format!("0x{}",hex::encode([1;32])),
-        "receiptsRoot":format!("0x{}",hex::encode(fixture.header.last_results_hash.unwrap())),
-        "stateRoot":format!("0x{}",vector["app_hash"].as_str().unwrap()),
+        "receiptsRoot":format!("0x{}",hex::encode(require_some(fixture.header.last_results_hash, "required test value"))),
+        "stateRoot":format!("0x{}",require_some(vector["app_hash"].as_str(), "required test value")),
         "transactions":[],
     });
     let (endpoint, server) = storage_node(vec![
@@ -62,10 +75,11 @@ fn with_produced_state(run: impl FnOnce(&Fixture, &OfflineExport)) {
     let directory = std::env::temp_dir().join(format!(
         "repair-22-31-561-{}-{}",
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
+        require_ok(
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH),
+            "required test value"
+        )
+        .as_nanos()
     ));
     let tenant = must(TenantId::new("state-export"));
     let registry = must(ModuleRegistry::new(&[]));
@@ -76,7 +90,9 @@ fn with_produced_state(run: impl FnOnce(&Fixture, &OfflineExport)) {
     ));
     let store = Mutex::new(must(Store::open(&directory)));
     must(retain_bundle(
-        &mut store.lock().unwrap(),
+        &mut store
+            .lock()
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value")),
         tenant.clone(),
         fixture.artifact.clone(),
         &fixture.trust,
@@ -99,13 +115,73 @@ fn with_produced_state(run: impl FnOnce(&Fixture, &OfflineExport)) {
         ),
         Err(ExportProduceError::NotOwned { fact: 0 })
     ));
+    continue_with_produced_state_1_repair_22_31_561(
+        ContinueWithProducedState1Repair2231561Context {
+            run,
+            fixture,
+            vector,
+            slot,
+            endpoint,
+            server,
+            directory,
+            tenant,
+            registry,
+            authority,
+            store,
+        },
+    );
+}
+
+struct ContinueWithProducedState1Repair2231561Context<F0> {
+    run: F0,
+    fixture: Fixture,
+    vector: Value,
+    slot: [u8; 32],
+    endpoint: layerx_client::sequencer::SequencerEndpoint,
+    server: std::thread::JoinHandle<()>,
+    directory: std::path::PathBuf,
+    tenant: TenantId,
+    registry: ModuleRegistry,
+    authority: EvidenceAuthority,
+    store: Mutex<Store>,
+}
+
+fn continue_with_produced_state_1_repair_22_31_561(
+    context: ContinueWithProducedState1Repair2231561Context<
+        impl FnOnce(&Fixture, &layerx_agent_api::export::OfflineExport),
+    >,
+) {
+    let ContinueWithProducedState1Repair2231561Context {
+        run,
+        fixture,
+        vector,
+        slot,
+        endpoint,
+        server,
+        directory,
+        tenant,
+        registry,
+        authority,
+        store,
+    } = context;
+
+    let context = ExportOwnerContext {
+        store: &store,
+        tenant: &tenant,
+        bound_account: Some(fixture.account_id),
+        registry: &registry,
+        authority: &authority,
+        trust: &fixture.trust,
+        first_correlation: 1,
+        availability_deadline: Duration::from_secs(1),
+    };
     must(retain_state_export(
         &context,
         &endpoint,
         transaction_hash(fixture.artifact.bundles[0].raw_transaction.as_bytes()),
         &[slot],
     ));
-    server.join().unwrap();
+    require_ok(server.join(), "required test value");
     let produced = must(produce(
         &context,
         &[state_fact(&fixture)],
@@ -113,10 +189,10 @@ fn with_produced_state(run: impl FnOnce(&Fixture, &OfflineExport)) {
     ));
     assert_eq!(produced.response.achieved_rung, Rung::Committed);
     assert_eq!(produced.response.value.facts, [state_fact(&fixture)]);
-    let proof = produced.response.value.bundles[0]
-        .account_proof
-        .as_ref()
-        .unwrap();
+    let proof = require_some(
+        produced.response.value.bundles[0].account_proof.as_ref(),
+        "required test value",
+    );
     assert_eq!(proof.as_bytes(), fixture.account_proof);
     let witnesses = must(decode_storage_witnesses(proof.as_bytes()));
     assert_eq!(witnesses.len(), 1);
@@ -128,7 +204,6 @@ fn with_produced_state(run: impl FnOnce(&Fixture, &OfflineExport)) {
         must(verify(&transported, &fixture.trust)).verified_inclusions,
         1
     );
-    drop(context);
     drop(store);
     let recovered_store = Mutex::new(must(Store::open(&directory)));
     let context = ExportOwnerContext {
@@ -148,7 +223,6 @@ fn with_produced_state(run: impl FnOnce(&Fixture, &OfflineExport)) {
     ));
     assert_eq!(must(serialize_export(&recovered.response.value)), bytes);
     run(&fixture, &transported);
-    drop(context);
     drop(recovered_store);
     must(std::fs::remove_dir_all(directory));
 }
@@ -167,11 +241,11 @@ fn producer_transport_and_offline_consumer_preserve_ics23_storage_evidence() {
 fn offline_consumer_rejects_tampered_operations_app_hash_account_and_slot() {
     with_produced_state(|fixture, artifact| {
         let original = must(decode_storage_witnesses(
-            artifact.bundles[0]
-                .account_proof
-                .as_ref()
-                .unwrap()
-                .as_bytes(),
+            require_some(
+                artifact.bundles[0].account_proof.as_ref(),
+                "required test value",
+            )
+            .as_bytes(),
         ));
         for mutation in 0..6 {
             let mut witnesses = original.clone();
@@ -213,9 +287,11 @@ fn offline_consumer_rejects_tampered_operations_app_hash_account_and_slot() {
         let mut commit = fixture.commit.clone();
         commit.block_id.hash = header.block_hash();
         for (index, vote) in commit.clone().votes.iter().enumerate() {
-            commit.votes[index].signature = SigningKey::from_bytes(&[index as u8 + 1; 32])
-                .sign(&commit.vote_sign_bytes(&header.chain_id, vote.timestamp))
-                .to_bytes();
+            commit.votes[index].signature = SigningKey::from_bytes(
+                &[require_ok(u8::try_from(index), "test value fits u8") + 1; 32],
+            )
+            .sign(&commit.vote_sign_bytes(&header.chain_id, vote.timestamp))
+            .to_bytes();
         }
         altered.bundles[0].block_header = Some(canonical(encode_header(&header)));
         altered.bundles[0].commit = Some(canonical(encode_commit(&commit, &fixture.validators)));

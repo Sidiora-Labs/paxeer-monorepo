@@ -1,6 +1,6 @@
 import { copyEntry } from "../../copy/runtime.ts";
 import {
-  humanApi,
+  abortableHumanApi,
   decodeSupportCreateRequest,
   decodeSupportReplyRequest,
   type JsonValue,
@@ -120,9 +120,9 @@ export class SupportChatSession {
   constructor(options: SupportChatSessionOptions) {
     this.#shell = options.shell;
     this.#traceId = options.traceId;
-    this.#client = options.client ?? humanApi({
-      fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.any([this.#controller.signal, AbortSignal.timeout(10_000)]) }),
-    });
+    this.#client = options.client ?? abortableHumanApi(
+      () => AbortSignal.any([this.#controller.signal, AbortSignal.timeout(10_000)]),
+    );
     this.#storageOption = options.storage;
     this.#snapshot = this.#buildSnapshot();
   }
@@ -161,12 +161,13 @@ export class SupportChatSession {
 
   #enqueue(work: (generation: number) => Promise<void>): Promise<void> {
     const generation = this.#generation;
+    const stopped = () => this.#stopped;
     const next = this.#queue.then(async () => {
-      if (this.#stopped || generation !== this.#generation) return;
+      if (stopped() || generation !== this.#generation) return;
       try {
         await work(generation);
       } catch (error) {
-        if (this.#stopped || generation !== this.#generation) return;
+        if (stopped() || generation !== this.#generation) return;
         this.#connection = offlineFailure(error) ? "offline" : "online";
         this.#load = "failed";
         this.#notify();

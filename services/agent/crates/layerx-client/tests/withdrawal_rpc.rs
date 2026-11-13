@@ -227,7 +227,7 @@ fn withdrawal_registry_refuses_missing_assets_malformed_metadata_and_rpc_failure
         ("eth_estimateGas", json!({"result":"0x5208"})),
         (
             "px_listAssets",
-            json!({"error":{"code":-32603,"message":"asset read failed"}}),
+            json!({"error":{"code":-32_603,"message":"asset read failed"}}),
         ),
     ]);
     let endpoint = must(SequencerEndpoint::new(&url, &[]));
@@ -292,7 +292,7 @@ fn withdrawal_registry_compares_asset_bytes_and_requires_authoritative_configura
         .collect();
     refusals.extend([
         (json!({"result":"0x00"}), WithdrawalConfigurationError::Unavailable),
-        (json!({"error":{"code":-32000,"message":"historical state unavailable"}}), WithdrawalConfigurationError::Unavailable),
+        (json!({"error":{"code":-32_000,"message":"historical state unavailable"}}), WithdrawalConfigurationError::Unavailable),
         (json!({"error":{"code":3,"message":"execution reverted: LXP_MODULE_DISABLED: module disabled; layerxCustody retired"}}), WithdrawalConfigurationError::Unsupported),
     ]);
     for (answer, error) in refusals {

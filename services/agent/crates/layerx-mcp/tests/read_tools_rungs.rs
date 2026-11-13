@@ -1,3 +1,6 @@
+use layerx_mcp_test_support::option_assertion;
+use layerx_mcp_test_support::result_assertion;
+
 use layerx_agent_api::identity::Asset;
 use layerx_agent_api::prepare::CanonicalBytes;
 use layerx_agent_api::read::{AccountRef, BalanceValue, Freshness, RelativeTo};
@@ -8,17 +11,22 @@ use layerx_proof::inclusion::SequencerAuthorization;
 use serde_json::Value;
 
 fn hex(value: &Value) -> Vec<u8> {
-    let text = value.as_str().expect("fixture hex string");
-    let text = text.strip_prefix("0x").expect("prefixed fixture hex");
+    let text = option_assertion::required(value.as_str(), "fixture hex string");
+    let text = option_assertion::required(text.strip_prefix("0x"), "prefixed fixture hex");
     assert_eq!(text.len() % 2, 0);
     (0..text.len())
         .step_by(2)
-        .map(|offset| u8::from_str_radix(&text[offset..offset + 2], 16).expect("fixture byte"))
+        .map(|offset| {
+            result_assertion::required(
+                u8::from_str_radix(&text[offset..offset + 2], 16),
+                "fixture byte",
+            )
+        })
         .collect()
 }
 
 fn digest(value: &Value) -> [u8; 32] {
-    hex(value).try_into().expect("fixture digest")
+    result_assertion::required(hex(value).try_into(), "fixture digest")
 }
 
 fn freshness(height: u64) -> Freshness {
@@ -34,10 +42,12 @@ fn freshness(height: u64) -> Freshness {
 
 #[test]
 fn receipt_tool_reports_the_receipted_rung() {
-    let document: Value = serde_json::from_str(include_str!(
-        "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
-    ))
-    .expect("shared sequencer receipt corpus");
+    let document: Value = result_assertion::required(
+        serde_json::from_str(include_str!(
+            "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+        )),
+        "shared sequencer receipt corpus",
+    );
     let case = &document["cases"][0];
     assert_eq!(case["id"], "V1-pax-transfer");
     let canonical = hex(&case["signedReceipt"]);
@@ -45,29 +55,33 @@ fn receipt_tool_reports_the_receipted_rung() {
     let keys = [SequencerAuthorization::new(
         digest(&key["keyId"]),
         digest(&key["publicKey"]),
-        key["firstHeight"].as_u64().expect("first key height"),
-        key["lastHeight"].as_u64().expect("last key height"),
+        option_assertion::required(key["firstHeight"].as_u64(), "first key height"),
+        option_assertion::required(key["lastHeight"].as_u64(), "last key height"),
     )];
-    let value = ReceiptValue::from_sequencer_signed(
-        CanonicalBytes::new(canonical.clone()).expect("canonical receipt"),
-        &keys,
-    )
-    .expect("real sequencer-signed receipt verifies");
+    let value = result_assertion::required(
+        ReceiptValue::from_sequencer_signed(
+            result_assertion::required(CanonicalBytes::new(canonical.clone()), "canonical receipt"),
+            &keys,
+        ),
+        "real sequencer-signed receipt verifies",
+    );
     let height = value.height;
     assert_eq!(height, 1000);
     assert_eq!(value.evidence_ids, vec![digest(&key["keyId"])]);
     let mut tampered = canonical.clone();
-    *tampered.last_mut().expect("signature byte") ^= 1;
+    *option_assertion::required(tampered.last_mut(), "signature byte") ^= 1;
     assert_eq!(
         ReceiptValue::from_sequencer_signed(
-            CanonicalBytes::new(tampered).expect("tampered receipt bytes"),
+            result_assertion::required(CanonicalBytes::new(tampered), "tampered receipt bytes"),
             &keys,
         ),
         Err(ReadToolError::Unverified)
     );
     let expected = freshness(height);
-    let result = receipt(value.clone(), Some(Rung::Receipted), expected.clone(), 4096)
-        .expect("receipt tool result");
+    let result = result_assertion::required(
+        receipt(value.clone(), Some(Rung::Receipted), expected.clone(), 4096),
+        "receipt tool result",
+    );
     assert_eq!(result.rung, Some(Rung::Receipted));
     assert_eq!(result.freshness, expected);
     assert_eq!(result.value.height, height);
@@ -91,14 +105,19 @@ fn balance_tool_has_no_rung_for_ordinary_reads() {
     let height = (1_u64 << 53) + 17;
     let expected = freshness(height);
     let value = BalanceValue {
-        account: AccountRef::new("did:layerx:reader").expect("account"),
-        asset: Asset::new("LXP").expect("asset"),
+        account: result_assertion::required(AccountRef::new("did:layerx:reader"), "account"),
+        asset: result_assertion::required(Asset::new("LXP"), "asset"),
         amount: Amount(42),
-        canonical_state: CanonicalBytes::new(42_u128.to_be_bytes().to_vec())
-            .expect("canonical state"),
+        canonical_state: result_assertion::required(
+            CanonicalBytes::new(42_u128.to_be_bytes().to_vec()),
+            "canonical state",
+        ),
         height,
     };
-    let result = balance(value.clone(), None, expected.clone(), 1024).expect("ordinary balance");
+    let result = result_assertion::required(
+        balance(value.clone(), None, expected.clone(), 1024),
+        "ordinary balance",
+    );
     assert_eq!(result.rung, None);
     assert_eq!(result.freshness, expected);
     assert_eq!(result.value, value);

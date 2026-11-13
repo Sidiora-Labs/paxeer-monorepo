@@ -22,7 +22,7 @@ resolution = "Pass the original integer sequence fields and assert their recorde
 
 [finding.status-committed-inclusion]
 status = "regressions-added-production-wiring-required"
-tests = ["recorded_settlement_authenticates_execution_and_successor", "status_committed_inclusion_rejects_*", "status_controller_refuses_*", "signature_controller_refuses_*", "status_answers_committed_for_router_verified_hash", "signature_route_reports_committed_rung"]
+tests = ["recorded_settlement_authenticates_execution_and_successor", "status_committed_inclusion_rejects_*", "status_controller_refuses_*", "signature_controller_refuses_*", "status_answers_committed_for_router_verified_hash", "signature_route_reports_committed_rung", "signature_route_refuses_malformed_gateway_batch"]
 wiring_1 = "domain 14: services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex must authenticate settlement batch/transaction/result proofs and signatures/roots against linked execution and successor commits; verification_options carries the unmodified recorded settlement and independent authority."
 wiring_2 = "domain 14: services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/{transaction_status_controller,transaction_signature_controller}.ex must preserve batch bytes/proof and obtain linked transaction/result evidence before promotion."
 wiring_3 = "hosted gateway owning domain: services/platform/hosted/gateway/src/chain_reads.rs must expose transaction and deterministic ExecTxResult inclusion evidence; px_getSequenceBatch currently exposes only the recorded batch tx/proof shape, so no invented RPC method is served by these controller fixtures."

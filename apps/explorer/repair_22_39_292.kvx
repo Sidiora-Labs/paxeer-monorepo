@@ -1,0 +1,47 @@
+[repair]
+task = "22.39.292"
+requirement = "22998.1"
+base_revision = "2910889b640274b1b6f2bd14a2fba25019093bb2"
+basis = "Decision 3130 and gotchas 3046 and 4008; preserve assertions against the current producer and retain coverage of the presentation contract."
+
+[decision.activity_kind]
+sites = ["ui/paxeerX/account/ActivityList.spec.tsx: renders one row per activity entry", "ui/paxeerX/account/ActivityList.spec.tsx: names the action of every row on a method chip", "ui/paxeerX/account/ActivityListItem.spec.tsx: activity_item_renders_without_side", "ui/paxeerX/account/ActivityListItem.spec.tsx: activity_row_renders_native_item_without_side"]
+producer = "mocks/paxeerX/unifiedAccount.ts:nativeUnifiedAccount at 84613fc9c658a8a49a1a9da39a46ddd09634a741; types/api/paxeerX.ts:PaxeerXNativeActivityItem; services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/unified_account.ex:activity"
+observed = "Both recorded native entries carry kind transaction; the former token-transfer entry is now a failed transaction with native amount zero."
+decision = "Assert Transaction for both native rows and chips; ActivityListItem already renders activityKindLabel(item.kind), so no kind label was lost. Add explicit token_transfer presentation cases to both suites, asserting Token transfer and 2.5 USDX; expose the unchanged raw kind as data-kind on each row."
+
+[decision.amount]
+sites = ["ui/paxeerX/account/ActivityList.spec.tsx: scales amounts by the asset decimals without network-side labels", "ui/paxeerX/account/ActivityListItem.spec.tsx: scales the amount by the asset and marks an entry that carries none"]
+producer = "mocks/paxeerX/unifiedAccount.ts:nativeUnifiedAccount; ui/paxeerX/account/utils.ts:formatAmount"
+observed = "The native entries now carry zero and 1500000000000000000 HPX base units; neither carries the former USDX transfer."
+decision = "Assert 0 HPX and 1.5 HPX for native data; retain the exact 2.5 USDX assertion using an explicitly typed token-transfer presentation input with six asset decimals. Keep absent-amount, absent-metadata and network-label assertions."
+
+[decision.status_ladder]
+sites = ["ui/paxeerX/account/ActivityList.spec.tsx: puts every row on the status ladder", "ui/paxeerX/account/ActivityListItem.spec.tsx: puts the row on its rung of the settlement ladder"]
+producer = "ui/paxeerX/account/ActivityListItem.tsx:StatusLadderBadge; ui/shared/statusLadder/StatusLadderBadge.tsx:data-rung; mocks/paxeerX/unifiedAccount.ts:nativeUnifiedAccount"
+observed = "Both native rows carry committed; StatusLadderBadge already owns data-rung and the visible Committed label. The receipted selector targeted a rung absent from the current native input."
+decision = "Keep the exact ladder-element count and assert two Committed badges for the native page. Rerender explicit receipted and submitted presentation states and assert exactly one badge with the matching attribute and visible label for each state. Keep the attribute on the badge rather than duplicating it on the row."
+
+[decision.empty_assets]
+sites = ["ui/paxeerX/account/AssetList.spec.tsx: shows an empty message when the account holds nothing", "ui/paxeerX/account/AssetList.spec.tsx: keeps the empty message inside the card", "ui/paxeerX/account/AssetList.tsx: empty branch"]
+producer = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/unified_account.ex:balances; mocks/paxeerX/unifiedAccount.ts:nativeUnifiedAccountEvmOnly"
+observed = "The backend always includes the native asset, and the EVM-only fixture now has one native balance with total zero. AssetList still renders the original empty message for an empty array."
+decision = "Drive the existing empty-account case with an actually empty array, preserving the exact message and asserting no asset rows. Add a separate zero-balance case asserting one native row, total 0, the exact asset count and no empty message. Mark the existing empty message as role status and assert it stays inside the card body."
+
+[decision.empty_activity]
+sites = ["ui/paxeerX/account/ActivityList.tsx: empty branch", "ui/paxeerX/account/ActivityList.spec.tsx: shows an empty message when there is no activity"]
+observed = "The native EVM-only activity is still empty, and the component still renders the original first-page empty message."
+decision = "Preserve the message, row count and total assertions; expose the message as role status and assert its exact accessible text."
+
+[decision.repeated_suite]
+site = "ui/paxeerX/account/repair-22-33-502.spec.ts"
+observed = "The repair entry point imports ActivityList, AssetList and AssetListItem specs and repeats their current assertions."
+decision = "Keep all existing suite imports and also import ActivityListItem.spec so the repair entry point exercises row-kind and ladder regressions as well as the corrected list and empty-balance cases. No test is removed, skipped or marked as expected to fail."
+
+[qualification]
+verified_revision = "refs/heads/task/22.39.292"
+revision_binding = "hf-build and hf-done record the immutable candidate revision for this branch in their private evidence ledger; the final response copies hf-done's exact revision, command, exit and log. The gate result, rather than this declaration, establishes qualification."
+build_gate = "hf-build"
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn lint:tsc"
+verify_gate = "hf-done"
+verify_cmd = "test -s apps/explorer/repair_22_39_292.kvx && cd apps/explorer && yarn vitest run ui/paxeerX/account"

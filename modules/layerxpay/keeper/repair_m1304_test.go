@@ -74,7 +74,9 @@ func TestRepairM_1304_GenesisProofGap(t *testing.T) {
 	TestProofPayGenesis(t)
 	w := keeper.OpenRepairM1304World(t, false)
 	_, delivery, _ := repairServiceProduce(t, w)
-	wire, err := json.Marshal(w.Keeper.ExportGenesis(w.Context))
+	exported := w.Keeper.ExportGenesis(w.Context)
+	require.NoError(t, keeper.ValidateOwnedGenesis(*exported))
+	wire, err := json.Marshal(exported)
 	require.NoError(t, err)
 	consumer := keeper.OpenRepairM1304World(t, false)
 	for _, mutation := range []string{"offer_bytes", "offer_id", "progress_bounds", "missing_item", "item_version", "delivery_count", "orphan_item", "bad_key", "duplicate"} {
@@ -98,7 +100,7 @@ func TestRepairM_1304_GenesisProofGap(t *testing.T) {
 					binary.BigEndian.PutUint32(r.Value[225:229], 10001)
 					changed = true
 				case mutation == "missing_item" && bytes.Equal(r.Key, append(repairServiceKey("delitm:1", delivery), 0)):
-					r.Key = repairServiceKey("progrs:1", [32]byte{0xff})
+					malformed.KernelRecords = append(malformed.KernelRecords[:i], malformed.KernelRecords[i+1:]...)
 					changed = true
 				case mutation == "item_version" && bytes.Equal(r.Key, append(repairServiceKey("delitm:1", delivery), 0)):
 					r.Value[0] = 2
@@ -122,7 +124,23 @@ func TestRepairM_1304_GenesisProofGap(t *testing.T) {
 			}
 			require.True(t, changed)
 			beforeHost, beforePay := repairSnapshot(consumer.Context, consumer.HostKey), repairSnapshot(consumer.Context, consumer.PayKey)
-			require.ErrorIs(t, keeper.ValidateOwnedGenesis(malformed), types.ErrInvalidGenesis)
+			validationErr := keeper.ValidateOwnedGenesis(malformed)
+			require.ErrorIs(t, validationErr, types.ErrInvalidGenesis)
+			detail := map[string]string{
+				"offer_bytes":     "invalid offer::1 record body: LXP_NON_CANONICAL",
+				"offer_id":        "offer::1 key/body id mismatch",
+				"progress_bounds": "LXP_NON_CANONICAL: corrupt service state: record identifier",
+				"missing_item":    "missing or invalid service delivery item",
+				"item_version":    "invalid or orphaned service delivery item",
+				"delivery_count":  "invalid service delivery header",
+				"orphan_item":     "invalid or orphaned service delivery item",
+				"bad_key":         "invalid service record key or version",
+				"duplicate":       "duplicate kernel record",
+			}[mutation]
+			require.ErrorContains(t, validationErr, detail)
+			if mutation == "progress_bounds" {
+				require.EqualError(t, validationErr, detail+": invalid genesis")
+			}
 			for n := 0; n < 2; n++ {
 				err := consumer.Keeper.InitGenesis(consumer.Context, malformed)
 				require.ErrorIs(t, err, types.ErrInvalidGenesis)

@@ -108,7 +108,10 @@ fn leaf_prefix(input: &[u8]) -> Result<&[u8]> {
             return rejected();
         }
         match (n, v) {
-            (1..=4, Value::Number(value)) => ops[n as usize - 1] = value,
+            (1, Value::Number(value)) => ops[0] = value,
+            (2, Value::Number(value)) => ops[1] = value,
+            (3, Value::Number(value)) => ops[2] = value,
+            (4, Value::Number(value)) => ops[3] = value,
             (5, Value::Bytes(value)) => prefix = Some(value),
             _ => return rejected(),
         }

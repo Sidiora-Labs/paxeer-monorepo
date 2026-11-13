@@ -21,7 +21,7 @@ fn verification_json(status: &VerificationStatus) -> Value {
     }
 }
 
-pub(super) fn outcome_json(outcome: &Outcome) -> Value {
+pub(crate) fn outcome_json(outcome: &Outcome) -> Value {
     match outcome {
         Ok(success) => json!({
             "result": "success",
@@ -32,7 +32,7 @@ pub(super) fn outcome_json(outcome: &Outcome) -> Value {
         Err(EnvelopeError::Refused(error)) => json!({
             "result": "error",
             "class": format!("{:?}", error.class),
-            "protocol_result_code": error.protocol_result_code.map(|code| code.raw()),
+            "protocol_result_code": error.protocol_result_code.map(layerx_types::result::ResultCode::raw),
             "retriability": format!("{:?}", error.retriability),
             "request_id": error.request_id.0.to_string(),
             "reason": error.reason.as_str(),
@@ -44,7 +44,7 @@ pub(super) fn outcome_json(outcome: &Outcome) -> Value {
     }
 }
 
-pub(super) fn assert_exact_owner_result(
+pub(crate) fn assert_exact_owner_result(
     outcome: &Outcome,
     request_id: RequestId,
     expected: &Value,

@@ -13,6 +13,17 @@ export function humanApi(options: HumanApiClientOptions = {}): HumanApiClient {
   });
 }
 
+export function abortableHumanApi(
+  signal: () => AbortSignal,
+  options: HumanApiClientOptions = {},
+): HumanApiClient {
+  const transport = options.fetch ?? globalThis.fetch;
+  return humanApi({
+    ...options,
+    fetch: (input, init) => transport(input, { ...init, signal: signal() }),
+  });
+}
+
 function browserCsrfToken(): string | undefined {
   if (typeof document === "undefined") {
     return undefined;

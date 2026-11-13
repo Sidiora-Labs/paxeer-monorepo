@@ -43,6 +43,8 @@ typedef struct lxphost_node {
     lx_asset_runtime asset_runtime;
     lx_escrow_runtime escrow_runtime;
     lx_programs_transfer_runtime programs_runtime;
+    lxp_module_iface programs_iface;
+    uint64_t programs_kernel_gas_used;
     uint64_t parameters;
     uint64_t epoch;
     uint16_t programs_guest_abi;
@@ -67,6 +69,7 @@ typedef struct lxphost_kv_view {
 } lxphost_kv_view;
 
 typedef struct lxphost_outcome {
+    uint64_t kernel_gas_used;
     int32_t result_code;
     uint64_t global_sequence;
     uint64_t timestamp;
@@ -86,6 +89,69 @@ typedef struct lxphost_outcome {
     const uint8_t *encoded;
     size_t encoded_length;
 } lxphost_outcome;
+
+static _Thread_local uint64_t lxphost_programs_kernel_gas_used;
+
+static void lxphost_programs_gas_reset(void)
+{
+    lxphost_programs_kernel_gas_used = 0U;
+}
+
+static void lxphost_programs_gas_capture(lxphost_node *node)
+{
+    node->programs_kernel_gas_used = lxphost_programs_kernel_gas_used;
+}
+
+static lxp_result lxphost_programs_execute_metered(
+    lxp_module_ctx *ctx, const lxp_activity *activity,
+    const lxp_authority_resolved *authority, const void *decoded,
+    lxp_effect_buffer *effects)
+{
+    const lxp_module_registration *registration;
+    const lxp_module_iface *iface;
+    lxp_result status = lxp_kernel_module_by_id(
+        ctx->kernel, LXP_MODULE_PROGRAMS, ctx->epoch, &registration);
+    if (status != LXP_OK) return status;
+    iface = registration->abi_version == LX_PROGRAMS_GUEST_ABI_V5_VERSION ?
+        programs_module_registration_v5() :
+        programs_module_registration_v4_storage_retirement();
+    status = iface->execute(ctx, activity, authority, decoded, effects);
+    lxphost_programs_kernel_gas_used = ctx->gas_used;
+    return status;
+}
+
+static int32_t lxphost_receipt_authority_add(lxphost_node *node,
+    lxp_byte_span encoded, uint64_t height)
+{
+    lxp_receipt receipt;
+    lxp_verified_receipt_facts facts = {0};
+    lxp_verified_receipt_index *index = &node->verified_receipts;
+    size_t at;
+    int32_t status = lxp_verified_receipt_index_add_height_authority(
+        index, encoded, height, &node->arena);
+    if (status != LXP_OK) return status;
+    status = lxp_receipt_decode(encoded.bytes, encoded.length, false, &receipt);
+    if (status == LXP_OK)
+        status = lxp_receipt_digest(&receipt, &node->arena, facts.receipt_digest);
+    if (status != LXP_OK) return status;
+    facts.result_code = receipt.result_code;
+    facts.global_sequence = receipt.global_sequence;
+    facts.timestamp = receipt.timestamp;
+    memcpy(facts.asset, receipt.asset, 32);
+    facts.amount = receipt.amount;
+    memcpy(facts.resulting_state_root, receipt.resulting_state_root, 32);
+    for (at = 0; at < index->count; ++at) {
+        int order = memcmp(index->entries[at].receipt_digest, facts.receipt_digest, 32);
+        if (order == 0) return LXP_OK;
+        if (order > 0) break;
+    }
+    if (index->count == LXP_VERIFIED_RECEIPT_INDEX_MAX) return LXP_ERR_LENGTH_LIMIT;
+    memmove(&index->entries[at + 1], &index->entries[at],
+        (index->count - at) * sizeof(index->entries[0]));
+    index->entries[at] = facts;
+    ++index->count;
+    return LXP_OK;
+}
 
 static void lxphost_release_blobs(lxp_kernel *kernel)
 {
@@ -170,11 +236,13 @@ static int32_t lxphost_reset(lxphost_node *node, uint64_t first_sequence)
     if (status == LXP_OK)
         status = lxp_kernel_register_module(&node->kernel,
                                             lxp_governance_module_iface());
-    if (status == LXP_OK)
-        status = lxp_kernel_register_module(&node->kernel,
-                                            programs_guest_abi == LX_PROGRAMS_GUEST_ABI_V5_VERSION ?
-                                                programs_module_registration_v5() :
-                                                programs_module_registration_v4_storage_retirement());
+    if (status == LXP_OK) {
+        node->programs_iface = *(programs_guest_abi == LX_PROGRAMS_GUEST_ABI_V5_VERSION ?
+            programs_module_registration_v5() :
+            programs_module_registration_v4_storage_retirement());
+        node->programs_iface.execute = lxphost_programs_execute_metered;
+        status = lxp_kernel_register_module(&node->kernel, &node->programs_iface);
+    }
     if (status == LXP_OK)
         status = lxp_kernel_register_module(&node->kernel,
                                             lx_asset_module_iface());

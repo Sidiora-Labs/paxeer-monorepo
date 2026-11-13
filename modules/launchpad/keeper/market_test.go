@@ -2,7 +2,12 @@ package keeper_test
 
 import (
 	"encoding/json"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"math/big"
+	"os"
+	"strconv"
 	"testing"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/keeper"
@@ -31,8 +36,53 @@ const (
 	recordedSymbol = "LT549002"
 	creationFee    = 1_000_000
 	virtualToken   = 1_000_000_000_000_000
-	surfaceCode    = "0x363d3d373360601b36523d3d601436013d3d6110175af13d600060003e6024573d6000fd5b3d6000f3"
+	surfaceCode    = "0x3415600957600080fd5b363d3d373360601b36523d3d601436013d3d6110175af13d600060003e602e573d6000fd5b3d6000f3"
 )
+
+func deploymentSurfaceHashes(t *testing.T) (installed, staged string) {
+	t.Helper()
+	const directory = "../../../sdk/launchpad/shared/config/deployment/"
+	data, err := os.ReadFile(directory + "current.json")
+	require.NoError(t, err)
+	var manifest struct {
+		Roles map[string]struct {
+			Kind        string `json:"kind"`
+			RuntimeHash string `json:"runtimeHash"`
+		} `json:"roles"`
+	}
+	require.NoError(t, json.Unmarshal(data, &manifest))
+	installed = manifest.Roles["PoolRegistry"].RuntimeHash
+	require.Regexp(t, "^0x[0-9a-f]{64}$", installed)
+	surfaces := 0
+	for name, role := range manifest.Roles {
+		if role.Kind == "surface" {
+			require.Equal(t, installed, role.RuntimeHash, name)
+			surfaces++
+		}
+	}
+	require.Equal(t, 9, surfaces)
+
+	// The deployment SDK is an independent Go module, so read its declared
+	// staged identity without importing it into the chain module.
+	file, err := parser.ParseFile(token.NewFileSet(), directory+"manifest.go", nil, 0)
+	require.NoError(t, err)
+	ast.Inspect(file, func(node ast.Node) bool {
+		decl, ok := node.(*ast.ValueSpec)
+		if !ok || len(decl.Names) != 1 || decl.Names[0].Name != "StagedSurfaceRuntimeHash" {
+			return true
+		}
+		require.Len(t, decl.Values, 1)
+		literal, ok := decl.Values[0].(*ast.BasicLit)
+		require.True(t, ok)
+		require.Equal(t, token.STRING, literal.Kind)
+		staged, err = strconv.Unquote(literal.Value)
+		require.NoError(t, err)
+		return false
+	})
+	require.Regexp(t, "^0x[0-9a-f]{64}$", staged)
+	require.NotEqual(t, installed, staged)
+	return installed, staged
+}
 
 func packArguments(t *testing.T, kinds []string, values ...interface{}) []byte {
 	t.Helper()
@@ -322,7 +372,12 @@ func TestCreateMarket(t *testing.T) {
 		require.Equal(t, sdk.NewInt(creationFee).String(), treasury.String())
 
 		// The pool address holds the surface runtime with nonce 1.
-		require.Equal(t, common.FromHex(surfaceCode), evm.GetCode(c.ctx, pool))
+		code := evm.GetCode(c.ctx, pool)
+		require.Len(t, code, 51)
+		require.Equal(t, common.FromHex(surfaceCode), code)
+		require.Equal(t, keeper.SurfaceRuntime, code)
+		_, stagedHash := deploymentSurfaceHashes(t)
+		require.Equal(t, stagedHash, crypto.Keccak256Hash(code).Hex())
 		require.Equal(t, uint64(1), evm.GetNonce(c.ctx, pool))
 		surface, found, err := c.k.GetSurface(c.ctx, pool)
 		require.NoError(t, err)

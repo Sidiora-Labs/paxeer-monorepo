@@ -87,7 +87,11 @@ func TestV2StreamRoutesWithoutLifecycleAnswerFrozenError(t *testing.T) {
 			}
 			operation := operations[name]
 			target := strings.NewReplacer("{streamId}", streamID, "{operationId}", streamID).Replace(operation.Path)
-			check(t, operation.Method, target, body, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
+			if name == "IF_STREAM_INGEST_CREDENTIAL" {
+				check(t, operation.Method, target, body, http.StatusGone, "INGEST_CREDENTIAL_RETIRED")
+			} else {
+				check(t, operation.Method, target, body, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
+			}
 		})
 	}
 	for name := range bodies {

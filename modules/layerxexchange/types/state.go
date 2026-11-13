@@ -183,7 +183,13 @@ func NativeGenesisCapability(encoded []byte) ([32]byte, bool, error) {
 	for i, n := uint64(0), r.count(3, 256); i < n && !r.bad; i++ {
 		id, accountAsset, balance := r.blob(32, 32), r.blob(32, 32), r.take(16)
 		locked, kind, parent := r.number(1), r.number(2), r.blob(32, 32)
-		name := map[uint64]string{9: "system:insurance", 10: "system:fees", 11: "system:paxeer-reserve", 12: "system:paxeer-withdrawals"}[kind]
+		// Historical manifests retain the original system account names and kinds.
+		name := map[uint64]string{
+			9:  "system:insurance",
+			10: "system:fees",
+			11: "system:paxeer-reserve",
+			12: "system:paxeer-withdrawals",
+		}[kind]
 		derived, err := codec.DeriveAccountID([]byte(name))
 		if err != nil || !bytes.Equal(id, derived[:]) || genesisZero(accountAsset) ||
 			!genesisZero(balance) || locked != 0 || !genesisZero(parent) || seen[kind] ||

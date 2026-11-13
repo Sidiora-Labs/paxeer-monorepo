@@ -93,7 +93,7 @@ export interface WebSearchClientOptions {
   readonly ledgerRpc?: JsonRpcClient;
   readonly rawTransaction?: (txHash: string) => Promise<Uint8Array>;
   /** @deprecated Always refused. Configure receiptKeys instead. */
-  readonly authority?: (receipt: Uint8Array, offer: WebSearchOffer) => Promise<import("./verifier.js").AuthorizedReceiptBatch>;
+  readonly authority?: (receipt: Uint8Array, offer: WebSearchOffer) => Promise<never>;
   /** @deprecated Always refused. Receipt versions are authenticated by the verifier. */
   readonly protocolVersion?: SelectableProtocolVersion;
   readonly now?: () => bigint;

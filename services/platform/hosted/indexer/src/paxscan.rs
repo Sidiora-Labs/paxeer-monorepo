@@ -113,6 +113,11 @@ fn get<'a, T: postgres::types::FromSql<'a>>(row: &'a Row, index: usize) -> Resul
 
 /// Resolve database domain hints through the trusted node before conversion. A
 /// missing or conflicting hint never assigns a transaction to root history.
+///
+/// # Errors
+/// Propagates source, decode or integrity errors when the trusted node cannot
+/// authenticate a row's hash, block height, transaction position and chain ID.
+/// No row is updated unless every domain has been resolved.
 pub fn resolve_transaction_domains(
     rows: &mut BlockscoutRange,
     node: &crate::paxeer::PaxeerIngester,
@@ -171,7 +176,12 @@ impl PaxscanDatabase {
         Ok(Self { client })
     }
 
-    /// Reads and authenticates transaction domains even on older schemas without chain_id.
+    /// Reads and authenticates transaction domains even on older schemas without `chain_id`.
+    ///
+    /// # Errors
+    /// Propagates range query and column decoding errors, out-of-range heights,
+    /// and source, decode or integrity errors while authenticating transaction
+    /// domains through the trusted node.
     pub fn range_verified(
         &mut self,
         from: u64,
@@ -187,6 +197,10 @@ impl PaxscanDatabase {
     ///
     /// # Errors
     /// Returns query failures and malformed columns.
+    #[allow(
+        clippy::too_many_lines,
+        reason = "Read all six table families in the same read-only repeatable-read transaction."
+    )]
     pub fn range(&mut self, from: u64, to: u64) -> Result<BlockscoutRange, IndexError> {
         let low = signed(from)?;
         let high = signed(to)?;

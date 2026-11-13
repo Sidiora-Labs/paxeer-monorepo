@@ -1,0 +1,50 @@
+[repair.22.39.369]
+requirement = "22998.1"
+base_revision = "6e3abf0ebe494c2a92acb3c9127f7052af1bc430"
+continued_revision = "c63a1ab475de4a56b5dc55f56aaefb28583333fe"
+qualification = "hf-build followed by hf-done, without manual verification; the gate runner's private gates.jsonl, build-N.log and verify-N.log name the exact verified candidate revision, command and exit code. The final evidence row references that revision without changing this candidate after its build."
+implementation = "layerx-ai-source is the package's second binary, backed by ai_source in the library; no dependencies or lockfile changes. It holds no signing credentials and sends only read-only consensus RPC calls."
+proof = "committed_read_reaches_the_projection starts the built executable, supplies real program-created state, production protobuf-encoded native membership and real Ed25519 commits over loopback consensus RPC, compares encode_committed_read bytes, opens RuntimeConfig, polls AiRuntime, asserts finalized market state and durable cursor, observes empty 204, and restarts both source and consumer to prove recovery."
+refusals = "source_refuses_what_it_cannot_serve covers another program/path (404), missing, signed, overflowed, escaped, duplicate or unknown cursor queries (400), and actual node RPC failure (502) even for a future cursor. source_settings_enforce_transport_security rejects remote plaintext and missing TLS anchors."
+
+[settings]
+LAYERX_AI_SOURCE_LISTEN = "Required numeric SocketAddr; example 127.0.0.1:8096, private listener beside the indexer."
+LAYERX_AI_SOURCE_NODE_URL = "Required consensus JSON-RPC endpoint of exactly one node, e.g. http://127.0.0.1:26657; remote plaintext cannot be enabled."
+LAYERX_AI_SOURCE_NODE_CA_DER = "Optional file containing the DER trust anchor required for HTTPS; at most 65536 bytes. No client key or identity is loaded."
+LAYERX_AI_SOURCE_CHAIN = "Required chain domain, exactly 32 bytes encoded as hex; distinct from the consensus chain-id string verified by the indexer."
+LAYERX_AI_SOURCE_PROGRAM = "Required program ID, exactly 32 bytes encoded as hex."
+consumer = "LAYERX_INDEXER_AI_CONFIG remains the indexer's RuntimeConfig file; set its source to this process's origin and pin consensus_chain_id and validators there. Source settings do not alter that authority."
+
+[node_requests]
+latest = "POST JSON-RPC status with {}; read sync_info.latest_block_height as H. Heights below 2 cannot produce a committed H-1 program state and return 502."
+commit = "POST JSON-RPC commit with height H as a decimal string; require canonical=true and signed_header containing header and commit at H with matching header hash. All header members, block IDs, timestamps and precommit signatures are decoded from the consensus JSON wire types."
+namespace = "POST JSON-RPC abci_query: path=/store/lxphost/key, data=0x plus hex(01 00 09 || progstor || program[32] || 01), height=H-1 as decimal, prove=true; require code=0, echoed key and height, a 38-byte v1 namespace head, and ics23:iavl plus ics23:simple operations with the exact namespace and lxphost keys."
+manifest = "POST abci_query at H-1 with prove=false and data=0x plus hex(05 00 09 || namespace_head[6..38]); authenticate the content-addressed manifest digest and parse its canonical ordered entries to find SHARED_STATE_KEY with bounded state length."
+state = "POST abci_query at H-1 with prove=false and data=0x plus hex(05 00 09 || manifest state's SHA256 digest); require exact echoed key/height, length and digest, then read_header validates the configured chain/program."
+validators = "No validator request is necessary in this adapter: unlike acquire_committed_header's client-side verification, the consumer independently verifies the supplied commit against RuntimeConfig's already pinned set. A node-reported set cannot change that trust."
+document = "encode_committed_read receives chain/program from configuration, observed_sequence=H-1, header/commit from commit, and store_proof JSON containing membership.proof (the unwrapped IAVL ExistenceProof), membership.multistore (the complete outer CommitmentProof) and manifest. Chunks come from real read_state_chunk calls pinned by the first response's revision/digest. The consumer synthesizes ReadProof with execution_height H and verifies namespace membership under header.app_hash; no client-side H-1 execution-height assumption is copied into that consumer field."
+interfaces = "All document members have existing node read interfaces. No node changes, px_ methods, chain writes or new validator authority are required."
+
+[http]
+route = "GET /v1/ai/programs/{lowercase-program-hex}/committed-read?after={u64 decimal}"
+publication = "200 with exactly the bounded encode_committed_read document when latest observed_sequence H-1 is newer than after. The source reads a complete latest capture each poll; it holds no durable cursor and does not advance the indexer's cursor."
+idle = "204 with an empty body only after all five latest-height reads succeeded and H-1 is no newer than after, including after greater than the source head. No node error is interpreted as idle."
+refusal = "404 for any other path/program; 400 for malformed cursor or HTTP framing; 502 for unavailable, malformed, mismatched, missing or pruned node material. No historical fallback or partial capture is served."
+bounds = "One accepted connection at a time, no spawned connection workers or unbounded application queue; request headers at most 4096 bytes with a two-second absolute input deadline; five node calls with a one-second total deadline each via Endpoint; node HTTP responses bounded by Endpoint at 64 MiB plus 32 KiB headers; decoded artifacts/proofs at most 1 MiB each; state at most MAX_STATE_BYTES=245760; at most 65536 manifest entries, 1024 signatures and 30 real chunks; output at most COMMITTED_READ_MAX_BYTES=8 MiB with a two-second absolute write deadline and 16 KiB writes. No retries."
+
+[deployment]
+placement = "Run layerx-ai-source beside the indexer, one instance per node endpoint and configured program. Share a private loopback network namespace or a private service network; point RuntimeConfig.source at that listener. Only the node hop supports pinned TLS here, so any exposed source listener requires private-network isolation or an operator-owned TLS proxy. The consumer's consensus verification remains mandatory."
+packaging = "The in-scope Cargo manifest builds both binaries. Existing container packaging outside scope still needs to install layerx-ai-source and launch the additional process; this task does not claim deployment activation."
+
+[executable_pins]
+search = "Searched tests/ci, tools/containers, tools/release and .github/workflows, including hidden files, for layerx-indexer, platform-indexer and hosted/indexer."
+container_check = "tools/containers/check.sh:68 pins platform-indexer to docker/platform-indexer/Dockerfile; outside scope, recorded."
+container_build = "docker/platform-indexer/Dockerfile:5 builds package layerx-indexer (now both default binaries); outside scope, recorded."
+container_copy = "docker/platform-indexer/Dockerfile:13 copies only layerx-indexer into the runtime image; outside scope, recorded packaging gap for layerx-ai-source."
+ci = "No executable pin found in tests/ci."
+release = "No executable pin found in tools/release."
+workflows = "No executable pin found in public .github/workflows."
+in_scope = "No additional executable packaging pin exists inside the indexer package."
+
+[qualification.lint]
+result = "Under decision 3279, the required capped lint preflight exited zero and reached the library, executable and test target with no reports in src/ai_source.rs, src/bin/ai_source.rs or tests/ai_source.rs; the 117 existing reports in other library files belong to task 22.39.373."

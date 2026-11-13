@@ -1,0 +1,59 @@
+[meta]
+task = "22.39.267"
+decisions = ["3101", "3104"]
+inventory_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+inventory_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path services/interop/crates/layerx-interop-service --path services/interop/deploy --path scripts/interop"
+inventory_exit = 1
+findings = 6
+qualification_revision = "The deterministic candidate revision recorded by hf-build and hf-done in /out/run/gates.jsonl."
+qualification_command = "cg spec done 22.39.267 -f layerx-merge --root /work/paxeer-monorepo"
+qualification_evidence = "/out/run/gates.jsonl"
+
+[finding.1]
+path = "scripts/interop/dependency-policy.sh"
+line = 12
+component = "human-two-domain"
+symbol = "layerx-explorer-index"
+repair = "Read the retired human crate names directly from the authoritative catalogue and reject exact package-name matches, preserving this ban without a stale hardcoded reference."
+
+[finding.2]
+path = "scripts/interop/dependency-policy.sh"
+line = 12
+component = "human-two-domain"
+symbol = "layerx-paxeer-client"
+repair = "The same catalogue-backed boundary check retains this ban and also rejects the retired movement provider; all existing boundary, license and unsafe checks remain enforced."
+
+[finding.3]
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 849
+component = "finality-authority"
+symbol = "receipt_authority"
+repair = "Migrate the mapping request regression to sequencer-key forgery, adding a rejected caller-supplied sequencer_public_key while retaining every existing accepted and rejected request."
+
+[finding.4]
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 900
+component = "finality-authority"
+symbol = "receipt_authority"
+repair = "Migrate the history request regression to sequencer-key forgery, rejecting caller-supplied sequencer_public_key for both import and read requests while retaining every existing assertion and case."
+
+[finding.5]
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 3314
+component = "finality-authority"
+symbol = "receipt_authority"
+repair = "Replace the single retired-component absence assertion with an exact component-key assertion requiring only durable_gateway_store and sequencer, rejecting every additional component."
+
+[finding.6]
+path = "services/interop/deploy/search-front/nginx.conf"
+line = 95
+component = "account-naming"
+symbol = "LAYERX-PAYER-DID"
+repair = "Clear LAYERX-PAYER-ADDRESS at the paid-route proxy boundary, matching the EVM payer-address header consumed by x-websearch::payment::payer_address."
+
+[finding.out_of_scope]
+path = "services/interop/deploy/search-front/tests/test_nginx_headers.py"
+symbol = "test_search_location_clears_the_payer_did"
+observed = "The existing test requires the retired header at line 22, contradicting the catalogue replacement; this test is outside task scope and the declared gates and was not run or edited."
+assumption = "The deployment test owner must migrate its assertion to the current EVM payer-address header."
+severity = "suspect"

@@ -146,7 +146,10 @@ func repair1051StartRedis(t *testing.T, reply string) (*repair1051Redis, *goredi
 	if err != nil {
 		t.Fatal(err)
 	}
-	peer := &repair1051Redis{listener: listener, connections: map[net.Conn]bool{}, reply: repair1051Fixture(t, reply), failures: make(chan error, 256)}
+	wire := repair1051Fixture(t, reply)
+	wire = bytes.ReplaceAll(wire, []byte("\r\n"), []byte("\n"))
+	wire = bytes.ReplaceAll(wire, []byte("\n"), []byte("\r\n"))
+	peer := &repair1051Redis{listener: listener, connections: map[net.Conn]bool{}, reply: wire, failures: make(chan error, 256)}
 	peer.wg.Add(1)
 	go func() {
 		defer peer.wg.Done()

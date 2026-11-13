@@ -78,3 +78,9 @@ def test_virtual_chains_docs_name_every_contract() -> None:
     network = (ROOT / "docs/paxeer-network.md").read_text(encoding="utf-8")
     assert "## Virtual chains\n" in network
     assert "[Virtual chains](wiki/VirtualChains.md)" in network
+
+    wiki = (ROOT / DOCUMENTS[0]).read_text(encoding="utf-8")
+    assert "## Launch a market and chain\n" in wiki
+    assert "[chain launch guide](../launchpad/chain-launch.md)" in wiki
+    assert "`launchChain` transaction" in wiki
+    assert "`createChain` call remains available" in wiki

@@ -25,25 +25,22 @@ use crate::{
     codec::{self, CommitAccepted, EventCommon, Reader, ValidatedEnvelope, Writer},
     dispatch,
     errors::{
-        ApplicationError, CodecResult, ARITHMETIC, CAPACITY, CONFLICT, EXPIRED,
-        F03_GRANT_VERSION_CONFLICT, F03_KEY_VERSION_CONFLICT, F03_NO_GRANT, F08_MARKET_PAUSED,
-        KEY_MISMATCH, NON_CANONICAL, NOT_FOUND, REVOKED, UNAUTHORIZED, UNKNOWN_OPERATION,
+        ApplicationError, CodecResult, ARITHMETIC, CAPACITY, CONFLICT, F03_NO_GRANT,
+        F08_MARKET_PAUSED, KEY_MISMATCH, NON_CANONICAL, NOT_FOUND, UNAUTHORIZED, UNKNOWN_OPERATION,
         WRONG_EPOCH,
     },
     evaluators::{
         admission::{
             admit_report_in_state, Admission, AdmissionReceipt, ReportRegion, RevealAdmission,
         },
-        authority::{evaluator_region, FrozenEvaluator},
+        authority::FrozenEvaluator,
         codec::verify_digest,
         model::{SignedReport, VerificationError},
     },
-    registry::check_f01_capacity,
     registry_ops::{CallContext, PolicySection, SUSPENDED},
-    rewards::RewardState,
     state::{
-        decode_shared_state, encode_shared_state, settlement_rewards, ActorSlot, HeightWindow,
-        ReplayDecision, ReplayRequest, RetainedResult, Section, SharedState,
+        decode_shared_state, ActorSlot, HeightWindow, ReplayDecision, ReplayRequest,
+        RetainedResult, Section, SharedState,
     },
     types::{
         Authentication, CommitmentDigest, EvaluatorBinding, EvaluatorId, FrozenBinding, Presence,
@@ -66,6 +63,8 @@ pub(crate) const COMMIT_CLOSES: u64 = 80;
 const REVEAL_OPENS: u64 = 80;
 const REVEAL_CLOSES: u64 = 96;
 
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn canary_window(origin: u64, epoch: u64, reveal: bool) -> CodecResult<HeightWindow> {
     let (opens, closes) = if reveal {
         (REVEAL_OPENS, REVEAL_CLOSES)
@@ -168,6 +167,32 @@ pub struct CommitRegion<'a> {
     records: &'a [u8],
 }
 impl<'a> CommitRegion<'a> {
+    fn committed(bytes: &'a [u8]) -> CodecResult<Self> {
+        if bytes.is_empty() {
+            return Ok(Self {
+                epoch: 0,
+                records: &[],
+            });
+        }
+        let mut r = Reader::new(bytes);
+        let epoch = r.u64()?;
+        let count = usize::from(r.u8()?);
+        if count == 0 || count > MAX_EVALUATORS {
+            return Err(NON_CANONICAL);
+        }
+        let records = r.take(count * COMMIT_RECORD_BYTES)?;
+        r.finish()?;
+        let mut previous = None;
+        for bytes in records.chunks_exact(COMMIT_RECORD_BYTES) {
+            let evaluator = Reader::new(bytes).evaluator_id()?;
+            if previous.is_some_and(|id| id >= evaluator) {
+                return Err(NON_CANONICAL);
+            }
+            previous = Some(evaluator);
+        }
+        Ok(Self { epoch, records })
+    }
+
     /// Strictly decodes the bytes after the F03 region.
     ///
     /// # Errors
@@ -213,11 +238,17 @@ impl<'a> CommitRegion<'a> {
     /// Propagates record decoding refusals.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn get(&self, epoch: u64, evaluator: EvaluatorId) -> CodecResult<Option<CommitRecord>> {
-        let mut r = Reader::new(self.of(epoch));
-        while r.remaining() > 0 {
-            let record = CommitRecord::read(&mut r)?;
-            if record.evaluator == evaluator {
-                return Ok(Some(record));
+        let records = self.of(epoch);
+        let (mut left, mut right) = (0, records.len() / COMMIT_RECORD_BYTES);
+        while left < right {
+            let mid = left + (right - left) / 2;
+            let bytes = &records[mid * COMMIT_RECORD_BYTES..(mid + 1) * COMMIT_RECORD_BYTES];
+            match Reader::new(bytes).evaluator_id()?.cmp(&evaluator) {
+                core::cmp::Ordering::Less => left = mid + 1,
+                core::cmp::Ordering::Greater => right = mid,
+                core::cmp::Ordering::Equal => {
+                    return CommitRecord::read(&mut Reader::new(bytes)).map(Some);
+                }
             }
         }
         Ok(None)
@@ -250,7 +281,7 @@ impl<'a> CommitRegion<'a> {
 /// Committed F01 section whose header revision equals the shared revision.
 fn committed<'a>(state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
     let section = PolicySection::decode(
-        *state
+        state
             .feature_sections
             .guest_index(Section::PolicyLifecycle.index()),
     )?;
@@ -262,10 +293,9 @@ fn committed<'a>(state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
 
 /// Committed views of the currently opened epoch.
 struct Opened<'a> {
-    admission: AdmissionTable,
-    state: SharedState<'a>,
+    admission: &'a AdmissionTable,
+    state: &'a SharedState<'a>,
     section: PolicySection<'a>,
-    rewards: RewardState<'a>,
     frozen: FrozenBinding,
     reports: ReportRegion<'a>,
     commits: CommitRegion<'a>,
@@ -273,20 +303,17 @@ struct Opened<'a> {
 /// The opened epoch: F08 epoch presence, F01 domain and config, the F06 frozen roster row and
 /// the F03/F04 current-reports regions.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
-fn opened(current: &[u8]) -> CodecResult<Opened<'_>> {
-    let state = decode_shared_state(current)?;
-    let section = committed(&state)?;
-    let admission = AdmissionTable::decode(crate::reputation_transition::joint_table(
-        *state
-            .feature_sections
-            .guest_index(Section::ReputationAdmission.index()),
-    )?)?;
+fn opened<'a>(
+    state: &'a SharedState<'a>,
+    admission: &'a AdmissionTable,
+    reports: ReportRegion<'a>,
+    commits: CommitRegion<'a>,
+) -> CodecResult<Opened<'a>> {
+    let section = committed(state)?;
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
-    let rewards = settlement_rewards(&state, None)?;
-    let row = match rewards.row(epoch) {
-        Err(NOT_FOUND) => return Err(WRONG_EPOCH),
-        row => row?,
-    };
+    let row = crate::rewards::committed_row(state.room_market()?.0, epoch)
+        .map_err(|e| if e == NOT_FOUND { WRONG_EPOCH } else { e })?
+        .row;
     let header = &section.header;
     let frozen = FrozenBinding {
         chain: header.deployment_chain_domain,
@@ -296,12 +323,6 @@ fn opened(current: &[u8]) -> CodecResult<Opened<'_>> {
         config: Version::new(header.active_config_version)?,
         roster: row.roster,
     };
-    let reports = ReportRegion::decode(
-        *state
-            .feature_sections
-            .guest_index(Section::CurrentReports.index()),
-    )?;
-    let commits = CommitRegion::decode(reports.rest())?;
     if commits.epoch > epoch && !commits.records.is_empty() {
         return Err(NON_CANONICAL);
     }
@@ -309,7 +330,6 @@ fn opened(current: &[u8]) -> CodecResult<Opened<'_>> {
         admission,
         state,
         section,
-        rewards,
         frozen,
         reports,
         commits,
@@ -344,7 +364,17 @@ pub struct Slot {
 /// Returns `WRONG_EPOCH` without an opened epoch; `NON_CANONICAL` for an inconsistent state;
 /// `ARITHMETIC` when the reveal end overflows.
 pub fn slot(current: &[u8], evaluator: EvaluatorId, height: u64) -> CodecResult<Slot> {
-    let opened = opened(current)?;
+    let state = decode_shared_state(current)?;
+    let reports = ReportRegion::decode(state.section(Section::CurrentReports)?)?;
+    let admission = AdmissionTable::decode(crate::reputation_transition::framed_admission_table(
+        state.section(Section::ReputationAdmission)?,
+    )?)?;
+    let opened = opened(
+        &state,
+        &admission,
+        reports,
+        CommitRegion::decode(reports.rest())?,
+    )?;
     let epoch = opened.frozen.epoch;
     let commit = opened.commits.get(epoch, evaluator)?;
     let reveal = opened.reports.get(epoch, evaluator)?.map(|row| row.receipt);
@@ -418,41 +448,47 @@ impl Call<'_> {
             .state
             .feature_sections
             .guest_index(Section::IdentityRoster.index());
-        let region = evaluator_region(identity)?;
-        let snapshot = region.snapshot().ok_or(F03_NO_GRANT)?;
-        if snapshot.epoch != self.opened.frozen.epoch {
-            return Err(NON_CANONICAL);
-        }
-        let frozen = snapshot.get(binding.evaluator).ok_or(UNAUTHORIZED)?;
-        if e.actor != frozen.entry.owner {
-            return Err(UNAUTHORIZED);
-        }
-        match e.authentication {
-            Authentication::Native => codec::compare_native_principal(e, self.ctx.principal)?,
-            Authentication::Delegate { key, signature } => {
-                if key != frozen.entry.public_key {
-                    return Err(KEY_MISMATCH);
+        crate::evaluators::authority::EvaluatorRegion::with_decoded(
+            crate::evaluators::authority::split_identity_section(identity)?.1,
+            |region| {
+                let snapshot = region.snapshot().ok_or(F03_NO_GRANT)?;
+                if snapshot.epoch != self.opened.frozen.epoch {
+                    return Err(NON_CANONICAL);
                 }
-                let digest = self.envelope.request_digest()?;
-                verify_digest(key, signature, digest.bytes()).map_err(verification)?;
-            }
-        }
-        commitment::check_binding(
-            binding,
-            &EvaluatorBinding {
-                frozen: self.opened.frozen,
-                evaluator: frozen.entry.evaluator,
-                grant: frozen.entry.grant,
-                key_version: frozen.entry.key_version,
+                let frozen = snapshot.get(binding.evaluator).ok_or(UNAUTHORIZED)?;
+                if e.actor != frozen.entry.owner {
+                    return Err(UNAUTHORIZED);
+                }
+                match e.authentication {
+                    Authentication::Native => {
+                        codec::compare_native_principal(e, self.ctx.principal)?;
+                    }
+                    Authentication::Delegate { key, signature } => {
+                        if key != frozen.entry.public_key {
+                            return Err(KEY_MISMATCH);
+                        }
+                        let digest = self.envelope.request_digest()?;
+                        verify_digest(key, signature, digest.bytes()).map_err(verification)?;
+                    }
+                }
+                commitment::check_binding(
+                    binding,
+                    &EvaluatorBinding {
+                        frozen: self.opened.frozen,
+                        evaluator: frozen.entry.evaluator,
+                        grant: frozen.entry.grant,
+                        key_version: frozen.entry.key_version,
+                    },
+                )?;
+                crate::evidence::check_frozen_evaluator_in_table(
+                    region,
+                    &frozen,
+                    self.opened.frozen.epoch,
+                    self.opened.admission,
+                )?;
+                Ok(frozen)
             },
-        )?;
-        crate::evidence::check_frozen_evaluator_in_table(
-            &region,
-            &frozen,
-            self.opened.frozen.epoch,
-            &self.opened.admission,
-        )?;
-        Ok(frozen)
+        )
     }
     /// Role replay request under the evaluator slot bound to the evaluator owner.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
@@ -509,10 +545,6 @@ fn commit(
     let (policy, rest) = scratch.split_at_mut_checked(POLICY_CAP).ok_or(CAPACITY)?;
     let (reports, control) = rest.split_at_mut_checked(REPORTS_CAP).ok_or(CAPACITY)?;
     let epoch = opened.frozen.epoch;
-    let revision = opened.state.revision.checked_add(1).ok_or(ARITHMETIC)?;
-    let mut section = opened.section;
-    section.header.state_revision = revision;
-    let policy_len = section.encode(policy)?;
     let current = *opened
         .state
         .feature_sections
@@ -530,20 +562,21 @@ fn commit(
     }
     opened.commits.write_with(epoch, record, &mut w)?;
     let reports_len = w.len();
-    let policy = policy.get(..policy_len).ok_or(CAPACITY)?;
     let reports = reports.get(..reports_len).ok_or(CAPACITY)?;
-    let with_policy = opened
-        .state
-        .replace_section(Section::PolicyLifecycle, policy)?;
-    let mut candidate = with_policy.with_section(Section::CurrentReports, reports)?;
+    let mut candidate = opened.state.clone();
+    *candidate
+        .feature_sections
+        .guest_index_mut(Section::CurrentReports.index()) = reports;
     let result = record.result()?;
-    if candidate.record_success(request, call.ctx.height, result)? != ReplayDecision::Apply
-        || candidate.revision != revision
-    {
-        return Err(NON_CANONICAL);
-    }
-    check_f01_capacity(policy_len, candidate.encoded_len()?)?;
-    let state_len = encode_shared_state(&candidate, next, control)?;
+    let (revision, state_len) = crate::rewards::finish_feature_transition(
+        candidate,
+        &opened.section,
+        Some(request),
+        call.ctx.height,
+        result,
+        NON_CANONICAL,
+        (policy, control, next),
+    )?;
     let frozen = &opened.frozen;
     let event_len = codec::encode_commit_event(
         &CommitAccepted {
@@ -623,15 +656,28 @@ fn reveal_score(
     let evaluator = frozen.entry.evaluator;
     if let Some(stored) = opened.reports.get(epoch, evaluator)? {
         return Err(
-            if stored.receipt.report != codec::report_digest(&payload.report)? {
-                crate::errors::F03_REPORT_ALREADY_FINAL
-            } else {
+            if stored.receipt.report == codec::report_digest(&payload.report)? {
                 CONFLICT
+            } else {
+                crate::errors::F03_REPORT_ALREADY_FINAL
             },
         );
     }
     let record = opened.commits.get(epoch, evaluator)?.ok_or(NOT_FOUND)?;
-    let report = codec::report_digest(&payload.report)?;
+    // The ingress decoder above proved the canonical report encoding. Hash and
+    // persist its actual bytes, including the original signature, just once.
+    let mut encoded = Reader::new(call.envelope.envelope.payload);
+    let body = encoded.bytes(codec::REPORT_MAX_BYTES)?;
+    let signed_end = 4 + body.len() + 64;
+    let signed = call
+        .envelope
+        .envelope
+        .payload
+        .get(4..signed_end)
+        .ok_or(NON_CANONICAL)?;
+    let report = crate::types::ReportDigest::new(
+        codec::domain_hash("PAXAI/score-report/v1", body)?.bytes(),
+    )?;
     let recomputed = codec::commitment_digest(&binding, report, payload.salt)?;
     commitment::check_commitment(recomputed, record.commitment)?;
     let reveal = RevealAdmission {
@@ -644,14 +690,11 @@ fn reveal_score(
         activity: call.envelope.envelope.sequence,
     };
     match admit_report_in_state(
-        &opened.state,
-        &opened.admission,
+        opened.state,
+        opened.admission,
         opened.reports,
         &reveal,
-        next,
-        scratch,
-        event,
-        Some(opened.rewards),
+        (next, scratch, event, None, report, signed),
     )
     .map_err(verification)?
     {
@@ -704,17 +747,32 @@ pub fn apply(
     if operation != dispatch::CommitScore && operation != dispatch::RevealScore {
         return Err(UNKNOWN_OPERATION);
     }
-    let opened = opened(current)?;
-    let call = Call {
-        ctx,
-        envelope,
-        opened: &opened,
-    };
-    if operation == dispatch::CommitScore {
-        commit_score(&call, next, scratch, event)
-    } else {
-        reveal_score(&call, current, next, scratch, event)
-    }
+    crate::state::with_shared_state(current, |state| {
+        AdmissionTable::with_decoded(
+            crate::reputation_transition::framed_admission_table(
+                state.section(Section::ReputationAdmission)?,
+            )?,
+            |admission| {
+                let reports = ReportRegion::committed(state.section(Section::CurrentReports)?)?;
+                let opened = opened(
+                    state,
+                    admission,
+                    reports,
+                    CommitRegion::committed(reports.rest())?,
+                )?;
+                let call = Call {
+                    ctx,
+                    envelope,
+                    opened: &opened,
+                };
+                if operation == dispatch::CommitScore {
+                    commit_score(&call, next, scratch, event)
+                } else {
+                    reveal_score(&call, current, next, scratch, event)
+                }
+            },
+        )
+    })
 }
 
 pub struct CanaryEnvelope<'a> {
@@ -722,6 +780,8 @@ pub struct CanaryEnvelope<'a> {
     unsigned: &'a [u8],
 }
 impl CanaryEnvelope<'_> {
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn request_digest(&self) -> CodecResult<crate::types::RequestDigest> {
         crate::types::RequestDigest::new(
             codec::domain_hash("PAXAI/request/v1", self.unsigned)?.bytes(),
@@ -729,8 +789,9 @@ impl CanaryEnvelope<'_> {
     }
 }
 
+#[must_use]
 pub fn is_canary_score(input: &[u8]) -> bool {
-    matches!(input.get(8..10), Some([4, 1] | [4, 2]))
+    matches!(input.get(8..10), Some([4, 1 | 2]))
         && input.get(codec::ENVELOPE_PREFIX_BYTES..codec::ENVELOPE_PREFIX_BYTES + 8)
             == Some(crate::canary::CANARY_TASK_KIND.as_slice())
 }
@@ -755,12 +816,16 @@ fn validate_canary_envelope(e: &codec::Envelope<'_>) -> CodecResult<()> {
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn encode_canary_envelope(e: &codec::Envelope<'_>, out: &mut [u8]) -> CodecResult<usize> {
     validate_canary_envelope(e)?;
     codec::encode_envelope_fields(e, out)
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn decode_canary_envelope(input: &[u8]) -> CodecResult<CanaryEnvelope<'_>> {
     let (envelope, unsigned) = codec::decode_envelope_fields(input, true)?;
     validate_canary_envelope(&envelope)?;
@@ -768,6 +833,8 @@ pub fn decode_canary_envelope(input: &[u8]) -> CodecResult<CanaryEnvelope<'_>> {
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn canary_score_payload(
     record: &crate::canary::CanaryCommitment,
     operation: dispatch::Operation,
@@ -794,6 +861,8 @@ pub fn canary_score_payload(
     }
 }
 
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn apply_canary_score(
     ctx: &CallContext,
     score: &CanaryEnvelope<'_>,
@@ -833,7 +902,7 @@ pub fn apply_canary_score(
             ctx,
             e,
             &state,
-            crate::canary::CanaryTask::decode(e.payload)?,
+            &crate::canary::CanaryTask::decode(e.payload)?,
         )?
     } else if e.operation == dispatch::RevealScore {
         crate::canary::reveal_task(
@@ -851,11 +920,13 @@ pub fn apply_canary_score(
         e,
         digest,
         current,
-        record,
-        Some(&request),
-        payload.guest_index(..n),
-        next,
-        scratch,
-        event,
+        (
+            record,
+            Some(&request),
+            payload.guest_index(..n),
+            next,
+            scratch,
+            event,
+        ),
     )
 }

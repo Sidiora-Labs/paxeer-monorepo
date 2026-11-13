@@ -95,6 +95,70 @@ struct Crossing {
     stop: Arc<AtomicBool>,
     server: Option<JoinHandle<()>>,
 }
+fn storage_proof_response(record: &Value, params: &Value, damage: Damage, height: u64) -> Value {
+    assert_eq!(params[0], record["address"]);
+    assert_eq!(params[2], format!("{height:#x}"));
+    let mut result = record["responses"][0].clone();
+    result["hexValues"] = json!([]);
+    result["storageProof"] = json!([]);
+    for slot in params[1].as_array().unwrap_or_else(|| panic!("slots")) {
+        let index = record["slots"]
+            .as_array()
+            .unwrap_or_else(|| panic!("slots"))
+            .iter()
+            .position(|known| known == slot)
+            .unwrap_or_else(|| panic!("unknown slot"));
+        let index = if matches!(damage, Damage::Slot) {
+            1 - index
+        } else {
+            index
+        };
+        result["hexValues"]
+            .as_array_mut()
+            .unwrap_or_else(|| panic!("values"))
+            .push(record["responses"][index]["hexValues"][0].clone());
+        result["storageProof"]
+            .as_array_mut()
+            .unwrap_or_else(|| panic!("proofs"))
+            .push(record["responses"][index]["storageProof"][0].clone());
+    }
+    match damage {
+        Damage::Value => result["hexValues"][0] = json!("ff".repeat(32)),
+        Damage::StoreRoot => {
+            let encoded = &result["storageProof"][0]["ops"][1]["data"];
+            let mut data = must(base64::engine::general_purpose::STANDARD.decode(text(encoded)));
+            let root = unhex(&record["storeRoot"]);
+            let offset = data
+                .windows(root.len())
+                .position(|part| part == root)
+                .unwrap_or_else(|| panic!("root"));
+            data[offset] ^= 1;
+            result["storageProof"][0]["ops"][1]["data"] =
+                json!(base64::engine::general_purpose::STANDARD.encode(data));
+        }
+        Damage::MissingWitness => result["storageProof"] = json!([]),
+        _ => {}
+    }
+    result
+}
+
+fn block_response(record: &Value, params: &Value, damage: Damage, height: u64) -> Value {
+    assert_eq!(params[0], format!("{height:#x}"));
+    if params[1] == false {
+        let mut root = fixed::<32>(&record["appHash"]);
+        if matches!(damage, Damage::AppHash) {
+            root[0] ^= 1;
+        }
+        json!({"number":format!("{height:#x}"),"stateRoot":format!("0x{}",hex_root(&root))})
+    } else {
+        let mut block = record["block"].clone();
+        if matches!(damage, Damage::BlockHash) {
+            block["hash"] = json!(format!("0x{}", "ff".repeat(32)));
+        }
+        block
+    }
+}
+
 impl Crossing {
     fn open(record: Value, damage: Damage) -> Self {
         let listener = must(TcpListener::bind("127.0.0.1:0"));
@@ -148,70 +212,8 @@ impl Crossing {
                         assert_eq!(params, &json!([height.to_string()]));
                         record["validators"].clone()
                     }
-                    "eth_getBlockByNumber" => {
-                        assert_eq!(params[0], format!("{height:#x}"));
-                        if params[1] == false {
-                            let mut root = fixed::<32>(&record["appHash"]);
-                            if matches!(damage, Damage::AppHash) {
-                                root[0] ^= 1;
-                            }
-                            json!({"number":format!("{height:#x}"),"stateRoot":format!("0x{}",root.iter().map(|v|format!("{v:02x}")).collect::<String>())})
-                        } else {
-                            let mut block = record["block"].clone();
-                            if matches!(damage, Damage::BlockHash) {
-                                block["hash"] = json!(format!("0x{}", "ff".repeat(32)));
-                            }
-                            block
-                        }
-                    }
-                    "eth_getProof" => {
-                        assert_eq!(params[0], record["address"]);
-                        assert_eq!(params[2], format!("{height:#x}"));
-                        let mut result = record["responses"][0].clone();
-                        result["hexValues"] = json!([]);
-                        result["storageProof"] = json!([]);
-                        for slot in params[1].as_array().unwrap_or_else(|| panic!("slots")) {
-                            let index = record["slots"]
-                                .as_array()
-                                .unwrap_or_else(|| panic!("slots"))
-                                .iter()
-                                .position(|known| known == slot)
-                                .unwrap_or_else(|| panic!("unknown slot"));
-                            let index = if matches!(damage, Damage::Slot) {
-                                1 - index
-                            } else {
-                                index
-                            };
-                            result["hexValues"]
-                                .as_array_mut()
-                                .unwrap_or_else(|| panic!("values"))
-                                .push(record["responses"][index]["hexValues"][0].clone());
-                            result["storageProof"]
-                                .as_array_mut()
-                                .unwrap_or_else(|| panic!("proofs"))
-                                .push(record["responses"][index]["storageProof"][0].clone());
-                        }
-                        match damage {
-                            Damage::Value => result["hexValues"][0] = json!("ff".repeat(32)),
-                            Damage::StoreRoot => {
-                                let encoded = &result["storageProof"][0]["ops"][1]["data"];
-                                let mut data = must(
-                                    base64::engine::general_purpose::STANDARD.decode(text(encoded)),
-                                );
-                                let root = unhex(&record["storeRoot"]);
-                                let offset = data
-                                    .windows(root.len())
-                                    .position(|part| part == root)
-                                    .unwrap_or_else(|| panic!("root"));
-                                data[offset] ^= 1;
-                                result["storageProof"][0]["ops"][1]["data"] =
-                                    json!(base64::engine::general_purpose::STANDARD.encode(data));
-                            }
-                            Damage::MissingWitness => result["storageProof"] = json!([]),
-                            _ => {}
-                        }
-                        result
-                    }
+                    "eth_getBlockByNumber" => block_response(&record, params, damage, height),
+                    "eth_getProof" => storage_proof_response(&record, params, damage, height),
                     "pax_sequencerReceipt" => {
                         assert_eq!(params, &json!([record["view"]["txHash"]]));
                         record["view"].clone()
@@ -221,7 +223,7 @@ impl Crossing {
                 };
                 let mut answer = json!({"jsonrpc":"2.0","id":request["id"],"result":result});
                 if matches!(damage, Damage::MissingCommit) && method == "px_getCommit" {
-                    answer = json!({"jsonrpc":"2.0","id":request["id"],"error":{"code":-32601,"message":"commit unavailable"}});
+                    answer = json!({"jsonrpc":"2.0","id":request["id"],"error":{"code":-32_601,"message":"commit unavailable"}});
                 }
                 let answer = answer.to_string();
                 let mut stream = reader.into_inner();
@@ -260,8 +262,8 @@ fn authenticated(value: Lookup) -> AuthenticatedReceipt {
 }
 fn inclusion(record: &Value) -> SimpleProof {
     SimpleProof {
-        total: number(&record["proof"]["total"]) as i64,
-        index: number(&record["proof"]["index"]) as i64,
+        total: must(i64::try_from(number(&record["proof"]["total"]))),
+        index: must(i64::try_from(number(&record["proof"]["index"]))),
         leaf_hash: must(
             base64::engine::general_purpose::STANDARD.decode(text(&record["proof"]["leaf_hash"])),
         )
@@ -331,7 +333,7 @@ fn f02_module_state_refuses_slot_value_store_root_and_app_hash_substitution() {
         match damage {
             Damage::Slot => assert_eq!(error, ModuleReadError::Witness(StorageWitnessError::Key)),
             Damage::Value => {
-                assert_eq!(error, ModuleReadError::Witness(StorageWitnessError::Value))
+                assert_eq!(error, ModuleReadError::Witness(StorageWitnessError::Value));
             }
             Damage::StoreRoot => assert_eq!(
                 error,
@@ -491,7 +493,9 @@ fn f05_receipt_requires_commit_and_signed_sequence_root_coverage() {
     assert_eq!(committed.rung(), Rung::Committed);
     assert!(number(&record["height"]) > committed.height());
     assert_eq!(
-        committed.committed_header().map(|head| head.header_hash()),
+        committed
+            .committed_header()
+            .map(layerx_client::rpc::VerifiedChainHead::header_hash),
         Some(fixed(&record["hash"]))
     );
     assert_eq!(
@@ -535,35 +539,7 @@ fn f05_receipt_requires_commit_and_signed_sequence_root_coverage() {
             Err(ReceiptError::Coverage(expected))
         );
     }
-    let mut wrong_ids = ids.clone();
-    wrong_ids[0][0] ^= 1;
-    let wrong = ReceiptCommitEvidence {
-        activity_ids: &wrong_ids,
-        ..evidence
-    };
-    assert!(matches!(
-        receipt::lookup_authenticated_with_commit(&crossing.endpoint, tx_hash, context, &wrong),
-        Err(ReceiptError::Coverage(CoverageError::StateRoot))
-    ));
-    let mut wrong_proof = proof.clone();
-    wrong_proof.leaf_hash[0] ^= 1;
-    let wrong = ReceiptCommitEvidence {
-        transaction_proof: &wrong_proof,
-        ..evidence
-    };
-    assert!(matches!(
-        receipt::lookup_authenticated_with_commit(&crossing.endpoint, tx_hash, context, &wrong),
-        Err(ReceiptError::Coverage(CoverageError::Inclusion))
-    ));
-    let mut foreign = record.clone();
-    foreign["view"]["rung"] = json!("committed");
-    foreign["view"]["blockNumber"] = json!(format!("{:#x}", evidence.covering_height));
-    foreign["view"]["blockHash"] = json!(format!("0x{}", "ff".repeat(32)));
-    let crossing = Crossing::open(foreign, Damage::None);
-    assert_eq!(
-        receipt::lookup_authenticated_with_commit(&crossing.endpoint, tx_hash, context, &evidence),
-        Err(ReceiptError::FieldMismatch("blockHash"))
-    );
+    refuse_receipt_evidence_tampering(record, tx_hash, context, &crossing.endpoint, &evidence);
 }
 
 #[test]
@@ -576,4 +552,51 @@ fn f05_sequence_batch_round_trips_the_node_producer_codec() {
     for bytes in [&bytes[..240], &bytes[1..]] {
         assert_eq!(SequenceBatch::decode(bytes), Err(CoverageError::Encoding));
     }
+}
+
+fn hex_root(bytes: &[u8; 32]) -> String {
+    use std::fmt::Write as _;
+    let mut text = String::with_capacity(64);
+    for byte in bytes {
+        let _ = write!(text, "{byte:02x}");
+    }
+    text
+}
+
+fn refuse_receipt_evidence_tampering(
+    record: &Value,
+    tx_hash: [u8; 32],
+    context: LookupContext<'_>,
+    endpoint: &SequencerEndpoint,
+    evidence: &ReceiptCommitEvidence<'_>,
+) {
+    let mut wrong_ids = evidence.activity_ids.to_vec();
+    wrong_ids[0][0] ^= 1;
+    let wrong = ReceiptCommitEvidence {
+        activity_ids: &wrong_ids,
+        ..*evidence
+    };
+    assert!(matches!(
+        receipt::lookup_authenticated_with_commit(endpoint, tx_hash, context, &wrong),
+        Err(ReceiptError::Coverage(CoverageError::StateRoot))
+    ));
+    let mut wrong_proof = evidence.transaction_proof.clone();
+    wrong_proof.leaf_hash[0] ^= 1;
+    let wrong = ReceiptCommitEvidence {
+        transaction_proof: &wrong_proof,
+        ..*evidence
+    };
+    assert!(matches!(
+        receipt::lookup_authenticated_with_commit(endpoint, tx_hash, context, &wrong),
+        Err(ReceiptError::Coverage(CoverageError::Inclusion))
+    ));
+    let mut foreign = record.clone();
+    foreign["view"]["rung"] = json!("committed");
+    foreign["view"]["blockNumber"] = json!(format!("{:#x}", evidence.covering_height));
+    foreign["view"]["blockHash"] = json!(format!("0x{}", "ff".repeat(32)));
+    let crossing = Crossing::open(foreign, Damage::None);
+    assert_eq!(
+        receipt::lookup_authenticated_with_commit(&crossing.endpoint, tx_hash, context, evidence),
+        Err(ReceiptError::FieldMismatch("blockHash"))
+    );
 }

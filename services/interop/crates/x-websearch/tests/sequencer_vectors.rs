@@ -112,22 +112,22 @@ fn shared_vectors() -> Outcome<Vectors> {
 }
 
 fn bytes(text: &str) -> Vec<u8> {
-    let digits = text.strip_prefix("0x").expect("fixture hex prefix");
+    let digits = text.strip_prefix("0x").or_panic("fixture hex prefix");
     assert_eq!(digits.len() % 2, 0);
     (0..digits.len())
         .step_by(2)
-        .map(|offset| u8::from_str_radix(&digits[offset..offset + 2], 16).expect("fixture hex"))
+        .map(|offset| u8::from_str_radix(&digits[offset..offset + 2], 16).or_panic("fixture hex"))
         .collect()
 }
 
 fn hash(text: &str) -> [u8; 32] {
-    bytes(text).try_into().expect("fixture 32-byte hash")
+    bytes(text).try_into().or_panic("fixture 32-byte hash")
 }
 
 fn quantity(value: &Value) -> u64 {
-    let text = value.as_str().expect("fixture quantity string");
-    u64::from_str_radix(text.strip_prefix("0x").expect("quantity prefix"), 16)
-        .expect("fixture u64 quantity")
+    let text = value.as_str().or_panic("fixture quantity string");
+    u64::from_str_radix(text.strip_prefix("0x").or_panic("quantity prefix"), 16)
+        .or_panic("fixture u64 quantity")
 }
 
 fn authorization(case: &Case) -> [SequencerAuthorization; 1] {
@@ -417,210 +417,268 @@ fn shared_refusal_cases_do_not_release_a_payment() -> Outcome {
         if classification == Classification::Answer {
             continue;
         }
-        let expected_refusal = match case.expected["verifier"].as_str() {
-            Some("SequencerSignature" | "Decode") => "receipt_unverified",
-            Some("accepts") => "receipt_mismatch",
-            verifier => panic!(
-                "{}: unclassified verifier expectation: {verifier:?}",
-                case.id
-            ),
-        };
-        let keys = authorization(case);
-        let signed = bytes(&case.signed_receipt);
-        let verification = verify_sequencer_signature(&signed, ReceiptKeys::HeightRanges(&keys));
-        match classification {
-            Classification::SignatureRefusal | Classification::DecodeRefusal => {
-                let expected = if classification == Classification::SignatureRefusal {
-                    ReceiptCheck::SequencerSignature
-                } else {
-                    ReceiptCheck::Decode
-                };
-                assert_eq!(
-                    verification.map_err(|failure| failure.check),
-                    Err(expected),
-                    "{}",
-                    case.id
-                );
-            }
-            Classification::TransactionRefusal
-            | Classification::SequenceRefusal
-            | Classification::LogRefusal => {
-                let receipt =
-                    verification.map_err(|failure| format!("{}: {failure:?}", case.id))?;
-                let facts = receipt.protocol().ok_or("protocol receipt")?;
-                match classification {
-                    Classification::TransactionRefusal => {
-                        assert_eq!(case.expected["refusedAt"], "R4");
-                        let transaction_hash: [u8; 32] =
-                            Keccak256::digest(bytes(&case.raw_transaction)).into();
-                        assert_ne!(facts.activity_id(), transaction_hash, "{}", case.id);
-                    }
-                    Classification::SequenceRefusal => {
-                        assert_eq!(case.expected["refusedAt"], "R6");
-                        let previous = hash(&case.prev_seq_hash);
-                        let mut sequence = Sha256::new();
-                        sequence.update(b"PAXEER/v1/sequence\0");
-                        sequence.update(previous);
-                        sequence.update(facts.global_sequence().to_be_bytes());
-                        sequence.update(facts.activity_id());
-                        let expected: [u8; 32] = sequence.finalize().into();
-                        assert!(
-                            facts.previous_state_root() != previous
-                                || facts.resulting_state_root() != expected,
-                            "{}",
-                            case.id
-                        );
-                    }
-                    Classification::LogRefusal => {
-                        assert_eq!(case.expected["refusedAt"], "R5");
-                        let answer = settlement::decode(case)?;
-                        let logs = answer
-                            .logs
-                            .into_iter()
-                            .map(|log| {
-                                layerx_proof::sequencer_logs::SequencerLog::new(
-                                    log.address,
-                                    log.topics,
-                                    log.data,
-                                    log.log_index,
-                                )
-                            })
-                            .collect();
-                        assert!(
-                            layerx_proof::sequencer_logs::verify_logs(&receipt, logs).is_err(),
-                            "{}",
-                            case.id
-                        );
-                    }
-                    _ => unreachable!(),
-                }
-            }
-            Classification::Answer => unreachable!(),
-        }
-
-        let scratch = Scratch::new()?;
-        let replay = Replay::start(vectors.chain_id, case, true)?;
-        let mut configuration: Value =
-            serde_json::from_slice(&std::fs::read(fixtures().join("config/valid.json"))?)?;
-        let gateway = configuration["gateway"]
-            .as_object_mut()
-            .ok_or("gateway configuration")?;
-        let receipt_key = gateway
-            .get("receipt_keys")
-            .and_then(Value::as_array)
-            .and_then(|keys| keys.first())
-            .ok_or("fixture gateway.receipt_keys must contain a receipt key")?;
-        let key_id = receipt_key
-            .get("key_id")
-            .ok_or("recorded receipt key id")?
-            .clone();
-        let public_key = receipt_key
-            .get("public_key")
-            .ok_or("recorded receipt public key")?
-            .clone();
-        gateway.insert(
-            "receipt_keys".to_owned(),
-            json!([{
-                "key_id": key_id,
-                "public_key": public_key,
-                "first_height": case.pinned_key.first_height,
-                "last_height": case.pinned_key.last_height,
-            }]),
-        );
-        configuration["gateway"]["endpoint"] = json!(replay.endpoint());
-        configuration["evm"]["endpoint"] = json!(replay.endpoint());
-        configuration["evm"]["chain_id"] = json!(vectors.chain_id);
-        let mut config = Config::parse(&configuration.to_string())?;
-        config.data_dir = scratch.0.clone();
-        // The shared vector's repeated-byte key id is a config placeholder.
-        config.gateway.receipt_keys = keys.to_vec();
-        assert_eq!(config.gateway.receipt_keys, keys, "{}", case.id);
-        let mut secret = [0; 32];
-        secret[31] = 3; // Receiver of the existing recorded account lookups.
-        let receiver = k256::ecdsa::SigningKey::from_slice(&secret)?;
-        let gate = PaymentGate::new(&config, &receiver, x_websearch::conformance_suite()?, clock)?;
-        let mut request = Request {
-            method: "GET".to_owned(),
-            route: Route::Search,
-            path: "/search".to_owned(),
-            query: Some(format!("q={}", case.id)),
-            headers: vec![("Host".to_owned(), "127.0.0.1".to_owned())],
-            digest: None,
-            peer: "127.0.0.1:1".parse()?,
-        };
-        let required = gate
-            .payment_required(&request, None)
-            .map_err(|response| format!("payment offer: {response:?}"))?;
-        let required = serde_json::to_value(required)?;
-        let offer = required["accepts"]
-            .as_array()
-            .ok_or("payment offers")?
-            .iter()
-            .find(|offer| offer["scheme"] == "exact")
-            .ok_or("exact offer")?;
-        let payload = json!({
-            "x402Version": 2,
-            "accepted": offer,
-            "payload": {
-                "txHash": case.receipt_json["txHash"],
-                "receiptDigest": x_websearch::payment::hex(&leaf_hash(&signed).map_err(|error| format!("receipt leaf: {error:?}"))?),
-                "verificationLevel": "receipted",
-            },
-        });
-        request.headers.push((
-            PAYMENT_SIGNATURE.to_owned(),
-            STANDARD.encode(serde_json::to_vec(&payload)?),
-        ));
-        let releases = Cell::new(0);
-        let response = gate.settle(&request, &|_| {
-            releases.set(releases.get() + 1);
-            Response::json(200, b"{}".to_vec())
-        });
-        assert_eq!(response.status, 402, "{}: {response:?}", case.id);
-        assert_eq!(releases.get(), 0, "{} released paid content", case.id);
-        let body: Value = serde_json::from_slice(&response.body)?;
-        if body["error"] != expected_refusal {
-            wrong_refusals.push(format!(
-                "{}: expected {expected_refusal}, got {}",
-                case.id, body["error"]
-            ));
-        }
-        let header = response
-            .headers
-            .iter()
-            .find(|(name, _)| name.eq_ignore_ascii_case(PAYMENT_RESPONSE))
-            .ok_or("payment response header")?;
-        let payment: Value = serde_json::from_slice(&STANDARD.decode(&header.1)?)?;
-        assert_eq!(payment["success"], false, "{}", case.id);
-        assert_eq!(payment["errorReason"], body["error"], "{}", case.id);
-        for directory in ["receipts", "deliveries"] {
-            assert_eq!(
-                std::fs::read_dir(scratch.0.join("payments").join(directory))?.count(),
-                0,
-                "{}: {directory}",
-                case.id
-            );
-        }
-        for entry in std::fs::read_dir(scratch.0.join("payments/requests"))? {
-            let record: x_websearch::payment::PaymentRecord =
-                serde_json::from_slice(&std::fs::read(entry?.path())?)?;
-            assert!(!record.released, "{} persisted a payment release", case.id);
-            assert!(
-                record.receipt.is_none(),
-                "{} claimed an unverified receipt",
-                case.id
-            );
-            assert!(
-                record.receipt_digest.is_none(),
-                "{} saved an unverified digest",
-                case.id
-            );
-        }
-        drop(gate);
-        replay.finish()?;
+        let (signed, keys, expected_refusal) = assert_receipt_classification(case, classification)?;
+        assert_payment_refusal(
+            case,
+            vectors.chain_id,
+            &keys,
+            &signed,
+            expected_refusal,
+            &mut wrong_refusals,
+        )?;
         checked += 1;
     }
     assert_eq!(checked, 6, "all shared V3 cases executed");
     assert!(wrong_refusals.is_empty(), "{}", wrong_refusals.join("\n"));
     Ok(())
+}
+
+fn assert_receipt_classification(
+    case: &Case,
+    classification: Classification,
+) -> Outcome<(Vec<u8>, [SequencerAuthorization; 1], &'static str)> {
+    let expected_refusal = match case.expected["verifier"].as_str() {
+        Some("SequencerSignature" | "Decode") => "receipt_unverified",
+        Some("accepts") => "receipt_mismatch",
+        verifier => panic!(
+            "{}: unclassified verifier expectation: {verifier:?}",
+            case.id
+        ),
+    };
+    let keys = authorization(case);
+    let signed = bytes(&case.signed_receipt);
+    let verification = verify_sequencer_signature(&signed, ReceiptKeys::HeightRanges(&keys));
+    match classification {
+        Classification::SignatureRefusal | Classification::DecodeRefusal => {
+            let expected = if classification == Classification::SignatureRefusal {
+                ReceiptCheck::SequencerSignature
+            } else {
+                ReceiptCheck::Decode
+            };
+            assert_eq!(
+                verification.map_err(|failure| failure.check),
+                Err(expected),
+                "{}",
+                case.id
+            );
+        }
+        Classification::TransactionRefusal
+        | Classification::SequenceRefusal
+        | Classification::LogRefusal => {
+            let receipt = verification.map_err(|failure| format!("{}: {failure:?}", case.id))?;
+            let facts = receipt.protocol().ok_or("protocol receipt")?;
+            match classification {
+                Classification::TransactionRefusal => {
+                    assert_eq!(case.expected["refusedAt"], "R4");
+                    let transaction_hash: [u8; 32] =
+                        Keccak256::digest(bytes(&case.raw_transaction)).into();
+                    assert_ne!(facts.activity_id(), transaction_hash, "{}", case.id);
+                }
+                Classification::SequenceRefusal => {
+                    assert_eq!(case.expected["refusedAt"], "R6");
+                    let previous = hash(&case.prev_seq_hash);
+                    let mut sequence = Sha256::new();
+                    sequence.update(b"PAXEER/v1/sequence\0");
+                    sequence.update(previous);
+                    sequence.update(facts.global_sequence().to_be_bytes());
+                    sequence.update(facts.activity_id());
+                    let expected: [u8; 32] = sequence.finalize().into();
+                    assert!(
+                        facts.previous_state_root() != previous
+                            || facts.resulting_state_root() != expected,
+                        "{}",
+                        case.id
+                    );
+                }
+                Classification::LogRefusal => {
+                    assert_eq!(case.expected["refusedAt"], "R5");
+                    let answer = settlement::decode(case)?;
+                    let logs = answer
+                        .logs
+                        .into_iter()
+                        .map(|log| {
+                            layerx_proof::sequencer_logs::SequencerLog::new(
+                                log.address,
+                                log.topics,
+                                log.data,
+                                log.log_index,
+                            )
+                        })
+                        .collect();
+                    assert!(
+                        layerx_proof::sequencer_logs::verify_logs(&receipt, logs).is_err(),
+                        "{}",
+                        case.id
+                    );
+                }
+                _ => unreachable!(),
+            }
+        }
+        Classification::Answer => unreachable!(),
+    }
+    Ok((signed, keys, expected_refusal))
+}
+
+fn payment_config(
+    case: &Case,
+    chain_id: u64,
+    replay: &Replay,
+    scratch: &Scratch,
+    keys: &[SequencerAuthorization; 1],
+) -> Outcome<Config> {
+    let mut configuration: Value =
+        serde_json::from_slice(&std::fs::read(fixtures().join("config/valid.json"))?)?;
+    let gateway = configuration["gateway"]
+        .as_object_mut()
+        .ok_or("gateway configuration")?;
+    let receipt_key = gateway
+        .get("receipt_keys")
+        .and_then(Value::as_array)
+        .and_then(|keys| keys.first())
+        .ok_or("fixture gateway.receipt_keys must contain a receipt key")?;
+    let key_id = receipt_key
+        .get("key_id")
+        .ok_or("recorded receipt key id")?
+        .clone();
+    let public_key = receipt_key
+        .get("public_key")
+        .ok_or("recorded receipt public key")?
+        .clone();
+    gateway.insert(
+        "receipt_keys".to_owned(),
+        json!([{
+            "key_id": key_id,
+            "public_key": public_key,
+            "first_height": case.pinned_key.first_height,
+            "last_height": case.pinned_key.last_height,
+        }]),
+    );
+    configuration["gateway"]["endpoint"] = json!(replay.endpoint());
+    configuration["evm"]["endpoint"] = json!(replay.endpoint());
+    configuration["evm"]["chain_id"] = json!(chain_id);
+    let mut config = Config::parse(&configuration.to_string())?;
+    config.data_dir.clone_from(&scratch.0);
+    // The shared vector's repeated-byte key id is a config placeholder.
+    config.gateway.receipt_keys = keys.to_vec();
+    assert_eq!(config.gateway.receipt_keys, keys, "{}", case.id);
+    Ok(config)
+}
+
+fn assert_payment_refusal(
+    case: &Case,
+    chain_id: u64,
+    keys: &[SequencerAuthorization; 1],
+    signed: &[u8],
+    expected_refusal: &str,
+    wrong_refusals: &mut Vec<String>,
+) -> Outcome {
+    let scratch = Scratch::new()?;
+    let replay = Replay::start(chain_id, case, true)?;
+    let config = payment_config(case, chain_id, &replay, &scratch, keys)?;
+    let mut secret = [0; 32];
+    secret[31] = 3; // Receiver of the existing recorded account lookups.
+    let receiver = k256::ecdsa::SigningKey::from_slice(&secret)?;
+    let gate = PaymentGate::new(&config, &receiver, x_websearch::conformance_suite()?, clock)?;
+    let mut request = Request {
+        method: "GET".to_owned(),
+        route: Route::Search,
+        path: "/search".to_owned(),
+        query: Some(format!("q={}", case.id)),
+        headers: vec![("Host".to_owned(), "127.0.0.1".to_owned())],
+        digest: None,
+        peer: "127.0.0.1:1".parse()?,
+    };
+    let required = gate
+        .payment_required(&request, None)
+        .map_err(|response| format!("payment offer: {response:?}"))?;
+    let required = serde_json::to_value(required)?;
+    let offer = required["accepts"]
+        .as_array()
+        .ok_or("payment offers")?
+        .iter()
+        .find(|offer| offer["scheme"] == "exact")
+        .ok_or("exact offer")?;
+    let payload = json!({
+        "x402Version": 2,
+        "accepted": offer,
+        "payload": {
+            "txHash": case.receipt_json["txHash"],
+            "receiptDigest": x_websearch::payment::hex(&leaf_hash(signed).map_err(|error| format!("receipt leaf: {error:?}"))?),
+            "verificationLevel": "receipted",
+        },
+    });
+    request.headers.push((
+        PAYMENT_SIGNATURE.to_owned(),
+        STANDARD.encode(serde_json::to_vec(&payload)?),
+    ));
+    let releases = Cell::new(0);
+    let response = gate.settle(&request, &|_| {
+        releases.set(releases.get() + 1);
+        Response::json(200, b"{}".to_vec())
+    });
+    assert_eq!(response.status, 402, "{}: {response:?}", case.id);
+    assert_eq!(releases.get(), 0, "{} released paid content", case.id);
+    let body: Value = serde_json::from_slice(&response.body)?;
+    if body["error"] != expected_refusal {
+        wrong_refusals.push(format!(
+            "{}: expected {expected_refusal}, got {}",
+            case.id, body["error"]
+        ));
+    }
+    let header = response
+        .headers
+        .iter()
+        .find(|(name, _)| name.eq_ignore_ascii_case(PAYMENT_RESPONSE))
+        .ok_or("payment response header")?;
+    let payment: Value = serde_json::from_slice(&STANDARD.decode(&header.1)?)?;
+    assert_eq!(payment["success"], false, "{}", case.id);
+    assert_eq!(payment["errorReason"], body["error"], "{}", case.id);
+    for directory in ["receipts", "deliveries"] {
+        assert_eq!(
+            std::fs::read_dir(scratch.0.join("payments").join(directory))?.count(),
+            0,
+            "{}: {directory}",
+            case.id
+        );
+    }
+    for entry in std::fs::read_dir(scratch.0.join("payments/requests"))? {
+        let record: x_websearch::payment::PaymentRecord =
+            serde_json::from_slice(&std::fs::read(entry?.path())?)?;
+        assert!(!record.released, "{} persisted a payment release", case.id);
+        assert!(
+            record.receipt.is_none(),
+            "{} claimed an unverified receipt",
+            case.id
+        );
+        assert!(
+            record.receipt_digest.is_none(),
+            "{} saved an unverified digest",
+            case.id
+        );
+    }
+    drop(gate);
+    replay.finish()?;
+    Ok(())
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

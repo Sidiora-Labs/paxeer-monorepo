@@ -3,6 +3,7 @@ package fanout_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/devsocial"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/fanout"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/internaltest"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -29,7 +31,7 @@ const repair1027Origin = "https://chat.example"
 
 type repair1027Fixture struct {
 	t            *testing.T
-	database     *repair1027Peer
+	database     *pgxpool.Pool
 	openDatabase func() *pgxpool.Pool
 	redis        *repair1027Redis
 	identity     *httptest.Server
@@ -41,7 +43,17 @@ type repair1027Fixture struct {
 
 func newRepair1027Fixture(t *testing.T) *repair1027Fixture {
 	t.Helper()
-	database, open := newRepair1027Database(t)
+	database := internaltest.NewPostgres(t)
+	open := func() *pgxpool.Pool {
+		db, err := pgxpool.NewWithConfig(context.Background(), database.Config().Copy())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return db
+	}
+	if _, err := database.Exec(context.Background(), `INSERT INTO indexer.indexer_canonical_creations(token,pool,creator,factory,optical,nft_id,height,block_hash,transaction_hash,transaction_index,log_index,block_timestamp,provenance,payload) VALUES($1,$2,$3,$4,$5,1,100,$6,$7,0,0,$8,'{}','{}')`, addr(2), addr(1), addr(0xbb), addr(3), addr(4), "0x"+strings.Repeat("ab", 32), "0x"+strings.Repeat("cd", 32), time.Now().Unix()); err != nil {
+		t.Fatal(err)
+	}
 	f := &repair1027Fixture{t: t, database: database, openDatabase: open, redis: newRepair1027Redis(t), tickets: map[string]sharedauth.StreamPrincipal{}, principals: map[string]sharedauth.StreamPrincipal{}}
 	token := strings.Repeat("private-fixture-token", 2)
 	f.identity = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -81,6 +93,8 @@ func newRepair1027Fixture(t *testing.T) *repair1027Fixture {
 	}))
 	t.Cleanup(f.identity.Close)
 	f.authority = sharedauth.HTTPStreamAuthority{Endpoint: f.identity.URL, ServiceToken: token, Client: f.identity.Client()}
+	f.principal(addr(0xaa))
+	f.principal(addr(0xbb))
 	return f
 }
 func (f *repair1027Fixture) principal(wallet string) sharedauth.StreamPrincipal {
@@ -90,6 +104,22 @@ func (f *repair1027Fixture) principal(wallet string) sharedauth.StreamPrincipal 
 		return p
 	}
 	p := sharedauth.StreamPrincipal{AccountID: uuid.NewString(), SessionID: uuid.NewString(), Wallet: wallet}
+	now := time.Now()
+	hash := sha256.Sum256([]byte(p.SessionID))
+	for _, statement := range []struct {
+		sql  string
+		args []any
+	}{
+		{`INSERT INTO users.identity_accounts VALUES($1,0,$2)`, []any{p.AccountID, now}},
+		{`INSERT INTO users.identity_wallet_links VALUES($1,$2,125,$3,'private','verified',$4)`, []any{uuid.NewString(), p.AccountID, wallet, now}},
+		{`INSERT INTO users.identity_sessions(session_id,account_id,wallet,auth_epoch,access_hash,csrf_hash,issued_at,access_expires_at,refresh_expires_at,reauthenticated_at,last_seen_at,device_label) VALUES($1,$2,$3,0,$4,$4,$5,$6,$6,$5,$5,'repair1027')`, []any{p.SessionID, p.AccountID, wallet, hash[:], now, now.Add(time.Hour)}},
+		{`INSERT INTO users.account_state(account_id,wallet,profile,preferences) VALUES($1,$2,'{}','{}')`, []any{p.AccountID, wallet}},
+		{`INSERT INTO chat.interaction_preferences(wallet,inbox) VALUES($1,'everyone')`, []any{wallet}},
+	} {
+		if _, err := f.database.Exec(context.Background(), statement.sql, statement.args...); err != nil {
+			f.t.Fatal(err)
+		}
+	}
 	f.principals[wallet] = p
 	return p
 }
@@ -301,9 +331,11 @@ func (r *repair1027Runtime) revise(id, revision, content string, remove bool) (i
 	return response.StatusCode, message
 }
 func (f *repair1027Fixture) rows() (int, int) {
-	f.database.mu.Lock()
-	defer f.database.mu.Unlock()
-	return len(f.database.data.Messages), len(f.database.data.Outbox)
+	var messages, outbox int
+	if err := f.database.QueryRow(context.Background(), `SELECT (SELECT count(*) FROM chat.chat_messages),(SELECT count(*) FROM chat.chat_outbox)`).Scan(&messages, &outbox); err != nil {
+		f.t.Fatal(err)
+	}
+	return messages, outbox
 }
 func repair1027RateKey(kind, wallet string) string {
 	return repair1027Namespace + "ratelimit:" + kind + ":" + wallet + ":ws"
@@ -347,7 +379,7 @@ func TestRepairM_1027_MessageLengthBoundaries(t *testing.T) {
 				if event["content"] != "中😃é" || event["revision"] != "2" {
 					t.Fatal(event)
 				}
-				page, err := r.store.History(context.Background(), addr(0xaa), edited.ConversationID, "", 50)
+				page, err := r.store.History(fanout.WithPrincipal(context.Background(), mustRepair1027Principal(t, f, addr(0xaa))), addr(0xaa), edited.ConversationID, "", 50)
 				if err != nil || len(page.Messages) != 1 || page.Messages[0].Content != edited.Content || page.Messages[0].Revision != 2 {
 					t.Fatal("edit/history mismatch", page, err)
 				}
@@ -592,10 +624,21 @@ func TestRepairM_1027_RestartWindowRecovery(t *testing.T) {
 				t.Fatal("window deadline slid on increment")
 			}
 			repair1027Persisted(t, repair1027Send(t, socket, "dm", "after-window", "message"), "after-window")
-			page, err := recovered.store.History(context.Background(), addr(0xaa), committed["conversation_id"].(string), "", 50)
+			page, err := recovered.store.History(fanout.WithPrincipal(context.Background(), mustRepair1027Principal(t, f, addr(0xaa))), addr(0xaa), committed["conversation_id"].(string), "", 50)
 			if err != nil || len(page.Messages) < 2 || page.Messages[0].ID != committed["id"] {
 				t.Fatal("recovered committed history", page, err)
 			}
 		})
 	}
+}
+
+func mustRepair1027Principal(t *testing.T, f *repair1027Fixture, wallet string) fanout.Principal {
+	t.Helper()
+	request := httptest.NewRequest("GET", "/", nil)
+	request.Header.Set("X-Fixture-Session", wallet)
+	principal, err := f.requestPrincipal(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return principal
 }

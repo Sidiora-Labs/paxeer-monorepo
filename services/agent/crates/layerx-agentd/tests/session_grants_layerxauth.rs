@@ -268,34 +268,7 @@ fn revoke_grant_receipt_invalidates_pending_preparations() {
     ));
     assert_eq!(event.reason, InvalidationReason::GrantRevokedOnChain);
     assert_eq!(event.observed_sequence, valid.block_number);
-    let mut malformed = Vec::new();
-    let mut failed = valid.clone();
-    failed.status = false;
-    malformed.push(failed);
-    let mut foreign = valid.clone();
-    foreign.logs[0].address[19] ^= 1;
-    malformed.push(foreign);
-    let mut wrong_grant = valid.clone();
-    wrong_grant.logs[0].topics[1][0] ^= 1;
-    malformed.push(wrong_grant);
-    let mut wrong_record = valid.clone();
-    wrong_record.logs[0].data[64] ^= 1;
-    malformed.push(wrong_record);
-    let mut duplicate = valid.clone();
-    duplicate.logs.push(valid.logs[0].clone());
-    malformed.push(duplicate);
-    let mut padding = valid.clone();
-    padding.logs[0].data[127] = 1;
-    malformed.push(padding);
-    let mut truncated = valid.clone();
-    truncated.logs[0].data.clear();
-    malformed.push(truncated);
-    for receipt in malformed {
-        assert!(
-            RevocationEvent::from_revoke_grant_receipt(principal(), issued.grant_id, &receipt)
-                .is_err()
-        );
-    }
+    assert_malformed_revocations(&valid, issued.grant_id);
     let report = must(invalidate_on_revocation(
         &mut store,
         &mut registry,
@@ -350,10 +323,9 @@ fn grant_session_receipt_is_required_before_refresh() {
         &issued.session_public_key[12..]
     );
     must(key.with_secret(|secret| assert_ne!(secret, &[0; 32])));
-    let error = match registry.session_refresh(&mut store, &original, [0x61; 32], 13, RequestId(9))
-    {
-        Err(error) => error,
-        Ok(_) => panic!("refresh accepted a provisioned key without a grantSession receipt"),
+    let Err(error) = registry.session_refresh(&mut store, &original, [0x61; 32], 13, RequestId(9))
+    else {
+        panic!("refresh accepted a provisioned key without a grantSession receipt");
     };
     assert_eq!(error.reason.as_str(), "session.grant_missing");
     assert_eq!(error.request_id, RequestId(9));
@@ -404,4 +376,34 @@ fn grant_session_receipt_is_required_before_refresh() {
         Err(error) if error.reason.as_str() == "session.expired")
     );
     assert!(registry.authenticate(&refreshed.credential()).is_ok());
+}
+
+fn assert_malformed_revocations(valid: &TransactionReceipt, grant_id: [u8; 32]) {
+    let mut malformed = Vec::new();
+    let mut failed = valid.clone();
+    failed.status = false;
+    malformed.push(failed);
+    let mut foreign = valid.clone();
+    foreign.logs[0].address[19] ^= 1;
+    malformed.push(foreign);
+    let mut wrong_grant = valid.clone();
+    wrong_grant.logs[0].topics[1][0] ^= 1;
+    malformed.push(wrong_grant);
+    let mut wrong_record = valid.clone();
+    wrong_record.logs[0].data[64] ^= 1;
+    malformed.push(wrong_record);
+    let mut duplicate = valid.clone();
+    duplicate.logs.push(valid.logs[0].clone());
+    malformed.push(duplicate);
+    let mut padding = valid.clone();
+    padding.logs[0].data[127] = 1;
+    malformed.push(padding);
+    let mut truncated = valid.clone();
+    truncated.logs[0].data.clear();
+    malformed.push(truncated);
+    for receipt in malformed {
+        assert!(
+            RevocationEvent::from_revoke_grant_receipt(principal(), grant_id, &receipt).is_err()
+        );
+    }
 }

@@ -859,6 +859,15 @@ func TestRepairM_1007_ModerationPublishedContent(t *testing.T) {
 
 func TestRepairM_1007_CanonicalRetentionRestart(t *testing.T) {
 	f := newRepair1007Fixture(t)
+	chainURL := os.Getenv("L34_ANVIL_URL")
+	if chainURL == "" {
+		t.Fatal("L34_ANVIL_URL must name the public job's real chain-125 fixture")
+	}
+	chainAuthority, e := ethclient.Dial(chainURL)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer chainAuthority.Close()
 	raw, e := os.ReadFile("testdata/paxeer125-creation-0x0f92fdd0.json")
 	if e != nil {
 		t.Fatal(e)
@@ -882,6 +891,17 @@ func TestRepairM_1007_CanonicalRetentionRestart(t *testing.T) {
 			w.WriteHeader(400)
 			return
 		}
+		if request.Method == "eth_chainId" {
+			chainID, err := chainAuthority.ChainID(r.Context())
+			if err != nil {
+				t.Error(err)
+				w.WriteHeader(http.StatusServiceUnavailable)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": request.ID, "result": fmt.Sprintf("0x%x", chainID)})
+			return
+		}
 		if request.Method != "eth_getTransactionReceipt" || len(request.Params) != 1 || request.Params[0] != f.creation.TxHash {
 			t.Errorf("unexpected RPC request: %+v", request)
 			w.WriteHeader(400)
@@ -902,8 +922,8 @@ func TestRepairM_1007_CanonicalRetentionRestart(t *testing.T) {
 	}
 	defer chain.Close()
 	reader := func() *DevelopmentV2Reads {
-		d := NewDevelopmentV2Reads(f.pool, chain, nil)
 		media := f.media()
+		d := NewDevelopmentV2Reads(f.pool, chain, nil, media.Metadata.Store)
 		d.Connected = &media
 		return d
 	}

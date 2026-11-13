@@ -14,9 +14,7 @@ import (
 // Decision 2533 reconciles deployment.yaml with the maintained native runtime.
 var repair467OriginalSHA256 = map[string]string{
 	"evm.py":                     "7bb0ad0fe92b1cbb0d97ff6a6913a5116943866b5978aae3dbb3827af9d053d7",
-	"custody-genesis.py":         "d83138a70061b0f42f24de9cdcdd882e4dbda9d5cf23284341ecd619d8c227c3",
-	"deploy-contracts.sh":        "b89c6690e1367048c95396e491965b69031e0be245048fc33adac62e34628942",
-	"deployment.yaml":            "7f681de19c1c05401b1b0dfb98fb4ee3611e6e22f3bd3815b0fb1877108d9066",
+	"deployment.yaml":            "ba84aff353486b744f3b9759fb158219b9de90558366485b483e4793c60dc9a2",
 	"deployment-input.beta.json": "2c718a52f3d1e6bf1add92ef3ab54389a97c1d294d5a5563ec2649399481463b",
 }
 
@@ -45,7 +43,7 @@ func repair467Restored(t *testing.T, names ...string) {
 }
 
 func TestRepair467_RestoredContent(t *testing.T) {
-	for _, name := range []string{"evm.py", "custody-genesis.py", "deploy-contracts.sh", "deployment.yaml", "deployment-input.beta.json"} {
+	for _, name := range []string{"evm.py", "deployment.yaml", "deployment-input.beta.json"} {
 		t.Run(name, func(t *testing.T) {
 			repair467Restored(t, name)
 		})
@@ -53,7 +51,7 @@ func TestRepair467_RestoredContent(t *testing.T) {
 }
 
 func TestRepair467_PythonCompile(t *testing.T) {
-	for _, name := range []string{"evm.py", "custody-genesis.py"} {
+	for _, name := range []string{"evm.py"} {
 		t.Run(name, func(t *testing.T) {
 			command := exec.Command("python3", "-m", "py_compile", name)
 			command.Env = append(os.Environ(), "PYTHONPYCACHEPREFIX="+t.TempDir())
@@ -61,12 +59,6 @@ func TestRepair467_PythonCompile(t *testing.T) {
 				t.Fatalf("py_compile %s: %v\n%s", name, err, output)
 			}
 		})
-	}
-}
-
-func TestRepair467_DeployerParses(t *testing.T) {
-	if output, err := exec.Command("bash", "-n", "deploy-contracts.sh").CombinedOutput(); err != nil {
-		t.Fatalf("bash -n deploy-contracts.sh: %v\n%s", err, output)
 	}
 }
 

@@ -21,12 +21,12 @@ JAVA_KEYWORDS = {
 }
 
 PROGRAM_CALLS = {
-    "program.activity": ("eth_getLogs", ["ProgramCallOutcome"]),
+    "program.activity": ("eth_getTransactionByHash", []),
     "program.call": ("eth_sendRawTransaction", ["call"]),
     "program.deploy": ("eth_sendRawTransaction", ["deploy"]),
     "program.discover": ("eth_call", ["getProgram"]),
     "program.interface": ("eth_call", ["getInterface"]),
-    "program.receipt": ("eth_getLogs", ["ProgramCallOutcome"]),
+    "program.receipt": ("eth_getTransactionByHash", []),
     "program.simulate": ("eth_call", ["simulateCall"]),
     "program.upgrade": ("eth_sendRawTransaction", ["upgrade"]),
     "program.wind-down": (
@@ -103,7 +103,8 @@ def human_plane(repo: Path) -> Plane:
     }
     plane.models["IntentLeg"] = {
         "required": string_list(plane.models["IntentLeg"]["required"])
-            + ["payment:IntentPayment"] + PROGRAM_CALL_FIELDS
+            + ["to:string", "calldata:string", "chain_id:u64", "value:Amount", "nonce:u64",
+               "gas_limit:u64", "max_fee_per_gas:Amount", "max_priority_fee_per_gas:Amount"]
     }
     plane.models["IntentSubmission"] = {
         **plane.models["IntentSubmission"],
@@ -290,6 +291,10 @@ def record_source(name: str, fields: list[tuple[str, str | None, bool]], plane: 
     parameters = []
     for wire, declared, optional in fields:
         annotation = f'@JsonProperty("{wire}") ' if field_name(wire) != wire else ""
+        if optional and plane.name == "Human" and name in {
+            "IntentEndpoint", "EvidenceMaterial", "EvidenceGetResponse"
+        }:
+            annotation += "@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) "
         if plane.name == "Agent" and name in {"NativePrepareResultV1", "NativeActivityV1"}:
             annotation = f'@JsonProperty(value = "{wire}", required = true) '
         if plane.scalars.get(declared or "", {}).get("wire") == "decimal_string" and plane.java_type(declared, optional) == "BigInteger":
@@ -478,9 +483,10 @@ def render_operations(plane: Plane, specs: list[dict[str, object]],
                 raise SystemExit(f"missing layerxprograms transport for {spec['wire']}")
             rpc, calls = transports[spec["wire"]]
             arguments = ", ".join(json.dumps(call) for call in calls)
+            destination = "0x000000000000000000000000000000000000101d" if calls else ""
             lines.append(
                 f"        public static final ProgramTransport {constant_name(spec['wire'])}_TRANSPORT = "
-                f'new ProgramTransport("{rpc}", "0x000000000000000000000000000000000000101d", '
+                f'new ProgramTransport("{rpc}", "{destination}", '
                 f"List.of({arguments}));"
             )
     if plane.name == "Agent":

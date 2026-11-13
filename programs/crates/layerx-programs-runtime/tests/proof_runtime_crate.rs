@@ -1,4 +1,4 @@
-//! Proves: Executor/AbiEffects -> AbiEffects::canonical_program_event_envelope/AbiEffects::program_event_logs -> transfer::parse_event_envelope/ProgramEventLog::write_encoded.
+//! Proves: Executor/AbiEffects -> `AbiEffects::canonical_program_event_envelope/AbiEffects::program_event_logs` -> `transfer::parse_event_envelope/ProgramEventLog::write_encoded`.
 //!
 //! Repairs empty-topic acceptance in `AbiEffects`' event serializers and
 //! `transfer.rs::parse_event_envelope`, matching the real emitter's refusal.

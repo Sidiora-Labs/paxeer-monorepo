@@ -261,7 +261,7 @@ func repair55Options(t *testing.T) receipt.RPCOptions {
 	if !ok {
 		t.Fatal("approved fixture generation missing")
 	}
-	reviewed, err := os.ReadFile(filepath.Join(root, "sdk/launchpad/protocol/catalog/reviewed.json"))
+	reviewed, err := os.ReadFile(filepath.Join(root, "sdk/launchpad/protocol/catalog/history/reviewed-a35ff7c6f532d2f9.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

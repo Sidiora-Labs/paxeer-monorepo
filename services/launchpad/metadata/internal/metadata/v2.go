@@ -143,7 +143,7 @@ func decodeUploadV2(raw []byte, p *V2Patch) error {
 			return ErrValidation
 		}
 		switch s {
-		case "expectedRevision", "name", "symbol", "description", "tags", "socials", "logoAssetId":
+		case "expectedRevision", metadataNameKey, metadataSymbolKey, metadataDescriptionKey, metadataTagsKey, "socials", metadataLogoAssetIDKey:
 		default:
 			return ErrValidation
 		}
@@ -252,7 +252,7 @@ func (s *ProductionStore) ApplyV2(ctx context.Context, token string, raw []byte,
 	}
 	h := sha256.Sum256(raw)
 	digest := hex.EncodeToString(h[:])
-	if a.Method != "PATCH" || a.Path != "/v2/tokens/"+token+"/metadata" || a.BodyHash != digest || a.ChainID != 125 || s.Verifier == nil {
+	if a.Method != metadataPatchMethod || a.Path != "/v2/tokens/"+token+"/metadata" || a.BodyHash != digest || a.ChainID != 125 || s.Verifier == nil {
 		return z, ErrForbidden
 	}
 	tx, e := s.Pool.Begin(ctx)
@@ -319,28 +319,28 @@ func (s *ProductionStore) applyV2InTx(ctx context.Context, tx pgx.Tx, token stri
 	if e != nil {
 		return z, e
 	}
-	if current != p.ExpectedRevision || current == "115792089237316195423570985008687907853269984665640564039457584007913129639935" {
+	if current != p.ExpectedRevision || current == metadataMaxRevision {
 		return z, ErrConflict
 	}
 	if p.LogoAssetID != nil {
 		var state string
 		e = tx.QueryRow(ctx, "SELECT state FROM "+s.table("assets")+" WHERE id=$1 AND pool=$2 FOR SHARE", *p.LogoAssetID, pool).Scan(&state)
-		if e != nil || state != "APPROVED" {
+		if e != nil || state != metadataStateApproved {
 			return z, ErrMissing
 		}
 	}
 	doc := map[string]any{}
 	if p.Name != nil {
-		doc["name"] = *p.Name
+		doc[metadataNameKey] = *p.Name
 	}
 	if p.Symbol != nil {
-		doc["symbol"] = *p.Symbol
+		doc[metadataSymbolKey] = *p.Symbol
 	}
 	if p.Description != nil {
-		doc["description"] = *p.Description
+		doc[metadataDescriptionKey] = *p.Description
 	}
 	if p.Tags != nil {
-		doc["tags"] = *p.Tags
+		doc[metadataTagsKey] = *p.Tags
 	}
 	if p.Socials != nil {
 		doc["socials"] = *p.Socials
@@ -355,12 +355,12 @@ func (s *ProductionStore) applyV2InTx(ctx context.Context, tx pgx.Tx, token stri
 		return z, e
 	}
 	if s.ConnectedSearch {
-		projection := map[string]string{"description": normalizedSearchText(z.Display.Description)}
+		projection := map[string]string{metadataDescriptionKey: normalizedSearchText(z.Display.Description)}
 		if z.Display.Name != nil {
-			projection["name"] = normalizedSearchText(*z.Display.Name)
+			projection[metadataNameKey] = normalizedSearchText(*z.Display.Name)
 		}
 		if z.Display.Symbol != nil {
-			projection["symbol"] = normalizedSearchText(*z.Display.Symbol)
+			projection[metadataSymbolKey] = normalizedSearchText(*z.Display.Symbol)
 		}
 		encoded, err := json.Marshal(projection)
 		if err != nil {
@@ -392,7 +392,7 @@ func (s *ProductionStore) applyV2InTx(ctx context.Context, tx pgx.Tx, token stri
 func rollbackV2(ctx context.Context, tx pgx.Tx) {
 	c, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 	defer cancel()
-	tx.Rollback(c)
+	rollbackTransaction(c, tx)
 }
 
 type v2Reader interface {
@@ -415,7 +415,7 @@ func (s *ProductionStore) readV2(ctx context.Context, q v2Reader, token string) 
 	}
 	z.ChainID = 125
 	z.Source = "creator"
-	z.ModerationStatus = "allowed"
+	z.ModerationStatus = metadataVisibilityAllowed
 	if blocked {
 		z.ModerationStatus = "blocked"
 		z.LogoAssetID = nil
@@ -446,7 +446,7 @@ func (h V2Handlers) now() time.Time {
 }
 func (h V2Handlers) get(w http.ResponseWriter, r *http.Request) {
 	if h.Store == nil {
-		v2Error(w, http.StatusServiceUnavailable, "unavailable")
+		v2Error(w, http.StatusServiceUnavailable, metadataUnavailableQuality)
 		return
 	}
 	v, e := h.Store.ReadV2(r.Context(), chi.URLParam(r, "tokenAddress"))
@@ -465,10 +465,10 @@ func (h V2Handlers) get(w http.ResponseWriter, r *http.Request) {
 }
 func (h V2Handlers) patch(w http.ResponseWriter, r *http.Request) {
 	if h.Store == nil {
-		v2Error(w, http.StatusServiceUnavailable, "unavailable")
+		v2Error(w, http.StatusServiceUnavailable, metadataUnavailableQuality)
 		return
 	}
-	if strings.TrimSpace(strings.Split(r.Header.Get("Content-Type"), ";")[0]) != "application/json" {
+	if strings.TrimSpace(strings.Split(r.Header.Get("Content-Type"), ";")[0]) != metadataJSONType {
 		v2Error(w, http.StatusUnsupportedMediaType, "unsupported_media_type")
 		return
 	}
@@ -495,8 +495,8 @@ func (h V2Handlers) respond(w http.ResponseWriter, v V2Data) {
 		v2Failure(w, e)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(r)
+	w.Header().Set("Content-Type", metadataJSONType)
+	writeJSON(w, r)
 }
 func v2Failure(w http.ResponseWriter, e error) {
 	switch {
@@ -509,14 +509,14 @@ func v2Failure(w http.ResponseWriter, e error) {
 	case errors.Is(e, ErrConflict):
 		v2Error(w, 409, "conflict")
 	default:
-		v2Error(w, 503, "unavailable")
+		v2Error(w, 503, metadataUnavailableQuality)
 	}
 }
 func v2Error(w http.ResponseWriter, status int, code string) {
 	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", metadataJSONType)
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]any{"requestId": uuid.NewString(), "error": map[string]string{"code": code}})
+	writeJSON(w, map[string]any{"requestId": uuid.NewString(), "error": map[string]string{"code": code}})
 }
 
 type V2CanonicalIdentity struct {
@@ -575,9 +575,9 @@ func ParseV2ContractPatch(raw []byte) (V2Patch, error) {
 	for k, v := range fields {
 		switch k {
 		case "displayName":
-			k = "name"
+			k = metadataNameKey
 		case "displaySymbol":
-			k = "symbol"
+			k = metadataSymbolKey
 		case "socialLinks":
 			k = "socials"
 		}
@@ -606,7 +606,7 @@ func V2ContractData(data V2Data, identity V2CanonicalIdentity) (iface.MetadataGe
 	links := make([]V2Social, len(data.Display.Socials))
 	copy(links, data.Display.Socials)
 	tags := append([]string{}, data.Display.Tags...)
-	body := map[string]any{"token": token, "displayName": data.Display.Name, "displaySymbol": data.Display.Symbol, "description": data.Display.Description, "tags": tags, "socialLinks": links, "revision": data.Revision}
+	body := map[string]any{metadataTokenTarget: token, "displayName": data.Display.Name, "displaySymbol": data.Display.Symbol, metadataDescriptionKey: data.Display.Description, metadataTagsKey: tags, "socialLinks": links, "revision": data.Revision}
 	raw, e := json.Marshal(body)
 	if e != nil {
 		return zero, e
@@ -644,7 +644,7 @@ func (h V2ContractHandlers) identity(ctx context.Context, tx pgx.Tx, token strin
 }
 func (h V2ContractHandlers) get(w http.ResponseWriter, r *http.Request) {
 	if h.Store == nil || h.Store.Verifier == nil || h.Canonical == nil {
-		v2Error(w, 503, "unavailable")
+		v2Error(w, 503, metadataUnavailableQuality)
 		return
 	}
 	tx, e := h.Store.Pool.BeginTx(r.Context(), pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
@@ -670,7 +670,7 @@ func (h V2ContractHandlers) get(w http.ResponseWriter, r *http.Request) {
 			v2Failure(w, ErrForbidden)
 			return
 		}
-		data = V2Data{ChainID: 125, PoolAddress: identity.PoolAddress, TokenAddress: identity.Token.Address, Revision: "0", Display: V2Display{Tags: []string{}, Socials: []V2Social{}}, ModerationStatus: "allowed"}
+		data = V2Data{ChainID: 125, PoolAddress: identity.PoolAddress, TokenAddress: identity.Token.Address, Revision: "0", Display: V2Display{Tags: []string{}, Socials: []V2Social{}}, ModerationStatus: metadataVisibilityAllowed}
 	} else if e != nil {
 		v2Failure(w, e)
 		return
@@ -688,10 +688,10 @@ func (h V2ContractHandlers) get(w http.ResponseWriter, r *http.Request) {
 }
 func (h V2ContractHandlers) patch(w http.ResponseWriter, r *http.Request) {
 	if h.Store == nil || h.Store.Verifier == nil || h.Canonical == nil {
-		v2Error(w, 503, "unavailable")
+		v2Error(w, 503, metadataUnavailableQuality)
 		return
 	}
-	if strings.TrimSpace(strings.Split(r.Header.Get("Content-Type"), ";")[0]) != "application/json" {
+	if strings.TrimSpace(strings.Split(r.Header.Get("Content-Type"), ";")[0]) != metadataJSONType {
 		v2Error(w, 415, "unsupported_media_type")
 		return
 	}
@@ -709,7 +709,7 @@ func (h V2ContractHandlers) patch(w http.ResponseWriter, r *http.Request) {
 	a := VerifiedAction{Wallet: strings.ToLower(r.Header.Get("X-Action-Wallet")), OperationID: r.Header.Get("Idempotency-Key"), Signature: r.Header.Get("X-Action-Signature"), Nonce: r.Header.Get("X-Action-Nonce"), ExpiresAt: r.Header.Get("X-Action-Expires"), Audience: r.Header.Get("X-Action-Audience"), ChainID: 125, Method: r.Method, Path: r.URL.Path}
 	hash := sha256.Sum256(raw)
 	a.BodyHash = hex.EncodeToString(hash[:])
-	if !addressRE.MatchString(a.Wallet) || !uuidRE.MatchString(a.OperationID) || a.Method != "PATCH" || a.Path != "/v2/tokens/"+token+"/metadata" {
+	if !addressRE.MatchString(a.Wallet) || !uuidRE.MatchString(a.OperationID) || a.Method != metadataPatchMethod || a.Path != "/v2/tokens/"+token+"/metadata" {
 		v2Failure(w, ErrForbidden)
 		return
 	}
@@ -760,7 +760,7 @@ func (h V2ContractHandlers) respond(w http.ResponseWriter, v iface.MetadataGetDa
 		v2Failure(w, e)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", metadataJSONType)
 	w.Header().Set("Cache-Control", "no-store")
-	json.NewEncoder(w).Encode(response)
+	writeJSON(w, response)
 }

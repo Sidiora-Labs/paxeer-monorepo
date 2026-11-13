@@ -39,6 +39,7 @@ function deploymentRegenerationPreservesFullHelper() {
   expect(readFileSync(join(__dirname, 'deployment.ts'), 'utf8')).toBe(rendered);
   expect(data).toEqual(deployment.CORE_DEPLOYMENT);
   expect(data.manifestSha256).toBe(createHash('sha256').update(readFileSync(manifestFile)).digest('hex'));
+  expect(data.manifestSha256).toBe(reviewed.sourceManifestSha256);
   expect(generator.checkClient(clientRoot, data, rendered).checked).toBe(true);
 
   const output: Record<string, unknown> = {};
@@ -67,6 +68,10 @@ function deploymentRegenerationPreservesFullHelper() {
 
 function deploymentRegenerationRetainsReviewedIdentities() {
   const data = generator.deriveDeployment(contractRoot);
+  expect(data.roleIdentity.router.stagedRuntimeHash).toBe(reviewed.roles.Router.stagedRuntimeHash);
+  expect(data.roleIdentity.router.stagedUpgrade).toBe(reviewed.roles.Router.stagedUpgrade);
+  expect(data.roleIdentity.treasury.stagedRuntimeHash).toBe(reviewed.roles.Treasury.stagedRuntimeHash);
+  expect(data.roleIdentity.treasury.stagedUpgrade).toBe(reviewed.roles.Treasury.stagedUpgrade);
   for (const [key, role] of Object.entries({
     router: 'Router', quoter: 'Quoter', feesRouter: 'FeesRouter', opticalRegistry: 'OpticalRegistry',
     protocolConfig: 'ProtocolConfig', factory: 'SidioraFactory', nft: 'SidioraNFT',
@@ -96,6 +101,18 @@ function deploymentRegenerationRejectsUnreviewedTreasury() {
       writeFileSync(join(directory, 'deployments/paxeer-x-network-addresses.json'), JSON.stringify(changed));
       expect(() => generator.deriveDeployment(directory)).toThrow(/Treasury/);
     }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
+
+function deploymentRegenerationRejectsUnreviewedManifestBytes() {
+  const directory = mkdtempSync(join(tmpdir(), 'deployment-regeneration-digest-'));
+  try {
+    mkdirSync(join(directory, 'deployments'));
+    const bytes = readFileSync(manifestFile, 'utf8');
+    writeFileSync(join(directory, 'deployments/paxeer-x-network-addresses.json'), bytes + '\n');
+    expect(() => generator.deriveDeployment(directory)).toThrow(/Reviewed manifest digest mismatch/);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -145,5 +162,6 @@ async function deploymentRegenerationPreservesProviderCookieStorage() {
 test(deploymentRegenerationPreservesFullHelper.name, deploymentRegenerationPreservesFullHelper);
 test(deploymentRegenerationRetainsReviewedIdentities.name, deploymentRegenerationRetainsReviewedIdentities);
 test(deploymentRegenerationRejectsUnreviewedTreasury.name, deploymentRegenerationRejectsUnreviewedTreasury);
+test(deploymentRegenerationRejectsUnreviewedManifestBytes.name, deploymentRegenerationRejectsUnreviewedManifestBytes);
 test(deploymentRegenerationFeedsWebConsumers.name, deploymentRegenerationFeedsWebConsumers);
 test(deploymentRegenerationPreservesProviderCookieStorage.name, deploymentRegenerationPreservesProviderCookieStorage);

@@ -17,6 +17,9 @@ pub enum StorageWitnessError {
     Encoding(ChainProofError),
 }
 
+/// # Errors
+///
+/// Returns an encoding error for malformed proofs, or a mismatch error when operations, keys, values, store roots or the app hash fail verification.
 pub fn verify_storage_witness(
     witness: &StorageWitness,
     app_hash: [u8; 32],
@@ -60,9 +63,8 @@ pub(crate) fn existence(data: &[u8]) -> Result<ExistenceProof, StorageWitnessErr
         .next_field()
         .map_err(StorageWitnessError::Encoding)?
         .ok_or(StorageWitnessError::Encoding(ChainProofError::Mismatch))?;
-    let bytes = match (field.number, field.value) {
-        (1, ProtoValue::Bytes(bytes)) => bytes,
-        _ => return Err(StorageWitnessError::Encoding(ChainProofError::Mismatch)),
+    let (1, ProtoValue::Bytes(bytes)) = (field.number, field.value) else {
+        return Err(StorageWitnessError::Encoding(ChainProofError::Mismatch));
     };
     reader.finish().map_err(StorageWitnessError::Encoding)?;
     ExistenceProof::decode(bytes).map_err(StorageWitnessError::Encoding)

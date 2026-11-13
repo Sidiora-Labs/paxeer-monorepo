@@ -56,10 +56,13 @@ pub fn sha256(bytes: &[u8]) -> [u8; 32] {
     Sha256::digest(bytes).into()
 }
 pub fn hex(bytes: &[u8]) -> String {
-    format!(
-        "0x{}",
-        bytes.iter().map(|b| format!("{b:02x}")).collect::<String>()
-    )
+    use std::fmt::Write as _;
+    let mut text = String::with_capacity(2 + bytes.len() * 2);
+    text.push_str("0x");
+    for byte in bytes {
+        let _ = write!(text, "{byte:02x}");
+    }
+    text
 }
 pub fn unhex(text: &str) -> Vec<u8> {
     text.strip_prefix("0x")
@@ -297,9 +300,9 @@ pub fn node_commit(height: u64, app_hash: [u8; 32], data_hash: [u8; 32]) -> Node
     let header = ChainHeader {
         version: HeaderVersion { block: 11, app: 1 },
         chain_id: "paxeer-repair-125".to_owned(),
-        height: height as i64,
+        height: must(i64::try_from(height)),
         time: HeaderTime {
-            seconds: 1700000000,
+            seconds: 1_700_000_000,
             nanos: 0,
         },
         last_block_id: HeaderBlockId {
@@ -325,7 +328,7 @@ pub fn node_commit(height: u64, app_hash: [u8; 32], data_hash: [u8; 32]) -> Node
         },
     };
     let timestamp = Timestamp {
-        seconds: 1700000000,
+        seconds: 1_700_000_000,
         nanos: 0,
     };
     let signature = signer
@@ -418,40 +421,13 @@ impl Drop for Directory {
 }
 
 pub fn receipt_sequence_and_height_survive_reopen() {
-    let raw = must(
-        Eip1559Call {
-            chain_id: 125,
-            nonce: 41,
-            max_priority_fee_per_gas: 1,
-            max_fee_per_gas: 1,
-            gas_limit: 100000,
-            to: [7; 20],
-            data: vec![],
-        }
-        .sign(&[0x46; 32]),
-    );
+    let raw = signed_program_call();
     let (call, signature) = must(evm_transaction::decode_signed(&raw));
     let sender = must(evm_transaction::recover_sender(&call, &signature));
     let tx_hash = evm_transaction::transaction_hash(&raw);
     let (view, canonical, key) = signed_receipt(tx_hash, true, sender);
-    let mut chain = b"PAXEER/v1/sequence\0".to_vec();
-    chain.extend_from_slice(&[4; 32]);
-    chain.extend_from_slice(&7_u64.to_be_bytes());
-    chain.extend_from_slice(&tx_hash);
-    let resulting_root = sha256(&chain);
-    let mut batch = SequenceBatch {
-        height: 150,
-        from_sequence: 7,
-        to_sequence: 7,
-        previous_root: [4; 32],
-        resulting_root,
-        activity_root: sha256(&tx_hash),
-        key_id: KEY_ID,
-        signature: [0; 64],
-    };
-    batch.signature = SigningKey::from_bytes(&[8; 32])
-        .sign(&must(batch.signing_digest("paxeer-repair-125")))
-        .to_bytes();
+    let batch = signed_sequence_batch(tx_hash);
+    let resulting_root = batch.resulting_root;
     let batch_bytes = must(batch.encode());
     let batch_hash = sha256(&batch_bytes);
     let data_root = hash_from_byte_slices(&[&batch_hash]);
@@ -477,7 +453,7 @@ pub fn receipt_sequence_and_height_survive_reopen() {
     let mut record = must(OperationRecord::from_signed_transaction(
         raw.clone(),
         [0x55; 32],
-        10000,
+        10_000,
     ));
     must(journal.record_signed(&record));
     assert_eq!(
@@ -489,7 +465,7 @@ pub fn receipt_sequence_and_height_survive_reopen() {
             &mut record,
             &endpoint,
             LookupContext {
-                receipt_keys: &[key.clone()]
+                receipt_keys: std::slice::from_ref(&key)
             }
         )),
         OperationState::Executed
@@ -503,20 +479,12 @@ pub fn receipt_sequence_and_height_survive_reopen() {
     let mut record = must(journal.load(&tx_hash, &registry));
     assert_eq!(record.execution_height(), Some(150));
     assert_eq!(record.global_sequence(), Some(7));
-    for height in [7, 149, 150, 999] {
-        let unverified = must(CommitFinality::new(height, [2; 32], [3; 32], [4; 32]));
-        assert_eq!(
-            journal.finalize(&mut record, &unverified),
-            Err(AiClientError::FinalityMismatch)
-        );
-        assert_eq!(record.state(), OperationState::Executed);
-        assert_eq!(must(journal.load(&tx_hash, &registry)), record);
-    }
+    refuse_unverified_finality(&journal, &mut record, &tx_hash, &registry);
     let lookup = must(lookup_authenticated_with_commit(
         &endpoint,
         tx_hash,
         LookupContext {
-            receipt_keys: &[key.clone()],
+            receipt_keys: std::slice::from_ref(&key),
         },
         &evidence,
     ));
@@ -525,92 +493,8 @@ pub fn receipt_sequence_and_height_survive_reopen() {
     };
     assert_eq!(receipt.canonical_bytes(), canonical);
     let finality = must(CommitFinality::from_verified_receipt(&receipt));
-    // Inclusion alone is insufficient: a valid batch commit with a foreign receipt root refuses.
-    let mut wrong = batch.clone();
-    wrong.resulting_root = [99; 32];
-    wrong.signature = SigningKey::from_bytes(&[8; 32])
-        .sign(&must(wrong.signing_digest("paxeer-repair-125")))
-        .to_bytes();
-    let wrong_bytes = must(wrong.encode());
-    let wrong_data = hash_from_byte_slices(&[&sha256(&wrong_bytes)]);
-    let wrong_node = node_commit(150, [0x33; 32], wrong_data);
-    let wrong_proof = SimpleProof {
-        total: 1,
-        index: 0,
-        leaf_hash: wrong_data,
-        aunts: vec![],
-    };
-    let wrong_server = receipt_server(raw.clone(), view.clone(), &wrong_node);
-    let wrong_evidence = ReceiptCommitEvidence {
-        verifier: &wrong_node.verifier,
-        covering_height: 150,
-        batch_transaction: &wrong_bytes,
-        transaction_proof: &wrong_proof,
-        activity_ids: &[tx_hash],
-    };
-    assert!(matches!(
-        lookup_authenticated_with_commit(
-            &wrong_server.endpoint(),
-            tx_hash,
-            LookupContext {
-                receipt_keys: &[key.clone()]
-            },
-            &wrong_evidence
-        ),
-        Err(layerx_client::rpc::receipt::ReceiptError::Coverage(_))
-    ));
-    assert_eq!(wrong_server.finish(), 5);
-    let old_node = node_commit(7, [0x33; 32], data_root);
-    let old_server = receipt_server(raw.clone(), view.clone(), &old_node);
-    let old_evidence = ReceiptCommitEvidence {
-        verifier: &old_node.verifier,
-        covering_height: 7,
-        batch_transaction: &batch_bytes,
-        transaction_proof: &proof,
-        activity_ids: &[tx_hash],
-    };
-    assert!(matches!(
-        lookup_authenticated_with_commit(
-            &old_server.endpoint(),
-            tx_hash,
-            LookupContext {
-                receipt_keys: &[key.clone()]
-            },
-            &old_evidence
-        ),
-        Err(layerx_client::rpc::receipt::ReceiptError::FieldMismatch(
-            "coveringBlock"
-        ))
-    ));
-    assert_eq!(old_server.finish(), 2);
-    let second_directory = Directory::open();
-    let second_journal = must(OperationJournal::open(&second_directory.0));
-    let mut second = must(OperationRecord::from_signed_transaction(
-        raw.clone(),
-        [0x55; 32],
-        10000,
-    ));
-    must(second_journal.submit(&mut second, &endpoint));
-    assert_eq!(
-        must(second_journal.resolve_with_commit(
-            &mut second,
-            &endpoint,
-            LookupContext {
-                receipt_keys: &[key]
-            },
-            &evidence
-        )),
-        OperationState::Executed
-    );
-    drop(second_journal);
-    drop(second);
-    let second_journal = must(OperationJournal::open(&second_directory.0));
-    let mut second = must(second_journal.load(&tx_hash, &registry));
-    assert_eq!(second.execution_height(), Some(150));
-    assert_eq!(
-        must(second_journal.finalize(&mut second, &finality)),
-        OperationState::Finalized
-    );
+    refuse_uncovered_receipts(&raw, &view, key, &batch, &evidence, tx_hash);
+    finalize_second_record(&raw, &endpoint, key, &evidence, &registry, &finality);
     assert_eq!(
         must(journal.finalize(&mut record, &finality)),
         OperationState::Finalized
@@ -621,34 +505,8 @@ pub fn receipt_sequence_and_height_survive_reopen() {
     drop(record);
     let journal = must(OperationJournal::open(&directory.0));
     let record = must(journal.load(&tx_hash, &registry));
-    assert_eq!(record.state(), OperationState::Finalized);
-    assert_eq!(record.execution_height(), Some(150));
-    assert_eq!(record.checkpoint(), Some(node.head.header_hash()));
-    assert_eq!(record.signed_bytes(), raw);
-    let mut finalized_record = record.clone();
-    assert_eq!(
-        journal.finalize(&mut finalized_record, &finality),
-        Err(AiClientError::InvalidTransition {
-            from: OperationState::Finalized
-        })
-    );
-    // A real older-format record carries the signed transaction but none of the new evidence.
-    let end = bytes.len() - 4 - raw.len();
-    let start = end - (9 + 33 + 33 + 153);
-    let mut legacy = bytes[..start].to_vec();
-    legacy[..8].copy_from_slice(b"PAXAIOP2");
-    legacy.extend_from_slice(&bytes[end..]);
-    must(std::fs::write(journal.record_path(&tx_hash), legacy));
-    let mut migrated = must(journal.load(&tx_hash, &registry));
-    assert_eq!(migrated.state(), OperationState::Executed);
-    assert_eq!(migrated.global_sequence(), Some(7));
-    assert_eq!(migrated.execution_height(), None);
-    assert_eq!(migrated.receipt_root(), None);
-    assert_eq!(migrated.checkpoint(), None);
-    assert_eq!(
-        journal.finalize(&mut migrated, &finality),
-        Err(AiClientError::FinalityMismatch)
-    );
+    assert_finalized_record(&journal, &record, &finality, node.head.header_hash(), &raw);
+    refuse_legacy_finalization(&journal, &tx_hash, &raw, &bytes, &registry, &finality);
     assert_eq!(server.finish(), 14);
 }
 pub fn market_state(rubric: u8) -> Vec<u8> {
@@ -704,7 +562,7 @@ pub fn market_state(rubric: u8) -> Vec<u8> {
         config: 1,
         roster: Presence::Absent,
         sequence: 1,
-        expiry: 1000000,
+        expiry: 1_000_000,
         request: must(RequestId::new([1; 32])),
         payload: &payload,
         authentication: Authentication::Native,
@@ -738,10 +596,10 @@ pub fn market_state(rubric: u8) -> Vec<u8> {
 fn varint(mut value: usize) -> Vec<u8> {
     let mut out = vec![];
     while value >= 128 {
-        out.push((value as u8 & 127) | 128);
+        out.push((value.to_le_bytes()[0] & 127) | 128);
         value >>= 7;
     }
-    out.push(value as u8);
+    out.push(must(u8::try_from(value)));
     out
 }
 fn proto_bytes(field: u8, value: &[u8], out: &mut Vec<u8>) {
@@ -765,14 +623,16 @@ fn membership(key: &[u8], value: &[u8], prefix: &[u8]) -> (Vec<u8>, [u8; 32]) {
     preimage.extend_from_slice(&sha256(value));
     (commitment, sha256(&preimage))
 }
-pub fn namespace_proof(state: &[u8]) -> (Vec<u8>, Vec<u8>, Vec<ProofOp>, [u8; 32], [u8; 32]) {
+pub type NamespaceProof = (Vec<u8>, Vec<u8>, Vec<ProofOp>, [u8; 32], [u8; 32]);
+
+pub fn namespace_proof(state: &[u8]) -> NamespaceProof {
     let mut manifest = vec![0, 1];
     manifest.extend_from_slice(&1_u32.to_be_bytes());
     let key = layerx_programs_ai_market::SHARED_STATE_KEY;
-    manifest.extend_from_slice(&(key.len() as u16).to_be_bytes());
+    manifest.extend_from_slice(&must(u16::try_from(key.len())).to_be_bytes());
     manifest.extend_from_slice(key);
     manifest.extend_from_slice(&sha256(state));
-    manifest.extend_from_slice(&(state.len() as u32).to_be_bytes());
+    manifest.extend_from_slice(&must(u32::try_from(state.len())).to_be_bytes());
     let mut head = vec![0, 1];
     head.extend_from_slice(&1_u32.to_be_bytes());
     head.extend_from_slice(&sha256(&manifest));
@@ -967,4 +827,212 @@ pub fn verified_market(state: &[u8], execution_height: u64) -> (ObservedSnapshot
     let snapshot = capture_market(state, store_root, head.header_hash(), execution_height);
     assert_eq!(server.finish(), 2);
     (snapshot, finality)
+}
+
+fn signed_program_call() -> Vec<u8> {
+    must(
+        Eip1559Call {
+            chain_id: 125,
+            nonce: 41,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 1,
+            gas_limit: 100_000,
+            to: [7; 20],
+            data: vec![],
+        }
+        .sign(&[0x46; 32]),
+    )
+}
+
+fn signed_sequence_batch(tx_hash: [u8; 32]) -> SequenceBatch {
+    let mut chain = b"PAXEER/v1/sequence\0".to_vec();
+    chain.extend_from_slice(&[4; 32]);
+    chain.extend_from_slice(&7_u64.to_be_bytes());
+    chain.extend_from_slice(&tx_hash);
+    let resulting_root = sha256(&chain);
+    let mut batch = SequenceBatch {
+        height: 150,
+        from_sequence: 7,
+        to_sequence: 7,
+        previous_root: [4; 32],
+        resulting_root,
+        activity_root: sha256(&tx_hash),
+        key_id: KEY_ID,
+        signature: [0; 64],
+    };
+    batch.signature = SigningKey::from_bytes(&[8; 32])
+        .sign(&must(batch.signing_digest("paxeer-repair-125")))
+        .to_bytes();
+    batch
+}
+
+fn refuse_uncovered_receipts(
+    raw: &[u8],
+    view: &Value,
+    key: ReceiptKeyEntry,
+    batch: &SequenceBatch,
+    evidence: &ReceiptCommitEvidence<'_>,
+    tx_hash: [u8; 32],
+) {
+    // Inclusion alone is insufficient: a valid batch commit with a foreign receipt root refuses.
+    let mut wrong = batch.clone();
+    wrong.resulting_root = [99; 32];
+    wrong.signature = SigningKey::from_bytes(&[8; 32])
+        .sign(&must(wrong.signing_digest("paxeer-repair-125")))
+        .to_bytes();
+    let wrong_bytes = must(wrong.encode());
+    let wrong_data = hash_from_byte_slices(&[&sha256(&wrong_bytes)]);
+    let wrong_node = node_commit(150, [0x33; 32], wrong_data);
+    let wrong_proof = SimpleProof {
+        total: 1,
+        index: 0,
+        leaf_hash: wrong_data,
+        aunts: vec![],
+    };
+    let wrong_server = receipt_server(raw.to_vec(), view.clone(), &wrong_node);
+    let wrong_evidence = ReceiptCommitEvidence {
+        verifier: &wrong_node.verifier,
+        covering_height: 150,
+        batch_transaction: &wrong_bytes,
+        transaction_proof: &wrong_proof,
+        activity_ids: &[tx_hash],
+    };
+    assert!(matches!(
+        lookup_authenticated_with_commit(
+            &wrong_server.endpoint(),
+            tx_hash,
+            LookupContext {
+                receipt_keys: std::slice::from_ref(&key)
+            },
+            &wrong_evidence
+        ),
+        Err(layerx_client::rpc::receipt::ReceiptError::Coverage(_))
+    ));
+    assert_eq!(wrong_server.finish(), 5);
+    let old_node = node_commit(7, [0x33; 32], evidence.transaction_proof.leaf_hash);
+    let old_server = receipt_server(raw.to_vec(), view.clone(), &old_node);
+    let old_evidence = ReceiptCommitEvidence {
+        verifier: &old_node.verifier,
+        covering_height: 7,
+        batch_transaction: evidence.batch_transaction,
+        transaction_proof: evidence.transaction_proof,
+        activity_ids: &[tx_hash],
+    };
+    assert!(matches!(
+        lookup_authenticated_with_commit(
+            &old_server.endpoint(),
+            tx_hash,
+            LookupContext {
+                receipt_keys: std::slice::from_ref(&key)
+            },
+            &old_evidence
+        ),
+        Err(layerx_client::rpc::receipt::ReceiptError::FieldMismatch(
+            "coveringBlock"
+        ))
+    ));
+    assert_eq!(old_server.finish(), 2);
+}
+
+fn finalize_second_record(
+    raw: &[u8],
+    endpoint: &SequencerEndpoint,
+    key: ReceiptKeyEntry,
+    evidence: &ReceiptCommitEvidence<'_>,
+    registry: &layerx_types::payload::ModuleRegistry,
+    finality: &CommitFinality,
+) {
+    let tx_hash = evm_transaction::transaction_hash(raw);
+    let second_directory = Directory::open();
+    let second_journal = must(OperationJournal::open(&second_directory.0));
+    let mut second = must(OperationRecord::from_signed_transaction(
+        raw.to_vec(),
+        [0x55; 32],
+        10_000,
+    ));
+    must(second_journal.submit(&mut second, endpoint));
+    assert_eq!(
+        must(second_journal.resolve_with_commit(
+            &mut second,
+            endpoint,
+            LookupContext {
+                receipt_keys: &[key]
+            },
+            evidence
+        )),
+        OperationState::Executed
+    );
+    drop(second_journal);
+    drop(second);
+    let second_journal = must(OperationJournal::open(&second_directory.0));
+    let mut second = must(second_journal.load(&tx_hash, registry));
+    assert_eq!(second.execution_height(), Some(150));
+    assert_eq!(
+        must(second_journal.finalize(&mut second, finality)),
+        OperationState::Finalized
+    );
+}
+
+fn refuse_legacy_finalization(
+    journal: &OperationJournal,
+    tx_hash: &[u8; 32],
+    raw: &[u8],
+    bytes: &[u8],
+    registry: &layerx_types::payload::ModuleRegistry,
+    finality: &CommitFinality,
+) {
+    // A real older-format record carries the signed transaction but none of the new evidence.
+    let end = bytes.len() - 4 - raw.len();
+    let start = end - (9 + 33 + 33 + 153);
+    let mut legacy = bytes[..start].to_vec();
+    legacy[..8].copy_from_slice(b"PAXAIOP2");
+    legacy.extend_from_slice(&bytes[end..]);
+    must(std::fs::write(journal.record_path(tx_hash), legacy));
+    let mut migrated = must(journal.load(tx_hash, registry));
+    assert_eq!(migrated.state(), OperationState::Executed);
+    assert_eq!(migrated.global_sequence(), Some(7));
+    assert_eq!(migrated.execution_height(), None);
+    assert_eq!(migrated.receipt_root(), None);
+    assert_eq!(migrated.checkpoint(), None);
+    assert_eq!(
+        journal.finalize(&mut migrated, finality),
+        Err(AiClientError::FinalityMismatch)
+    );
+}
+
+fn refuse_unverified_finality(
+    journal: &OperationJournal,
+    record: &mut OperationRecord,
+    tx_hash: &[u8; 32],
+    registry: &layerx_types::payload::ModuleRegistry,
+) {
+    for height in [7, 149, 150, 999] {
+        let unverified = must(CommitFinality::new(height, [2; 32], [3; 32], [4; 32]));
+        assert_eq!(
+            journal.finalize(record, &unverified),
+            Err(AiClientError::FinalityMismatch)
+        );
+        assert_eq!(record.state(), OperationState::Executed);
+        assert_eq!(must(journal.load(tx_hash, registry)), *record);
+    }
+}
+
+fn assert_finalized_record(
+    journal: &OperationJournal,
+    record: &OperationRecord,
+    finality: &CommitFinality,
+    checkpoint: [u8; 32],
+    raw: &[u8],
+) {
+    assert_eq!(record.state(), OperationState::Finalized);
+    assert_eq!(record.execution_height(), Some(150));
+    assert_eq!(record.checkpoint(), Some(checkpoint));
+    assert_eq!(record.signed_bytes(), raw);
+    let mut finalized_record = record.clone();
+    assert_eq!(
+        journal.finalize(&mut finalized_record, finality),
+        Err(AiClientError::InvalidTransition {
+            from: OperationState::Finalized
+        })
+    );
 }

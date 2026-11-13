@@ -710,29 +710,30 @@ mod tests {
     use layerx_interop_gateway::evidence::canonical_receipt_digest;
     use layerx_proof::sequencer_logs::SequencerLog;
 
+    fn bytes(value: &str) -> Vec<u8> {
+        let value = value.strip_prefix("0x").unwrap_or(value);
+        (0..value.len())
+            .step_by(2)
+            .map(|index| {
+                u8::from_str_radix(&value[index..index + 2], 16)
+                    .unwrap_or_else(|error| panic!("hex: {error}"))
+            })
+            .collect()
+    }
+    fn replace(receipt: &mut [u8], old: &[u8], new: &[u8]) {
+        assert_eq!(old.len(), new.len());
+        let positions: Vec<_> = receipt
+            .windows(old.len())
+            .enumerate()
+            .filter_map(|(index, value)| (value == old).then_some(index))
+            .collect();
+        assert_eq!(positions.len(), 1);
+        receipt[positions[0]..positions[0] + old.len()].copy_from_slice(new);
+    }
+
     fn executed(
         accepted: &PaymentRequirements,
     ) -> (SequencerEvidence, Vec<SequencerAuthorization>) {
-        fn bytes(value: &str) -> Vec<u8> {
-            let value = value.strip_prefix("0x").unwrap_or(value);
-            (0..value.len())
-                .step_by(2)
-                .map(|index| {
-                    u8::from_str_radix(&value[index..index + 2], 16)
-                        .unwrap_or_else(|error| panic!("hex: {error}"))
-                })
-                .collect()
-        }
-        fn replace(receipt: &mut [u8], old: &[u8], new: &[u8]) {
-            assert_eq!(old.len(), new.len());
-            let positions: Vec<_> = receipt
-                .windows(old.len())
-                .enumerate()
-                .filter_map(|(index, value)| (value == old).then_some(index))
-                .collect();
-            assert_eq!(positions.len(), 1);
-            receipt[positions[0]..positions[0] + old.len()].copy_from_slice(new);
-        }
         let fixture: Value = serde_json::from_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"

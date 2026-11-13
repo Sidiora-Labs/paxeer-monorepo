@@ -129,14 +129,6 @@ impl Write for DeadlineTcp<'_> {
         self.tcp.flush()
     }
 }
-fn connection(
-    tcp: TcpStream,
-    config: &Config,
-    store: &Mutex<Store>,
-    clock: &dyn layerx_types::clock::Clock,
-) -> Result<()> {
-    connection_from_accept(tcp, config, store, clock, Instant::now())
-}
 fn connection_from_accept(
     tcp: TcpStream,
     config: &Config,

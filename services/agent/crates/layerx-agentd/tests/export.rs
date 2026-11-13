@@ -19,30 +19,48 @@ use layerx_wire::limits::MAX_MESSAGE_BYTES;
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 
+/// # Panics
+/// Panics if the supplied result is an error.
 pub fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
     value.unwrap_or_else(|error| panic!("export fixture: {error:?}"))
 }
 
+#[must_use = "use the constructed fixture value"]
 pub fn canonical(bytes: Vec<u8>) -> CanonicalBytes {
     must(CanonicalBytes::new(bytes))
 }
 
+#[must_use = "use the constructed fixture value"]
+/// # Panics
+/// Panics if the payload length cannot be represented in the RLP length prefix.
 pub fn rlp(payload: &[u8], list: bool) -> Vec<u8> {
     if !list && payload.len() == 1 && payload[0] < 128 {
         return payload.to_vec();
     }
     let prefix = if list { 0xc0 } else { 0x80 };
     let mut out = if payload.len() < 56 {
-        vec![prefix + payload.len() as u8]
+        vec![
+            prefix
+                + u8::try_from(payload.len())
+                    .unwrap_or_else(|error| panic!("RLP short length: {error}")),
+        ]
     } else {
         let length = payload.len().to_be_bytes();
         let length = &length[length.iter().position(|byte| *byte != 0).unwrap_or(0)..];
-        [&[prefix + 55 + length.len() as u8][..], length].concat()
+        [
+            &[prefix
+                + 55
+                + u8::try_from(length.len())
+                    .unwrap_or_else(|error| panic!("RLP length bytes: {error}"))][..],
+            length,
+        ]
+        .concat()
     };
     out.extend_from_slice(payload);
     out
 }
 
+#[must_use = "use the constructed fixture value"]
 pub fn storage_vector() -> Value {
     let vector: Value = must(serde_json::from_str(include_str!(
         "../../../../../programs/tests/vectors/ics23-evm-storage-app-hash.json"
@@ -50,6 +68,9 @@ pub fn storage_vector() -> Value {
     vector["entries"][0].clone()
 }
 
+#[must_use = "use the constructed fixture value"]
+/// # Panics
+/// Panics if the supplied fixture data is invalid or an expected codec, signing, storage, or transport operation fails.
 pub fn storage_node(
     answers: Vec<(&'static str, Value, Value)>,
 ) -> (SequencerEndpoint, std::thread::JoinHandle<()>) {
@@ -79,7 +100,7 @@ pub fn storage_node(
                     }
                 }
             }
-            let mut bytes = vec![0; length.expect("HTTP request length")];
+            let mut bytes = vec![0; assert_some(length, "HTTP request length")];
             must(reader.read_exact(&mut bytes));
             let request: Value = must(serde_json::from_slice(&bytes));
             assert_eq!(request["jsonrpc"], "2.0");
@@ -100,6 +121,7 @@ pub struct Fixture {
     pub header: CheckpointHeader,
     pub commit: BlockCommit,
     pub validators: Vec<CommitValidator>,
+    #[allow(dead_code, reason = "read by the repair_22_31_561 test target")]
     pub receipt_key: ReceiptKeyEntry,
     pub evm_receipt: Vec<u8>,
     pub receipt_path: Vec<Vec<u8>>,
@@ -109,33 +131,6 @@ pub struct Fixture {
 }
 
 fn signed_receipt(activity: [u8; 32], height: u64, status: bool, key: &SigningKey) -> Vec<u8> {
-    use layerx_wire::receipt::{decode, encode, encode_unsigned};
-    let vectors: serde_json::Value = must(serde_json::from_str(include_str!(
-        "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
-    )));
-    let id = if status {
-        "V1-pax-transfer"
-    } else {
-        "V2-layerxledger-revert"
-    };
-    let vector = vectors["cases"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|case| case["id"] == id)
-        .unwrap();
-    let recorded = must(hex::decode(
-        vector["signedReceipt"]
-            .as_str()
-            .unwrap()
-            .strip_prefix("0x")
-            .unwrap(),
-    ));
-    let decoded = must(decode(&recorded));
-    assert_eq!(must(encode(&decoded)), recorded);
-    let source = decoded.protocol().unwrap();
-    let mut unsigned = must(encode_unsigned(&decoded));
-
     // Rebind the committed node transcript's identifiers, keeping its effect layout.
     fn replace(bytes: &mut [u8], before: [u8; 32], after: [u8; 32]) {
         let offsets: Vec<_> = bytes
@@ -146,6 +141,31 @@ fn signed_receipt(activity: [u8; 32], height: u64, status: bool, key: &SigningKe
         assert_eq!(offsets.len(), 1, "unique transcript field");
         bytes[offsets[0]..offsets[0] + 32].copy_from_slice(&after);
     }
+
+    use layerx_wire::receipt::{decode, encode, encode_unsigned};
+    let vectors: serde_json::Value = must(serde_json::from_str(include_str!(
+        "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+    )));
+    let id = if status {
+        "V1-pax-transfer"
+    } else {
+        "V2-layerxledger-revert"
+    };
+    let vector = assert_some(
+        assert_some(vectors["cases"].as_array(), "expected Some value")
+            .iter()
+            .find(|case| case["id"] == id),
+        "expected Some value",
+    );
+    let recorded = must(hex::decode(assert_some(
+        assert_some(vector["signedReceipt"].as_str(), "expected Some value").strip_prefix("0x"),
+        "expected Some value",
+    )));
+    let decoded = must(decode(&recorded));
+    assert_eq!(must(encode(&decoded)), recorded);
+    let source = assert_some(decoded.protocol(), "expected Some value");
+    let mut unsigned = must(encode_unsigned(&decoded));
+
     let resulting = Sha256::digest(
         [
             b"PAXEER/v1/sequence\0".as_slice(),
@@ -163,7 +183,7 @@ fn signed_receipt(activity: [u8; 32], height: u64, status: bool, key: &SigningKe
     replace(&mut unsigned, source.batch_id(), batch);
     replace(&mut unsigned, source.context_hash(), [0x33; 32]);
     let decoded = must(decode(&unsigned));
-    let protocol = decoded.protocol().unwrap();
+    let protocol = assert_some(decoded.protocol(), "expected Some value");
     assert_eq!(protocol.activity_id(), activity);
     assert_eq!(protocol.batch_id(), batch);
     assert_eq!(protocol.result_code() == 0, status);
@@ -177,19 +197,11 @@ fn signed_receipt(activity: [u8; 32], height: u64, status: bool, key: &SigningKe
 }
 
 impl Fixture {
+    #[must_use = "use the constructed fixture value"]
+    /// # Panics
+    /// Panics if the fixture data, codec, signatures, or required node exchanges fail validation.
     pub fn new(height: u64, status: bool) -> Self {
-        let raw = must(
-            Eip1559Call {
-                chain_id: 10,
-                nonce: height,
-                max_priority_fee_per_gas: 1,
-                max_fee_per_gas: 2,
-                gas_limit: 21_000,
-                to: [0x22; 20],
-                data: Vec::new(),
-            }
-            .sign(&[1; 32]),
-        );
+        let raw = export_transaction(height);
         let activity = transaction_hash(&raw);
         let receipt_signing_key = SigningKey::from_bytes(&[7; 32]);
         let receipt_key = ReceiptKeyEntry {
@@ -203,65 +215,12 @@ impl Fixture {
         let digest = must(receipt_digest(&must(
             layerx_wire::receipt::encode_unsigned(&decoded),
         )));
-        let summary = must(layerx_proof::sequencer_logs::decode_summary(&decoded));
-        let cumulative_gas = summary.cumulative_gas_used().to_be_bytes();
-        let cumulative_gas = &cumulative_gas[cumulative_gas
-            .iter()
-            .position(|byte| *byte != 0)
-            .unwrap_or(8)..];
-        let tx_index = u8::try_from(summary.tx_index()).unwrap();
-        assert!((1..128).contains(&tx_index));
-        let evm_receipt = [
-            &[2][..],
-            &rlp(
-                &[
-                    rlp(if status { &[1] } else { &[] }, false),
-                    rlp(cumulative_gas, false),
-                    rlp(&[0; 256], false),
-                    rlp(&[], true),
-                ]
-                .concat(),
-                true,
-            ),
-        ]
-        .concat();
-        let leaf = rlp(
-            &[
-                rlp(&[0x30 | (tx_index & 0x0f)], false),
-                rlp(&evm_receipt, false),
-            ]
-            .concat(),
-            true,
-        );
-        let leaf_hash = transaction_hash(&leaf);
-        let mut children = Vec::new();
-        for index in 0..17 {
-            children.extend(rlp(
-                if index == usize::from(tx_index >> 4) {
-                    &leaf_hash
-                } else {
-                    &[]
-                },
-                false,
-            ));
-        }
-        let branch = rlp(&children, true);
-        let receipts_root = transaction_hash(&branch);
-        let receipt_path = vec![branch, leaf];
-        let inclusion = rlp(
-            &[
-                rlp(&evm_receipt, false),
-                rlp(
-                    &receipt_path
-                        .iter()
-                        .flat_map(|node| rlp(node, false))
-                        .collect::<Vec<_>>(),
-                    true,
-                ),
-            ]
-            .concat(),
-            true,
-        );
+        let ReceiptInclusion {
+            receipts_root,
+            inclusion,
+            evm_receipt,
+            receipt_path,
+        } = receipt_inclusion(&decoded, status);
         let signing_keys: Vec<_> = (1..=3)
             .map(|value| SigningKey::from_bytes(&[value; 32]))
             .collect();
@@ -276,38 +235,12 @@ impl Fixture {
                 }
             })
             .collect();
-        let vector = storage_vector();
-        let account: [u8; 20] = must(hex::decode(vector["address"].as_str().unwrap()))
-            .try_into()
-            .unwrap();
-        let slot: [u8; 32] = must(hex::decode(vector["slot"].as_str().unwrap()))
-            .try_into()
-            .unwrap();
-        let mut account_id = [0; 32];
-        account_id[12..].copy_from_slice(&account);
-        let (endpoint, server) = storage_node(vec![(
-            "eth_getProof",
-            json!([
-                format!("0x{}", hex::encode(account)),
-                [format!("0x{}", hex::encode(slot))],
-                format!("{height:#x}")
-            ]),
-            vector["response"].clone(),
-        )]);
-        let witnesses = must(endpoint.storage_witness(&account, &[slot], height));
-        server.join().unwrap();
-        let account_proof = must(encode_storage_witnesses(&witnesses))
-            .as_bytes()
-            .to_vec();
-        let state_root = must(hex::decode(vector["app_hash"].as_str().unwrap()))
-            .try_into()
-            .unwrap();
-        for witness in &witnesses {
-            must(layerx_client::storage_witness::verify_storage_witness(
-                witness, state_root,
-            ));
-        }
-        let storage = witnesses;
+        let StorageFixture {
+            account_id,
+            account_proof,
+            state_root,
+            storage,
+        } = storage_fixture(height);
         let header = CheckpointHeader {
             version_block: 11,
             version_app: 1,
@@ -328,30 +261,7 @@ impl Fixture {
             evidence_hash: None,
             proposer_address: validators[0].address,
         };
-        let mut commit = BlockCommit {
-            height,
-            round: 0,
-            block_id: BlockId {
-                hash: header.block_hash(),
-                part_set_total: 1,
-                part_set_hash: [4; 32],
-            },
-            votes: Vec::new(),
-        };
-        let timestamp = CommitTimestamp {
-            seconds: 1_700_000_001,
-            nanos: 0,
-        };
-        for (key, validator) in signing_keys.iter().zip(&validators) {
-            commit.votes.push(CommitVote {
-                validator_address: validator.address,
-                voting_power: validator.voting_power,
-                timestamp,
-                signature: key
-                    .sign(&commit.vote_sign_bytes(&header.chain_id, timestamp))
-                    .to_bytes(),
-            });
-        }
+        let commit = checkpoint_commit(&header, &signing_keys, &validators);
         let trust = must(ExportTrustSource::new(
             vec![receipt_key],
             validators.clone(),
@@ -391,6 +301,9 @@ impl Fixture {
         }
     }
 
+    #[must_use = "use the constructed fixture value"]
+    /// # Panics
+    /// Panics if the supplied fixture data is invalid or an expected codec, signing, storage, or transport operation fails.
     pub fn state_artifact(&self) -> OfflineExport {
         let mut artifact = self.artifact.clone();
         artifact.facts[0] = must(FactRef::new(format!(
@@ -406,11 +319,11 @@ impl Fixture {
         assert_eq!(artifact.bundles.len(), 1);
         assert_eq!(
             must(decode_header(
-                artifact.bundles[0]
-                    .block_header
-                    .as_ref()
-                    .unwrap()
-                    .as_bytes()
+                assert_some(
+                    artifact.bundles[0].block_header.as_ref(),
+                    "expected Some value"
+                )
+                .as_bytes()
             )),
             self.header,
         );
@@ -436,11 +349,11 @@ fn layerx_proof_verifies_complete_export_with_no_daemon_node_or_network() {
     );
     assert_eq!(
         must(decode_header(
-            built.artifact.bundles[0]
-                .block_header
-                .as_ref()
-                .unwrap()
-                .as_bytes()
+            assert_some(
+                built.artifact.bundles[0].block_header.as_ref(),
+                "expected Some value"
+            )
+            .as_bytes()
         )),
         fixture.header
     );
@@ -512,7 +425,11 @@ fn offline_export_requires_complete_authenticated_inclusion() {
     assert!(verify(&altered, &fixture.trust).is_err());
     assert_eq!(
         must(decode_validators(
-            state.bundles[0].validator_set.as_ref().unwrap().as_bytes()
+            assert_some(
+                state.bundles[0].validator_set.as_ref(),
+                "expected Some value"
+            )
+            .as_bytes()
         )),
         fixture.validators
     );
@@ -528,7 +445,11 @@ fn state_export_uses_ics23_store_and_app_witness_and_rejects_tampering() {
     assert!(verify_storage_witness(&fixture.storage[0], bad_root).is_err());
     assert_eq!(
         must(layerx_agentd::export::decode_storage_witnesses(
-            state.bundles[0].account_proof.as_ref().unwrap().as_bytes()
+            assert_some(
+                state.bundles[0].account_proof.as_ref(),
+                "expected Some value"
+            )
+            .as_bytes()
         )),
         fixture.storage,
     );
@@ -542,9 +463,12 @@ fn state_export_uses_ics23_store_and_app_witness_and_rejects_tampering() {
     let mut commit = fixture.commit.clone();
     commit.block_id.hash = header.block_hash();
     for index in 0..commit.votes.len() {
-        commit.votes[index].signature = SigningKey::from_bytes(&[index as u8 + 1; 32])
-            .sign(&commit.vote_sign_bytes(&header.chain_id, commit.votes[index].timestamp))
-            .to_bytes();
+        commit.votes[index].signature = SigningKey::from_bytes(
+            &[u8::try_from(index).unwrap_or_else(|error| panic!("validator seed index: {error}"))
+                + 1; 32],
+        )
+        .sign(&commit.vote_sign_bytes(&header.chain_id, commit.votes[index].timestamp))
+        .to_bytes();
     }
     invalid_root.bundles[0].block_header = Some(canonical(encode_header(&header)));
     invalid_root.bundles[0].commit = Some(canonical(encode_commit(&commit, &fixture.validators)));
@@ -593,4 +517,203 @@ fn state_export_uses_ics23_store_and_app_witness_and_rejects_tampering() {
         must(verify(&state, &fixture.trust)).achieved_rung,
         Rung::Committed
     );
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn assert_some<T>(value: Option<T>, message: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{message}"),
+    }
+}
+
+struct ReceiptInclusion {
+    receipts_root: [u8; 32],
+    inclusion: Vec<u8>,
+    evm_receipt: Vec<u8>,
+    receipt_path: Vec<Vec<u8>>,
+}
+fn receipt_inclusion(decoded: &layerx_wire::receipt::Receipt, status: bool) -> ReceiptInclusion {
+    let summary = must(layerx_proof::sequencer_logs::decode_summary(decoded));
+    let cumulative_gas = summary.cumulative_gas_used().to_be_bytes();
+    let cumulative_gas = &cumulative_gas[cumulative_gas
+        .iter()
+        .position(|byte| *byte != 0)
+        .unwrap_or(8)..];
+    let tx_index = assert_ok(u8::try_from(summary.tx_index()), "unexpected error");
+    assert!((1..128).contains(&tx_index));
+    let evm_receipt = [
+        &[2][..],
+        &rlp(
+            &[
+                rlp(if status { &[1] } else { &[] }, false),
+                rlp(cumulative_gas, false),
+                rlp(&[0; 256], false),
+                rlp(&[], true),
+            ]
+            .concat(),
+            true,
+        ),
+    ]
+    .concat();
+    let leaf = rlp(
+        &[
+            rlp(&[0x30 | (tx_index & 0x0f)], false),
+            rlp(&evm_receipt, false),
+        ]
+        .concat(),
+        true,
+    );
+    let leaf_hash = transaction_hash(&leaf);
+    let mut children = Vec::new();
+    for index in 0..17 {
+        children.extend(rlp(
+            if index == usize::from(tx_index >> 4) {
+                &leaf_hash
+            } else {
+                &[]
+            },
+            false,
+        ));
+    }
+    let branch = rlp(&children, true);
+    let receipts_root = transaction_hash(&branch);
+    let receipt_path = vec![branch, leaf];
+    let inclusion = rlp(
+        &[
+            rlp(&evm_receipt, false),
+            rlp(
+                &receipt_path
+                    .iter()
+                    .flat_map(|node| rlp(node, false))
+                    .collect::<Vec<_>>(),
+                true,
+            ),
+        ]
+        .concat(),
+        true,
+    );
+    ReceiptInclusion {
+        receipts_root,
+        inclusion,
+        evm_receipt,
+        receipt_path,
+    }
+}
+
+struct StorageFixture {
+    account_id: [u8; 32],
+    account_proof: Vec<u8>,
+    state_root: [u8; 32],
+    storage: Vec<layerx_client::sequencer::StorageWitness>,
+}
+fn storage_fixture(height: u64) -> StorageFixture {
+    let vector = storage_vector();
+    let account: [u8; 20] = assert_ok(
+        must(hex::decode(assert_some(
+            vector["address"].as_str(),
+            "expected Some value",
+        )))
+        .try_into(),
+        "unexpected error",
+    );
+    let slot: [u8; 32] = assert_ok(
+        must(hex::decode(assert_some(
+            vector["slot"].as_str(),
+            "expected Some value",
+        )))
+        .try_into(),
+        "unexpected error",
+    );
+    let mut account_id = [0; 32];
+    account_id[12..].copy_from_slice(&account);
+    let (endpoint, server) = storage_node(vec![(
+        "eth_getProof",
+        json!([
+            format!("0x{}", hex::encode(account)),
+            [format!("0x{}", hex::encode(slot))],
+            format!("{height:#x}")
+        ]),
+        vector["response"].clone(),
+    )]);
+    let witnesses = must(endpoint.storage_witness(&account, &[slot], height));
+    assert_ok(server.join(), "unexpected error");
+    let account_proof = must(encode_storage_witnesses(&witnesses))
+        .as_bytes()
+        .to_vec();
+    let state_root = assert_ok(
+        must(hex::decode(assert_some(
+            vector["app_hash"].as_str(),
+            "expected Some value",
+        )))
+        .try_into(),
+        "unexpected error",
+    );
+    for witness in &witnesses {
+        must(layerx_client::storage_witness::verify_storage_witness(
+            witness, state_root,
+        ));
+    }
+    let storage = witnesses;
+    StorageFixture {
+        account_id,
+        account_proof,
+        state_root,
+        storage,
+    }
+}
+
+fn checkpoint_commit(
+    header: &CheckpointHeader,
+    signing_keys: &[SigningKey],
+    validators: &[CommitValidator],
+) -> BlockCommit {
+    let mut commit = BlockCommit {
+        height: header.height,
+        round: 0,
+        block_id: BlockId {
+            hash: header.block_hash(),
+            part_set_total: 1,
+            part_set_hash: [4; 32],
+        },
+        votes: Vec::new(),
+    };
+    let timestamp = CommitTimestamp {
+        seconds: 1_700_000_001,
+        nanos: 0,
+    };
+    for (key, validator) in signing_keys.iter().zip(validators) {
+        commit.votes.push(CommitVote {
+            validator_address: validator.address,
+            voting_power: validator.voting_power,
+            timestamp,
+            signature: key
+                .sign(&commit.vote_sign_bytes(&header.chain_id, timestamp))
+                .to_bytes(),
+        });
+    }
+    commit
+}
+
+fn export_transaction(height: u64) -> Vec<u8> {
+    must(
+        Eip1559Call {
+            chain_id: 10,
+            nonce: height,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 2,
+            gas_limit: 21_000,
+            to: [0x22; 20],
+            data: Vec::new(),
+        }
+        .sign(&[1; 32]),
+    )
 }

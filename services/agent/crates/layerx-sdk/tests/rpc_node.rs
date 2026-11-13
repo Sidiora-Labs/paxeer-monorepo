@@ -12,14 +12,17 @@ use serde_json::{json, Value};
 const ADDRESS: &str = "0x1111111111111111111111111111111111111111";
 
 fn listener(results: Vec<Value>) -> (RpcClient, JoinHandle<Vec<Value>>) {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind loopback RPC");
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .unwrap_or_else(|error| panic!("bind loopback RPC: {error:?}"));
     let endpoint = format!(
         "http://{}",
-        listener.local_addr().expect("listener address")
+        listener
+            .local_addr()
+            .unwrap_or_else(|error| panic!("listener address: {error:?}"))
     );
     listener
         .set_nonblocking(true)
-        .expect("nonblocking listener");
+        .unwrap_or_else(|error| panic!("nonblocking listener: {error:?}"));
     let server = thread::spawn(move || {
         let mut requests = Vec::new();
         for result in results {
@@ -36,45 +39,58 @@ fn listener(results: Vec<Value>) -> (RpcClient, JoinHandle<Vec<Value>>) {
             };
             socket
                 .set_read_timeout(Some(Duration::from_secs(5)))
-                .expect("read timeout");
+                .unwrap_or_else(|error| panic!("read timeout: {error:?}"));
             socket
                 .set_write_timeout(Some(Duration::from_secs(5)))
-                .expect("write timeout");
+                .unwrap_or_else(|error| panic!("write timeout: {error:?}"));
             let mut header = Vec::new();
             while !header.ends_with(b"\r\n\r\n") {
                 assert!(header.len() < 8192, "HTTP header bound");
                 let mut byte = [0];
-                socket.read_exact(&mut byte).expect("HTTP header");
+                socket
+                    .read_exact(&mut byte)
+                    .unwrap_or_else(|error| panic!("HTTP header: {error:?}"));
                 header.push(byte[0]);
             }
-            let header = std::str::from_utf8(&header).expect("UTF-8 header");
+            let header = std::str::from_utf8(&header)
+                .unwrap_or_else(|error| panic!("UTF-8 header: {error:?}"));
             assert!(header.starts_with("POST / HTTP/1.1\r\n"));
             let length = header
                 .lines()
                 .find_map(|line| {
                     let (name, value) = line.split_once(':')?;
-                    name.eq_ignore_ascii_case("content-length")
-                        .then(|| value.trim().parse::<usize>().expect("content length"))
+                    name.eq_ignore_ascii_case("content-length").then(|| {
+                        value
+                            .trim()
+                            .parse::<usize>()
+                            .unwrap_or_else(|error| panic!("content length: {error:?}"))
+                    })
                 })
-                .expect("content-length header");
+                .unwrap_or_else(|| panic!("content-length header"));
             assert!(length <= 1_048_576 + 4096, "HTTP request bound");
             let mut body = vec![0; length];
-            socket.read_exact(&mut body).expect("HTTP body");
-            let request: Value = serde_json::from_slice(&body).expect("JSON-RPC request");
+            socket
+                .read_exact(&mut body)
+                .unwrap_or_else(|error| panic!("HTTP body: {error:?}"));
+            let request: Value = serde_json::from_slice(&body)
+                .unwrap_or_else(|error| panic!("JSON-RPC request: {error:?}"));
             assert_eq!(request["jsonrpc"], "2.0");
             assert!(request["method"].is_string());
             let body = serde_json::to_vec(&json!({
                 "jsonrpc": "2.0", "id": request["id"], "result": result,
             }))
-            .expect("JSON-RPC response");
-            write!(socket, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).expect("response header");
-            socket.write_all(&body).expect("response body");
+            .unwrap_or_else(|error| panic!("JSON-RPC response: {error:?}"));
+            write!(socket, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).unwrap_or_else(|error| panic!("response header: {error:?}"));
+            socket
+                .write_all(&body)
+                .unwrap_or_else(|error| panic!("response body: {error:?}"));
             requests.push(request);
         }
         requests
     });
     (
-        RpcClient::connect_node(&endpoint, None).expect("connect RPC"),
+        RpcClient::connect_node(&endpoint, None)
+            .unwrap_or_else(|error| panic!("connect RPC: {error:?}")),
         server,
     )
 }
@@ -129,54 +145,240 @@ fn reads_use_only_eth_and_px_methods() {
         json!({"accountProof": [], "storageProof": []}),
     ]);
     assert_eq!(
-        rpc.get_account("did:layerx:alice").expect("account")["account"],
+        rpc.get_account("did:layerx:alice")
+            .unwrap_or_else(|error| panic!("account: {error:?}"))["account"],
         "joined"
     );
-    assert_eq!(rpc.get_balance(ADDRESS).expect("balance"), "0x10");
-    assert_eq!(rpc.get_sequence(ADDRESS).expect("sequence"), "0x7");
+    assert_eq!(
+        rpc.get_balance(ADDRESS)
+            .unwrap_or_else(|error| panic!("balance: {error:?}")),
+        "0x10"
+    );
+    assert_eq!(
+        rpc.get_sequence(ADDRESS)
+            .unwrap_or_else(|error| panic!("sequence: {error:?}")),
+        "0x7"
+    );
     assert_eq!(
         rpc.get_receipt(&format!("0x{}", "ab".repeat(32)))
-            .expect("receipt")["status"],
+            .unwrap_or_else(|error| panic!("receipt: {error:?}"))["status"],
         "0x1"
     );
-    assert_eq!(rpc.get_batch_header("0x9").expect("block")["number"], "0x9");
     assert_eq!(
-        rpc.get_identity_sequence(ADDRESS).expect("pending nonce"),
+        rpc.get_batch_header("0x9")
+            .unwrap_or_else(|error| panic!("block: {error:?}"))["number"],
+        "0x9"
+    );
+    assert_eq!(
+        rpc.get_identity_sequence(ADDRESS)
+            .unwrap_or_else(|error| panic!("pending nonce: {error:?}")),
         7
     );
     assert_eq!(
         rpc.get_balances("did:layerx:alice")
-            .expect("balances")
+            .unwrap_or_else(|error| panic!("balances: {error:?}"))
             .into_value(),
         json!({"balances": []})
     );
-    assert_eq!(rpc.get_node_info().expect("network")["chainId"], "0x7d");
     assert_eq!(
-        rpc.list_assets().expect("assets").assets[0].asset_id,
+        rpc.get_node_info()
+            .unwrap_or_else(|error| panic!("network: {error:?}"))["chainId"],
+        "0x7d"
+    );
+    assert_eq!(
+        rpc.list_assets()
+            .unwrap_or_else(|error| panic!("assets: {error:?}"))
+            .assets[0]
+            .asset_id,
         [0x11; 32]
     );
     assert_eq!(
         rpc.list_assets_page(Some([0x11; 32]), Some(1))
-            .expect("asset page")
+            .unwrap_or_else(|error| panic!("asset page: {error:?}"))
             .assets[0]
             .asset_id,
         [0x22; 32]
     );
-    let selected = rpc.get_asset([0x22; 32]).expect("asset on second page");
+    let selected = rpc
+        .get_asset([0x22; 32])
+        .unwrap_or_else(|error| panic!("asset on second page: {error:?}"));
     assert_eq!(selected.asset.asset_id, [0x22; 32]);
     assert_eq!(selected.asset.symbol, "USD");
     assert_eq!(selected.observed_head_sequence, 9);
     assert_eq!(selected.state_root, [0x44; 32]);
-    assert_eq!(rpc.estimate_fee(&call()).expect("gas estimate"), 21_000);
     assert_eq!(
-        rpc.get_proof(ADDRESS, &[[0x55; 32]], "0x9").expect("proof")["storageProof"],
+        rpc.estimate_fee(&call())
+            .unwrap_or_else(|error| panic!("gas estimate: {error:?}")),
+        21_000
+    );
+    assert_eq!(
+        rpc.get_proof(ADDRESS, &[[0x55; 32]], "0x9")
+            .unwrap_or_else(|error| panic!("proof: {error:?}"))["storageProof"],
         json!([])
     );
 
-    let requests = server.join().expect("RPC listener");
+    let requests = server
+        .join()
+        .unwrap_or_else(|error| panic!("RPC listener: {error:?}"));
+    assert_read_requests(&requests);
+}
+
+#[test]
+fn finalised_wait_is_refused_without_reading_a_checkpoint() {
+    let (rpc, server) = listener(vec![json!({"chainId": "0x7d"})]);
+    let policy = ReceiptPolicy {
+        protocol_version: 3,
+        network_id: 125,
+        sequencer: SequencerAuthorization::new([1; 32], [2; 32], 1, 100),
+        trusted_checkpoint_context_digest: Some([0x33; 32]),
+    };
+    assert!(matches!(
+        rpc.wait_for(
+            [0xab; 32],
+            Commitment::Finalised,
+            &policy,
+            Duration::from_secs(1)
+        ),
+        Err(RpcError::MissingFinalityTrust)
+    ));
+    assert_eq!(
+        rpc.get_node_info()
+            .unwrap_or_else(|error| panic!("network: {error:?}"))["chainId"],
+        "0x7d"
+    );
+    let requests = server
+        .join()
+        .unwrap_or_else(|error| panic!("RPC listener: {error:?}"));
+    assert!(requests.iter().all(|request| {
+        request["method"] != "lx_getNodeInfo" && request["method"] != "lx_getCheckpoint"
+    }));
+    assert_eq!(requests.len(), 1);
+    assert_eq!(requests[0]["method"], "px_getNetwork");
+    assert_eq!(requests[0]["params"], json!([]));
+}
+
+#[test]
+fn send_raw_transaction_returns_the_hash_at_the_submitted_rung() {
+    let hash = [0xab; 32];
+    let hash_text = format!("0x{}", "ab".repeat(32));
+    let raw = call()
+        .sign(&[1; 32])
+        .unwrap_or_else(|error| panic!("sign EIP-1559 transaction: {error:?}"));
+    let (rpc, server) = listener(vec![
+        json!(hash_text),
+        json!({"txHash": hash_text, "rung": "submitted"}),
+        json!("ab".repeat(32)),
+        json!("0xab"),
+        json!(format!("0x{}", "gg".repeat(32))),
+        json!({"txHash": hash_text}),
+        Value::Null,
+    ]);
+    assert_eq!(
+        rpc.send_raw_transaction(&raw)
+            .unwrap_or_else(|error| panic!("submitted hash: {error:?}")),
+        hash
+    );
+    let receipt = rpc
+        .sequencer_receipt(hash)
+        .unwrap_or_else(|error| panic!("sequencer status: {error:?}"));
+    assert_eq!(receipt["rung"], "submitted");
+    assert_eq!(receipt["txHash"], hash_text);
+    assert!(receipt.get("receipt").is_none());
+    for _ in 0..5 {
+        assert!(matches!(
+            rpc.send_raw_transaction(&raw),
+            Err(RpcError::InvalidResponse)
+        ));
+    }
+    assert!(matches!(
+        rpc.send_raw_transaction(&[]),
+        Err(RpcError::InvalidRequest)
+    ));
+    assert!(matches!(
+        rpc.send_raw_transaction(&vec![0; 524_289]),
+        Err(RpcError::InvalidRequest)
+    ));
+    let requests = server
+        .join()
+        .unwrap_or_else(|error| panic!("RPC listener: {error:?}"));
+    let raw_hex = hex::encode(&raw);
+    assert_eq!(requests.len(), 7);
+    for (index, request) in requests.iter().enumerate() {
+        if index == 1 {
+            assert_eq!(request["method"], "pax_sequencerReceipt");
+            assert_eq!(request["params"], json!([hash_text]));
+        } else {
+            assert_eq!(request["method"], "eth_sendRawTransaction");
+            assert_eq!(request["params"], json!([format!("0x{raw_hex}")]));
+        }
+    }
+}
+
+#[test]
+fn identity_sequence_reads_the_pending_nonce() {
+    let (rpc, server) = listener(vec![
+        json!("0x2a"),
+        json!("0x0"),
+        json!("0xffffffffffffffff"),
+        json!("0x00"),
+        json!("0x10000000000000000"),
+        json!("42"),
+        json!(42),
+        json!({"next_sequence": "42"}),
+        Value::Null,
+    ]);
+    for expected in [42, 0, u64::MAX] {
+        assert_eq!(
+            rpc.get_identity_sequence(ADDRESS)
+                .unwrap_or_else(|error| panic!("pending nonce: {error:?}")),
+            expected
+        );
+    }
+    for _ in 0..6 {
+        assert!(matches!(
+            rpc.get_identity_sequence(ADDRESS),
+            Err(RpcError::InvalidResponse)
+        ));
+    }
+    for invalid in [
+        "did:layerx:alice",
+        "",
+        "0x11",
+        "1111111111111111111111111111111111111111",
+        "0xgg11111111111111111111111111111111111111",
+    ] {
+        assert!(matches!(
+            rpc.get_identity_sequence(invalid),
+            Err(RpcError::InvalidRequest)
+        ));
+    }
+    let requests = server
+        .join()
+        .unwrap_or_else(|error| panic!("RPC listener: {error:?}"));
+    assert_eq!(requests.len(), 9);
+    for request in requests {
+        assert_eq!(request["method"], "eth_getTransactionCount");
+        assert_eq!(request["params"], json!([ADDRESS, "pending"]));
+    }
+}
+
+#[allow(dead_code)]
+#[path = "support/audit_22_30_99.rs"]
+mod audit;
+
+#[test]
+fn root_node_rpc_preserves_endpoint_framing_and_timeout_refusals() {
+    audit::root_routes_preserve_endpoint_framing_and_timeout_refusals();
+}
+
+fn assert_read_requests(requests: &[Value]) {
     let methods: Vec<_> = requests
         .iter()
-        .map(|request| request["method"].as_str().expect("method name"))
+        .map(|request| {
+            request["method"]
+                .as_str()
+                .unwrap_or_else(|| panic!("method name"))
+        })
         .collect();
     assert!(
         methods
@@ -230,139 +432,4 @@ fn reads_use_only_eth_and_px_methods() {
         requests[13]["params"],
         json!([ADDRESS, [format!("0x{}", "55".repeat(32))], "0x9"])
     );
-}
-
-#[test]
-fn finalised_wait_is_refused_without_reading_a_checkpoint() {
-    let (rpc, server) = listener(vec![json!({"chainId": "0x7d"})]);
-    let policy = ReceiptPolicy {
-        protocol_version: 3,
-        network_id: 125,
-        sequencer: SequencerAuthorization::new([1; 32], [2; 32], 1, 100),
-        trusted_checkpoint_context_digest: Some([0x33; 32]),
-    };
-    assert!(matches!(
-        rpc.wait_for(
-            [0xab; 32],
-            Commitment::Finalised,
-            &policy,
-            Duration::from_secs(1)
-        ),
-        Err(RpcError::MissingFinalityTrust)
-    ));
-    assert_eq!(rpc.get_node_info().expect("network")["chainId"], "0x7d");
-    let requests = server.join().expect("RPC listener");
-    assert!(requests.iter().all(|request| {
-        request["method"] != "lx_getNodeInfo" && request["method"] != "lx_getCheckpoint"
-    }));
-    assert_eq!(requests.len(), 1);
-    assert_eq!(requests[0]["method"], "px_getNetwork");
-    assert_eq!(requests[0]["params"], json!([]));
-}
-
-#[test]
-fn send_raw_transaction_returns_the_hash_at_the_submitted_rung() {
-    let hash = [0xab; 32];
-    let hash_text = format!("0x{}", "ab".repeat(32));
-    let raw = call().sign(&[1; 32]).expect("sign EIP-1559 transaction");
-    let (rpc, server) = listener(vec![
-        json!(hash_text),
-        json!({"txHash": hash_text, "rung": "submitted"}),
-        json!("ab".repeat(32)),
-        json!("0xab"),
-        json!(format!("0x{}", "gg".repeat(32))),
-        json!({"txHash": hash_text}),
-        Value::Null,
-    ]);
-    assert_eq!(
-        rpc.send_raw_transaction(&raw).expect("submitted hash"),
-        hash
-    );
-    let receipt = rpc.sequencer_receipt(hash).expect("sequencer status");
-    assert_eq!(receipt["rung"], "submitted");
-    assert_eq!(receipt["txHash"], hash_text);
-    assert!(receipt.get("receipt").is_none());
-    for _ in 0..5 {
-        assert!(matches!(
-            rpc.send_raw_transaction(&raw),
-            Err(RpcError::InvalidResponse)
-        ));
-    }
-    assert!(matches!(
-        rpc.send_raw_transaction(&[]),
-        Err(RpcError::InvalidRequest)
-    ));
-    assert!(matches!(
-        rpc.send_raw_transaction(&vec![0; 524_289]),
-        Err(RpcError::InvalidRequest)
-    ));
-    let requests = server.join().expect("RPC listener");
-    let raw_hex = raw
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
-    assert_eq!(requests.len(), 7);
-    for (index, request) in requests.iter().enumerate() {
-        if index == 1 {
-            assert_eq!(request["method"], "pax_sequencerReceipt");
-            assert_eq!(request["params"], json!([hash_text]));
-        } else {
-            assert_eq!(request["method"], "eth_sendRawTransaction");
-            assert_eq!(request["params"], json!([format!("0x{raw_hex}")]));
-        }
-    }
-}
-
-#[test]
-fn identity_sequence_reads_the_pending_nonce() {
-    let (rpc, server) = listener(vec![
-        json!("0x2a"),
-        json!("0x0"),
-        json!("0xffffffffffffffff"),
-        json!("0x00"),
-        json!("0x10000000000000000"),
-        json!("42"),
-        json!(42),
-        json!({"next_sequence": "42"}),
-        Value::Null,
-    ]);
-    for expected in [42, 0, u64::MAX] {
-        assert_eq!(
-            rpc.get_identity_sequence(ADDRESS).expect("pending nonce"),
-            expected
-        );
-    }
-    for _ in 0..6 {
-        assert!(matches!(
-            rpc.get_identity_sequence(ADDRESS),
-            Err(RpcError::InvalidResponse)
-        ));
-    }
-    for invalid in [
-        "did:layerx:alice",
-        "",
-        "0x11",
-        "1111111111111111111111111111111111111111",
-        "0xgg11111111111111111111111111111111111111",
-    ] {
-        assert!(matches!(
-            rpc.get_identity_sequence(invalid),
-            Err(RpcError::InvalidRequest)
-        ));
-    }
-    let requests = server.join().expect("RPC listener");
-    assert_eq!(requests.len(), 9);
-    for request in requests {
-        assert_eq!(request["method"], "eth_getTransactionCount");
-        assert_eq!(request["params"], json!([ADDRESS, "pending"]));
-    }
-}
-
-#[allow(dead_code)]
-#[path = "support/audit_22_30_99.rs"]
-mod audit;
-
-#[test]
-fn root_node_rpc_preserves_endpoint_framing_and_timeout_refusals() {
-    audit::root_routes_preserve_endpoint_framing_and_timeout_refusals();
 }

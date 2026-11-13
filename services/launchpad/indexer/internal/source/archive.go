@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
@@ -164,7 +165,7 @@ func (s *CommittedSource) ReadAhead(from, to uint64) {
 		s.ahead.entries = map[uint64]*aheadEntry{}
 	}
 	heights := make([]uint64, 0, to-from+1)
-	for h := from; h <= to && len(s.ahead.entries) < 2*int(depth); h++ {
+	for h := from; h <= to && len(s.ahead.entries) < 2*int(depth); h++ { //nolint:gosec // bounded chain count is used for slice indexing
 		if _, ok := s.ahead.entries[h]; ok {
 			continue
 		}
@@ -267,7 +268,11 @@ func (s *CommittedSource) archiveLogs(ctx context.Context, e *committedEndpoint,
 	}
 	var candidates []uint64
 	for n := from; n <= to; n++ {
-		b, _, err := s.batchBlock(ctx, e, uint64(n), bulk, batch)
+		nUint64, conversionErr := checked.Convert[uint64](n)
+		if conversionErr != nil {
+			return nil, conversionErr
+		}
+		b, _, err := s.batchBlock(ctx, e, nUint64, bulk, batch)
 		if err != nil {
 			return nil, err
 		}
@@ -278,12 +283,24 @@ func (s *CommittedSource) archiveLogs(ctx context.Context, e *committedEndpoint,
 		filter := ethtypes.BytesToBloom(bloom)
 		for _, a := range wanted {
 			if ethtypes.BloomLookup(filter, a) {
-				candidates = append(candidates, uint64(n))
+				nUint642, conversionErr := checked.Convert[uint64](n)
+				if conversionErr != nil {
+					return nil, conversionErr
+				}
+				candidates = append(candidates, nUint642)
 				break
 			}
 		}
 	}
-	s.metrics.bloomSkipped.Add(uint64(to-from+1) - uint64(len(candidates)))
+	from1Uint64, conversionErr := checked.Convert[uint64](to - from + 1)
+	if conversionErr != nil {
+		return nil, conversionErr
+	}
+	lenCandidatesUint64, conversionErr := checked.Convert[uint64](len(candidates))
+	if conversionErr != nil {
+		return nil, conversionErr
+	}
+	s.metrics.bloomSkipped.Add(from1Uint64 - lenCandidatesUint64)
 	if len(candidates) == 0 {
 		return nil, nil
 	}
@@ -363,14 +380,22 @@ func (s *CommittedSource) receiptLogs(ctx context.Context, e *committedEndpoint,
 	var result []ethtypes.Log
 	for i, receipt := range receipts {
 		tx := b.Transactions[i]
-		if receipt == nil || receipt.BlockHash != record.Hash || receipt.BlockNumber == nil || !receipt.BlockNumber.IsUint64() || receipt.BlockNumber.Uint64() != height || receipt.TransactionIndex != uint(i) || receipt.TxHash != common.HexToHash(tx.Hash) {
+		iUint, conversionErr := checked.Convert[uint](i)
+		if conversionErr != nil {
+			return nil, conversionErr
+		}
+		if receipt == nil || receipt.BlockHash != record.Hash || receipt.BlockNumber == nil || !receipt.BlockNumber.IsUint64() || receipt.BlockNumber.Uint64() != height || receipt.TransactionIndex != iUint || receipt.TxHash != common.HexToHash(tx.Hash) {
 			return nil, sourceError(IntegrityError, e.id, nil)
 		}
 		for _, l := range receipt.Logs {
 			if l == nil {
 				return nil, sourceError(IncompleteError, e.id, nil)
 			}
-			if l.BlockHash != record.Hash || l.BlockNumber != height || l.TxHash != receipt.TxHash || l.TxIndex != uint(i) || l.Index != nextIndex || l.Removed || len(l.Topics) > 4 || len(l.Data) > 64<<10 {
+			iUint2, conversionErr := checked.Convert[uint](i)
+			if conversionErr != nil {
+				return nil, conversionErr
+			}
+			if l.BlockHash != record.Hash || l.BlockNumber != height || l.TxHash != receipt.TxHash || l.TxIndex != iUint2 || l.Index != nextIndex || l.Removed || len(l.Topics) > 4 || len(l.Data) > 64<<10 {
 				return nil, sourceError(IntegrityError, e.id, nil)
 			}
 			nextIndex++
@@ -383,7 +408,7 @@ func (s *CommittedSource) receiptLogs(ctx context.Context, e *committedEndpoint,
 			}
 		}
 	}
-	if s.opts.BlockIdentity == "reported" {
+	if s.opts.BlockIdentity == valueReported {
 		bloom, err := hex.DecodeString(strings.TrimPrefix(b.LogsBloom, "0x"))
 		if err != nil || len(bloom) != ethtypes.BloomByteLength || ethtypes.MergeBloom(receipts) != ethtypes.BytesToBloom(bloom) {
 			return nil, sourceError(IntegrityError, e.id, nil)

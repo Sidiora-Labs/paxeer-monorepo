@@ -105,6 +105,31 @@ fn storage_witness_verifies_the_generated_vector_and_refuses_tampering() {
         decode(entry["value"].as_str().unwrap_or(""))
     );
     assert_eq!(verify_storage_witness(witness, app_hash), Ok(()));
+    refuse_tampered_witness(witness, app_hash, entry);
+    for _ in 0..4 {
+        assert_eq!(
+            endpoint.storage_witness(&address, &[slot], height),
+            Err(SequencerError::Malformed)
+        );
+    }
+    must(handle.join());
+    assert_eq!(
+        must(
+            base64::engine::general_purpose::STANDARD.decode(
+                response["storageProof"][0]["ops"][0]["key"]
+                    .as_str()
+                    .unwrap_or("")
+            )
+        ),
+        decode(entry["key"].as_str().unwrap_or(""))
+    );
+}
+
+fn refuse_tampered_witness(
+    witness: &layerx_client::sequencer::StorageWitness,
+    app_hash: [u8; 32],
+    entry: &Value,
+) {
     let mut changed = witness.clone();
     changed.value[31] ^= 1;
     assert_eq!(
@@ -152,22 +177,5 @@ fn storage_witness_verifies_the_generated_vector_and_refuses_tampering() {
     assert_eq!(
         verify_storage_witness(&changed, app_hash),
         Err(StorageWitnessError::Key)
-    );
-    for _ in 0..4 {
-        assert_eq!(
-            endpoint.storage_witness(&address, &[slot], height),
-            Err(SequencerError::Malformed)
-        );
-    }
-    must(handle.join());
-    assert_eq!(
-        must(
-            base64::engine::general_purpose::STANDARD.decode(
-                response["storageProof"][0]["ops"][0]["key"]
-                    .as_str()
-                    .unwrap_or("")
-            )
-        ),
-        decode(entry["key"].as_str().unwrap_or(""))
     );
 }

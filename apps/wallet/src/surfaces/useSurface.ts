@@ -40,6 +40,13 @@ import {
   parseUnits,
 } from 'viem';
 import { useWallet } from '@/wallet/WalletProvider';
+import {
+  decodeInferenceRooms,
+  decodeInferencePeer,
+  inferenceId,
+  type InferenceRoom,
+  type InferencePeer,
+} from '../../../../services/agent/sdk/typescript/src/inference_market';
 
 export interface SurfaceLog {
   readonly address: string;
@@ -81,6 +88,244 @@ export function useSurfaceWallet(): SurfaceWallet {
         : { provider: null, address: null },
     [status, wallet, address]
   );
+}
+
+export interface InferenceRewardSource {
+  readonly endpoint: string;
+  readonly market: string;
+}
+
+export interface InferenceCredit {
+  readonly asset: string;
+  readonly earned: bigint;
+  readonly claimed: bigint;
+}
+
+export type InferenceRead<T> =
+  | { readonly state: 'loading' }
+  | { readonly state: 'ready'; readonly value: T }
+  | { readonly state: 'unavailable'; readonly reason: string };
+
+export function useInferenceAsks(provider: ModuleProvider | null, address: string | null) {
+  const [revision, setRevision] = useState(0);
+  const refresh = useCallback(() => setRevision((value) => value + 1), []);
+  const key = useMemo(() => ({}), [provider, address, revision]);
+  const [retained, setRetained] = useState<{
+    key: object;
+    result: InferenceRead<readonly InferenceRoom[]>;
+  } | null>(null);
+  useEffect(() => {
+    if (!provider || !address) return;
+    let alive = true;
+    let inFlight = false;
+    const read = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const rooms = decodeInferenceRooms(
+          await provider.request({ method: 'px_getInferenceRooms', params: [] })
+        );
+        if (alive) setRetained({ key, result: { state: 'ready', value: rooms } });
+      } catch (cause) {
+        if (alive)
+          setRetained({ key, result: { state: 'unavailable', reason: errorMessage(cause) } });
+      } finally {
+        inFlight = false;
+      }
+    };
+    void read();
+    const timer = window.setInterval(() => void read(), 5_000);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [provider, address, key]);
+  const asks: InferenceRead<readonly InferenceRoom[]> =
+    !provider || !address
+      ? { state: 'unavailable', reason: 'Connect a wallet to read asks.' }
+      : retained?.key === key
+        ? retained.result
+        : { state: 'loading' };
+  return { asks, refresh };
+}
+
+export function inferenceRewardSource(): InferenceRewardSource | null {
+  const endpoint = process.env.NEXT_PUBLIC_PAXAI_VIEWS_URL;
+  const market = process.env.NEXT_PUBLIC_PAXAI_MARKET_ID;
+  return endpoint && market ? { endpoint, market } : null;
+}
+
+function rewardQuantity(value: unknown): bigint {
+  if (typeof value !== 'string' || !/^(0|[1-9][0-9]{0,38})$/u.test(value))
+    throw new TypeError('Invalid reward quantity');
+  const amount = BigInt(value);
+  if (amount >= 1n << 128n) throw new RangeError('Reward quantity exceeds 128 bits');
+  return amount;
+}
+
+export function decodeInferenceCredit(value: unknown): InferenceCredit {
+  if (!isRecord(value) || value.status !== 'available')
+    throw new Error('Reward ledger credits are unavailable.');
+  if (typeof value.asset !== 'string' || !/^0x[0-9a-f]{64}$/u.test(value.asset))
+    throw new TypeError('Invalid reward asset');
+  const asset = inferenceId(value.asset.slice(2));
+  const earned = rewardQuantity(value.earned);
+  const claimed = rewardQuantity(value.claimed);
+  if (claimed > earned) throw new RangeError('Claimed rewards exceed earned rewards');
+  return { asset, earned, claimed };
+}
+
+export async function readInferenceCredit(
+  source: InferenceRewardSource,
+  worker: string,
+  signal: AbortSignal
+): Promise<InferenceCredit> {
+  inferenceId(source.market);
+  inferenceId(worker);
+  const endpoint = new URL(source.endpoint);
+  if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password)
+    throw new TypeError('Invalid reward views endpoint');
+  let cursor: string | null = null;
+  let snapshot: string | null = null;
+  let previous = '';
+  const seen = new Set<string>();
+  do {
+    const url = new URL(
+      `v1/ai/markets/${source.market}/participants`,
+      `${endpoint.href.replace(/\/$/u, '')}/`
+    );
+    url.searchParams.set('kind', 'worker');
+    url.searchParams.set('active_only', 'false');
+    url.searchParams.set('limit', '32');
+    if (snapshot) url.searchParams.set('snapshot', snapshot.slice(2));
+    if (cursor) url.searchParams.set('cursor', cursor);
+    const response = await fetch(url, { signal, headers: { Accept: 'application/json' } });
+    if (!response.ok) throw new Error(`Reward ledger request failed (${response.status}).`);
+    const page: unknown = await response.json();
+    if (
+      !isRecord(page) ||
+      typeof page.snapshot_id !== 'string' ||
+      !/^0x[0-9a-f]{64}$/u.test(page.snapshot_id) ||
+      !isRecord(page.binding) ||
+      page.binding.market !== `0x${source.market}` ||
+      page.binding.rank !== 4 ||
+      !isRecord(page.components) ||
+      page.components.F06 !== 'available' ||
+      !Array.isArray(page.rows) ||
+      page.rows.length > 32 ||
+      (snapshot !== null && snapshot !== page.snapshot_id)
+    )
+      throw new TypeError('Invalid or unavailable reward ledger page');
+    snapshot = page.snapshot_id;
+    for (const row of page.rows) {
+      if (
+        !isRecord(row) ||
+        row.kind !== 'worker' ||
+        typeof row.id !== 'string' ||
+        !/^0x[0-9a-f]{64}$/u.test(row.id) ||
+        row.id <= previous
+      )
+        throw new TypeError('Invalid reward participant');
+      previous = row.id;
+      if (row.id === `0x${worker}`) return decodeInferenceCredit(row.reward);
+    }
+    if (page.cursor !== null) {
+      if (
+        typeof page.cursor !== 'string' ||
+        !/^(?:[0-9a-f]{2})+$/u.test(page.cursor) ||
+        page.cursor.length > 2048 ||
+        page.rows.length === 0 ||
+        seen.has(page.cursor)
+      )
+        throw new TypeError('Invalid reward ledger cursor');
+      seen.add(page.cursor);
+    }
+    cursor = page.cursor;
+  } while (cursor !== null);
+  throw new Error('No reward ledger entry for this peer.');
+}
+
+export function useInferenceEarnings(
+  provider: ModuleProvider | null,
+  address: string | null,
+  source: InferenceRewardSource | null
+): InferenceRead<{
+  readonly peer: InferencePeer;
+  readonly credit: InferenceRead<InferenceCredit>;
+}> {
+  const key = useMemo(() => ({}), [provider, address, source?.endpoint, source?.market]);
+  const [retained, setRetained] = useState<{
+    key: object;
+    result: InferenceRead<{
+      readonly peer: InferencePeer;
+      readonly credit: InferenceRead<InferenceCredit>;
+    }>;
+  } | null>(null);
+  useEffect(() => {
+    if (!provider || !address) return;
+    let alive = true;
+    let inFlight = false;
+    const abort = new AbortController();
+    const read = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const [publicKey] = await layerXDid(provider, address);
+        const peerKey = inferenceId(publicKey.slice(2));
+        const peer = decodeInferencePeer(
+          await provider.request({ method: 'px_getInferencePeer', params: [peerKey] })
+        );
+        if (peer.peerKey !== peerKey) throw new TypeError('Inference peer key does not match');
+        let credit: InferenceRead<InferenceCredit>;
+        if (source) {
+          try {
+            credit = {
+              state: 'ready',
+              value: await readInferenceCredit(source, peer.worker, abort.signal),
+            };
+          } catch (cause) {
+            credit = { state: 'unavailable', reason: errorMessage(cause) };
+          }
+        } else {
+          credit = {
+            state: 'unavailable',
+            reason: 'Reward views endpoint and market are not configured.',
+          };
+        }
+        if (alive) setRetained({ key, result: { state: 'ready', value: { peer, credit } } });
+      } catch (cause) {
+        if (alive)
+          setRetained({ key, result: { state: 'unavailable', reason: errorMessage(cause) } });
+      } finally {
+        inFlight = false;
+      }
+    };
+    void read();
+    const timer = window.setInterval(() => void read(), 5_000);
+    return () => {
+      alive = false;
+      abort.abort();
+      window.clearInterval(timer);
+    };
+  }, [provider, address, key, source?.endpoint, source?.market]);
+  if (!provider || !address)
+    return { state: 'unavailable', reason: 'Connect a wallet to read earnings.' };
+  return retained?.key === key ? retained.result : { state: 'loading' };
+}
+
+export async function verifyInferenceSettlement(
+  provider: ModuleProvider,
+  address: string,
+  settlementAccount: string
+): Promise<void> {
+  const result = await provider.request({ method: 'px_resolveAccount', params: [address] });
+  if (
+    !isRecord(result) ||
+    result.evm_address !== address.toLowerCase() ||
+    result.layerx_account !== settlementAccount ||
+    result.bound !== true
+  )
+    throw new Error('Settlement address does not match the room settlement account.');
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

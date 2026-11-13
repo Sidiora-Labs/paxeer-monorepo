@@ -1,3 +1,9 @@
+fn require_err<T: std::fmt::Debug, E>(result: Result<T, E>, message: &str) -> E {
+    result
+        .err()
+        .unwrap_or_else(|| panic!("{message}: expected an error"))
+}
+
 use std::sync::atomic::{AtomicU64, Ordering};
 
 mod support;
@@ -169,7 +175,7 @@ fn transaction_receipt() -> AuthenticatedTransactionReceipt {
     capability
 }
 
-fn transaction_keys(owner: TenantId, hash: [u8; 32]) -> [TenantKey; 2] {
+fn transaction_keys(owner: &TenantId, hash: [u8; 32]) -> [TenantKey; 2] {
     [
         (ObjectKind::Receipt, b"receipt:transaction:".as_slice()),
         (ObjectKind::Configuration, b"receipt-evidence:".as_slice()),
@@ -228,9 +234,9 @@ fn first_verified_ingress_is_stored_before_it_is_served() {
     let capability = transaction_receipt();
     let record = capability.evidence();
     let hash = record.metadata.transaction_hash;
-    let keys = transaction_keys(tenant(), hash);
+    let keys = transaction_keys(&tenant(), hash);
     let other = TenantId::new("tenant-b").unwrap_or_else(|error| panic!("tenant: {error}"));
-    let other_keys = transaction_keys(other.clone(), hash);
+    let other_keys = transaction_keys(&other.clone(), hash);
     let mut durable = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
     assert_eq!(
         serve_evidence(&durable, tenant(), hash).unwrap_or_else(|error| panic!("{error:?}")),
@@ -281,7 +287,7 @@ fn repeated_verified_ingress_refuses_conflicts_without_replacing_the_first_recei
     let capability = transaction_receipt();
     let original = capability.evidence();
     let hash = original.metadata.transaction_hash;
-    let keys = transaction_keys(tenant(), hash);
+    let keys = transaction_keys(&tenant(), hash);
     let mut durable = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
     for _ in 0..2 {
         assert_eq!(
@@ -367,9 +373,9 @@ fn raw_transaction_evidence_is_refused_without_writing() {
     let capability = transaction_receipt();
     let record = capability.evidence();
     let hash = record.metadata.transaction_hash;
-    let keys = transaction_keys(tenant(), hash);
+    let keys = transaction_keys(&tenant(), hash);
     let other = TenantId::new("tenant-b").unwrap_or_else(|error| panic!("tenant: {error}"));
-    let other_keys = transaction_keys(other.clone(), hash);
+    let other_keys = transaction_keys(&other.clone(), hash);
     let mut durable = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
     let mut authenticated_bytes = None;
     for stage in 0..3 {
@@ -384,14 +390,16 @@ fn raw_transaction_evidence_is_refused_without_writing() {
             raw.metadata.rung = rung;
             for (owner, owner_keys) in [(tenant(), &keys), (other.clone(), &other_keys)] {
                 let unchanged = transaction_bytes(&durable, owner_keys);
-                let error = store_verified_if_absent(
-                    &mut durable,
-                    owner,
-                    hash,
-                    &raw.canonical_receipt,
-                    &raw,
-                )
-                .unwrap_err();
+                let error = require_err(
+                    store_verified_if_absent(
+                        &mut durable,
+                        owner,
+                        hash,
+                        &raw.canonical_receipt,
+                        &raw,
+                    ),
+                    "required test value",
+                );
                 assert!(matches!(error, ReceiptStoreError::UnauthenticatedIngress));
                 assert_eq!(error.reason(), "receipt.unauthenticated_ingress");
                 assert_eq!(transaction_bytes(&durable, owner_keys), unchanged);

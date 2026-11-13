@@ -1,0 +1,30 @@
+[repair.22.39.312]
+decision = 3159
+gotcha = 4078
+acceptance = "22998.1"
+starting_revision = "867c134a0d2cb5fb3d5d991b3e49ddee9ad93476"
+baseline = "The allowed files had no existing edits and no earlier gate ledger existed. No starting-revision test run is claimed: the gate-only order forbids running the verify command by hand or testing before implementation is complete."
+
+[witness_binding]
+coordinate = "witness.terminal_receipt"
+reservation_id = "The retained readers validate the reservation ID against SHA-256 of the prepared unsigned call, which is also the preparation ID."
+activity_id = "The witness uses the verified submission activity ID; durable identity and receipt verification bind it to the terminal."
+observed = "The lifecycle, wind-down and program-call producers hashed the complete signed canonical receipt with SHA-256, whereas VerifiedReceiptEvidence::receipt_ref is receipt_digest(encode_unsigned(decode(canonical_receipt)))."
+producer = "read_retained_lifecycle_debit_settlement_at_execution, read_retained_wind_down_debit_settlement_at_execution and verify_native_program_debit_settlement, the latter reached through read_retained_program_debit_settlement."
+repair = "Use receipt.receipt_ref() from the already verified receipt for each retained native-program witness. Preserve the witness binding check and its order. The fixture and state-export retention require no coordinate changes."
+diagnostic = "Test builds print each differing witness reservation, activity and terminal-receipt coordinate with its expected value before refusing at witness_binding."
+
+[tests]
+existing = ["retained_settlement_refuses_a_failed_receipt", "retained_settlement_settles_after_the_head_advances", "retained_settlement_settles_once_across_replay", "retained_settlement_still_refuses_a_stale_node"]
+regression = "retained_settlement_uses_the_protocol_receipt_reference independently computes the unsigned protocol digest, proves it differs from the signed-byte hash and settles both successful and failed receipts through the real retained lifecycle producer and consumer. It asserts the durable terminal reference, lifecycle state, consumption and released exposure."
+assertions = "No existing test or assertion is deleted, skipped, ignored, reordered or weakened."
+
+[qualification]
+revision = "The verified candidate revision is named in the private hf-done evidence row at /out/run/gates.jsonl; the hf-build row must name the same revision. This record is part of that candidate, so it refers to the external evidence rather than embedding a self-referential commit hash."
+ledger = "/out/run/gates.jsonl"
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --tests"
+verify_command = "cg spec done 22.39.312 -f layerx-merge --root /work/paxeer-monorepo"
+verify_test_command = "test -s services/agent/crates/layerx-agentd/repair_22_39_312.kvx && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib human_runtime::retained_settlement_tests"
+build_log = "/out/logs/build-1.log"
+verify_log = "/out/logs/verify-1.log"
+result = "Only an exit-zero hf-done row qualifies this repair; the private gate ledger records exact revision, command, exit and log for each bounded attempt."

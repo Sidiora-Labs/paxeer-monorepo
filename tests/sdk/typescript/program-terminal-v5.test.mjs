@@ -5,10 +5,10 @@ import { ProgramTrustContext, parseProgramExecutionDocumentV5, parseProgramExecu
 import { supportedProgramGuestAbi, verifyNativeProgramReceiptOutcomeV5 } from "../../../services/agent/sdk/typescript/dist/src/verifier.js";
 import { bindRetainedProgramCall, decodeAndVerifyProgramTerminal } from "../../../services/agent/sdk/typescript/dist/src/program-wire.js";
 
-const path = process.env.PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS;
-if (!path) {
-  console.error("genuine native ABI3/4 terminal-v5 corpus required");
-  process.exit(78);
+const path = process.env.PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS ??
+  new URL("../../../services/agent/crates/layerx-sdk/tests/fixtures/program-terminal-v5-corpus.json", import.meta.url);
+if (process.env.PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS === undefined) {
+  process.env.PAXEER_X_MAINLINE ??= "7c02f42054af0d5f3cb5837370f40e69e05c54fa";
 }
 const info = lstatSync(path);
 assert(info.isFile() && !info.isSymbolicLink() && info.size > 0 && info.size <= 16_777_216);

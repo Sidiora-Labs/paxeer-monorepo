@@ -36,6 +36,9 @@ pub enum SubmitError {
     Sequencer(SequencerError),
 }
 
+/// # Errors
+///
+/// Returns a transaction-hash mismatch, a decoded node refusal or a transport error; interrupted submission retains the exact bytes in the unknown result.
 pub fn submit_signed(endpoint: &SequencerEndpoint, raw: &[u8]) -> Result<Submission, SubmitError> {
     match endpoint.send_raw_transaction(raw) {
         Ok(tx_hash) => Ok(Submission::Submitted {
@@ -54,6 +57,9 @@ pub fn submit_signed(endpoint: &SequencerEndpoint, raw: &[u8]) -> Result<Submiss
     }
 }
 
+/// # Errors
+///
+/// Returns a transaction-hash mismatch, a decoded node refusal or a transport error; interrupted submission retains the exact bytes in the unknown result.
 pub fn resubmit_unknown(
     endpoint: &SequencerEndpoint,
     unknown: &Unknown,

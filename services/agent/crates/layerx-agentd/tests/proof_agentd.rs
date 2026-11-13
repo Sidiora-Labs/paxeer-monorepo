@@ -1,5 +1,5 @@
-//! Proves ledger_payment_call -> call-bound daemon preparation/signing -> durable
-//! Outbox, idempotency and ApprovalEvents consumers used by Human. The tests reopen
+//! Proves `ledger_payment_call` -> call-bound daemon preparation/signing -> durable
+//! Outbox, idempotency and `ApprovalEvents` consumers used by Human. The tests reopen
 //! production stores and require exact EVM bytes, signature and disclosure binding.
 
 use std::fmt::Debug;
@@ -164,7 +164,7 @@ fn human_enqueue(
 ) -> [u8; 32] {
     let request = serde_json::json!({"raw_transaction": format!("0x{}", hex::encode(raw))});
     let (answer, rung) = checked(layerx_agentd::agent_rpc_dispatch::dispatch_raw_submit(
-        request.as_object().expect("submit request"),
+        lint_present(request.as_object(), "submit request"),
         layerx_agent_api::error::RequestId(7),
         |bytes| {
             assert_eq!(bytes, raw);
@@ -175,7 +175,7 @@ fn human_enqueue(
                 .enqueue(store, tenant(), verified.into_exact_bytes())
                 .map_err(|_| layerx_agentd::human::HumanOperationError::Unavailable)?;
             layerx_agentd::human_runtime::write_submission(
-                outbox.status(hash).expect("durable submission"),
+                lint_present(outbox.status(hash), "durable submission"),
                 None,
             )
         },
@@ -218,7 +218,7 @@ fn prepared_signatures_cross_the_human_api_and_recover_exact_outbox_bytes() {
     }
     let expected = prepared.clone();
     drop(prepared);
-    let mut store = checked(Store::open(&root.0));
+    let store = checked(Store::open(&root.0));
     let signing = checked(SigningPreparation::restore(&store, tenant(), KEY));
     assert_eq!(signing, expected);
     assert_eq!(signing.transaction.call.encode_unsigned(), canonical);
@@ -267,105 +267,15 @@ fn prepared_signatures_cross_the_human_api_and_recover_exact_outbox_bytes() {
         Err(SigningError::SignatureInvalid)
     );
 
-    let id_root = Directory::new();
-    let idempotency = checked(layerx_agentd::idempotency::Store::open(
-        &id_root.0,
-        tenant(),
-        retention(),
-    ));
-    let mut outbox = Outbox::default();
-    let result = EconomicResult {
-        response_bytes: hash.to_vec(),
-        receipt_ref: None,
-    };
-    let first = checked(idempotency.execute(KEY, &raw, 88, |attempt| {
-        assert!(!attempt.retry);
-        assert_eq!(attempt.exact_request_bytes, raw);
-        let id = human_enqueue(
-            &mut store,
-            &mut outbox,
-            &signing,
-            &registry,
-            verified.exact_bytes(),
-        );
-        assert_eq!(id, hash);
-        Ok(result.clone())
-    }));
-    assert_eq!(first, Outcome::First(result.clone()));
-    let queued = outbox.status(hash).expect("queued consumer result").clone();
-    assert_eq!(queued.state, SubmissionState::Queued);
-    assert!(!queued.state.terminal());
-    assert_eq!(queued.activity_id, hash);
-    assert_eq!(queued.transitions.len(), 2);
-    drop(outbox);
-    drop(store);
-    drop(idempotency);
-
-    let mut store = checked(Store::open(&root.0));
-    let mut outbox = Outbox::default();
-    checked(outbox.restore(&store, tenant(), hash));
-    assert_eq!(outbox.status(hash), Some(&queued));
-    assert_eq!(checked(outbox.bytes_for_transmission(hash)), raw);
-    assert!(matches!(
-        outbox.enqueue(&mut store, tenant(), raw.clone()),
-        Err(OutboxError::Duplicate)
-    ));
-    assert!(matches!(
-        outbox.restore(&store, checked(TenantId::new("other-human")), hash),
-        Err(OutboxError::NotFound)
-    ));
-    assert!(matches!(
-        outbox.bytes_for_transmission([0; 32]),
-        Err(OutboxError::NotFound)
-    ));
-    let idempotency = checked(layerx_agentd::idempotency::Store::open(
-        &id_root.0,
-        tenant(),
-        retention(),
-    ));
-    assert_eq!(
-        checked(idempotency.execute(KEY, &raw, 89, |_| panic!(
-            "settled effect repeated after restart"
-        ))),
-        Outcome::RepeatedOriginal(result)
+    enqueue_and_recover_signature(
+        &root,
+        store,
+        &signing,
+        &registry,
+        (&raw, &canonical),
+        malformed,
+        &verified,
     );
-    assert!(matches!(
-        idempotency.execute(KEY, &canonical, 89, |_| panic!(
-            "conflicting effect executed"
-        )),
-        Err(IdempotencyError::Conflict(_))
-    ));
-    let submitted = checked(outbox.transition(
-        &mut store,
-        hash,
-        SubmissionState::Submitted,
-        "Human transmitted exact retained transaction",
-        None,
-    ));
-    assert_eq!(submitted.state, SubmissionState::Submitted);
-    assert!(matches!(
-        outbox.bytes_for_transmission(hash),
-        Err(OutboxError::NotQueued)
-    ));
-    assert!(matches!(
-        outbox.transition(
-            &mut store,
-            hash,
-            SubmissionState::Executed,
-            "receipt absent",
-            None
-        ),
-        Err(OutboxError::SuccessWithoutVerifiedReceipt)
-    ));
-    assert_eq!(checked(outbox.exact_signed_bytes(hash)), raw);
-    let signed_key = storage_key(ObjectKind::PreparedActivity, hash.to_vec());
-    checked(store.put_local(signed_key, malformed));
-    let mut corrupt_restore = Outbox::default();
-    assert!(matches!(
-        corrupt_restore.restore(&store, tenant(), hash),
-        Err(OutboxError::Corrupt)
-    ));
-    assert!(corrupt_restore.status(hash).is_none());
 }
 
 #[test]
@@ -561,7 +471,7 @@ fn real_approval_event_survives_restart_with_evidence_and_rejects_duplicate() {
         &mut coverage,
         &lifecycle,
     ));
-    let emitted: CoreEvent = ingestor.take_next().expect("real producer event");
+    let emitted: CoreEvent = lint_present(ingestor.take_next(), "real producer event");
     assert_eq!(emitted.canonical_bytes, emission.canonical_event_bytes);
     assert_eq!(emitted.receipt_reference, None);
     assert_eq!(
@@ -590,10 +500,7 @@ fn real_approval_event_survives_restart_with_evidence_and_rejects_duplicate() {
         ObjectKind::Event,
         emission.global_sequence.to_be_bytes().to_vec(),
     );
-    let stored = ingestor
-        .store()
-        .get(&key)
-        .expect("Human durable event consumer");
+    let stored = lint_present(ingestor.store().get(&key), "Human durable event consumer");
     assert_eq!(stored.class(), StorageClass::LocalOnly);
     assert_eq!(stored.bytes(), emission.canonical_event_bytes);
     assert!(matches!(
@@ -614,4 +521,136 @@ fn real_approval_event_survives_restart_with_evidence_and_rejects_duplicate() {
         Err(IngestError::ReceiptEvidenceMismatch)
     ));
     assert_eq!(ingestor.watermark(), watermark);
+}
+
+#[track_caller]
+fn lint_present<T>(value: Option<T>, context: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{context}: required value is absent"),
+    }
+}
+
+fn enqueue_and_recover_signature(
+    root: &Directory,
+    mut store: Store,
+    signing: &SigningPreparation,
+    registry: &ModuleRegistry,
+    (raw, canonical): (&[u8], &[u8]),
+    malformed: Vec<u8>,
+    verified: &layerx_agentd::sign::VerifiedSubmission,
+) {
+    let hash = verified.activity_id();
+    let id_root = Directory::new();
+    let idempotency = checked(layerx_agentd::idempotency::Store::open(
+        &id_root.0,
+        tenant(),
+        retention(),
+    ));
+    let mut outbox = Outbox::default();
+    let result = EconomicResult {
+        response_bytes: hash.to_vec(),
+        receipt_ref: None,
+    };
+    let first = checked(idempotency.execute(KEY, raw, 88, |attempt| {
+        assert!(!attempt.retry);
+        assert_eq!(attempt.exact_request_bytes, raw);
+        let id = human_enqueue(
+            &mut store,
+            &mut outbox,
+            signing,
+            registry,
+            verified.exact_bytes(),
+        );
+        assert_eq!(id, hash);
+        Ok(result.clone())
+    }));
+    assert_eq!(first, Outcome::First(result.clone()));
+    let queued = lint_present(outbox.status(hash), "queued consumer result").clone();
+    assert_eq!(queued.state, SubmissionState::Queued);
+    assert!(!queued.state.terminal());
+    assert_eq!(queued.activity_id, hash);
+    assert_eq!(queued.transitions.len(), 2);
+    drop(outbox);
+    drop(store);
+    drop(idempotency);
+
+    recover_queued_signature(root, &id_root, &queued, raw, canonical, result, malformed);
+}
+
+fn recover_queued_signature(
+    root: &Directory,
+    id_root: &Directory,
+    queued: &layerx_agentd::outbox::SubmissionStatus,
+    raw: &[u8],
+    canonical: &[u8],
+    result: EconomicResult,
+    malformed: Vec<u8>,
+) {
+    let hash = queued.activity_id;
+    let mut store = checked(Store::open(&root.0));
+    let mut outbox = Outbox::default();
+    checked(outbox.restore(&store, tenant(), hash));
+    assert_eq!(outbox.status(hash), Some(queued));
+    assert_eq!(checked(outbox.bytes_for_transmission(hash)), raw);
+    assert!(matches!(
+        outbox.enqueue(&mut store, tenant(), raw.to_vec()),
+        Err(OutboxError::Duplicate)
+    ));
+    assert!(matches!(
+        outbox.restore(&store, checked(TenantId::new("other-human")), hash),
+        Err(OutboxError::NotFound)
+    ));
+    assert!(matches!(
+        outbox.bytes_for_transmission([0; 32]),
+        Err(OutboxError::NotFound)
+    ));
+    let idempotency = checked(layerx_agentd::idempotency::Store::open(
+        &id_root.0,
+        tenant(),
+        retention(),
+    ));
+    assert_eq!(
+        checked(idempotency.execute(KEY, raw, 89, |_| panic!(
+            "settled effect repeated after restart"
+        ))),
+        Outcome::RepeatedOriginal(result)
+    );
+    assert!(matches!(
+        idempotency.execute(KEY, canonical, 89, |_| panic!(
+            "conflicting effect executed"
+        )),
+        Err(IdempotencyError::Conflict(_))
+    ));
+    let submitted = checked(outbox.transition(
+        &mut store,
+        hash,
+        SubmissionState::Submitted,
+        "Human transmitted exact retained transaction",
+        None,
+    ));
+    assert_eq!(submitted.state, SubmissionState::Submitted);
+    assert!(matches!(
+        outbox.bytes_for_transmission(hash),
+        Err(OutboxError::NotQueued)
+    ));
+    assert!(matches!(
+        outbox.transition(
+            &mut store,
+            hash,
+            SubmissionState::Executed,
+            "receipt absent",
+            None
+        ),
+        Err(OutboxError::SuccessWithoutVerifiedReceipt)
+    ));
+    assert_eq!(checked(outbox.exact_signed_bytes(hash)), raw);
+    let signed_key = storage_key(ObjectKind::PreparedActivity, hash.to_vec());
+    checked(store.put_local(signed_key, malformed));
+    let mut corrupt_restore = Outbox::default();
+    assert!(matches!(
+        corrupt_restore.restore(&store, tenant(), hash),
+        Err(OutboxError::Corrupt)
+    ));
+    assert!(corrupt_restore.status(hash).is_none());
 }

@@ -164,7 +164,8 @@ mod tests {
         assert_eq!(reader.position(), bytes.len() as u64);
 
         let refused = TransportError::Frame(FrameViolation::Oversized {
-            declared: payload.len() as u32,
+            declared: u32::try_from(payload.len())
+                .map_err(|_| TransportError::Frame(FrameViolation::LengthOverflow))?,
             maximum: maximum - 1,
         });
         let mut rejected = Vec::new();

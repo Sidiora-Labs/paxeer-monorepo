@@ -97,6 +97,21 @@ fn migration_plan() -> Vec<(MigrationCell, Vec<u8>)> {
         .collect()
 }
 
+fn assert_neighbor_cells(storage: &mut Storage, owner: ProgramId, key: &[u8]) {
+    assert_eq!(
+        read(storage, StorageNamespace::shared(owner), key),
+        Some(b"shared sentinel".to_vec())
+    );
+    assert_eq!(
+        read(
+            storage,
+            StorageNamespace::principal(program(2), principal(11)),
+            key
+        ),
+        Some(b"neighbor sentinel".to_vec())
+    );
+}
+
 #[test]
 fn solana_partial_import_rejects_invalid_final_cell_after_reopen() {
     let owner = program(1);
@@ -187,18 +202,7 @@ fn solana_partial_import_rejects_invalid_final_cell_after_reopen() {
                 Some(bytes.clone())
             );
         }
-        assert_eq!(
-            read(&mut storage, StorageNamespace::shared(owner), key),
-            Some(b"shared sentinel".to_vec())
-        );
-        assert_eq!(
-            read(
-                &mut storage,
-                StorageNamespace::principal(program(2), principal(11)),
-                key
-            ),
-            Some(b"neighbor sentinel".to_vec())
-        );
+        assert_neighbor_cells(&mut storage, owner, key);
     }
 }
 
@@ -206,8 +210,7 @@ fn execute(
     port: &SharedPoolPort,
     module: &ValidatedModule,
     storage: &mut Storage,
-    owner: ProgramId,
-    actor: PrincipalId,
+    identity: (ProgramId, PrincipalId),
     capabilities: CapabilitySet,
     calldata: &[u8],
     response_capacity: usize,
@@ -216,8 +219,8 @@ fn execute(
         storage,
         AuthorizedExecutionRequest {
             module,
-            program: owner,
-            authorization: AuthorizationContext::new(actor, capabilities),
+            program: identity.0,
+            authorization: AuthorizationContext::new(identity.1, capabilities),
             receipts: &AbsentReceipts,
             entrypoint: CALL_ENTRY_EXPORT,
             calldata,
@@ -250,8 +253,7 @@ fn deposit(
         port,
         module,
         storage,
-        program(1),
-        actor,
+        (program(1), actor),
         port.deposit_capabilities(amount)
             .unwrap_or_else(|error| panic!("grants: {error}")),
         &deposit_data(amount),
@@ -293,8 +295,7 @@ fn query(
         port,
         module,
         storage,
-        owner,
-        actor,
+        (owner, actor),
         SharedPoolPort::query_capabilities()
             .unwrap_or_else(|error| panic!("query grants: {error}")),
         &query_data(),
@@ -311,8 +312,7 @@ fn query(
     PoolView::decode(&response.bytes).unwrap_or_else(|error| panic!("query consumer: {error}"))
 }
 
-#[test]
-fn pool_execution_proof_two_participants_reopen_and_isolation() {
+fn populated_pool() -> (Storage, PoolView) {
     let port = pool(1000);
     let module = port
         .validated_module()
@@ -377,9 +377,12 @@ fn pool_execution_proof_two_participants_reopen_and_isolation() {
         &ParticipantDeposit::storage_key().unwrap_or_else(|error| panic!("deposit key: {error}"))
     )
     .is_none());
-    storage = reopen(storage);
-    drop(module);
-    drop(port);
+    (reopen(storage), expected)
+}
+
+#[test]
+fn pool_execution_proof_two_participants_reopen_and_isolation() {
+    let (mut storage, mut expected) = populated_pool();
     let reopened_pool = pool(1000);
     let reopened_module = reopened_pool
         .validated_module()
@@ -520,8 +523,7 @@ fn pool_execution_proof_denied_transfer_and_scope_roll_back_both_cells() {
                 &port,
                 &module,
                 &mut storage,
-                program(1),
-                principal(actor),
+                (program(1), principal(actor)),
                 CapabilitySet::new(grants.clone())
                     .unwrap_or_else(|error| panic!("negative grants: {error}")),
                 &deposit_data(10),
@@ -603,8 +605,7 @@ fn pool_execution_proof_bounds_and_malformed_calls_are_atomic() {
             &port,
             &module,
             &mut storage,
-            program(1),
-            principal(11),
+            (program(1), principal(11)),
             port.deposit_capabilities(1000)
                 .unwrap_or_else(|error| panic!("grants: {error}")),
             &calldata,
@@ -616,8 +617,7 @@ fn pool_execution_proof_bounds_and_malformed_calls_are_atomic() {
         &port,
         &module,
         &mut storage,
-        program(1),
-        principal(11),
+        (program(1), principal(11)),
         SharedPoolPort::query_capabilities().unwrap_or_else(|error| panic!("grants: {error}")),
         &query_data(),
         POOL_QUERY_BYTES - 1,
@@ -690,8 +690,7 @@ fn pool_execution_proof_checked_totals_counts_and_account_schema() {
             &port,
             &module,
             &mut storage,
-            program(1),
-            principal(11),
+            (program(1), principal(11)),
             port.deposit_capabilities(1)
                 .unwrap_or_else(|error| panic!("grants: {error}")),
             &deposit_data(1),
@@ -712,8 +711,7 @@ fn pool_execution_proof_checked_totals_counts_and_account_schema() {
         &port,
         &module,
         &mut storage,
-        program(1),
-        principal(12),
+        (program(1), principal(12)),
         port.deposit_capabilities(1)
             .unwrap_or_else(|error| panic!("grants: {error}")),
         &deposit_data(1),
@@ -736,8 +734,7 @@ fn pool_execution_proof_query_requires_both_scopes_and_exact_codec() {
             &port,
             &module,
             &mut storage,
-            program(1),
-            principal(11),
+            (program(1), principal(11)),
             CapabilitySet::new([grant]).unwrap_or_else(|error| panic!("grants: {error}")),
             &query_data(),
             POOL_QUERY_BYTES,

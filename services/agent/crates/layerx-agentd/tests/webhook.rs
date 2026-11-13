@@ -257,60 +257,7 @@ fn slow_endpoint_receives_byte_identical_retry_and_bound_event_evidence() {
     };
     let peer = peer_for_socket(&socket.0);
     let (timed_out_tx, timed_out_rx) = mpsc::channel();
-    let server = thread::spawn(move || {
-        let auth = authenticator();
-        let (mut first, _) = match listener.accept() {
-            Ok(value) => value,
-            Err(error) => panic!("first accept failed: {error}"),
-        };
-        let first_frame = match read_frame(&mut first, 4096) {
-            Ok(value) => value,
-            Err(error) => panic!("first frame failed: {error:?}"),
-        };
-        let verified = match auth.verify(&first_frame, peer) {
-            Ok(value) => value,
-            Err(error) => panic!("first authentication failed: {error}"),
-        };
-        match &verified.item {
-            VerifiedItem::Event {
-                global_sequence,
-                receipt_reference,
-                event_bytes,
-                ..
-            } => {
-                assert_eq!(*global_sequence, 0);
-                assert!(receipt_reference.is_some());
-                assert_eq!(event_bytes, b"exact-core-event-zero");
-            }
-            other @ VerifiedItem::BackfillComplete { .. } => {
-                panic!("unexpected outbound item: {other:?}")
-            }
-        }
-        text(
-            timed_out_rx.recv_timeout(Duration::from_secs(2)),
-            "first delivery timeout",
-        );
-        drop(first);
-
-        let (mut second, _) = match listener.accept() {
-            Ok(value) => value,
-            Err(error) => panic!("second accept failed: {error}"),
-        };
-        let second_frame = match read_frame(&mut second, 4096) {
-            Ok(value) => value,
-            Err(error) => panic!("second frame failed: {error:?}"),
-        };
-        assert_eq!(second_frame, first_frame);
-        let verified_again = match auth.verify(&second_frame, peer) {
-            Ok(value) => value,
-            Err(error) => panic!("retry authentication failed: {error}"),
-        };
-        assert_eq!(verified_again.binding, verified.binding);
-        let acknowledgement = auth.acknowledgement(verified_again.binding);
-        if let Err(error) = write_frame(&mut second, &acknowledgement, 4096) {
-            panic!("acknowledgement failed: {error:?}");
-        }
-    });
+    let server = thread::spawn(move || slow_retry_receiver(&listener, peer, &timed_out_rx));
 
     let endpoint = endpoint(&socket.0, peer, 30);
     let mut delivery = engine(&root);
@@ -487,4 +434,63 @@ fn deletion_prevents_connection_and_retains_tombstone_audit() {
         Ok(Some(Termination::Deleted))
     ));
     let _ = fs::remove_dir_all(root);
+}
+
+fn slow_retry_receiver(
+    listener: &UnixListener,
+    peer: PeerIdentity,
+    timed_out_rx: &mpsc::Receiver<()>,
+) {
+    let auth = authenticator();
+    let (mut first, _) = match listener.accept() {
+        Ok(value) => value,
+        Err(error) => panic!("first accept failed: {error}"),
+    };
+    let first_frame = match read_frame(&mut first, 4096) {
+        Ok(value) => value,
+        Err(error) => panic!("first frame failed: {error:?}"),
+    };
+    let verified = match auth.verify(&first_frame, peer) {
+        Ok(value) => value,
+        Err(error) => panic!("first authentication failed: {error}"),
+    };
+    match &verified.item {
+        VerifiedItem::Event {
+            global_sequence,
+            receipt_reference,
+            event_bytes,
+            ..
+        } => {
+            assert_eq!(*global_sequence, 0);
+            assert!(receipt_reference.is_some());
+            assert_eq!(event_bytes, b"exact-core-event-zero");
+        }
+        other @ VerifiedItem::BackfillComplete { .. } => {
+            panic!("unexpected outbound item: {other:?}")
+        }
+    }
+    text(
+        timed_out_rx.recv_timeout(Duration::from_secs(2)),
+        "first delivery timeout",
+    );
+    drop(first);
+
+    let (mut second, _) = match listener.accept() {
+        Ok(value) => value,
+        Err(error) => panic!("second accept failed: {error}"),
+    };
+    let second_frame = match read_frame(&mut second, 4096) {
+        Ok(value) => value,
+        Err(error) => panic!("second frame failed: {error:?}"),
+    };
+    assert_eq!(second_frame, first_frame);
+    let verified_again = match auth.verify(&second_frame, peer) {
+        Ok(value) => value,
+        Err(error) => panic!("retry authentication failed: {error}"),
+    };
+    assert_eq!(verified_again.binding, verified.binding);
+    let acknowledgement = auth.acknowledgement(verified_again.binding);
+    if let Err(error) = write_frame(&mut second, &acknowledgement, 4096) {
+        panic!("acknowledgement failed: {error:?}");
+    }
 }

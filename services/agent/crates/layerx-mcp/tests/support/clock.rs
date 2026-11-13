@@ -5,11 +5,12 @@ use layerx_types::clock::{Clock, ClockError, ClockReading};
 use layerx_types::test_support::DeterministicClock;
 
 pub struct TestClock {
-    pub(crate) ticks: Mutex<DeterministicClock>,
-    pub(crate) generation: [u8; 16],
+    pub ticks: Mutex<DeterministicClock>,
+    pub generation: [u8; 16],
 }
 
 impl TestClock {
+    #[must_use]
     pub const fn new(seconds: u64) -> Self {
         Self {
             ticks: Mutex::new(DeterministicClock::new(seconds)),
@@ -17,8 +18,14 @@ impl TestClock {
         }
     }
 
+    /// # Panics
+    /// Panics if another test thread poisoned the deterministic clock lock.
+    #[must_use]
     pub fn now(&self) -> u64 {
-        self.ticks.lock().expect("test clock").now()
+        match self.ticks.lock() {
+            Ok(ticks) => ticks.now(),
+            Err(error) => panic!("test clock: {error:?}"),
+        }
     }
 }
 

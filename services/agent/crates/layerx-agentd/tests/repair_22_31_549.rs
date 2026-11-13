@@ -37,7 +37,7 @@ fn repair_22_31_549_committed_and_legacy_identity_allow_bound_owner_operation() 
         let request = fixture.document["agent_register"].clone();
         let from = bytes(text(&request, "owner_address"));
         fixture.assert_prepared(
-            fixture.call(&fixture.envelope("agent.register", request.clone())),
+            &fixture.call(&fixture.envelope("agent.register", &request)),
             from,
             layerx_client::account_binding::ADDR_PRECOMPILE,
             [0xdd, 0x9a, 0xa6, 0x28],
@@ -67,9 +67,7 @@ fn repair_22_31_549_below_committed_and_unknown_identity_refuse_bound_owner_oper
             "identity label {label}"
         );
         assert_refused(
-            fixture.call(
-                &fixture.envelope("agent.register", fixture.document["agent_register"].clone()),
-            ),
+            &fixture.call(&fixture.envelope("agent.register", &fixture.document["agent_register"])),
             403,
             "owner.refused",
         );

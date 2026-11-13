@@ -1,5 +1,34 @@
-#[path = "support/native_chain.rs"]
-mod native;
+trait Checked<T> {
+    fn checked(self) -> T;
+}
+
+impl<T, E: core::fmt::Debug> Checked<T> for Result<T, E> {
+    #[track_caller]
+    fn checked(self) -> T {
+        match self {
+            Ok(value) => value,
+            Err(error) => panic!("{error:?}"),
+        }
+    }
+}
+
+impl<T> Checked<T> for Option<T> {
+    #[track_caller]
+    fn checked(self) -> T {
+        match self {
+            Some(value) => value,
+            None => panic!("expected a value"),
+        }
+    }
+}
+
+#[allow(dead_code)]
+mod native {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/support/native_chain.rs"
+    ));
+}
 
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_programs::chain_proof::{
@@ -20,10 +49,10 @@ const MAX_AGE_MS: u64 = 1_000;
 
 fn varint(mut value: u64, output: &mut Vec<u8>) {
     while value >= 128 {
-        output.push((value as u8 & 127) | 128);
+        output.push(u8::try_from(value & 127).checked() | 128);
         value >>= 7;
     }
-    output.push(value as u8);
+    output.push(u8::try_from(value).checked());
 }
 
 fn scalar(number: u8, value: u64, output: &mut Vec<u8>) {
@@ -65,8 +94,8 @@ fn encode_header(header: &ChainHeader) -> Vec<u8> {
     scalar(1, header.version.block, &mut version);
     scalar(2, header.version.app, &mut version);
     let mut time = Vec::new();
-    scalar(1, header.time.seconds as u64, &mut time);
-    scalar(2, header.time.nanos as u64, &mut time);
+    scalar(1, u64::try_from(header.time.seconds).checked(), &mut time);
+    scalar(2, u64::try_from(header.time.nanos).checked(), &mut time);
     let mut parts = Vec::new();
     scalar(
         1,
@@ -80,7 +109,7 @@ fn encode_header(header: &ChainHeader) -> Vec<u8> {
     let mut bytes = Vec::new();
     field(1, &version, &mut bytes);
     field(2, header.chain_id.as_bytes(), &mut bytes);
-    scalar(3, header.height as u64, &mut bytes);
+    scalar(3, u64::try_from(header.height).checked(), &mut bytes);
     field(4, &time, &mut bytes);
     field(5, &block, &mut bytes);
     for (number, hash) in [
@@ -107,7 +136,7 @@ fn evidence(
 ) -> (TerminalReceiptEvidence, TrustedValidator, [u8; 32]) {
     let key = kind.map_or_else(
         || sandbox_terminal_key(key_lease.bytes()),
-        |kind| sandbox_state_key(kind, key_lease.bytes()).unwrap(),
+        |kind| sandbox_state_key(kind, key_lease.bytes()).checked(),
     );
     let store_root = leaf_hash(&[0, 2, 2], &key, &record);
     let app_hash = leaf_hash(&[0], b"lxphost", &store_root);
@@ -131,7 +160,7 @@ fn evidence(
         chain_id: "repair-native".to_owned(),
         height: 38,
         time: HeaderTime {
-            seconds: (NOW_MS / 1_000) as i64,
+            seconds: i64::try_from(NOW_MS / 1_000).checked(),
             nanos: 123_000_000,
         },
         last_block_id: HeaderBlockId {
@@ -172,8 +201,8 @@ fn evidence(
     )
     .unwrap_or_else(|error| panic!("vote: {error:?}"));
     let mut time = Vec::new();
-    scalar(1, timestamp.seconds as u64, &mut time);
-    scalar(2, timestamp.nanos as u64, &mut time);
+    scalar(1, u64::try_from(timestamp.seconds).checked(), &mut time);
+    scalar(2, u64::try_from(timestamp.nanos).checked(), &mut time);
     let mut signature = Vec::new();
     scalar(1, 2, &mut signature);
     field(2, &validator.address, &mut signature);
@@ -186,7 +215,7 @@ fn evidence(
     field(1, &block_id.hash, &mut block);
     field(2, &parts, &mut block);
     let mut commit = Vec::new();
-    scalar(1, header.height as u64, &mut commit);
+    scalar(1, u64::try_from(header.height).checked(), &mut commit);
     field(3, &block, &mut commit);
     field(4, &signature, &mut commit);
     (
@@ -240,47 +269,55 @@ fn terminal_record_verifies_from_proven_state() {
         authenticated.destroy_activity_id()
     );
 
+    assert_terminal_refusals(&verifier, &valid, lease, other_lease, &record, &signing_key);
+}
+
+fn assert_terminal_refusals(
+    verifier: &ProtocolDeploymentVerifier,
+    valid: &TerminalReceiptEvidence,
+    lease: LeaseId,
+    other_lease: LeaseId,
+    record: &[u8],
+    signing_key: &SigningKey,
+) {
     let refuse = |proof: &TerminalReceiptEvidence, expected, now_ms| {
         assert_eq!(
-            AuthenticatedTerminalRecord::verify(&verifier, proof, now_ms, expected),
+            AuthenticatedTerminalRecord::verify(verifier, proof, now_ms, expected),
             Err(ExpiryRefusal::InvalidProtocolReceipt)
         );
     };
-    refuse(&valid, other_lease, NOW_MS);
-    let (other, _, _) = evidence(
-        other_lease,
-        terminal_record(other_lease),
-        None,
-        &signing_key,
-    );
+    refuse(valid, other_lease, NOW_MS);
+    let (other, _, _) = evidence(other_lease, terminal_record(other_lease), None, signing_key);
     refuse(&other, lease, NOW_MS);
-    let (wrong_record, _, _) = evidence(lease, terminal_record(other_lease), None, &signing_key);
+    let (wrong_record, _, _) = evidence(lease, terminal_record(other_lease), None, signing_key);
     refuse(&wrong_record, lease, NOW_MS);
-    let mut wrong_proof = valid.clone();
-    wrong_proof.terminal_ops = other.terminal_ops.clone();
+    let mut wrong_proof = (*valid).clone();
+    wrong_proof.terminal_ops.clone_from(&other.terminal_ops);
     refuse(&wrong_proof, lease, NOW_MS);
-    let mut wrong_root = valid.clone();
-    wrong_root.terminal_ops = wrong_record.terminal_ops.clone();
+    let mut wrong_root = (*valid).clone();
+    wrong_root
+        .terminal_ops
+        .clone_from(&wrong_record.terminal_ops);
     refuse(&wrong_root, lease, NOW_MS);
     for kind in 0..=2 {
-        let (wrong_kind, _, _) = evidence(lease, record.clone(), Some(kind), &signing_key);
+        let (wrong_kind, _, _) = evidence(lease, record.to_vec(), Some(kind), signing_key);
         refuse(&wrong_kind, lease, NOW_MS);
     }
-    let mut tampered = valid.clone();
+    let mut tampered = (*valid).clone();
     tampered
         .commitment
         .value
         .as_mut()
         .unwrap_or_else(|| panic!("terminal value"))[85] ^= 1;
     refuse(&tampered, lease, NOW_MS);
-    let mut tampered = valid.clone();
+    let mut tampered = (*valid).clone();
     *tampered
         .commitment
         .signed_header
         .last_mut()
         .unwrap_or_else(|| panic!("header")) ^= 1;
     refuse(&tampered, lease, NOW_MS);
-    let mut tampered = valid.clone();
+    let mut tampered = (*valid).clone();
     *tampered
         .commitment
         .commit
@@ -289,38 +326,38 @@ fn terminal_record_verifies_from_proven_state() {
     refuse(&tampered, lease, NOW_MS);
     let (untrusted, _, _) = evidence(
         lease,
-        record.clone(),
+        record.to_vec(),
         None,
         &SigningKey::from_bytes(&[18; 32]),
     );
     refuse(&untrusted, lease, NOW_MS);
-    let mut wrong_store = valid.clone();
-    wrong_store.commitment.store_name = "bank".to_owned();
+    let mut wrong_store = (*valid).clone();
+    "bank".clone_into(&mut wrong_store.commitment.store_name);
     refuse(&wrong_store, lease, NOW_MS);
-    let mut no_proof = valid.clone();
+    let mut no_proof = (*valid).clone();
     no_proof.terminal_ops.clear();
     refuse(&no_proof, lease, NOW_MS);
-    let mut absent = valid.clone();
+    let mut absent = (*valid).clone();
     absent.commitment.value = None;
     refuse(&absent, lease, NOW_MS);
     for length in [351, 353] {
-        let mut malformed = record.clone();
+        let mut malformed = record.to_vec();
         malformed.resize(length, 0);
-        let (proof, _, _) = evidence(lease, malformed, None, &signing_key);
+        let (proof, _, _) = evidence(lease, malformed, None, signing_key);
         refuse(&proof, lease, NOW_MS);
     }
     for range in [0..5, 37..69, 69..77, 77..85, 117..149] {
-        let mut malformed = record.clone();
+        let mut malformed = record.to_vec();
         malformed[range].fill(0);
-        let (proof, _, _) = evidence(lease, malformed, None, &signing_key);
+        let (proof, _, _) = evidence(lease, malformed, None, signing_key);
         refuse(&proof, lease, NOW_MS);
     }
-    refuse(&valid, lease, NOW_MS + MAX_AGE_MS + 1);
-    refuse(&valid, lease, NOW_MS - 1_001);
+    refuse(valid, lease, NOW_MS + MAX_AGE_MS + 1);
+    refuse(valid, lease, NOW_MS - 1_001);
     assert!(
-        AuthenticatedTerminalRecord::verify(&verifier, &valid, NOW_MS + MAX_AGE_MS, lease).is_ok()
+        AuthenticatedTerminalRecord::verify(verifier, valid, NOW_MS + MAX_AGE_MS, lease).is_ok()
     );
-    assert!(AuthenticatedTerminalRecord::verify(&verifier, &valid, NOW_MS - 1_000, lease).is_ok());
+    assert!(AuthenticatedTerminalRecord::verify(verifier, valid, NOW_MS - 1_000, lease).is_ok());
 }
 
 #[test]
@@ -372,8 +409,8 @@ fn reopened_native_terminal() -> (TerminalReceiptEvidence, TrustedValidator, [u8
     use layerx_programs_runtime::{PrincipalId, ProgramId, Storage, StorageNamespace};
     let (fixture, lease, mut evidence) = native::terminal_evidence();
     let namespace = StorageNamespace::principal(
-        ProgramId::new([3; 32]).unwrap(),
-        PrincipalId::new([9; 32]).unwrap(),
+        ProgramId::new([3; 32]).checked(),
+        PrincipalId::new([9; 32]).checked(),
     );
     let mut storage = Storage::new();
     let mut transaction = storage.transaction(namespace);
@@ -383,16 +420,16 @@ fn reopened_native_terminal() -> (TerminalReceiptEvidence, TrustedValidator, [u8
                 &native::read(&format!("terminal.{label}.key")),
                 &native::read(&format!("terminal.{label}.value")),
             )
-            .unwrap();
+            .checked();
     }
     assert_eq!(transaction.commit(), 3);
-    let persisted = storage.replay_state_bytes(1 << 20).unwrap();
+    let persisted = storage.replay_state_bytes(1 << 20).checked();
     drop(storage);
-    let mut reopened = Storage::decode_untrusted_replay_state(&persisted, 1 << 20).unwrap();
+    let mut reopened = Storage::decode_untrusted_replay_state(&persisted, 1 << 20).checked();
     evidence.commitment.value = reopened
         .transaction(namespace)
         .read(&evidence.commitment.key)
-        .unwrap();
+        .checked();
     assert_eq!(
         evidence.commitment.value,
         Some(native::read("native.terminal"))
@@ -400,21 +437,25 @@ fn reopened_native_terminal() -> (TerminalReceiptEvidence, TrustedValidator, [u8
     let head = fixture
         .verifier
         .verify_head(&fixture.header, &fixture.commit)
-        .unwrap();
+        .checked();
     let descriptor = reopened
         .transaction(namespace)
         .read(&native::read("terminal.archive.key"))
-        .unwrap()
-        .unwrap();
+        .checked()
+        .checked();
     assert_eq!(&descriptor[..5], b"LXDA1");
     let archived = reopened
         .transaction(namespace)
         .read(&native::read("terminal.archive_blob.key"))
-        .unwrap()
-        .unwrap();
+        .checked()
+        .checked();
     for label in ["archive", "archive_blob"] {
         let key = native::read(&format!("terminal.{label}.key"));
-        let value = reopened.transaction(namespace).read(&key).unwrap().unwrap();
+        let value = reopened
+            .transaction(namespace)
+            .read(&key)
+            .checked()
+            .checked();
         layerx_programs::verify_state(
             &head,
             "lxphost",
@@ -422,36 +463,36 @@ fn reopened_native_terminal() -> (TerminalReceiptEvidence, TrustedValidator, [u8
             &value,
             &native::ops(&native::read(&format!("terminal.{label}.ops"))),
         )
-        .unwrap();
+        .checked();
     }
     assert_eq!(
-        u32::from_be_bytes(descriptor[5..9].try_into().unwrap()) as usize,
+        u32::from_be_bytes(descriptor[5..9].try_into().checked()) as usize,
         archived.len()
     );
     assert_eq!(Sha256::digest(&archived).as_slice(), &descriptor[9..]);
     assert_eq!(
         &descriptor[9..],
-        &evidence.commitment.value.as_ref().unwrap()[197..229]
+        &evidence.commitment.value.as_ref().checked()[197..229]
     );
-    let destroyed = layerx_programs_sandbox::Lease::decode_state(&archived).unwrap();
+    let destroyed = layerx_programs_sandbox::Lease::decode_state(&archived).checked();
     assert_eq!(destroyed.id(), lease);
     assert_eq!(
         destroyed.state(),
         layerx_programs_sandbox::LeaseState::Destroyed
     );
     // finalize_teardown/terminalize_by_sweep domain-separate Destroy from Expire.
-    let mut destroy_transition_id: [u8; 32] = evidence.commitment.value.as_ref().unwrap()[37..69]
+    let mut destroy_transition_id: [u8; 32] = evidence.commitment.value.as_ref().checked()[37..69]
         .try_into()
-        .unwrap();
+        .checked();
     destroy_transition_id[0] ^= 0x80;
     assert_eq!(
-        destroyed.history().last().unwrap().transition.activity_id,
+        destroyed.history().last().checked().transition.activity_id,
         destroy_transition_id,
     );
     (
         evidence,
         fixture.verifier.validators.validators()[0].clone(),
-        fixture.header.hash().unwrap(),
+        fixture.header.hash().checked(),
         lease,
     )
 }

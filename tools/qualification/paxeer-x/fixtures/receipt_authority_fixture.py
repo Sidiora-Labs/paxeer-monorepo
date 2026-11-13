@@ -1,12 +1,13 @@
 """Disposable receipt authority bound to a RuntimeFixture replica.
 
 Runs the real layerx-receipt-authority from PAXEER_X_HOSTED_BIN_DIR against
-the owned chain-125 runtime: receipts come from the runtime LNI socket and
+the owned chain-125 runtime: receipts come from its root JSON-RPC and
 authority evidence only from the runtime's independent replica on loopback.
 TLS comes from the caller's CaMaterial; bearer tokens are generated per
 consuming service. Private material stays below work/receipt-authority.
 """
 
+import base64
 import hashlib
 import json
 import os
@@ -79,8 +80,28 @@ def node_environment(runtime):
                 if '=' in line)
 
 
+def chain_receipt_keys(runtime, directory):
+    genesis = json.loads((runtime.home / 'config/genesis.json').read_text())
+    pins = genesis['app_state']['sequencer']['receipt_keys']
+    if not isinstance(pins, list) or not pins:
+        raise RuntimeError('native genesis must pin receipt keys')
+    entries, identities = [], set()
+    for pin in pins:
+        key_id = base64.b64decode(pin['key_id'], validate=True)
+        public_key = base64.b64decode(pin['public_key'], validate=True)
+        first, last = int(pin['first_height']), int(pin['last_height'])
+        if (len(key_id) != 32 or len(public_key) != 32 or key_id == bytes(32)
+                or public_key == bytes(32) or key_id in identities
+                or not 1 <= first <= last <= 2**64 - 1):
+            raise RuntimeError('native genesis receipt key identity or height range is invalid')
+        identities.add(key_id)
+        entries.append({'key_id': pin['key_id'], 'public_key': pin['public_key'],
+                        'first_height': first, 'last_height': last})
+    return private_file(directory / 'receipt-keys.json', json.dumps(entries))
+
+
 class ReceiptAuthorityFixture:
-    """layerx-receipt-authority dialing only the RuntimeFixture replica and LNI socket."""
+    """layerx-receipt-authority dialing only the RuntimeFixture replica and committed chain receipts."""
 
     def __init__(self, work, ca, runtime, human=None, max_bytes=1048576):
         self.binary = binary('layerx-receipt-authority')
@@ -89,6 +110,7 @@ class ReceiptAuthorityFixture:
         if self.work.exists():
             raise RuntimeError('receipt authority fixture directory already exists')
         private_directory(self.work)
+        self.receipt_keys_file = chain_receipt_keys(runtime, self.work)
         tokens = private_directory(self.work / 'tokens')
         self.token_files = {name: private_file(tokens / f'{name}.token', secrets.token_hex(32))
                             for name in CONSUMERS}
@@ -162,7 +184,8 @@ class ReceiptAuthorityFixture:
             'LAYERX_AUTHORITY_REPLICA_URL': f'http://127.0.0.1:{runtime.ports[8]}',
             'LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE': str(runtime.directory / 'node/secrets/replica-token'),
             'LAYERX_AUTHORITY_REPLICA_ID': node['LAYERX_NODE_REPLICA_ID'],
-            'LAYERX_AUTHORITY_LNI_SOCKET': runtime.manifest['node_socket'],
+            'LAYERX_AUTHORITY_CHAIN_RPC_URL': runtime.rpc_url,
+            'LAYERX_AUTHORITY_RECEIPT_KEYS_FILE': str(self.receipt_keys_file),
             'LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID': str(runtime.manifest['network_id']),
             'LAYERX_AUTHORITY_NETWORK_ID': NETWORK_NAME,
             'LAYERX_AUTHORITY_WIRE_VERSION': WIRE_VERSION,

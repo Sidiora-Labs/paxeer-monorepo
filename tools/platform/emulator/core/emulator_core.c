@@ -1034,6 +1034,9 @@ platform_emulator *platform_emulator_create_for_protocol(
         emulator->programs_runtime.accounts = &emulator->accounts;
         emulator->programs_runtime.assets = &emulator->native_asset_state;
         emulator->programs_runtime.asset_count = 1U;
+        /* Read the active or receipt-recorded protocol-state schedule for
+         * occupancy admission and replay. This does not submit a relay write;
+         * snapshot restoration below must validate the same retained state. */
         emulator->programs_runtime.resolve_occupancy_parameters =
             lxp_programs_fee_governance_resolve_runtime;
         emulator->programs_runtime.occupancy_parameter_context = &emulator->kernel;

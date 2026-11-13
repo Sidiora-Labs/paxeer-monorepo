@@ -552,6 +552,9 @@ impl ExecutionTrace {
     }
 
     /// Appends the versioned chain directly into a reserved terminal buffer.
+    /// # Errors
+    ///
+    /// Returns a commitment refusal when the canonical execution state exceeds its bounds or contains inconsistent replay data.
     pub fn append_canonical_arbitration_bytes(
         &self,
         bytes: &mut Vec<u8>,

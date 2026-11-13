@@ -162,6 +162,8 @@ pub struct SettlementRecord {
 }
 
 impl SettlementRecord {
+    /// # Errors
+    /// Returns an error when the settlement does not match the lease or conserve its funding.
     pub fn new(
         lease: &ComputeLease<'_>,
         claim_id: [u8; ID_BYTES],
@@ -211,6 +213,8 @@ impl SettlementRecord {
     }
 }
 
+/// # Errors
+/// Returns an error when the record is invalid or the output buffer is too small.
 pub fn encode_settlement(
     record: &SettlementRecord,
     output: &mut [u8],
@@ -239,6 +243,8 @@ pub fn encode_settlement(
     Ok(offset)
 }
 
+/// # Errors
+/// Returns an error when the settlement bytes or their decoded record are invalid.
 pub fn decode_settlement(bytes: &[u8]) -> Result<SettlementRecord, ProgramError> {
     let mut cursor = Cursor::new(bytes);
     if cursor.byte()? != VERSION {
@@ -488,6 +494,7 @@ impl<'a> Cursor<'a> {
         }
         self.take(length)
     }
+    #[cfg(target_arch = "wasm32")]
     fn remainder(self) -> &'a [u8] {
         &self.bytes[self.offset..]
     }
@@ -516,6 +523,8 @@ fn append_seed(output: &mut [u8], offset: &mut usize, seed: &[u8]) -> Result<(),
     append(output, offset, seed)
 }
 
+/// # Errors
+/// Returns an error when the offer cannot fit in the output buffer.
 pub fn encode_offer(offer: Offer<'_>, output: &mut [u8]) -> Result<usize, ProgramError> {
     let mut offset = 0;
     append(
@@ -543,6 +552,8 @@ pub fn encode_offer(offer: Offer<'_>, output: &mut [u8]) -> Result<usize, Progra
     Ok(offset)
 }
 
+/// # Errors
+/// Returns an error when the offer bytes contain an invalid field or trailing data.
 pub fn decode_offer(input: &[u8]) -> Result<Offer<'_>, ProgramError> {
     let mut cursor = Cursor::new(input);
     if cursor.byte()? != VERSION {
@@ -575,6 +586,8 @@ pub fn decode_offer(input: &[u8]) -> Result<Offer<'_>, ProgramError> {
     Ok(offer)
 }
 
+/// # Errors
+/// Returns an error when the lease cannot fit in the output buffer.
 pub fn encode_lease(lease: &ComputeLease<'_>, output: &mut [u8]) -> Result<usize, ProgramError> {
     let mut offset = 0;
     append(
@@ -602,6 +615,8 @@ pub fn encode_lease(lease: &ComputeLease<'_>, output: &mut [u8]) -> Result<usize
     Ok(offset)
 }
 
+/// # Errors
+/// Returns an error when the lease bytes contain an invalid field or trailing data.
 pub fn decode_lease(input: &[u8]) -> Result<ComputeLease<'_>, ProgramError> {
     let mut cursor = Cursor::new(input);
     if cursor.byte()? != VERSION {
@@ -1677,8 +1692,8 @@ mod tests {
         for length in 0..lease_length {
             assert!(decode_lease(&lease_bytes[..length]).is_err());
         }
-        assert!(decode_offer(&offer_bytes[..offer_length + 1]).is_err());
-        assert!(decode_lease(&lease_bytes[..lease_length + 1]).is_err());
+        assert!(decode_offer(&offer_bytes[..=offer_length]).is_err());
+        assert!(decode_lease(&lease_bytes[..=lease_length]).is_err());
         for index in 0..3 {
             let mut changed = offer_bytes;
             changed[index] = 255;
@@ -1775,11 +1790,11 @@ mod tests {
             funded: Amount::from_integer(40u64),
             expires_at: 20,
         };
-        for funding in [0, 39, 41] {
+        for funding in [0_u64, 39, 41] {
             assert!(open(
                 original,
                 OpenLease {
-                    funded: Amount::from_integer(funding as u64),
+                    funded: Amount::from_integer(funding),
                     ..request
                 },
                 request.tenant,

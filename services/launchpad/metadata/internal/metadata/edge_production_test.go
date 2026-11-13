@@ -292,7 +292,8 @@ func TestProductionLegacyReadsFromCanonicalStore(t *testing.T) {
 	}
 	media := ConnectedMedia{Metadata: V2ContractHandlers{Store: store, Canonical: PostgresCanonicalSource{Schema: indexerSchema, CanonicalStreamID: stream}}, Objects: S3AssetObjects{Client: client, PublicBucket: objects.Bucket, QuarantineBucket: objects.Bucket + "-quarantine", PublicOrigin: origin}, Moderation: PostgresVisibilityAuthority{Pool: pool, Schema: visibilitySchema}}
 	router := chi.NewRouter()
-	NewProductionLegacyReads(media, origin).RegisterRoutes(router)
+	reads := NewProductionLegacyReads(media, origin)
+	reads.RegisterRoutes(router)
 	media.RegisterApprovedObjects(router)
 	server := httptest.NewServer(router)
 	defer server.Close()
@@ -370,6 +371,56 @@ func TestProductionLegacyReadsFromCanonicalStore(t *testing.T) {
 	}
 	if status, _, body = getBody(t, server.URL+"/metadata/batch"); status != 200 || string(bytes.TrimSpace(body)) != "{}" {
 		t.Fatalf("empty batch %d %s", status, body)
+	}
+	var storedVariants []byte
+	if err := pool.QueryRow(ctx, "SELECT variants FROM "+store.table("asset_details_v2")+" WHERE asset_id=$1", asset).Scan(&storedVariants); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name, variants         string
+		metadataCode, logoCode int
+		logoPresent            bool
+	}{
+		{"missing logo key", `{}`, http.StatusOK, http.StatusNotFound, false},
+		{"unrepresentable variant document", `"invalid"`, http.StatusServiceUnavailable, http.StatusServiceUnavailable, false},
+		{"unscoped logo key", `{"512":"approved/other/512/image.png"}`, http.StatusServiceUnavailable, http.StatusServiceUnavailable, false},
+		{"missing approved object", fmt.Sprintf(`{"512":"approved/%x/512/%s.png"}`, originalHash, strings.Repeat("0", 64)), http.StatusOK, http.StatusNotFound, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := pool.Exec(ctx, "UPDATE "+store.table("asset_details_v2")+" SET variants=$2::jsonb WHERE asset_id=$1", asset, tc.variants); err != nil {
+				t.Fatal(err)
+			}
+			metadataCode, _, body := getBody(t, server.URL+"/metadata/"+f.Token)
+			if metadataCode != tc.metadataCode {
+				t.Fatalf("legacy metadata = %d %s", metadataCode, body)
+			}
+			if metadataCode == http.StatusOK {
+				var item types.PublicMetadata
+				if err := json.Unmarshal(body, &item); err != nil || (item.Images.Logo != nil) != tc.logoPresent {
+					t.Fatalf("legacy logo reference = %+v, %v", item.Images, err)
+				}
+			}
+			logoCode, _, logoBody := getBody(t, server.URL+"/logo/"+f.Token+".png")
+			if logoCode != tc.logoCode {
+				t.Fatalf("legacy logo = %d %s", logoCode, logoBody)
+			}
+		})
+	}
+	if _, err := pool.Exec(ctx, "UPDATE "+store.table("asset_details_v2")+" SET variants=$2::jsonb WHERE asset_id=$1", asset, string(storedVariants)); err != nil {
+		t.Fatal(err)
+	}
+	var storedDocument []byte
+	if err := pool.QueryRow(ctx, "SELECT document FROM "+store.table("v2_documents")+" WHERE pool=$1", f.Pool).Scan(&storedDocument); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, "UPDATE "+store.table("v2_documents")+" SET document='\"invalid\"'::jsonb WHERE pool=$1", f.Pool); err != nil {
+		t.Fatal(err)
+	}
+	if status, _, body := getBody(t, server.URL+"/metadata/"+f.Token); status != http.StatusServiceUnavailable {
+		t.Fatalf("unrepresentable legacy document = %d %s", status, body)
+	}
+	if _, err := pool.Exec(ctx, "UPDATE "+store.table("v2_documents")+" SET document=$2::jsonb WHERE pool=$1", f.Pool, string(storedDocument)); err != nil {
+		t.Fatal(err)
 	}
 
 	// 4. Moderation removal hides creator content and the logo.

@@ -7,7 +7,10 @@ fn example_environment() -> BTreeMap<&'static str, &'static str> {
         .lines()
         .map(str::trim)
         .filter(|line| !line.is_empty() && !line.starts_with('#'))
-        .map(|line| line.split_once('=').expect("example must use NAME=value"))
+        .map(|line| {
+            line.split_once('=')
+                .unwrap_or_else(|| panic!("example must use NAME=value"))
+        })
         .collect()
 }
 

@@ -135,8 +135,28 @@ function repair_22_33_24_preserves_recorded_producer_provenance(): void {
   const source = (path: string): string => readFileSync(new URL(path, root), "utf8");
   const committed = JSON.parse(source("services/agent/sdk/typescript/test/fixtures/repair-22-33-24/committed.json")) as {
     readonly provenance: { readonly source: string; readonly sha256: string };
+    readonly positive: {
+      readonly rawTransaction: string;
+      readonly receiptJson: Readonly<Record<string, unknown>>;
+      readonly signedReceipt: string;
+      readonly receiptInclusion: { readonly Transaction: string; readonly BatchTransaction: string };
+    };
   };
   assert.equal(createHash("sha256").update(source(committed.provenance.source)).digest("hex"), committed.provenance.sha256);
+  const producer = JSON.parse(source(committed.provenance.source)) as {
+    readonly settlement: {
+      readonly raw_transaction: string;
+      readonly receipt: Readonly<Record<string, unknown>>;
+      readonly transaction_proof: { readonly data: string };
+      readonly sequence_batch_proof: { readonly data: string };
+    };
+  };
+  const { blockNumber, blockHash, ...receipt } = producer.settlement.receipt;
+  assert.equal(committed.positive.rawTransaction, producer.settlement.raw_transaction);
+  assert.deepEqual(committed.positive.receiptJson, { ...receipt, rung: "receipted" });
+  assert.equal(committed.positive.signedReceipt, receipt["receipt"]);
+  assert.equal(committed.positive.receiptInclusion.Transaction, producer.settlement.transaction_proof.data);
+  assert.equal(committed.positive.receiptInclusion.BatchTransaction, producer.settlement.sequence_batch_proof.data);
   // These source checks pin the transcript's routing boundary; they do not claim to execute Go or Rust handlers.
   assert.match(source("rpc/rpcstack.go"), /if path == "" \{\s*return r.URL.Path == "\/"/u);
   assert.match(source("services/platform/hosted/gateway/src/main.rs"), /if let Some\(result\) = public_reads::route\(config, request\)/u);

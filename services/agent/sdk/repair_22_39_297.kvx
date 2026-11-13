@@ -1,0 +1,42 @@
+[repair.22.39.297]
+base_revision = "609cd3c9df532fa8951250f71f5469694f1a0864"
+previous_attempt_revision = "dcff5c1ce287fde96c7761e241e3382b443ff990"
+requirement = "22998.1"
+registry = "spec/layerx-merge/contracts/address-table.md section (b)"
+generator = "python3 scripts/ci/result-codes-gen.py"
+change = "Regenerate the SDK tables from the current registry and synchronize the snapshot without changing any registry row or removing, skipping or weakening any assertion."
+
+[snapshot.former]
+version = "audit-22.30.101-v1"
+codes = 392
+retryable = 54
+sha256 = "33b199cc9d053de8bf9753bacb5f9e34687a0fded7c15f051f27f5b62b9ec155"
+
+[snapshot.current]
+version = "repair-22.39.297-v1"
+codes = 395
+retryable = 54
+sha256 = "6a9f742816f66fc1707c20ded000821c47bf9ac4715387e825e2da8e2b63615f"
+digest_input = "LXP_ rows in registry order joined by LF with one trailing LF."
+generated_tables = "Both generated regions already match the current registry; regeneration leaves their entries unchanged, and both source comments identify the synchronized snapshot."
+
+[qualification]
+verified_revision = "By reference: the successful hf-done candidate revision in /out/run/gates.jsonl; qualification is established only when that gate exits zero."
+build = "python3 -m py_compile services/agent/sdk/python/layerx_sdk/revert.py && npm --prefix services/agent/sdk/typescript ci --no-audit --no-fund && pnpm --dir services/agent/sdk/typescript run build"
+verify = "test -s services/agent/sdk/repair_22_39_297.kvx && cd services/agent/sdk/typescript && node dist/test/revert.test.js && cd ../python && python3 -m pytest -q tests/test_revert_retryable.py"
+evidence = "The hf-build and hf-done ledger records the exact candidate revision, command, exit code and private log location; no unexecuted gate is claimed here."
+
+[qualification.previous_attempt]
+status = "implemented_not_qualified"
+revision = "3c8feb7f04284be9737270f7b959d21e4d6853ca"
+command = "cg spec done 22.39.297 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+observed = "The registry decoder test passed, then repair-22-33-24.test.js failed in unchanged web-search receipt assertions and producer-provenance digests (28 passed, 22 failed, zero skipped); the shell stopped before the Python tests."
+assumption = "These receipt and provenance failures are unrelated to registry snapshot metadata and require changes outside the authorized paths; retain every assertion and do not rerun the recorded failures."
+
+[qualification.continuation]
+ruling = "Decision 3140 preserves the attempt-1 snapshot and tables; the focused verification runs revert.test.js and tests/test_revert_retryable.py at the same candidate revision as the build."
+prior_failure = "Gotchas 4030 and 4031 are assigned to task 22.39.299; the aggregator is outside this task verification and its assertions remain unchanged."

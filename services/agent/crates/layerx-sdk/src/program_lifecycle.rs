@@ -301,12 +301,18 @@ pub(crate) fn lifecycle_idempotency(
 }
 
 /// Encodes the live Programs ABI from the exact typed lifecycle payload.
+/// # Errors
+///
+/// Returns `Decode` for an unsupported ordinal or malformed lifecycle payload, and preserves the typed lifecycle encoder refusal.
 pub fn lifecycle_calldata(ordinal: u16, payload: &[u8]) -> Result<Vec<u8>, ProgramOperationError> {
     lifecycle_calldata_with_fee(ordinal, payload, 0)
 }
 
 /// Encodes a lifecycle call with the upgrade method's explicit execution fee budget.
 /// Deploy and wind-down methods carry no execution fee argument and refuse a nonzero one.
+/// # Errors
+///
+/// Returns `Decode` for unsupported ordinals, malformed payloads or a nonzero fee on deploy or wind-down; preserves hash and field validation errors.
 pub fn lifecycle_calldata_with_fee(
     ordinal: u16,
     payload: &[u8],
@@ -446,6 +452,59 @@ mod tests {
             .collect()
     }
 
+    fn assert_lifecycle_rejections(
+        registry: &ModuleRegistry,
+        ordinal: u16,
+        calldata: &[u8],
+        signed: &[u8],
+        transaction: &layerx_crypto::evm_transaction::Eip1559Call,
+    ) -> Result<(), String> {
+        for length in 0..signed.len() {
+            assert!(NativeProgramLifecycleRequest::bind(
+                registry,
+                ordinal,
+                calldata,
+                &signed[..length]
+            )
+            .is_err());
+        }
+        let mut wrong_target = transaction.clone();
+        wrong_target.to[19] ^= 1;
+        let wrong_target = wrong_target
+            .sign(&[1; 32])
+            .map_err(|error| error.to_string())?;
+        assert!(
+            NativeProgramLifecycleRequest::bind(registry, ordinal, calldata, &wrong_target)
+                .is_err()
+        );
+        let mut wrong_data = transaction.clone();
+        wrong_data.data[0] ^= 1;
+        let wrong_data = wrong_data
+            .sign(&[1; 32])
+            .map_err(|error| error.to_string())?;
+        assert!(decode_signed(&wrong_data).is_ok());
+        assert!(
+            NativeProgramLifecycleRequest::bind(registry, ordinal, calldata, &wrong_data).is_err()
+        );
+        let mut wrong_protocol = signed.to_vec();
+        wrong_protocol[0] = 1;
+        assert!(
+            NativeProgramLifecycleRequest::bind(registry, ordinal, calldata, &wrong_protocol)
+                .is_err()
+        );
+        let mut altered = calldata.to_vec();
+        altered[0] ^= 1;
+        assert!(NativeProgramLifecycleRequest::bind(registry, ordinal, &altered, signed).is_err());
+        assert!(NativeProgramLifecycleRequest::bind(
+            registry,
+            if ordinal == 1 { 2 } else { 1 },
+            calldata,
+            signed
+        )
+        .is_err());
+        Ok(())
+    }
+
     #[test]
     fn c_signed_lifecycle_fixtures_bind_exactly() -> Result<(), String> {
         let registry = programs_module_registry().map_err(|error| format!("{error:?}"))?;
@@ -516,61 +575,7 @@ mod tests {
                     0x72, 0x51, 0xb3, 0x99, 0x09, 0x14, 0xf1,
                 ]
             );
-            for length in 0..signed.len() {
-                assert!(NativeProgramLifecycleRequest::bind(
-                    &registry,
-                    ordinal,
-                    &calldata,
-                    &signed[..length]
-                )
-                .is_err());
-            }
-            let mut wrong_target = transaction.clone();
-            wrong_target.to[19] ^= 1;
-            let wrong_target = wrong_target
-                .sign(&[1; 32])
-                .map_err(|error| error.to_string())?;
-            assert!(NativeProgramLifecycleRequest::bind(
-                &registry,
-                ordinal,
-                &calldata,
-                &wrong_target
-            )
-            .is_err());
-            let mut wrong_data = transaction.clone();
-            wrong_data.data[0] ^= 1;
-            let wrong_data = wrong_data
-                .sign(&[1; 32])
-                .map_err(|error| error.to_string())?;
-            assert!(decode_signed(&wrong_data).is_ok());
-            assert!(NativeProgramLifecycleRequest::bind(
-                &registry,
-                ordinal,
-                &calldata,
-                &wrong_data
-            )
-            .is_err());
-            let mut wrong_protocol = signed.clone();
-            wrong_protocol[0] = 1;
-            assert!(NativeProgramLifecycleRequest::bind(
-                &registry,
-                ordinal,
-                &calldata,
-                &wrong_protocol
-            )
-            .is_err());
-            let mut altered = calldata.clone();
-            altered[0] ^= 1;
-            assert!(
-                NativeProgramLifecycleRequest::bind(&registry, ordinal, &altered, &signed).is_err()
-            );
-            assert!(NativeProgramLifecycleRequest::bind(
-                &registry,
-                if ordinal == 1 { 2 } else { 1 },
-                &calldata,
-                &signed
-            )
-            .is_err());
+            assert_lifecycle_rejections(&registry, ordinal, &calldata, &signed, &transaction)?;
         }
         Ok(())
     }

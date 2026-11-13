@@ -1,0 +1,11 @@
+[journal]
+rule = "A journal permits one writer; reopening requires the previous writer to release its lock."
+test_storage = "Each journal case owns a fresh private directory containing its journal and sidecar files and removes the directory after releasing its locks."
+changed_files = ["services/interop/crates/layerx-gas-station/src/journal.rs", "services/interop/crates/layerx-fiat/tests/support/payment_node.rs", "services/interop/crates/layerx-fiat/tests/support/producer_path.rs", "services/interop/crates/layerx-gas-station/tests/service.rs", "services/interop/crates/layerx-gas-station/tests/support/service_harness.rs", "services/interop/crates/layerx-gas-station/tests/support/service_repairs.rs", "services/interop/crates/layerx-gas-station/repair_22_39_502.kvx"]
+command = "make -s interop-test"
+
+[signatures]
+rule = "Fiat test support propagates signature decoding, key decoding and verification errors as boxed error messages."
+
+[service]
+rule = "Service cases complete their final health response before stopping the listener and join the worker before reopening the journal."

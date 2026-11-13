@@ -386,6 +386,112 @@ class RunGateTest(unittest.TestCase):
         self.assertEqual(second_log.read_text(), "second process\n")
         self.assertEqual(log_path.read_text(), "build output\n")
 
+        manifests = {
+            "maven/pom.xml": (
+                "<project><modelVersion>4.0.0</modelVersion>"
+                "<groupId>test</groupId><artifactId>gate-fixture</artifactId>"
+                "<version>1.0.0</version></project>\n"
+            ),
+            "swift/Package.swift": (
+                "// swift-tools-version: 5.9\nimport PackageDescription\n"
+                'let package = Package(name: "GateFixture")\n'
+            ),
+            "dotnet/GateFixture.csproj": (
+                '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup>'
+                "<TargetFramework>net8.0</TargetFramework>"
+                "</PropertyGroup></Project>\n"
+            ),
+        }
+        for name, contents in manifests.items():
+            manifest = self.root / name
+            manifest.parent.mkdir()
+            manifest.write_text(contents)
+        self.git("add", *manifests)
+        self.git("commit", "-qm", "Declare Maven SwiftPM and .NET fixture projects")
+        self.revision = self.git("rev-parse", "HEAD").stdout.strip()
+        outputs = ("maven/target", "swift/.build", "dotnet/obj", "dotnet/bin")
+        command = self.python(
+            "from pathlib import Path; "
+            f"outputs = {outputs!r}; "
+            "[Path(p).mkdir(parents=True, exist_ok=True) for p in outputs]; "
+            "[(Path(p) / 'output.bin').write_text('generated') for p in outputs]; "
+            "print('manifest build output')"
+        )
+        for kind in ("untracked", "ignored"):
+            with self.subTest(kind=kind):
+                if kind == "ignored":
+                    with (self.root / ".gitignore").open("a") as ignore:
+                        ignore.write("".join(f"/{output}/\n" for output in outputs))
+                    self.git("add", ".gitignore")
+                    self.git("commit", "-qm", "Ignore declared fixture build outputs")
+                    self.revision = self.git("rev-parse", "HEAD").stdout.strip()
+                completed = self.run_commands(command)
+                log_path = self.assert_record(completed, command, 0)
+                self.assertEqual(log_path.read_text(), "manifest build output\n")
+                status = self.git(
+                    "status", "--porcelain=v1", "--untracked-files=all", "--ignored=matching"
+                ).stdout.splitlines()
+                for output in outputs:
+                    entry = (
+                        f"?? {output}/output.bin"
+                        if kind == "untracked" else f"!! {output}/"
+                    )
+                    self.assertIn(entry, status)
+                    self.assertEqual(
+                        (self.root / output / "output.bin").read_text(), "generated"
+                    )
+                completed = self.run_commands(second)
+                second_log = self.assert_record(completed, second, 0)
+                self.assertEqual(second_log.read_text(), "second process\n")
+                self.assertEqual(log_path.read_text(), "manifest build output\n")
+
+    def test_build_directories_without_manifests_are_refused(self) -> None:
+        directories = ("target", ".build", "obj", "bin")
+        with (self.root / ".gitignore").open("a") as ignore:
+            ignore.write("".join(f"/ignored-module/{name}/\n" for name in directories))
+        self.git("add", ".gitignore")
+        self.git("commit", "-qm", "Ignore undeclared fixture build directories")
+        self.revision = self.git("rev-parse", "HEAD").stdout.strip()
+        command = self.python("print('must not execute')")
+        for kind in ("untracked", "ignored"):
+            for name in directories:
+                with self.subTest(kind=kind, directory=name):
+                    output = self.root / f"{kind}-module" / name / "output.bin"
+                    output.parent.mkdir(parents=True)
+                    output.write_text("undeclared output")
+                    completed = self.run_commands(command, self.later_command())
+                    log_path = self.assert_record(
+                        completed, command, 125,
+                        status="status=source-identity-refusal phase=before",
+                    )
+                    self.assertIn(f"{kind}-module/{name}/", log_path.read_text())
+                    self.assertNotIn("must not execute", log_path.read_text())
+                    self.assert_no_later_command(log_path)
+                    output.unlink()
+                    output.parent.rmdir()
+
+    def test_tracked_files_in_maven_target_are_source(self) -> None:
+        project = self.root / "maven"
+        tracked = project / "target" / "tracked.java"
+        tracked.parent.mkdir(parents=True)
+        (project / "pom.xml").write_text(
+            "<project><modelVersion>4.0.0</modelVersion></project>\n"
+        )
+        tracked.write_text("class Tracked {}\n")
+        self.git("add", "maven")
+        self.git("commit", "-qm", "Track source beside a Maven manifest under target")
+        self.revision = self.git("rev-parse", "HEAD").stdout.strip()
+        command = self.python(
+            "from pathlib import Path; Path('maven/target/tracked.java').write_text('changed')"
+        )
+        completed = self.run_commands(command, self.later_command())
+        log_path = self.assert_record(
+            completed, command, 125,
+            status="status=source-identity-refusal phase=after",
+        )
+        self.assertIn(" M 'maven/target/tracked.java'", log_path.read_text())
+        self.assert_no_later_command(log_path)
+
     def test_tracked_files_in_build_directories_are_source(self) -> None:
         tracked = self.root / "build" / "tracked.py"
         tracked.parent.mkdir()

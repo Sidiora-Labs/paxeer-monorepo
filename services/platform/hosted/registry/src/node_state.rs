@@ -128,6 +128,7 @@ pub struct NodeProgramStateSource {
     authorization: String,
     authority_endpoint: String,
     authority_authorization: String,
+    // Producer identity remains distinct from the chain trust used to verify its proofs.
     authority_replica_id: [u8; 32],
     deployment_verifier: ProtocolDeploymentVerifier,
     request_deadline: Cell<Option<Instant>>,
@@ -350,6 +351,10 @@ impl NodeProgramStateSource {
         })
     }
 
+    /// Verifies the current program bundle against the independently authenticated head.
+    ///
+    /// # Errors
+    /// Refuses unavailable, malformed or mismatched program and chain evidence.
     pub fn current_program_bundle(
         &self,
         program: ProgramId,
@@ -364,6 +369,10 @@ impl NodeProgramStateSource {
             .map_err(|error| format!("program/interface membership refused: {error}"))
     }
 
+    /// Verifies a deployment against the current program bundle and chain head.
+    ///
+    /// # Errors
+    /// Refuses unavailable, malformed or mismatched deployment evidence.
     pub fn current_deployment_head(
         &self,
         deployment: &VerifiedDeploymentEvidence,
@@ -424,6 +433,10 @@ impl NodeProgramStateSource {
         Ok((bundle, chain))
     }
 
+    /// Reads profile two program state anchored at the current head.
+    ///
+    /// # Errors
+    /// Refuses unavailable, malformed or unanchored state.
     pub fn program_state_profile2(
         &self,
         program: ProgramId,
@@ -662,32 +675,29 @@ impl NodeProgramStateSource {
         let header = trust
             .verify_head(&step.0, &step.1)
             .map_err(|error| format!("chain head verification failed: {error:?}"))?;
-        let head = match now_ms {
-            Some(now) => {
-                let chain = self.verify_chain_head(&evidence, now)?;
-                AccountStateHead {
-                    receipt_digest: chain.receipt_digest(),
-                    state_root: chain.state_root(),
-                    freshness: chain.freshness(),
-                }
+        let head = if let Some(now) = now_ms {
+            let chain = self.verify_chain_head(&evidence, now)?;
+            AccountStateHead {
+                receipt_digest: chain.receipt_digest(),
+                state_root: chain.state_root(),
+                freshness: chain.freshness(),
             }
-            None => {
-                let digest = layerx_programs::verify_tx(
-                    &header,
-                    &evidence.transaction,
-                    &evidence.transaction_proof,
-                )
-                .map_err(|error| format!("historical transaction proof refused: {error:?}"))?;
-                let time =
-                    u64::try_from(header.time_ms()).map_err(|_| "invalid historical head time")?;
-                let freshness =
-                    layerx_programs::chain_evidence::freshness::chain_freshness(&header, time, 0)
-                        .map_err(|error| error.to_string())?;
-                AccountStateHead {
-                    receipt_digest: digest,
-                    state_root: header.app_hash(),
-                    freshness,
-                }
+        } else {
+            let digest = layerx_programs::verify_tx(
+                &header,
+                &evidence.transaction,
+                &evidence.transaction_proof,
+            )
+            .map_err(|error| format!("historical transaction proof refused: {error:?}"))?;
+            let time =
+                u64::try_from(header.time_ms()).map_err(|_| "invalid historical head time")?;
+            let freshness =
+                layerx_programs::chain_evidence::freshness::chain_freshness(&header, time, 0)
+                    .map_err(|error| error.to_string())?;
+            AccountStateHead {
+                receipt_digest: digest,
+                state_root: header.app_hash(),
+                freshness,
             }
         };
         if hex::decode_digest(field(value, "receipt_digest")?).map_err(|error| error.to_string())?

@@ -57,6 +57,12 @@ func TestPhase3ActualReceiptAssetReconciliation(t *testing.T) {
 }
 
 func TestPhase4RealMeasurementProvidersAndIntegerReference(t *testing.T) {
+	for _, name := range []string{"L13_PHASE4_CONFIG_FILE", "L13_PHASE4_CONFIG_SHA256"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	config := os.Getenv("L13_PHASE4_CONFIG_FILE")
 	configDigest := os.Getenv("L13_PHASE4_CONFIG_SHA256")
 	if config == "" || !qualifiedDigest.MatchString(configDigest) {

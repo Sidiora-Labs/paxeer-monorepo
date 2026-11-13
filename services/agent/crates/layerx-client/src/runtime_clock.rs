@@ -19,6 +19,16 @@ pub struct ClockBinding {
 }
 
 impl ClockBinding {
+    /// Binds to an authority served by the current process on an explicit socket.
+    #[must_use]
+    pub fn for_current_process(socket: PathBuf) -> Self {
+        Self {
+            socket,
+            process: std::process::id(),
+            user: rustix::process::geteuid().as_raw(),
+        }
+    }
+
     /// # Errors
     /// Refuses missing or malformed explicit supervisor bindings.
     pub fn from_environment() -> Result<Self, ClockError> {
@@ -229,11 +239,7 @@ mod tests {
     impl RunningClock {
         fn start() -> std::io::Result<Self> {
             let mut server = clock_server::Server::bind(&std::env::temp_dir())?;
-            let binding = ClockBinding {
-                socket: server.socket().to_path_buf(),
-                process: std::process::id(),
-                user: rustix::process::geteuid().as_raw(),
-            };
+            let binding = ClockBinding::for_current_process(server.socket().to_path_buf());
             let shutdown = Arc::new(AtomicBool::new(false));
             let stop = Arc::clone(&shutdown);
             let worker = thread::Builder::new()

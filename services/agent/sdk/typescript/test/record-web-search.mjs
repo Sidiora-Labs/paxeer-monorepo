@@ -64,7 +64,9 @@ function replace(value) {
 }
 const write = (path, value) => writeFileSync(new URL(path, output), JSON.stringify(value, null, 2) + "\n");
 write("gateway-metered.json", replace(metered));
-write("client-exchange.json", replace(read("client-exchange.json")));
+const exchange = read("client-exchange.json");
+write("client-exchange.json", { ...exchange,
+  exchange: exchange.exchange.map((step, index) => index < 2 ? replace(step) : step) });
 const id = n => n.toString(16).padStart(2, "0").repeat(32);
 const draw = { grantId: id(1), recipient: id(3), amount: 40n, idempotencyKey: id(11), sequence: 7n,
   purposeHash: id(5), contextHash: id(12), chainId: 125n };
@@ -81,6 +83,9 @@ write("draw-recovery.json", { rawTransaction: "0x" + hex(raw), calldata: hex(tra
 const sources = {};
 for (const name of ["sequencer-receipt-codec.ts", "sequencer-log.ts", "ledger-payment.ts", "evm-transaction.ts"]) {
   sources[`services/agent/sdk/typescript/src/${name}`] = createHash("sha256").update(readFileSync(new URL(`../src/${name}`, import.meta.url))).digest("hex");
+}
+for (const name of ["client-exchange.json", "gateway/exact.json"]) {
+  sources[`services/interop/crates/x-websearch/tests/fixtures/${name}`] = createHash("sha256").update(readFileSync(new URL(name, upstream))).digest("hex");
 }
 write("provenance.json", { base: "8d343183c0e4380323166b7b998f97f41221d046",
   command: "node --experimental-transform-types test/record-web-search.mjs", sources,

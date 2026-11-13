@@ -25,7 +25,7 @@ const ActivityListItem = ({ item, isLoading }: Props) => {
     `${ formatAmount(item.amount, item.asset) } ${ assetLabel(item.asset) }`;
 
   return (
-    <TableRow data-activity={ item.hash }>
+    <TableRow data-activity={ item.hash } data-kind={ item.kind }>
       <TableCell verticalAlign="middle">
         <ScanMethodChip method={ kindLabel } isLoading={ isLoading }/>
       </TableCell>

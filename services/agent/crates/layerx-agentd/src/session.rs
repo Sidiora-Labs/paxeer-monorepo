@@ -1150,6 +1150,9 @@ pub struct NativeSessionScopeV1 {
 }
 
 impl NativeSessionScopeV1 {
+    /// # Errors
+    /// Returns an error if session fields or ownership are invalid, the session is missing,
+    /// closed or revoked, its scope is insufficient, or persistence fails.
     pub fn encode(&self) -> Result<Vec<u8>, SessionError> {
         if self.session_id.0 == [0; 32] || self.generation < FIRST_GENERATION {
             return Err(SessionError::MissingField("native_session_binding"));
@@ -1181,6 +1184,9 @@ impl NativeSessionScopeV1 {
         Ok(bytes)
     }
 
+    /// # Errors
+    /// Returns an error if session fields or ownership are invalid, the session is missing,
+    /// closed or revoked, its scope is insufficient, or persistence fails.
     pub fn decode(bytes: &[u8]) -> Result<Self, SessionError> {
         let mut reader = RecordReader { bytes, at: 0 };
         if reader.take(NATIVE_SCOPE_VERSION.len())? != NATIVE_SCOPE_VERSION {
@@ -1255,6 +1261,9 @@ impl NativeSessionAuthorizationV1 {
         self.activity
     }
 
+    /// # Errors
+    /// Returns an error if session fields or ownership are invalid, the session is missing,
+    /// closed or revoked, its scope is insufficient, or persistence fails.
     pub fn revalidate(
         &self,
         store: &Store,
@@ -1381,6 +1390,9 @@ fn authenticated_native_scope(
     Ok(scope)
 }
 
+/// # Errors
+/// Returns an error if session fields or ownership are invalid, the session is missing,
+/// closed or revoked, its scope is insufficient, or persistence fails.
 pub fn admit_native(
     store: &Store,
     registry: &SessionRegistry,
@@ -1404,6 +1416,9 @@ pub fn admit_native(
     })
 }
 
+/// # Errors
+/// Returns an error if session fields or ownership are invalid, the session is missing,
+/// closed or revoked, its scope is insufficient, or persistence fails.
 pub fn restrict_native_scope(
     store: &mut Store,
     registry: &mut SessionRegistry,
@@ -2004,6 +2019,9 @@ mod native_scope_tests {
 }
 
 /// Closes the session and publishes all owner observations in the same durable update.
+/// # Errors
+/// Returns an error if session fields or ownership are invalid, the session is missing,
+/// closed or revoked, its scope is insufficient, or persistence fails.
 pub fn close_with_companions(
     store: &mut Store,
     registry: &mut SessionRegistry,

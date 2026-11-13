@@ -15,7 +15,7 @@ defmodule BlockScoutWeb.Schemas.API.V2.PaxeerX.ArchiveReceipt do
       properties: %{
         verification_status: %Schema{
           title: "PaxeerXVerificationStatus",
-          description: "The rung the receipt has reached on the LayerX kernel verification lattice.",
+          description: "The frozen historical verification rung recorded for this receipt; not current finality.",
           type: :string,
           enum: Enum.map(Explorer.Chain.PaxeerX.Receipt.statuses(), &to_string/1),
           nullable: false
@@ -29,6 +29,7 @@ defmodule BlockScoutWeb.Schemas.API.V2.PaxeerX.ArchiveReceipt do
         origin: %Schema{type: :string, enum: ["kernel", "evm"]},
         verification: %Schema{
           type: :string,
+          description: "Historical provenance verification retained for archive decoding; not a live transaction rung.",
           enum: [
             "sequencer_verified",
             "unverified",

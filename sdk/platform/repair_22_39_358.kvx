@@ -1,0 +1,80 @@
+[task]
+id = "22.39.358"
+source_revision = "8bd95fcc5e363882f481b8e8755d2e11efaecb17"
+decision = "3238; gotcha 4166"
+
+[inventory.dotnet]
+file = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/AgentOperationEnvelopeTests.cs"
+missing_input = "PAXEER_X_AGENT_ENVELOPE_CASE"
+first_message = "agent envelope probe input refused: PAXEER_X_AGENT_ENVELOPE_CASE"
+name_exclusions = ["LayerX.Sdk.Tests.AgentOperationEnvelopeTests.ProcessCasesReachTheDaemonThroughTheGateway", "LayerX.Sdk.Tests.AgentOperationEnvelopeTests.UnverifiedRungIsPreservedFromTheDaemon", "LayerX.Sdk.Tests.AgentOperationEnvelopeTests.WrongGenerationIsRefusedByTheDaemonSessionAuthority", "LayerX.Sdk.Tests.AgentOperationEnvelopeTests.CatalogueReadWithoutSessionCredentialIsRefusedBeforeSending", "LayerX.Sdk.Tests.AgentOperationEnvelopeTests.MutationWithoutIdempotencyKeyIsRefusedBeforeSending"]
+trait_exclusion = "Category=AgentOperationEnvelopeDecodeProbe"
+trait_cases = ["LayerX.Sdk.Tests.AgentOperationEnvelopeDecodeTests.WellFormedSchemaViolationIsReadDecodeFailureAndMutationUnknown"]
+retained_case = "LayerX.Sdk.Tests.AgentOperationEnvelopeTests.DirectDaemonSurfaceRefusesPlaintextAndMissingClientCertificateBeforeSending"
+reason = "AgentOperationEnvelopeProbe contains a self-contained TLS refusal case, so exclude only its five case-file readers by exact fully qualified name; every AgentOperationEnvelopeDecodeProbe case reads the file."
+original_command = "dotnet test sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --no-restore --nologo"
+changed_command = "dotnet test sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --no-restore --nologo --filter 'Category!=AgentOperationEnvelopeDecodeProbe&FullyQualifiedName!=LayerX.Sdk.Tests.AgentOperationEnvelopeTests.ProcessCasesReachTheDaemonThroughTheGateway&FullyQualifiedName!=LayerX.Sdk.Tests.AgentOperationEnvelopeTests.UnverifiedRungIsPreservedFromTheDaemon&FullyQualifiedName!=LayerX.Sdk.Tests.AgentOperationEnvelopeTests.WrongGenerationIsRefusedByTheDaemonSessionAuthority&FullyQualifiedName!=LayerX.Sdk.Tests.AgentOperationEnvelopeTests.CatalogueReadWithoutSessionCredentialIsRefusedBeforeSending&FullyQualifiedName!=LayerX.Sdk.Tests.AgentOperationEnvelopeTests.MutationWithoutIdempotencyKeyIsRefusedBeforeSending'"
+
+[inventory.go]
+file = "sdk/platform/go/agent_operation_envelope_test.go:300"
+missing_input = "PAXEER_X_AGENT_ENVELOPE_CASE"
+first_message = "agent envelope probe refused: PAXEER_X_AGENT_ENVELOPE_CASE must name an absolute case file"
+name_exclusions = ["TestAgentOperationEnvelopeProcessCases"]
+original_command = "GOPROXY=off go test ./..."
+changed_command = "GOPROXY=off go test -skip '^TestAgentOperationEnvelopeProcessCases$' ./..."
+reason = "Anchor both ends of the sole process-probe name; keep every other test and package selected."
+
+[selection.qualification]
+file = "tools/qualification/paxeer-x/agent_operation_envelope.py:1512"
+go_selector = "tools/qualification/paxeer-x/agent_operation_envelope.py:1520 selects ^TestAgentOperationEnvelopeProcessCases$ on the compiled probe."
+dotnet_selector = "tools/qualification/paxeer-x/agent_operation_envelope.py:1525 selects FullyQualifiedName~ plus csharp_class after installing the case-file environment."
+result = "Unchanged; the envelope program continues to select the probes explicitly."
+
+[pins]
+search = "Searched tests/ci and tools/qualification for run-go.sh, dotnet test, GOPROXY=off, platform-verify-sdks and the recipe paths."
+exact_line_pin = "No case pins the full text of either changed command."
+file = "tests/ci/test_make_recipe_paths_exist.py:171"
+symbol = "test_workflow_reached_recipes_name_existing_paths"
+pin = "Line 175 pins platform-verify-sdks in the reached target set and line 183 validates its recipe paths; command flags are not pinned."
+related_pin = "tests/ci/test_runtime_targets_supported.py:87 pins the workflow consumer make platform-verify-sdks, not the .NET or Go recipe text."
+
+[result.dotnet.original]
+source_revision = "8bd95fcc5e363882f481b8e8755d2e11efaecb17"
+command = "dotnet test sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --no-restore --nologo"
+exit = 1
+summary = "Failed!  - Failed:    10, Passed:    47, Skipped:     0, Total:    57"
+
+[result.go.original]
+source_revision = "8bd95fcc5e363882f481b8e8755d2e11efaecb17"
+command = "GOPROXY=off go test ./..."
+exit = 1
+failed_cases = ["TestAgentOperationEnvelopeProcessCases", "TestProgramTerminalV5HistoricalCodecCorpus"]
+
+[result.dotnet.changed]
+source_revision = "8bd95fcc5e363882f481b8e8755d2e11efaecb17"
+command = "dotnet test sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --no-restore --nologo --filter 'Category!=AgentOperationEnvelopeDecodeProbe&FullyQualifiedName!=LayerX.Sdk.Tests.AgentOperationEnvelopeTests.ProcessCasesReachTheDaemonThroughTheGateway&FullyQualifiedName!=LayerX.Sdk.Tests.AgentOperationEnvelopeTests.UnverifiedRungIsPreservedFromTheDaemon&FullyQualifiedName!=LayerX.Sdk.Tests.AgentOperationEnvelopeTests.WrongGenerationIsRefusedByTheDaemonSessionAuthority&FullyQualifiedName!=LayerX.Sdk.Tests.AgentOperationEnvelopeTests.CatalogueReadWithoutSessionCredentialIsRefusedBeforeSending&FullyQualifiedName!=LayerX.Sdk.Tests.AgentOperationEnvelopeTests.MutationWithoutIdempotencyKeyIsRefusedBeforeSending'"
+exit = 1
+summary = "Failed!  - Failed:     4, Passed:    47, Skipped:     0, Total:    51"
+
+[result.go.changed]
+source_revision = "8bd95fcc5e363882f481b8e8755d2e11efaecb17"
+command = "GOPROXY=off go test -skip '^TestAgentOperationEnvelopeProcessCases$' ./..."
+exit = 1
+failed_cases = ["TestProgramTerminalV5HistoricalCodecCorpus"]
+
+[result.selection]
+dotnet = "Exactly six file-dependent cases leave the ordinary selection: baseline 57 total / 10 failed / 47 passed / 0 skipped becomes 51 total / 4 failed / 47 passed / 0 skipped; the self-contained TLS refusal case remains selected."
+go = "The envelope probe no longer fails or reports zero processed cases; the sole remaining failure is TestProgramTerminalV5HistoricalCodecCorpus. The conformance command package still passes."
+limits = "Both ordinary commands still report the unrelated cases listed in finding.remaining_cases."
+
+[finding.remaining_cases]
+dotnet_owner = "22.39.361"
+dotnet_decision = "3247"
+dotnet_published_vectors = "LayerX.Sdk.Tests.SequencerReceiptTests.PublishedVectorFilesMatchRecordedCases; sdk/platform/dotnet/tests/LayerX.Sdk.Tests/SequencerReceiptTests.cs:106; Assert.Single() Failure: The collection contained 2 items"
+dotnet_revert_reason = "LayerX.Sdk.Tests.SequencerReceiptTests.SequencerReceiptV2RevertDecodesReason; sdk/platform/dotnet/tests/LayerX.Sdk.Tests/SequencerReceiptTests.cs:106; Assert.Single() Failure: The collection contained 2 items"
+dotnet_portable_round_trip = "LayerX.Sdk.Tests.PortableReceiptTests.PortableReceiptRoundTripsAtReceipted; sdk/platform/dotnet/tests/LayerX.Sdk.Tests/PortableReceiptTests.cs:110; System.InvalidOperationException : Sequence contains more than one matching element"
+dotnet_portable_export = "LayerX.Sdk.Tests.PortableReceiptTests.PortableExportMatchesPublishedVectorV5; sdk/platform/dotnet/tests/LayerX.Sdk.Tests/PortableReceiptTests.cs:182; Assert.Equal() Failure: Values differ; Expected: 153256047; Actual: 706362949"
+go_owner = "22.39.360"
+go_decision = "3246"
+go_terminal_corpus = "TestProgramTerminalV5HistoricalCodecCorpus; sdk/platform/go/programs_http_test.go:922; real native terminal-v5 signed corpus required"
+result = "All five failures occur in both original and changed command runs at source revision 8bd95fcc5e363882f481b8e8755d2e11efaecb17; all five cases remain selected."

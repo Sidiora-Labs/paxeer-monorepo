@@ -41,7 +41,12 @@ function createDeploymentGenerator(base) {
       launchpadPrecompile: precompileIdentity.address,
       roleIdentity: {
         ...data.roleIdentity,
-        treasury: { kind: treasuryIdentity.kind, runtimeHash: treasuryIdentity.runtimeHash },
+        treasury: {
+          kind: treasuryIdentity.kind,
+          runtimeHash: treasuryIdentity.runtimeHash,
+          stagedRuntimeHash: treasuryIdentity.stagedRuntimeHash,
+          stagedUpgrade: treasuryIdentity.stagedUpgrade,
+        },
         usdl: { kind: usdlIdentity.kind, runtimeHash: usdlIdentity.runtimeHash },
         launchpadPrecompile: { kind: precompileIdentity.kind },
       },
@@ -49,9 +54,7 @@ function createDeploymentGenerator(base) {
   }
 
   function renderHelper(data) {
-    return base.renderHelper(data) + '\n' +
-      "export const CORE_TRADE_EXECUTION_ROLES = Object.freeze(['router', 'quoter', 'poolRegistry', 'eventEmitter'] as const);\n" +
-      "export const PRIVATE_FIXTURE_WAGMI_STORAGE_KEY = 'kindle-private-qualification-v1';\n";
+    return base.renderHelper(data);
   }
 
   function checkClient(clientRoot, data, helper) {

@@ -1,8 +1,7 @@
 //! Value boundary between the F06 reward ledger and the registered
 //! Program-derived rewards account. The ledger moves no funds; this adapter
 //! turns one committed `RewardEffect` into at most one native 402LXP action
-//! under an exact grant ceiling and checks that the proof-bound sight balance
-//! covers `F + R + C` after the staged action.
+//! under an exact grant ceiling.
 use crate::types::GuestIndex as _;
 use layerx_program_sdk::{
     payments::PaymentGrant, Bytes, Capability, HostRefusal, ProgramAccountPayment, ProgramDeposit,
@@ -13,7 +12,7 @@ use crate::{
     errors::{
         ApplicationError, CodecResult, ACCOUNT_BINDING, ARITHMETIC, F06_INVALID_AMOUNT,
         F06_LEDGER_INVARIANT_VIOLATION, F06_REFUND_RECIPIENT_MISMATCH, F06_WRONG_ASSET,
-        HOST_CAPABILITY, HOST_TRANSFER, READINESS_BLOCKED,
+        HOST_CAPABILITY, HOST_TRANSFER,
     },
     rewards::{RewardEffect, RewardLedger},
     types::{AccountId, Amount, AssetId, Digest32, ProgramId},
@@ -146,7 +145,7 @@ impl RewardsAccount {
     /// `F06_INVALID_AMOUNT` for a zero amount.
     pub fn deposit(&self, amount: Amount) -> CodecResult<ProgramDeposit<'static>> {
         ProgramDeposit::new(
-            self.seed()?,
+            Self::seed()?,
             self.sdk_account()?,
             self.sdk_asset()?,
             sdk_amount(amount)?,
@@ -167,7 +166,7 @@ impl RewardsAccount {
         let to =
             layerx_program_sdk::AccountId::new(recipient.bytes()).map_err(|_| ACCOUNT_BINDING)?;
         ProgramAccountPayment::new(
-            self.seed()?,
+            Self::seed()?,
             self.sdk_account()?,
             self.sdk_asset()?,
             to,
@@ -175,7 +174,7 @@ impl RewardsAccount {
         )
         .map_err(|_| F06_INVALID_AMOUNT)
     }
-    fn seed(&self) -> CodecResult<layerx_program_sdk::ProgramAccountSeed<'static>> {
+    fn seed() -> CodecResult<layerx_program_sdk::ProgramAccountSeed<'static>> {
         layerx_program_sdk::ProgramAccountSeed::new(REWARDS_ACCOUNT_SEED)
             .map_err(|_| ACCOUNT_BINDING)
     }
@@ -284,9 +283,9 @@ pub fn plan(
     }
 }
 
-/// Post-transition cover: the observed sight balance plus the staged deposit,
-/// or minus the staged payout, must cover `F + R + C` of the next ledger.
-/// Returns the unsolicited surplus `U`, which never raises a ledger counter.
+/// State audit law: the observed balance plus the staged deposit, or minus the
+/// staged payout, must cover `F + R + C` of the next ledger. No operation
+/// enforces this law. Returns the unsolicited surplus `U` for an audit.
 ///
 /// # Errors
 /// `ARITHMETIC` on overflow; `F06_LEDGER_INVARIANT_VIOLATION` when the physical balance cannot cover the ledger.
@@ -317,34 +316,20 @@ pub const fn transfer_refusal(error: ProgramError) -> ApplicationError {
     }
 }
 
-/// A missing sight grant is `HOST_CAPABILITY`; absent, unverifiable or
-/// otherwise refused evidence is `READINESS_BLOCKED`, never a zero balance.
-#[must_use]
-pub const fn balance_refusal(error: ProgramError) -> ApplicationError {
-    match error {
-        ProgramError::Host(HostRefusal::Denied) => HOST_CAPABILITY,
-        ProgramError::Host(_) | ProgramError::Value(_) => READINESS_BLOCKED,
-    }
-}
-
 /// Applies one committed reward transition's value effect inside the same
-/// Program activity: plan, read the proof-bound sight balance, check cover,
-/// then stage exactly one funding or Program-account payment. Returns `U`.
+/// Program activity: plan, then stage at most one funding or Program-account
+/// payment under its spending grant.
 ///
 /// # Errors
-/// Every `plan` and `cover` refusal, `balance_refusal` of the sight read and `transfer_refusal` of the staged transfer.
+/// Every `plan` refusal and `transfer_refusal` of the staged transfer.
 #[cfg(target_arch = "wasm32")]
 pub fn settle(
     bound: &RewardsAccount,
     prev: &RewardLedger,
     next: &RewardLedger,
     effect: RewardEffect,
-) -> CodecResult<Amount> {
+) -> CodecResult<()> {
     let action = plan(bound, prev, next, effect)?;
-    let observed = layerx_program_sdk::balance::read(bound.sdk_account()?, bound.sdk_asset()?)
-        .map_err(balance_refusal)?
-        .value();
-    let surplus = cover(next, observed, action)?;
     match action {
         ValueAction::None => {}
         ValueAction::Fund { amount } => {
@@ -358,5 +343,5 @@ pub fn settle(
             .map_err(transfer_refusal)?;
         }
     }
-    Ok(surplus)
+    Ok(())
 }

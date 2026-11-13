@@ -42,6 +42,8 @@ const defaultChainID = "hyperpax_125-1"
 // forkStoreKeys are the module KV stores a pre-fork chain does not carry. They
 // are the stores an activation plan has to declare as added, taken from each
 // module's own types package.
+// The retained stores and historical contracts below are required replay inputs;
+// their catalogue allowance requirements are recorded in ../repair_22_39_275.kvx.
 var forkStoreKeys = []string{
 	layerxcustodytypes.StoreKey,
 	layerxanchortypes.StoreKey,

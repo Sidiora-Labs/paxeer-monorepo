@@ -1,14 +1,14 @@
 //! Repair record 22.33.1526. The bounded gate ledger records the qualified revision.
-//! admission-controller-unwired -> admission_controller_routes_real_overload_with_reserved_capacity
-//! request-deadline-tracker-unwired -> deadline_disconnect_and_reopen_retain_real_unknown_submission
-//! shedding-cancellation-hooks-unwired -> shedding_cancels_one_authenticated_client_and_preserves_resolvers
-//! quota-unbounded-observations -> quota_churn_and_shed_retention_are_bounded_and_indexed
-//! rate-counter-recovery -> independent_daemons_and_reopen_share_atomic_durable_counters
-//! rate-window-regression -> interleaved_and_concurrent_delayed_windows_preserve_ceiling
+//! admission-controller-unwired -> `admission_controller_routes_real_overload_with_reserved_capacity`
+//! request-deadline-tracker-unwired -> `deadline_disconnect_and_reopen_retain_real_unknown_submission`
+//! shedding-cancellation-hooks-unwired -> `shedding_cancels_one_authenticated_client_and_preserves_resolvers`
+//! quota-unbounded-observations -> `quota_churn_and_shed_retention_are_bounded_and_indexed`
+//! rate-counter-recovery -> `independent_daemons_and_reopen_share_atomic_durable_counters`
+//! rate-window-regression -> `interleaved_and_concurrent_delayed_windows_preserve_ceiling`
 //! Wiring request (Domain 9): services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs must own
-//! TenantBoundary after OperationPermit authorization and feed transport EOF and request deadlines.
+//! `TenantBoundary` after `OperationPermit` authorization and feed transport EOF and request deadlines.
 //! Wiring request (Domain 9): services/agent/crates/layerx-agentd/src/human_runtime.rs must route node
-//! calls through TenantBoundary and connect its resolver outcomes to SessionControl budget settlement.
+//! calls through `TenantBoundary` and connect its resolver outcomes to `SessionControl` budget settlement.
 //! Wiring request (Domain 9): services/agent/crates/layerx-agentd/src/main.rs and services/agent/crates/
 //! layerx-agentd-host/src/lib.rs must configure one shared durable counter root for all tenant instances.
 //! Baseline: no baseline gate run; the test target did not exist at the starting revision, and the
@@ -422,6 +422,39 @@ fn deadline_disconnect_and_reopen_retain_real_unknown_submission() {
         DisconnectOutcome::Cancelled
     );
     assert!(token.is_cancelled());
+    finish_deadline_disconnect_and_reopen_retain_real_unknown_submission_2_repair_22_33_1526(
+        FinishDeadlineDisconnectAndReopenRetainRealUnknownSubmission2Repair22331526Context {
+            store_root,
+            counters,
+            store,
+            alpha,
+            runtime,
+            before_hash,
+        },
+    );
+}
+
+struct FinishDeadlineDisconnectAndReopenRetainRealUnknownSubmission2Repair22331526Context {
+    store_root: PathBuf,
+    counters: PathBuf,
+    store: Store,
+    alpha: ResolvedPrincipal,
+    runtime: TenantBoundary,
+    before_hash: [u8; 32],
+}
+
+fn finish_deadline_disconnect_and_reopen_retain_real_unknown_submission_2_repair_22_33_1526(
+    context: FinishDeadlineDisconnectAndReopenRetainRealUnknownSubmission2Repair22331526Context,
+) {
+    let FinishDeadlineDisconnectAndReopenRetainRealUnknownSubmission2Repair22331526Context {
+        store_root,
+        counters,
+        mut store,
+        alpha,
+        mut runtime,
+        before_hash,
+    } = context;
+
     assert!(must(runtime.start_next(&mut store, 1001)).is_none());
     assert!(store
         .get(&must(TenantKey::new(
@@ -478,7 +511,7 @@ fn deadline_disconnect_and_reopen_retain_real_unknown_submission() {
     drop(runtime);
     drop(store);
     let mut store = must(Store::open(&store_root));
-    let mut runtime = boundary(&mut store, &counters, 100, 100, 6000);
+    let runtime = boundary(&mut store, &counters, 100, 100, 6000);
     let recovered = runtime
         .recovered_request(&alpha.tenant, hash)
         .unwrap_or_else(|| panic!("restored resolver"));
@@ -486,6 +519,39 @@ fn deadline_disconnect_and_reopen_retain_real_unknown_submission() {
         .view(recovered)
         .unwrap_or_else(|| panic!("recovered work"));
     assert_eq!(view.owner, WorkOwner::DaemonResolver);
+    finish_deadline_disconnect_and_reopen_retain_real_unknown_submission_1_repair_22_33_1526(
+        FinishDeadlineDisconnectAndReopenRetainRealUnknownSubmission1Repair22331526Context {
+            signed,
+            hash,
+            store,
+            runtime,
+            recovered,
+            view,
+        },
+    );
+}
+
+struct FinishDeadlineDisconnectAndReopenRetainRealUnknownSubmission1Repair22331526Context {
+    signed: Vec<u8>,
+    hash: [u8; 32],
+    store: Store,
+    runtime: TenantBoundary,
+    recovered: u64,
+    view: layerx_agentd::limits::deadline::WorkView,
+}
+
+fn finish_deadline_disconnect_and_reopen_retain_real_unknown_submission_1_repair_22_33_1526(
+    context: FinishDeadlineDisconnectAndReopenRetainRealUnknownSubmission1Repair22331526Context,
+) {
+    let FinishDeadlineDisconnectAndReopenRetainRealUnknownSubmission1Repair22331526Context {
+        signed,
+        hash,
+        mut store,
+        mut runtime,
+        recovered,
+        view,
+    } = context;
+
     assert!(!view.cancelled);
     assert!(!view.caller_connected);
     assert!(matches!(
@@ -717,6 +783,18 @@ fn quota_churn_and_shed_retention_are_bounded_and_indexed() {
         assert!(must(fs::metadata(directory.0.join("store.bin"))).len() < 8000);
     }
     // Repeated shed periods of the same client overwrite the indexed latest record.
+    finish_quota_churn_and_shed_retention_are_bounded_and_indexed_1_repair_22_33_1526(
+        &directory, store, &owner, quota, last_time,
+    );
+}
+
+fn finish_quota_churn_and_shed_retention_are_bounded_and_indexed_1_repair_22_33_1526(
+    directory: &Directory,
+    mut store: Store,
+    owner: &TenantId,
+    mut quota: Quota,
+    mut last_time: u64,
+) {
     let mut stable_key = None;
     for period in 0..100 {
         let now = last_time + 1000 + period * 201;
@@ -727,10 +805,10 @@ fn quota_churn_and_shed_retention_are_bounded_and_indexed() {
             assert_eq!(&decision.durable_record, key);
         }
         stable_key = Some(decision.durable_record);
-        assert_eq!(must(quota.retained_decisions(&store, &owner)), 1);
+        assert_eq!(must(quota.retained_decisions(&store, owner)), 1);
         assert_eq!(
             store
-                .list_object_ids(&owner, ObjectKind::Configuration)
+                .list_object_ids(owner, ObjectKind::Configuration)
                 .len(),
             2
         );
@@ -742,17 +820,17 @@ fn quota_churn_and_shed_retention_are_bounded_and_indexed() {
     let mut quota = bounded_quota();
     must(quota.restore(&mut store, last_time));
     assert!(matches!(
-        quota.admit_work(&store, &owner, "stable", Priority::BulkRead, last_time),
+        quota.admit_work(&store, owner, "stable", Priority::BulkRead, last_time),
         Err(QuotaError::ClientShed {
             retry_after_ms: 200,
             ..
         })
     ));
     must(quota.restore(&mut store, last_time + 501));
-    assert_eq!(must(quota.retained_decisions(&store, &owner)), 0);
+    assert_eq!(must(quota.retained_decisions(&store, owner)), 0);
     assert_eq!(
         store
-            .list_object_ids(&owner, ObjectKind::Configuration)
+            .list_object_ids(owner, ObjectKind::Configuration)
             .len(),
         1
     );
@@ -905,6 +983,16 @@ fn interleaved_and_concurrent_delayed_windows_preserve_ceiling() {
         other => panic!("stale A must refuse with current B metadata: {other:?}"),
     }
     assert_eq!(must(rate.admit(&rate_request(2000))).ledger_revision, 3); // B
+    finish_interleaved_and_concurrent_delayed_windows_preserve_ceiling_2_repair_22_33_1526(
+        &directory, &root, rate,
+    );
+}
+
+fn finish_interleaved_and_concurrent_delayed_windows_preserve_ceiling_2_repair_22_33_1526(
+    directory: &Directory,
+    root: &Path,
+    rate: RateLimiter,
+) {
     assert!(matches!(
         rate.admit(&rate_request(2000)),
         Err(Refusal::Exceeded {
@@ -914,7 +1002,7 @@ fn interleaved_and_concurrent_delayed_windows_preserve_ceiling() {
         })
     ));
     drop(rate);
-    let rate = limiter(&root, 2);
+    let rate = limiter(root, 2);
     assert!(matches!(
         rate.admit(&rate_request(1000)),
         Err(Refusal::StaleWindow { remaining: 0, .. })
@@ -969,12 +1057,24 @@ fn interleaved_and_concurrent_delayed_windows_preserve_ceiling() {
             })
         })
         .collect::<Vec<_>>();
+    finish_interleaved_and_concurrent_delayed_windows_preserve_ceiling_1_repair_22_33_1526(
+        directory,
+        &concurrent,
+        workers,
+    );
+}
+
+fn finish_interleaved_and_concurrent_delayed_windows_preserve_ceiling_1_repair_22_33_1526(
+    directory: &Directory,
+    concurrent: &Path,
+    workers: Vec<JoinHandle<Option<u64>>>,
+) {
     let revisions = workers
         .into_iter()
         .filter_map(|worker| must(worker.join()))
         .collect::<BTreeSet<_>>();
     assert_eq!(revisions, (3..=13).collect::<BTreeSet<_>>());
-    let rate = limiter(&concurrent, 12);
+    let rate = limiter(concurrent, 12);
     let usage = must(rate.utilization("alpha", 2000));
     assert_eq!(usage[0].used, 12);
     assert_eq!(usage[0].remaining, 0);

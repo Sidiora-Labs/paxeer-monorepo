@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.87"
+pages = 20
+
+[page.1]
+path = "spec/layerx-merge/contracts/cosmwasm.md"
+status = "corrected"
+
+[page.2]
+path = "spec/layerx-merge/contracts/evm-rpc.md"
+status = "corrected"
+
+[page.3]
+path = "spec/layerx-merge/contracts/evm.md"
+status = "corrected"
+
+[page.4]
+path = "spec/layerx-merge/contracts/explorer-config.md"
+status = "reviewed"
+
+[page.5]
+path = "spec/layerx-merge/contracts/explorer-eth-rpc.md"
+status = "reviewed"
+
+[page.6]
+path = "spec/layerx-merge/contracts/explorer-frontend-config.md"
+status = "reviewed"
+
+[page.7]
+path = "spec/layerx-merge/contracts/explorer-frontend.md"
+status = "corrected"
+
+[page.8]
+path = "spec/layerx-merge/contracts/explorer-http-api.md"
+status = "corrected"
+
+[page.9]
+path = "spec/layerx-merge/contracts/explorer-indexer.md"
+status = "reviewed"
+
+[page.10]
+path = "spec/layerx-merge/contracts/explorer-metrics.md"
+status = "reviewed"
+
+[page.11]
+path = "spec/layerx-merge/contracts/explorer-services-config.md"
+status = "corrected"
+
+[page.12]
+path = "spec/layerx-merge/contracts/explorer-services.md"
+status = "reviewed"
+
+[page.13]
+path = "spec/layerx-merge/contracts/explorer-tests.md"
+status = "reviewed"
+
+[page.14]
+path = "spec/layerx-merge/contracts/explorer-ws.md"
+status = "reviewed"
+
+[page.15]
+path = "spec/layerx-merge/contracts/ibc.md"
+status = "corrected"
+
+[page.16]
+path = "spec/layerx-merge/contracts/inference-market.md"
+status = "corrected"
+
+[page.17]
+path = "spec/layerx-merge/contracts/interop-ap2.md"
+status = "reviewed"
+
+[page.18]
+path = "spec/layerx-merge/contracts/interop-bridge-relayer.md"
+status = "corrected"
+
+[page.19]
+path = "spec/layerx-merge/contracts/interop-committed-proof.md"
+status = "reviewed"
+
+[page.20]
+path = "spec/layerx-merge/contracts/interop-deploy.md"
+status = "corrected"

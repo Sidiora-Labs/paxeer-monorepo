@@ -65,12 +65,7 @@ pub fn load_tenant_registries(
         let source = read_source(tenant, path)?;
         let mut history_path = path.as_os_str().to_os_string();
         history_path.push(".history");
-        let tenant_component: String = tenant
-            .as_str()
-            .as_bytes()
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect();
+        let tenant_component: String = layerx_programs::hex::encode(tenant.as_str().as_bytes());
         let store =
             Store::open(PathBuf::from(history_path).join(tenant_component)).map_err(|_| {
                 PolicyLoadError::History {
@@ -93,6 +88,12 @@ pub fn load_tenant_registries(
     Ok(registries)
 }
 
+/// # Errors
+/// Returns an error if a tenant policy source or its durable history cannot be loaded.
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "Preserve the public API signature used by daemon consumers."
+)]
 pub fn load_tenant_registries_with_store(
     sources: &BTreeMap<TenantId, PathBuf>,
     store: Arc<Mutex<Store>>,
@@ -306,6 +307,8 @@ pub fn evaluate_timed_admission_with_context(
     )
 }
 
+/// # Errors
+/// Returns an error if policy history is corrupt, unavailable or cannot retain the decision.
 pub fn evaluate_admission_and_record(
     registry: &mut PolicyRegistry,
     request_id: [u8; 32],
@@ -327,6 +330,8 @@ pub fn evaluate_admission_and_record(
 }
 
 #[allow(clippy::too_many_arguments)]
+/// # Errors
+/// Returns an error if policy history is corrupt, unavailable or cannot retain the decision.
 pub fn evaluate_timed_admission_and_record(
     registry: &mut PolicyRegistry,
     request_id: [u8; 32],

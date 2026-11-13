@@ -25,11 +25,12 @@ fn bytes(value: &[u8]) -> Vec<u8> {
 fn rlp(payload: &[u8], list: bool) -> Vec<u8> {
     let prefix = if list { 0xc0 } else { 0x80 };
     let mut encoded = if payload.len() < 56 {
-        vec![prefix + payload.len() as u8]
+        vec![prefix + lint_success(u8::try_from(payload.len()), "integer fits u8")]
     } else {
         let length = payload.len().to_be_bytes();
         let length = &length[length.iter().position(|byte| *byte != 0).unwrap_or(0)..];
-        let mut encoded = vec![prefix + 55 + length.len() as u8];
+        let mut encoded =
+            vec![prefix + 55 + lint_success(u8::try_from(length.len()), "integer fits u8")];
         encoded.extend_from_slice(length);
         encoded
     };
@@ -42,10 +43,12 @@ fn leaf(compact: &[u8], value: &[u8]) -> Vec<u8> {
 }
 
 fn vector_bytes<const N: usize>(value: &Value) -> [u8; N] {
-    hex::decode(value.as_str().expect("vector hex"))
-        .expect("valid vector hex")
-        .try_into()
-        .unwrap_or_else(|_| panic!("vector field must contain {N} bytes"))
+    lint_success(
+        hex::decode(lint_present(value.as_str(), "vector hex")),
+        "valid vector hex",
+    )
+    .try_into()
+    .unwrap_or_else(|_| panic!("vector field must contain {N} bytes"))
 }
 
 fn storage_node(
@@ -54,35 +57,44 @@ fn storage_node(
     height: u64,
     response: Value,
 ) -> (SequencerEndpoint, std::thread::JoinHandle<()>) {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("storage listener");
-    let endpoint = SequencerEndpoint::new(
-        &format!(
-            "http://{}/",
-            listener.local_addr().expect("storage address")
+    let listener = lint_success(TcpListener::bind("127.0.0.1:0"), "storage listener");
+    let endpoint = lint_success(
+        SequencerEndpoint::new(
+            &format!(
+                "http://{}/",
+                lint_success(listener.local_addr(), "storage address")
+            ),
+            &[],
         ),
-        &[],
-    )
-    .expect("storage endpoint");
-    let server = std::thread::spawn(move || {
-        let (stream, _) = listener.accept().expect("storage request");
-        stream
-            .set_read_timeout(Some(Duration::from_secs(5)))
-            .expect("storage timeout");
+        "storage endpoint",
+    );
+    let worker = std::thread::spawn(move || {
+        let (stream, _) = lint_success(listener.accept(), "storage request");
+        lint_success(
+            stream.set_read_timeout(Some(Duration::from_secs(5))),
+            "storage timeout",
+        );
         let mut reader = BufReader::new(stream);
         let mut length = None;
         loop {
             let mut line = String::new();
-            assert_ne!(reader.read_line(&mut line).expect("request headers"), 0);
+            assert_ne!(
+                lint_success(reader.read_line(&mut line), "request headers"),
+                0
+            );
             if line == "\r\n" {
                 break;
             }
             if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                length = Some(value.trim().parse::<usize>().expect("request length"));
+                length = Some(lint_success(
+                    value.trim().parse::<usize>(),
+                    "request length",
+                ));
             }
         }
-        let mut body = vec![0; length.expect("content length")];
-        reader.read_exact(&mut body).expect("request body");
-        let request: Value = serde_json::from_slice(&body).expect("JSON-RPC request");
+        let mut body = vec![0; lint_present(length, "content length")];
+        lint_success(reader.read_exact(&mut body), "request body");
+        let request: Value = lint_success(serde_json::from_slice(&body), "JSON-RPC request");
         assert_eq!(request["jsonrpc"], "2.0");
         assert_eq!(request["method"], "eth_getProof");
         assert_eq!(
@@ -95,11 +107,10 @@ fn storage_node(
         );
         let body = json!({"jsonrpc":"2.0", "id":request["id"], "result":response}).to_string();
         let mut stream = reader.into_inner();
-        write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len())
-            .expect("storage response");
-        stream.flush().expect("storage response flush");
+        lint_success(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()), "storage response");
+        lint_success(stream.flush(), "storage response flush");
     });
-    (endpoint, server)
+    (endpoint, worker)
 }
 
 struct Fixture {
@@ -133,16 +144,16 @@ impl Fixture {
         ))
         .unwrap_or_else(|error| panic!("storage vector: {error}"));
         let entry = &vector["entries"][0];
-        let height = entry["height"].as_u64().expect("vector height");
+        let height = lint_present(entry["height"].as_u64(), "vector height");
         let address = vector_bytes::<20>(&entry["address"]);
         let slot = vector_bytes::<32>(&entry["slot"]);
         let state_root = vector_bytes::<32>(&entry["app_hash"]);
         let storage_response = entry["response"].clone();
-        let (endpoint, server) = storage_node(address, slot, height, storage_response.clone());
+        let (endpoint, worker) = storage_node(address, slot, height, storage_response.clone());
         let storage = endpoint
             .storage_witness(&address, &[slot], height)
             .unwrap_or_else(|error| panic!("storage witness: {error:?}"));
-        server.join().expect("storage node");
+        lint_success(worker.join(), "storage node");
         assert_eq!(storage.len(), 1);
         assert_eq!(storage[0].value, vector_bytes::<32>(&entry["value"]));
         let bloom = [0; 256];
@@ -191,56 +202,8 @@ impl Fixture {
         let receipt_branch = rlp(&children, true);
         let receipt_root = transaction_hash(&receipt_branch);
         let receipt_path = vec![receipt_branch, receipt_leaf];
-        let key = SigningKey::from_bytes(&[3; 32]);
-        let public_key = key.verifying_key().to_bytes();
-        let validators = vec![CommitValidator {
-            address: CommitValidator::address_for_key(&public_key),
-            public_key,
-            voting_power: 10,
-        }];
-        let header = CheckpointHeader {
-            version_block: 11,
-            version_app: 1,
-            chain_id: "paxeer-test".to_owned(),
-            height,
-            time: CommitTimestamp {
-                seconds: 1_700_000_000,
-                nanos: 0,
-            },
-            last_block_id: None,
-            last_commit_hash: None,
-            data_hash: Some([1; 32]),
-            validators_hash: validator_set_hash(&validators),
-            next_validators_hash: validator_set_hash(&validators),
-            consensus_hash: [2; 32],
-            app_hash: state_root,
-            last_results_hash: Some(receipt_root),
-            evidence_hash: None,
-            proposer_address: validators[0].address,
-        };
-        let mut commit = BlockCommit {
-            height,
-            round: 0,
-            block_id: BlockId {
-                hash: header.block_hash(),
-                part_set_total: 1,
-                part_set_hash: [4; 32],
-            },
-            votes: Vec::new(),
-        };
-        let timestamp = CommitTimestamp {
-            seconds: 1_700_000_001,
-            nanos: 0,
-        };
-        let signature = key
-            .sign(&commit.vote_sign_bytes(&header.chain_id, timestamp))
-            .to_bytes();
-        commit.votes.push(CommitVote {
-            validator_address: validators[0].address,
-            voting_power: 10,
-            timestamp,
-            signature,
-        });
+        let (header, commit, validators) =
+            committed_receipt_header(height, state_root, receipt_root);
         Self {
             raw,
             receipt,
@@ -404,9 +367,9 @@ fn account_proof_bundle_requires_a_committed_state_root() {
         served.account_proof.as_ref().map(|state| &state.storage),
         Some(&vec![(fixture.storage[0].slot, fixture.storage[0].value)])
     );
-    let (node, server) = fixture.node(fixture.storage_response.clone());
-    assert_eq!(request.acquire(&node), Ok(served.clone()));
-    server.join().expect("storage node");
+    let (endpoint, worker) = fixture.node(fixture.storage_response.clone());
+    assert_eq!(request.acquire(&endpoint), Ok(served.clone()));
+    lint_success(worker.join(), "storage node");
     assert_eq!(
         served.checkpoint.as_ref().map(|checkpoint| checkpoint.rung),
         Some(Rung::Committed)
@@ -416,10 +379,10 @@ fn account_proof_bundle_requires_a_committed_state_root() {
         commit: None,
         ..request
     };
-    let refused = proof_bundle(&pending).unwrap_err();
+    let refused = lint_error(proof_bundle(&pending), "test operation must fail");
     assert_eq!(refused, CheckpointReadError::NotCommitted);
     assert_eq!(refused.reason(), "read.not_committed");
-    // Refusal must precede any eth_getProof call: there is no server at this endpoint.
+    // Refusal must precede any eth_getProof call: there is no worker at this endpoint.
     let endpoint = SequencerEndpoint::new("http://127.0.0.1:1", &[])
         .unwrap_or_else(|error| panic!("endpoint: {error:?}"));
     assert_eq!(
@@ -444,36 +407,122 @@ fn account_proof_bundle_requires_a_committed_state_root() {
         .acquire(&endpoint),
         Err(CheckpointReadError::Commit)
     );
+    assert_account_root_refusals(&fixture, &request);
+}
+
+#[track_caller]
+fn lint_success<T, E: std::fmt::Debug>(result: Result<T, E>, context: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{context}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn lint_present<T>(value: Option<T>, context: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{context}: required value is absent"),
+    }
+}
+
+#[track_caller]
+fn lint_error<T: std::fmt::Debug, E>(result: Result<T, E>, context: &str) -> E {
+    match result {
+        Err(error) => error,
+        Ok(value) => panic!("{context}: unexpected success {value:?}"),
+    }
+}
+
+fn committed_receipt_header(
+    height: u64,
+    state_root: [u8; 32],
+    receipt_root: [u8; 32],
+) -> (CheckpointHeader, BlockCommit, Vec<CommitValidator>) {
+    let key = SigningKey::from_bytes(&[3; 32]);
+    let public_key = key.verifying_key().to_bytes();
+    let validators = vec![CommitValidator {
+        address: CommitValidator::address_for_key(&public_key),
+        public_key,
+        voting_power: 10,
+    }];
+    let header = CheckpointHeader {
+        version_block: 11,
+        version_app: 1,
+        chain_id: "paxeer-test".to_owned(),
+        height,
+        time: CommitTimestamp {
+            seconds: 1_700_000_000,
+            nanos: 0,
+        },
+        last_block_id: None,
+        last_commit_hash: None,
+        data_hash: Some([1; 32]),
+        validators_hash: validator_set_hash(&validators),
+        next_validators_hash: validator_set_hash(&validators),
+        consensus_hash: [2; 32],
+        app_hash: state_root,
+        last_results_hash: Some(receipt_root),
+        evidence_hash: None,
+        proposer_address: validators[0].address,
+    };
+    let mut commit = BlockCommit {
+        height,
+        round: 0,
+        block_id: BlockId {
+            hash: header.block_hash(),
+            part_set_total: 1,
+            part_set_hash: [4; 32],
+        },
+        votes: Vec::new(),
+    };
+    let timestamp = CommitTimestamp {
+        seconds: 1_700_000_001,
+        nanos: 0,
+    };
+    let signature = key
+        .sign(&commit.vote_sign_bytes(&header.chain_id, timestamp))
+        .to_bytes();
+    commit.votes.push(CommitVote {
+        validator_address: validators[0].address,
+        voting_power: 10,
+        timestamp,
+        signature,
+    });
+    (header, commit, validators)
+}
+
+fn assert_account_root_refusals(fixture: &Fixture, request: &ProofBundleRequest<'_>) {
     let mut wrong_account = fixture.storage.clone();
     wrong_account[0].value[31] ^= 1;
     assert_eq!(
         proof_bundle(&ProofBundleRequest {
             account_proof: Some(&wrong_account),
-            ..request
+            ..*request
         }),
         Err(CheckpointReadError::InvalidProof)
     );
     let mut wrong_response = fixture.storage_response.clone();
     wrong_response["hexValues"][0] = json!(hex::encode(wrong_account[0].value));
-    let (node, server) = fixture.node(wrong_response);
+    let (endpoint, worker) = fixture.node(wrong_response);
     assert_eq!(
-        request.acquire(&node),
+        request.acquire(&endpoint),
         Err(CheckpointReadError::InvalidProof)
     );
-    server.join().expect("storage node");
+    lint_success(worker.join(), "storage node");
     let mut wrong_address = fixture.storage.clone();
     wrong_address[0].address[0] ^= 1;
     assert_eq!(
         proof_bundle(&ProofBundleRequest {
             account_proof: Some(&wrong_address),
-            ..request
+            ..*request
         }),
         Err(CheckpointReadError::TargetMismatch)
     );
     assert_eq!(
         proof_bundle(&ProofBundleRequest {
             account_proof: None,
-            ..request
+            ..*request
         }),
         Err(CheckpointReadError::InvalidProof)
     );
@@ -482,7 +531,7 @@ fn account_proof_bundle_requires_a_committed_state_root() {
     assert_eq!(
         proof_bundle(&ProofBundleRequest {
             receipt: &pending_receipt,
-            ..request
+            ..*request
         }),
         Err(CheckpointReadError::NotCommitted)
     );
@@ -500,16 +549,16 @@ fn account_proof_bundle_requires_a_committed_state_root() {
     let foreign_request = ProofBundleRequest {
         header: &foreign_header,
         commit: Some(&foreign_commit),
-        ..request
+        ..*request
     };
     assert_eq!(
         proof_bundle(&foreign_request),
         Err(CheckpointReadError::RootMismatch)
     );
-    let (node, server) = fixture.node(fixture.storage_response.clone());
+    let (endpoint, worker) = fixture.node(fixture.storage_response.clone());
     assert_eq!(
-        foreign_request.acquire(&node),
+        foreign_request.acquire(&endpoint),
         Err(CheckpointReadError::RootMismatch)
     );
-    server.join().expect("storage node");
+    lint_success(worker.join(), "storage node");
 }

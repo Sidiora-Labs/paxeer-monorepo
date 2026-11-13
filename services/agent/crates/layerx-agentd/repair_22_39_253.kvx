@@ -1,0 +1,579 @@
+[repair.22.39.253]
+acceptance = "22998.1"
+source_revision = "6e0e54cb0d6bd765033a719097d606ca59593444"
+mode = "BUILD"
+baseline_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-agentd"
+baseline_exit = 1
+baseline_findings = 23
+baseline_state = "Runner bookkeeping only; no task source changes and no previous gate ledger existed."
+qualification = "The private /out/run/gates.jsonl ledger binds the final candidate revision to each hf-build and hf-done command, exit code and evidence log; no qualification is claimed before those gates run."
+
+[finding.attempt_1_scope]
+task = "22.39.253"
+file = "tools/paxeer-x/retired_callers.json"
+symbol = "allowed_references"
+observed = "Step do_2 requires narrowly scoped catalogue allowances for live references, but the explicit SCOPE and repeated prohibition on outside-scope edits exclude that file."
+assumption = "Catalogue edits require the user to expand the scope; equivalent renames, split literals and weakened rejection or compatibility tests are not repairs."
+severity = "note"
+resolution = "Attempt 2 explicitly includes tools/paxeer-x/retired_callers.json in scope; each retained finding now has an exact-line allowed reference with a reason."
+
+[implementation]
+events = "Use the current verification-rank decoder instead of constructing the retired rank-five constant; preserve the rank-four durable migration and add refusal assertions for both metadata and pending records, with and without receipt references."
+metrics = "Delete the unused retired metric variant and name arm together after inspecting all source and test consumers."
+retained_references = "Explain the retained rejection inputs, compatibility codecs and shipped independent-authority checks at their sources; do not rename symbols or conceal literal matches."
+
+[finding.1]
+path = "services/agent/crates/layerx-agentd/host-tests/retired_env.rs"
+line = 10
+component = "handover-client"
+symbol = "LAYERX_AGENT_HANDOVER"
+status = "allowed_reference"
+repair = "Negative environment input must remain so startup rejects the retired configuration by name."
+
+[finding.2]
+path = "services/agent/crates/layerx-agentd/host-tests/retired_env.rs"
+line = 12
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+status = "allowed_reference"
+repair = "Negative environment input must remain so startup rejects the retired export configuration by name."
+
+[finding.3]
+path = "services/agent/crates/layerx-agentd/src/agent_rpc.rs"
+line = 1115
+component = "checkpoint-evidence"
+symbol = "SettlementAnchored"
+status = "allowed_reference"
+repair = "Negative wire input proves the public request decoder refuses the retired spelling."
+
+[finding.4]
+path = "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs"
+line = 2663
+component = "checkpoint-evidence"
+symbol = "SettlementAnchored"
+status = "allowed_reference"
+repair = "Negative wait-request input must retain the exact retired spelling and protocol incompatibility assertion."
+
+[finding.5]
+path = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
+line = 754
+component = "checkpoint-evidence"
+symbol = "SETTLEMENT_ANCHORED"
+status = "allowed_reference"
+repair = "The retained archive-only constant is passed to the current receipt encoder to assert refusal."
+
+[finding.6]
+path = "services/agent/crates/layerx-agentd/src/capability/effects.rs"
+line = 493
+component = "human-two-domain"
+symbol = "EvmPayoutBinding"
+status = "allowed_reference"
+repair = "The shipped disclosure field is classified only to return an explicit unsupported-kind refusal."
+
+[finding.7]
+path = "services/agent/crates/layerx-agentd/src/events/ingest.rs"
+line = 607
+component = "checkpoint-evidence"
+symbol = "SETTLEMENT_ANCHORED"
+status = "repaired"
+repair = "Decode current ranks through VerificationLevel::from_wire_rank, retain the existing rank-four migration, and reject retired rank five in metadata and pending records."
+
+[finding.8]
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 1782
+component = "authorized-batch"
+symbol = "/v1/agent/authorized-batch"
+status = "allowed_reference"
+repair = "The shipped Human authority still serves this subject-bound historical activity lookup used by program and owner-rotation consumers."
+
+[finding.9]
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 1819
+component = "authorized-batch"
+symbol = "/v1/agent/authorized-batch"
+status = "allowed_reference"
+repair = "The shipped Human authority still serves this tenant-bound historical activity lookup."
+
+[finding.10]
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 17853
+component = "checkpoint-evidence"
+symbol = "settlement_anchored"
+status = "allowed_reference"
+repair = "Retained authority observation labels are decoded for compatibility without constructing proof-owned verified evidence."
+
+[finding.11]
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22632
+component = "checkpoint-evidence"
+symbol = "settlement_anchored"
+status = "allowed_reference"
+repair = "The existing compatibility test retains coverage of the persisted legacy authority observation label."
+
+[finding.12]
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 214
+component = "finality-authority"
+symbol = "authority_replica"
+status = "allowed_reference"
+repair = "The configuration field identifies the independently authenticated program authority that still ships."
+
+[finding.13]
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 1876
+component = "finality-authority"
+symbol = "authority_replica"
+status = "allowed_reference"
+repair = "The live program-authority configuration still reads its required replica identity from the environment."
+
+[finding.14]
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 2019
+component = "finality-authority"
+symbol = "authority_replica"
+status = "allowed_reference"
+repair = "The live program-authority connection still receives and validates its configured identity."
+
+[finding.15]
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 2575
+component = "finality-authority"
+symbol = "authority_replica"
+status = "allowed_reference"
+repair = "The inference fixture supplies the identity required by the shipped program-authority configuration."
+
+[finding.16]
+path = "services/agent/crates/layerx-agentd/src/node_rpc.rs"
+line = 92
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+status = "allowed_reference"
+repair = "Startup must retain the exact retired variable name to reject its presence, including empty or non-Unicode values."
+
+[finding.17]
+path = "services/agent/crates/layerx-agentd/src/node_rpc.rs"
+line = 95
+component = "handover-client"
+symbol = "LAYERX_AGENT_HANDOVER"
+status = "allowed_reference"
+repair = "Startup must retain the exact retired variable name to reject its presence, including empty or non-Unicode values."
+
+[finding.18]
+path = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"
+line = 2397
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "allowed_reference"
+repair = "The existing test name describes the current handshake receipt-key pin and all network and key refusal assertions remain."
+
+[finding.19]
+path = "services/agent/crates/layerx-agentd/src/read/program_node.rs"
+line = 182
+component = "finality-authority"
+symbol = "authority_replica"
+status = "allowed_reference"
+repair = "The shipped ProgramAuthority identity is destructured for validation of the independent peer configuration."
+
+[finding.20]
+path = "services/agent/crates/layerx-agentd/src/read/program_node.rs"
+line = 189
+component = "finality-authority"
+symbol = "authority_replica"
+status = "allowed_reference"
+repair = "The shipped program reader must continue refusing a zero independent-authority identity."
+
+[finding.21]
+path = "services/agent/crates/layerx-agentd/src/tenant/errors.rs"
+line = 124
+component = "checkpoint-evidence"
+symbol = "SettlementAnchored"
+status = "repaired"
+repair = "Remove the unreachable retired metric variant; no source or test references this variant."
+
+[finding.22]
+path = "services/agent/crates/layerx-agentd/src/tenant/errors.rs"
+line = 156
+component = "checkpoint-evidence"
+symbol = "SettlementAnchored"
+status = "repaired"
+repair = "Remove the dead metric-name match arm with its unused enum variant."
+
+[finding.23]
+path = "services/agent/crates/layerx-agentd/src/tenant/errors.rs"
+line = 156
+component = "checkpoint-evidence"
+symbol = "settlement_anchored"
+status = "repaired"
+repair = "Remove the dead retired metric label with its unused enum variant."
+
+[qualification.attempt_1_build]
+revision = "3c2c1cba1a3f5262bfc7d83bb4c94ff787e2505a"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --bins"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.attempt_1_verify]
+revision = "3c2c1cba1a3f5262bfc7d83bb4c94ff787e2505a"
+command = "cg spec done 22.39.253 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+result = "The required dependent-crate check passed; the library suite reported 329 passed and five failed, so the final retired-reference scan did not execute and the task remains unqualified."
+
+[finding.retained_settlement_qualification]
+task = "22.39.253"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "retained_settlement_tests"
+observed = "At revision 3c2c1cba1a3f5262bfc7d83bb4c94ff787e2505a, cg spec done 22.39.253 -f layerx-merge --root /work/paxeer-monorepo exited 1 after cargo test exited 101 with three unchanged retained-settlement cases refusing witness_binding at line 23566; evidence /out/logs/verify-1.log."
+assumption = "These failures are unrelated to the event-rank decoder and unused metric repair; executable runtime and retained-settlement code was unchanged and the instruction forbids chasing unrelated failures."
+severity = "blocker"
+
+[finding.tls_producer_qualification]
+task = "22.39.253"
+file = "services/platform/tests/support/tls_boundary.rs"
+symbol = "producer input"
+observed = "At revision 3c2c1cba1a3f5262bfc7d83bb4c94ff787e2505a, cg spec done 22.39.253 -f layerx-merge --root /work/paxeer-monorepo exited 1 after cargo test exited 101 with ops::program::simulation_tls_checks_the_actual_server_identity and outbound_tls::private_ca_checks_the_actual_server_identity requiring the missing layerx-paxeer-boundary producer binary at line 186; evidence /out/logs/verify-1.log."
+assumption = "The producer build is outside the two allowed task gates, so this inherited environment failure is recorded without adding an unauthorized build."
+severity = "blocker"
+
+[baseline.attempt_2_scan]
+revision = "b2e8c391bf5a06e682535f7588a491e0cb8c2e29"
+state = "Merged main with the preserved attempt-1 task edits, before adding the catalogue allowances."
+command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-agentd"
+exit = 1
+log = "/out/logs/retired-resumed-scan.log"
+findings = 19
+
+[resumed_finding.1]
+path = "services/agent/crates/layerx-agentd/host-tests/retired_env.rs"
+line = 11
+component = "handover-client"
+symbol = "LAYERX_AGENT_HANDOVER"
+repair = "Exact source line allowed in tools/paxeer-x/retired_callers.json with the live-surface or rejection-input reason."
+
+[resumed_finding.2]
+path = "services/agent/crates/layerx-agentd/host-tests/retired_env.rs"
+line = 13
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+repair = "Exact source line allowed in tools/paxeer-x/retired_callers.json with the live-surface or rejection-input reason."
+
+[resumed_finding.3]
+path = "services/agent/crates/layerx-agentd/src/agent_rpc.rs"
+line = 1116
+component = "checkpoint-evidence"
+symbol = "SettlementAnchored"
+repair = "Exact source line allowed in tools/paxeer-x/retired_callers.json with the live-surface or rejection-input reason."
+
+[resumed_finding.4]
+path = "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs"
+line = 2706
+component = "checkpoint-evidence"
+symbol = "SettlementAnchored"
+repair = "Exact source line allowed in tools/paxeer-x/retired_callers.json with the live-surface or rejection-input reason."
+
+[resumed_finding.5]
+path = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
+line = 755
+component = "checkpoint-evidence"
+symbol = "SETTLEMENT_ANCHORED"
+repair = "Exact source line allowed in tools/paxeer-x/retired_callers.json with the live-surface or rejection-input reason."
+
+[resumed_finding.6]
+path = "services/agent/crates/layerx-agentd/src/capability/effects.rs"
+line = 494
+component = "human-two-domain"
+symbol = "EvmPayoutBinding"
+repair = "Exact source line allowed in tools/paxeer-x/retired_callers.json with the live-surface or rejection-input reason."
+
+[resumed_finding.7]
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 1783
+component = "authorized-batch"
+symbol = "/v1/agent/authorized-batch"
+repair = "Exact source line allowed in tools/paxeer-x/retired_callers.json with the live-surface or rejection-input reason."
+
+[resumed_finding.8]
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 1820
+component = "authorized-batch"
+symbol = "/v1/agent/authorized-batch"
+repair = "Exact source line allowed in tools/paxeer-x/retired_callers.json with the live-surface or rejection-input reason."
+
+[resumed_finding.9]
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 18018
+component = "checkpoint-evidence"
+symbol = "settlement_anchored"
+repair = "Exact source line allowed in tools/paxeer-x/retired_callers.json with the live-surface or rejection-input reason."
+
+[resumed_finding.10]
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22847
+component = "checkpoint-evidence"
+symbol = "settlement_anchored"
+repair = "Exact source line allowed in tools/paxeer-x/retired_callers.json with the live-surface or rejection-input reason."
+
+[resumed_finding.11]
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 215
+component = "finality-authority"
+symbol = "authority_replica"
+repair = "Exact source line allowed in tools/paxeer-x/retired_callers.json with the live-surface or rejection-input reason."
+
+[resumed_finding.12]
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 1886
+component = "finality-authority"
+symbol = "authority_replica"
+repair = "Exact source line allowed in tools/paxeer-x/retired_callers.json with the live-surface or rejection-input reason."
+
+[resumed_finding.13]
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 2029
+component = "finality-authority"
+symbol = "authority_replica"
+repair = "Exact source line allowed in tools/paxeer-x/retired_callers.json with the live-surface or rejection-input reason."
+
+[resumed_finding.14]
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 2585
+component = "finality-authority"
+symbol = "authority_replica"
+repair = "Exact source line allowed in tools/paxeer-x/retired_callers.json with the live-surface or rejection-input reason."
+
+[resumed_finding.15]
+path = "services/agent/crates/layerx-agentd/src/node_rpc.rs"
+line = 93
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+repair = "Exact source line allowed in tools/paxeer-x/retired_callers.json with the live-surface or rejection-input reason."
+
+[resumed_finding.16]
+path = "services/agent/crates/layerx-agentd/src/node_rpc.rs"
+line = 96
+component = "handover-client"
+symbol = "LAYERX_AGENT_HANDOVER"
+repair = "Exact source line allowed in tools/paxeer-x/retired_callers.json with the live-surface or rejection-input reason."
+
+[resumed_finding.17]
+path = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"
+line = 2397
+component = "finality-authority"
+symbol = "receipt_authority"
+repair = "Exact source line allowed in tools/paxeer-x/retired_callers.json with the live-surface or rejection-input reason."
+
+[resumed_finding.18]
+path = "services/agent/crates/layerx-agentd/src/read/program_node.rs"
+line = 183
+component = "finality-authority"
+symbol = "authority_replica"
+repair = "Exact source line allowed in tools/paxeer-x/retired_callers.json with the live-surface or rejection-input reason."
+
+[resumed_finding.19]
+path = "services/agent/crates/layerx-agentd/src/read/program_node.rs"
+line = 190
+component = "finality-authority"
+symbol = "authority_replica"
+repair = "Exact source line allowed in tools/paxeer-x/retired_callers.json with the live-surface or rejection-input reason."
+
+[gotcha.baseline_checkout]
+observed = "The first baseline command launches preceded completion of the temporary base checkout, so neither the scanner nor tests executed; both reported missing paths."
+resolution = "Waited for the checkout to finish before launching the required baseline operations."
+
+[qualification.attempt_2_base_settlement]
+revision = "6e0e54cb0d6bd765033a719097d606ca59593444"
+command = "CARGO_TARGET_DIR=/work/paxeer-monorepo/services/agent/target cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib human_runtime::retained_settlement_tests"
+exit = 101
+log = "/out/logs/retained-settlement-base.log"
+result = "One passed and three failed on the unmodified base of attempt 1; the candidate's comment-only runtime edits did not cause these failures."
+
+[finding.attempt_2_base_settlement]
+task = "22.39.253"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs:23564"
+symbol = "human_runtime::retained_settlement_tests"
+observed = "At base revision 6e0e54cb0d6bd765033a719097d606ca59593444, CARGO_TARGET_DIR=/work/paxeer-monorepo/services/agent/target cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib human_runtime::retained_settlement_tests exited 101 with three Refused failures at witness_binding, logged in /out/logs/retained-settlement-base.log."
+assumption = "Decision 3130 leaves these pre-existing failures to a follow-up repair task, records their names here, and retains the declared unfiltered verification command and all test assertions."
+severity = "blocker"
+
+[preexisting_cases.attempt_2]
+refusing_site = "witness_binding; retained_settlement_tests fixture must() at base human_runtime.rs:23564 (attempt-1 line 23566)"
+failed = ["human_runtime::retained_settlement_tests::retained_settlement_refuses_a_failed_receipt", "human_runtime::retained_settlement_tests::retained_settlement_settles_after_the_head_advances", "human_runtime::retained_settlement_tests::retained_settlement_settles_once_across_replay"]
+passed = "human_runtime::retained_settlement_tests::retained_settlement_still_refuses_a_stale_node"
+handling = "Record-only treatment under decision 3130; no filtering, ignoring, weakening or deletion of these cases."
+
+[qualification.attempt_2_candidate]
+evidence = "/out/run/gates.jsonl"
+revision_binding = "Each hf-build and hf-done ledger entry names the exact candidate revision, command, exit and private log; both final gates run on unchanged task source and record bytes."
+claim = "Qualification is pending the declared gates; the historical qualification entries above are attempt-1 evidence only."
+
+[qualification.attempt_3_base_settlement]
+revision = "b2e8c391bf5a06e682535f7588a491e0cb8c2e29"
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib human_runtime::retained_settlement_tests"
+exit = 101
+log = "/out/logs/retained-settlement-attempt-3-base.log"
+worktree = "/tmp/paxeer-22-39-253-base"
+result = "On the exact attempt-2 base named by gotcha 4078, one case passed and all three disputed cases failed at witness_binding; the compile and all four cases executed once."
+
+[preexisting_cases.attempt_3]
+refusing_site = "human_runtime.rs:23777; retained settlement: Refused; refused at Some(witness_binding)"
+retained_settlement_refuses_a_failed_receipt = "FAILED at witness_binding"
+retained_settlement_settles_after_the_head_advances = "FAILED at witness_binding"
+retained_settlement_settles_once_across_replay = "FAILED at witness_binding"
+retained_settlement_still_refuses_a_stale_node = "PASSED"
+handling = "Decision 3159 assigns the three pre-existing refusals to task 22.39.312; keep human_runtime executable code and all cases unchanged and use the runner-declared verification command with its three explicit skips."
+
+[baseline.attempt_3_scan]
+revision = "8e38b8a684bd402e0ffe8abbd514b0e9a8ac590c"
+state = "Merged main with preserved attempt-2 source repairs and current catalogue allowances, before integrating the seed allowances."
+command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-agentd"
+exit = 1
+log = "/out/logs/retired-attempt-3-baseline.log"
+findings = 19
+
+[implementation.attempt_3]
+catalogue = "Resolve the single merge conflict by retaining every current allowed_references entry unchanged and appending all ten exact-line seed entries with their one-sentence reasons."
+runtime = "The preserved human_runtime.rs diff adds only two explanatory comments; no live identifier, value or witness binding changed."
+repairs = "Retain the current-rank metadata decoder, rank-five rejection test for metadata and pending records with and without receipt references, and deletion of the unused metric variant and match arm."
+
+[gotcha.attempt_3_catalogue_conflict]
+observed = "The inherited catalogue contained conflict markers; an initial integration assertion expected eleven entries rather than ten and stopped before writing, so the first scanner launch refused JSON decoding with exit 2 without scanning any files."
+resolution = "Validated the actual ten seed entries, reconstructed valid current JSON, and then executed the recorded baseline scan before integrating all ten entries beside the unchanged current allowances."
+
+[resumed_finding.attempt_3_1]
+path = "services/agent/crates/layerx-agentd/host-tests/retired_env.rs"
+line = 11
+component = "handover-client"
+symbol = "LAYERX_AGENT_HANDOVER"
+repair = "Exact source line retained in tools/paxeer-x/retired_callers.json with its existing seed reason; the live surface or rejection input remains unchanged."
+
+[resumed_finding.attempt_3_2]
+path = "services/agent/crates/layerx-agentd/host-tests/retired_env.rs"
+line = 13
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+repair = "Exact source line retained in tools/paxeer-x/retired_callers.json with its existing seed reason; the live surface or rejection input remains unchanged."
+
+[resumed_finding.attempt_3_3]
+path = "services/agent/crates/layerx-agentd/src/agent_rpc.rs"
+line = 1116
+component = "checkpoint-evidence"
+symbol = "SettlementAnchored"
+repair = "Exact source line retained in tools/paxeer-x/retired_callers.json with its existing seed reason; the live surface or rejection input remains unchanged."
+
+[resumed_finding.attempt_3_4]
+path = "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs"
+line = 2706
+component = "checkpoint-evidence"
+symbol = "SettlementAnchored"
+repair = "Exact source line retained in tools/paxeer-x/retired_callers.json with its existing seed reason; the live surface or rejection input remains unchanged."
+
+[resumed_finding.attempt_3_5]
+path = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
+line = 755
+component = "checkpoint-evidence"
+symbol = "SETTLEMENT_ANCHORED"
+repair = "Exact source line retained in tools/paxeer-x/retired_callers.json with its existing seed reason; the live surface or rejection input remains unchanged."
+
+[resumed_finding.attempt_3_6]
+path = "services/agent/crates/layerx-agentd/src/capability/effects.rs"
+line = 494
+component = "human-two-domain"
+symbol = "EvmPayoutBinding"
+repair = "Exact source line retained in tools/paxeer-x/retired_callers.json with its existing seed reason; the live surface or rejection input remains unchanged."
+
+[resumed_finding.attempt_3_7]
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 1783
+component = "authorized-batch"
+symbol = "/v1/agent/authorized-batch"
+repair = "Exact source line retained in tools/paxeer-x/retired_callers.json with its existing seed reason; the live surface or rejection input remains unchanged."
+
+[resumed_finding.attempt_3_8]
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 1820
+component = "authorized-batch"
+symbol = "/v1/agent/authorized-batch"
+repair = "Exact source line retained in tools/paxeer-x/retired_callers.json with its existing seed reason; the live surface or rejection input remains unchanged."
+
+[resumed_finding.attempt_3_9]
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 18061
+component = "checkpoint-evidence"
+symbol = "settlement_anchored"
+repair = "Exact source line retained in tools/paxeer-x/retired_callers.json with its existing seed reason; the live surface or rejection input remains unchanged."
+
+[resumed_finding.attempt_3_10]
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22890
+component = "checkpoint-evidence"
+symbol = "settlement_anchored"
+repair = "Exact source line retained in tools/paxeer-x/retired_callers.json with its existing seed reason; the live surface or rejection input remains unchanged."
+
+[resumed_finding.attempt_3_11]
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 215
+component = "finality-authority"
+symbol = "authority_replica"
+repair = "Exact source line retained in tools/paxeer-x/retired_callers.json with its existing seed reason; the live surface or rejection input remains unchanged."
+
+[resumed_finding.attempt_3_12]
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 1886
+component = "finality-authority"
+symbol = "authority_replica"
+repair = "Exact source line retained in tools/paxeer-x/retired_callers.json with its existing seed reason; the live surface or rejection input remains unchanged."
+
+[resumed_finding.attempt_3_13]
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 2029
+component = "finality-authority"
+symbol = "authority_replica"
+repair = "Exact source line retained in tools/paxeer-x/retired_callers.json with its existing seed reason; the live surface or rejection input remains unchanged."
+
+[resumed_finding.attempt_3_14]
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 2585
+component = "finality-authority"
+symbol = "authority_replica"
+repair = "Exact source line retained in tools/paxeer-x/retired_callers.json with its existing seed reason; the live surface or rejection input remains unchanged."
+
+[resumed_finding.attempt_3_15]
+path = "services/agent/crates/layerx-agentd/src/node_rpc.rs"
+line = 93
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+repair = "Exact source line retained in tools/paxeer-x/retired_callers.json with its existing seed reason; the live surface or rejection input remains unchanged."
+
+[resumed_finding.attempt_3_16]
+path = "services/agent/crates/layerx-agentd/src/node_rpc.rs"
+line = 96
+component = "handover-client"
+symbol = "LAYERX_AGENT_HANDOVER"
+repair = "Exact source line retained in tools/paxeer-x/retired_callers.json with its existing seed reason; the live surface or rejection input remains unchanged."
+
+[resumed_finding.attempt_3_17]
+path = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"
+line = 2397
+component = "finality-authority"
+symbol = "receipt_authority"
+repair = "Exact source line retained in tools/paxeer-x/retired_callers.json with its existing seed reason; the live surface or rejection input remains unchanged."
+
+[resumed_finding.attempt_3_18]
+path = "services/agent/crates/layerx-agentd/src/read/program_node.rs"
+line = 183
+component = "finality-authority"
+symbol = "authority_replica"
+repair = "Exact source line retained in tools/paxeer-x/retired_callers.json with its existing seed reason; the live surface or rejection input remains unchanged."
+
+[resumed_finding.attempt_3_19]
+path = "services/agent/crates/layerx-agentd/src/read/program_node.rs"
+line = 190
+component = "finality-authority"
+symbol = "authority_replica"
+repair = "Exact source line retained in tools/paxeer-x/retired_callers.json with its existing seed reason; the live surface or rejection input remains unchanged."
+
+[qualification.attempt_3_candidate]
+source_revision = "8e38b8a684bd402e0ffe8abbd514b0e9a8ac590c"
+evidence = "/out/run/gates.jsonl"
+revision_binding = "The hf-build and hf-done entries bind the unchanged final task source and this record to the exact candidate revision, command, exit code and private evidence log."
+claim = "The base test above is executed evidence; final qualification is determined solely by the declared gates and their ledger entries."

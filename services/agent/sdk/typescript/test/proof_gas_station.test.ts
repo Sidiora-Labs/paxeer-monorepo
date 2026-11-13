@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
-import { registerHooks } from "node:module";
+import { createRequire, registerHooks } from "node:module";
 import { test } from "node:test";
 import ts from "typescript";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
@@ -84,6 +84,8 @@ export async function proof_gas_station_producer_transport_consumer(): Promise<v
     existsSync(new URL("modules/gas-station.ts", walletRoot)),
     "real wallet consumer source must exist",
   );
+  const walletRequire = createRequire(new URL("../package.json", walletRoot));
+  assert.ok(existsSync(walletRequire.resolve("viem")), "wallet workspace viem dependency must be installed");
   const loader = registerHooks({
     resolve(specifier, context, next) {
       if (

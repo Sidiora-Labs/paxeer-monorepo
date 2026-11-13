@@ -31,6 +31,8 @@ pub struct FaucetSession<'a> {
     pub session_token: &'a str,
 }
 
+/// # Errors
+/// Returns an error if the bound agent differs, request encoding fails, daemon authorization fails, or the faucet request is refused or unavailable.
 pub fn execute(
     server: &mut Server,
     core_sequence: u64,
@@ -57,6 +59,7 @@ pub fn execute(
         .map_err(FaucetError::Server)?
 }
 
+#[must_use]
 pub fn invocation_outcome(result: &Result<String, FaucetError>) -> InvocationOutcome {
     match result {
         Ok(_) => InvocationOutcome::Completed,
@@ -65,6 +68,8 @@ pub fn invocation_outcome(result: &Result<String, FaucetError>) -> InvocationOut
     }
 }
 
+/// # Errors
+/// Returns an error for invalid credentials, DID or signer key, an invalid endpoint, transport failure, malformed response or an RPC refusal.
 pub fn request_funds(
     node: &str,
     did: &str,
@@ -105,6 +110,8 @@ pub fn request_funds(
 }
 
 /// Decodes the node's response at the same boundary used by CLI consumers.
+/// # Errors
+/// Returns an error for malformed response fields, an unexpected request identifier, invalid grant data or a node RPC refusal.
 pub fn decode_funding_response(
     response: &Value,
     request_id: &Value,
@@ -140,7 +147,7 @@ pub fn decode_funding_response(
 }
 
 fn encode_key(key: &[u8; 32]) -> String {
-    key.iter().map(|byte| format!("{byte:02x}")).collect()
+    crate::hex(key)
 }
 
 fn post(node: &str, body: &[u8], session_token: &str) -> Result<Vec<u8>, FaucetError> {

@@ -1,0 +1,65 @@
+[repair]
+task = "22.39.378"
+source_revision = "4454df22eb4c2f65f8cfbea4f077f1ff7d82508e"
+package_manager = "pnpm@10.34.9, matching the integrity-pinned packageManager of services/wallet/package.json and apps/perps/package.json"
+manifests_changed = false
+tests_changed = false
+verified_revision_source = "/out/run/gates.jsonl: the final verify row identifies the exact candidate revision; /out/logs/verify-1.log contains the bounded qualification evidence"
+
+[refusal.wallet]
+directory = "services/wallet"
+command = "pnpm install --frozen-lockfile"
+exit = 1
+first_error = "ERR_PNPM_OUTDATED_LOCKFILE: Cannot install with frozen-lockfile because pnpm-lock.yaml is not up to date with ../apps/perps/package.json"
+reason = "@types/react has lockfile specifier ^18.3.5 and manifest specifier 18.3.31 in the ../../apps/perps importer"
+log = "/out/repair-22.39.378/wallet-refusal.log"
+preparation = "Saved the inherited install diff privately and restored services/wallet/pnpm-lock.yaml from source_revision before reproducing the refusal once"
+
+[refresh.wallet]
+command = "cd services/wallet && pnpm install --lockfile-only --ignore-scripts --no-frozen-lockfile"
+exit = 0
+log = "/out/repair-22.39.378/wallet-refresh.log"
+changed_entry = "importers['../../apps/perps'].devDependencies['@types/react'].specifier: ^18.3.5 -> 18.3.31"
+preserved_entries = "The resolved @types/react version remains 18.3.31; all other importers, package records and snapshots are byte-for-byte unchanged from source_revision"
+preservation = "The resolver also selected @types/react 19.3.0 for @types/react-reconciler@0.26.7; retained its original 18.3.31 dependency because it does not follow from the manifest correction"
+lock_blob = "5e63f80131cf83a19062e62da49a0290283ba40d"
+offline_attempt = "The initial --offline refresh exited 1 with ERR_PNPM_NO_OFFLINE_META for string_decoder; it made no lockfile change, and the registry-backed refresh succeeded"
+
+[install.perps]
+directory = "apps/perps"
+command = "pnpm install --frozen-lockfile --ignore-scripts"
+exit = 0
+log = "/out/repair-22.39.378/perps-refusal.log"
+result = "Lockfile is up to date, resolution step is skipped; all 3 workspace projects installed successfully"
+changed_entries = "None: the root importer already records @types/react specifier 18.3.31 and resolved version 18.3.31; no refusal occurred, so the conditional refresh is unnecessary"
+lock_blob = "d5c7f27199ca0ee508deab05b2bcee2ee988d2a4"
+
+[workspace_inventory]
+method = "Read every tracked pnpm-workspace.yaml, every package.json workspaces field, and every lerna.json; resolve member paths relative to each workspace root"
+members = ["services/wallet", "services/wallet/gateway", "services/wallet/demo", "sdk/wallet", "apps/perps"]
+matching_roots = ["services/wallet", "apps/perps"]
+wallet_result = "Frozen install refused before repair, exit 1; the final wallet frozen install is the declared hf-build followed by hf-done"
+perps_result = "Frozen install passed, exit 0; see install.perps"
+other_matching_roots = []
+other_refusals = []
+excluded_pnpm_roots = ["apps/bridge", "apps/launchpad", "apps/launchpad/qualification/image-dependencies/fixture", "apps/names", "apps/wallet", "contracts/launchpad", "sdk/names", "services/wallet/ceremony/legacy-import", "tools/hyperfide"]
+root_npm_workspace = "The root package.json lists explicit agent, platform and integration member paths; none matches a wallet workspace member"
+inventory_log = "/out/repair-22.39.378/workspace-inventory.json"
+
+[ci]
+file = ".github/workflows/ci.yml"
+job = "js-wallet-gateway-tests"
+step = "Install wallet dependencies"
+directory = "services/wallet"
+command = "pnpm install --frozen-lockfile"
+frozen = true
+package_manager = "pnpm@10.34.9 with the same integrity pin as services/wallet/package.json"
+
+[qualification]
+build = "hf-build"
+verify = "hf-done"
+build_evidence = "/out/logs/build-1.log"
+verify_evidence = "/out/logs/verify-1.log"
+ledger = "/out/run/gates.jsonl"
+status = "Implementation complete; gate outcomes and exact candidate revision are recorded externally by the bounded wrappers"
+scope_contradiction = "The task declares apps/perps/pnpm-lock.yaml as a required changed path, but its frozen install already passes and do_2 permits refreshing it only on refusal; preserve the existing correct lock rather than introduce unrelated dependency changes"

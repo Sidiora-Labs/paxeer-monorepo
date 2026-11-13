@@ -94,18 +94,9 @@ func XwebPrices(ctx context.Context, client *http.Client, o XwebOptions) (map[st
 	if e != nil {
 		return nil, e
 	}
-	var inventory struct {
-		Height *uint64 `json:"height"`
-		Assets []struct {
-			ID           string `json:"asset_id"`
-			Symbol       string `json:"symbol"`
-			Decimals     *int   `json:"decimals"`
-			Paused       *bool  `json:"paused"`
-			Verification string `json:"verification"`
-		} `json:"assets"`
-	}
-	if uniqueJSON(raw) != nil || json.Unmarshal(raw, &inventory) != nil || inventory.Height == nil || *inventory.Height == 0 {
-		return nil, errors.New("hosted asset inventory lacks committed height")
+	inventory, e := readCommittedAssetInventory(raw)
+	if e != nil {
+		return nil, e
 	}
 	prices := map[string]XwebAsset{}
 	for _, sym := range xwebSymbols {

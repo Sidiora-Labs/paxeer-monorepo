@@ -141,7 +141,8 @@ fn authenticated_commit_raises_only_committed_without_altering_receipt() {
 fn raw_receipt_cannot_escalate_to_committed_and_wait_reports_observed_rung() {
     let root = directory("pending");
     let (bytes, key) = receipt();
-    let receipt = must(VerifiedReceipt::verify(TX_HASH, &bytes, &[key]));
+    // Authenticate the fixture before exercising the raw receipt ingress.
+    let _verified_receipt = must(VerifiedReceipt::verify(TX_HASH, &bytes, &[key]));
     let mut durable = must(Store::open(&root));
     let record = must(augment(
         &mut durable,

@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.lang.reflect.RecordComponent;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -138,56 +137,85 @@ public final class GeneratedCatalogueProgramsTest {
     }
 
     @Test
-    void nativePrepareReturnsEip1559Transaction() throws Exception {
-        Set<String> fields = Set.of("chainId", "nonce", "gas", "to", "data");
-        for (Class<?> type : List.of(GeneratedSchema.AgentModels.NativePrepareResultV1.class,
-                GeneratedSchema.AgentOperations.PrepareResponse.class)) {
-            assertTrue(type.isRecord());
-            Set<String> components = Arrays.stream(type.getRecordComponents())
-                .map(RecordComponent::getName).collect(Collectors.toSet());
-            assertEquals(fields, components);
-            assertFalse(components.contains("activity"));
-            assertFalse(components.contains("moduleId"));
-        }
-        assertSame(GeneratedSchema.AgentOperations.PrepareResponse.class,
-            GeneratedSchema.AgentOperations.PREPARE.responseType());
-        assertSame(GeneratedSchema.AgentModels.NativePrepareResultV1.class,
-            GeneratedSchema.AgentModels.McpNativeWriteV1.class.getMethod("preparation").getReturnType());
-        ObjectNode transaction = JSON.createObjectNode()
-            .put("chainId", BigInteger.valueOf(125)).put("nonce", BigInteger.valueOf(7))
-            .put("gas", BigInteger.valueOf(21000))
-            .put("to", PROGRAMS).put("data", "0xb1ffb3d4" + "00".repeat(32));
-        var nativeResult = JSON.treeToValue(transaction, GeneratedSchema.AgentModels.NativePrepareResultV1.class);
-        assertEquals(BigInteger.valueOf(125), nativeResult.chainId());
-        assertEquals(BigInteger.valueOf(7), nativeResult.nonce());
-        assertEquals(BigInteger.valueOf(21000), nativeResult.gas());
-        assertEquals(PROGRAMS, nativeResult.to());
-        assertEquals(transaction.get("data").textValue(), nativeResult.data());
-        assertEquals(transaction, JSON.valueToTree(nativeResult));
-        var prepared = JSON.treeToValue(transaction, GeneratedSchema.AgentOperations.PREPARE.responseType());
-        assertEquals(nativeResult.chainId(), prepared.chainId());
-        assertEquals(nativeResult.nonce(), prepared.nonce());
-        assertEquals(nativeResult.gas(), prepared.gas());
-        assertEquals(nativeResult.to(), prepared.to());
-        assertEquals(nativeResult.data(), prepared.data());
-        assertEquals(transaction, JSON.valueToTree(prepared));
-
+    void nativePrepareCarriesThePreparationRecord() throws Exception {
+        Set<String> nativeFields = Set.of("version", "preparation_id", "canonical_bytes",
+            "signing_preimage", "activity", "approval_required", "approval_id");
+        Set<String> prepareFields = Set.of("preparation_ref", "unsigned_canonical_bytes",
+            "signing_preimage", "disclosure", "expiry");
+        ObjectNode nativeRecord = JSON.createObjectNode()
+            .put("version", "1").put("preparation_id", "0x" + "11".repeat(32))
+            .put("canonical_bytes", "0x01020304").put("signing_preimage", "0x" + "22".repeat(32))
+            .put("approval_required", true).put("approval_id", "0x" + "33".repeat(32));
+        nativeRecord.set("activity", JSON.valueToTree(
+            new GeneratedSchema.AgentModels.NativeActivityV1("1", "9", "1")));
+        ObjectNode prepareRecord = JSON.createObjectNode()
+            .put("preparation_ref", nativeRecord.required("preparation_id").textValue())
+            .put("unsigned_canonical_bytes", nativeRecord.required("canonical_bytes").textValue())
+            .put("signing_preimage", nativeRecord.required("signing_preimage").textValue())
+            .put("expiry", "1800000000");
+        prepareRecord.set("disclosure", JSON.createObjectNode().put("purpose", "program.call"));
+        ObjectNode kernel = JSON.createObjectNode().put("version", "1").put("module", "9").put("ordinal", "1");
+        var checks = new ArrayList<org.junit.jupiter.api.function.Executable>();
+        checks.add(() -> assertSame(GeneratedSchema.AgentOperations.PrepareResponse.class,
+            GeneratedSchema.AgentOperations.PREPARE.responseType()));
+        checks.add(() -> assertSame(GeneratedSchema.AgentModels.NativePrepareResultV1.class,
+            GeneratedSchema.AgentModels.McpNativeWriteV1.class.getMethod("preparation").getReturnType()));
         for (Class<?> type : List.of(GeneratedSchema.AgentModels.NativePrepareResultV1.class,
                 GeneratedSchema.AgentOperations.PREPARE.responseType())) {
+            boolean nativeResult = type == GeneratedSchema.AgentModels.NativePrepareResultV1.class;
+            Set<String> fields = nativeResult ? nativeFields : prepareFields;
+            ObjectNode record = nativeResult ? nativeRecord : prepareRecord;
+            checks.add(() -> {
+                assertTrue(type.isRecord());
+                Set<String> components = Arrays.stream(type.getRecordComponents())
+                    .map(RecordComponent::getName).collect(Collectors.toSet());
+                assertAll(type.getSimpleName(),
+                    () -> assertEquals(fields, components),
+                    () -> assertEquals(nativeResult, components.contains("activity")),
+                    () -> assertFalse(components.contains("moduleId")));
+            });
+            checks.add(() -> {
+                Object decoded = JSON.treeToValue(record, type);
+                assertEquals(record, JSON.valueToTree(decoded));
+                assertEquals(decoded, JSON.readValue(JSON.writeValueAsBytes(decoded), type));
+                if (decoded instanceof GeneratedSchema.AgentModels.NativePrepareResultV1 value) {
+                    assertEquals(record.required("version").textValue(), value.version());
+                    assertEquals(record.required("preparation_id").textValue(), value.preparation_id());
+                    assertEquals(record.required("canonical_bytes").textValue(), value.canonical_bytes());
+                    assertEquals(record.required("signing_preimage").textValue(), value.signing_preimage());
+                    assertEquals(record.required("activity"), JSON.valueToTree(value.activity()));
+                    assertEquals(record.required("approval_required").booleanValue(), value.approval_required());
+                    assertEquals(record.required("approval_id").textValue(), value.approval_id());
+                    assertEquals(value.approval_id() != null, value.approval_required());
+                } else {
+                    var value = (GeneratedSchema.AgentOperations.PrepareResponse) decoded;
+                    assertEquals(record.required("preparation_ref"), value.preparation_ref());
+                    assertEquals(record.required("unsigned_canonical_bytes"), value.unsigned_canonical_bytes());
+                    assertEquals(record.required("signing_preimage"), value.signing_preimage());
+                    assertEquals(record.required("disclosure"), value.disclosure());
+                    assertEquals(record.required("expiry"), value.expiry());
+                }
+            });
             for (String field : fields) {
-                ObjectNode missing = transaction.deepCopy();
-                missing.remove(field);
-                assertThrows(DatabindException.class, () -> JSON.treeToValue(missing, type), field);
+                checks.add(() -> {
+                    ObjectNode missing = record.deepCopy();
+                    missing.remove(field);
+                    assertThrows(DatabindException.class, () -> JSON.treeToValue(missing, type),
+                        type.getSimpleName() + " missing " + field);
+                });
             }
-            ObjectNode kernel = transaction.deepCopy();
-            kernel.set("activity", JSON.createObjectNode().put("version", "1").put("module", "9").put("ordinal", "1"));
-            assertThrows(DatabindException.class, () -> JSON.treeToValue(kernel, type));
-            for (String field : List.of("chainId", "nonce", "gas")) {
-                ObjectNode negative = transaction.deepCopy().put(field, -1);
-                assertThrows(DatabindException.class, () -> JSON.treeToValue(negative, type), field);
-                ObjectNode overflow = transaction.deepCopy().put(field, BigInteger.ONE.shiftLeft(64));
-                assertThrows(DatabindException.class, () -> JSON.treeToValue(overflow, type), field);
+            checks.add(() -> assertThrows(DatabindException.class, () -> JSON.treeToValue(kernel, type),
+                type.getSimpleName() + " refuses a kernel activity object"));
+            for (String field : nativeResult ? List.of("moduleId") : List.of("activity", "moduleId")) {
+                checks.add(() -> {
+                    ObjectNode internal = record.deepCopy();
+                    if ("activity".equals(field)) internal.set(field, kernel);
+                    else internal.put(field, "9");
+                    assertThrows(DatabindException.class, () -> JSON.treeToValue(internal, type),
+                        type.getSimpleName() + " refuses " + field);
+                });
             }
         }
+        assertAll("native preparation records", checks);
     }
 }

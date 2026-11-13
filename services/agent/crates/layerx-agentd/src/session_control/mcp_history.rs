@@ -38,11 +38,11 @@ pub(crate) struct McpInvocationIndex {
     counts: BTreeMap<TenantId, (usize, usize)>,
 }
 
-fn remove_from<K: Ord>(map: &mut BTreeMap<K, BTreeSet<TenantKey>>, group: K, key: &TenantKey) {
-    if let Some(keys) = map.get_mut(&group) {
+fn remove_from<K: Ord>(map: &mut BTreeMap<K, BTreeSet<TenantKey>>, group: &K, key: &TenantKey) {
+    if let Some(keys) = map.get_mut(group) {
         keys.remove(key);
         if keys.is_empty() {
-            map.remove(&group);
+            map.remove(group);
         }
     }
 }
@@ -106,21 +106,21 @@ impl McpInvocationIndex {
 
     pub(crate) fn replace(&mut self, key: TenantKey, record: Option<IndexedInvocation>) {
         if let Some(old) = self.records.remove(&key) {
-            remove_from(&mut self.by_session, (old.session, old.generation), &key);
+            remove_from(&mut self.by_session, &(old.session, old.generation), &key);
             remove_from(
                 &mut self.by_idempotency,
-                (key.tenant().clone(), old.idempotency),
+                &(key.tenant().clone(), old.idempotency),
                 &key,
             );
             if let Some(tool) = old.tool {
                 remove_from(
                     &mut self.by_tool,
-                    (key.tenant().clone(), old.idempotency, tool),
+                    &(key.tenant().clone(), old.idempotency, tool),
                     &key,
                 );
             }
             if let Some(outbox) = old.native_outbox {
-                remove_from(&mut self.by_outbox, outbox, &key);
+                remove_from(&mut self.by_outbox, &outbox, &key);
             }
             if let Some(recent) = self.recent_terminal.get_mut(key.tenant()) {
                 recent.remove(&(old.order, key.clone()));
@@ -174,7 +174,7 @@ impl McpInvocationIndex {
                     if let Some(record) = self.records.get(&evicted) {
                         remove_from(
                             &mut self.by_session,
-                            (record.session.clone(), record.generation),
+                            &(record.session.clone(), record.generation),
                             &evicted,
                         );
                     }

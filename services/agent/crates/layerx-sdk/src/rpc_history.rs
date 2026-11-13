@@ -28,6 +28,7 @@ pub struct HistoryPage {
     pub verification_status: VerificationStatus,
 }
 
+#[must_use]
 pub fn encode_cursor(cursor: &HistoryCursor) -> Value {
     json!([
         cursor.block_height.to_string(),
@@ -36,6 +37,7 @@ pub fn encode_cursor(cursor: &HistoryCursor) -> Value {
     ])
 }
 
+#[must_use]
 pub fn decode_cursor(value: &Value) -> Option<HistoryCursor> {
     let values = value.as_array()?;
     if values.len() != 3 {
@@ -50,7 +52,7 @@ pub fn decode_cursor(value: &Value) -> Option<HistoryCursor> {
 }
 
 pub(crate) fn lower_hex(text: &str) -> Option<Vec<u8>> {
-    if text.len() % 2 != 0 {
+    if !text.len().is_multiple_of(2) {
         return None;
     }
     text.as_bytes()

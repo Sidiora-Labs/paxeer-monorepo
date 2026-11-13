@@ -2,12 +2,11 @@ package devsocial
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"strings"
 	"testing"
 
-	"github.com/google/uuid"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/internaltest"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
@@ -48,20 +47,8 @@ func TestMigrationIsRerunnable(t *testing.T) {
 	if adminDSN == "" {
 		adminDSN = "postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable"
 	}
-	admin, err := pgx.Connect(ctx, adminDSN)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer admin.Close(ctx)
-	name := "social_fleet2_mig_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:8]
-	if _, err = admin.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize()); err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		_, _ = admin.Exec(context.Background(), "DROP DATABASE IF EXISTS "+pgx.Identifier{name}.Sanitize()+" WITH (FORCE)")
-	}()
-	cfg, _ := pgx.ParseConfig(adminDSN)
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable", cfg.User, cfg.Password, cfg.Host, cfg.Port, name)
+	dsn := internaltest.DevelopmentPostgresDSN(t, adminDSN)
+	var err error
 	if err = migrate.Up(ctx, dsn); err != nil {
 		t.Fatal(err)
 	}
@@ -92,20 +79,7 @@ func TestRailwayStyleSearchPath(t *testing.T) {
 	if adminDSN == "" {
 		adminDSN = "postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable"
 	}
-	admin, err := pgx.Connect(ctx, adminDSN)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer admin.Close(ctx)
-	name := "social_fleet2_sp_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:8]
-	if _, err = admin.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize()); err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		_, _ = admin.Exec(context.Background(), "DROP DATABASE IF EXISTS "+pgx.Identifier{name}.Sanitize()+" WITH (FORCE)")
-	}()
-	cfg, _ := pgx.ParseConfig(adminDSN)
-	base := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable", cfg.User, cfg.Password, cfg.Host, cfg.Port, name)
+	base := internaltest.DevelopmentPostgresDSN(t, adminDSN)
 	setup, err := pgx.Connect(ctx, base)
 	if err != nil {
 		t.Fatal(err)

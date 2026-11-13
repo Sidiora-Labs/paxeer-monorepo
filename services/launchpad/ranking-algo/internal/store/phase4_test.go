@@ -939,6 +939,12 @@ func phase4Package(c phase4Config, a *phase4Artifacts, executionErr error) error
 	return a.document("measurement-result.json", map[string]any{"mode": c.Mode, "binding": c.Binding, "artifacts": artifacts, "measurementPassed": executionErr == nil, "capacityQualified": false, "productionQualified": false, "finalSharedAcceptanceTask": "9.1"})
 }
 func TestPhase4ActualMeasurementHarness(t *testing.T) {
+	for _, name := range []string{"L19_PHASE4_CONFIG_FILE", "L19_PHASE4_CONFIG_SHA256"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	c, err := phase4LoadConfig()
 	if err != nil {
 		t.Fatal("actual source-bound phase4 configuration required", err)

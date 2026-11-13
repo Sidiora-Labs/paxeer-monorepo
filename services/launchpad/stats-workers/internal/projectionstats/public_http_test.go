@@ -97,6 +97,12 @@ func TestPhase2PublicAbsentServiceIsUnavailable(t *testing.T) {
 }
 
 func TestPhase2IntegratedCanonicalHTTPAgainstSource(t *testing.T) {
+	for _, name := range []string{"L13_PHASE2_SOURCE_STREAM", "L13_PHASE2_PROJECTION_VERSION"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	dsn := os.Getenv("L13_PHASE2_POSTGRES_DSN")
 	stream := os.Getenv("L13_PHASE2_SOURCE_STREAM")
 	version := os.Getenv("L13_PHASE2_PROJECTION_VERSION")
@@ -232,6 +238,12 @@ func TestPhase2IntegratedCanonicalHTTPAgainstSource(t *testing.T) {
 }
 
 func TestPhase3RedisRestartAndCanonicalDependencyOutage(t *testing.T) {
+	for _, name := range []string{"L13_PHASE2_SOURCE_STREAM", "L13_PHASE2_PROJECTION_VERSION"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	dsn, stream, version, redisServer := os.Getenv("L13_PHASE2_POSTGRES_DSN"), os.Getenv("L13_PHASE2_SOURCE_STREAM"), os.Getenv("L13_PHASE2_PROJECTION_VERSION"), os.Getenv("L13_PHASE3_REDIS_SERVER")
 	if dsn == "" || stream == "" || version == "" || redisServer == "" {
 		t.Fatal("admitted canonical PostgreSQL fixture (L13_PHASE2_POSTGRES_DSN, L13_PHASE2_SOURCE_STREAM, L13_PHASE2_PROJECTION_VERSION) and L13_PHASE3_REDIS_SERVER (path to a redis-server binary, run as a throwaway local process; tests never start containers) required")
@@ -339,9 +351,9 @@ func mustPhase3JSON(t *testing.T, value any) []byte {
 }
 
 func TestPhase3CanonicalOpticalFeesAgainstIndependentIntegers(t *testing.T) {
-	dsn := os.Getenv("L13_PHASE2_POSTGRES_DSN")
+	dsn := os.Getenv("L13_PHASE3_OPTICAL_FILLS_DSN")
 	if dsn == "" {
-		t.Fatal("actual canonical optical-adjustment source fixture required")
+		t.Skip("protected canonical optical-adjustment source fixture unavailable: L13_PHASE3_OPTICAL_FILLS_DSN is not set")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

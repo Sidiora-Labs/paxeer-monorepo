@@ -1,5 +1,7 @@
 "use client";
 
+import { copyEntry } from "../../../copy/runtime";
+
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
@@ -179,9 +181,9 @@ export function LaunchpadActions({
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <ExplorerPanel title="Buy or sell">
+      <ExplorerPanel title={copyEntry("launchpad.copy.buy_or_sell").message}>
         {markets.length === 0 ? (
-          <InlineNotice>There is no market to trade yet.</InlineNotice>
+          <InlineNotice>{copyEntry("launchpad.copy.there_is_no_market_to_trade_yet").message}</InlineNotice>
         ) : (
           <div className="flex flex-col gap-3">
             <ChoiceField
@@ -195,7 +197,7 @@ export function LaunchpadActions({
               }))}
             />
             <SegmentedControl
-              aria-label="Side"
+              aria-label={copyEntry("launchpad.copy.side").message}
               value={side}
               onValueChange={(value) => {
                 setSide(value === "sell" ? "sell" : "buy");
@@ -256,7 +258,7 @@ export function LaunchpadActions({
           </div>
         )}
       </ExplorerPanel>
-      <ExplorerPanel title="Create a market">
+      <ExplorerPanel title={copyEntry("launchpad.copy.create_a_market").message}>
         <div className="flex flex-col gap-3">
           <TextField
             label="Name"

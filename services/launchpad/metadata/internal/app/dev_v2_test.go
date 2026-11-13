@@ -94,11 +94,17 @@ func (c *devChain) emitTokenDeployed(t *testing.T, token, pool, creator string, 
 		t.Fatal(err)
 	}
 	height := new(big.Int).Add(head.Number, big.NewInt(1))
-	rawABI, err := os.ReadFile("../../../../../precompiles/launchpad/abi/EventEmitter.json")
+	rawABI, err := os.ReadFile("../../../../../sdk/launchpad/protocol/bindings/testdata/repair37/EventEmitter.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsed, err := abi.JSON(bytes.NewReader(rawABI))
+	var artifact struct {
+		ABI json.RawMessage `json:"abi"`
+	}
+	if err := json.Unmarshal(rawABI, &artifact); err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := abi.JSON(bytes.NewReader(artifact.ABI))
 	if err != nil {
 		t.Fatal(err)
 	}

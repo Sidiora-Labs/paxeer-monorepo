@@ -6,8 +6,11 @@ package migrate
 import (
 	"context"
 	"database/sql"
+	_ "embed"
 	"fmt"
 	"sync"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 
 	_ "github.com/jackc/pgx/v5/stdlib" // register the "pgx" database/sql driver
 	"github.com/pressly/goose/v3"
@@ -19,6 +22,9 @@ import (
 // dialect), so concurrent callers (e.g. parallel tests) must not race it.
 var gooseMu sync.Mutex
 
+//go:embed chainlaunch.sql
+var chainLaunchSQL string
+
 // Up brings the database at dsn to the latest migration version.
 func Up(ctx context.Context, dsn string) error {
 	gooseMu.Lock()
@@ -28,7 +34,7 @@ func Up(ctx context.Context, dsn string) error {
 	if err != nil {
 		return fmt.Errorf("migrate: open db: %w", err)
 	}
-	defer sqlDB.Close()
+	defer checked.Close(sqlDB)
 
 	goose.SetBaseFS(migrations.FS)
 	goose.SetLogger(goose.NopLogger())
@@ -37,6 +43,9 @@ func Up(ctx context.Context, dsn string) error {
 	}
 	if err := goose.UpContext(ctx, sqlDB, "."); err != nil {
 		return fmt.Errorf("migrate: up: %w", err)
+	}
+	if _, err := sqlDB.ExecContext(ctx, chainLaunchSQL); err != nil {
+		return fmt.Errorf("migrate: chain launch tables: %w", err)
 	}
 	return nil
 }

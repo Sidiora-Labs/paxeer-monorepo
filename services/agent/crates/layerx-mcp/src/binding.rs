@@ -231,7 +231,7 @@ impl ReadinessBoundary {
             "transport_ready": value.transport_ready,
             "verified_reads_ready": value.verified_reads_ready,
             "writes_admitted": value.writes_admitted,
-            "recovery_reason": value.recovery_reason.map(|reason| reason.as_str()),
+            "recovery_reason": value.recovery_reason.map(layerx_agent_api::identity::TenantRecoveryReason::as_str),
             "verification_status": {"state": "achieved", "level": "unverified"},
         }))
     }
@@ -404,6 +404,10 @@ impl WebPayer for SharedPayer {
 
 /// The daemon-backed boundary one opened session executes against: verified program reads,
 /// and the web route in front of them when the session carries a web scope.
+#[allow(
+    clippy::large_enum_variant,
+    reason = "DaemonBoundary's public Readiness variant retains its Option<ReadinessBoundary> payload for callers."
+)]
 pub enum DaemonBoundary {
     Reads(ProgramReads),
     Web(Box<WebBoundary<ProgramReads>>),
@@ -460,6 +464,8 @@ pub struct OwnerEnvironment {
     pub native_send_profile: bool,
 }
 
+/// # Errors
+/// Refuses a missing or malformed signature, a non-object argument, or a variant other than `external_signature_v1`.
 pub fn external_signature_request(arguments: &Value) -> Result<Value, BoundaryRefusal> {
     let refuse = || BoundaryRefusal::Malformed("mcp.external_signature".into());
     arguments
@@ -582,12 +588,10 @@ where
 }
 
 fn owner_refusal(error: layerx_agentd::agent_rpc::Rejection) -> BoundaryRefusal {
-    error
-        .into_api_error()
-        .map(BoundaryRefusal::Owner)
-        .unwrap_or_else(|| {
-            BoundaryRefusal::Malformed("the daemon owner refusal is invalid".to_owned())
-        })
+    error.into_api_error().map_or_else(
+        || BoundaryRefusal::Malformed("the daemon owner refusal is invalid".to_owned()),
+        BoundaryRefusal::Owner,
+    )
 }
 
 #[derive(Debug)]
@@ -922,6 +926,8 @@ impl Binding {
         ))
     }
 
+    /// # Errors
+    /// Returns a binding error for missing credentials or readiness configuration, or a daemon error if the authenticated description cannot be loaded.
     pub fn open_daemon_client(&self) -> Result<DaemonClientSession, BindingError> {
         let token = self.session_token()?;
         let readiness = self.readiness_boundary(&token)?.ok_or_else(|| {
@@ -931,10 +937,13 @@ impl Binding {
             .map_err(BindingError::Daemon)
     }
 
+    #[must_use]
     pub fn matches_session(&self, credential: &SessionCredential) -> bool {
         credential.tenant().as_str() == self.tenant && credential.session_id().0 == self.session_id
     }
 
+    /// # Errors
+    /// Returns a binding error if the session token cannot be loaded or the tenant identifier is invalid.
     pub fn daemon_credential(&self) -> Result<SessionCredential, BindingError> {
         let token = self.session_token()?;
         let tenant = TenantId::new(self.tenant.clone())
@@ -947,6 +956,8 @@ impl Binding {
         ))
     }
 
+    /// # Errors
+    /// Returns a binding error if credentials or the authenticated readiness transport are unavailable or malformed.
     pub fn daemon_transport(&self) -> Result<AgentEnvelopeTransport, BindingError> {
         let token = self.session_token()?;
         self.readiness_boundary(&token)?
@@ -956,6 +967,12 @@ impl Binding {
             })
     }
 
+    /// # Errors
+    /// Returns a binding or authority error when credentials, invocation identity, owner configuration, argument validation or durable authorization fail.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "Binding::daemon_invocation preserves the public owner, credential and invocation argument contract."
+    )]
     pub fn daemon_invocation<F>(
         &self,
         control: SessionControl,

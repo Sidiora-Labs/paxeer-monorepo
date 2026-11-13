@@ -1,11 +1,11 @@
 //! Repair record for audit 22.30.127, task 22.31.261.
-//! Finding 1: finding_1_single_field_complete_message_ceiling and
-//! finding_1_accumulated_fields_share_the_transport_ceiling.
-//! Finding 2: finding_2_all_frozen_refusals_round_trip,
-//! finding_2_unknown_and_malformed_refusals_still_reject, and
-//! finding_2_authorized_cached_refusal_survives_capture_and_restore.
+//! Finding 1: `finding_1_single_field_complete_message_ceiling` and
+//! `finding_1_accumulated_fields_share_the_transport_ceiling`.
+//! Finding 2: `finding_2_all_frozen_refusals_round_trip`,
+//! `finding_2_unknown_and_malformed_refusals_still_reject`, and
+//! `finding_2_authorized_cached_refusal_survives_capture_and_restore`.
 //! Baseline verification was not run: the task's ordered gate instructions
-//! require implementation first and prohibit invoking verify_cmd by hand.
+//! require implementation first and prohibit invoking `verify_cmd` by hand.
 //! No out-of-path wiring is required by either repair proposal.
 
 use layerx_programs_runtime::abi::{Calldata, CodecError, MAX_CALLDATA_BYTES};
@@ -20,13 +20,17 @@ use layerx_programs_runtime::{
 
 #[test]
 fn finding_1_single_field_complete_message_ceiling() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     assert_eq!(MAX_CALLDATA_BYTES, 1_048_576);
     let maximum_value = vec![0xa5; MAX_CALLDATA_BYTES - 6];
     let mut calldata = Calldata::new();
-    calldata.encode_bytes(&maximum_value).unwrap();
+    calldata
+        .encode_bytes(&maximum_value)
+        .assert_success("test value");
     let transport = calldata.as_bytes();
     assert_eq!(transport.len(), MAX_CALLDATA_BYTES);
-    let parsed = Calldata::from_bytes(&transport).unwrap();
+    let parsed = Calldata::from_bytes(&transport).assert_success("test value");
     assert_eq!(parsed.payload(), calldata.payload());
     assert_eq!(&parsed.payload()[5..], maximum_value);
     assert_eq!(parsed.as_bytes(), transport);
@@ -43,8 +47,11 @@ fn finding_1_single_field_complete_message_ceiling() {
     assert!(Calldata::from_bytes(&fresh.as_bytes()).is_ok());
 
     let mut oversized_transport = transport;
-    oversized_transport[2..6]
-        .copy_from_slice(&u32::try_from(oversized_value.len()).unwrap().to_be_bytes());
+    oversized_transport[2..6].copy_from_slice(
+        &u32::try_from(oversized_value.len())
+            .assert_success("test value")
+            .to_be_bytes(),
+    );
     oversized_transport.push(0xa5);
     assert_eq!(oversized_transport.len(), MAX_CALLDATA_BYTES + 1);
     assert!(matches!(
@@ -55,10 +62,14 @@ fn finding_1_single_field_complete_message_ceiling() {
 
 #[test]
 fn finding_1_accumulated_fields_share_the_transport_ceiling() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let mut calldata = Calldata::new();
-    calldata.encode_u64(u64::MAX).unwrap();
-    calldata.encode_bytes(&[0x3c; 257]).unwrap();
-    calldata.encode_option_none().unwrap();
+    calldata.encode_u64(u64::MAX).assert_success("test value");
+    calldata
+        .encode_bytes(&[0x3c; 257])
+        .assert_success("test value");
+    calldata.encode_option_none().assert_success("test value");
     let prefix = calldata.as_bytes();
     let remaining = MAX_CALLDATA_BYTES - prefix.len() - 5;
     let mut final_value = vec![0x5a; remaining + 1];
@@ -68,13 +79,20 @@ fn finding_1_accumulated_fields_share_the_transport_ceiling() {
         Err(CodecError::InputTooLarge)
     );
     assert_eq!(calldata.as_bytes(), prefix);
-    assert_eq!(Calldata::from_bytes(&prefix).unwrap().as_bytes(), prefix);
+    assert_eq!(
+        Calldata::from_bytes(&prefix)
+            .assert_success("test value")
+            .as_bytes(),
+        prefix
+    );
     final_value.pop();
-    calldata.encode_bytes(&final_value).unwrap();
+    calldata
+        .encode_bytes(&final_value)
+        .assert_success("test value");
     let transport = calldata.as_bytes();
     assert_eq!(transport.len(), MAX_CALLDATA_BYTES);
     assert_eq!(&transport[..prefix.len()], prefix);
-    let parsed = Calldata::from_bytes(&transport).unwrap();
+    let parsed = Calldata::from_bytes(&transport).assert_success("test value");
     assert_eq!(parsed.as_bytes(), transport);
     assert_eq!(
         &parsed.payload()[parsed.payload().len() - remaining..],
@@ -86,8 +104,11 @@ fn finding_1_accumulated_fields_share_the_transport_ceiling() {
     assert_eq!(calldata.as_bytes(), transport);
     let mut oversized_transport = transport;
     let length_offset = prefix.len() + 1;
-    oversized_transport[length_offset..length_offset + 4]
-        .copy_from_slice(&u32::try_from(remaining + 1).unwrap().to_be_bytes());
+    oversized_transport[length_offset..length_offset + 4].copy_from_slice(
+        &u32::try_from(remaining + 1)
+            .assert_success("test value")
+            .to_be_bytes(),
+    );
     oversized_transport.push(0x5a);
     assert!(matches!(
         Calldata::from_bytes(&oversized_transport),
@@ -209,6 +230,8 @@ fn refusal_cases() -> Vec<(AbiError, Vec<u8>)> {
 
 #[test]
 fn finding_2_all_frozen_refusals_round_trip() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let cases = refusal_cases();
     assert_eq!(cases.len(), 42);
     let mut seen = [false; 18];
@@ -216,7 +239,7 @@ fn finding_2_all_frozen_refusals_round_trip() {
         let encoded = error.canonical_replay_bytes();
         assert_eq!(encoded, expected, "frozen encoding for {error:?}");
         seen[usize::from(frozen_error_tag(&error))] = true;
-        let decoded = AbiError::from_canonical_replay_bytes(&encoded).unwrap();
+        let decoded = AbiError::from_canonical_replay_bytes(&encoded).assert_success("test value");
         assert_eq!(decoded, error);
         assert_eq!(decoded.canonical_replay_bytes(), encoded);
     }
@@ -277,7 +300,9 @@ const ASSET: [u8; 32] = [0x32; 32];
 const RECEIPT: [u8; 32] = [0x33; 32];
 
 fn capture_cached_refusal(principal: PrincipalId) -> CapturedSemanticReplayV2 {
-    let program = ProgramId::new([0x11; 32]).unwrap();
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    let program = ProgramId::new([0x11; 32]).assert_success("test value");
     let capabilities = CapabilitySet::new([
         Capability::StorageRead,
         Capability::BalanceView {
@@ -286,13 +311,13 @@ fn capture_cached_refusal(principal: PrincipalId) -> CapturedSemanticReplayV2 {
             receipt_digest: RECEIPT,
         },
     ])
-    .unwrap();
+    .assert_success("test value");
     let mut storage = Storage::new();
     let mut transaction = storage.transaction(StorageNamespace::principal(program, principal));
     transaction
         .write(b"persisted", b"authorized storage")
-        .unwrap();
-    transaction.commit();
+        .assert_success("test value");
+    let _ = transaction.commit();
     let abi = Abi::new(
         ABI_V2_VERSION,
         program,
@@ -300,7 +325,7 @@ fn capture_cached_refusal(principal: PrincipalId) -> CapturedSemanticReplayV2 {
         storage.clone(),
         &UnavailableReceiptOracle,
     )
-    .unwrap();
+    .assert_success("test value");
     assert_eq!(
         abi.balance_read(ACCOUNT, ASSET),
         Err(AbiError::BalanceEvidenceUnavailable)
@@ -310,14 +335,16 @@ fn capture_cached_refusal(principal: PrincipalId) -> CapturedSemanticReplayV2 {
         Err(AbiError::CapabilityDenied)
     );
     let module = WasmEngine::declared()
-        .unwrap()
+        .assert_success("test value")
         .validate_v2(&add_module())
-        .unwrap();
-    let instance = module.instantiate_sandbox(Meter::declared(), abi).unwrap();
+        .assert_success("test value");
+    let instance = module
+        .instantiate_sandbox(Meter::declared(), abi)
+        .assert_success("test value");
     assert_eq!(instance.storage_snapshot(), Some(storage));
     let captured = instance
         .capture_semantic_replay_source(REPLAY_BYTES)
-        .unwrap();
+        .assert_success("test value");
     drop(instance);
     captured
 }
@@ -329,11 +356,15 @@ fn take<'a>(bytes: &mut &'a [u8], length: usize) -> &'a [u8] {
 }
 
 fn field<'a>(bytes: &mut &'a [u8]) -> &'a [u8] {
-    let length = u32::from_be_bytes(take(bytes, 4).try_into().unwrap());
-    take(bytes, usize::try_from(length).unwrap())
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    let length = u32::from_be_bytes(take(bytes, 4).try_into().assert_success("test value"));
+    take(bytes, usize::try_from(length).assert_success("test value"))
 }
 
 fn captured_balance_refusal(encoded: &[u8]) -> AbiError {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let mut semantic = encoded;
     let semantic_domain = b"LayerX/programs/semantic-replay-source/v2\0";
     assert_eq!(take(&mut semantic, semantic_domain.len()), semantic_domain);
@@ -359,24 +390,33 @@ fn captured_balance_refusal(encoded: &[u8]) -> AbiError {
     assert_eq!(take(&mut abi, 32), ASSET);
     assert_eq!(take(&mut abi, 1), [0]);
     let refusal = field(&mut abi);
-    let decoded = AbiError::from_canonical_replay_bytes(refusal).unwrap();
+    let decoded = AbiError::from_canonical_replay_bytes(refusal).assert_success("test value");
     assert_eq!(decoded.canonical_replay_bytes(), refusal);
     decoded
 }
 
 #[test]
 fn finding_2_authorized_cached_refusal_survives_capture_and_restore() {
-    let captured = capture_cached_refusal(PrincipalId::new([0x22; 32]).unwrap());
-    let encoded = captured.canonical_bytes(REPLAY_BYTES).unwrap();
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    let captured =
+        capture_cached_refusal(PrincipalId::new([0x22; 32]).assert_success("test value"));
+    let encoded = captured
+        .canonical_bytes(REPLAY_BYTES)
+        .assert_success("test value");
     assert_eq!(
         captured_balance_refusal(&encoded),
         AbiError::BalanceEvidenceUnavailable
     );
     let restored = captured
         .restore_untrusted_bytes(&encoded, REPLAY_BYTES)
-        .unwrap();
-    let recaptured = restored.recapture(REPLAY_BYTES).unwrap();
-    let recovered = recaptured.canonical_bytes(REPLAY_BYTES).unwrap();
+        .assert_success("test value");
+    let recaptured = restored
+        .recapture(REPLAY_BYTES)
+        .assert_success("test value");
+    let recovered = recaptured
+        .canonical_bytes(REPLAY_BYTES)
+        .assert_success("test value");
     assert_eq!(recovered, encoded);
     assert_eq!(
         captured_balance_refusal(&recovered),
@@ -385,17 +425,18 @@ fn finding_2_authorized_cached_refusal_survives_capture_and_restore() {
     drop(restored);
     let reopened = recaptured
         .restore_untrusted_bytes(&recovered, REPLAY_BYTES)
-        .unwrap();
+        .assert_success("test value");
     assert_eq!(
         reopened
             .recapture(REPLAY_BYTES)
-            .unwrap()
+            .assert_success("test value")
             .canonical_bytes(REPLAY_BYTES)
-            .unwrap(),
+            .assert_success("test value"),
         encoded
     );
 
-    let other_authority = capture_cached_refusal(PrincipalId::new([0x23; 32]).unwrap());
+    let other_authority =
+        capture_cached_refusal(PrincipalId::new([0x23; 32]).assert_success("test value"));
     assert!(matches!(
         other_authority.restore_untrusted_bytes(&encoded, REPLAY_BYTES),
         Err(ReplayWitnessError::Binding)

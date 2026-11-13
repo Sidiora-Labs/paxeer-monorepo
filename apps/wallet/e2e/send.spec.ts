@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { expect, test, type Page, type Locator, type TestInfo } from '@playwright/test';
 import { formatEther } from 'ethers';
-import type { TransferObservation } from '@paxeer/wallet';
+import { parseReceiptKeyResponse, type TransferObservation } from '@paxeer/wallet';
 import { readSequencerReceipt } from '../../../sdk/wallet/src/receipt';
 import { readExplorerStatus } from '../../../sdk/wallet/src/ladder';
 import { createWalletClient, http, type Hex } from 'viem';
@@ -38,9 +38,11 @@ const OBSERVED_METHODS = new Set([
   'eth_chainId',
   'eth_getTransactionReceipt',
   'eth_getTransactionByHash',
+  'eth_getRawTransactionByHash',
   'eth_getTransactionCount',
   'eth_getBlockByNumber',
   'pax_sequencerReceipt',
+  'px_getReceiptKeys',
 ]);
 const WRONG_RPC = process.env.WALLET_TRANSFER_TRUTH_WRONG_RPC_URL ?? '';
 const WALLET_RPC =
@@ -55,7 +57,13 @@ async function rpcAt(url: string, method: string, params: readonly unknown[] = [
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
   });
-  const body = (await response.json()) as { result?: unknown; error?: { message: string } };
+  const text = await response.text();
+  const body = (
+    method === 'px_getReceiptKeys' ? parseReceiptKeyResponse(text) : JSON.parse(text)
+  ) as {
+    result?: unknown;
+    error?: { message: string };
+  };
   if (body.error) throw new Error(`${method}: ${body.error.message}`);
   return body.result;
 }
@@ -1097,6 +1105,12 @@ async function send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_r
       return stored.value[key];
     }, `125:${hash.toLowerCase()}`);
 
+  const storedReceipt = JSON.parse(
+    JSON.stringify(receipt, (_key, value: unknown) =>
+      typeof value === 'bigint' ? value.toString(10) : value
+    )
+  );
+
   await expect(title(page)).toHaveAttribute('data-truth', 'included');
   await expect(title(page)).toHaveText('Receipted');
   const receipted = page.locator('li[data-rung="receipted"]');
@@ -1110,8 +1124,8 @@ async function send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_r
     identity: { hash, chainId: 125 },
     truth: 'included',
     steps: [step],
-    sequencer: receipt,
-    lastVerified: { steps: [step], sequencer: receipt },
+    sequencer: storedReceipt,
+    lastVerified: { steps: [step], sequencer: storedReceipt },
   });
 
   await page.reload();
@@ -1127,7 +1141,7 @@ async function send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_r
     identity: { hash, chainId: 125 },
     truth: 'included',
     steps: [step],
-    sequencer: receipt,
-    lastVerified: { steps: [step], sequencer: receipt },
+    sequencer: storedReceipt,
+    lastVerified: { steps: [step], sequencer: storedReceipt },
   });
 }

@@ -12,166 +12,87 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgproto3"
 	"github.com/jackc/pgx/v5/pgxpool"
 	goredis "github.com/redis/go-redis/v9"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/engine"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/constants"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 )
 
-// The peer is a committed PostgreSQL protocol transcript, not a replacement for
-// the handler, builder, store or pgx. Unexpected SQL fails closed.
-type repairM1050SQLStep struct {
-	Contains []string `json:"contains"`
-	Tag      string   `json:"tag"`
-	Status   string   `json:"status"`
-	Error    string   `json:"error"`
-}
-type repairM1050SQLTranscript struct {
-	mu      sync.Mutex
-	steps   []repairM1050SQLStep
-	next    int
-	commits int
-	failure string
+// The retry fixture injects a real PostgreSQL serialization failure into the
+// second swap's transaction; sequence increments survive the rollback.
+type repairM1050State struct {
+	pool *pgxpool.Pool
 }
 
-func repairM1050Postgres(t *testing.T) (*pgxpool.Pool, *repairM1050SQLTranscript) {
+func repairM1050Postgres(t *testing.T) (*pgxpool.Pool, *repairM1050State) {
 	t.Helper()
-	raw, err := os.ReadFile("testdata/repair_m1050/postgres.json")
+	_, pool := internaltest.NewPostgres(t)
+	_, err := pool.Exec(context.Background(), `
+CREATE SEQUENCE candles.retry_attempt;
+CREATE FUNCTION candles.interrupt_second_swap() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF NEW.tx_hash='0xbeef' AND nextval('candles.retry_attempt')=1 THEN
+        RAISE EXCEPTION 'second swap interrupted' USING ERRCODE='40001';
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER interrupt_second_swap BEFORE INSERT ON candles.processed_swaps
+FOR EACH ROW EXECUTE FUNCTION candles.interrupt_second_swap();`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	script := &repairM1050SQLTranscript{}
-	if err = json.Unmarshal(raw, &script.steps); err != nil {
-		t.Fatal(err)
-	}
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = listener.Close() })
-	var workers sync.WaitGroup
-	go func() {
-		for {
-			conn, err := listener.Accept()
-			if err != nil {
-				return
-			}
-			workers.Add(1)
-			go func() { defer workers.Done(); script.serve(conn) }()
-		}
-	}()
-	cfg, err := pgxpool.ParseConfig("postgres://fixture@" + listener.Addr().String() + "/candles?sslmode=disable")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg.MaxConns = 3
-	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
-	cfg.ConnConfig.ConnectTimeout = time.Second
-	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { pool.Close(); _ = listener.Close(); workers.Wait() })
-	return pool, script
+	return pool, &repairM1050State{pool: pool}
 }
-func (s *repairM1050SQLTranscript) serve(conn net.Conn) {
-	defer conn.Close()
-	_ = conn.SetDeadline(time.Now().Add(20 * time.Second))
-	backend := pgproto3.NewBackend(conn, conn)
-	if _, err := backend.ReceiveStartupMessage(); err != nil {
-		return
-	}
-	backend.Send(&pgproto3.AuthenticationOk{})
-	backend.Send(&pgproto3.ParameterStatus{Name: "server_version", Value: "16.0"})
-	backend.Send(&pgproto3.ParameterStatus{Name: "client_encoding", Value: "UTF8"})
-	backend.Send(&pgproto3.ParameterStatus{Name: "standard_conforming_strings", Value: "on"})
-	backend.Send(&pgproto3.ReadyForQuery{TxStatus: 'I'})
-	if err := backend.Flush(); err != nil {
-		return
-	}
-	for {
-		msg, err := backend.Receive()
-		if err != nil {
-			return
-		}
-		if _, ok := msg.(*pgproto3.Terminate); ok {
-			return
-		}
-		query, ok := msg.(*pgproto3.Query)
-		if !ok {
-			return
-		}
-		s.mu.Lock()
-		if s.next >= len(s.steps) {
-			s.failure = "unexpected SQL after transcript: " + query.String
-			s.mu.Unlock()
-			return
-		}
-		step := s.steps[s.next]
-		for _, part := range step.Contains {
-			if !strings.Contains(query.String, part) {
-				s.failure = fmt.Sprintf("step %d requires %q, received %s", s.next, part, query.String)
-				s.mu.Unlock()
-				return
-			}
-		}
-		s.next++
-		if step.Tag == "COMMIT" && step.Error == "" {
-			s.commits++
-		}
-		s.mu.Unlock()
-		if step.Error != "" {
-			backend.Send(&pgproto3.ErrorResponse{Severity: "ERROR", Code: step.Error, Message: "recorded serialization failure"})
-		} else {
-			backend.Send(&pgproto3.CommandComplete{CommandTag: []byte(step.Tag)})
-		}
-		backend.Send(&pgproto3.ReadyForQuery{TxStatus: step.Status[0]})
-		if err := backend.Flush(); err != nil {
-			return
-		}
-	}
-}
-func (s *repairM1050SQLTranscript) assertProgress(t *testing.T, commits int, finished bool) {
+
+func (s *repairM1050State) assertProgress(t *testing.T, commits int, finished bool) {
 	t.Helper()
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.failure != "" {
-		t.Fatal(s.failure)
+	ctx := context.Background()
+	var claims, sourceStates, pending int
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM candles.processed_swaps`).Scan(&claims); err != nil {
+		t.Fatal(err)
 	}
-	if s.commits != commits || (finished && s.next != len(s.steps)) {
-		t.Fatalf("commits=%d want=%d; consumed=%d total=%d", s.commits, commits, s.next, len(s.steps))
+	if claims != commits {
+		t.Fatalf("commits=%d want=%d", claims, commits)
+	}
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FILTER (WHERE key LIKE 'claim/%'),
+count(*) FILTER (WHERE key LIKE 'outbox/%' AND convert_from(payload,'UTF8')::jsonb <> '[]'::jsonb)
+FROM candles.development_state`).Scan(&sourceStates, &pending); err != nil {
+		t.Fatal(err)
+	}
+	if sourceStates != commits || pending != 0 || (finished && claims != 2) {
+		t.Fatalf("source states=%d commits=%d pending=%d finished=%t", sourceStates, claims, pending, finished)
+	}
+	for _, timeframe := range constants.TimeframeKeys {
+		var trades int
+		var volume string
+		if err := s.pool.QueryRow(ctx, `SELECT coalesce(sum(trade_count),0), coalesce(sum(volume_usdl::numeric),0)::text
+FROM candles.candles WHERE timeframe=$1`, timeframe).Scan(&trades, &volume); err != nil {
+			t.Fatal(err)
+		}
+		if trades != commits || volume != strconv.Itoa(100*commits) {
+			t.Fatalf("%s: trades=%d volume=%s commits=%d", timeframe, trades, volume, commits)
+		}
 	}
 }
+
 func repairM1050Builder(t *testing.T, pool *pgxpool.Pool) *engine.Builder {
 	t.Helper()
-	// Redis is an explicitly unavailable loopback peer. Durable SQL commits, not
-	// best-effort pub/sub, determine the webhook acknowledgement.
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	options, err := goredis.ParseURL(internaltest.NewRedisURL(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	go func() {
-		for {
-			c, e := listener.Accept()
-			if e != nil {
-				return
-			}
-			_ = c.Close()
-		}
-	}()
-	t.Cleanup(func() { _ = listener.Close() })
-	rdb := goredis.NewClient(&goredis.Options{Addr: listener.Addr().String(), Protocol: 2, MaxRetries: -1, DialTimeout: time.Second, ReadTimeout: time.Second, WriteTimeout: time.Second})
+	rdb := goredis.NewClient(options)
 	t.Cleanup(func() { _ = rdb.Close() })
 	return engine.New(pool, rdb, store.New(pool), slog.New(slog.NewTextHandler(io.Discard, nil)))
 }
@@ -206,6 +127,8 @@ func TestRepairM_1050_PartialFailureRetry(t *testing.T) {
 	}
 	second := batch.Events[0]
 	second.TxHash = "0xbeef"
+	second.BlockNumber++
+	second.Position = &engine.ChainOrder{Height: uint64(second.BlockNumber)}
 	second.BlockTimestamp += 3600
 	batch.Events = append(batch.Events, second)
 	body, err := json.Marshal(batch)
@@ -228,8 +151,8 @@ func TestRepairM_1050_PartialFailureRetry(t *testing.T) {
 		t.Fatalf("partial delivery acknowledged: %d %s", status, raw)
 	}
 	script.assertProgress(t, 1, false)
-	// A new builder clears the hot dedup cache. The transcript requires the first
-	// swap's durable claim to refuse a second fold, while the rolled-back swap folds.
+	// A new builder must retain the first swap's durable claim while retrying
+	// the rolled-back second swap against the same database and Redis.
 	reopened := httptest.NewServer(repairM1050Router(repairM1050Builder(t, pool)))
 	defer reopened.Close()
 	status, _, raw = repairM1050Send(t, reopened.URL, body)
@@ -407,4 +330,59 @@ func repairM1050CandleFrames(t *testing.T) [][]byte {
 }
 func TestRepairM_1050_ProducerToSocketRestartResync(t *testing.T) {
 	testAdmittedCandleApplicationStream(t, repairM1050CandleFrames(t), filepath.Join(t.TempDir(), "retained-frames.json"))
+}
+
+// Relay failure must remain visible after the source fold commits; a healthy
+// retry drains that exact durable outbox without folding the candle twice.
+func TestRepairM_1050_BrokerFailurePreservesCommittedRetry(t *testing.T) {
+	pool, state := repairM1050Postgres(t)
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	address := listener.Addr().String()
+	if err = listener.Close(); err != nil {
+		t.Fatal(err)
+	}
+	unavailable := goredis.NewClient(&goredis.Options{Addr: address, MaxRetries: -1, DialTimeout: time.Second, ReadTimeout: time.Second, WriteTimeout: time.Second})
+	defer unavailable.Close()
+	builder := engine.New(pool, unavailable, store.New(pool), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	first := httptest.NewServer(repairM1050Router(builder))
+	body := swapBody(1704067260)
+	status, headers, raw := repairM1050Send(t, first.URL, body)
+	first.Close()
+	var failure struct {
+		OK        bool `json:"ok"`
+		Processed int  `json:"processed"`
+		Errors    int  `json:"errors"`
+		Retryable bool `json:"retryable"`
+	}
+	if err = json.Unmarshal(raw, &failure); err != nil {
+		t.Fatal(err)
+	}
+	if status != 503 || failure.OK || failure.Processed != 0 || failure.Errors != 1 || !failure.Retryable || headers.Get("Retry-After") != "1" {
+		t.Fatalf("relay outage acknowledged: %d %s", status, raw)
+	}
+	var claims, pending int
+	if err = pool.QueryRow(context.Background(), `SELECT (SELECT count(*) FROM candles.processed_swaps),(SELECT count(*) FROM candles.development_state WHERE key LIKE 'outbox/%' AND convert_from(payload,'UTF8')::jsonb <> '[]'::jsonb)`).Scan(&claims, &pending); err != nil {
+		t.Fatal(err)
+	}
+	if claims != 1 || pending != 1 {
+		t.Fatalf("committed retry lost: claims=%d pending=%d", claims, pending)
+	}
+	recovered := httptest.NewServer(repairM1050Router(repairM1050Builder(t, pool)))
+	defer recovered.Close()
+	status, _, raw = repairM1050Send(t, recovered.URL, body)
+	var success struct {
+		OK        bool `json:"ok"`
+		Processed int  `json:"processed"`
+		Errors    int  `json:"errors"`
+	}
+	if err = json.Unmarshal(raw, &success); err != nil {
+		t.Fatal(err)
+	}
+	if status != 200 || !success.OK || success.Processed != 1 || success.Errors != 0 {
+		t.Fatalf("durable retry failed: %d %s", status, raw)
+	}
+	state.assertProgress(t, 1, false)
 }

@@ -1,0 +1,21 @@
+[repair.22.39.295]
+task = "22.39.295"
+decision = "3134"
+base_revision = "7c65ca246479ea68169faf54cef98cfeb9e66537"
+verified_revision = "HEAD pinned by hf-done; exact candidate revision and private evidence are recorded in the gate receipt"
+deployment_version = "paxeer125-v6.12.0"
+activation_height = 37220320
+installed_surface_runtime_hash = "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+staged_surface_runtime_hash = "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993"
+installed_identity_source = "services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json:Options.Manifest.roles"
+staged_runtime_source = "modules/launchpad/keeper/market.go:SurfaceRuntime"
+roles = ["ProtocolConfig", "Router", "Quoter", "SidioraFactory", "PoolRegistry", "FeeAccumulator", "SidioraNFT", "FeesRouter", "Treasury"]
+files = ["apps/launchpad/web/src/core/network/deployment.ts", "sdk/launchpad/shared/chain/client.go", "sdk/launchpad/shared/chain/pool_surface_test.go", "sdk/launchpad/shared/config/deployment/attest_surface_test.go", "sdk/launchpad/shared/config/deployment/current.json", "sdk/launchpad/shared/config/deployment/generate.py", "sdk/launchpad/shared/config/deployment/manifest.go", "sdk/launchpad/shared/config/deployment/manifest_test.go", "sdk/launchpad/shared/config/deployment/repair_22_39_295.kvx", "tools/launchpad/production/interfaces/contracts/client-deployment.cjs"]
+qualification = "hf-build followed by hf-done at one unchanged candidate; results belong to the private gate receipt"
+
+[repair.22.39.295.provenance]
+reviewed_manifest_blob = "dd845c4ecc0802bef5548e086ef431ec99fe1f12"
+source_manifest_sha256 = "a35ff7c6f532d2f92e4ca59e4ef2cf0a105d551ae9ac3eba68b95f79a355df4a"
+generator_input = "Use the immutable reviewed manifest bytes; the checkout has equivalent JSON with different key ordering"
+packet_identity = "Use Options.Manifest for installed role identities; recorded eth_getCode responses also contain staged and historical proxy bytecode"
+frontend_generation = "deployment-generation.cjs derives reviewed roles; client-deployment.cjs renders deployment.ts"

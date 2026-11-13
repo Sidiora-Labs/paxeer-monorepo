@@ -9,8 +9,35 @@ trap 'rm -f -- "$metadata_file" "$license_file"' EXIT HUP INT TERM
 cargo metadata --manifest-path "$repo_root/services/interop/Cargo.toml" \
     --locked --format-version 1 >"$metadata_file"
 
-banned='^(bindgen|libsqlite3-sys|rusqlite|sqlx-sqlite|layerx-core|layerx-protocol-core|layerx-human-service|layerx-paxeer-client|layerx-explorer-index|ctor|inventory)$'
-if jq -r '.packages[].name' "$metadata_file" | grep -Eq "$banned"; then
+banned='^(bindgen|libsqlite3-sys|rusqlite|sqlx-sqlite|layerx-core|layerx-protocol-core|layerx-human-service|ctor|inventory)$'
+retired_human_crates=$(jq -er '.components["human-two-domain"].symbols[] | select(startswith("layerx-"))' \
+    "$repo_root/tools/paxeer-x/retired_callers.json")
+if jq -r '.packages[].name' "$metadata_file" | grep -Fxq -- "$retired_human_crates"; then
+    echo "interop dependency policy: retired human boundary crate" >&2
+    exit 1
+fi
+policy_packages=$(jq -r '
+    . as $metadata
+    | [.packages[] | select(.name == "layerx-platform-gateway") | .id]
+      | INDEX(.) as $gateway
+    | $metadata.resolve.nodes | INDEX(.id) as $nodes
+    | {pending: $metadata.workspace_members, seen: {}}
+    | until(.pending | length == 0;
+        .pending[0] as $id
+        | .pending = .pending[1:]
+        | if .seen[$id] or $gateway[$id] then .
+          else .seen[$id] = true | .pending += [$nodes[$id].deps[].pkg]
+          end)
+    | .seen as $reachable
+    | $metadata.packages[]
+    | select(
+        if .name == "rusqlite" or .name == "libsqlite3-sys" or .name == "sqlx-sqlite"
+        then $reachable[.id]
+        else true
+        end)
+    | .name
+' "$metadata_file")
+if printf '%s\n' "$policy_packages" | grep -Eq "$banned"; then
     echo "interop dependency policy: forbidden boundary or global-initialisation crate" >&2
     exit 1
 fi

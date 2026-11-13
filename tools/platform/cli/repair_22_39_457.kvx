@@ -1,0 +1,4 @@
+[wallet_gateway_sources]
+gateway_path_include = "services/platform/hosted/gateway/src/paxeer.rs includes tools/platform/cli/src/wallet_gateway.rs"
+cli_path_include = "tools/platform/cli/src/wallet_gateway.rs includes services/platform/hosted/gateway/src/evm.rs"
+hex_output = "Wallet query identifiers use lowercase hexadecimal text in both members."

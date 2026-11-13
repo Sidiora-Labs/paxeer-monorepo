@@ -1,4 +1,12 @@
 //! Decision 2601: current committed records and recovery of legacy verification ranks.
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 #[path = "native_send_preview_evm.rs"]
 mod native_preview;
 
@@ -40,13 +48,13 @@ fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
 }
 fn unhex(value: &Value) -> Vec<u8> {
     must(hex::decode(
-        value.as_str().expect("hex").trim_start_matches("0x"),
+        require_some(value.as_str(), "hex").trim_start_matches("0x"),
     ))
 }
 fn number(value: &Value) -> u64 {
     value
         .as_u64()
-        .unwrap_or_else(|| must(value.as_str().expect("number").parse()))
+        .unwrap_or_else(|| must(require_some(value.as_str(), "number").parse()))
 }
 
 // The Go producer runs the real MemIAVL, CometBFT and node receipt codecs. This
@@ -75,17 +83,29 @@ fn committed_receipt() -> (AuthenticatedReceipt, Vec<ReceiptKeyEntry>) {
     let record = &produced["receipt"];
     let pins = must(decode_receipt_keys(&json!({"keys":[record["key"]]})));
     let trust = ChainProofVerifier {
-        chain_id: record["material"]["signedHeader"]["header"]["chain_id"]
-            .as_str()
-            .expect("chain")
-            .to_owned(),
+        chain_id: require_some(
+            record["material"]["signedHeader"]["header"]["chain_id"].as_str(),
+            "chain",
+        )
+        .to_owned(),
         validators: must(decode_validators(&record["validators"])),
     };
     let batch = unhex(&record["batch"]);
-    let b64 = |v: &Value| must(openssl::base64::decode_block(v.as_str().expect("base64")));
+    let b64 = |v: &Value| {
+        must(openssl::base64::decode_block(require_some(
+            v.as_str(),
+            "base64",
+        )))
+    };
     let proof = SimpleProof {
-        total: number(&record["proof"]["total"]) as i64,
-        index: number(&record["proof"]["index"]) as i64,
+        total: require_ok(
+            i64::try_from(number(&record["proof"]["total"])),
+            "test value fits i64",
+        ),
+        index: require_ok(
+            i64::try_from(number(&record["proof"]["index"])),
+            "test value fits i64",
+        ),
         leaf_hash: must(b64(&record["proof"]["leaf_hash"]).try_into()),
         aunts: record["proof"]["aunts"]
             .as_array()
@@ -97,9 +117,7 @@ fn committed_receipt() -> (AuthenticatedReceipt, Vec<ReceiptKeyEntry>) {
             })
             .unwrap_or_default(),
     };
-    let ids: Vec<[u8; 32]> = record["activityIds"]
-        .as_array()
-        .expect("activity ids")
+    let ids: Vec<[u8; 32]> = require_some(record["activityIds"].as_array(), "activity ids")
         .iter()
         .map(|v| must(unhex(v).try_into()))
         .collect();
@@ -112,6 +130,15 @@ fn committed_receipt() -> (AuthenticatedReceipt, Vec<ReceiptKeyEntry>) {
     };
     let listener = must(TcpListener::bind("127.0.0.1:0"));
     must(listener.set_nonblocking(true));
+    finish_committed_receipt_1_repair_22_31_539(record, pins, &evidence, listener)
+}
+
+fn finish_committed_receipt_1_repair_22_31_539(
+    record: &Value,
+    pins: Vec<ReceiptKeyEntry>,
+    evidence: &ReceiptCommitEvidence<'_>,
+    listener: TcpListener,
+) -> (AuthenticatedReceipt, Vec<ReceiptKeyEntry>) {
     let endpoint = must(SequencerEndpoint::new(
         &format!("http://{}/", must(listener.local_addr())),
         &[],
@@ -142,10 +169,10 @@ fn committed_receipt() -> (AuthenticatedReceipt, Vec<ReceiptKeyEntry>) {
                     length = Some(must(v.trim().parse::<usize>()));
                 }
             }
-            let mut bytes = vec![0; length.expect("content length")];
+            let mut bytes = vec![0; require_some(length, "content length")];
             must(reader.read_exact(&mut bytes));
             let request: Value = must(serde_json::from_slice(&bytes));
-            let result = match request["method"].as_str().expect("method") {
+            let result = match require_some(request["method"].as_str(), "method") {
                 "pax_sequencerReceipt" => {
                     assert_eq!(request["params"], json!([replies["view"]["txHash"]]));
                     replies["view"].clone()
@@ -168,7 +195,7 @@ fn committed_receipt() -> (AuthenticatedReceipt, Vec<ReceiptKeyEntry>) {
         LookupContext {
             receipt_keys: &pins,
         },
-        &evidence,
+        evidence,
     );
     stop.store(true, Ordering::Release);
     must(worker.join());
@@ -210,7 +237,10 @@ fn committed_receipt_store_restart_and_owner_frames_accept_current_and_legacy_ra
         VerificationLevel::COMMITTED
     );
     let key = metadata_key(&tenant, &served.canonical_bytes);
-    assert_eq!(store.get(&key).expect("stored metadata").bytes()[76], 6);
+    assert_eq!(
+        require_some(store.get(&key), "stored metadata").bytes()[76],
+        6
+    );
     drop(store);
     let mut store = must(Store::open(&root));
     assert_eq!(
@@ -221,10 +251,7 @@ fn committed_receipt_store_restart_and_owner_frames_accept_current_and_legacy_ra
         )),
         served
     );
-    let protocol = authenticated
-        .receipt()
-        .protocol()
-        .expect("protocol receipt");
+    let protocol = require_some(authenticated.receipt().protocol(), "protocol receipt");
     let authority = AuthorizedBatch::new(
         protocol.batch_id(),
         protocol.asset(),
@@ -253,12 +280,12 @@ fn committed_receipt_store_restart_and_owner_frames_accept_current_and_legacy_ra
     for rank in [6, 4, 5] {
         let mut bytes = frame.clone();
         bytes[offset] = rank;
-        let ReceiptLookupAnswer::Found(decoded) = must(ReceiptLookupAnswer::decode(&bytes)) else {
+        let ReceiptLookupAnswer::Found(answer) = must(ReceiptLookupAnswer::decode(&bytes)) else {
             panic!("owner receipt")
         };
-        assert_eq!(decoded.verification_level, VerificationLevel::COMMITTED);
-        assert_eq!(decoded.canonical_bytes, served.canonical_bytes);
-        let mut metadata = store.get(&key).expect("metadata").bytes().to_vec();
+        assert_eq!(answer.verification_level, VerificationLevel::COMMITTED);
+        assert_eq!(answer.canonical_bytes, served.canonical_bytes);
+        let mut metadata = require_some(store.get(&key), "metadata").bytes().to_vec();
         metadata[76] = rank;
         must(store.put_local(key.clone(), metadata));
         drop(store);
@@ -320,26 +347,32 @@ use mcp_record::{
 
 #[test]
 fn persisted_mcp_receipt_ranks_normalize_after_restart() {
-    let tenant = TenantId::new("committed-mcp-codec").expect("tenant");
+    let tenant = require_ok(TenantId::new("committed-mcp-codec"), "tenant");
     let root = std::env::temp_dir().join(format!("committed-mcp-codec-{}", std::process::id()));
-    let mut store = Store::open(&root).expect("store");
+    let store = require_ok(Store::open(&root), "store");
     let tool = "layerx.native_send";
     let idempotency_key = [2_u8; 32];
     let receipt_bytes = include_bytes!(
         "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
     );
-    let vectors: serde_json::Value =
-        serde_json::from_slice(receipt_bytes).expect("node producer vectors");
-    let canonical = vectors["cases"][0]["signedReceipt"]
-        .as_str()
-        .expect("signed receipt");
-    let canonical = hex::decode(canonical.trim_start_matches("0x")).expect("receipt bytes");
+    let vectors: serde_json::Value = require_ok(
+        serde_json::from_slice(receipt_bytes),
+        "node producer vectors",
+    );
+    let canonical = require_some(
+        vectors["cases"][0]["signedReceipt"].as_str(),
+        "signed receipt",
+    );
+    let canonical = require_ok(
+        hex::decode(canonical.trim_start_matches("0x")),
+        "receipt bytes",
+    );
     let mut record = McpInvocationRecord {
         schema: "layerx.mcp.invocation.v1".to_owned(),
         tool_name: Some(tool.to_owned()),
         native_preparation: Some(McpNativeAssociation {
             preparation_id: [4; 32],
-            idempotency_key: idempotency_key,
+            idempotency_key,
         }),
         reconciled_receipt: Some(McpReceiptAssociation {
             activity_id: [5; 32],
@@ -353,7 +386,7 @@ fn persisted_mcp_receipt_ranks_normalize_after_restart() {
         actor: b"did:layerx:owner".to_vec(),
         session: [1; 32],
         generation: 1,
-        idempotency_key: idempotency_key,
+        idempotency_key,
         request_digest: [3; 32],
         core_sequence: 10,
         phase: McpInvocationPhase::Settled,
@@ -365,6 +398,42 @@ fn persisted_mcp_receipt_ranks_normalize_after_restart() {
     let mut input = (tool.len() as u64).to_be_bytes().to_vec();
     input.extend_from_slice(tool.as_bytes());
     input.extend_from_slice(&idempotency_key);
+    continue_persisted_mcp_receipt_ranks_normalize_after_restart_1_repair_22_31_539(
+        ContinuePersistedMcpReceiptRanksNormalizeAfterRestart1Repair2231539Context {
+            tenant,
+            root,
+            store,
+            tool,
+            idempotency_key,
+            record,
+            input,
+        },
+    );
+}
+
+struct ContinuePersistedMcpReceiptRanksNormalizeAfterRestart1Repair2231539Context {
+    tenant: TenantId,
+    root: std::path::PathBuf,
+    store: Store,
+    tool: &'static str,
+    idempotency_key: [u8; 32],
+    record: McpInvocationRecord,
+    input: Vec<u8>,
+}
+
+fn continue_persisted_mcp_receipt_ranks_normalize_after_restart_1_repair_22_31_539(
+    context: ContinuePersistedMcpReceiptRanksNormalizeAfterRestart1Repair2231539Context,
+) {
+    let ContinuePersistedMcpReceiptRanksNormalizeAfterRestart1Repair2231539Context {
+        tenant,
+        root,
+        mut store,
+        tool,
+        idempotency_key,
+        record,
+        input,
+    } = context;
+
     let key = must(TenantKey::new(
         tenant.clone(),
         ObjectKind::Idempotency,
@@ -375,15 +444,14 @@ fn persisted_mcp_receipt_ranks_normalize_after_restart() {
         .concat(),
     ));
     must(store.put_local(key.clone(), must(record.encode())));
-    let original = store
-        .get(&key)
-        .expect("written invocation")
+    let original = require_some(store.get(&key), "written invocation")
         .bytes()
         .to_vec();
     drop(store);
     for rank in [6, 4, 5, 3, 2, 0, 7, u8::MAX] {
-        let mut store = Store::open(&root).expect("reopen");
-        let mut bytes: serde_json::Value = serde_json::from_slice(&original).expect("written JSON");
+        let mut store = require_ok(Store::open(&root), "reopen");
+        let mut bytes: serde_json::Value =
+            require_ok(serde_json::from_slice(&original), "written JSON");
         bytes["reconciled_receipt"]["verification_rank"] = serde_json::json!(rank);
         let encoded = must(serde_json::to_vec(&bytes));
         if matches!(rank, 0 | 2 | 7 | u8::MAX) {
@@ -405,13 +473,15 @@ fn persisted_mcp_receipt_ranks_normalize_after_restart() {
             must(store.put_local(key.clone(), encoded));
             drop(store);
             let reopened = must(Store::open(&root));
-            let decoded = must(mcp_store_evidence_for_tool(
-                &reopened,
-                &tenant,
-                idempotency_key,
-                Some(tool),
-            ))
-            .expect("found invocation");
+            let decoded = require_some(
+                must(mcp_store_evidence_for_tool(
+                    &reopened,
+                    &tenant,
+                    idempotency_key,
+                    Some(tool),
+                )),
+                "found invocation",
+            );
             assert_eq!(
                 decoded["reconciled_receipt"]["verification_rank"],
                 if rank == 3 { 3 } else { 6 }
@@ -422,7 +492,7 @@ fn persisted_mcp_receipt_ranks_normalize_after_restart() {
             );
         }
     }
-    std::fs::remove_dir_all(root).expect("cleanup");
+    require_ok(std::fs::remove_dir_all(root), "cleanup");
 }
 
 #[path = "repair_22_31_219.rs"]

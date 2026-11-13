@@ -2,12 +2,12 @@
 
 ## MockFeeOnTransferERC20
 
-ERC20 variant that siphons a configurable basis-point fee on every
-        transfer, used to prove {PECORVault.pullTokens} returns the real
-        received amount (spec §7.5 fee-on-transfer safety, S5 regression).
+Configurable ERC20 test token that burns a basis-point fee on transfers. `feeBps` must be below
+10,000. With `taxedRecipient == address(0)`, every recipient is taxed; otherwise only transfers to
+`taxedRecipient` are taxed. A zero fee rate transfers the full amount. Minting and fee configuration
+are unrestricted.
 
-_The fee is burned — the contract never needs a collector. A 0-bps
-     setting reduces the mock to a normal ERC20._
+Source: [MockFeeOnTransferERC20.sol](../../../contracts/meta-ag/mocks/MockFeeOnTransferERC20.sol).
 
 ### BPS_DENOMINATOR
 
@@ -60,13 +60,13 @@ mapping(address => mapping(address => uint256)) allowance
 ### Transfer
 
 ```solidity
-event Transfer(address from, address to, uint256 value)
+event Transfer(address indexed from, address indexed to, uint256 value)
 ```
 
 ### Approval
 
 ```solidity
-event Approval(address owner, address spender, uint256 value)
+event Approval(address indexed owner, address indexed spender, uint256 value)
 ```
 
 ### FeeUpdated
@@ -111,9 +111,23 @@ function transfer(address to, uint256 amount) external returns (bool)
 function transferFrom(address from, address to, uint256 amount) external returns (bool)
 ```
 
-### _transferWithFee
+### \_transferWithFee
 
 ```solidity
 function _transferWithFee(address from, address to, uint256 amount) internal
 ```
 
+### setTaxedRecipient
+
+```solidity
+function setTaxedRecipient(address recipient) external
+```
+
+Selects the recipient subject to the transfer fee. A zero address applies the fee to every
+recipient.
+
+### taxedRecipient
+
+```solidity
+address taxedRecipient
+```

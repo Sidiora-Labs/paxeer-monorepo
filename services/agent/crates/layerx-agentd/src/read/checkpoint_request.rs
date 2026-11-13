@@ -17,6 +17,9 @@ pub struct CheckpointRequest {
     pub requested_verification_level: String,
 }
 impl CheckpointRequest {
+    /// # Errors
+    /// Returns an error if node acquisition fails or the committed checkpoint, target, result
+    /// root or proof cannot be verified.
     pub fn height(&self) -> Result<u64, CheckpointReadError> {
         let height = self
             .checkpoint
@@ -30,6 +33,9 @@ impl CheckpointRequest {
         }
         Ok(height)
     }
+    /// # Errors
+    /// Returns an error if node acquisition fails or the committed checkpoint, target, result
+    /// root or proof cannot be verified.
     pub fn acquire(
         &self,
         endpoint: &SequencerEndpoint,

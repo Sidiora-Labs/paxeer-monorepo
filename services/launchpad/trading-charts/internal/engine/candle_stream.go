@@ -5,13 +5,14 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"time"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/jackc/pgx/v5"
-	"strconv"
-	"time"
 )
 
 type CanonicalSeriesCandle struct {
@@ -73,7 +74,7 @@ func canonicalPrice(price Rational, source QualifiedPriceSource, bar SeriesCandl
 }
 func CanonicalCandle(bar SeriesCandle, sources map[string]accounting.FillV1) (CanonicalSeriesCandle, error) {
 	var out CanonicalSeriesCandle
-	if bar.AlgorithmVersion != SeriesAlgorithm || bar.Synthetic || bar.Provenance != "actual_trade" || bar.Trades == 0 || bar.Revision == 0 || bar.DisplayRevision == 0 || bar.ActorSemantics != "canonical_swap_actor_v1" || !equalOrder(bar.OpenSource.Position, bar.FirstPosition) || !equalOrder(bar.CloseSource.Position, bar.LastPosition) {
+	if bar.AlgorithmVersion != SeriesAlgorithm || bar.Synthetic || bar.Provenance != provenanceActualTrade || bar.Trades == 0 || bar.Revision == 0 || bar.DisplayRevision == 0 || bar.ActorSemantics != canonicalActorSemantics || !equalOrder(bar.OpenSource.Position, bar.FirstPosition) || !equalOrder(bar.CloseSource.Position, bar.LastPosition) {
 		return out, ErrInvalidFill
 	}
 	duration, err := IntervalSeconds(bar.Interval)
@@ -89,12 +90,12 @@ func CanonicalCandle(bar SeriesCandle, sources map[string]accounting.FillV1) (Ca
 		return out, err
 	}
 	switch bar.CompletenessStatus {
-	case "live_interval", "interval_elapsed", "backfill_incomplete", "complete_through_watermark":
+	case "live_interval", "interval_elapsed", "backfill_incomplete", statusCompleteThroughWatermark:
 	default:
 		return out, ErrInvalidFill
 	}
 	coverage := "partial"
-	if bar.CompletenessStatus == "complete_through_watermark" {
+	if bar.CompletenessStatus == statusCompleteThroughWatermark {
 		coverage = "complete"
 	}
 	prices := []Rational{bar.Open, bar.High, bar.Low, bar.Close}

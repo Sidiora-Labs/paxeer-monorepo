@@ -84,7 +84,7 @@ func (s SerialExport) CanonicalBytes() ([]byte, string, error) {
 
 func ObservationRevision(base Revision, a ActivationAttestation) (string, error) {
 	if !digestRE.MatchString(base.RevisionSHA256) || !digestRE.MatchString(base.ManifestSHA256) || base.ManifestSHA256 != a.ManifestHash || base.DeploymentVersion != a.DeploymentVersion || !validHash(a.BlockHash) {
-		return "", Issue{Code: "attestation_revision_mismatch"}
+		return "", Issue{Code: valueAttestationRevisionMismatch}
 	}
 	identities := make(map[string]Identity, len(a.Identities))
 	for name, identity := range a.Identities {

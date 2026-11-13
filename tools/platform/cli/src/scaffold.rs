@@ -26,7 +26,7 @@ pub fn create_with_sdk(name: &str, parent: &Path, sdk: &Path) -> Result<serde_js
         &project.join("Cargo.toml"),
         &format!(
             "[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[lib]\ncrate-type = [\"cdylib\"]\n\n[dependencies]\nlayerx-program-sdk = {{ path = {sdk} }}\n\n[profile.release]\nopt-level = \"z\"\nlto = true\ncodegen-units = 1\npanic = \"abort\"\nstrip = true\n",
-            sdk = toml_edit::Value::from(sdk.to_str().ok_or("SDK path must be valid UTF-8")?).to_string()
+            sdk = toml_edit::Value::from(sdk.to_str().ok_or("SDK path must be valid UTF-8")?)
         ),
     )?;
     write_new(

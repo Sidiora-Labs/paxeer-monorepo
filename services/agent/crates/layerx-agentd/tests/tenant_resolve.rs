@@ -483,7 +483,8 @@ fn only_mcp_invoke_is_outside_the_token_gate() {
     let mut fixture = fixture(&root);
     let token = fixture.open(1, 4);
     let mut observability = TenantObservability::default();
-    for operation in [Operation::McpInvoke] {
+    {
+        let operation = Operation::McpInvoke;
         assert_eq!(OperationClass::for_operation(operation), None);
         let mut context = request(Surface::RustSdk, fixture.owner());
         context.operation = operation;

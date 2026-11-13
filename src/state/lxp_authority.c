@@ -190,6 +190,7 @@ static lxp_result validate_grant(const lxp_authority_grant *grant)
     return LXP_OK;
 }
 
+/* Governance and authority resolution share this canonical grant encoding. */
 lxp_result lxp_grant_encode(const lxp_authority_grant *grant,
                             lxp_arena *arena, lxp_byte_span *encoded)
 {

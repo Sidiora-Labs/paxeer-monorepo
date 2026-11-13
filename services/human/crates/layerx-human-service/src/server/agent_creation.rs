@@ -56,6 +56,8 @@ pub fn verify_creation_call_disclosure(
 
 const EVM_RECEIPT_MODULE_ID: u16 = 12;
 
+/// # Errors
+/// Returns an error if the supplied evidence does not satisfy the required checks.
 pub fn verify_evm_outcome(
     evidence: &crate::agents::ProtocolEvidence,
     expected: layerx_types::payload::ActivityType,
@@ -707,6 +709,8 @@ impl<'a> ProductionAgentCreation<'a> {
         )
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn protocol_evidence_for_action(
         signed_activity: Vec<u8>,
         owner_public_key: [u8; 32],

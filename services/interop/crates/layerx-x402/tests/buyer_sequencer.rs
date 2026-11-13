@@ -49,7 +49,7 @@ fn pay_exact_words(raw: &[u8]) -> [[u8; 32]; 6] {
                 } else {
                     prefix - 0xf7
                 });
-                let length = input[1..1 + width]
+                let length = input[1..=width]
                     .iter()
                     .fold(0_usize, |length, byte| (length << 8) | usize::from(*byte));
                 (1 + width, length)
@@ -76,7 +76,7 @@ fn pay_exact_words(raw: &[u8]) -> [[u8; 32]; 6] {
     std::array::from_fn(|index| {
         calldata[4 + index * 32..4 + (index + 1) * 32]
             .try_into()
-            .unwrap()
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
     })
 }
 
@@ -109,7 +109,8 @@ fn native_fixture(mut case: Value) -> Value {
     if case["id"] == "V1-layerxledger-pay-exact" {
         let words = pay_exact_words(&bytes(text(&case["rawTransaction"])));
         topics[1..].copy_from_slice(&[words[5], words[0], words[1]]);
-        topics[3] = account_identifiers("agent:did:layerx:payee:main").unwrap()[1];
+        topics[3] = account_identifiers("agent:did:layerx:payee:main")
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))[1];
     }
     let mut receipt = bytes(text(&case["signedReceipt"]));
     let positions: Vec<_> = receipt
@@ -160,7 +161,13 @@ fn word(value: &str) -> [u8; 32] {
 }
 
 fn hex(value: &[u8]) -> String {
-    value.iter().map(|byte| format!("{byte:02x}")).collect()
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(value.len() * 2);
+    for byte in value {
+        output.push(char::from(DIGITS[usize::from(byte >> 4)]));
+        output.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+    }
+    output
 }
 
 fn recorded(id: &str) -> TestResult<(Buyer, BuiltPayment, SettlementResponse, Value)> {
@@ -524,23 +531,7 @@ fn committed_settlement_proof(
     let header_hash = successor.hash();
     let parts_hash = Sha256::digest(header_hash);
 
-    let mut parts = Vec::new();
-    encode_varint_field(1, 1, &mut parts);
-    encode_length_delimited(2, &parts_hash, &mut parts);
-    let mut block_id = Vec::new();
-    encode_length_delimited(1, &header_hash, &mut block_id);
-    encode_length_delimited(2, &parts, &mut block_id);
-    let mut timestamp = Vec::new();
-    encode_varint_field(1, successor.time.seconds as u64, &mut timestamp);
-    let mut vote = vec![0x08, 0x02, 0x11];
-    vote.extend_from_slice(&(successor.height as u64).to_le_bytes());
-    encode_length_delimited(4, &block_id, &mut vote);
-    encode_length_delimited(5, &timestamp, &mut vote);
-    encode_length_delimited(6, successor.chain_id.as_bytes(), &mut vote);
-    let mut sign_bytes = Vec::new();
-    encode_varint(vote.len() as u64, &mut sign_bytes);
-    sign_bytes.extend_from_slice(&vote);
-    let signature = validator.sign(&sign_bytes).to_bytes();
+    let signature = sign_commit(&successor, &header_hash, &parts_hash, &validator);
 
     Ok(CommittedSettlementProof {
         chain_id: successor.chain_id.clone(),
@@ -575,6 +566,35 @@ fn committed_settlement_proof(
     })
 }
 
+fn sign_commit(
+    successor: &Header,
+    header_hash: &[u8],
+    parts_hash: &[u8],
+    validator: &SigningKey,
+) -> [u8; 64] {
+    let mut parts = Vec::new();
+    encode_varint_field(1, 1, &mut parts);
+    encode_length_delimited(2, parts_hash, &mut parts);
+    let mut block_id = Vec::new();
+    encode_length_delimited(1, header_hash, &mut block_id);
+    encode_length_delimited(2, &parts, &mut block_id);
+    let mut timestamp = Vec::new();
+    encode_varint_field(
+        1,
+        u64::from_le_bytes(successor.time.seconds.to_le_bytes()),
+        &mut timestamp,
+    );
+    let mut vote = vec![0x08, 0x02, 0x11];
+    vote.extend_from_slice(&successor.height.to_le_bytes());
+    encode_length_delimited(4, &block_id, &mut vote);
+    encode_length_delimited(5, &timestamp, &mut vote);
+    encode_length_delimited(6, successor.chain_id.as_bytes(), &mut vote);
+    let mut sign_bytes = Vec::new();
+    encode_varint(vote.len() as u64, &mut sign_bytes);
+    sign_bytes.extend_from_slice(&vote);
+    validator.sign(&sign_bytes).to_bytes()
+}
+
 fn committed_response(
     buyer: &Buyer,
     mut response: SettlementResponse,
@@ -602,21 +622,21 @@ fn committed_response(
     evidence["blockHash"] = json!(format!("0x{}", hex(&block_hash)));
     evidence["proof"] = json!({
         "chainId": successor.chain_id,
-        "header": proof_header_json(&successor),
-        "executionHeader": proof_header_json(&execution),
+        "header": proof_header_json(successor),
+        "executionHeader": proof_header_json(execution),
         "validators": [{"pub_key": format!("0x{}", hex(&public_key)), "voting_power": 10}],
         "commit": {
             "height": successor.height, "round": 0,
-            "block_id": {"hash": format!("0x{}", hex(&header_hash)),
-                "parts": {"total": 1, "hash": format!("0x{}", hex(&parts_hash))}},
+            "block_id": {"hash": format!("0x{}", hex(header_hash)),
+                "parts": {"total": 1, "hash": format!("0x{}", hex(parts_hash))}},
             "signatures": [{"block_id_flag": 2,
-                "validator_address": format!("0x{}", hex(&address)),
+                "validator_address": format!("0x{}", hex(address)),
                 "timestamp": {"seconds": successor.time.seconds, "nanos": 0},
                 "signature": format!("0x{}", hex(&signature))}],
         },
         "batchProof": {
-            "leafEncoding": "sha256-tx", "rootHash": format!("0x{}", hex(&data_hash)),
-            "data": format!("0x{}", hex(&batch)), "total": 2, "index": 0,
+            "leafEncoding": "sha256-tx", "rootHash": format!("0x{}", hex(data_hash)),
+            "data": format!("0x{}", hex(batch)), "total": 2, "index": 0,
             "aunts": [format!("0x{}", hex(&aunt))],
         },
         "activityIds": [format!("0x{}", hex(&proof.activity_ids[0]))],
@@ -635,7 +655,7 @@ fn recorded_for_seller() -> TestResult<(Buyer, BuiltPayment, SettlementResponse,
         .map(|topic| word(text(topic)))
         .collect::<Vec<_>>()
         .concat();
-    let topics = vec![
+    let topics = [
         word(text(&case["receiptJson"]["logs"][0]["topics"][0])),
         words[5],
         words[0],
@@ -880,7 +900,7 @@ fn seller_refuses_committed_evidence_without_a_proof() -> TestResult {
                     committed.proof.commit.signatures[0]
                         .signature
                         .as_mut()
-                        .ok_or("commit signature")?[0] ^= 1
+                        .ok_or("commit signature")?[0] ^= 1;
                 }
                 "number" => {
                     let SettlementRung::Committed { block_number, .. } =

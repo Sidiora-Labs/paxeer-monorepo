@@ -20,6 +20,7 @@ public_ids = {service["id"] for service in services}
 catalogue = {
     "schema": source["schema"],
     "chain_id": source["chain_id"],
+    "canonical_origin": source["canonical_origin"],
     "services": services,
     "routes": [
         {key: value for key, value in route.items() if key not in private_route_fields}

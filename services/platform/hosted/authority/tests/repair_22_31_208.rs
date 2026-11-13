@@ -1,4 +1,5 @@
 include!("../src/main.rs");
+use layerx_platform_authority::assertion::Must;
 
 use chain_readiness_tests::{base64, must};
 use ed25519_dalek::Signer as _;
@@ -16,10 +17,10 @@ fn hash(bytes: &[u8]) -> [u8; 32] {
 fn varint(mut value: u64) -> Vec<u8> {
     let mut bytes = Vec::new();
     while value >= 128 {
-        bytes.push((value as u8 & 127) | 128);
+        bytes.push((value.to_le_bytes()[0] & 127) | 128);
         value >>= 7;
     }
-    bytes.push(value as u8);
+    bytes.push(value.to_le_bytes()[0]);
     bytes
 }
 
@@ -55,11 +56,14 @@ fn leaf_proof(key: &[u8], value: &[u8], prefix: &[u8], path: &[(Vec<u8>, Vec<u8>
     field(1, &existence)
 }
 
+type StorePath = Vec<(Vec<u8>, Vec<u8>)>;
+type StoreRow = (Vec<u8>, Vec<u8>, StorePath);
+
 struct StoreNode {
     root: [u8; 32],
     height: u64,
     size: u64,
-    rows: Vec<(Vec<u8>, Vec<u8>, Vec<(Vec<u8>, Vec<u8>)>)>,
+    rows: Vec<StoreRow>,
 }
 
 impl StoreNode {
@@ -158,7 +162,7 @@ fn wire_proof(proof: &layerx_proof::merkle::Proof) -> String {
     must(writer.structure_header(0x4d50));
     must(writer.u32(proof.leaf_index()));
     must(writer.u32(proof.leaf_count()));
-    must(writer.u8(u8::try_from(proof.siblings().len()).unwrap()));
+    must(writer.u8(u8::try_from(proof.siblings().len()).must()));
     must(writer.bytes(&proof.siblings().concat(), 1024));
     hex::encode(&writer.finish())
 }
@@ -169,23 +173,23 @@ fn seal_fixture(mut row: Value) -> Value {
     let public = signer.verifying_key().to_bytes();
     assert_eq!(hex::encode(&public), row["sequencer_public_key"]);
     let key_id = hash(&public);
-    let bytes = must(hex::decode(row["receipt"].as_str().unwrap()));
+    let bytes = must(hex::decode(row["receipt"].as_str().must()));
     let original = must(layerx_proof::receipt::verify_sequencer_signature(
         &bytes, public,
     ));
-    let protocol = original.protocol().unwrap();
+    let protocol = original.protocol().must();
     assert_eq!(protocol.context_hash(), [0; 32]);
-    let maintenance = must(hex::decode(row["maintenance"].as_str().unwrap()));
+    let maintenance = must(hex::decode(row["maintenance"].as_str().must()));
     let leaves = [&bytes[..], &maintenance[..]];
     let (proof, root) = must(layerx_proof::merkle::build_proof(&leaves, 0));
     let (maintenance_proof, _) = must(layerx_proof::merkle::build_proof(&leaves, 1));
-    let mut header = must(hex::decode(row["header"].as_str().unwrap()));
+    let mut header = must(hex::decode(row["header"].as_str().must()));
     let original = must(layerx_wire::receipt::decode_batch_header(&header));
     for (old, new) in [
         (original.sequencer_id(), key_id),
         (original.receipt_merkle_root(), root),
     ] {
-        let offset = header.windows(32).position(|value| value == old).unwrap();
+        let offset = header.windows(32).position(|value| value == old).must();
         header[offset..offset + 32].copy_from_slice(&new);
     }
     row["header_signature"] = document!(hex::encode(
@@ -264,7 +268,7 @@ impl Fixture {
         let corpus: Value = must(serde_json::from_str(include_str!(
             "fixtures/native-module-outcomes.json"
         )));
-        let receipts: Vec<_> = corpus["receipts"].as_array().unwrap()[..2]
+        let receipts: Vec<_> = corpus["receipts"].as_array().must()[..2]
             .iter()
             .cloned()
             .map(seal_fixture)
@@ -275,14 +279,14 @@ impl Fixture {
                     "receipt_proof_hex":row["receipt_proof"],"batch_identity":{"kind":"batch_maintenance_v1",
                         "receipt_hex":row["maintenance"],"receipt_proof_hex":row["maintenance_proof"],
                         "activity_receipts_hex":[row["receipt"]]}}}})).collect();
-        let header = must(hex::decode(receipts[1]["header"].as_str().unwrap()));
+        let header = must(hex::decode(receipts[1]["header"].as_str().must()));
         let sequence = if receipt_head {
             must(layerx_wire::receipt::decode_batch_header(&header)).last_sequence()
         } else {
             31
         };
         let public = must(hex::decode32(
-            receipts[0]["sequencer_public_key"].as_str().unwrap(),
+            receipts[0]["sequencer_public_key"].as_str().must(),
         ));
         let key_id = hash(&public);
         let store = NativeStore::commit(vec![
@@ -296,13 +300,13 @@ impl Fixture {
         )));
         let original = answers
             .as_array()
-            .unwrap()
+            .must()
             .iter()
             .find(|row| row["method"] == "eth_call")
-            .unwrap()["result"]
+            .must()["result"]
             .as_str()
-            .unwrap();
-        let mut budget_call = must(hex::decode(original.strip_prefix("0x").unwrap()));
+            .must();
+        let mut budget_call = must(hex::decode(original.strip_prefix("0x").must()));
         budget_call[32..64].copy_from_slice(&owner);
         budget_call[64..96].copy_from_slice(&budget);
         budget_call[96..128].copy_from_slice(&asset);
@@ -353,19 +357,150 @@ struct Node {
 fn block(height: u64, app_hash: [u8; 32], changed: bool) -> Value {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
+        .must()
         .as_secs();
-    let mut hash = [height as u8; 32];
+    let mut hash = [height.to_le_bytes()[0]; 32];
     if changed {
         hash[0] ^= 1;
     }
     document!({"number":format!("0x{height:x}"),"hash":format!("0x{}",hex::encode(&hash)),
-        "parentHash":format!("0x{}",hex::encode(&[(height-1) as u8;32])),"timestamp":format!("0x{now:x}"),
+        "parentHash":format!("0x{}",hex::encode(&[(height-1).to_le_bytes()[0];32])),"timestamp":format!("0x{now:x}"),
         "transactionsRoot":format!("0x{}",hex::encode(&[3;32])),"receiptsRoot":format!("0x{}",hex::encode(&[4;32])),
         "stateRoot":format!("0x{}",hex::encode(&app_hash)),"transactions":[]})
 }
 
 impl Node {
+    fn query_response(
+        fixture: &Fixture,
+        request: &Value,
+        state: &PeerState,
+        path: &str,
+        height: u64,
+    ) -> Value {
+        assert_eq!(path, "/comet");
+        assert_eq!(request["params"]["path"], "/store/lxphost/key");
+        assert_eq!(request["params"]["height"], (height - 1).to_string());
+        assert_eq!(request["params"]["prove"], true);
+        let key = request["params"]["data"]
+            .as_str()
+            .must()
+            .strip_prefix("0x")
+            .must();
+        let mut reply = fixture
+            .store
+            .queries
+            .get(key)
+            .must_with("real native store key")
+            .clone();
+        reply["height"] = document!((height - 1).to_string());
+        if state.fault == "balance-proof" && key == format!("06{}", hex::encode(&fixture.budget)) {
+            reply["proofOps"]["ops"][0]["data"] = document!(base64(&[1, 2, 3]));
+        }
+        match state.fault {
+            "proof" => {
+                reply["proofOps"]["ops"][0]["data"] = document!(base64(&[1, 2, 3]));
+            }
+            "value" => reply["value"] = document!(base64(&[0xff; 8])),
+            "key" => reply["key"] = document!(base64(&[0xff; 33])),
+            "height" => reply["height"] = document!((height - 2).to_string()),
+            "store" => {
+                reply["proofOps"]["ops"][1]["key"] = document!(base64(b"evm"));
+            }
+            _ => {}
+        }
+        document!({"response":reply})
+    }
+
+    fn call_response(
+        fixture: &Fixture,
+        request: &Value,
+        state: &mut PeerState,
+        height: u64,
+    ) -> Value {
+        assert_eq!(request["params"][1], format!("0x{:x}", height - 1));
+        state.called = true;
+        let to = request["params"][0]["to"].as_str().must();
+        let data = request["params"][0]["data"].as_str().must();
+        let answer = if to.ends_with("1004") {
+            assert_eq!(
+                data,
+                format!(
+                    "0x{}{}",
+                    hex::encode(&layerx_client::sequencer::GET_EVM_ADDR_BY_LAYERX),
+                    hex::encode(&[0x61; 32])
+                )
+            );
+            let mut answer = vec![0; 32];
+            if state.fault != "unbound" {
+                answer[12..].fill(0x11);
+            }
+            answer
+        } else if to.ends_with("101a") {
+            let data = must(hex::decode(data.strip_prefix("0x").must()));
+            assert_eq!(&data[..4], &[0xb1, 0xff, 0xc0, 0x3e]);
+            assert_eq!(data.len(), 68);
+            assert_eq!(&data[36..], &fixture.asset);
+            let key = format!("06{}", hex::encode(&data[4..36]));
+            let row = fixture.store.queries.get(&key).must_with("ledger account");
+            let bytes = must(crate::committed::base64(row["value"].as_str().must()));
+            let mut reader = layerx_wire::decode::Decoder::new(&bytes, 2048);
+            assert_eq!(must(reader.bytes(32)), &data[4..36]);
+            must(reader.bytes(512));
+            must(reader.u8());
+            let balance = must(reader.u128());
+            let mut answer = vec![0; 32];
+            answer[16..].copy_from_slice(&balance.to_be_bytes());
+            match state.fault {
+                "ledger-mismatch" => answer[31] ^= 1,
+                "ledger-overflow" => answer[0] = 1,
+                "ledger-truncated" => {
+                    answer.pop();
+                }
+                _ => {}
+            }
+            answer
+        } else {
+            assert!(to.ends_with("101b"));
+            let get = hex::encode(
+                &layerx_crypto::evm_transaction::transaction_hash(b"getBudget(bytes32)")[..4],
+            );
+            let remaining = hex::encode(
+                &layerx_crypto::evm_transaction::transaction_hash(b"budgetRemaining(bytes32)")[..4],
+            );
+            assert!(data.ends_with(&hex::encode(&fixture.id)));
+            if data[2..].starts_with(&get) {
+                fixture.budget_call.clone()
+            } else {
+                assert!(data[2..].starts_with(&remaining));
+                let mut amount = vec![0; 32];
+                amount[31] = 77;
+                amount
+            }
+        };
+        document!(format!("0x{}", hex::encode(&answer)))
+    }
+
+    fn request_head(reader: &mut BufReader<TcpStream>) -> (String, usize) {
+        let mut line = String::new();
+        must(reader.read_line(&mut line));
+        let path = line.split_whitespace().nth(1).must().to_owned();
+        let mut length = 0;
+        loop {
+            line.clear();
+            assert_ne!(must(reader.read_line(&mut line)), 0);
+            if line == "\r\n" {
+                break;
+            }
+            if let Some((name, value)) = line.split_once(':') {
+                if name.eq_ignore_ascii_case("content-length") {
+                    length = must(value.trim().parse::<usize>());
+                }
+            }
+        }
+        assert!(length < 65536);
+        (path, length)
+    }
+
     fn start(fixture: Arc<Fixture>) -> Self {
         let listener = must(TcpListener::bind("127.0.0.1:0"));
         let address = must(listener.local_addr());
@@ -390,42 +525,26 @@ impl Node {
                 };
                 must(stream.set_read_timeout(Some(Duration::from_secs(5))));
                 let mut reader = BufReader::new(stream);
-                let mut line = String::new();
-                must(reader.read_line(&mut line));
-                let path = line.split_whitespace().nth(1).unwrap().to_owned();
-                let mut length = 0;
-                loop {
-                    line.clear();
-                    assert_ne!(must(reader.read_line(&mut line)), 0);
-                    if line == "\r\n" {
-                        break;
-                    }
-                    if let Some((name, value)) = line.split_once(':') {
-                        if name.eq_ignore_ascii_case("content-length") {
-                            length = must(value.trim().parse::<usize>());
-                        }
-                    }
-                }
-                assert!(length < 65536);
+                let (path, length) = Self::request_head(&mut reader);
                 let mut bytes = vec![0; length];
                 must(reader.read_exact(&mut bytes));
                 let request: Value = must(serde_json::from_slice(&bytes));
-                let mut state = thread_state.lock().unwrap();
+                let mut state = thread_state.lock().must();
                 state.calls.push(request.clone());
                 let height = state.height;
-                let result = match request["method"].as_str().unwrap() {
+                let result = match request["method"].as_str().must() {
                     "eth_chainId" => document!("0x7d"),
                     "eth_blockNumber" => document!(format!("0x{height:x}")),
                     "eth_getBlockByNumber" => {
                         let number = u64::from_str_radix(
                             request["params"][0]
                                 .as_str()
-                                .unwrap()
+                                .must()
                                 .strip_prefix("0x")
-                                .unwrap(),
+                                .must(),
                             16,
                         )
-                        .unwrap();
+                        .must();
                         block(
                             number,
                             fixture.store.app_hash,
@@ -440,126 +559,24 @@ impl Node {
                             fixture.store.app_hash
                         };
                         document!({"height":height.to_string(),"signedHeader":{"header":{"height":height.to_string(),"chain_id":"125","app_hash":hex::encode(&app)},
-                            "commit":{"height":height.to_string(),"signatures":[],"block_id":{"hash":hex::encode(&[height as u8;32])}}}})
+                            "commit":{"height":height.to_string(),"signatures":[],"block_id":{"hash":hex::encode(&[height.to_le_bytes()[0];32])}}}})
                     }
-                    "abci_query" => {
-                        assert_eq!(path, "/comet");
-                        assert_eq!(request["params"]["path"], "/store/lxphost/key");
-                        assert_eq!(request["params"]["height"], (height - 1).to_string());
-                        assert_eq!(request["params"]["prove"], true);
-                        let key = request["params"]["data"]
-                            .as_str()
-                            .unwrap()
-                            .strip_prefix("0x")
-                            .unwrap();
-                        let mut reply = fixture
-                            .store
-                            .queries
-                            .get(key)
-                            .expect("real native store key")
-                            .clone();
-                        reply["height"] = document!((height - 1).to_string());
-                        if state.fault == "balance-proof"
-                            && key == format!("06{}", hex::encode(&fixture.budget))
-                        {
-                            reply["proofOps"]["ops"][0]["data"] = document!(base64(&[1, 2, 3]));
-                        }
-                        match state.fault {
-                            "proof" => {
-                                reply["proofOps"]["ops"][0]["data"] = document!(base64(&[1, 2, 3]))
-                            }
-                            "value" => reply["value"] = document!(base64(&[0xff; 8])),
-                            "key" => reply["key"] = document!(base64(&[0xff; 33])),
-                            "height" => reply["height"] = document!((height - 2).to_string()),
-                            "store" => {
-                                reply["proofOps"]["ops"][1]["key"] = document!(base64(b"evm"))
-                            }
-                            _ => {}
-                        }
-                        document!({"response":reply})
-                    }
-                    "eth_call" => {
-                        assert_eq!(request["params"][1], format!("0x{:x}", height - 1));
-                        state.called = true;
-                        let to = request["params"][0]["to"].as_str().unwrap();
-                        let data = request["params"][0]["data"].as_str().unwrap();
-                        let answer = if to.ends_with("1004") {
-                            assert_eq!(
-                                data,
-                                format!(
-                                    "0x{}{}",
-                                    hex::encode(&layerx_client::sequencer::GET_EVM_ADDR_BY_LAYERX),
-                                    hex::encode(&[0x61; 32])
-                                )
-                            );
-                            let mut answer = vec![0; 32];
-                            if state.fault != "unbound" {
-                                answer[12..].fill(0x11);
-                            }
-                            answer
-                        } else if to.ends_with("101a") {
-                            let data = must(hex::decode(data.strip_prefix("0x").unwrap()));
-                            assert_eq!(&data[..4], &[0xb1, 0xff, 0xc0, 0x3e]);
-                            assert_eq!(data.len(), 68);
-                            assert_eq!(&data[36..], &fixture.asset);
-                            let key = format!("06{}", hex::encode(&data[4..36]));
-                            let row = fixture.store.queries.get(&key).expect("ledger account");
-                            let bytes =
-                                must(crate::committed::base64(row["value"].as_str().unwrap()));
-                            let mut reader = layerx_wire::decode::Decoder::new(&bytes, 2048);
-                            assert_eq!(must(reader.bytes(32)), &data[4..36]);
-                            must(reader.bytes(512));
-                            must(reader.u8());
-                            let balance = must(reader.u128());
-                            let mut answer = vec![0; 32];
-                            answer[16..].copy_from_slice(&balance.to_be_bytes());
-                            match state.fault {
-                                "ledger-mismatch" => answer[31] ^= 1,
-                                "ledger-overflow" => answer[0] = 1,
-                                "ledger-truncated" => {
-                                    answer.pop();
-                                }
-                                _ => {}
-                            }
-                            answer
-                        } else {
-                            assert!(to.ends_with("101b"));
-                            let get = hex::encode(
-                                &layerx_crypto::evm_transaction::transaction_hash(
-                                    b"getBudget(bytes32)",
-                                )[..4],
-                            );
-                            let remaining = hex::encode(
-                                &layerx_crypto::evm_transaction::transaction_hash(
-                                    b"budgetRemaining(bytes32)",
-                                )[..4],
-                            );
-                            assert!(data.ends_with(&hex::encode(&fixture.id)));
-                            if data[2..].starts_with(&get) {
-                                fixture.budget_call.clone()
-                            } else {
-                                assert!(data[2..].starts_with(&remaining));
-                                let mut amount = vec![0; 32];
-                                amount[31] = 77;
-                                amount
-                            }
-                        };
-                        document!(format!("0x{}", hex::encode(&answer)))
-                    }
+                    "abci_query" => Self::query_response(&fixture, &request, &state, &path, height),
+                    "eth_call" => Self::call_response(&fixture, &request, &mut state, height),
                     "pax_sequencerReceipt" => {
                         let activity = request["params"][0]
                             .as_str()
-                            .unwrap()
+                            .must()
                             .strip_prefix("0x")
-                            .unwrap();
+                            .must();
                         let row = fixture
                             .receipts
                             .iter()
                             .find(|row| row["activity_id"] == activity)
-                            .unwrap();
+                            .must();
                         document!({"txHash":format!("0x{activity}"),"rung":if state.fault == "uncommitted" {"receipted"} else {"committed"},
                             "height":if state.fault == "receipt-height" {"0x3e9"} else {"0x3"},"blockNumber":"0x3","blockHash":format!("0x{}",hex::encode(&[if state.fault == "landing" {0xff} else {3};32])),
-                            "receipt":format!("0x{}",row["receipt"].as_str().unwrap()),"keyId":format!("0x{}",hex::encode(&if state.fault == "key-id" {[0xff;32]} else {fixture.key_id})),
+                            "receipt":format!("0x{}",row["receipt"].as_str().must()),"keyId":format!("0x{}",hex::encode(&if state.fault == "key-id" {[0xff;32]} else {fixture.key_id})),
                             "signingKey":format!("0x{}",hex::encode(&if state.fault == "signing-key" {[0xff;32]} else {fixture.public}))})
                     }
                     method => panic!("node does not produce hosted gateway joins: {method}"),
@@ -580,7 +597,7 @@ impl Node {
     }
 
     fn fault(&self, fault: &'static str) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock().must();
         state.fault = fault;
         state.called = false;
     }
@@ -589,7 +606,7 @@ impl Node {
 impl Drop for Node {
     fn drop(&mut self) {
         self.stopped.store(true, Ordering::Release);
-        self.worker.take().unwrap().join().unwrap();
+        self.worker.take().must().join().must();
     }
 }
 
@@ -678,10 +695,10 @@ fn successful(response: Result<Response, Response>) -> Value {
 }
 
 fn retain_records(config: &Config, records: &[Value]) {
-    let human = config.human.as_ref().unwrap();
+    let human = config.human.as_ref().must();
     for record in records {
         must(human.retain(
-            &must(hex::decode(record["receipt_hex"].as_str().unwrap())),
+            &must(hex::decode(record["receipt_hex"].as_str().must())),
             &must(serde_json::to_vec(&record["replica_document"])),
             config,
         ));
@@ -709,7 +726,7 @@ fn mixed_height_and_sequence_authenticates_multiple_receipts_and_empty_blocks() 
     assert_eq!(first["state_height"], 8);
     assert_eq!(first["receipt_sequence"], fixture.sequence);
     assert_eq!(first["block_hash"], hex::encode(&[9; 32]));
-    let calls = &node.state.lock().unwrap().calls.clone();
+    let calls = &node.state.lock().must().calls.clone();
     assert_eq!(
         calls
             .iter()
@@ -718,7 +735,7 @@ fn mixed_height_and_sequence_authenticates_multiple_receipts_and_empty_blocks() 
         2
     );
     // Both genuine native receipts landed in block 3; blocks 4..10 have no relevant receipts.
-    node.state.lock().unwrap().height = 10;
+    node.state.lock().must().height = 10;
     let later = successful(config.fixture_subject_head(
         &fixture.policy(),
         &fixture.did,
@@ -776,9 +793,9 @@ fn native_receipt_authority_requires_pinned_header_key_signature_and_range() {
     let directory = Directory::new();
     let mut config = config_fixture(&node, &fixture, &directory.0);
     let record = &fixture.records[0];
-    let receipt = must(hex::decode(record["receipt_hex"].as_str().unwrap()));
+    let receipt = must(hex::decode(record["receipt_hex"].as_str().must()));
     let decoded = must(layerx_wire::receipt::decode(&receipt));
-    assert_eq!(decoded.protocol().unwrap().context_hash(), [0; 32]);
+    assert_eq!(decoded.protocol().must().context_hash(), [0; 32]);
     let document = &record["replica_document"];
     let (_, authority) = must(trust::replica(
         &config,
@@ -794,12 +811,12 @@ fn native_receipt_authority_requires_pinned_header_key_signature_and_range() {
             "replica" => changed["authority_replica_id"] = document!(hex::encode(&[0xff; 32])),
             "header-key" => {
                 let mut header = must(hex::decode(
-                    changed["batch_evidence"]["header_hex"].as_str().unwrap(),
+                    changed["batch_evidence"]["header_hex"].as_str().must(),
                 ));
                 let offset = header
                     .windows(32)
                     .position(|bytes| bytes == fixture.key_id)
-                    .unwrap();
+                    .must();
                 header[offset] ^= 1;
                 // Even a correctly signed header must identify the pinned key.
                 let signer = ed25519_dalek::SigningKey::from_bytes(&[0x22; 32]);
@@ -814,7 +831,7 @@ fn native_receipt_authority_requires_pinned_header_key_signature_and_range() {
                 let mut signature = must(hex::decode(
                     changed["batch_evidence"]["header_signature"]
                         .as_str()
-                        .unwrap(),
+                        .must(),
                 ));
                 signature[0] ^= 1;
                 changed["batch_evidence"]["header_signature"] = document!(hex::encode(&signature));
@@ -829,7 +846,7 @@ fn native_receipt_authority_requires_pinned_header_key_signature_and_range() {
             config
                 .human
                 .as_ref()
-                .unwrap()
+                .must()
                 .retain(&receipt, &must(serde_json::to_vec(&changed)), &config)
                 .is_err(),
             "writer accepted {fault}"
@@ -865,10 +882,10 @@ fn tls_request(config: Arc<Config>, path: &str, token: &str) -> (u16, Value) {
     must(write!(stream,"GET {path} HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer {token}\r\nConnection: close\r\n\r\n"));
     let mut answer = Vec::new();
     must(stream.read_to_end(&mut answer));
-    server.join().unwrap();
-    let offset = answer.windows(4).position(|v| v == b"\r\n\r\n").unwrap();
-    let header = std::str::from_utf8(&answer[..offset]).unwrap();
-    let status = header.split_whitespace().nth(1).unwrap().parse().unwrap();
+    server.join().must();
+    let offset = answer.windows(4).position(|v| v == b"\r\n\r\n").must();
+    let header = std::str::from_utf8(&answer[..offset]).must();
+    let status = header.split_whitespace().nth(1).must().parse().must();
     (status, must(serde_json::from_slice(&answer[offset + 4..])))
 }
 
@@ -913,7 +930,7 @@ fn budget_gateway_wiring_reads_authenticated_native_state_through_authority_tls(
         proof["proofs"]["account_join"]["receipt_sequence_proof"]["height"],
         "8"
     );
-    let calls = node.state.lock().unwrap().calls.clone();
+    let calls = node.state.lock().must().calls.clone();
     assert!(!calls.iter().any(|row| matches!(
         row["method"].as_str(),
         Some("px_getAccount" | "px_getBalances")

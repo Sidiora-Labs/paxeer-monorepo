@@ -2801,6 +2801,7 @@ fn nested_memory_and_table_limits_are_graph_wide_for_v1_and_candidate() {
 
 #[test]
 fn depth_three_memory_peak_is_exact_and_one_short_refuses_at_the_leaf() {
+    // 196_608 is three live 64 KiB Wasm pages, independent of the market state cap.
     let middle = ProgramId::new([147; 32]).unwrap_or_else(|error| panic!("middle: {error}"));
     let leaf = ProgramId::new([148; 32]).unwrap_or_else(|error| panic!("leaf: {error}"));
     let requested = CapabilitySet::new([Capability::Call { program: leaf }])

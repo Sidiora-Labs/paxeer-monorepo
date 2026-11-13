@@ -9,6 +9,7 @@ import { LayerXKeyCredential } from "./agent-http.js";
 import { encodeUnsignedEip1559, type Eip1559Transaction as Eip1559Call } from "./evm-transaction.js";
 import { decodePxAccountBalances, decodePxAssetTable, type PxAssetBalance, type PxAssetEntry } from "./px.js";
 
+/** Native transaction progress ends at block commit, authenticated with pinned validators. */
 export type Commitment = "submitted" | "receipted" | "committed";
 export type RpcParam = string | number | null;
 interface AssetPage {

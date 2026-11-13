@@ -66,8 +66,8 @@ fn config() -> Value {
             "session_scopes": ["prepare", "submit"],
             "session_lifetime_seconds": 5000,
             "budget_asset": asset,
-            "budget_period_seconds": 2592000,
-            "budget_expiry_seconds": 31536000,
+            "budget_period_seconds": 2_592_000,
+            "budget_expiry_seconds": 31_536_000,
             "initial_funding": 250
         }]
     })
@@ -93,11 +93,11 @@ fn purpose_preset_with_activity_types_is_refused() {
         catalog.call_selectors("unknown"),
         Err(AgentCreationError::UnknownPurpose)
     ));
-    let activity = ActivityType::new(ModuleId::Asset, 5).expect("native Send activity");
+    let activity = ActivityType::new(ModuleId::Asset, 5).or_fail("native Send activity");
     let request = CreateAgentRequest::new("Payments agent", "payments", 100, "LXP")
-        .expect("creation request")
+        .or_fail("creation request")
         .with_activity_types(vec![activity])
-        .expect("explicit kernel activity types");
+        .or_fail("explicit kernel activity types");
     assert!(matches!(
         request.clone().with_activity_types(Vec::new()),
         Err(AgentCreationError::InvalidRequest)
@@ -115,7 +115,7 @@ fn purpose_preset_with_activity_types_is_refused() {
         retention_uniform(100),
     );
     let alice = principal("alice");
-    let mut scope = store.principal(&alice).expect("principal scope");
+    let mut scope = store.principal(&alice).or_fail("principal scope");
     let context = CreationContext {
         idempotency_key: [1; 32],
         owner_account: "agent:did:layerx:alice:main".to_owned(),
@@ -125,10 +125,10 @@ fn purpose_preset_with_activity_types_is_refused() {
         protocol_time: 1000,
     };
     let journey = CreationJourney::start(&mut scope, &request, &context, &catalog, 1)
-        .expect("selector preset with explicit kernel activities");
+        .or_fail("selector preset with explicit kernel activities");
     let loaded = CreationJourney::load(&scope, journey.agent_id())
-        .expect("load journey")
-        .expect("retained journey");
+        .or_fail("load journey")
+        .or_fail("retained journey");
     assert_eq!(loaded.projection().activity_types, vec![activity.value()]);
     assert_eq!(
         loaded.projection().call_selectors,
@@ -137,16 +137,16 @@ fn purpose_preset_with_activity_types_is_refused() {
     let changed = request
         .clone()
         .with_activity_types(vec![
-            ActivityType::new(ModuleId::Asset, 6).expect("asset activity")
+            ActivityType::new(ModuleId::Asset, 6).or_fail("asset activity")
         ])
-        .expect("changed kernel activity types");
+        .or_fail("changed kernel activity types");
     assert!(matches!(
         CreationJourney::start(&mut scope, &changed, &context, &catalog, 1),
         Err(AgentCreationError::IdempotencyConflict)
     ));
     drop(scope);
     drop(store);
-    std::fs::remove_dir_all(&root).expect("remove test store");
+    std::fs::remove_dir_all(&root).or_fail("remove test store");
     let mut legacy = valid.clone();
     legacy["presets"][0]["activity_types"] = json!([65541]);
     assert!(matches!(
@@ -177,4 +177,10 @@ fn purpose_preset_with_activity_types_is_refused() {
             Err(AgentCreationError::InvalidPresetConfig)
         ));
     }
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

@@ -1,0 +1,36 @@
+[repair]
+task = "22.39.371"
+base_revision = "a23aa5966f4af4db43b0e5eb5dc9c9e63330c5df"
+verified_revision = "The revision field of the final passing hf-done entry in /out/run/gates.jsonl; hf-build must name the identical candidate revision."
+evidence = "hf-done records the exact candidate revision, command, exit code and private log path."
+
+[wire.server]
+type = "canary_request"
+member = "plan: CanaryPlan"
+encoding = "Internally tagged snake_case JSON; unknown envelope and plan members are refused."
+
+[wire.client]
+type = "canary_answer"
+member = "answer: CanaryAnswer"
+encoding = "Internally tagged snake_case JSON; unknown envelope and answer members are refused."
+refusal = "invalid_frame for an unnamed peer, unknown deal or lap, or any second socket answer; the journal remains unchanged."
+
+[request]
+moment = "On runtime lap output, before the existing commitment check and lap receipt/audit, send the stored unanswered plan only to its named connected peer when it has a canary position."
+bound_setting = "laps.canary_answer_timeout_ms in inference deal terms; positive milliseconds, default 5000."
+locking = "Release the canary, listener, connections and peer writer locks before waiting; the socket consumer calls accept_peer_answer then accept_answer under the shared canary mutex."
+timeout = "Continue the existing output path: require_committed still refuses a missing attestation, so no receipt or successful audit is fabricated. An answer must still finalize its commitment before a retry can issue the lap."
+internal_requests = "The prepare and answers HTTP requests preserve their behavior, including the internal answer request's idempotent retry."
+
+[proof]
+vectors = "host-canary-frames.json is checked byte for byte against prepare and the selected peer's CanaryAnswer::sign, and round-tripped with both host frame types."
+socket = "A real WebSocket carries the selected plan and signed answer through receive_lap and handle_lap_frame; the native signed program transaction commits it, then issue_output records the audit and recovery rechecks it."
+cases = "No position, wrong peer, unknown deal and lap, duplicate and conflicting answers, answered-plan retry, bounded missing answer, and unknown frame members."
+
+[finding.host_lint]
+task = "22.39.371"
+file = "services/agent/crates/layerx-agentd/src/main.rs"
+symbol = "inference_serve_lap_output"
+observed = "On the working tree based on a23aa5966f4af4db43b0e5eb5dc9c9e63330c5df, cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --no-deps --bin layerx-agentd --message-format short exited 101; /tmp/lint-22-39-371-bin-pre.log records inherited main.rs, payer.rs and proof-module lints, with no canary.rs or laps.rs diagnostic."
+assumption = "Inherited host lints remain with their owners; the declared gate expressly checks that canary.rs introduces no diagnostic."
+severity = "note"

@@ -123,7 +123,11 @@ public final class ProgramTransportRetiredTest {
             throw new AssertionError(operation.name() + " accepted a 503 response");
         } catch (CompletionException error) {
             var failure = assertInstanceOf(PlatformSdkException.class, error.getCause(), operation.name());
-            assertEquals(PlatformSdkException.Code.TRANSPORT_FAILURE, failure.code(), operation.name());
+            boolean broadcast = "eth_sendRawTransaction".equals(operation.rpcMethod());
+            assertEquals(broadcast ? PlatformSdkException.Code.UNKNOWN_OUTCOME
+                : PlatformSdkException.Code.TRANSPORT_FAILURE, failure.code(), operation.name());
+            assertEquals(broadcast ? PlatformSdkException.Retry.UNKNOWN_OUTCOME
+                : PlatformSdkException.Retry.SAFE, failure.retry(), operation.name());
         }
         assertEquals(before + 1, requests.size(), operation.name());
         RecordedRequest request = requests.get(before);

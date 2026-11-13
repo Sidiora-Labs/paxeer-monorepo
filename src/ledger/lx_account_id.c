@@ -146,6 +146,7 @@ static lxp_result account_name_decode(const uint8_t *name, size_t name_length,
         kind = LX_ACCOUNT_SYSTEM_INSURANCE;
     else if (span_equal(name, name_length, "system:fees"))
         kind = LX_ACCOUNT_SYSTEM_FEES;
+    /* Historical account identifiers are also consumed by genesis validation. */
     else if (span_equal(name, name_length, "system:paxeer-reserve") ||
              span_equal(name, name_length, "system:paxeer-reserve:pax") ||
              span_equal(name, name_length, "system:paxeer-reserve:sid") ||

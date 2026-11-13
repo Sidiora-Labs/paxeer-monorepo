@@ -2,16 +2,14 @@
 compile_error!("Programs host-ffi requires panic = \"unwind\" so FFI guards can catch panics");
 
 use layerx_programs_runtime::{
-    hash_bytes, reserve_host_sandbox_escrow_charge, settle_reserved_host_sandbox_escrow_charge,
-    ActivityBudgetBinding, HashAlgorithm, MeteredUsage, ProgramId, ReservedSandboxEscrowCharge,
+    reserve_host_sandbox_escrow_charge, settle_reserved_host_sandbox_escrow_charge,
+    ActivityBudgetBinding, MeteredUsage, ProgramId, ReservedSandboxEscrowCharge,
 };
 use std::cell::RefCell;
 
 use crate::expiry;
-use crate::usage::record_host_settlement_reserved;
-use crate::{
-    ActivityOutcome, DurableUsageState, Escrow, Lease, LeaseUsage, UsageLedger, UsageObservation,
-};
+use crate::usage::{cumulative_usage, record_host_settlement_reserved};
+use crate::{ActivityOutcome, DurableUsageState, Escrow, Lease, UsageLedger, UsageObservation};
 
 const OK: i32 = 0;
 const NON_CANONICAL: i32 = -3;
@@ -413,6 +411,29 @@ pub extern "C" fn layerx_programs_sandbox_admit_host(
         .map_or_else(|error| error, |()| OK)
 }
 
+fn validate_host_fee_schedule(
+    token: u64,
+    schedule: layerx_programs_runtime::FeeSchedule,
+) -> Result<(), i32> {
+    if unsafe {
+        layerx_programs_call_sandbox_fee_schedule(
+            token,
+            schedule.version(),
+            schedule.cpu_price(),
+            schedule.memory_byte_price(),
+            schedule.storage_read_byte_price(),
+            schedule.storage_write_byte_price(),
+            schedule.output_value_price(),
+            schedule.output_byte_price(),
+            schedule.occupancy_byte_batch_price(),
+        )
+    } != OK
+    {
+        return Err(TERMS_MISMATCH);
+    }
+    Ok(())
+}
+
 fn admit_host(
     token: u64,
     observed_batch: u64,
@@ -432,22 +453,7 @@ fn admit_host(
         return Err(CONTEXT_MISMATCH);
     }
     let schedule = lease.fee_schedule();
-    if unsafe {
-        layerx_programs_call_sandbox_fee_schedule(
-            token,
-            schedule.version(),
-            schedule.cpu_price(),
-            schedule.memory_byte_price(),
-            schedule.storage_read_byte_price(),
-            schedule.storage_write_byte_price(),
-            schedule.output_value_price(),
-            schedule.output_byte_price(),
-            schedule.occupancy_byte_batch_price(),
-        )
-    } != OK
-    {
-        return Err(TERMS_MISMATCH);
-    }
+    validate_host_fee_schedule(token, schedule)?;
     let prior_batch = ledger
         .latest()
         .map_or(lease.opened_at(), crate::UsageReceipt::observed_batch);
@@ -641,6 +647,28 @@ fn validate_settlement_context(
     Ok(())
 }
 
+fn settlement_occupancy(
+    lease: &Lease,
+    ledger: &UsageLedger,
+    observed_batch: u64,
+) -> Result<(u128, u128), i32> {
+    let prior_batch = ledger
+        .latest()
+        .map_or(lease.opened_at(), crate::UsageReceipt::observed_batch);
+    let elapsed = observed_batch
+        .checked_sub(prior_batch)
+        .ok_or(NOT_YET_VALID)?;
+    let occupancy_byte_batches = u128::from(lease.usage().namespace_bytes)
+        .checked_mul(u128::from(elapsed))
+        .ok_or(OVERFLOW)?;
+    let occupancy_fee_units = occupancy_byte_batches
+        .checked_mul(u128::from(
+            lease.fee_schedule().occupancy_byte_batch_price(),
+        ))
+        .ok_or(OVERFLOW)?;
+    Ok((occupancy_byte_batches, occupancy_fee_units))
+}
+
 #[allow(clippy::too_many_arguments)]
 fn settle_call(
     token: u64,
@@ -670,18 +698,8 @@ fn settle_call(
     let escrow = &reservation.state.escrow;
     let ledger = &reservation.state.ledger;
     let schedule = lease.fee_schedule();
-    let prior_batch = ledger
-        .latest()
-        .map_or(lease.opened_at(), crate::UsageReceipt::observed_batch);
-    let elapsed = observed_batch
-        .checked_sub(prior_batch)
-        .ok_or(NOT_YET_VALID)?;
-    let occupancy_byte_batches = u128::from(lease.usage().namespace_bytes)
-        .checked_mul(u128::from(elapsed))
-        .ok_or(OVERFLOW)?;
-    let occupancy_fee_units = occupancy_byte_batches
-        .checked_mul(u128::from(schedule.occupancy_byte_batch_price()))
-        .ok_or(OVERFLOW)?;
+    let (occupancy_byte_batches, occupancy_fee_units) =
+        settlement_occupancy(lease, ledger, observed_batch)?;
     let execution_fee = execution_fee(
         schedule,
         [
@@ -782,48 +800,6 @@ fn execution_fee(
                     .ok_or(OVERFLOW)?,
             )
             .ok_or(OVERFLOW)
-    })
-}
-
-pub(crate) fn cumulative_usage(
-    lease: &Lease,
-    usage: MeteredUsage,
-    outcome: u8,
-    final_namespace_bytes: u64,
-) -> Result<LeaseUsage, i32> {
-    Ok(LeaseUsage {
-        cpu_fuel: lease
-            .usage()
-            .cpu_fuel
-            .checked_add(usage.cpu_fuel)
-            .ok_or(OVERFLOW)?,
-        memory_bytes: lease.usage().memory_bytes.max(usage.memory_bytes),
-        storage_read_bytes: lease
-            .usage()
-            .storage_read_bytes
-            .checked_add(usage.storage_read_bytes)
-            .ok_or(OVERFLOW)?,
-        storage_write_bytes: lease
-            .usage()
-            .storage_write_bytes
-            .checked_add(usage.storage_write_bytes)
-            .ok_or(OVERFLOW)?,
-        output_values: lease
-            .usage()
-            .output_values
-            .checked_add(u64::from(usage.output_values))
-            .ok_or(OVERFLOW)?,
-        output_bytes: lease
-            .usage()
-            .output_bytes
-            .checked_add(usage.output_bytes)
-            .ok_or(OVERFLOW)?,
-        table_elements: lease.usage().table_elements,
-        namespace_bytes: if outcome == 1 {
-            final_namespace_bytes
-        } else {
-            lease.usage().namespace_bytes
-        },
     })
 }
 

@@ -23,7 +23,11 @@ impl CommitTimestamp {
 
     fn encode(self) -> Vec<u8> {
         let mut bytes = Vec::new();
-        varint_field(&mut bytes, 1, self.seconds as u64);
+        varint_field(
+            &mut bytes,
+            1,
+            u64::from_le_bytes(self.seconds.to_le_bytes()),
+        );
         varint_field(&mut bytes, 2, u64::from(self.nanos));
         bytes
     }
@@ -106,6 +110,7 @@ pub struct CommitValidator {
 }
 
 impl CommitValidator {
+    #[must_use]
     pub fn address_for_key(public_key: &[u8; 32]) -> [u8; 20] {
         let digest = Sha256::digest(public_key);
         let mut address = [0; 20];
@@ -114,6 +119,7 @@ impl CommitValidator {
     }
 }
 
+#[must_use]
 pub fn validator_set_hash(validators: &[CommitValidator]) -> [u8; 32] {
     let encoded: Vec<_> = validators
         .iter()
@@ -146,6 +152,7 @@ pub struct BlockCommit {
 }
 
 impl BlockCommit {
+    #[must_use]
     pub fn vote_sign_bytes(&self, chain_id: &str, timestamp: CommitTimestamp) -> Vec<u8> {
         let mut vote = vec![0x08, 0x02, 0x11];
         vote.extend_from_slice(&self.height.to_le_bytes());
@@ -175,12 +182,16 @@ pub struct ServedCheckpoint {
 }
 
 impl ServedCheckpoint {
+    #[must_use]
     pub fn observed_block_hash(&self) -> [u8; 32] {
         self.header.block_hash()
     }
 
     /// Re-reads a saved, authenticated checkpoint from the configured node.
     /// The consensus identity and block remain pinned across reader restarts.
+    /// # Errors
+    /// Returns an error if node acquisition fails or the committed checkpoint, target, result
+    /// root or proof cannot be verified.
     pub fn reacquire(&self, endpoint: &SequencerEndpoint) -> Result<Self, CheckpointReadError> {
         let trusted = serve_checkpoint(
             self.height,
@@ -204,6 +215,9 @@ impl ServedCheckpoint {
         Ok(observed)
     }
 
+    /// # Errors
+    /// Returns an error if node acquisition fails or the committed checkpoint, target, result
+    /// root or proof cannot be verified.
     pub fn acquire_at_committed_block(
         endpoint: &SequencerEndpoint,
         height: u64,
@@ -257,6 +271,9 @@ impl ServedCheckpoint {
     }
 
     /// Encodes the authenticated native header for the Programs chain verifier.
+    /// # Errors
+    /// Returns an error if node acquisition fails or the committed checkpoint, target, result
+    /// root or proof cannot be verified.
     pub fn commitment_proof(
         &self,
     ) -> Result<layerx_programs::chain_proof::decode::CommitmentProof, CheckpointReadError> {
@@ -267,50 +284,11 @@ impl ServedCheckpoint {
             &self.commit,
             &self.validators,
         )?;
-        if verified != *self {
-            return Err(CheckpointReadError::CheckpointBlockMismatch);
-        }
+        crate::reject_if(verified != *self, || {
+            CheckpointReadError::CheckpointBlockMismatch
+        })?;
+        let header = self.commitment_header();
         let h = &self.header;
-        let mut version = Vec::new();
-        varint_field(&mut version, 1, h.version_block);
-        varint_field(&mut version, 2, h.version_app);
-        let mut header = Vec::new();
-        bytes_field(&mut header, 1, &version);
-        bytes_field(&mut header, 2, h.chain_id.as_bytes());
-        varint_field(&mut header, 3, h.height);
-        bytes_field(&mut header, 4, &h.time.encode());
-        bytes_field(
-            &mut header,
-            5,
-            &h.last_block_id
-                .map_or_else(|| vec![0x12, 0], BlockId::encode),
-        );
-        for (field, bytes) in [
-            (
-                6,
-                h.last_commit_hash
-                    .as_ref()
-                    .map_or(&[][..], |h| h.as_slice()),
-            ),
-            (7, h.data_hash.as_ref().map_or(&[][..], |h| h.as_slice())),
-            (8, h.validators_hash.as_slice()),
-            (9, h.next_validators_hash.as_slice()),
-            (10, h.consensus_hash.as_slice()),
-            (11, h.app_hash.as_slice()),
-            (
-                12,
-                h.last_results_hash
-                    .as_ref()
-                    .map_or(&[][..], |h| h.as_slice()),
-            ),
-            (
-                13,
-                h.evidence_hash.as_ref().map_or(&[][..], |h| h.as_slice()),
-            ),
-            (14, h.proposer_address.as_slice()),
-        ] {
-            bytes_field(&mut header, field, bytes);
-        }
         let mut commit = Vec::new();
         varint_field(&mut commit, 1, self.commit.height);
         varint_field(&mut commit, 2, u64::from(self.commit.round));
@@ -366,6 +344,50 @@ impl ServedCheckpoint {
             value: None,
             proof_ops: Vec::new(),
         })
+    }
+    fn commitment_header(&self) -> Vec<u8> {
+        let h = &self.header;
+        let mut version = Vec::new();
+        varint_field(&mut version, 1, h.version_block);
+        varint_field(&mut version, 2, h.version_app);
+        let mut header = Vec::new();
+        bytes_field(&mut header, 1, &version);
+        bytes_field(&mut header, 2, h.chain_id.as_bytes());
+        varint_field(&mut header, 3, h.height);
+        bytes_field(&mut header, 4, &h.time.encode());
+        bytes_field(
+            &mut header,
+            5,
+            &h.last_block_id
+                .map_or_else(|| vec![0x12, 0], BlockId::encode),
+        );
+        for (field, bytes) in [
+            (
+                6,
+                h.last_commit_hash
+                    .as_ref()
+                    .map_or(&[][..], |h| h.as_slice()),
+            ),
+            (7, h.data_hash.as_ref().map_or(&[][..], |h| h.as_slice())),
+            (8, h.validators_hash.as_slice()),
+            (9, h.next_validators_hash.as_slice()),
+            (10, h.consensus_hash.as_slice()),
+            (11, h.app_hash.as_slice()),
+            (
+                12,
+                h.last_results_hash
+                    .as_ref()
+                    .map_or(&[][..], |h| h.as_slice()),
+            ),
+            (
+                13,
+                h.evidence_hash.as_ref().map_or(&[][..], |h| h.as_slice()),
+            ),
+            (14, h.proposer_address.as_slice()),
+        ] {
+            bytes_field(&mut header, field, bytes);
+        }
+        header
     }
 
     pub(crate) fn from_comet_json(
@@ -494,7 +516,7 @@ fn json_base64<const N: usize>(value: &serde_json::Value) -> Result<[u8; N], Che
         count += 6;
         if count >= 8 {
             count -= 8;
-            bytes.push((bits >> count) as u8);
+            bytes.push((bits >> count).to_le_bytes()[0]);
         }
     }
     if bits & ((1 << count) - 1) != 0 {
@@ -539,7 +561,10 @@ fn json_timestamp(value: &serde_json::Value) -> Result<CommitTimestamp, Checkpoi
         30,
         31,
     ];
-    if !(1..=12).contains(&month) || day < 1 || day > days[(month - 1) as usize] {
+    if !(1..=12).contains(&month)
+        || day < 1
+        || day > days[usize::try_from(month - 1).map_err(|_| bad())?]
+    {
         return Err(bad());
     }
     let (hour, minute, second) = (number(11, 13)?, number(14, 16)?, number(17, 19)?);
@@ -557,14 +582,15 @@ fn json_timestamp(value: &serde_json::Value) -> Result<CommitTimestamp, Checkpoi
         {
             return Err(bad());
         }
-        fraction.parse::<u32>().map_err(|_| bad())? * 10_u32.pow(9 - fraction.len() as u32)
+        fraction.parse::<u32>().map_err(|_| bad())?
+            * 10_u32.pow(9 - u32::try_from(fraction.len()).map_err(|_| bad())?)
     };
     year -= i64::from(month <= 2);
     let era = year.div_euclid(400);
     let yoe = year - era * 400;
     let mp = month + if month > 2 { -3 } else { 9 };
     let doy = (153 * mp + 2) / 5 + day - 1;
-    let days = era * 146097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719468;
+    let days = era * 146_097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719_468;
     let timestamp = CommitTimestamp {
         seconds: days * 86400 + hour * 3600 + minute * 60 + second,
         nanos,
@@ -599,6 +625,9 @@ pub struct ProofBundleRequest<'a> {
 }
 
 impl ProofBundleRequest<'_> {
+    /// # Errors
+    /// Returns an error if node acquisition fails or the committed checkpoint, target, result
+    /// root or proof cannot be verified.
     pub fn acquire(
         &self,
         endpoint: &SequencerEndpoint,
@@ -638,9 +667,9 @@ pub enum CheckpointReadError {
 }
 
 impl CheckpointReadError {
+    #[must_use]
     pub const fn reason(&self) -> &'static str {
         match self {
-            Self::UnavailableCapability(_) => "read.unavailable",
             Self::NotCommitted => "read.not_committed",
             Self::Commit => "read.commit",
             Self::InvalidProof | Self::RootMismatch => "read.invalid_proof",
@@ -648,7 +677,7 @@ impl CheckpointReadError {
             Self::CheckpointBlockMismatch => "read.checkpoint_block_mismatch",
             Self::BelowRequestedRung => "read.below_requested_rung",
             Self::Arithmetic => "read.proof_size",
-            Self::Rpc(_) => "read.unavailable",
+            Self::UnavailableCapability(_) | Self::Rpc(_) => "read.unavailable",
         }
     }
 }
@@ -734,10 +763,10 @@ pub(crate) fn serve_checkpoint(
 
 fn varint(bytes: &mut Vec<u8>, mut value: u64) {
     while value >= 128 {
-        bytes.push((value as u8 & 0x7f) | 0x80);
+        bytes.push((value.to_le_bytes()[0] & 0x7f) | 0x80);
         value >>= 7;
     }
-    bytes.push(value as u8);
+    bytes.push(value.to_le_bytes()[0]);
 }
 
 fn varint_field(bytes: &mut Vec<u8>, field: u8, value: u64) {
@@ -865,7 +894,10 @@ mod tests {
                     .to_bytes(),
             });
         }
-        serve_checkpoint(height, "125", &header, &commit, &validators).expect("signed block commit")
+        let Ok(checkpoint) = serve_checkpoint(height, "125", &header, &commit, &validators) else {
+            panic!("signed block commit");
+        };
+        checkpoint
     }
 
     fn rpc_block(checkpoint: &ServedCheckpoint) -> Value {
@@ -879,42 +911,57 @@ mod tests {
     fn endpoint(
         answers: Vec<(&'static str, Value)>,
     ) -> (SequencerEndpoint, std::thread::JoinHandle<()>) {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind RPC fixture");
-        let address = listener.local_addr().expect("fixture address");
+        let Ok(listener) = std::net::TcpListener::bind("127.0.0.1:0") else {
+            panic!("bind RPC fixture");
+        };
+        let Ok(address) = listener.local_addr() else {
+            panic!("fixture address");
+        };
         let worker = std::thread::spawn(move || {
             for (method, answer) in answers {
-                let (mut stream, _) = listener.accept().expect("RPC request");
-                stream
-                    .set_read_timeout(Some(std::time::Duration::from_secs(5)))
-                    .expect("read deadline");
+                let Ok((mut stream, _)) = listener.accept() else {
+                    panic!("RPC request");
+                };
+                assert!(
+                    stream
+                        .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                        .is_ok(),
+                    "read deadline"
+                );
                 let mut bytes = Vec::new();
                 let (offset, length) = loop {
                     let mut byte = [0];
-                    stream.read_exact(&mut byte).expect("request header");
+                    assert!(stream.read_exact(&mut byte).is_ok(), "request header");
                     bytes.push(byte[0]);
                     if bytes.ends_with(b"\r\n\r\n") {
-                        let headers = String::from_utf8(bytes.clone()).expect("HTTP headers");
-                        let length = headers
-                            .lines()
-                            .find_map(|line| {
-                                let (name, value) = line.split_once(':')?;
-                                name.eq_ignore_ascii_case("content-length")
-                                    .then(|| value.trim().parse::<usize>().expect("length"))
-                            })
-                            .expect("request length");
+                        let Ok(headers) = String::from_utf8(bytes.clone()) else {
+                            panic!("HTTP headers");
+                        };
+                        let Some(value) = headers.lines().find_map(|line| {
+                            let (name, value) = line.split_once(':')?;
+                            name.eq_ignore_ascii_case("content-length").then_some(value)
+                        }) else {
+                            panic!("request length");
+                        };
+                        let Ok(length) = value.trim().parse::<usize>() else {
+                            panic!("length");
+                        };
                         break (bytes.len(), length);
                     }
                 };
                 bytes.resize(offset + length, 0);
-                stream
-                    .read_exact(&mut bytes[offset..])
-                    .expect("request body");
-                let request: Value = serde_json::from_slice(&bytes[offset..]).expect("JSON RPC");
+                assert!(
+                    stream.read_exact(&mut bytes[offset..]).is_ok(),
+                    "request body"
+                );
+                let Ok(request): Result<Value, _> = serde_json::from_slice(&bytes[offset..]) else {
+                    panic!("JSON RPC");
+                };
                 assert_eq!(request["method"], method);
                 match method {
                     "eth_blockNumber" => assert_eq!(request["params"], json!([])),
                     "px_getCommit" | "px_getValidators" => {
-                        assert_eq!(request["params"], json!(["8"]))
+                        assert_eq!(request["params"], json!(["8"]));
                     }
                     "eth_getBlockByNumber" => {
                         assert_eq!(request["params"][0], "0x8");
@@ -924,13 +971,13 @@ mod tests {
                 }
                 let body =
                     json!({"jsonrpc": "2.0", "id": request["id"], "result": answer}).to_string();
-                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).expect("RPC reply");
+                assert!(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).is_ok(), "RPC reply");
             }
         });
-        (
-            SequencerEndpoint::new(&format!("http://{address}"), &[]).expect("RPC endpoint"),
-            worker,
-        )
+        let Ok(endpoint) = SequencerEndpoint::new(&format!("http://{address}"), &[]) else {
+            panic!("RPC endpoint");
+        };
+        (endpoint, worker)
     }
 
     fn base64(bytes: &[u8]) -> String {
@@ -981,9 +1028,12 @@ mod tests {
             json!({"block_id_flag": 1, "validator_address": "", "signature": null,
             "timestamp": "0001-01-01T00:00:00Z"}),
         );
+        let Some(parent) = h.last_block_id else {
+            panic!("parent");
+        };
         json!({"header": {
             "version": {"block": "11", "app": "1"}, "chain_id": "125", "height": signed.height.to_string(),
-            "time": timestamp, "last_block_id": id(h.last_block_id.expect("parent")),
+            "time": timestamp, "last_block_id": id(parent),
             "last_commit_hash": hex(&[3;32]), "data_hash": hex(&[4;32]),
             "validators_hash": hex(&h.validators_hash), "next_validators_hash": hex(&h.next_validators_hash),
             "consensus_hash": hex(&[5;32]), "app_hash": hex(&[6;32]),
@@ -1044,20 +1094,25 @@ mod tests {
         answers.extend(acquisition_answers(&signed, rpc_block(&signed)));
         answers.extend(acquisition_answers(&signed, rpc_block(&signed)));
         let (endpoint, worker) = endpoint(answers);
-        let height = endpoint.block_number().expect("committed height");
-        let head = ServedCheckpoint::acquire_at_committed_block(&endpoint, height, None, "125")
-            .expect("committed head");
-        let by_id = ServedCheckpoint::acquire_at_committed_block(
+        let Ok(height) = endpoint.block_number() else {
+            panic!("committed height");
+        };
+        let Ok(head) = ServedCheckpoint::acquire_at_committed_block(&endpoint, height, None, "125")
+        else {
+            panic!("committed head");
+        };
+        let Ok(by_id) = ServedCheckpoint::acquire_at_committed_block(
             &endpoint,
             height,
             Some(head.block_hash),
             "125",
-        )
-        .expect("checkpoint identifier");
+        ) else {
+            panic!("checkpoint identifier");
+        };
         assert_eq!(head, signed);
         assert_eq!(by_id, signed);
         assert_eq!(head.observed_block_hash(), signed.header.block_hash());
-        worker.join().expect("RPC fixture");
+        assert!(worker.join().is_ok(), "RPC fixture");
     }
 
     #[test]
@@ -1067,7 +1122,7 @@ mod tests {
             ServedCheckpoint::acquire_at_committed_block(&endpoint, 8, None, "125",),
             Err(CheckpointReadError::TargetMismatch)
         );
-        worker.join().expect("RPC fixture");
+        assert!(worker.join().is_ok(), "RPC fixture");
     }
 
     #[test]
@@ -1103,7 +1158,7 @@ mod tests {
                 .is_err(),
                 "{changed}"
             );
-            worker.join().expect("RPC fixture");
+            assert!(worker.join().is_ok(), "RPC fixture");
         }
     }
 
@@ -1115,16 +1170,17 @@ mod tests {
             let index = if changed == "hash" { 0 } else { 3 };
             answers[index].1[changed] = json!(format!("0x{}", "aa".repeat(32)));
             let (endpoint, worker) = endpoint(answers);
-            let error = ServedCheckpoint::acquire_at_committed_block(
+            let Err(error) = ServedCheckpoint::acquire_at_committed_block(
                 &endpoint,
                 8,
                 Some(signed.block_hash),
                 "125",
-            )
-            .expect_err("block and signed checkpoint must agree");
+            ) else {
+                panic!("block and signed checkpoint must agree");
+            };
             assert_eq!(error, CheckpointReadError::CheckpointBlockMismatch);
             assert_eq!(error.reason(), "read.checkpoint_block_mismatch");
-            worker.join().expect("RPC fixture");
+            assert!(worker.join().is_ok(), "RPC fixture");
         }
     }
 
@@ -1141,19 +1197,19 @@ mod tests {
             }
             let (endpoint, worker) = endpoint(vec![("eth_getBlockByNumber", block)]);
             assert_eq!(endpoint.state_root(8), Err(SequencerError::Malformed));
-            worker.join().expect("RPC fixture");
+            assert!(worker.join().is_ok(), "RPC fixture");
         }
         let (endpoint, worker) = endpoint(vec![(
             "px_getCommit",
             json!({"height": "9", "signedHeader": rpc_commit(&signed)}),
         )]);
         assert_eq!(endpoint.commit_material(8), Err(SequencerError::Malformed));
-        worker.join().expect("RPC fixture");
+        assert!(worker.join().is_ok(), "RPC fixture");
         let mut validators = rpc_validators(&signed);
         validators["total"] = json!("4");
         let (endpoint, worker) = self::endpoint(vec![("px_getValidators", validators)]);
         assert_eq!(endpoint.validator_set(8), Err(SequencerError::Malformed));
-        worker.join().expect("RPC fixture");
+        assert!(worker.join().is_ok(), "RPC fixture");
     }
 
     #[test]

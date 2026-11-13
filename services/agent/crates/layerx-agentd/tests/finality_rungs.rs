@@ -21,6 +21,8 @@ pub mod fixtures {
     pub const IDEMPOTENCY_KEY: [u8; 32] = [9; 32];
     pub const CHAIN_ID: &str = "paxeer-test-125";
 
+    /// # Panics
+    /// Panics if the supplied result is an error.
     pub fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
         result.unwrap_or_else(|error| panic!("{error:?}"))
     }
@@ -135,6 +137,7 @@ pub mod fixtures {
         encode_fields(fields, Some(key.sign(&digest).to_bytes()))
     }
 
+    #[must_use = "use the constructed fixture value"]
     pub fn receipt() -> (Vec<u8>, ReceiptKeyEntry) {
         let signer = SigningKey::from_bytes(&[8; 32]);
         let fields = fields(7, [1; 32]);
@@ -149,6 +152,9 @@ pub mod fixtures {
         )
     }
 
+    #[must_use = "use the constructed fixture value"]
+    /// # Panics
+    /// Panics if the supplied fixture data is invalid or an expected codec, signing, storage, or transport operation fails.
     pub fn transaction() -> Vec<u8> {
         let raw = must(
             layerx_crypto::evm_transaction::Eip1559Call {
@@ -169,6 +175,7 @@ pub mod fixtures {
         raw
     }
 
+    #[must_use = "use the constructed fixture value"]
     pub fn header(validators: &[Validator]) -> layerx_agentd::read::CheckpointHeader {
         use layerx_agentd::read::{
             validator_set_hash, CheckpointHeader, CommitTimestamp, CommitValidator,
@@ -205,6 +212,9 @@ pub mod fixtures {
         }
     }
 
+    #[must_use = "use the constructed fixture value"]
+    /// # Panics
+    /// Panics if the supplied fixture data is invalid or an expected codec, signing, storage, or transport operation fails.
     pub fn block_for(validators: &[Validator]) -> SequencerBlock {
         use layerx_client::sequencer::SequencerEndpoint;
         use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
@@ -225,7 +235,7 @@ pub mod fixtures {
         let response = json!({
             "number": "0x7", "hash": format!("0x{}", hex::encode(hash)),
             "parentHash": format!("0x{}", hex::encode([16; 32])), "timestamp": "0x3e8",
-            "transactionsRoot": format!("0x{}", hex::encode(header.data_hash.unwrap())),
+            "transactionsRoot": format!("0x{}", hex::encode(assert_some(header.data_hash, "expected Some value"))),
             "receiptsRoot": format!("0x{}", hex::encode([20; 32])),
             "transactions": [{
                 "blockHash": format!("0x{}", hex::encode(hash)), "blockNumber": "0x7",
@@ -262,7 +272,7 @@ pub mod fixtures {
                     length = Some(must(value.trim().parse::<usize>()));
                 }
             }
-            let length = length.unwrap();
+            let length = assert_some(length, "expected Some value");
             assert!(length <= 64 * 1024);
             let mut body = vec![0; length];
             must(reader.read_exact(&mut body));
@@ -279,7 +289,10 @@ pub mod fixtures {
             ));
             must(stream.flush());
         });
-        let block = must(endpoint.block_by_number(header.height)).unwrap();
+        let block = assert_some(
+            must(endpoint.block_by_number(header.height)),
+            "expected Some value",
+        );
         must(server.join());
         assert_eq!(block.number, header.height);
         assert_eq!(block.hash, hash);
@@ -287,6 +300,8 @@ pub mod fixtures {
         block
     }
 
+    /// # Panics
+    /// Panics if the fixture block, commit, or validator set disagrees with its authenticated header.
     pub fn assert_fixture_binding(
         header: &layerx_agentd::read::CheckpointHeader,
         commit: &BlockCommit,
@@ -345,11 +360,15 @@ pub mod fixtures {
         }
     }
 
+    #[must_use = "use the constructed fixture value"]
     pub fn block() -> SequencerBlock {
         let (_, validators) = commit(&[1, 1, 1, 1], &[0, 1, 2]);
         block_for(&validators)
     }
 
+    #[must_use = "use the constructed fixture value"]
+    /// # Panics
+    /// Panics if the supplied fixture data is invalid or an expected codec, signing, storage, or transport operation fails.
     pub fn commit(powers: &[u64], signers: &[usize]) -> (BlockCommit, Vec<Validator>) {
         let keys: Vec<_> = powers
             .iter()
@@ -388,6 +407,14 @@ pub mod fixtures {
             });
         }
         (commit, validators)
+    }
+
+    #[track_caller]
+    fn assert_some<T>(value: Option<T>, message: &str) -> T {
+        match value {
+            Some(value) => value,
+            None => panic!("{message}"),
+        }
     }
 }
 
@@ -490,73 +517,7 @@ fn receipt_signed_by_unpublished_key_does_not_reach_receipted() {
 #[test]
 fn committed_requires_more_than_two_thirds_voting_power() {
     let (receipt, key) = receipt();
-    for (powers, signers, accepted) in [
-        (vec![1, 1, 1], vec![0, 1], false),
-        (vec![1, 1, 1, 1], vec![0, 1, 2], true),
-        (vec![1, 1, 8], vec![0, 1], false),
-        (vec![1, 1, 8], vec![2], true),
-        (vec![u64::MAX, u64::MAX, u64::MAX], vec![0, 1], false),
-        (
-            vec![u64::MAX, u64::MAX, u64::MAX, u64::MAX],
-            vec![0, 1, 2],
-            false,
-        ),
-    ] {
-        let mut submission = SubmissionProgress::accepted(IDEMPOTENCY_KEY, TX_HASH);
-        must(submission.observe_receipt(&receipt, &[key]));
-        let (commit, validators) = commit(&powers, &signers);
-        let block = block_for(&validators);
-        let header = header(&validators);
-        assert_fixture_binding(&header, &commit, &block, &validators);
-        let result =
-            submission.observe_block_with_header(&block, &commit, &header, CHAIN_ID, &validators);
-        if accepted {
-            result.unwrap_or_else(|error| panic!("quorum powers {powers:?}: {error:?}"));
-        } else {
-            assert!(matches!(result, Err(FinalityError::InvalidCommit)));
-        }
-        let result = must(wait_for_rung(
-            &mut submission,
-            IDEMPOTENCY_KEY,
-            Rung::Committed,
-            0,
-            10,
-            2,
-        ));
-        assert_eq!(
-            result.reached,
-            if accepted {
-                Rung::Committed
-            } else {
-                Rung::Receipted
-            }
-        );
-        assert_eq!(result.deadline_elapsed, !accepted);
-    }
-    for (powers, signers, quorum) in [
-        (vec![u64::MAX; 3], vec![0, 1], false),
-        (vec![u64::MAX; 4], vec![0, 1, 2], true),
-    ] {
-        let (commit, validators) = commit(&powers, &signers);
-        let block = block_for(&validators);
-        let verified =
-            layerx_agentd::finality::VerifiedBlock::verify(&block, &commit, CHAIN_ID, &validators);
-        if quorum {
-            must(verified);
-        } else {
-            assert!(matches!(verified, Err(FinalityError::InvalidCommit)));
-        }
-        let mut submission = SubmissionProgress::accepted(IDEMPOTENCY_KEY, TX_HASH);
-        must(submission.observe_receipt(&receipt, &[key]));
-        assert!(matches!(
-            submission.observe_block(&block, &commit, CHAIN_ID, &validators),
-            Err(FinalityError::InvalidCommit),
-        ));
-        assert_eq!(
-            must(submission.rung_at(IDEMPOTENCY_KEY, 0)),
-            Rung::Receipted
-        );
-    }
+    assert_quorum_thresholds(&receipt, key);
     let mut submission = SubmissionProgress::accepted(IDEMPOTENCY_KEY, TX_HASH);
     must(submission.observe_receipt(&receipt, &[key]));
     let (mut forged, validators) = commit(&[1, 1, 1], &[0, 1]);
@@ -657,5 +618,75 @@ fn empty_or_unrelated_block_cannot_promote_a_receipt() {
         };
         assert!(matches!(result, Err(FinalityError::InvalidCommit)));
         assert_eq!(must(progress.rung_at(IDEMPOTENCY_KEY, 0)), Rung::Receipted);
+    }
+}
+
+fn assert_quorum_thresholds(receipt: &[u8], key: layerx_client::sequencer::ReceiptKeyEntry) {
+    for (powers, signers, accepted) in [
+        (vec![1, 1, 1], vec![0, 1], false),
+        (vec![1, 1, 1, 1], vec![0, 1, 2], true),
+        (vec![1, 1, 8], vec![0, 1], false),
+        (vec![1, 1, 8], vec![2], true),
+        (vec![u64::MAX, u64::MAX, u64::MAX], vec![0, 1], false),
+        (
+            vec![u64::MAX, u64::MAX, u64::MAX, u64::MAX],
+            vec![0, 1, 2],
+            false,
+        ),
+    ] {
+        let mut submission = SubmissionProgress::accepted(IDEMPOTENCY_KEY, TX_HASH);
+        must(submission.observe_receipt(receipt, &[key]));
+        let (commit, validators) = commit(&powers, &signers);
+        let block = block_for(&validators);
+        let header = header(&validators);
+        assert_fixture_binding(&header, &commit, &block, &validators);
+        let result =
+            submission.observe_block_with_header(&block, &commit, &header, CHAIN_ID, &validators);
+        if accepted {
+            result.unwrap_or_else(|error| panic!("quorum powers {powers:?}: {error:?}"));
+        } else {
+            assert!(matches!(result, Err(FinalityError::InvalidCommit)));
+        }
+        let result = must(wait_for_rung(
+            &mut submission,
+            IDEMPOTENCY_KEY,
+            Rung::Committed,
+            0,
+            10,
+            2,
+        ));
+        assert_eq!(
+            result.reached,
+            if accepted {
+                Rung::Committed
+            } else {
+                Rung::Receipted
+            }
+        );
+        assert_eq!(result.deadline_elapsed, !accepted);
+    }
+    for (powers, signers, quorum) in [
+        (vec![u64::MAX; 3], vec![0, 1], false),
+        (vec![u64::MAX; 4], vec![0, 1, 2], true),
+    ] {
+        let (commit, validators) = commit(&powers, &signers);
+        let block = block_for(&validators);
+        let verified =
+            layerx_agentd::finality::VerifiedBlock::verify(&block, &commit, CHAIN_ID, &validators);
+        if quorum {
+            must(verified);
+        } else {
+            assert!(matches!(verified, Err(FinalityError::InvalidCommit)));
+        }
+        let mut submission = SubmissionProgress::accepted(IDEMPOTENCY_KEY, TX_HASH);
+        must(submission.observe_receipt(receipt, &[key]));
+        assert!(matches!(
+            submission.observe_block(&block, &commit, CHAIN_ID, &validators),
+            Err(FinalityError::InvalidCommit),
+        ));
+        assert_eq!(
+            must(submission.rung_at(IDEMPOTENCY_KEY, 0)),
+            Rung::Receipted
+        );
     }
 }

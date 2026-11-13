@@ -293,7 +293,7 @@ export default function useNavItems(): ReturnType {
 
       const items = [
         config.features.stats.isEnabled && {
-          text: 'Chain stats',
+          text: 'Network stats',
           nextRoute: { pathname: '/stats' as const },
           icon: 'navigation/chain_stats',
           isActive: pathname.startsWith('/stats'),
@@ -375,18 +375,6 @@ export default function useNavItems(): ReturnType {
       {
         text: 'Inference',
         url: '/explorer/paxeer-x/inference',
-      },
-      {
-        text: 'Anchor checkpoints',
-        nextRoute: { pathname: '/paxeer-x/anchors' as const },
-        icon: 'navigation/output_roots',
-        isActive: pathname === '/paxeer-x/anchors',
-      },
-      {
-        text: 'Kernel receipts',
-        nextRoute: { pathname: '/paxeer-x/receipts' as const },
-        icon: 'navigation/txn_batches',
-        isActive: pathname === '/paxeer-x/receipts',
       },
     ] : [];
 
@@ -470,7 +458,6 @@ export default function useNavItems(): ReturnType {
     const shellLink = (item: NavItem): NavItem => {
       const titles: Record<string, string> = {
         'Top accounts': 'Accounts',
-        'Chain stats': 'Network stats',
         API: 'API docs',
         'Verify contract': 'Contract verification',
       };
@@ -478,11 +465,11 @@ export default function useNavItems(): ReturnType {
     };
     const statsItems = statsNavItem?.subItems.flat() || [];
     const networkItems = [
-      ...statsItems.filter((item) => item.text === 'Chain stats'),
+      ...statsItems.filter((item) => item.text === 'Network stats'),
       validators,
       epochs,
       ...statsItems.filter((item) => item.text === 'Gas tracker'),
-      ...statsItems.filter((item) => ![ 'Chain stats', 'Gas tracker' ].includes(item.text)),
+      ...statsItems.filter((item) => ![ 'Network stats', 'Gas tracker' ].includes(item.text)),
     ].filter(Boolean);
     const exploreItems = [
       blocks,
@@ -500,9 +487,7 @@ export default function useNavItems(): ReturnType {
         icon: 'navigation/apps' as const,
         isActive: pathname.startsWith('/app') || pathname.startsWith('/essential-dapps'),
       } : null,
-    ].filter(Boolean).filter((item) => !isInternalItem(item) || ![
-      '/paxeer-x/anchors', '/paxeer-x/receipts',
-    ].includes(item.nextRoute.pathname));
+    ].filter(Boolean);
     const developerItems = [
       apiNavItem,
       otherNavItems.find((item) => item.text === 'Verify contract'),
@@ -517,7 +502,7 @@ export default function useNavItems(): ReturnType {
 
     const groups: Array<NavGroupItem> = [
       { text: 'Explore', icon: 'navigation/blockchain', subItems: exploreItems },
-      ...(paxeerXNavItems.length > 0 ? [ { text: 'Paxeer X', subItems: paxeerXNavItems.filter((item) => item.text === 'Inference') } ] : []),
+      ...(paxeerXNavItems.length > 0 ? [ { text: 'Paxeer X', subItems: paxeerXNavItems } ] : []),
       { text: 'Network', icon: 'navigation/stats', subItems: networkItems },
       { text: 'Developers', icon: 'navigation/api_docs', subItems: developerItems },
     ];

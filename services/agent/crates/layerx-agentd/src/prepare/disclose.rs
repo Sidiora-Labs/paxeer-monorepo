@@ -19,6 +19,9 @@ pub enum RestoreCallError {
     InvalidCall,
 }
 
+/// # Errors
+/// Returns a malformed-payload error for an invalid chain, gas limit or fee ordering,
+/// and propagates disclosure construction and digest errors.
 pub fn bind(call: &Eip1559Call, from: [u8; 20]) -> Result<DisclosedCall, DisclosureError> {
     if call.chain_id == 0
         || call.gas_limit == 0
@@ -31,6 +34,9 @@ pub fn bind(call: &Eip1559Call, from: [u8; 20]) -> Result<DisclosedCall, Disclos
     Ok(DisclosedCall { disclosure, digest })
 }
 
+/// # Errors
+/// Returns the binding error when the call, disclosure, signing hash or digest differs
+/// from the retained preparation, or when disclosure construction fails.
 pub fn verify_binding(prepared: &Prepared) -> Result<(), CallBindingError> {
     if prepared.call.signing_hash() != prepared.signing_hash {
         return Err(CallBindingError::SigningHashMismatch);
@@ -47,6 +53,9 @@ pub fn verify_binding(prepared: &Prepared) -> Result<(), CallBindingError> {
     Ok(())
 }
 
+/// # Errors
+/// Returns a transaction error for invalid unsigned bytes, `InvalidCall` for invalid
+/// gas or fees, or a binding error when the supplied hashes do not match the call.
 pub fn restore_call(
     bytes: &[u8],
     from: [u8; 20],

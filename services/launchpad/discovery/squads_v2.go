@@ -17,7 +17,7 @@ func AdaptV2SquadCreate(requestID string, q Squad, at time.Time) ([]byte, error)
 		RequestId:   requestID,
 		Data:        v2.SquadCreateData{Squad: squadV2(q, 1)},
 		Revision:    &revision,
-		Quality:     "complete",
+		Quality:     qualityComplete,
 		GeneratedAt: at.UTC().Format("2006-01-02T15:04:05.000Z"),
 	})
 }
@@ -31,7 +31,7 @@ func AdaptV2SquadRead(requestID string, q Squad, members []Membership, at time.T
 		if m.SquadID != q.ID {
 			return nil, ErrInvalid
 		}
-		if m.Status == "active" {
+		if m.Status == statusActive {
 			count++
 		}
 	}
@@ -40,7 +40,7 @@ func AdaptV2SquadRead(requestID string, q Squad, members []Membership, at time.T
 		RequestId:   requestID,
 		Data:        v2.SquadReadData{Squad: squadV2(q, count), AllowedActions: []string{}},
 		Revision:    &revision,
-		Quality:     "complete",
+		Quality:     qualityComplete,
 		GeneratedAt: at.UTC().Format("2006-01-02T15:04:05.000Z"),
 	})
 }
@@ -63,7 +63,7 @@ func AdaptV2SquadMembership(requestID string, m Membership, q Squad, at time.Tim
 			SquadRevision: v2.UInt256(strconv.FormatUint(q.Revision, 10)),
 		},
 		Revision:    &revision,
-		Quality:     "complete",
+		Quality:     qualityComplete,
 		GeneratedAt: at.UTC().Format("2006-01-02T15:04:05.000Z"),
 	})
 }

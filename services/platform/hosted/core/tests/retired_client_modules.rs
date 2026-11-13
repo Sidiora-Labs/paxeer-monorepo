@@ -1,11 +1,5 @@
 #[test]
 fn no_retired_layerx_client_module_paths() {
-    assert!(
-        !std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("src/caps_reads.rs")
-            .exists(),
-        "caps discovery has no replacement in decision.1813"
-    );
     const RETIRED: &[&str] = &[
         "lni",
         "client",
@@ -27,6 +21,12 @@ fn no_retired_layerx_client_module_paths() {
         "withdrawal",
         "evidence",
     ];
+    assert!(
+        !std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("src/caps_reads.rs")
+            .exists(),
+        "caps discovery has no replacement in decision.1813"
+    );
     let sources = [(
         "src/public_reads.rs",
         include_str!("../src/public_reads.rs"),

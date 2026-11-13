@@ -1346,5 +1346,989 @@
       "next_cursor": null,
       "indexedHeight": 12
     }
+  },
+  {
+    "body": {
+      "chainHeight": null,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      },
+      "indexedHeight": 13,
+      "items": [
+        {
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "7",
+          "asset": "evm:native",
+          "chain": "paxeer",
+          "counterparty": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "decoded": {
+            "producer": "mixed-history"
+          },
+          "direction": "out",
+          "final": true,
+          "final_basis": "block_commit",
+          "height_or_seq": "10",
+          "id": "2",
+          "kind": "native_transfer",
+          "log_index": "0",
+          "ordinal": "0",
+          "settlement": {
+            "level": "unverified",
+            "reason": "no_verified_checkpoint_evidence",
+            "source": null
+          },
+          "stability": {
+            "finalized_boundary": "13",
+            "level": "depth_stable",
+            "source": "block_commit"
+          },
+          "tx_id": "0x4a3678bf685c02a042632a883733bf70dfa96bcf5bae9fada89a3064fd5acb24",
+          "tx_index": "0"
+        },
+        {
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "7",
+          "asset": "evm:native",
+          "chain": "paxeer",
+          "counterparty": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "decoded": {
+            "producer": "mixed-history"
+          },
+          "direction": "in",
+          "final": true,
+          "final_basis": "block_commit",
+          "height_or_seq": "10",
+          "id": "10",
+          "kind": "native_transfer",
+          "log_index": "0",
+          "ordinal": "0",
+          "settlement": {
+            "level": "unverified",
+            "reason": "no_verified_checkpoint_evidence",
+            "source": null
+          },
+          "stability": {
+            "finalized_boundary": "13",
+            "level": "depth_stable",
+            "source": "block_commit"
+          },
+          "tx_id": "0x4a3678bf685c02a042632a883733bf70dfa96bcf5bae9fada89a3064fd5acb24",
+          "tx_index": "0"
+        },
+        {
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "7",
+          "asset": "evm:native",
+          "chain": "paxeer",
+          "counterparty": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "decoded": {
+            "producer": "mixed-history"
+          },
+          "direction": "out",
+          "final": true,
+          "final_basis": "explorer_api",
+          "height_or_seq": "10",
+          "id": "explorer:2",
+          "kind": "native_transfer",
+          "log_index": "0",
+          "ordinal": "0",
+          "settlement": {
+            "level": "unverified",
+            "reason": "no_verified_checkpoint_evidence",
+            "source": null
+          },
+          "stability": {
+            "finalized_boundary": null,
+            "level": "explorer_recorded",
+            "source": "explorer_api"
+          },
+          "tx_id": "0x33fcb1eb3d4189cf21933a3bbbb66c1858664c33cfa560522d9c3f5f9ffa248d",
+          "tx_index": "0"
+        },
+        {
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "7",
+          "asset": "evm:native",
+          "chain": "paxeer",
+          "counterparty": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "decoded": {
+            "producer": "mixed-history"
+          },
+          "direction": "in",
+          "final": true,
+          "final_basis": "explorer_api",
+          "height_or_seq": "10",
+          "id": "explorer:10",
+          "kind": "native_transfer",
+          "log_index": "0",
+          "ordinal": "0",
+          "settlement": {
+            "level": "unverified",
+            "reason": "no_verified_checkpoint_evidence",
+            "source": null
+          },
+          "stability": {
+            "finalized_boundary": null,
+            "level": "explorer_recorded",
+            "source": "explorer_api"
+          },
+          "tx_id": "0x33fcb1eb3d4189cf21933a3bbbb66c1858664c33cfa560522d9c3f5f9ffa248d",
+          "tx_index": "0"
+        }
+      ],
+      "next_cursor": "000000000000000a0000000000000000",
+      "version": 1
+    },
+    "path": "/mixed/v1/history/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "limit=1",
+    "status": 200
+  },
+  {
+    "body": {
+      "chainHeight": null,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      },
+      "indexedHeight": 13,
+      "items": [
+        {
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "7",
+          "asset": "evm:native",
+          "chain": "paxeer",
+          "counterparty": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "decoded": {
+            "producer": "mixed-history"
+          },
+          "direction": "out",
+          "final": true,
+          "final_basis": "block_commit",
+          "height_or_seq": "10",
+          "id": "2",
+          "kind": "native_transfer",
+          "log_index": "0",
+          "ordinal": "0",
+          "settlement": {
+            "level": "unverified",
+            "reason": "no_verified_checkpoint_evidence",
+            "source": null
+          },
+          "stability": {
+            "finalized_boundary": "13",
+            "level": "depth_stable",
+            "source": "block_commit"
+          },
+          "tx_id": "0x4a3678bf685c02a042632a883733bf70dfa96bcf5bae9fada89a3064fd5acb24",
+          "tx_index": "0"
+        },
+        {
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "7",
+          "asset": "evm:native",
+          "chain": "paxeer",
+          "counterparty": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "decoded": {
+            "producer": "mixed-history"
+          },
+          "direction": "in",
+          "final": true,
+          "final_basis": "block_commit",
+          "height_or_seq": "10",
+          "id": "10",
+          "kind": "native_transfer",
+          "log_index": "0",
+          "ordinal": "0",
+          "settlement": {
+            "level": "unverified",
+            "reason": "no_verified_checkpoint_evidence",
+            "source": null
+          },
+          "stability": {
+            "finalized_boundary": "13",
+            "level": "depth_stable",
+            "source": "block_commit"
+          },
+          "tx_id": "0x4a3678bf685c02a042632a883733bf70dfa96bcf5bae9fada89a3064fd5acb24",
+          "tx_index": "0"
+        },
+        {
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "7",
+          "asset": "evm:native",
+          "chain": "paxeer",
+          "counterparty": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "decoded": {
+            "producer": "mixed-history"
+          },
+          "direction": "out",
+          "final": true,
+          "final_basis": "explorer_api",
+          "height_or_seq": "10",
+          "id": "explorer:2",
+          "kind": "native_transfer",
+          "log_index": "0",
+          "ordinal": "0",
+          "settlement": {
+            "level": "unverified",
+            "reason": "no_verified_checkpoint_evidence",
+            "source": null
+          },
+          "stability": {
+            "finalized_boundary": null,
+            "level": "explorer_recorded",
+            "source": "explorer_api"
+          },
+          "tx_id": "0x33fcb1eb3d4189cf21933a3bbbb66c1858664c33cfa560522d9c3f5f9ffa248d",
+          "tx_index": "0"
+        },
+        {
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "7",
+          "asset": "evm:native",
+          "chain": "paxeer",
+          "counterparty": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "decoded": {
+            "producer": "mixed-history"
+          },
+          "direction": "in",
+          "final": true,
+          "final_basis": "explorer_api",
+          "height_or_seq": "10",
+          "id": "explorer:10",
+          "kind": "native_transfer",
+          "log_index": "0",
+          "ordinal": "0",
+          "settlement": {
+            "level": "unverified",
+            "reason": "no_verified_checkpoint_evidence",
+            "source": null
+          },
+          "stability": {
+            "finalized_boundary": null,
+            "level": "explorer_recorded",
+            "source": "explorer_api"
+          },
+          "tx_id": "0x33fcb1eb3d4189cf21933a3bbbb66c1858664c33cfa560522d9c3f5f9ffa248d",
+          "tx_index": "0"
+        },
+        {
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "7",
+          "asset": "evm:native",
+          "chain": "paxeer",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "decoded": {
+            "producer": "mixed-history"
+          },
+          "direction": "in",
+          "final": true,
+          "final_basis": "block_commit",
+          "height_or_seq": "11",
+          "id": "11",
+          "kind": "native_transfer",
+          "log_index": "0",
+          "ordinal": "0",
+          "settlement": {
+            "level": "unverified",
+            "reason": "no_verified_checkpoint_evidence",
+            "source": null
+          },
+          "stability": {
+            "finalized_boundary": "13",
+            "level": "depth_stable",
+            "source": "block_commit"
+          },
+          "tx_id": "0xe7ac9f7b18585c4e64c816e525439fdb65e8633c9922a8385ff4c635d3ef9b97",
+          "tx_index": "0"
+        },
+        {
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "7",
+          "asset": "evm:native",
+          "chain": "paxeer",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "decoded": {
+            "producer": "mixed-history"
+          },
+          "direction": "in",
+          "final": true,
+          "final_basis": "explorer_api",
+          "height_or_seq": "12",
+          "id": "explorer:11",
+          "kind": "native_transfer",
+          "log_index": "0",
+          "ordinal": "0",
+          "settlement": {
+            "level": "unverified",
+            "reason": "no_verified_checkpoint_evidence",
+            "source": null
+          },
+          "stability": {
+            "finalized_boundary": null,
+            "level": "explorer_recorded",
+            "source": "explorer_api"
+          },
+          "tx_id": "0x5e54e5c417ae568b4676b0e08d2f32e7be32d115d8249a6145e22ff74b570b16",
+          "tx_index": "0"
+        }
+      ],
+      "next_cursor": null,
+      "version": 1
+    },
+    "path": "/mixed/v1/history/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "limit=50",
+    "status": 200
+  },
+  {
+    "body": {
+      "chainHeight": null,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      },
+      "indexedHeight": 13,
+      "items": [
+        {
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "7",
+          "asset": "evm:native",
+          "chain": "paxeer",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "decoded": {
+            "producer": "mixed-history"
+          },
+          "direction": "in",
+          "final": true,
+          "final_basis": "block_commit",
+          "height_or_seq": "11",
+          "id": "11",
+          "kind": "native_transfer",
+          "log_index": "0",
+          "ordinal": "0",
+          "settlement": {
+            "level": "unverified",
+            "reason": "no_verified_checkpoint_evidence",
+            "source": null
+          },
+          "stability": {
+            "finalized_boundary": "13",
+            "level": "depth_stable",
+            "source": "block_commit"
+          },
+          "tx_id": "0xe7ac9f7b18585c4e64c816e525439fdb65e8633c9922a8385ff4c635d3ef9b97",
+          "tx_index": "0"
+        }
+      ],
+      "next_cursor": "000000000000000b0000000000000000",
+      "version": 1
+    },
+    "path": "/mixed/v1/history/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "cursor=000000000000000a0000000000000000&limit=1",
+    "status": 200
+  },
+  {
+    "body": {
+      "chainHeight": null,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      },
+      "indexedHeight": 13,
+      "items": [
+        {
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "7",
+          "asset": "evm:native",
+          "chain": "paxeer",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "decoded": {
+            "producer": "mixed-history"
+          },
+          "direction": "in",
+          "final": true,
+          "final_basis": "explorer_api",
+          "height_or_seq": "12",
+          "id": "explorer:11",
+          "kind": "native_transfer",
+          "log_index": "0",
+          "ordinal": "0",
+          "settlement": {
+            "level": "unverified",
+            "reason": "no_verified_checkpoint_evidence",
+            "source": null
+          },
+          "stability": {
+            "finalized_boundary": null,
+            "level": "explorer_recorded",
+            "source": "explorer_api"
+          },
+          "tx_id": "0x5e54e5c417ae568b4676b0e08d2f32e7be32d115d8249a6145e22ff74b570b16",
+          "tx_index": "0"
+        }
+      ],
+      "next_cursor": null,
+      "version": 1
+    },
+    "path": "/mixed/v1/history/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "cursor=000000000000000b0000000000000000&limit=1",
+    "status": 200
+  },
+  {
+    "body": {
+      "chainHeight": null,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      },
+      "indexedHeight": 13,
+      "items": [],
+      "next_cursor": null,
+      "version": 1
+    },
+    "path": "/mixed/v1/history/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "cursor=000000000000000c0000000000000000&limit=1",
+    "status": 200
+  },
+  {
+    "body": {
+      "chainHeight": null,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      },
+      "indexedHeight": 13,
+      "items": [],
+      "next_cursor": null,
+      "version": 1
+    },
+    "path": "/mixed/v1/history/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "cursor=000000000000000d0000000000000000&limit=1",
+    "status": 200
+  },
+  {
+    "body": {
+      "chainHeight": null,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      },
+      "indexedHeight": 13,
+      "items": [
+        {
+          "account": "83d594bd43c513bef84f77c2e0509612b22f61cf14ff17a3bf017ce46b0560fe",
+          "amount": "7",
+          "asset": "evm:native",
+          "chain": "paxeer",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "decoded": {
+            "producer": "mixed-history"
+          },
+          "direction": "in",
+          "final": true,
+          "final_basis": "block_commit",
+          "height_or_seq": "10",
+          "id": "1",
+          "kind": "native_transfer",
+          "log_index": "0",
+          "ordinal": "1",
+          "settlement": {
+            "level": "unverified",
+            "reason": "no_verified_checkpoint_evidence",
+            "source": null
+          },
+          "stability": {
+            "finalized_boundary": "13",
+            "level": "depth_stable",
+            "source": "block_commit"
+          },
+          "tx_id": "0x09301899f6392e4aa5bb99feb329b72de582533d39c38b64ca20f3ef32646dbf",
+          "tx_index": "0"
+        }
+      ],
+      "next_cursor": "000000000000000a0000000000000000",
+      "version": 1
+    },
+    "path": "/mixed/v1/history/83d594bd43c513bef84f77c2e0509612b22f61cf14ff17a3bf017ce46b0560fe",
+    "query": "limit=1",
+    "status": 200
+  },
+  {
+    "body": {
+      "chainHeight": null,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      },
+      "indexedHeight": 13,
+      "items": [
+        {
+          "account": "83d594bd43c513bef84f77c2e0509612b22f61cf14ff17a3bf017ce46b0560fe",
+          "amount": "7",
+          "asset": "evm:native",
+          "chain": "paxeer",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "decoded": {
+            "producer": "mixed-history"
+          },
+          "direction": "in",
+          "final": true,
+          "final_basis": "block_commit",
+          "height_or_seq": "10",
+          "id": "1",
+          "kind": "native_transfer",
+          "log_index": "0",
+          "ordinal": "1",
+          "settlement": {
+            "level": "unverified",
+            "reason": "no_verified_checkpoint_evidence",
+            "source": null
+          },
+          "stability": {
+            "finalized_boundary": "13",
+            "level": "depth_stable",
+            "source": "block_commit"
+          },
+          "tx_id": "0x09301899f6392e4aa5bb99feb329b72de582533d39c38b64ca20f3ef32646dbf",
+          "tx_index": "0"
+        },
+        {
+          "account": "83d594bd43c513bef84f77c2e0509612b22f61cf14ff17a3bf017ce46b0560fe",
+          "amount": "7",
+          "asset": "evm:native",
+          "chain": "paxeer",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "decoded": {
+            "producer": "mixed-history"
+          },
+          "direction": "in",
+          "final": true,
+          "final_basis": "block_commit",
+          "height_or_seq": "13",
+          "id": "12",
+          "kind": "native_transfer",
+          "log_index": "0",
+          "ordinal": "0",
+          "settlement": {
+            "level": "unverified",
+            "reason": "no_verified_checkpoint_evidence",
+            "source": null
+          },
+          "stability": {
+            "finalized_boundary": "13",
+            "level": "depth_stable",
+            "source": "block_commit"
+          },
+          "tx_id": "0x076776cf427ac96abf05ec4937ac03279120648589d873b359e34d3dec66b50a",
+          "tx_index": "0"
+        }
+      ],
+      "next_cursor": null,
+      "version": 1
+    },
+    "path": "/mixed/v1/history/83d594bd43c513bef84f77c2e0509612b22f61cf14ff17a3bf017ce46b0560fe",
+    "query": "limit=50",
+    "status": 200
+  },
+  {
+    "body": {
+      "chainHeight": null,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      },
+      "indexedHeight": 13,
+      "items": [
+        {
+          "account": "83d594bd43c513bef84f77c2e0509612b22f61cf14ff17a3bf017ce46b0560fe",
+          "amount": "7",
+          "asset": "evm:native",
+          "chain": "paxeer",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "decoded": {
+            "producer": "mixed-history"
+          },
+          "direction": "in",
+          "final": true,
+          "final_basis": "block_commit",
+          "height_or_seq": "13",
+          "id": "12",
+          "kind": "native_transfer",
+          "log_index": "0",
+          "ordinal": "0",
+          "settlement": {
+            "level": "unverified",
+            "reason": "no_verified_checkpoint_evidence",
+            "source": null
+          },
+          "stability": {
+            "finalized_boundary": "13",
+            "level": "depth_stable",
+            "source": "block_commit"
+          },
+          "tx_id": "0x076776cf427ac96abf05ec4937ac03279120648589d873b359e34d3dec66b50a",
+          "tx_index": "0"
+        }
+      ],
+      "next_cursor": null,
+      "version": 1
+    },
+    "path": "/mixed/v1/history/83d594bd43c513bef84f77c2e0509612b22f61cf14ff17a3bf017ce46b0560fe",
+    "query": "cursor=000000000000000a0000000000000000&limit=1",
+    "status": 200
+  },
+  {
+    "body": {
+      "chainHeight": null,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      },
+      "indexedHeight": 13,
+      "items": [
+        {
+          "account": "83d594bd43c513bef84f77c2e0509612b22f61cf14ff17a3bf017ce46b0560fe",
+          "amount": "7",
+          "asset": "evm:native",
+          "chain": "paxeer",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "decoded": {
+            "producer": "mixed-history"
+          },
+          "direction": "in",
+          "final": true,
+          "final_basis": "block_commit",
+          "height_or_seq": "13",
+          "id": "12",
+          "kind": "native_transfer",
+          "log_index": "0",
+          "ordinal": "0",
+          "settlement": {
+            "level": "unverified",
+            "reason": "no_verified_checkpoint_evidence",
+            "source": null
+          },
+          "stability": {
+            "finalized_boundary": "13",
+            "level": "depth_stable",
+            "source": "block_commit"
+          },
+          "tx_id": "0x076776cf427ac96abf05ec4937ac03279120648589d873b359e34d3dec66b50a",
+          "tx_index": "0"
+        }
+      ],
+      "next_cursor": null,
+      "version": 1
+    },
+    "path": "/mixed/v1/history/83d594bd43c513bef84f77c2e0509612b22f61cf14ff17a3bf017ce46b0560fe",
+    "query": "cursor=000000000000000b0000000000000000&limit=1",
+    "status": 200
+  },
+  {
+    "body": {
+      "chainHeight": null,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      },
+      "indexedHeight": 13,
+      "items": [
+        {
+          "account": "83d594bd43c513bef84f77c2e0509612b22f61cf14ff17a3bf017ce46b0560fe",
+          "amount": "7",
+          "asset": "evm:native",
+          "chain": "paxeer",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "decoded": {
+            "producer": "mixed-history"
+          },
+          "direction": "in",
+          "final": true,
+          "final_basis": "block_commit",
+          "height_or_seq": "13",
+          "id": "12",
+          "kind": "native_transfer",
+          "log_index": "0",
+          "ordinal": "0",
+          "settlement": {
+            "level": "unverified",
+            "reason": "no_verified_checkpoint_evidence",
+            "source": null
+          },
+          "stability": {
+            "finalized_boundary": "13",
+            "level": "depth_stable",
+            "source": "block_commit"
+          },
+          "tx_id": "0x076776cf427ac96abf05ec4937ac03279120648589d873b359e34d3dec66b50a",
+          "tx_index": "0"
+        }
+      ],
+      "next_cursor": null,
+      "version": 1
+    },
+    "path": "/mixed/v1/history/83d594bd43c513bef84f77c2e0509612b22f61cf14ff17a3bf017ce46b0560fe",
+    "query": "cursor=000000000000000c0000000000000000&limit=1",
+    "status": 200
+  },
+  {
+    "body": {
+      "chainHeight": null,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      },
+      "indexedHeight": 13,
+      "items": [],
+      "next_cursor": null,
+      "version": 1
+    },
+    "path": "/mixed/v1/history/83d594bd43c513bef84f77c2e0509612b22f61cf14ff17a3bf017ce46b0560fe",
+    "query": "cursor=000000000000000d0000000000000000&limit=1",
+    "status": 200
+  },
+  {
+    "body": {
+      "chainHeight": null,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      },
+      "indexedHeight": 13,
+      "items": [
+        {
+          "account": "14972cb394ac38e2630607f64480988168b3cac8bffaebd8e8bb4b8cbba6dddb",
+          "amount": "7",
+          "asset": "evm:native",
+          "chain": "paxeer",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "decoded": {
+            "producer": "mixed-history"
+          },
+          "direction": "in",
+          "final": true,
+          "final_basis": "block_commit",
+          "height_or_seq": "11",
+          "id": "3",
+          "kind": "native_transfer",
+          "log_index": "0",
+          "ordinal": "0",
+          "settlement": {
+            "level": "unverified",
+            "reason": "no_verified_checkpoint_evidence",
+            "source": null
+          },
+          "stability": {
+            "finalized_boundary": "13",
+            "level": "depth_stable",
+            "source": "block_commit"
+          },
+          "tx_id": "0xeedbb93ba880374241ba41e8298be2a27f0109854bf005d34f4e3aa7530f84a7",
+          "tx_index": "0"
+        }
+      ],
+      "next_cursor": null,
+      "version": 1
+    },
+    "path": "/mixed/v1/history/14972cb394ac38e2630607f64480988168b3cac8bffaebd8e8bb4b8cbba6dddb",
+    "query": "limit=1",
+    "status": 200
+  },
+  {
+    "body": {
+      "chainHeight": null,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      },
+      "indexedHeight": 13,
+      "items": [
+        {
+          "account": "14972cb394ac38e2630607f64480988168b3cac8bffaebd8e8bb4b8cbba6dddb",
+          "amount": "7",
+          "asset": "evm:native",
+          "chain": "paxeer",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "decoded": {
+            "producer": "mixed-history"
+          },
+          "direction": "in",
+          "final": true,
+          "final_basis": "block_commit",
+          "height_or_seq": "11",
+          "id": "3",
+          "kind": "native_transfer",
+          "log_index": "0",
+          "ordinal": "0",
+          "settlement": {
+            "level": "unverified",
+            "reason": "no_verified_checkpoint_evidence",
+            "source": null
+          },
+          "stability": {
+            "finalized_boundary": "13",
+            "level": "depth_stable",
+            "source": "block_commit"
+          },
+          "tx_id": "0xeedbb93ba880374241ba41e8298be2a27f0109854bf005d34f4e3aa7530f84a7",
+          "tx_index": "0"
+        }
+      ],
+      "next_cursor": null,
+      "version": 1
+    },
+    "path": "/mixed/v1/history/14972cb394ac38e2630607f64480988168b3cac8bffaebd8e8bb4b8cbba6dddb",
+    "query": "limit=50",
+    "status": 200
+  },
+  {
+    "body": {
+      "chainHeight": null,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      },
+      "indexedHeight": 13,
+      "items": [
+        {
+          "account": "14972cb394ac38e2630607f64480988168b3cac8bffaebd8e8bb4b8cbba6dddb",
+          "amount": "7",
+          "asset": "evm:native",
+          "chain": "paxeer",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "decoded": {
+            "producer": "mixed-history"
+          },
+          "direction": "in",
+          "final": true,
+          "final_basis": "block_commit",
+          "height_or_seq": "11",
+          "id": "3",
+          "kind": "native_transfer",
+          "log_index": "0",
+          "ordinal": "0",
+          "settlement": {
+            "level": "unverified",
+            "reason": "no_verified_checkpoint_evidence",
+            "source": null
+          },
+          "stability": {
+            "finalized_boundary": "13",
+            "level": "depth_stable",
+            "source": "block_commit"
+          },
+          "tx_id": "0xeedbb93ba880374241ba41e8298be2a27f0109854bf005d34f4e3aa7530f84a7",
+          "tx_index": "0"
+        }
+      ],
+      "next_cursor": null,
+      "version": 1
+    },
+    "path": "/mixed/v1/history/14972cb394ac38e2630607f64480988168b3cac8bffaebd8e8bb4b8cbba6dddb",
+    "query": "cursor=000000000000000a0000000000000000&limit=1",
+    "status": 200
+  },
+  {
+    "body": {
+      "chainHeight": null,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      },
+      "indexedHeight": 13,
+      "items": [],
+      "next_cursor": null,
+      "version": 1
+    },
+    "path": "/mixed/v1/history/14972cb394ac38e2630607f64480988168b3cac8bffaebd8e8bb4b8cbba6dddb",
+    "query": "cursor=000000000000000b0000000000000000&limit=1",
+    "status": 200
+  },
+  {
+    "body": {
+      "chainHeight": null,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      },
+      "indexedHeight": 13,
+      "items": [],
+      "next_cursor": null,
+      "version": 1
+    },
+    "path": "/mixed/v1/history/14972cb394ac38e2630607f64480988168b3cac8bffaebd8e8bb4b8cbba6dddb",
+    "query": "cursor=000000000000000c0000000000000000&limit=1",
+    "status": 200
+  },
+  {
+    "body": {
+      "chainHeight": null,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      },
+      "indexedHeight": 13,
+      "items": [],
+      "next_cursor": null,
+      "version": 1
+    },
+    "path": "/mixed/v1/history/14972cb394ac38e2630607f64480988168b3cac8bffaebd8e8bb4b8cbba6dddb",
+    "query": "cursor=000000000000000d0000000000000000&limit=1",
+    "status": 200
   }
 ]

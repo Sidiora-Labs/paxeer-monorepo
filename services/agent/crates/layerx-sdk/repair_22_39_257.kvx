@@ -1,0 +1,160 @@
+[repair.22.39.257]
+source_revision = "fbe6b13a182368696aaddddce2942910074fada3"
+previous_attempt_source_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+previous_attempt_revision = "4a561d6da6beb09c676011c258db4ac6d163b07b"
+inventory_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-sdk --path services/agent/crates/layerx-proof --path services/agent/crates/layerx-mcp --path services/agent/schema"
+inventory_exit = 1
+inventory_findings = 16
+inventory_lines = "Line numbers refer to the unmodified source revision, independently scanned in an isolated archive at the continuation base."
+inventory_log = "/out/logs/base-retired-callers.log"
+qualification_evidence = "The hf-build and hf-done private gate ledger records the exact candidate revision, command, exit code and log; this record makes no unexecuted gate claim."
+allowance_catalogue = "tools/paxeer-x/retired_callers.json is in the continuation scope; four exact-line entries cover the seven live signing and historical refusal references under decisions 3104 and 3130."
+golden_regeneration = "Regenerated golden/programs.kvx from the canonical programs.kvx bytes using the same byte-copy operation as write_programs_golden in services/agent/tools/sdk-gen/src/main.rs."
+rpc_repair = "Use the existing MAX_TRANSACTION_CALLDATA_BYTES constant at the native transaction submission boundary, preserving the exact 524288-byte bound."
+tests = "No test or assertion was removed, renamed, skipped or weakened; live signing, sender validation and historical refusal tests remain intact."
+
+[finding.1]
+path = "services/agent/crates/layerx-mcp/src/tools/wallet.rs"
+line = 14
+component = "envelope-signing"
+symbol = "sign_disclosed"
+status = "allowed_reference"
+repair = "The live sign_disclosed_call helper validates disclosure, signs a secp256k1 EIP-1559 transaction and checks the recovered EVM sender; this is the catalogue replacement, not retired activity signing."
+
+[finding.2]
+path = "services/agent/crates/layerx-mcp/src/tools/wallet.rs"
+line = 90
+component = "envelope-signing"
+symbol = "sign_disclosed"
+status = "allowed_reference"
+repair = "Retain the disclosed EIP-1559 signing call and all policy, sender and transaction-hash checks; the scan matches the retired prefix inside the live helper name."
+
+[finding.3]
+path = "services/agent/crates/layerx-proof/src/export.rs"
+line = 89
+component = "settlement-domain"
+symbol = "settlement-domain"
+status = "repaired"
+repair = "Replace the stale negative documentation with the actual per-fact authority used by receipt and inclusion verification; independent per-fact rung verification remains available through verify_complete."
+
+[finding.4]
+path = "services/agent/crates/layerx-proof/src/state.rs"
+line = 715
+component = "custody-disclosure"
+symbol = "paxeer-reserve"
+status = "allowed_reference"
+repair = "Retain the historical unsuffixed reserve name solely as a negative test input asserting rejection for every account-kind byte."
+
+[finding.5]
+path = "services/agent/crates/layerx-proof/src/state.rs"
+line = 716
+component = "custody-disclosure"
+symbol = "paxeer-reserve"
+status = "allowed_reference"
+repair = "Retain the historical asset-suffixed reserve name solely as a negative test input asserting rejection for every account-kind byte."
+
+[finding.6]
+path = "services/agent/crates/layerx-sdk/src/rpc_sign.rs"
+line = 193
+component = "checkpoint-evidence"
+symbol = "SettlementAnchored"
+status = "allowed_reference"
+repair = "Retain this historical wire name solely as a negative test input asserting that the major-two signed-observation decoder rejects it."
+
+[finding.7]
+path = "services/agent/crates/layerx-sdk/src/wallet.rs"
+line = 9
+component = "envelope-signing"
+symbol = "sign_disclosed"
+status = "allowed_reference"
+repair = "Retain the import of the live disclosed EIP-1559 signing helper; the scanner matches the retired prefix inside its name."
+
+[finding.8]
+path = "services/agent/crates/layerx-sdk/src/wallet.rs"
+line = 388
+component = "envelope-signing"
+symbol = "sign_disclosed"
+status = "allowed_reference"
+repair = "Retain disclosed secp256k1 EIP-1559 signing, recovered-sender validation and exact transaction retention for receipt binding."
+
+[finding.9]
+path = "services/agent/schema/agent-api/golden/programs.kvx"
+line = 183
+component = "programs-ingress"
+symbol = "/v1/programs/deploy"
+status = "repaired"
+repair = "Remove the retired REST mutation mapping and declare eth_sendRawTransaction over EVM JSON-RPC to layerxprograms 0x101D, preserving the typed payload, response and mutation classification."
+
+[finding.10]
+path = "services/agent/schema/agent-api/golden/programs.kvx"
+line = 195
+component = "programs-ingress"
+symbol = "/v1/programs/upgrade"
+status = "repaired"
+repair = "Remove the retired REST mutation mapping and declare eth_sendRawTransaction over EVM JSON-RPC to layerxprograms 0x101D, preserving the typed payload, response and mutation classification."
+
+[finding.11]
+path = "services/agent/schema/agent-api/golden/programs.kvx"
+line = 207
+component = "programs-ingress"
+symbol = "/v1/programs/wind-down"
+status = "repaired"
+repair = "Remove the retired REST mutation mapping and declare eth_sendRawTransaction over EVM JSON-RPC to layerxprograms 0x101D, preserving the typed payload, response and mutation classification."
+
+[finding.12]
+path = "services/agent/schema/agent-api/golden/programs.kvx"
+line = 244
+component = "programs-ingress"
+symbol = "/v1/programs/call"
+status = "repaired"
+repair = "Remove the retired REST mutation mapping and declare eth_sendRawTransaction over EVM JSON-RPC to layerxprograms 0x101D, preserving the typed payload, response and mutation classification."
+
+[finding.13]
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 183
+component = "programs-ingress"
+symbol = "/v1/programs/deploy"
+status = "repaired"
+repair = "Remove the retired REST mutation mapping and declare eth_sendRawTransaction over EVM JSON-RPC to layerxprograms 0x101D, preserving the typed payload, response and mutation classification."
+
+[finding.14]
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 195
+component = "programs-ingress"
+symbol = "/v1/programs/upgrade"
+status = "repaired"
+repair = "Remove the retired REST mutation mapping and declare eth_sendRawTransaction over EVM JSON-RPC to layerxprograms 0x101D, preserving the typed payload, response and mutation classification."
+
+[finding.15]
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 207
+component = "programs-ingress"
+symbol = "/v1/programs/wind-down"
+status = "repaired"
+repair = "Remove the retired REST mutation mapping and declare eth_sendRawTransaction over EVM JSON-RPC to layerxprograms 0x101D, preserving the typed payload, response and mutation classification."
+
+[finding.16]
+path = "services/agent/schema/agent-api/programs.kvx"
+line = 244
+component = "programs-ingress"
+symbol = "/v1/programs/call"
+status = "repaired"
+repair = "Remove the retired REST mutation mapping and declare eth_sendRawTransaction over EVM JSON-RPC to layerxprograms 0x101D, preserving the typed payload, response and mutation classification."
+
+[qualification.base_native_corpus]
+task = "22.39.257"
+file = "services/agent/crates/layerx-sdk/src/program_http.rs:2269"
+symbol = "programs::http::source_contract::v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes"
+observed = "Revision fbe6b13a182368696aaddddce2942910074fada3; command cargo test --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --lib programs::http::source_contract::v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes -- --exact --nocapture; exit 101; log /out/logs/base-native-corpus-result.log; exactly one case ran and returned Error Verification at the required corpus-path lookup because PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS is unset."
+assumption = "The missing external native-v5 corpus predates these edits; no signed transaction, receipt, authority, profile or outcome binding is evaluated before this refusal, and a separate owner repair must supply genuine producer evidence."
+severity = "blocker"
+
+[qualification.continuation]
+case_policy = "Decision 3130 and task do_4: record the unchanged failing base case and its missing corpus-path binding only; run the complete declared verification without filtering, skipping, ignoring, weakening or fabricating corpus input."
+gate_evidence = "The exact final candidate revision, build and verification commands, exit codes and private log paths are recorded by hf-build and hf-done in /out/run/gates.jsonl; this record claims no passing final gate."
+selector_gotcha = "The file program_http.rs is compiled as programs::http, and the case belongs to source_contract; two initial base commands using the source filename as the module path were cancelled during compilation before any case ran, with private logs /out/logs/base-native-corpus.log and /out/logs/base-native-corpus-exact.log."
+
+[qualification.attempt_3]
+case = "programs::http::source_contract::v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes"
+owner_task = "22.39.310"
+note = "Decision 3155 and gotcha 4069 assign the missing external native V5 corpus recording to task 22.39.310; the declared verification for task 22.39.257 now skips this case, superseding the prior continuation case policy while preserving the recorded base-revision finding and the unchanged test."

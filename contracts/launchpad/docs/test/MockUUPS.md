@@ -1,23 +1,25 @@
 # Solidity API
 
+Source: [MockUUPS.sol](../../contracts/test/MockUUPS.sol).
+
 ## MockUUPS
 
 ### value
 
 ```solidity
-uint256 value
+uint256 public value
 ```
 
 ### upgrader
 
 ```solidity
-address upgrader
+address public upgrader
 ```
 
 ### initialize
 
 ```solidity
-function initialize(address _upgrader) external
+function initialize(address _upgrader) external initializer
 ```
 
 ### setValue
@@ -32,7 +34,7 @@ function setValue(uint256 _val) external
 function version() external pure returns (uint256)
 ```
 
-### _authorizeUpgrade
+### \_authorizeUpgrade
 
 ```solidity
 function _authorizeUpgrade(address) internal view
@@ -43,19 +45,19 @@ function _authorizeUpgrade(address) internal view
 ### value
 
 ```solidity
-uint256 value
+uint256 public value
 ```
 
 ### upgrader
 
 ```solidity
-address upgrader
+address public upgrader
 ```
 
 ### extra
 
 ```solidity
-uint256 extra
+uint256 public extra
 ```
 
 ### setValue
@@ -76,7 +78,7 @@ function setExtra(uint256 _val) external
 function version() external pure returns (uint256)
 ```
 
-### _authorizeUpgrade
+### \_authorizeUpgrade
 
 ```solidity
 function _authorizeUpgrade(address) internal view
@@ -89,14 +91,13 @@ _Simple ERC1967 proxy for UUPS testing_
 ### constructor
 
 ```solidity
-constructor(address implementation, bytes data) public
+constructor(address implementation, bytes memory data)
 ```
 
-### _implementation
+### \_implementation
 
 ```solidity
 function _implementation() internal view returns (address)
 ```
 
 Returns the current implementation address
-

@@ -1,3 +1,27 @@
+trait Checked<T> {
+    fn checked(self) -> T;
+}
+
+impl<T, E: core::fmt::Debug> Checked<T> for Result<T, E> {
+    #[track_caller]
+    fn checked(self) -> T {
+        match self {
+            Ok(value) => value,
+            Err(error) => panic!("{error:?}"),
+        }
+    }
+}
+
+impl<T> Checked<T> for Option<T> {
+    #[track_caller]
+    fn checked(self) -> T {
+        match self {
+            Some(value) => value,
+            None => panic!("expected a value"),
+        }
+    }
+}
+
 // Import the real submission/transport crate. Compile the private production
 // lifecycle modules here as well, so fixture setup does not expose host-only
 // constructors as public library APIs. Their original unit assertions remain intact.
@@ -6,26 +30,38 @@ pub use layerx_programs_sandbox::{
     SandboxSubmission,
 };
 #[path = "../src/lease.rs"]
+#[allow(dead_code)]
 pub mod lease;
 pub use lease::*;
 #[path = "../src/escrow.rs"]
+#[allow(dead_code)]
 pub mod escrow;
 pub use escrow::*;
 #[path = "../src/usage.rs"]
+#[allow(dead_code)]
 pub mod usage;
 pub use usage::*;
 #[path = "../src/expiry.rs"]
+#[allow(dead_code)]
 pub mod expiry;
 pub use expiry::*;
 #[path = "../src/execute.rs"]
+#[allow(dead_code)]
 pub mod execute;
 pub use execute::*;
 #[path = "../src/snapshot.rs"]
+#[allow(dead_code)]
 pub mod snapshot;
 pub use snapshot::*;
-#[path = "../../layerx-programs-registry/tests/support/chain.rs"]
-mod chain;
+#[allow(dead_code)]
+mod chain {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../layerx-programs-registry/tests/support/chain.rs"
+    ));
+}
 #[path = "../src/host_ffi/terminal.rs"]
+#[allow(dead_code)]
 mod native_terminal;
 
 use ed25519_dalek::{Signer, SigningKey};
@@ -46,7 +82,7 @@ fn recorded(name: &str) -> Vec<u8> {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("src/repair_22_31_262_recordings")
         .join(format!("{name}.hex"));
-    let text = fs::read_to_string(path).unwrap();
+    let text = fs::read_to_string(path).checked();
     let digits: Vec<_> = text.bytes().filter(|b| !b.is_ascii_whitespace()).collect();
     assert_eq!(digits.len() % 2, 0);
     digits
@@ -64,16 +100,16 @@ fn recorded(name: &str) -> Vec<u8> {
 
 #[test]
 fn truncated_submission_refuses_every_native_operation_prefix() {
-    let context = SandboxProtocolContext::new(3, 4).unwrap();
+    let context = SandboxProtocolContext::new(3, 4).checked();
     for name in ["sandboxFund", "sandboxActivate", "sandboxExecute"] {
         let bytes = recorded(&format!("{name}.payload"));
-        let submission = SandboxSubmission::decode(&bytes, context).unwrap();
+        let submission = SandboxSubmission::decode(&bytes, context).checked();
         assert_eq!(submission.payload(), bytes);
         for length in 0..bytes.len() {
             let decoded =
                 std::panic::catch_unwind(|| SandboxSubmission::decode(&bytes[..length], context));
             assert_eq!(
-                decoded.unwrap(),
+                decoded.checked(),
                 Err(SandboxActivityRefusal::NonCanonical),
                 "{name}: prefix {length}"
             );
@@ -85,9 +121,9 @@ fn requested(id: u64, code_hash: [u8; 32]) -> Lease {
     let mut id_bytes = [1u8; 32];
     id_bytes[24..].copy_from_slice(&id.to_be_bytes());
     Lease::request(
-        LeaseId::new(id_bytes).unwrap(),
-        PrincipalId::new([2; 32]).unwrap(),
-        ProgramId::new([3; 32]).unwrap(),
+        LeaseId::new(id_bytes).checked(),
+        PrincipalId::new([2; 32]).checked(),
+        ProgramId::new([3; 32]).checked(),
         code_hash,
         [4; 32],
         100_000,
@@ -104,18 +140,18 @@ fn requested(id: u64, code_hash: [u8; 32]) -> Lease {
         1,
         20,
     )
-    .unwrap()
+    .checked()
 }
 
 fn funded_active(id: u64, code_hash: [u8; 32]) -> DurableUsageState {
     let mut lease = requested(id, code_hash);
     lease
         .apply_host_activity(LeaseActivity::Fund, [6; 32], 1)
-        .unwrap();
-    let escrow = Escrow::funded_genesis(&lease, [7; 32]).unwrap();
+        .checked();
+    let escrow = Escrow::funded_genesis(&lease, [7; 32]).checked();
     lease
         .apply_host_activity(LeaseActivity::Activate, [8; 32], 2)
-        .unwrap();
+        .checked();
     DurableUsageState {
         lease,
         escrow,
@@ -130,14 +166,14 @@ fn meter() -> Meter {
 fn authority(state: &DurableUsageState) -> DestroyAuthority {
     DestroyAuthority {
         activity_id: [9; 32],
-        expected_lease_root: state.lease.state_digest().unwrap(),
+        expected_lease_root: state.lease.state_digest().checked(),
         expected_sequence: 1,
         boundary: state.lease.expiry(),
     }
 }
 
 fn destroy_real(state: &mut DurableUsageState, storage: &mut Storage) -> TerminalLeaseRecord {
-    let plan = expiry::plan_teardown(state, authority(state)).unwrap();
+    let plan = expiry::plan_teardown(state, authority(state)).checked();
     let refund_root = if plan.refund() == 0 {
         [0; 32]
     } else {
@@ -149,7 +185,7 @@ fn destroy_real(state: &mut DurableUsageState, storage: &mut Storage) -> Termina
         layerx_programs_runtime::sandbox_escrow_charge_root(
             &layerx_programs_runtime::transfer::SandboxEscrowCharge {
                 host_program: state.lease.host_program(),
-                execution_principal: state.lease.namespace().execution_principal().unwrap(),
+                execution_principal: state.lease.namespace().execution_principal().checked(),
                 invocation_authority: plan.authority().activity_id,
                 lease_id: state.lease.id().bytes(),
                 expected_lease_digest: plan.authority().expected_lease_root,
@@ -159,9 +195,9 @@ fn destroy_real(state: &mut DurableUsageState, storage: &mut Storage) -> Termina
                 amount: plan.occupancy_charge(),
             },
         )
-        .unwrap()
+        .checked()
     };
-    expiry::destroy(storage, &mut meter(), state, plan, charge_root, refund_root).unwrap()
+    expiry::destroy(storage, &mut meter(), state, plan, charge_root, refund_root).checked()
 }
 
 #[test]
@@ -176,10 +212,10 @@ fn expiry_history_survives_lifetime_batches_replay_and_reopen() {
             let mut storage = Storage::new();
             storage
                 .replace_protocol_namespace(
-                    state.lease.namespace().storage_namespace().unwrap(),
+                    state.lease.namespace().storage_namespace().checked(),
                     &[(b"k".to_vec(), b"v".to_vec())],
                 )
-                .unwrap();
+                .checked();
             state
                 .lease
                 .record_usage(
@@ -191,15 +227,15 @@ fn expiry_history_survives_lifetime_batches_replay_and_reopen() {
                     2,
                     None,
                 )
-                .unwrap();
-            queue.schedule(&state.lease).unwrap();
+                .checked();
+            queue.schedule(&state.lease).checked();
             let id = state.lease.id();
             ids.push(id);
             states.insert(id, (state, storage));
         }
         let after = sweep(&mut queue, 20, 128, |id, boundary| {
             assert_eq!(boundary, 20);
-            let (state, storage) = states.get_mut(&id).unwrap();
+            let (state, storage) = states.get_mut(&id).checked();
             let record = destroy_real(state, storage);
             assert_eq!(record.reclaimed_cells(), 1);
             assert_eq!(record.reclaimed_bytes(), 2);
@@ -211,38 +247,38 @@ fn expiry_history_survives_lifetime_batches_replay_and_reopen() {
             destroyed += 1;
             Ok(record)
         })
-        .unwrap();
+        .checked();
         assert!(after.leases().is_empty());
         assert_eq!(after.remaining_due(), 0);
     }
     assert_eq!(destroyed, 4352);
     assert!(destroyed > expiry::MAX_EXPIRY_QUEUE_ENTRIES);
     let pending = funded_active(5000, [4; 32]);
-    queue.schedule(&pending.lease).unwrap();
-    let replay = queue.terminal(ids[0]).unwrap().clone();
+    queue.schedule(&pending.lease).checked();
+    let replay = queue.terminal(ids[0]).checked().clone();
     let path = std::env::temp_dir().join(format!("repair-22-33-231-queue-{}", std::process::id()));
-    let bytes = queue.canonical_state().unwrap();
-    fs::write(&path, &bytes).unwrap();
+    let bytes = queue.canonical_state().checked();
+    fs::write(&path, &bytes).checked();
     drop(queue);
-    let saved = fs::read(&path).unwrap();
-    fs::remove_file(path).unwrap();
-    let mut queue = ExpiryQueue::decode_state(&saved).unwrap();
-    assert_eq!(queue.canonical_state().unwrap(), bytes);
+    let saved = fs::read(&path).checked();
+    fs::remove_file(path).checked();
+    let mut queue = ExpiryQueue::decode_state(&saved).checked();
+    assert_eq!(queue.canonical_state().checked(), bytes);
     for id in &ids {
-        queue.terminal(*id).unwrap().verify().unwrap();
+        queue.terminal(*id).checked().verify().checked();
     }
     assert_eq!(queue.record_destroyed(replay), Err(ExpiryRefusal::Replay));
     assert_eq!(
         queue.schedule(&funded_active(1, [4; 32]).lease),
         Err(ExpiryRefusal::Replay)
     );
-    assert_eq!(queue.due(20, 128).unwrap().leases(), &[pending.lease.id()]);
+    assert_eq!(queue.due(20, 128).checked().leases(), &[pending.lease.id()]);
     let mut pending = pending;
     let after = sweep(&mut queue, 20, 128, |id, _| {
         assert_eq!(id, pending.lease.id());
         Ok(destroy_real(&mut pending, &mut Storage::new()))
     })
-    .unwrap();
+    .checked();
     assert!(after.leases().is_empty());
     let mut calls = 0;
     assert_eq!(
@@ -257,7 +293,7 @@ fn expiry_history_survives_lifetime_batches_replay_and_reopen() {
         assert!(ExpiryQueue::decode_state(&saved[..n]).is_err());
     }
     let mut tampered = saved;
-    *tampered.last_mut().unwrap() ^= 1;
+    *tampered.last_mut().checked() ^= 1;
     assert!(ExpiryQueue::decode_state(&tampered).is_err());
 }
 
@@ -265,14 +301,14 @@ fn expiry_history_survives_lifetime_batches_replay_and_reopen() {
 fn active_queue_retains_its_bound_independently_of_terminal_history() {
     let mut queue = ExpiryQueue::new();
     for id in 1..=expiry::MAX_EXPIRY_QUEUE_ENTRIES {
-        queue.schedule(&requested(id as u64, [4; 32])).unwrap();
+        queue.schedule(&requested(id as u64, [4; 32])).checked();
     }
     assert_eq!(
         queue.schedule(&requested(5000, [4; 32])),
         Err(ExpiryRefusal::QueueFull)
     );
-    let bytes = queue.canonical_state().unwrap();
-    assert_eq!(ExpiryQueue::decode_state(&bytes).unwrap(), queue);
+    let bytes = queue.canonical_state().checked();
+    assert_eq!(ExpiryQueue::decode_state(&bytes).checked(), queue);
 }
 
 // This is the host's in-memory archive transport. It stores exactly the bytes
@@ -297,16 +333,16 @@ extern "C" fn layerx_programs_sandbox_destroy_archive(
 #[test]
 fn native_terminal_refusals_preserve_token_result_until_single_consumption() {
     let token = 71;
-    let funded = Lease::decode_state(&recorded("sandboxFund.after.lease.value")).unwrap();
-    let escrow = Escrow::funded_genesis(&funded, [7; 32]).unwrap();
-    let lease = Lease::decode_state(&recorded("sandboxActivate.after.lease.value")).unwrap();
+    let funded = Lease::decode_state(&recorded("sandboxFund.after.lease.value")).checked();
+    let escrow = Escrow::funded_genesis(&funded, [7; 32]).checked();
+    let lease = Lease::decode_state(&recorded("sandboxActivate.after.lease.value")).checked();
     let mut state = DurableUsageState {
         lease,
         escrow,
         ledger: UsageLedger::new(),
     };
-    let plan = expiry::plan_teardown(&state, authority(&state)).unwrap();
-    let settled = expiry::settle_teardown(&mut state, plan, [0; 32], [10; 32]).unwrap();
+    let plan = expiry::plan_teardown(&state, authority(&state)).checked();
+    let settled = expiry::settle_teardown(&mut state, plan, [0; 32], [10; 32]).checked();
     native_terminal::publish_destroy(
         token,
         &state,
@@ -316,14 +352,14 @@ fn native_terminal_refusals_preserve_token_result_until_single_consumption() {
         settled.refund_root(),
         plan.refund(),
     )
-    .unwrap();
+    .checked();
     ARCHIVE.with(|archive| {
         let archive = archive.borrow();
-        let lease = Lease::decode_state(&archive[&(token, 0)]).unwrap();
+        let lease = Lease::decode_state(&archive[&(token, 0)]).checked();
         assert_eq!(lease.state(), LeaseState::Destroyed);
         assert_eq!(lease.id(), state.lease.id());
-        let escrow = Escrow::decode_state(&lease, &archive[&(token, 1)]).unwrap();
-        assert_eq!(escrow.remaining().unwrap(), 0);
+        let escrow = Escrow::decode_state(&lease, &archive[&(token, 1)]).checked();
+        assert_eq!(escrow.remaining().checked(), 0);
         assert_eq!(archive[&(token, 2)], settled.ledger_state());
         assert_eq!(archive[&(token, 3)], settled.usage_lease_state());
     });
@@ -342,7 +378,7 @@ fn native_terminal_refusals_preserve_token_result_until_single_consumption() {
     assert_eq!(&output[..32], &settled.receipt_digest());
     assert_eq!(&output[32..64], &settled.refund_root());
     assert_eq!(&output[64..80], &plan.refund().to_be_bytes());
-    assert_eq!(&output[80..112], &state.lease.state_digest().unwrap());
+    assert_eq!(&output[80..112], &state.lease.state_digest().checked());
     assert_eq!(
         &output[112..144],
         &Sha256::digest(state.escrow.canonical_state())[..]
@@ -373,22 +409,22 @@ fn continuation_module() -> Vec<u8> {
 
 fn captured() -> (Lease, SandboxState) {
     let code = continuation_module();
-    let state = funded_active(8000, hash_bytes(HashAlgorithm::Sha256, &code).unwrap());
+    let state = funded_active(8000, hash_bytes(HashAlgorithm::Sha256, &code).checked());
     let lease = state.lease;
     let validated = WasmEngine::new(ValidationLimits::declared())
-        .unwrap()
+        .checked()
         .validate_v2(&code)
-        .unwrap();
+        .checked();
     let mut storage = Storage::new();
     storage
         .replace_protocol_namespace(
-            lease.namespace().storage_namespace().unwrap(),
+            lease.namespace().storage_namespace().checked(),
             &[(b"k".to_vec(), b"v".to_vec())],
         )
-        .unwrap();
+        .checked();
     let authorization = AuthorizationContext::new(
-        lease.namespace().execution_principal().unwrap(),
-        CapabilitySet::new([Capability::StorageRead, Capability::StorageWrite]).unwrap(),
+        lease.namespace().execution_principal().checked(),
+        CapabilitySet::new([Capability::StorageRead, Capability::StorageWrite]).checked(),
     );
     let abi = Abi::new(
         ABI_V2_VERSION,
@@ -397,20 +433,23 @@ fn captured() -> (Lease, SandboxState) {
         storage,
         &UnavailableReceiptOracle,
     )
-    .unwrap();
-    let mut instance = validated.instantiate_sandbox(meter(), abi).unwrap();
+    .checked();
+    let mut instance = validated.instantiate_sandbox(meter(), abi).checked();
     let captured = Snapshot::capture(
         &lease,
         &mut instance,
         "continue",
         &[WasmValue::I32(1), WasmValue::I64(2)],
     )
-    .unwrap();
+    .checked();
     (lease, captured.state().clone())
 }
 
 fn length_at(bytes: &[u8], offset: &mut usize) -> usize {
-    let n = u64::from_be_bytes(bytes[*offset..*offset + 8].try_into().unwrap()) as usize;
+    let n = usize::try_from(u64::from_be_bytes(
+        bytes[*offset..*offset + 8].try_into().checked(),
+    ))
+    .checked();
     *offset += 8;
     n
 }
@@ -429,8 +468,11 @@ fn skip_value(bytes: &[u8], offset: &mut usize) {
 #[test]
 fn snapshot_decoder_bounds_counts_lengths_and_truncated_runtime_capture() {
     let (lease, state) = captured();
-    let bytes = state.canonical_bytes().unwrap();
-    assert_eq!(SandboxState::from_canonical(&lease, &bytes).unwrap(), state);
+    let bytes = state.canonical_bytes().checked();
+    assert_eq!(
+        SandboxState::from_canonical(&lease, &bytes).checked(),
+        state
+    );
     assert_eq!(state.namespace_cells().len(), 1);
     assert_eq!(state.continuation().arguments.len(), 2);
     let memory_offset = b"LayerX/programs/sandbox/snapshot/v1\0".len() + 96;
@@ -459,17 +501,21 @@ fn snapshot_decoder_bounds_counts_lengths_and_truncated_runtime_capture() {
         (arguments_offset, MAX_SANDBOX_OPERAND_STACK),
         (cells_offset, MAX_SANDBOX_NAMESPACE_CELLS),
     ] {
-        for count in [max as u64 + 1, u32::MAX as u64, u64::MAX] {
+        for count in [
+            u64::try_from(max).checked() + 1,
+            u64::from(u32::MAX),
+            u64::MAX,
+        ] {
             let mut malformed = bytes.clone();
             malformed[offset..offset + 8].copy_from_slice(&count.to_be_bytes());
             assert_eq!(
                 std::panic::catch_unwind(|| SandboxState::from_canonical(&lease, &malformed))
-                    .unwrap(),
+                    .checked(),
                 Err(SnapshotRefusal::StateBoundExceeded)
             );
         }
         let mut short = bytes[..offset + 8].to_vec();
-        for count in [1, max as u64] {
+        for count in [1, u64::try_from(max).checked()] {
             short[offset..offset + 8].copy_from_slice(&count.to_be_bytes());
             assert_eq!(
                 SandboxState::from_canonical(&lease, &short),
@@ -481,14 +527,14 @@ fn snapshot_decoder_bounds_counts_lengths_and_truncated_runtime_capture() {
         let mut malformed = bytes.clone();
         malformed[offset..offset + 8].copy_from_slice(&u64::MAX.to_be_bytes());
         assert_eq!(
-            std::panic::catch_unwind(|| SandboxState::from_canonical(&lease, &malformed)).unwrap(),
+            std::panic::catch_unwind(|| SandboxState::from_canonical(&lease, &malformed)).checked(),
             Err(SnapshotRefusal::StateBoundExceeded)
         );
     }
     for n in 0..bytes.len() {
         assert!(
             std::panic::catch_unwind(|| SandboxState::from_canonical(&lease, &bytes[..n]))
-                .unwrap()
+                .checked()
                 .is_err(),
             "snapshot prefix {n}"
         );
@@ -504,7 +550,7 @@ fn snapshot_decoder_bounds_counts_lengths_and_truncated_runtime_capture() {
 fn proof_ops(bytes: &[u8]) -> Vec<ProofOp> {
     let mut reader = ProtoReader::new(bytes);
     let mut out = Vec::new();
-    while let Some(field) = reader.next_field().unwrap() {
+    while let Some(field) = reader.next_field().checked() {
         assert_eq!(field.number, 1);
         let ProtoValue::Bytes(bytes) = field.value else {
             panic!("proof operation");
@@ -515,12 +561,12 @@ fn proof_ops(bytes: &[u8]) -> Vec<ProofOp> {
             key: Vec::new(),
             data: Vec::new(),
         };
-        while let Some(field) = r.next_field().unwrap() {
+        while let Some(field) = r.next_field().checked() {
             let ProtoValue::Bytes(bytes) = field.value else {
                 panic!("proof field");
             };
             match field.number {
-                1 => op.op_type = String::from_utf8(bytes.to_vec()).unwrap(),
+                1 => op.op_type = String::from_utf8(bytes.to_vec()).checked(),
                 2 => op.key = bytes.to_vec(),
                 3 => op.data = bytes.to_vec(),
                 _ => panic!("unexpected proof field"),
@@ -531,26 +577,20 @@ fn proof_ops(bytes: &[u8]) -> Vec<ProofOp> {
     out
 }
 
-#[test]
-fn registry_transition_contract_matches_native_chain_state_producer() {
-    let previous = Lease::decode_state(&recorded("sandboxActivate.before.lease.value")).unwrap();
-    let canonical = recorded("sandboxActivate.after.lease.value");
-    let next = Lease::decode_state(&canonical).unwrap();
-    let transition = next.history().last().unwrap().transition;
-    let ops = proof_ops(&recorded("sandboxActivate.after.lease.ops"));
+fn recorded_transition_fixture() -> chain::ChainFixture {
     let mut fixture = chain::ChainFixture::new_in_store(
         "lxphost",
         "repair-native",
         &[[17; 32]],
         vec![(b"encoder".to_vec(), vec![1])],
     )
-    .unwrap();
+    .checked();
     fixture.header.height = 101;
     fixture.header.time.seconds = 1_700_000_001;
     fixture.header.time.nanos = 123_000_000;
     fixture.header.app_hash = recorded("sandboxActivate.after.root");
     fixture.commit.height = fixture.header.height;
-    fixture.commit.block_id.hash = fixture.header.hash().unwrap().to_vec();
+    fixture.commit.block_id.hash = fixture.header.hash().checked().to_vec();
     let key = SigningKey::from_bytes(&[17; 32]);
     let timestamp = Timestamp {
         seconds: fixture.header.time.seconds,
@@ -563,19 +603,30 @@ fn registry_transition_contract_matches_native_chain_state_producer() {
         Some(&fixture.commit.block_id),
         timestamp,
     )
-    .unwrap();
+    .checked();
     fixture.commit.signatures = vec![CommitSig {
         flag: BlockIdFlag::Commit,
         validator_address: Sha256::digest(key.verifying_key().as_bytes())[..20].to_vec(),
         timestamp,
         signature: key.sign(&sign_bytes).to_bytes().to_vec(),
     }];
+    fixture
+}
+
+#[test]
+fn registry_transition_contract_matches_native_chain_state_producer() {
+    let previous = Lease::decode_state(&recorded("sandboxActivate.before.lease.value")).checked();
+    let canonical = recorded("sandboxActivate.after.lease.value");
+    let next = Lease::decode_state(&canonical).checked();
+    let transition = next.history().last().checked().transition;
+    let ops = proof_ops(&recorded("sandboxActivate.after.lease.ops"));
+    let fixture = recorded_transition_fixture();
     let head = fixture
         .verifier
         .verify_head(&fixture.header, &fixture.commit)
-        .unwrap();
+        .checked();
     let authorization =
-        AuthorizationContext::new(previous.tenant(), CapabilitySet::new([]).unwrap());
+        AuthorizationContext::new(previous.tenant(), CapabilitySet::new([]).checked());
     let evidence = TransitionEvidence::verify_call(
         &head,
         &previous,
@@ -584,15 +635,15 @@ fn registry_transition_contract_matches_native_chain_state_producer() {
         &canonical,
         &ops,
     )
-    .unwrap();
-    assert_eq!(evidence.lease_digest(), next.state_digest().unwrap());
+    .checked();
+    assert_eq!(evidence.lease_digest(), next.state_digest().checked());
     assert_eq!(evidence.state_height(), 100);
     assert_eq!(
-        sandbox_state_key(0, previous.id().bytes()).unwrap(),
+        sandbox_state_key(0, previous.id().bytes()).checked(),
         recorded("sandboxActivate.after.lease.key")
     );
     let mut bad = canonical.clone();
-    *bad.last_mut().unwrap() ^= 1;
+    *bad.last_mut().checked() ^= 1;
     assert!(TransitionEvidence::verify_call(
         &head,
         &previous,

@@ -25,7 +25,7 @@ public final class HttpProductionTransport implements ProductionTransport {
     private static final String AGENT_RPC_PATH = "/v1/agent/rpc";
     private static final int MAXIMUM_AGENT_ENVELOPE_BYTES = 1_048_576;
     private static final Set<String> VERIFICATION_LEVELS = Set.of("Unverified", "SequencerSigned",
-        "BatchIncluded", "StateProven", "CheckpointFinalised", "SettlementAnchored");
+        "BatchIncluded", "StateProven", "CheckpointFinalised");
     private static final java.security.SecureRandom REQUEST_IDS = new java.security.SecureRandom();
     @FunctionalInterface public interface Credential { void apply(HttpRequest.Builder request); }
 

@@ -1,7 +1,9 @@
 export type * from './types.gen.js';
+export type { PoolDetailData, PoolDetailResponse } from './transport.js';
 export { decodeContract, validateContract, ContractValidationError } from './validate.js';
 export * from './amounts.js';
 export * from './transport.js';
+export * from './chains.js';
 export * from './stream.js';
 export * from './browser-stream.js';
 

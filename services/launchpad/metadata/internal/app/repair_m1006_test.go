@@ -29,6 +29,7 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/config"
 	raster "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/image"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/metadata"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
@@ -1179,9 +1180,25 @@ func TestRepairM_1006_QuarantinePrivacy(t *testing.T) {
 }
 
 func TestRepairM_1006_FactoryReceiptChainBinding(t *testing.T) {
-	d := m1006NewDatabase(t)
-	pool, stop := d.open()
-	defer stop()
+	pool, _ := internaltest.NewPostgresURL(t)
+	evidence, indexed := m1006LoadEvidence(t)
+	creation := indexed["indexer.indexer_canonical_creations"][0]
+	d := struct{ pool, token, creator, txHash string }{
+		pool: m1006String(creation["pool"]), token: m1006String(creation["token"]), creator: m1006String(creation["creator"]), txHash: evidence.Receipt.TxHash.Hex(),
+	}
+	if _, err := pool.Exec(context.Background(), `ALTER TABLE indexer.pools ADD COLUMN tx_hash text, ADD COLUMN created_block bigint`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(context.Background(), `INSERT INTO indexer.pools VALUES($1,$2,$3,$4,$5)`, d.pool, d.token, d.creator, d.txHash, evidence.Receipt.BlockNumber.Int64()); err != nil {
+		t.Fatal(err)
+	}
+	if err := metadata.EnsureDevelopmentConnectedSchema(context.Background(), pool, metadata.DevelopmentConnectedSchema); err != nil {
+		t.Fatal(err)
+	}
+	canonicalStore, err := metadata.NewProductionStore(pool, metadata.DevelopmentConnectedSchema, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, chainID := range []int64{125, 1337} {
 		t.Run(strconv.FormatInt(chainID, 10), func(t *testing.T) {
 			chain, calls := m1006Chain(t, chainID)
@@ -1193,7 +1210,7 @@ func TestRepairM_1006_FactoryReceiptChainBinding(t *testing.T) {
 			if chainID == 1337 && admitted == nil {
 				t.Fatal("real chain 1337 endpoint admitted as chain 125")
 			}
-			reads := metadata.NewDevelopmentV2Reads(pool, developmentChainReceipts{client: client}, time.Now)
+			reads := metadata.NewDevelopmentV2Reads(pool, developmentChainReceipts{client: client}, time.Now, canonicalStore)
 			router := chi.NewRouter()
 			reads.RegisterRoutes(router)
 			server := httptest.NewServer(router)

@@ -69,8 +69,10 @@ fn saved_schedule(schedule: FeeSchedule) -> [u64; 8] {
 }
 
 fn reopened_schedule(saved: [u64; 8]) -> FeeSchedule {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     FeeSchedule::new_complete(FeeScheduleParameters {
-        version: u32::try_from(saved[0]).unwrap(),
+        version: u32::try_from(saved[0]).assert_success("test value"),
         fee_units_per_cpu_fuel: saved[1],
         fee_units_per_memory_byte: saved[2],
         fee_units_per_storage_read_byte: saved[3],
@@ -83,64 +85,27 @@ fn reopened_schedule(saved: [u64; 8]) -> FeeSchedule {
 
 #[test]
 fn reopens_recorded_abi_history_and_recovers_exact_evidence() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     // Only serialized transport bytes survive this scope. The real engine,
     // validated artifacts, executor records and fee history are all stopped.
-    let archive = {
-        let engine = WasmEngine::declared().unwrap();
-        let wasm = add_module();
-        let mut history = FeeScheduleHistory::new(FeeSchedule::declared()).unwrap();
-        history
-            .record(FeeSchedule::new_complete(parameters(2, 19)))
-            .unwrap();
-        let mut executions = Vec::new();
-        for abi in 1..=5 {
-            let validated = engine.validate_versioned(abi, &wasm).unwrap();
-            for prices in history.schedules() {
-                let args = [WasmValue::I32(20), WasmValue::I32(22)];
-                let record =
-                    execute_versioned_for_qualification(&validated, *prices, "add", &args).unwrap();
-                assert_eq!(record.abi_version, abi);
-                assert_eq!(record.outputs, vec![WasmValue::I32(42)]);
-                assert_eq!(
-                    record.usage.fee_units,
-                    u128::from(record.usage.cpu_fuel) * u128::from(prices.cpu_price())
-                        + u128::from(record.usage.output_values)
-                            * u128::from(prices.output_value_price())
-                );
-                executions.push(PersistedExecution {
-                    runtime: record.runtime_version,
-                    abi: record.abi_version,
-                    fee: prices.version(),
-                    metering: record.metering_schedule_version,
-                    wasm: wasm.clone(),
-                    export: "add".to_string(),
-                    args: [20, 22],
-                    evidence: record.canonical_evidence(),
-                });
-            }
-        }
-        // Head advances after the receipts were produced. Recovery must select
-        // each recorded version, rather than this latest governed schedule.
-        history
-            .record(FeeSchedule::new_complete(parameters(3, 31)))
-            .unwrap();
-        serde_json::to_vec(&PersistedJournal {
-            schedules: history
-                .schedules()
-                .iter()
-                .copied()
-                .map(saved_schedule)
-                .collect(),
-            executions,
-        })
-        .unwrap()
-    };
-    let recovered: PersistedJournal = serde_json::from_slice(&archive).unwrap();
-    let mut history = FeeScheduleHistory::new(reopened_schedule(recovered.schedules[0])).unwrap();
+    let archive = persisted_abi_journal();
+    let recovered: PersistedJournal = serde_json::from_slice(&archive).assert_success("test value");
+    let mut history = FeeScheduleHistory::new(reopened_schedule(recovered.schedules[0]))
+        .assert_success("test value");
     for saved in &recovered.schedules[1..] {
-        history.record(reopened_schedule(*saved)).unwrap();
+        history
+            .record(reopened_schedule(*saved))
+            .assert_success("test value");
     }
-    assert_eq!(history.schedules().last().unwrap().version(), 3);
+    assert_eq!(
+        history
+            .schedules()
+            .last()
+            .assert_success("test value")
+            .version(),
+        3
+    );
     assert_eq!(recovered.executions.len(), 10);
     for saved in recovered.executions {
         let args = saved.args.map(WasmValue::I32);
@@ -216,6 +181,60 @@ fn reopens_recorded_abi_history_and_recovers_exact_evidence() {
         }
     }
 }
+fn persisted_abi_journal() -> Vec<u8> {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    let engine = WasmEngine::declared().assert_success("test value");
+    let wasm = add_module();
+    let mut history = FeeScheduleHistory::new(FeeSchedule::declared()).assert_success("test value");
+    history
+        .record(FeeSchedule::new_complete(parameters(2, 19)))
+        .assert_success("test value");
+    let mut executions = Vec::new();
+    for abi in 1..=5 {
+        let validated = engine
+            .validate_versioned(abi, &wasm)
+            .assert_success("test value");
+        for prices in history.schedules() {
+            let args = [WasmValue::I32(20), WasmValue::I32(22)];
+            let record = execute_versioned_for_qualification(&validated, *prices, "add", &args)
+                .assert_success("test value");
+            assert_eq!(record.abi_version, abi);
+            assert_eq!(record.outputs, vec![WasmValue::I32(42)]);
+            assert_eq!(
+                record.usage.fee_units,
+                u128::from(record.usage.cpu_fuel) * u128::from(prices.cpu_price())
+                    + u128::from(record.usage.output_values)
+                        * u128::from(prices.output_value_price())
+            );
+            executions.push(PersistedExecution {
+                runtime: record.runtime_version,
+                abi: record.abi_version,
+                fee: prices.version(),
+                metering: record.metering_schedule_version,
+                wasm: wasm.clone(),
+                export: "add".to_string(),
+                args: [20, 22],
+                evidence: record.canonical_evidence(),
+            });
+        }
+    }
+    // Head advances after the receipts were produced. Recovery must select
+    // each recorded version, rather than this latest governed schedule.
+    history
+        .record(FeeSchedule::new_complete(parameters(3, 31)))
+        .assert_success("test value");
+    serde_json::to_vec(&PersistedJournal {
+        schedules: history
+            .schedules()
+            .iter()
+            .copied()
+            .map(saved_schedule)
+            .collect(),
+        executions,
+    })
+    .assert_success("test value")
+}
 
 fn submission(
     platform: &[u8],
@@ -224,6 +243,8 @@ fn submission(
     manifest: &[u8],
     export: &str,
 ) -> (TraceRunnerSubmission, TraceRunnerTrust) {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let artifact = programs_trace_runner_artifact(
         platform,
         executable,
@@ -231,14 +252,14 @@ fn submission(
         &add_module(),
         export,
         &[WasmValue::I32(20), WasmValue::I32(22)],
-        TracePolicy::new(1, 32).unwrap(),
+        TracePolicy::new(1, 32).assert_success("test value"),
     )
-    .unwrap();
-    let digest = artifact.attestation_digest().unwrap();
+    .assert_success("test value");
+    let digest = artifact.attestation_digest().assert_success("test value");
     let artifact = artifact
         .attach_attestation_signature(&key.sign(&digest).to_bytes())
-        .unwrap();
-    let encoded = artifact.canonical_bytes().unwrap();
+        .assert_success("test value");
+    let encoded = artifact.canonical_bytes().assert_success("test value");
     assert_eq!(
         digest,
         <[u8; 32]>::from(Sha256::digest(&encoded[..encoded.len() - 64]))
@@ -250,8 +271,11 @@ fn submission(
         attestation_public_key: key.verifying_key().to_bytes(),
     };
     // Producer -> canonical transport -> newly opened artifact consumer.
-    let artifact = TraceRunnerArtifact::from_canonical_bytes(&encoded).unwrap();
-    assert_eq!(artifact.canonical_bytes().unwrap(), encoded);
+    let artifact = TraceRunnerArtifact::from_canonical_bytes(&encoded).assert_success("test value");
+    assert_eq!(
+        artifact.canonical_bytes().assert_success("test value"),
+        encoded
+    );
     (
         TraceRunnerSubmission {
             artifact,
@@ -264,7 +288,9 @@ fn submission(
 
 #[test]
 fn host_provenance_and_attestations_cross_guest_hash_boundary() {
-    let guest_limit = usize::try_from(MAX_HASH_INPUT_BYTES).unwrap();
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    let guest_limit = usize::try_from(MAX_HASH_INPUT_BYTES).assert_success("test value");
     let first_key = SigningKey::from_bytes(&[17; 32]);
     let second_key = SigningKey::from_bytes(&[29; 32]);
     for length in [guest_limit - 1, guest_limit, guest_limit + 1] {
@@ -280,7 +306,7 @@ fn host_provenance_and_attestations_cross_guest_hash_boundary() {
             second.clone(),
             &second_trust,
         )
-        .unwrap();
+        .assert_success("test value");
         assert_eq!(evidence[0], 0, "real traced execution must succeed");
         let mut tampered = first.clone();
         tampered.executable_bytes[0] ^= 1;
@@ -300,11 +326,14 @@ fn host_provenance_and_attestations_cross_guest_hash_boundary() {
             &second_trust
         )
         .is_err());
-        let mut wire = first.artifact.canonical_bytes().unwrap();
+        let mut wire = first
+            .artifact
+            .canonical_bytes()
+            .assert_success("test value");
         let last = wire.len() - 1;
         wire[last] ^= 1;
         let tampered = TraceRunnerSubmission {
-            artifact: TraceRunnerArtifact::from_canonical_bytes(&wire).unwrap(),
+            artifact: TraceRunnerArtifact::from_canonical_bytes(&wire).assert_success("test value"),
             ..first.clone()
         };
         assert!(programs_trace_differential_gate(
@@ -336,6 +365,15 @@ fn host_provenance_and_attestations_cross_guest_hash_boundary() {
             );
         }
     }
+    assert_large_provenance_attestations(guest_limit, &first_key, &second_key);
+}
+fn assert_large_provenance_attestations(
+    guest_limit: usize,
+    first_key: &SigningKey,
+    second_key: &SigningKey,
+) {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     // Keep the real trace input within its guest ceiling. The separately
     // hashed provenance workload includes the module and policy as well.
     // The encoded argument payload includes its own u64 argument count,
@@ -343,14 +381,9 @@ fn host_provenance_and_attestations_cross_guest_hash_boundary() {
     let trace_input_framing = b"LXP/program-trace-input/v1\0".len() + 4 + 8 + 8 + 2 * 5;
     let export = "x".repeat(guest_limit - trace_input_framing);
     let (first, first_trust) =
-        submission(b"runner-a", &first_key, b"runner a", b"manifest a", &export);
-    let (second, second_trust) = submission(
-        b"runner-b",
-        &second_key,
-        b"runner b",
-        b"manifest b",
-        &export,
-    );
+        submission(b"runner-a", first_key, b"runner a", b"manifest a", &export);
+    let (second, second_trust) =
+        submission(b"runner-b", second_key, b"runner b", b"manifest b", &export);
     let wasm = add_module();
     let mut workload = b"LXP/program-trace-runner-workload/v1\0".to_vec();
     workload.extend_from_slice(&(wasm.len() as u64).to_be_bytes());
@@ -362,7 +395,11 @@ fn host_provenance_and_attestations_cross_guest_hash_boundary() {
         workload.push(0);
         workload.extend_from_slice(&value.to_be_bytes());
     }
-    workload.extend_from_slice(&TracePolicy::new(1, 32).unwrap().canonical_bytes());
+    workload.extend_from_slice(
+        &TracePolicy::new(1, 32)
+            .assert_success("test value")
+            .canonical_bytes(),
+    );
     workload.extend_from_slice(&RUNTIME_VERSION.to_be_bytes());
     assert!(workload.len() > guest_limit);
     assert!(workload.len() <= MAX_TRACE_RUNNER_PROVENANCE_BYTES);
@@ -375,40 +412,46 @@ fn host_provenance_and_attestations_cross_guest_hash_boundary() {
     );
     // The real producer accepted these bytes through host_provenance_hash.
     // Check its workload identity after the signed canonical transport.
-    let encoded = first.artifact.canonical_bytes().unwrap();
+    let encoded = first
+        .artifact
+        .canonical_bytes()
+        .assert_success("test value");
     let workload_offset = b"LXP/trace-runner-artifact/v1\0".len() + 2 * 32;
     assert_eq!(
         &encoded[workload_offset..workload_offset + 32],
         &<[u8; 32]>::from(Sha256::digest(&workload))
     );
-    let evidence =
-        programs_trace_differential_gate(first, &first_trust, second, &second_trust).unwrap();
+    let evidence = programs_trace_differential_gate(first, &first_trust, second, &second_trust)
+        .assert_success("test value");
     assert_eq!(evidence[0], 1);
     assert!(std::str::from_utf8(&evidence[9..])
-        .unwrap()
+        .assert_success("test value")
         .contains(&export));
 }
 
 #[test]
 fn host_and_artifact_bounds_refuse_oversize() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let wasm = add_module();
-    let policy = TracePolicy::new(1, 32).unwrap();
+    let policy = TracePolicy::new(1, 32).assert_success("test value");
     let oversize = vec![7; MAX_TRACE_RUNNER_PROVENANCE_BYTES + 1];
     for (executable, manifest) in [
         (&oversize[..], &b"manifest"[..]),
         (&b"runner"[..], &oversize[..]),
     ] {
-        assert!(programs_trace_runner_artifact(
+        let Err(refusal) = programs_trace_runner_artifact(
             b"platform",
             executable,
             manifest,
             &wasm,
             "add",
             &[],
-            policy
-        )
-        .unwrap_err()
-        .contains("exceeds bound"));
+            policy,
+        ) else {
+            panic!("expected oversized provenance refusal");
+        };
+        assert!(refusal.contains("exceeds bound"));
     }
     let maximum = programs_trace_runner_artifact(
         b"platform",
@@ -419,10 +462,10 @@ fn host_and_artifact_bounds_refuse_oversize() {
         &[WasmValue::I32(20), WasmValue::I32(22)],
         policy,
     )
-    .unwrap();
-    let encoded_maximum = maximum.canonical_bytes().unwrap();
+    .assert_success("test value");
+    let encoded_maximum = maximum.canonical_bytes().assert_success("test value");
     assert_eq!(
-        TraceRunnerArtifact::from_canonical_bytes(&encoded_maximum).unwrap(),
+        TraceRunnerArtifact::from_canonical_bytes(&encoded_maximum).assert_success("test value"),
         maximum
     );
     assert!(maximum.attestation_digest().is_ok());
@@ -445,15 +488,19 @@ fn host_and_artifact_bounds_refuse_oversize() {
         b"manifest",
         "add",
     );
-    let wire = submission.artifact.canonical_bytes().unwrap();
+    let wire = submission
+        .artifact
+        .canonical_bytes()
+        .assert_success("test value");
     let evidence_length_offset =
         b"LXP/trace-runner-artifact/v1\0".len() + 96 + 2 + b"platform".len();
     let mut oversized = wire.clone();
     oversized[evidence_length_offset..evidence_length_offset + 8]
         .copy_from_slice(&((MAX_TRACE_RUNNER_EVIDENCE_BYTES as u64) + 1).to_be_bytes());
-    assert!(TraceRunnerArtifact::from_canonical_bytes(&oversized)
-        .unwrap_err()
-        .contains("evidence exceeds bound"));
+    let Err(refusal) = TraceRunnerArtifact::from_canonical_bytes(&oversized) else {
+        panic!("expected oversized evidence refusal");
+    };
+    assert!(refusal.contains("evidence exceeds bound"));
     assert!(TraceRunnerArtifact::from_canonical_bytes(&wire[..wire.len() - 1]).is_err());
     let mut trailing = wire.clone();
     trailing.push(0);
@@ -466,6 +513,8 @@ fn host_and_artifact_bounds_refuse_oversize() {
 }
 
 fn composed_guest(callee: Option<ProgramId>) -> Vec<u8> {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let imported = u64::from(callee.is_some());
     let grants = CapabilitySet::empty().canonical_encoding();
     let mut exports = unsigned_leb(3);
@@ -482,7 +531,14 @@ fn composed_guest(callee: Option<ProgramId>) -> Vec<u8> {
     let mut entry = Vec::new();
     let mut data = Vec::new();
     if let Some(callee) = callee {
-        for value in [0, 32, 32, 0, 32, u8::try_from(grants.len()).unwrap()] {
+        for value in [
+            0,
+            32,
+            32,
+            0,
+            32,
+            u8::try_from(grants.len()).assert_success("test value"),
+        ] {
             assert!(value < 64);
             entry.extend([0x41, value]);
         }
@@ -517,6 +573,8 @@ fn composed_guest(callee: Option<ProgramId>) -> Vec<u8> {
 
 #[test]
 fn runtime_contract_matches_real_terminal_success_and_refusal() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let contract = include_str!("../src/runtime_contract.md");
     for promised in [
         "# Runtime crate",
@@ -533,17 +591,17 @@ fn runtime_contract_matches_real_terminal_success_and_refusal() {
         );
     }
     assert!(include_str!("../src/terminal.rs").contains("include_str!(\"runtime_contract.md\")"));
-    let engine = WasmEngine::declared().unwrap();
-    let validated = engine.validate(&add_module()).unwrap();
+    let engine = WasmEngine::declared().assert_success("test value");
+    let validated = engine.validate(&add_module()).assert_success("test value");
     let produced = execute_versioned_for_qualification(
         &validated,
         FeeSchedule::declared(),
         "add",
         &[WasmValue::I32(20), WasmValue::I32(22)],
     )
-    .unwrap();
+    .assert_success("test value");
     let encoded = produced.canonical_evidence();
-    let decoded = decode_terminal_payload(1, 1, &encoded).unwrap();
+    let decoded = decode_terminal_payload(1, 1, &encoded).assert_success("test value");
     assert!(
         matches!(decoded.detail, TerminalDetail::Execution(ExecutionTerminal::Legacy { encoding_version: 2, values, usage, .. }) if values == vec![ExecutionValue::I32(42)] && usage == produced.usage)
     );
@@ -556,26 +614,27 @@ fn runtime_contract_matches_real_terminal_success_and_refusal() {
         Err(TerminalDecodeError::MismatchedKind)
     );
     for (expected, actual) in [(3, 4), (4, 5)] {
-        let root_id = ProgramId::new([1; 32]).unwrap();
-        let child_id = ProgramId::new([2; 32]).unwrap();
+        let root_id = ProgramId::new([1; 32]).assert_success("test value");
+        let child_id = ProgramId::new([2; 32]).assert_success("test value");
         let root = engine
             .validate_versioned(expected, &composed_guest(Some(child_id)))
-            .unwrap();
+            .assert_success("test value");
         let child = engine
             .validate_versioned(actual, &composed_guest(None))
-            .unwrap();
+            .assert_success("test value");
         let mut catalog = ProgramCatalog::new();
         catalog.insert(child_id, child);
         let storage = Storage::new();
         let before = storage.clone();
-        let refusal = invoke_composed_for_qualification(
+        let Err(refusal) = invoke_composed_for_qualification(
             &storage,
             AuthorizedExecutionRequest {
                 module: &root,
                 program: root_id,
                 authorization: AuthorizationContext::new(
-                    PrincipalId::new([3; 32]).unwrap(),
-                    CapabilitySet::new([Capability::Call { program: child_id }]).unwrap(),
+                    PrincipalId::new([3; 32]).assert_success("test value"),
+                    CapabilitySet::new([Capability::Call { program: child_id }])
+                        .assert_success("test value"),
                 ),
                 receipts: &UnavailableReceiptOracle,
                 entrypoint: CALL_ENTRY_EXPORT,
@@ -583,22 +642,23 @@ fn runtime_contract_matches_real_terminal_success_and_refusal() {
                 composition: CompositionContext::catalog(catalog, CompositionRules::declared()),
                 response_capacity: 0,
             },
-        )
-        .unwrap_err();
+        ) else {
+            panic!("expected composition revision refusal");
+        };
         assert_eq!(storage, before);
         let ExecutionError::Composition(refusal) = refusal else {
             panic!("expected real composition refusal");
         };
-        let encoded =
-            encode_failure_payload(&BudgetedV1FailureCause::Composition(refusal)).unwrap();
-        let decoded = decode_terminal_payload(2, expected, &encoded).unwrap();
+        let encoded = encode_failure_payload(&BudgetedV1FailureCause::Composition(refusal))
+            .assert_success("test value");
+        let decoded = decode_terminal_payload(2, expected, &encoded).assert_success("test value");
         assert_eq!(
             decoded.detail,
             TerminalDetail::Failure(FailureTerminal::Composition {
                 tag: 2,
                 fields: FailureFields::Revisions {
-                    expected: expected as u8,
-                    actual: actual as u8
+                    expected: u8::try_from(expected).assert_success("fixture fits u8"),
+                    actual: u8::try_from(actual).assert_success("fixture fits u8")
                 }
             })
         );

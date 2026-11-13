@@ -15,11 +15,7 @@ fn protocol(consumed: u128, remaining: u128, head: u64) -> ProtocolBudgetState {
 
 #[test]
 fn divergence_cannot_be_derived_from_an_untyped_included_leaf() {
-    let mut local = LocalAccounting {
-        consumed: 420,
-        window_start_sequence: 100,
-        last_receipt: Some([1; 32]),
-    };
+    let mut local = LocalAccounting::at_period_start(420, 100, Some([1; 32]));
     let receipts = [SpendReceiptEvidence {
         expected_activity_id: [7; 32],
         evidence: support::raw_receipt_at([7; 32], 0, 300, 120),
@@ -38,11 +34,7 @@ fn divergence_cannot_be_derived_from_an_untyped_included_leaf() {
 
 #[test]
 fn repeated_attempts_cannot_turn_an_untyped_leaf_into_authority() {
-    let mut local = LocalAccounting {
-        consumed: 200,
-        window_start_sequence: 100,
-        last_receipt: Some([2; 32]),
-    };
+    let mut local = LocalAccounting::at_period_start(200, 100, Some([2; 32]));
     let missing = [SpendReceiptEvidence {
         expected_activity_id: [3; 32],
         evidence: support::raw_receipt_at([3; 32], 0, 200, 120),
@@ -63,11 +55,7 @@ fn repeated_attempts_cannot_turn_an_untyped_leaf_into_authority() {
 
 #[test]
 fn an_untyped_overage_candidate_never_replaces_local_accounting() {
-    let mut local = LocalAccounting {
-        consumed: 200,
-        window_start_sequence: 100,
-        last_receipt: None,
-    };
+    let mut local = LocalAccounting::at_period_start(200, 100, None);
     assert_eq!(
         reconcile(
             &mut local,

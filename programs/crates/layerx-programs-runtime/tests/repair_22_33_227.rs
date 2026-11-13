@@ -1,9 +1,9 @@
 //! Repair record 22.33.227 for audit 22.30.126.
-//! hash-preflight: hash_preflight_oversized_valid_memory,
-//! hash_preflight_invalid_input_and_output_ranges, hash_preflight_exhausted_fuel,
-//! and hash_preflight_valid_vectors_and_ceiling.
-//! guest-read-allocation: guest_read_invalid_large_ranges_do_not_allocate and
-//! guest_read_valid_range_still_reaches_storage.
+//! hash-preflight: `hash_preflight_oversized_valid_memory`,
+//! `hash_preflight_invalid_input_and_output_ranges`, `hash_preflight_exhausted_fuel`,
+//! and `hash_preflight_valid_vectors_and_ceiling`.
+//! guest-read-allocation: `guest_read_invalid_large_ranges_do_not_allocate` and
+//! `guest_read_valid_range_still_reaches_storage`.
 //! Baseline verification was not run: the ordered implementation-first gates
 //! prohibit a manual verify run, overriding the conflicting audit step 6.
 //! No pre-change test failure is claimed. No out-of-path wiring is required.
@@ -72,7 +72,7 @@ static ALLOCATOR: ObservedAllocator = ObservedAllocator;
 fn push_i32(bytes: &mut Vec<u8>, mut value: i32) {
     bytes.push(0x41);
     loop {
-        let low = (value & 0x7f) as u8;
+        let low = value.to_le_bytes()[0] & 0x7f;
         value >>= 7;
         let done = value == 0 && low & 0x40 == 0 || value == -1 && low & 0x40 != 0;
         bytes.push(if done { low } else { low | 0x80 });
@@ -126,17 +126,19 @@ fn guest() -> Vec<u8> {
 }
 
 fn instance(cpu: u64) -> ProgramInstance {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let module = WasmEngine::declared()
         .unwrap_or_else(|error| panic!("engine: {error:?}"))
         .validate_v2(&guest())
         .unwrap_or_else(|error| panic!("repair guest validation: {error:?}"));
     let budget = ResourceBudget::new_complete(
         cpu,
-        MEMORY_BYTES as u64,
-        HASH_LIMIT as u64,
-        HASH_LIMIT as u64,
+        u64::try_from(MEMORY_BYTES).assert_success("fixture fits u64"),
+        u64::try_from(HASH_LIMIT).assert_success("fixture fits u64"),
+        u64::try_from(HASH_LIMIT).assert_success("fixture fits u64"),
         128,
-        HASH_LIMIT as u64,
+        u64::try_from(HASH_LIMIT).assert_success("fixture fits u64"),
         4096,
     );
     let abi = Abi::new(
@@ -185,10 +187,16 @@ fn observed_call(instance: &mut ProgramInstance, name: &str, args: &[i32]) -> (i
 }
 
 fn assert_output(instance: &mut ProgramInstance, expected: &[u8]) {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     assert_eq!(expected.len(), 32);
     for (index, word) in expected.chunks_exact(4).enumerate() {
         assert_eq!(
-            call(instance, "load", &[OUTPUT + (index as i32) * 4]),
+            call(
+                instance,
+                "load",
+                &[OUTPUT + i32::try_from(index).assert_success("digest word index fits i32") * 4]
+            ),
             i32::from_le_bytes(
                 word.try_into()
                     .unwrap_or_else(|error| panic!("digest word {index} conversion: {error:?}"))
@@ -314,18 +322,26 @@ fn hash_preflight_valid_vectors_and_ceiling() {
                 .unwrap_or_else(|error| panic!("algorithm {id} abc digest vector: {error:?}")),
         );
 
-        let mut input = vec![0; HASH_LIMIT as usize];
+        let mut input = vec![
+            0;
+            usize::try_from(HASH_LIMIT)
+                .unwrap_or_else(|error| panic!("hash limit fits usize: {error}"))
+        ];
         input[..3].copy_from_slice(b"abc");
         let (status, largest, fuel) =
             observed_call(&mut instance, "hash", &[id, 0, HASH_LIMIT, OUTPUT]);
         assert_eq!(status, 0);
         assert!(
-            largest >= HASH_LIMIT as usize,
+            largest
+                >= usize::try_from(HASH_LIMIT)
+                    .unwrap_or_else(|error| panic!("hash limit fits usize: {error}")),
             "allocation observer missed the valid copy"
         );
         assert_eq!(
             fuel - empty_fuel,
-            HASH_LIMIT as u64 * algorithm.fuel_per_byte()
+            u64::try_from(HASH_LIMIT)
+                .unwrap_or_else(|error| panic!("hash limit fits u64: {error}"))
+                * algorithm.fuel_per_byte()
         );
         assert_output(
             &mut instance,

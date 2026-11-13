@@ -50,7 +50,7 @@ pub mod program_lifecycle;
 pub mod programs;
 
 pub mod purpose;
-mod receipt_generated;
+pub mod receipt_generated;
 pub mod register;
 pub mod rpc;
 pub mod rpc_history;
@@ -344,6 +344,9 @@ impl Client {
         Ok(read)
     }
 
+    /// # Errors
+    ///
+    /// Returns `InvalidProofBundle` for an invalid selector, mismatched target or freshness, or a verified rung below the request.
     pub fn accept_proof_bundle(
         request: &ReadRequest<layerx_agent_api::prepare::CanonicalBytes>,
         read: VerifiedRead<layerx_agent_api::proof::ProofBundle>,

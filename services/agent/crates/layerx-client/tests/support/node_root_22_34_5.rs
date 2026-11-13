@@ -39,7 +39,9 @@ pub fn unified_history() -> Value {
 }
 
 pub fn hex_bytes<const N: usize>(value: &Value) -> [u8; N] {
-    let text = value.as_str().expect("hex string");
+    let Some(text) = value.as_str() else {
+        panic!("hex string")
+    };
     let text = text.strip_prefix("0x").unwrap_or(text);
     assert_eq!(text.len(), 2 * N);
     std::array::from_fn(|index| must(u8::from_str_radix(&text[index * 2..index * 2 + 2], 16)))
@@ -91,7 +93,9 @@ impl Server {
                         length = Some(must(value.trim().parse::<usize>()));
                     }
                 }
-                let length = length.expect("content length");
+                let Some(length) = length else {
+                    panic!("content length")
+                };
                 assert!(length <= 1_048_576);
                 let mut body = vec![0; length];
                 must(reader.read_exact(&mut body));
@@ -120,12 +124,15 @@ impl Server {
     pub fn recorded() -> Self {
         let recorded = recording();
         Self::start("/", move |request| {
-            let exchange = recorded["exchanges"]
-                .as_array()
-                .expect("exchanges")
+            let Some(exchanges) = recorded["exchanges"].as_array() else {
+                panic!("exchanges")
+            };
+            let Some(exchange) = exchanges
                 .iter()
                 .find(|entry| entry["request"]["method"] == request["method"])
-                .expect("recorded method");
+            else {
+                panic!("recorded method")
+            };
             assert_eq!(request["params"], exchange["request"]["params"]);
             Some(exchange["response"].clone())
         })
@@ -152,21 +159,32 @@ pub fn assert_recorded_reads(endpoint: &PxEndpoint) {
     let recorded = recording();
     assert_eq!(recorded["chain_id"], 125);
     assert_eq!(must(endpoint.node().chain_id()), 125);
-    let exchanges = recorded["exchanges"].as_array().expect("exchanges");
+    let Some(exchanges) = recorded["exchanges"].as_array() else {
+        panic!("exchanges")
+    };
     assert_eq!(exchanges.len(), NODE_READ_METHODS.len() + 1);
     for method in NODE_READ_METHODS {
-        let exchange = exchanges
+        let Some(exchange) = exchanges
             .iter()
             .find(|entry| entry["request"]["method"] == method)
-            .expect("every served method is recorded");
+        else {
+            panic!("every served method is recorded")
+        };
         let result = endpoint.call(method, &exchange["request"]["params"]);
         let response = &exchange["response"];
         if let Some(error) = response.get("error") {
             assert_eq!(
                 result,
                 Err(SequencerError::Rpc(RpcRefusal {
-                    code: error["code"].as_i64().expect("error code"),
-                    message: error["message"].as_str().expect("error message").to_owned(),
+                    code: match error["code"].as_i64() {
+                        Some(required_value) => required_value,
+                        None => panic!("error code"),
+                    },
+                    message: (match error["message"].as_str() {
+                        Some(required_value) => required_value,
+                        None => panic!("error message"),
+                    })
+                    .to_owned(),
                     data: error.get("data").cloned(),
                 })),
                 "{method}"
@@ -180,8 +198,13 @@ pub fn assert_recorded_reads(endpoint: &PxEndpoint) {
 pub fn storage_server() -> Server {
     let storage = producer()["storage"].clone();
     Server::start("/", move |request| {
-        let height = storage["height"].as_u64().expect("height");
-        let result = match request["method"].as_str().expect("method") {
+        let Some(height) = storage["height"].as_u64() else {
+            panic!("height")
+        };
+        let result = match match request["method"].as_str() {
+            Some(required_value) => required_value,
+            None => panic!("method"),
+        } {
             "eth_chainId" => {
                 assert_eq!(request["params"], json!([]));
                 json!("0x7d")

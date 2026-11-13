@@ -12,6 +12,9 @@ pub struct NodeCommitAuthority {
 }
 impl NodeCommitAuthority {
     /// Pins the chain and validator set independently of the RPC response.
+    /// # Errors
+    ///
+    /// Returns `InvalidRequest` for an empty or oversized chain ID or validator set, invalid height range, duplicate or zero keys, zero power, or total power above the Comet bound.
     pub fn new(
         chain_id: String,
         validators: Vec<([u8; 32], u64)>,
@@ -37,7 +40,7 @@ impl NodeCommitAuthority {
             }
             total = total
                 .checked_add(*power)
-                .filter(|v| *v <= (i64::MAX / 8) as u64)
+                .filter(|v| *v <= (i64::MAX / 8).unsigned_abs())
                 .ok_or(RpcError::InvalidRequest)?;
         }
         Ok(Self {
@@ -64,6 +67,13 @@ pub struct NodeCommitCoverage {
 }
 impl RpcClient {
     /// Pins Comet trust; each committed wait acquires its own sequence-batch coverage.
+    /// # Errors
+    ///
+    /// This setter is infallible; subsequent committed waits may refuse evidence outside the pinned authority.
+    #[allow(
+        clippy::unnecessary_wraps,
+        reason = "Preserve the public fallible builder signature used by committed-wait clients."
+    )]
     pub fn with_node_commit_authority(
         mut self,
         authority: NodeCommitAuthority,
@@ -73,6 +83,9 @@ impl RpcClient {
     }
 
     /// Overrides served coverage for debug/test fixtures. Comet trust is still required.
+    /// # Errors
+    ///
+    /// Returns `MissingFinalityTrust` without pinned authority, or `InvalidRequest` for coverage outside the height, transaction, activity or proof bounds.
     #[cfg(debug_assertions)]
     #[doc(hidden)]
     pub fn with_node_commit_coverage_override(
@@ -156,7 +169,8 @@ impl NodeCommitCoverage {
                 hex::<32>(id).map_err(|_| RpcError::Verification)
             })
             .collect::<Result<Vec<_>, _>>()?;
-        if activity_ids[(receipt.global_sequence() - batch.from_sequence) as usize]
+        if activity_ids[usize::try_from(receipt.global_sequence() - batch.from_sequence)
+            .map_err(|_| RpcError::Verification)?]
             != receipt.activity_id()
         {
             return Err(RpcError::Verification);
@@ -262,10 +276,10 @@ fn base64(v: &Value) -> Result<Vec<u8>, RpcError> {
 }
 fn varint(mut n: u64, out: &mut Vec<u8>) {
     while n >= 128 {
-        out.push((n as u8 & 127) | 128);
+        out.push((n.to_le_bytes()[0] & 127) | 128);
         n >>= 7;
     }
-    out.push(n as u8);
+    out.push(n.to_le_bytes()[0]);
 }
 fn scalar(field: u64, n: u64) -> Vec<u8> {
     let mut out = Vec::new();
@@ -301,10 +315,12 @@ fn root(items: &[Vec<u8>]) -> [u8; 32] {
         }
     }
 }
-fn timestamp(v: &Value) -> Result<Vec<u8>, RpcError> {
-    let s = text(v)?;
-    let digits = s.strip_suffix('Z').ok_or(RpcError::InvalidResponse)?;
-    let (date, fraction) = digits.split_once('.').map_or((digits, ""), |(a, b)| (a, b));
+fn timestamp(value: &Value) -> Result<Vec<u8>, RpcError> {
+    let timestamp_text = text(value)?;
+    let digits = timestamp_text
+        .strip_suffix('Z')
+        .ok_or(RpcError::InvalidResponse)?;
+    let (date, fraction) = digits.split_once('.').unwrap_or((digits, ""));
     if !date.is_ascii()
         || date.len() != 19
         || &date[4..5] != "-"
@@ -317,18 +333,18 @@ fn timestamp(v: &Value) -> Result<Vec<u8>, RpcError> {
     {
         return Err(RpcError::InvalidResponse);
     }
-    let n = |start: usize, end: usize| {
+    let parse_component = |start: usize, end: usize| {
         date[start..end]
             .parse::<i64>()
             .map_err(|_| RpcError::InvalidResponse)
     };
     let (year, month, day, hour, minute, second) = (
-        n(0, 4)?,
-        n(5, 7)?,
-        n(8, 10)?,
-        n(11, 13)?,
-        n(14, 16)?,
-        n(17, 19)?,
+        parse_component(0, 4)?,
+        parse_component(5, 7)?,
+        parse_component(8, 10)?,
+        parse_component(11, 13)?,
+        parse_component(14, 16)?,
+        parse_component(17, 19)?,
     );
     let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
     let days = [
@@ -348,29 +364,30 @@ fn timestamp(v: &Value) -> Result<Vec<u8>, RpcError> {
     if !(1..=9999).contains(&year)
         || !(1..=12).contains(&month)
         || day < 1
-        || day > days[(month - 1) as usize]
+        || day > days[usize::try_from(month - 1).map_err(|_| RpcError::InvalidResponse)?]
         || !(0..24).contains(&hour)
         || !(0..60).contains(&minute)
         || !(0..60).contains(&second)
     {
         return Err(RpcError::InvalidResponse);
     }
-    let y = year - i64::from(month <= 2);
-    let era = y / 400;
-    let yoe = y - era * 400;
-    let m = month + if month > 2 { -3 } else { 9 };
-    let doy = (153 * m + 2) / 5 + day - 1;
-    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    let seconds = (era * 146097 + doe - 719468) * 86400 + hour * 3600 + minute * 60 + second;
+    let adjusted_year = year - i64::from(month <= 2);
+    let era = adjusted_year / 400;
+    let year_of_era = adjusted_year - era * 400;
+    let shifted_month = month + if month > 2 { -3 } else { 9 };
+    let day_of_year = (153 * shifted_month + 2) / 5 + day - 1;
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    let seconds =
+        (era * 146_097 + day_of_era - 719_468) * 86_400 + hour * 3600 + minute * 60 + second;
     let nanos = if fraction.is_empty() {
         0
     } else {
         fraction
             .parse::<u64>()
             .map_err(|_| RpcError::InvalidResponse)?
-            * 10_u64.pow((9 - fraction.len()) as u32)
+            * 10_u64.pow(u32::try_from(9 - fraction.len()).map_err(|_| RpcError::InvalidResponse)?)
     };
-    let mut out = scalar(1, seconds as u64);
+    let mut out = scalar(1, u64::from_ne_bytes(seconds.to_ne_bytes()));
     out.extend(scalar(2, nanos));
     Ok(out)
 }
@@ -481,15 +498,14 @@ pub(super) fn verify_committed(
     signed: &Value,
     receipt: &layerx_wire::receipt::ProtocolReceipt,
     execution_height: u64,
-    expected_height: u64,
-    expected_hash: [u8; 32],
+    (expected_height, expected_hash): (u64, [u8; 32]),
     authority: &NodeCommitAuthority,
     coverage: &NodeCommitCoverage,
     pin: &layerx_proof::inclusion::SequencerAuthorization,
 ) -> Result<(), RpcError> {
     let h = &signed["header"];
     let c = &signed["commit"];
-    if expected_height > i64::MAX as u64
+    if expected_height > i64::MAX.unsigned_abs()
         || expected_height < authority.first_height
         || expected_height > authority.last_height
         || expected_height != coverage.covering_height
@@ -497,82 +513,13 @@ pub(super) fn verify_committed(
         || field(h, "height", number)? != expected_height
         || field(h, "chain_id", text)? != authority.chain_id
         || field(c, "height", number)? != expected_height
-        || field(c, "round", number)? > i32::MAX as u64
+        || field(c, "round", number)? > u64::from(i32::MAX.unsigned_abs())
         || field(&c["block_id"], "hash", hex::<32>)? != expected_hash
         || header_hash(h)? != expected_hash
     {
         return Err(RpcError::Verification);
     }
-    let mut validator_bytes = Vec::new();
-    let mut total = 0_u64;
-    for (key, power) in &authority.validators {
-        let mut simple = blob(1, &blob(1, key));
-        simple.extend(scalar(2, *power));
-        validator_bytes.push(simple);
-        total += power;
-    }
-    if field(h, "validators_hash", hex::<32>)? != root(&validator_bytes) {
-        return Err(RpcError::Verification);
-    }
-    let signatures = c["signatures"]
-        .as_array()
-        .filter(|v| v.len() == authority.validators.len())
-        .ok_or_else(|| super::invalid_response("commit.signatures"))?;
-    let mut seen = std::collections::BTreeSet::new();
-    let mut signed_power = 0_u64;
-    for signature in signatures {
-        let flag = field(signature, "block_id_flag", number)?;
-        if flag == 1 {
-            if signature["validator_address"] != ""
-                || !signature["signature"].is_null()
-                || signature["timestamp"] != "0001-01-01T00:00:00Z"
-            {
-                return Err(RpcError::Verification);
-            }
-            continue;
-        }
-        if !matches!(flag, 2 | 3) {
-            return Err(RpcError::InvalidResponse);
-        }
-        let address = field(signature, "validator_address", hex::<20>)?;
-        let (key, power) = authority
-            .validators
-            .iter()
-            .find(|(key, _)| Sha256::digest(key)[..20] == address)
-            .ok_or(RpcError::Verification)?;
-        if !seen.insert(address) {
-            return Err(RpcError::Verification);
-        }
-        let mut vote = scalar(1, 2);
-        vote.push(0x11);
-        vote.extend_from_slice(&(expected_height as i64).to_le_bytes());
-        let round = field(c, "round", number)?;
-        if round != 0 {
-            vote.push(0x19);
-            vote.extend_from_slice(&(round as i64).to_le_bytes());
-        }
-        if flag == 2 {
-            vote.extend(blob(4, &field(c, "block_id", block_id)?));
-        }
-        vote.extend(blob(5, &field(signature, "timestamp", timestamp)?));
-        vote.extend(blob(6, authority.chain_id.as_bytes()));
-        let mut message = Vec::new();
-        varint(vote.len() as u64, &mut message);
-        message.extend(vote);
-        let signature: [u8; 64] = field(signature, "signature", base64)?
-            .try_into()
-            .map_err(|_| RpcError::InvalidResponse)?;
-        layerx_crypto::ed25519::verify_message(key, &signature, &message)
-            .map_err(|_| RpcError::Verification)?;
-        if flag == 2 {
-            signed_power = signed_power
-                .checked_add(*power)
-                .ok_or(RpcError::Verification)?;
-        }
-    }
-    if u128::from(signed_power) * 3 <= u128::from(total) * 2 {
-        return Err(RpcError::Verification);
-    }
+    verify_commit_signatures(h, c, expected_height, authority)?;
     if inclusion(&coverage.transaction_proof, &coverage.batch_transaction)?
         != field(h, "data_hash", hex::<32>)?
     {
@@ -630,6 +577,91 @@ pub(super) fn verify_committed(
     if state != batch.resulting_root
         || <[u8; 32]>::from(activity_hash.finalize()) != batch.activity_root
     {
+        return Err(RpcError::Verification);
+    }
+    Ok(())
+}
+
+fn verify_commit_signatures(
+    header: &Value,
+    commit: &Value,
+    expected_height: u64,
+    authority: &NodeCommitAuthority,
+) -> Result<(), RpcError> {
+    let mut validator_bytes = Vec::new();
+    let mut total = 0_u64;
+    for (key, power) in &authority.validators {
+        let mut simple = blob(1, &blob(1, key));
+        simple.extend(scalar(2, *power));
+        validator_bytes.push(simple);
+        total += power;
+    }
+    if field(header, "validators_hash", hex::<32>)? != root(&validator_bytes) {
+        return Err(RpcError::Verification);
+    }
+    let signatures = commit["signatures"]
+        .as_array()
+        .filter(|v| v.len() == authority.validators.len())
+        .ok_or_else(|| super::invalid_response("commit.signatures"))?;
+    let mut seen = std::collections::BTreeSet::new();
+    let mut signed_power = 0_u64;
+    for signature in signatures {
+        let flag = field(signature, "block_id_flag", number)?;
+        if flag == 1 {
+            if signature["validator_address"] != ""
+                || !signature["signature"].is_null()
+                || signature["timestamp"] != "0001-01-01T00:00:00Z"
+            {
+                return Err(RpcError::Verification);
+            }
+            continue;
+        }
+        if !matches!(flag, 2 | 3) {
+            return Err(RpcError::InvalidResponse);
+        }
+        let address = field(signature, "validator_address", hex::<20>)?;
+        let (key, power) = authority
+            .validators
+            .iter()
+            .find(|(key, _)| Sha256::digest(key)[..20] == address)
+            .ok_or(RpcError::Verification)?;
+        if !seen.insert(address) {
+            return Err(RpcError::Verification);
+        }
+        let mut vote = scalar(1, 2);
+        vote.push(0x11);
+        vote.extend_from_slice(
+            &i64::try_from(expected_height)
+                .map_err(|_| RpcError::Verification)?
+                .to_le_bytes(),
+        );
+        let round = field(commit, "round", number)?;
+        if round != 0 {
+            vote.push(0x19);
+            vote.extend_from_slice(
+                &(i64::try_from(round).map_err(|_| RpcError::Verification)?).to_le_bytes(),
+            );
+        }
+        if flag == 2 {
+            vote.extend(blob(4, &field(commit, "block_id", block_id)?));
+        }
+        vote.extend(blob(5, &field(signature, "timestamp", timestamp)?));
+        vote.extend(blob(6, authority.chain_id.as_bytes()));
+        let mut message = Vec::new();
+        varint(vote.len() as u64, &mut message);
+        message.extend(vote);
+        let signature: [u8; 64] = field(signature, "signature", base64)?
+            .try_into()
+            .map_err(|_| RpcError::InvalidResponse)?;
+        layerx_crypto::ed25519::verify_message(key, &signature, &message)
+            .map_err(|_| RpcError::Verification)?;
+        if flag == 2 {
+            signed_power = signed_power
+                .checked_add(*power)
+                .ok_or(RpcError::Verification)?;
+        }
+    }
+    if u128::from(signed_power) * 3 <= u128::from(total) * 2 {
         return Err(RpcError::Verification);
     }
     Ok(())

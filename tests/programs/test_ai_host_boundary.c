@@ -92,6 +92,8 @@ static int executed_public_key(const uint8_t seed[32], uint8_t public_key[32])
     return ok ? 0 : 1;
 }
 
+enum { NATIVE_PEERS = 6 };
+
 typedef struct fixture {
     lxp_kernel kernel;
     lxp_state_store state;
@@ -104,7 +106,10 @@ typedef struct fixture {
     uint64_t parameters, height;
     uint64_t call_fuel, call_storage_write;
     uint32_t module_version;
-    uint8_t program[32], keys[3][32], principals[3][32], account_ids[3][32];
+    unsigned deployer_actor;
+    uint8_t bond_refund_amount[16], bond_refund_recipient[32];
+    uint8_t program[32], keys[NATIVE_PEERS][32], principals[NATIVE_PEERS][32];
+    uint8_t account_ids[NATIVE_PEERS][32];
     uint8_t rewards[32];
     uint8_t sequencer_key[32];
     uint8_t arena_bytes[4U * LXP_MAX_ACTIVITY_BYTES];
@@ -113,12 +118,17 @@ typedef struct fixture {
     lxp_verified_receipt_index verified_receipts;
     uint8_t balance_receipt[32];
     lxp_byte_span witness;
+    uint8_t signed_activity[LXP_MAX_ACTIVITY_BYTES];
+    size_t signed_activity_length;
 } fixture;
 
-static const char *const dids[3] = {
-    "did:lxp:paxai-owner", "did:lxp:paxai-treasury", "did:lxp:paxai-outsider"
+static const char *const dids[NATIVE_PEERS] = {
+    "did:lxp:paxai-owner", "did:lxp:paxai-treasury", "did:lxp:paxai-outsider",
+    "did:lxp:paxai-evaluator-three", "did:lxp:paxai-evaluator-four", "did:lxp:paxai-refund"
 };
-static const uint8_t seeds[3][32] = {{0x63U}, {0x64U}, {0x65U}};
+static const uint8_t seeds[NATIVE_PEERS][32] = {
+    {0x63U}, {0x64U}, {0x65U}, {0x67U}, {0x68U}, {0x69U}
+};
 static const uint8_t sequencer_seed[32] = {0x66U};
 static const uint8_t asset_id[32] = {9U};
 static const uint8_t state_key[] = "paxai/state/v1";
@@ -172,7 +182,7 @@ static int initialize(fixture *f)
     if (lxp_verified_receipt_index_init(&f->verified_receipts) != LXP_OK) return 1;
     (void)memset(f->program, 0x71, 32U);
     if (lx_account_registry_init(&f->accounts) != LXP_OK) return 1;
-    for (i = 0U; i < 3U; ++i) {
+    for (i = 0U; i < NATIVE_PEERS; ++i) {
         char account_name[128];
         lxp_identity *identity;
         int length = snprintf(account_name, sizeof(account_name), "agent:%s:main", dids[i]);
@@ -273,9 +283,11 @@ static void diagnose_call_failure(fixture *f, const lxp_activity *activity,
 }
 
 static lxp_result execute_inner(fixture *f, unsigned actor, uint32_t type,
-                          const uint8_t *payload, size_t length)
+                          const uint8_t *payload, size_t length,
+                          const uint8_t *supplied, size_t supplied_length, bool submit)
 {
     lxp_activity activity = {0};
+    lxp_identity *identity = NULL;
     lxp_authority_resolved authority = {0};
     lxp_authority_grant grant = {0};
     lxp_transfer_allowance allowance = {0};
@@ -288,24 +300,45 @@ static lxp_result execute_inner(fixture *f, unsigned actor, uint32_t type,
     lxp_result result;
     f->witness = (lxp_byte_span){NULL, 0U};
     if (lxp_arena_reset(&f->arena, 0U) != LXP_OK) return LXP_FATAL_INVARIANT;
-    activity.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
-    activity.network_id = 7U;
-    activity.activity_type = type;
-    activity.actor_did = (lxp_byte_span){(const uint8_t *)dids[actor], strlen(dids[actor])};
-    activity.authority = (lxp_byte_span){f->keys[actor], 32U};
-    activity.timestamp_bound = (lxp_timestamp_bound){1U, 100U};
-    activity.account_sequence = f->identities.identities[actor].next_sequence;
-    write_u64(activity.idempotency_key + 24U, f->state.next_sequence);
-    activity.payload = (lxp_byte_span){payload, length};
-    activity.fee_limit = (lxp_u128){0U, UINT64_C(10000000000)};
-    if (lxp_hash_payload(payload, length, activity.payload_hash) != LXP_OK ||
-        lxp_activity_signing_preimage(&activity, digest) != LXP_OK ||
-        sign_bytes(seeds[actor], digest, 32U, signature) != 0) return LXP_ERR_BAD_SIGNATURE;
-    activity.signature = (lxp_byte_span){signature, 64U};
-    if (lxp_activity_verify_signature(&activity) != LXP_OK) return LXP_ERR_BAD_SIGNATURE;
-    result = lxp_authority_resolve_activity(&f->kernel, &f->identities.identities[actor],
-        &activity, true, true, 10U, 100U, f->state.next_sequence, &grant, &authority);
+    (void)memset(&f->receipt, 0, sizeof(f->receipt));
+    if (supplied == NULL) {
+        if (actor >= NATIVE_PEERS) return LXP_ERR_MALFORMED_ENVELOPE;
+        activity.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
+        activity.network_id = 7U;
+        activity.activity_type = type;
+        activity.actor_did = (lxp_byte_span){(const uint8_t *)dids[actor], strlen(dids[actor])};
+        activity.authority = (lxp_byte_span){f->keys[actor], 32U};
+        activity.timestamp_bound = (lxp_timestamp_bound){1U, 100U};
+        activity.account_sequence = f->identities.identities[actor].next_sequence;
+        write_u64(activity.idempotency_key + 24U, f->state.next_sequence);
+        activity.payload = (lxp_byte_span){payload, length};
+        activity.fee_limit = (lxp_u128){0U, UINT64_C(10000000000)};
+        if (lxp_hash_payload(payload, length, activity.payload_hash) != LXP_OK ||
+            lxp_activity_signing_preimage(&activity, digest) != LXP_OK ||
+            sign_bytes(seeds[actor], digest, 32U, signature) != 0)
+            return LXP_ERR_BAD_SIGNATURE;
+        activity.signature = (lxp_byte_span){signature, 64U};
+        result = lxp_activity_encode(&activity, &f->arena, &encoded);
+        if (result != LXP_OK) return result;
+        supplied = encoded.bytes;
+        supplied_length = encoded.length;
+    }
+    if (supplied_length > sizeof(f->signed_activity)) return LXP_ERR_LENGTH_LIMIT;
+    (void)memmove(f->signed_activity, supplied, supplied_length);
+    f->signed_activity_length = supplied_length;
+    result = lxp_activity_decode(f->signed_activity, supplied_length, &activity);
+    if (result == LXP_OK) result = lxp_activity_check_envelope(&activity, 7U);
+    if (result == LXP_OK) result = lxp_activity_verify_signature(&activity);
+    if (result == LXP_OK)
+        result = lxp_identity_resolve(&f->identities, activity.actor_did.bytes,
+                                      activity.actor_did.length, &identity);
     if (result != LXP_OK) return result;
+    result = lxp_authority_resolve_activity(&f->kernel, identity, &activity,
+        lxp_identity_key_valid(identity, activity.authority.bytes, 10U, f->state.next_sequence),
+        true, 10U, 100U, f->state.next_sequence, &grant, &authority);
+    if (result != LXP_OK) return result;
+    if (!submit) return LXP_OK;
+    type = activity.activity_type;
     lxp_authority_allowance_bind(&grant, &authority, &allowance);
     execution.network_id = 7U;
     execution.epoch = f->kernel.epoch;
@@ -327,7 +360,7 @@ static lxp_result execute_inner(fixture *f, unsigned actor, uint32_t type,
     execution.allowance = &allowance;
     execution.fee_parameters = &f->fees;
     for (size_t index = 0U; index < f->accounts.count; ++index)
-        if (memcmp(f->accounts.accounts[index].id, f->account_ids[actor], 32U) == 0)
+        if (memcmp(f->accounts.accounts[index].id, f->account_ids[identity - f->identities.identities], 32U) == 0)
             execution.fee_balance = f->accounts.accounts[index].balance;
     execution.gas_limit = UINT64_C(1000000000);
     execution.arena = &f->arena;
@@ -376,7 +409,7 @@ static lxp_result execute(fixture *f, unsigned actor, uint32_t type,
 {
     lxp_result status;
     (void)memset(&f->receipt, 0, sizeof(f->receipt));
-    status = execute_inner(f, actor, type, payload, length);
+    status = execute_inner(f, actor, type, payload, length, NULL, 0U, true);
     (void)fprintf(stderr, "execute type=%#x height=%llu kernel_status=%d receipt.result_code=%d\n",
                   type, (unsigned long long)f->height, (int)status,
                   (int)f->receipt.result_code);
@@ -387,23 +420,57 @@ static size_t plain_call_payload(const fixture *f, uint8_t *out, const uint8_t *
 {
     static const uint8_t access[] = "LayerX/programs/access-declaration/v1\0";
     const uint64_t budget[7] = {f->call_fuel,16777216U,1048576U,f->call_storage_write,64U,1048576U,4096U};
-    uint8_t capabilities[183U];
+    uint8_t capabilities[400U];
     size_t capability_length = 0U;
     size_t n = 0U, i;
-    bool fund = length >= 254U && memcmp(data, "PAXAI1", 6U) == 0 &&
-        data[8] == 6U && data[9] == 1U && !lxp_ct_is_zero(data + 238U, 16U);
-    /* Signed authority is exactly the requested deposit plus receipt-bound sight. */
-    write_u16(capabilities, fund ? 5U : 3U); capability_length = 2U;
+    bool bond_lock = length >= 318U && memcmp(data, "PAXAI1", 6U) == 0 &&
+        data[8] == 11U && data[9] == 9U && !lxp_ct_is_zero(data + 302U, 16U);
+    bool bond_refund = length >= 302U && memcmp(data, "PAXAI1", 6U) == 0 &&
+        data[8] == 11U && data[9] == 11U && !lxp_ct_is_zero(f->bond_refund_amount, 16U);
+    bool fund = bond_lock || (length >= 254U && memcmp(data, "PAXAI1", 6U) == 0 &&
+        data[8] == 6U && data[9] == 1U && !lxp_ct_is_zero(data + 238U, 16U));
+    bool claim = length >= 318U && memcmp(data, "PAXAI1", 6U) == 0 &&
+        data[8] == 6U && data[9] == 2U;
+    bool refund = length >= 302U && memcmp(data, "PAXAI1", 6U) == 0 &&
+        data[8] == 6U && data[9] == 4U;
+    bool payout = bond_refund || claim || refund;
+    bool sight = fund || payout;
+    bool challenge = length >= 270U && memcmp(data, "PAXAI1", 6U) == 0 &&
+        data[8] == 11U && data[9] == 6U;
+    /* Signed authority is exactly the requested value plus receipt-bound sight. */
+    write_u16(capabilities, sight ? 5U : challenge ? 4U : 3U);
+    capability_length = 2U;
     capabilities[capability_length++] = 3U;
     if (fund) {
         capabilities[capability_length++] = 5U;
         bytes(capabilities, &capability_length, asset_id, 32U);
         bytes(capabilities, &capability_length, f->rewards, 32U);
-        bytes(capabilities, &capability_length, data + 238U, 16U);
+        bytes(capabilities, &capability_length, data + (bond_lock ? 302U : 238U), 16U);
+    }
+    if (payout) {
+        capabilities[capability_length++] = 9U;
+        bytes(capabilities, &capability_length, f->program, 32U);
+        write_u16(capabilities + capability_length, sizeof(rewards_seed) - 1U);
+        capability_length += 2U;
+        bytes(capabilities, &capability_length, rewards_seed, sizeof(rewards_seed) - 1U);
+        bytes(capabilities, &capability_length, f->rewards, 32U);
+        bytes(capabilities, &capability_length, asset_id, 32U);
+        bytes(capabilities, &capability_length,
+              bond_refund ? f->bond_refund_recipient : data + 270U, 32U);
+        bytes(capabilities, &capability_length,
+              bond_refund ? f->bond_refund_amount : data + (claim ? 302U : 254U), 16U);
+    }
+    if (sight) {
         capabilities[capability_length++] = 10U;
         bytes(capabilities, &capability_length, f->rewards, 32U);
         bytes(capabilities, &capability_length, asset_id, 32U);
         bytes(capabilities, &capability_length, f->balance_receipt, 32U);
+    }
+    if (challenge) {
+        capabilities[capability_length++] = 5U;
+        bytes(capabilities, &capability_length, asset_id, 32U);
+        bytes(capabilities, &capability_length, f->rewards, 32U);
+        bytes(capabilities, &capability_length, data + length - 17U, 16U);
     }
     capabilities[capability_length++] = 7U;
     capabilities[capability_length++] = 8U;
@@ -424,20 +491,26 @@ static size_t plain_call_payload(const fixture *f, uint8_t *out, const uint8_t *
     return n;
 }
 
-static size_t call_payload(const fixture *f, uint8_t *out, const uint8_t *data, size_t length)
+static size_t replay_call_payload(const fixture *f, uint8_t *out, const uint8_t *data,
+                                  size_t length, uint32_t boundaries)
 {
     static const uint8_t domain[] = "LXP/program-replay-profile/v1";
     size_t n = 34U, original, inner;
     (void)memset(out, 0, 34U);
     bytes(out, &n, domain, sizeof(domain));
     write_u16(out+n, 1U); n += 2U;
-    /* The deployed guest's short CALL records 227 boundaries; round up to 256. */
-    write_u32(out+n, 256U); n += 4U;
+    write_u32(out+n, boundaries); n += 4U;
     write_u32(out+n, 1048576U); n += 4U;
     original = n + 4U;
     inner = plain_call_payload(f, out + original, data, length);
     write_u32(out+n, (uint32_t)inner);
     return original + inner;
+}
+
+static size_t call_payload(const fixture *f, uint8_t *out, const uint8_t *data, size_t length)
+{
+    /* The short CALL uses a 256-boundary replay profile. */
+    return replay_call_payload(f, out, data, length, 256U);
 }
 
 static int check_call_layout(fixture *f, uint8_t *payload, size_t length)
@@ -562,35 +635,28 @@ static int unhex(const char *text, size_t length, uint8_t *out, size_t capacity)
     return (int)(length / 2U);
 }
 
-static int call(fixture *f, unsigned actor, const uint8_t *envelope, size_t length, uint8_t *payload)
+static int refresh_account_sight(fixture *f)
+{
+    uint8_t registration[128U];
+    size_t registered = 0U;
+    bytes(registration, &registered, f->program, 32U);
+    bytes(registration, &registered, (const uint8_t *)"LXPA1", 5U);
+    bytes(registration, &registered, asset_id, 32U);
+    write_u32(registration + registered, sizeof(rewards_seed) - 1U); registered += 4U;
+    bytes(registration, &registered, rewards_seed, sizeof(rewards_seed) - 1U);
+    return execute(f, f->deployer_actor, LX_PROGRAMS_ACCOUNT, registration, registered) != LXP_OK ||
+        f->receipt.result_code != LXP_OK ||
+        lxp_verified_receipt_index_init(&f->verified_receipts) != LXP_OK ||
+        lxp_verified_receipt_index_add(&f->verified_receipts, &f->receipt,
+                                      f->sequencer_key, &f->arena) != LXP_OK ||
+        lxp_receipt_digest(&f->receipt, &f->arena, f->balance_receipt) != LXP_OK;
+}
+
+static int report_call(fixture *f, unsigned actor, lxp_result status,
+                        size_t blobs_before, size_t kv_before, uint64_t before)
 {
     const lxp_module_blob *manifest, *value;
-    if (length >= 254U && memcmp(envelope, "PAXAI1", 6U) == 0 &&
-        envelope[8] == 6U && envelope[9] == 1U &&
-        !lxp_ct_is_zero(envelope + 238U, 16U)) {
-        /* Finalization changed the account root. Produce a fresh, signed anchor
-           through the idempotent account registration activity before the CALL. */
-        uint8_t registration[128U];
-        size_t registered = 0U;
-        bytes(registration, &registered, f->program, 32U);
-        bytes(registration, &registered, (const uint8_t *)"LXPA1", 5U);
-        bytes(registration, &registered, asset_id, 32U);
-        write_u32(registration + registered, sizeof(rewards_seed) - 1U); registered += 4U;
-        bytes(registration, &registered, rewards_seed, sizeof(rewards_seed) - 1U);
-        if (execute(f, 0U, LX_PROGRAMS_ACCOUNT, registration, registered) != LXP_OK ||
-            f->receipt.result_code != LXP_OK ||
-            lxp_verified_receipt_index_init(&f->verified_receipts) != LXP_OK ||
-            lxp_verified_receipt_index_add(&f->verified_receipts, &f->receipt,
-                                          f->sequencer_key, &f->arena) != LXP_OK ||
-            lxp_receipt_digest(&f->receipt, &f->arena, f->balance_receipt) != LXP_OK)
-            return 1;
-    }
-    size_t blobs_before = f->kernel.blob_count, kv_before = f->kernel.module_kv_count;
     size_t application = 0U, index = 0U;
-    uint64_t before = balance(f, f->account_ids[actor]);
-    size_t size = plain_call_payload(f, payload, envelope, length);
-    lxp_result status;
-    status = execute(f, actor, LX_PROGRAMS_CALL, payload, size);
     const lxp_program_outcome *outcome = &f->receipt.program_outcome;
     int found = shared_state(f, &manifest, &value);
     if (found < 0) return 1;
@@ -617,6 +683,163 @@ static int call(fixture *f, unsigned actor, const uint8_t *envelope, size_t leng
                  outcome->occupancy_fee_units.lo : UINT64_MAX));
     (void)fputc('\n', stdout);
     return fflush(stdout) == 0 ? 0 : 1;
+}
+
+static int call_with_profile(fixture *f, unsigned actor, const uint8_t *envelope,
+                             size_t length, uint8_t *payload, bool whole_record)
+{
+    if (length >= 254U && memcmp(envelope, "PAXAI1", 6U) == 0 &&
+        ((envelope[8] == 6U &&
+          ((envelope[9] == 1U && !lxp_ct_is_zero(envelope + 238U, 16U)) ||
+           envelope[9] == 2U || envelope[9] == 4U)) ||
+         (length >= 318U && envelope[8] == 11U && envelope[9] == 9U &&
+          !lxp_ct_is_zero(envelope + 302U, 16U)) ||
+         (length >= 302U && envelope[8] == 11U && envelope[9] == 11U &&
+          !lxp_ct_is_zero(f->bond_refund_amount, 16U)))) {
+        /* Finalization changed the account root. Produce a fresh, signed anchor
+           through the idempotent account registration activity before the CALL. */
+        if (refresh_account_sight(f) != 0) return 1;
+    }
+    size_t blobs_before = f->kernel.blob_count, kv_before = f->kernel.module_kv_count;
+    uint64_t before = balance(f, f->account_ids[actor]);
+    size_t size = whole_record
+        ? replay_call_payload(f, payload, envelope, length, 4096U)
+        : plain_call_payload(f, payload, envelope, length);
+    lxp_result status;
+    status = execute(f, actor, LX_PROGRAMS_CALL, payload, size);
+    if (status != LXP_OK || f->receipt.result_code != LXP_OK) {
+        (void)fprintf(stderr,
+            "CALL refused selector=%02x%02x calldata=%zu payload=%zu "
+            "capabilities=%u fuel=%llu storage_write=%llu\n",
+            length > 9U ? envelope[8] : 0U, length > 9U ? envelope[9] : 0U,
+            length, size, (unsigned)((payload[40] << 8U) | payload[41]),
+            (unsigned long long)f->call_fuel,
+            (unsigned long long)f->call_storage_write);
+    }
+    return report_call(f, actor, status, blobs_before, kv_before, before);
+}
+
+static int anchor_rewards(fixture *f)
+{
+    uint8_t registration[128U];
+    size_t registered = 0U;
+    bytes(registration, &registered, f->program, 32U);
+    bytes(registration, &registered, (const uint8_t *)"LXPA1", 5U);
+    bytes(registration, &registered, asset_id, 32U);
+    write_u32(registration + registered, sizeof(rewards_seed) - 1U); registered += 4U;
+    bytes(registration, &registered, rewards_seed, sizeof(rewards_seed) - 1U);
+    if (execute(f, 0U, LX_PROGRAMS_ACCOUNT, registration, registered) != LXP_OK ||
+        f->receipt.result_code != LXP_OK ||
+        lxp_verified_receipt_index_init(&f->verified_receipts) != LXP_OK ||
+        lxp_verified_receipt_index_add(&f->verified_receipts, &f->receipt,
+                                      f->sequencer_key, &f->arena) != LXP_OK ||
+        lxp_receipt_digest(&f->receipt, &f->arena, f->balance_receipt) != LXP_OK)
+        return 1;
+    return 0;
+}
+
+static int signed_call(fixture *f, unsigned actor, const uint8_t *activity, size_t length)
+{
+    size_t blobs_before = f->kernel.blob_count, kv_before = f->kernel.module_kv_count;
+    uint64_t before = balance(f, f->account_ids[actor]);
+    lxp_result status = execute_inner(f, 0U, 0U, NULL, 0U, activity, length, true);
+    return report_call(f, actor, status, blobs_before, kv_before, before);
+}
+
+static int call(fixture *f, unsigned actor, const uint8_t *envelope,
+                size_t length, uint8_t *payload)
+{
+    return call_with_profile(f, actor, envelope, length, payload, false);
+}
+
+/* The Rust producer sends its exact committed fixture through the production storage
+ * importer. The measured transition is an authenticated native CALL of the built guest. */
+static int test_f11_host_boundary(fixture *f, unsigned actor,
+                                  const uint8_t *state, size_t state_length,
+                                  const uint8_t *envelope, size_t envelope_length,
+                                  uint8_t *payload, bool whole_record)
+{
+    lxp_module_ctx ctx;
+    uint8_t ns[33];
+    lxp_programs_storage_cell cell = {state_key, sizeof(state_key) - 1U,
+                                     state, (uint32_t)state_length};
+    const lxp_module_blob *manifest, *value;
+    int found;
+    if (envelope_length < 10U || envelope[8] != 11U ||
+        state_length == 0U || state_length > 245760U) return 1;
+    (void)memcpy(ns, f->program, 32U);
+    ns[32] = 1U;
+    if (lxp_arena_reset(&f->arena, 0U) != LXP_OK ||
+        lxp_module_ctx_init(&ctx, &f->kernel, LXP_MODULE_PROGRAMS, 10U,
+                            f->height, f->state.next_sequence,
+                            UINT64_C(100000000), &f->arena, true) != LXP_OK)
+        return 1;
+    if (lxp_programs_storage_stage_final(&ctx, ns, sizeof(ns), &cell, 1U) != LXP_OK) {
+        lxp_module_ctx_rollback(&ctx);
+        return 1;
+    }
+    if (lxp_module_ctx_commit(&ctx) != LXP_OK ||
+        lxp_state_root(&f->kernel, f->kernel.current_state_root) != LXP_OK ||
+        call_with_profile(f, actor, envelope, envelope_length, payload, whole_record) != 0)
+        return 1;
+    found = shared_state(f, &manifest, &value);
+    if (found != 1 || value->length != state_length ||
+        memcmp(value->bytes, state, state_length) != 0) {
+        if (whole_record) return 1;
+    }
+    if (whole_record) {
+        if (f->receipt.result_code != LXP_OK ||
+            f->witness.length != 0U ||
+            strcmp(layerx_programs_call_replay_refusal_field(false),
+                   "runtime.result") != 0 ||
+            strstr(layerx_programs_call_replay_execution_fault(),
+                   "check=capture witness bytes") == NULL)
+            return 1;
+        (void)printf("f11-refused %d %llu %llu\n",
+                     (int)f->receipt.result_code,
+                     (unsigned long long)f->receipt.fee_charged.lo,
+                     (unsigned long long)f->receipt.program_outcome.cpu_fuel);
+    } else {
+        if (f->receipt.result_code != LXP_OK || !f->receipt.program_outcome.present ||
+            f->receipt.program_outcome.cpu_fuel == 0U ||
+            f->receipt.program_outcome.cpu_fuel >= 1000000U ||
+            f->witness.length != 0U)
+            return 1;
+        (void)printf("f11 %llu %u %zu\n",
+                     (unsigned long long)f->receipt.program_outcome.cpu_fuel,
+                     0U, f->witness.length);
+    }
+    return fflush(stdout) == 0 ? 0 : 1;
+}
+
+static int prime_f11_fixture(fixture *f, unsigned actor,
+                             const uint8_t *state, size_t state_length,
+                             const uint8_t *envelope, size_t envelope_length,
+                             uint8_t *payload)
+{
+    lxp_module_ctx ctx;
+    uint8_t ns[33];
+    lxp_programs_storage_cell cell = {state_key, sizeof(state_key) - 1U,
+                                     state, (uint32_t)state_length};
+    size_t size;
+    (void)memcpy(ns, f->program, 32U);
+    ns[32] = 1U;
+    if (lxp_arena_reset(&f->arena, 0U) != LXP_OK ||
+        lxp_module_ctx_init(&ctx, &f->kernel, LXP_MODULE_PROGRAMS, 10U,
+                            f->height, f->state.next_sequence,
+                            UINT64_C(100000000), &f->arena, true) != LXP_OK)
+        return 1;
+    if (lxp_programs_storage_stage_final(&ctx, ns, sizeof(ns), &cell, 1U) != LXP_OK) {
+        lxp_module_ctx_rollback(&ctx);
+        return 1;
+    }
+    if (lxp_module_ctx_commit(&ctx) != LXP_OK ||
+        lxp_state_root(&f->kernel, f->kernel.current_state_root) != LXP_OK)
+        return 1;
+    if (refresh_account_sight(f) != 0) return 1;
+    size = plain_call_payload(f, payload, envelope, envelope_length);
+    return execute(f, actor, LX_PROGRAMS_CALL, payload, size) != LXP_OK ||
+           f->receipt.result_code != LXP_OK;
 }
 
 static int advance_height(fixture *f, uint64_t height)
@@ -656,6 +879,15 @@ static int advance_height(fixture *f, uint64_t height)
     return 0;
 }
 
+static int destroy_fixture(fixture *f)
+{
+    int status;
+    while (f->kernel.blob_count != 0U) free(f->kernel.blobs[--f->kernel.blob_count].bytes);
+    status = lxp_state_store_destroy(&f->state);
+    free(f);
+    return status != LXP_OK;
+}
+
 static int test_replay_record_v2(fixture *f, uint8_t *payload)
 {
     static const uint8_t native_domain[] = "LXP/program-replay-native-blob/v1";
@@ -677,7 +909,8 @@ static int test_replay_record_v2(fixture *f, uint8_t *payload)
     length = call_payload(f, payload, short_input, sizeof(short_input));
     status = execute(f, 0U, LX_PROGRAMS_CALL, payload, length);
     f->call_fuel = fuel;
-    if (status != LXP_OK || !f->receipt.program_outcome.present ||
+    if (status != LXP_OK || f->receipt.result_code != LXP_ERR_GAS_EXHAUSTED ||
+        !f->receipt.program_outcome.present ||
         f->receipt.program_outcome.cpu_fuel <= declaration_fuel ||
         f->receipt.program_outcome.cpu_fuel > declaration_fuel + guest_fuel ||
         f->witness.bytes == NULL || f->witness.length < offset ||
@@ -716,7 +949,8 @@ static int test_replay_record_v2(fixture *f, uint8_t *payload)
 
 /* Opt into the account profile through its signed activity while the guest is ABI 2,
    before upgrading it to ABI 5. Later sight anchors use the idempotent LXPA1 path. */
-static int register_account(fixture *f, const uint8_t *seed, size_t length, uint8_t id[32])
+static int register_account(fixture *f, unsigned actor, const uint8_t *seed,
+                            size_t length, uint8_t id[32])
 {
     uint8_t payload[201U];
     size_t n = 0U;
@@ -728,11 +962,12 @@ static int register_account(fixture *f, const uint8_t *seed, size_t length, uint
     bytes(payload, &n, asset_id, 32U);
     write_u32(payload + n, (uint32_t)length); n += 4U;
     bytes(payload, &n, seed, length);
-    return execute(f, 0U, LX_PROGRAMS_ACCOUNT, payload, n) != LXP_OK ||
+    return execute(f, actor, LX_PROGRAMS_ACCOUNT, payload, n) != LXP_OK ||
         f->receipt.result_code != LXP_OK;
 }
 
-static int deploy_bytes(fixture *f, const uint8_t *wasm, size_t length)
+static int deploy_bytes_as(fixture *f, const uint8_t *wasm, size_t length,
+                           unsigned actor)
 {
     uint8_t *payload = calloc(1U, length+104U);
     uint8_t *upgrade = calloc(1U, length+106U);
@@ -742,11 +977,12 @@ static int deploy_bytes(fixture *f, const uint8_t *wasm, size_t length)
         free(payload); free(upgrade);
         return 1;
     }
+    f->deployer_actor = actor;
     (void)memcpy(payload+104U, wasm, length);
     (void)memcpy(payload, f->program, 32U);
     write_u16(payload+32U, LX_PROGRAMS_ACCOUNT_ABI_VERSION);
     payload[34U] = 1U;
-    (void)memcpy(payload+36U, f->principals[0], 32U);
+    (void)memcpy(payload+36U, f->principals[actor], 32U);
     status = lxp_hash_sha256(payload+104U, length, payload+68U);
     write_u32(payload+100U, (uint32_t)length);
     (void)memcpy(upgrade, f->program, 32U);
@@ -756,16 +992,21 @@ static int deploy_bytes(fixture *f, const uint8_t *wasm, size_t length)
     write_u32(upgrade+102U, (uint32_t)length);
     (void)memcpy(upgrade+106U, payload+104U, length);
     failed = status != LXP_OK ||
-        execute(f, 0U, LX_PROGRAMS_DEPLOY, payload, length+104U) != LXP_OK ||
+        execute(f, actor, LX_PROGRAMS_DEPLOY, payload, length+104U) != LXP_OK ||
         f->receipt.result_code != LXP_OK ||
-        register_account(f, rewards_seed, sizeof(rewards_seed) - 1U, f->rewards) != 0 ||
-        execute(f, 0U, LX_PROGRAMS_UPGRADE, upgrade, length+106U) != LXP_OK ||
+        register_account(f, actor, rewards_seed, sizeof(rewards_seed) - 1U, f->rewards) != 0 ||
+        execute(f, actor, LX_PROGRAMS_UPGRADE, upgrade, length+106U) != LXP_OK ||
         f->receipt.result_code != LXP_OK;
     free(payload); free(upgrade);
     return failed;
 }
 
-static int deploy(fixture *f, const char *path)
+static int deploy_bytes(fixture *f, const uint8_t *wasm, size_t length)
+{
+    return deploy_bytes_as(f, wasm, length, 0U);
+}
+
+static int deploy_as(fixture *f, const char *path, unsigned actor)
 {
     FILE *artifact = fopen(path, "rb");
     uint8_t *wasm;
@@ -784,9 +1025,14 @@ static int deploy(fixture *f, const char *path)
         return fclose(artifact), 1;
     }
     if (fclose(artifact) != 0) return free(wasm), 1;
-    failed = deploy_bytes(f, wasm, (size_t)length);
+    failed = deploy_bytes_as(f, wasm, (size_t)length, actor);
     free(wasm);
     return failed;
+}
+
+static int deploy(fixture *f, const char *path)
+{
+    return deploy_as(f, path, 0U);
 }
 
 static int prove_short_replay(void)
@@ -850,11 +1096,17 @@ static int reopen_store(fixture **current)
     length = snprintf(path, sizeof(path), "%s/%020llu.lxs", directory,
                        (unsigned long long)sequence);
     if (length <= 0 || (size_t)length >= sizeof(path)) goto remove_directory;
-    /* Only identity authorities are external peers of the Programs store. The account
+    /* Identity authorities and verified receipt facts are external peers. The account
        registry, module state, blobs and application replay rows come from the snapshot. */
     next = calloc(1U, sizeof(*next));
     if (next == NULL || initialize(next) != 0) goto remove_snapshot;
+    if (lxp_programs_account_derive(next->program, rewards_seed,
+            sizeof(rewards_seed) - 1U, next->rewards) != LXP_OK) goto remove_snapshot;
     next->identities = old->identities;
+    (void)memcpy(next->program, old->program, 32U);
+    (void)memcpy(next->rewards, old->rewards, 32U);
+    next->verified_receipts = old->verified_receipts;
+    (void)memcpy(next->balance_receipt, old->balance_receipt, 32U);
     next->height = old->height;
     if (lxp_state_store_destroy(&old->state) != LXP_OK) goto remove_snapshot;
     while (old->kernel.blob_count != 0U)
@@ -933,20 +1185,95 @@ finish:
     return failed;
 }
 
+static int prove_reward_replay(fixture **current, unsigned actor,
+                                const uint8_t *envelope, size_t length, uint8_t *payload)
+{
+    /* Zero payout events still carry the production envelope domain and count. */
+    static const uint8_t empty_events[] = "LayerX/programs/events/v1\0\0\0\0\0";
+    fixture *f = *current;
+    const lxp_module_blob *manifest, *value;
+    lx_account *recipient;
+    uint8_t recipient_id[32], *committed = NULL;
+    uint64_t before, paid, rewards_before, rewards_paid, amount;
+    uint64_t worker_paid, refund_paid;
+    size_t committed_length;
+    int failed = 1;
+    if (length < 303U || memcmp(envelope, "PAXAI1", 6U) != 0 ||
+        envelope[8] != 6U || (envelope[9] != 2U && envelope[9] != 4U) || actor != 0U ||
+        lxp_kernel_program_payment_account(&f->accounts, envelope + 270U, asset_id,
+            LXP_PROTOCOL_VERSION_STATE_COMMITMENT, &recipient) != LXP_OK ||
+        recipient == NULL) return 1;
+    (void)memcpy(recipient_id, recipient->id, 32U);
+    if (memcmp(recipient_id, f->account_ids[envelope[9] == 2U ? 1U : 5U], 32U) != 0)
+        return 1;
+    amount = envelope[9] == 2U ? 100U : 400U;
+    before = balance(f, recipient_id);
+    rewards_before = balance(f, f->rewards);
+    if (before == UINT64_MAX || rewards_before < amount ||
+        call(f, actor, envelope, length, payload) != 0 || f->receipt.result_code != LXP_OK ||
+        !f->receipt.program_outcome.present ||
+        f->receipt.program_outcome.event_envelope_payload.length == 0U ||
+        shared_state(f, &manifest, &value) != 1) goto finish;
+    paid = balance(f, recipient_id);
+    rewards_paid = balance(f, f->rewards);
+    if (paid != before + amount || rewards_paid != rewards_before - amount) goto finish;
+    worker_paid = balance(f, f->account_ids[1]);
+    refund_paid = balance(f, f->account_ids[5]);
+    committed_length = value->length;
+    committed = malloc(committed_length);
+    if (committed == NULL) goto finish;
+    (void)memcpy(committed, value->bytes, committed_length);
+    /* Lose the reply and destroy the writer before recovering the production snapshot. */
+    (void)memset(&f->receipt, 0, sizeof(f->receipt));
+    if (reopen_store(current) != 0) goto finish;
+    f = *current;
+    if (balance(f, recipient_id) != paid || balance(f, f->rewards) != rewards_paid ||
+        balance(f, f->account_ids[1]) != worker_paid ||
+        balance(f, f->account_ids[5]) != refund_paid ||
+        shared_state(f, &manifest, &value) != 1 || value->length != committed_length ||
+        memcmp(value->bytes, committed, committed_length) != 0 ||
+        call(f, actor, envelope, length, payload) != 0 || f->receipt.result_code != LXP_OK ||
+        !f->receipt.program_outcome.present ||
+        f->receipt.program_outcome.event_envelope_payload.length != sizeof(empty_events) - 1U ||
+        memcmp(f->receipt.program_outcome.event_envelope_payload.bytes,
+               empty_events, sizeof(empty_events) - 1U) != 0 ||
+        balance(f, recipient_id) != paid || balance(f, f->rewards) != rewards_paid ||
+        balance(f, f->account_ids[1]) != worker_paid ||
+        balance(f, f->account_ids[5]) != refund_paid ||
+        shared_state(f, &manifest, &value) != 1 || value->length != committed_length ||
+        memcmp(value->bytes, committed, committed_length) != 0) goto finish;
+    (void)printf("reward-replay %llu %llu %llu %llu %llu\n",
+        (unsigned long long)amount, (unsigned long long)before, (unsigned long long)paid,
+        (unsigned long long)rewards_before, (unsigned long long)rewards_paid);
+    if (fflush(stdout) != 0) goto finish;
+    failed = 0;
+finish:
+    if (failed) (void)fprintf(stderr, "reward payout/reopen/replay proof failed\n");
+    free(committed);
+    return failed;
+}
+
 int main(int argc, char **argv)
 {
     fixture *f;
-    uint8_t *envelope, *payload;
+    uint8_t *envelope, *payload, *producer_state;
     char *line = NULL;
     size_t capacity = 0U, i;
     ssize_t read;
     int failed = 0;
+    fixture *f11_fixtures[3U] = {NULL, NULL, NULL};
+    uint8_t *f11_seed_state[3U] = {NULL, NULL, NULL};
+    uint8_t *f11_seed_envelope[3U] = {NULL, NULL, NULL};
+    size_t f11_seed_state_length[3U] = {0U, 0U, 0U};
+    size_t f11_seed_envelope_length[3U] = {0U, 0U, 0U};
     if (argc != 2) return fprintf(stderr, "usage: %s ai_market.wasm\n", argv[0]), 2;
     if (prove_short_replay() != 0) return 2;
     f = calloc(1U, sizeof(*f));
     envelope = malloc(LXP_MAX_ACTIVITY_BYTES);
     payload = malloc(LXP_MAX_ACTIVITY_BYTES);
-    if (f == NULL || envelope == NULL || payload == NULL || initialize(f) != 0 ||
+    producer_state = malloc(LXP_MAX_ACTIVITY_BYTES);
+    if (f == NULL || envelope == NULL || payload == NULL || producer_state == NULL ||
+        initialize(f) != 0 ||
         deploy(f, argv[1]) != 0 || test_replay_record_v2(f, payload) != 0) {
         (void)fprintf(stderr, "native bring-up failed\n");
         return 2;
@@ -965,6 +1292,159 @@ int main(int argc, char **argv)
         size_t text;
         unsigned long long fuel, storage_write;
         unsigned restart;
+        if (strcmp(line, "reward-identities\n") == 0) {
+            (void)fputs("reward-identities", stdout);
+            for (i = 0U; i < 6U; ++i) hex(f->principals[i], 32U);
+            (void)fputc('\n', stdout);
+            if (fflush(stdout) != 0) { failed = 1; break; }
+            continue;
+        }
+        if (strcmp(line, "peers\n") == 0) {
+            (void)fputs("peers", stdout);
+            for (i = 0U; i < NATIVE_PEERS; ++i) hex(f->principals[i], 32U);
+            (void)fputc('\n', stdout);
+            if (fflush(stdout) != 0) { failed = 1; break; }
+            continue;
+        }
+        if (strncmp(line, "prove_reward_replay ", 20U) == 0) {
+            if (sscanf(line + 20U, "%u %llu %n", &actor, &height, &offset) != 2 ||
+                actor > 5U || height == 0U || offset <= 0) { failed = 1; break; }
+            text = strcspn(line + 20U + offset, "\n");
+            length = unhex(line + 20U + offset, text, envelope, LXP_MAX_ACTIVITY_BYTES / 2U);
+            if (length <= 0) { failed = 1; break; }
+            f->height = (uint64_t)height;
+            if (prove_reward_replay(&f, actor, envelope, (size_t)length, payload) != 0) {
+                failed = 1; break;
+            }
+            continue;
+        }
+        if (strcmp(line, "anchor\n") == 0) {
+            if (anchor_rewards(f) != 0) { failed = 1; break; }
+            (void)fputs("anchored\n", stdout);
+            if (fflush(stdout) != 0) { failed = 1; break; }
+            continue;
+        }
+        if (strcmp(line, "observe\n") == 0) {
+            const lxp_module_blob *manifest, *value;
+            uint8_t root[32];
+            int found = shared_state(f, &manifest, &value);
+            if (found < 0 || lxp_state_root(&f->kernel, root) != LXP_OK) {
+                failed = 1; break;
+            }
+            (void)fputs("observe", stdout);
+            hex(root, 32U);
+            hex(found > 0 ? value->bytes : NULL, found > 0 ? value->length : 0U);
+            (void)printf(" %llu", (unsigned long long)balance(f, f->rewards));
+            for (i = 0U; i < NATIVE_PEERS; ++i)
+                (void)printf(" %llu", (unsigned long long)balance(f, f->account_ids[i]));
+            (void)printf(" %zu %zu %llu", f->kernel.blob_count,
+                f->kernel.module_kv_count, (unsigned long long)f->state.next_sequence);
+            for (i = 0U; i < NATIVE_PEERS; ++i)
+                (void)printf(" %llu", (unsigned long long)f->identities.identities[i].next_sequence);
+            (void)fputc('\n', stdout);
+            if (fflush(stdout) != 0) { failed = 1; break; }
+            continue;
+        }
+        if (strcmp(line, "reopen\n") == 0) {
+            if (reopen_store(&f) != 0) { failed = 1; break; }
+            (void)fputs("reopened\n", stdout);
+            if (fflush(stdout) != 0) { failed = 1; break; }
+            continue;
+        }
+        if (strncmp(line, "capture ", 8U) == 0 || strncmp(line, "signed ", 7U) == 0) {
+            bool capture = strncmp(line, "capture ", 8U) == 0;
+            size_t prefix = capture ? 8U : 7U;
+            if (sscanf(line + prefix, "%u %llu %n", &actor, &height, &offset) != 2 ||
+                actor >= NATIVE_PEERS || height == 0U || offset <= 0) { failed = 1; break; }
+            text = strcspn(line + prefix + offset, "\n");
+            length = unhex(line + prefix + offset, text, envelope, LXP_MAX_ACTIVITY_BYTES);
+            if (length <= 0) { failed = 1; break; }
+            f->height = (uint64_t)height;
+            if (capture) {
+                size_t size = plain_call_payload(f, payload, envelope, (size_t)length);
+                if (execute_inner(f, actor, LX_PROGRAMS_CALL, payload, size,
+                                  NULL, 0U, false) != LXP_OK) { failed = 1; break; }
+                (void)fputs("signed", stdout);
+                hex(f->signed_activity, f->signed_activity_length);
+                (void)fputc('\n', stdout);
+                if (fflush(stdout) != 0) { failed = 1; break; }
+            } else if (signed_call(f, actor, envelope, (size_t)length) != 0) {
+                failed = 1; break;
+            }
+            continue;
+        }
+        if (strncmp(line, "f11 ", 4U) == 0 ||
+            strncmp(line, "f11-record ", 11U) == 0) {
+            fixture *selected;
+            char *separator;
+            char refund_amount[33];
+            uint8_t refund_bytes[16];
+            int state_length;
+            bool whole_record = strncmp(line, "f11-record ", 11U) == 0;
+            bool first_actor_call;
+            const char *args = line + (whole_record ? 11U : 4U);
+            if (sscanf(args, "%u %llu %32s %n", &actor, &height, refund_amount, &offset) != 3 ||
+                actor > 2U || height == 0U || offset <= 0 ||
+                unhex(refund_amount, strlen(refund_amount), refund_bytes, sizeof(refund_bytes)) != 16) {
+                failed = 1; break;
+            }
+            separator = strchr(args + offset, ' ');
+            if (separator == NULL) { failed = 1; break; }
+            state_length = unhex(args + offset,
+                (size_t)(separator - (args + offset)), producer_state,
+                LXP_MAX_ACTIVITY_BYTES);
+            text = strcspn(separator + 1U, "\n");
+            length = unhex(separator + 1U, text, envelope, LXP_MAX_ACTIVITY_BYTES / 2U);
+            if (state_length <= 0 || length <= 0) { failed = 1; break; }
+            first_actor_call = f11_seed_state[actor] == NULL;
+            if (first_actor_call) {
+                f11_seed_state[actor] = malloc((size_t)state_length);
+                f11_seed_envelope[actor] = malloc((size_t)length);
+                if (f11_seed_state[actor] == NULL || f11_seed_envelope[actor] == NULL) {
+                    failed = 1; break;
+                }
+                (void)memcpy(f11_seed_state[actor], producer_state, (size_t)state_length);
+                (void)memcpy(f11_seed_envelope[actor], envelope, (size_t)length);
+                f11_seed_state_length[actor] = (size_t)state_length;
+                f11_seed_envelope_length[actor] = (size_t)length;
+            }
+            selected = f11_fixtures[actor];
+            if (selected != NULL && selected->height != (uint64_t)height) {
+                if (destroy_fixture(selected) != 0) { failed = 1; break; }
+                f11_fixtures[actor] = NULL;
+                selected = NULL;
+            }
+            if (selected == NULL) {
+                selected = calloc(1U, sizeof(*selected));
+                if (selected == NULL) { failed = 1; break; }
+                f11_fixtures[actor] = selected;
+                if (initialize(selected) != 0 ||
+                    deploy_as(selected, argv[1], actor) != 0) {
+                    failed = 1; break;
+                }
+                selected->height = (uint64_t)height;
+                if (!first_actor_call &&
+                    prime_f11_fixture(selected, actor, f11_seed_state[actor],
+                                      f11_seed_state_length[actor],
+                                      f11_seed_envelope[actor],
+                                      f11_seed_envelope_length[actor], payload) != 0) {
+                    failed = 1; break;
+                }
+            }
+            selected->height = (uint64_t)height;
+            (void)memcpy(selected->bond_refund_amount, refund_bytes, sizeof(refund_bytes));
+            (void)memcpy(selected->bond_refund_recipient, selected->principals[actor], 32U);
+            if (test_f11_host_boundary(selected, actor, producer_state, (size_t)state_length,
+                                       envelope, (size_t)length, payload, whole_record) != 0) {
+                (void)fprintf(stderr,
+                              "F11 native boundary failed selector=%02x%02x state=%d fuel=%llu replay_bytes=%zu\n",
+                              envelope[8], envelope[9], state_length,
+                              (unsigned long long)selected->receipt.program_outcome.cpu_fuel,
+                              selected->witness.length);
+                failed = 1; break;
+            }
+            continue;
+        }
         if (strncmp(line, "advance ", 8U) == 0) {
             if (sscanf(line + 8U, "%llu", &height) != 1 || height == 0U ||
                 advance_height(f, (uint64_t)height) != 0) {
@@ -977,7 +1457,7 @@ int main(int argc, char **argv)
         if (strncmp(line, "prove ", 6U) == 0) {
             if (sscanf(line + 6U, "%u %llu %llu %llu %u %n", &actor, &height,
                        &fuel, &storage_write, &restart, &offset) != 5 ||
-                actor > 2U || height == 0U || fuel == 0U || storage_write == 0U ||
+                actor >= NATIVE_PEERS || height == 0U || fuel == 0U || storage_write == 0U ||
                 restart > 1U || offset <= 0) { failed = 1; break; }
             text = strcspn(line + 6U + offset, "\n");
             length = unhex(line + 6U + offset, text, envelope, LXP_MAX_ACTIVITY_BYTES / 2U);
@@ -989,7 +1469,7 @@ int main(int argc, char **argv)
             }
             continue;
         }
-        if (sscanf(line, "%u %llu %n", &actor, &height, &offset) != 2 || actor > 2U ||
+        if (sscanf(line, "%u %llu %n", &actor, &height, &offset) != 2 || actor >= NATIVE_PEERS ||
             height == 0U || offset <= 0) { failed = 1; break; }
         text = strcspn(line + offset, "\n");
         length = unhex(line + offset, text, envelope, LXP_MAX_ACTIVITY_BYTES / 2U);
@@ -998,8 +1478,13 @@ int main(int argc, char **argv)
         if (call(f, actor, envelope, (size_t)length, payload) != 0) { failed = 1; break; }
     }
     free(line);
-    while (f->kernel.blob_count != 0U) free(f->kernel.blobs[--f->kernel.blob_count].bytes);
-    if (lxp_state_store_destroy(&f->state) != LXP_OK) failed = 1;
-    free(f); free(envelope); free(payload);
+    if (destroy_fixture(f) != 0) failed = 1;
+    for (i = 0U; i < 3U; ++i)
+        if (f11_fixtures[i] != NULL && destroy_fixture(f11_fixtures[i]) != 0) failed = 1;
+    free(envelope); free(payload); free(producer_state);
+    for (i = 0U; i < 3U; ++i) {
+        free(f11_seed_state[i]);
+        free(f11_seed_envelope[i]);
+    }
     return failed ? 1 : 0;
 }

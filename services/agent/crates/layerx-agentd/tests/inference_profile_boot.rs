@@ -158,7 +158,7 @@ fn inference_config_refuses_each_missing_blank_zero_or_malformed_digest() {
         )
         .contains(setting));
         for invalid in [
-            "".to_owned(),
+            String::new(),
             " ".to_owned(),
             "00".repeat(32),
             "gg".repeat(32),
@@ -196,8 +196,8 @@ fn inference_config_defaults_overrides_and_room_profile_are_used() {
         "127.0.0.1:18791".to_owned(),
     );
     let configured = must(InferenceConfig::from_values(&values));
-    assert_eq!(configured.signal_listen.port(), 18790);
-    assert_eq!(configured.serve_listen.port(), 18791);
+    assert_eq!(configured.signal_listen.port(), 18_790);
+    assert_eq!(configured.serve_listen.port(), 18_791);
     values.insert(
         "LAYERX_AGENT_INFERENCE_SIGNAL_LISTEN".to_owned(),
         String::new(),
@@ -237,9 +237,8 @@ fn inference_profile_refuses_missing_or_unavailable_f11_before_binding() {
             Err(InferenceBootError::F11Unavailable)
         );
         assert_eq!(gate.status().mode, DegradedMode::Unreachable);
-        let error = match serve_inference_market(config.clone(), gate) {
-            Ok(_) => panic!("profile booted without F11"),
-            Err(error) => error,
+        let Err(error) = serve_inference_market(config.clone(), gate) else {
+            panic!("profile booted without F11");
         };
         assert_eq!(error, "inference boot dependencies are not ready");
     }
@@ -255,9 +254,8 @@ fn inference_listener_boot_binds_signal_first_and_cleans_up_on_completion_failur
     config.serve_listen = must(completion.local_addr());
     let signal_address = config.signal_listen;
     drop(signal);
-    let error = match serve_inference_market(config, ready_gate()) {
-        Ok(_) => panic!("profile booted with an occupied completion listener"),
-        Err(error) => error,
+    let Err(error) = serve_inference_market(config, ready_gate()) else {
+        panic!("profile booted with an occupied completion listener");
     };
     assert!(
         error.starts_with("inference completion listener failed:"),

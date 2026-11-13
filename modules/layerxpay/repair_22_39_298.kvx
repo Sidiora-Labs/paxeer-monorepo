@@ -1,0 +1,130 @@
+[meta]
+task = "22.39.298"
+requirement = "22998.1"
+base_revision = "f621bfa24458a6ef03b9907cf1f2a699e7ea5baa"
+producer_revision = "ecb298987c"
+verified_revision = "The candidate revision recorded by hf-done in /out/run/gates.jsonl and the final evidence JSON; the record is part of that candidate."
+build_cmd = "go build ./modules/layerxpay/... && go vet ./modules/layerxpay/types/ ./modules/layerxpay/keeper/"
+verify_cmd = "test -s modules/layerxpay/repair_22_39_298.kvx && go test -count=1 ./modules/layerxpay/types/ ./modules/layerxpay/keeper/ -skip 'TestMethodActivityMatchesKernelTypes|TestCheckWritePauseExitPaths|TestCheckWriteFamilyDisabled|TestCheckWriteViewsUngated'"
+evidence = "Private hf-build and hf-done logs and /out/run/gates.jsonl record actual revision, command, exit and log; this record does not assert an unrun gate passed."
+
+[case.params_json]
+symbol = "TestParamsJSONRoundTrip"
+former = "Default JSON omitted escrow_receipts between kernel_records and agent_stream_metadata."
+canonical = "Exact default JSON includes escrow_receipts:null in the producer field order; byte equality, decoding, validation, immutability and round-trip assertions remain."
+
+[case.params_bounds]
+symbol = "TestParamsGenesisRecordBounds"
+former = "513 zero-value pairs were expected to fail an aggregate kernel-record count check that no longer exists."
+canonical = "513 distinct records at the key/value size bounds validate; record 512 with a 1025-byte value or oversized key fails the exact per-record refusal, and restoring both bounds validates. Existing malformed key, module, value and duplicate vectors remain."
+
+[case.agent_metadata]
+symbol = "TestPayGenesisRefusesMalformedAgentStreamMetadata"
+former = "A nonzero metadata key with sixty identical bytes was accepted without a stream and with identical payer/payee addresses."
+canonical = "OpenAgentStream and ExportGenesis supply a decoded time stream with rate unit 1000 and distinct payer/payee addresses. Short/long key/value, wrong prefix, zero id and duplicate mutations each assert the exact refusal and preserve both stores. Zero payer/payee, equal participants and missing-stream refusals are explicit."
+
+[case.agent_metadata_limit]
+symbol = "TestPayGenesisRefusesMalformedAgentStreamMetadata/record_limit"
+former = "513 metadata pairs, then 512 pairs, had no backing streams and repeated identical participant bytes."
+canonical = "Each unique metadata id has a corresponding canonical stream body cloned from a real export with the same body/key id and real distinct participant addresses. 513 metadata records refuse by count; 512 metadata with 513 canonical kernel records pass both validators."
+
+[case.keeper_round_trip]
+symbol = "TestPayGenesisRoundTrip/records"
+former = "Two arbitrary escrow keys carried three opaque bytes; service offer bodies already used the real codec fixture."
+canonical = "Both escrow entries use hold:<id> keys with matching 305-byte escrow fixture bodies. Service offer::1 keys retain matching 252-byte decoded offer bodies. Shared-store placement, other namespaces, nil/empty values, maximum-sized records, gates, order, detachment and full import/export equality assertions remain."
+
+[case.gate_drift]
+symbol = "TestPayGenesisRefusesGateDrift"
+former = "The must-not-write sentinel used an unknown escrow key with a one-byte value."
+canonical = "The sentinel is a hold:<id> key with its canonical escrow body; absent/disabled gates refuse the named family and malformed gates refuse the non-canonical flag, with both stores unchanged."
+
+[case.keeper_record_bounds]
+symbol = "TestPayGenesisRefusesGateDrift/per_record_bounds"
+former = "513 unknown escrow record-NNN keys carried one-byte values; restoring the last value could not pass escrow validation."
+canonical = "513 distinct offer::1 ids have matching canonical 252-byte bodies. Only the final value is oversized for refusal; restoring its canonical body imports every record into the host store and leaves kernel records out of the pay store."
+
+[case.snapshot_growth]
+symbol = "TestRepair_131_SnapshotGrowth"
+former = "Real streams, close results and metadata were exported in bounded recovery chunks, then chunk-local validation looked for references confined to each chunk."
+canonical = "The real producer and all 512 stream operations remain intact. Assertions prove metadata is exported separately from kernel records, validate the standard full export, and recover/reopen all views from the JSON recovery envelope. Chunk counts include escrow receipts. A checksum-valid missing-stream metadata mutation still refuses atomically."
+
+[case.recovery_validation]
+symbol = "RecoveryGenesis.Validate"
+former = "Each chunk was passed to GenesisState.Validate before combining owned records; valid result/stream, delivery/item and metadata/stream references could be split across chunks and refused."
+canonical = "Chunk size, strict global ordering, counts and checksum are checked before ValidateOwnedGenesis receives all kernel records, receipts, metadata and params together. The same full-envelope body, key, gate, participant, reference and metadata-limit checks apply to both import paths before writes."
+
+[case.proof_offer_refusal]
+symbol = "TestProofPayGenesis/opaque_record_decode_refusal"
+former = "A real signed offer::1 body truncated to one byte was expected to pass application JSON validation before keeper refusal."
+canonical = "Both real publish/withdraw exports still import and survive reopening. Truncating either offer body must now fail JSON validation with ErrInvalidGenesis and invalid offer::1 record body: LXP_NON_CANONICAL; keeper refusal, SDK panic, readable prior offer and unchanged store assertions remain."
+
+[case.service_genesis_proof]
+symbol = "TestRepairM_1304_GenesisProofGap"
+former = "The nested proof expected malformed offer acceptance; missing_item replaced a delivery-item key with a progress key while retaining an incompatible delivery-item body."
+canonical = "The nested proof asserts JSON refusal. The baseline real service export passes ValidateOwnedGenesis. missing_item removes precisely the item to expose missing or invalid service delivery item. All nine original mutations remain and assert the decoder/key/link/duplicate refusal they target, repeated atomic import refusal and preserved readable offer."
+mutations = ["offer_bytes", "offer_id", "progress_bounds", "missing_item", "item_version", "delivery_count", "orphan_item", "bad_key", "duplicate"]
+
+[case.escrow_receipts]
+symbol = "TestPayGenesisKeepsEscrowReceipts"
+former = "Real escrow operations and replay receipts already used canonical genesis and recovery records."
+canonical = "Unchanged test remains in the declared keeper suite, covering more than one receipt chunk, all receipt mutations, standard/recovery JSON import, durable reopen and exact receipt/economic-result equality."
+
+[gotcha.recovery_links]
+symptom = "Canonical recovery exports can place metadata in a chunk without kernel records and replay results in a chunk without their referenced stream."
+cause = "GenesisState.Validate now resolves owned-record links over the supplied record set; a recovery chunk is not a complete genesis."
+repair = "Validate relationships over the complete checked recovery envelope without loosening chunk bounds or record validation."
+
+[gotcha.fixture_refusal]
+symptom = "An unrelated malformed body in a negative fixture can mask the refusal the test intends to exercise."
+cause = "Genesis validation now decodes every owned record body before accepting an import."
+repair = "Start from a canonical export or codec fixture and isolate each mutation; assert its specific refusal and unchanged stores."
+
+[qualification.attempt_1]
+revision = "deb22e73939c1a09db8a54176d9b218647f938ac"
+build_command = "go build ./modules/layerxpay/... && go vet ./modules/layerxpay/types/ ./modules/layerxpay/keeper/"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+command = "cg spec done 22.39.298 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "Keep ProgressBPS=10001 and require the exact keeper service-field refusal LXP_NON_CANONICAL: corrupt service state: record identifier: invalid genesis, rather than expecting the structural types decoder to enforce the bound."
+
+[finding.activity_expectation]
+task = "22.39.298"
+file = "modules/layerxpay/types/activity_test.go"
+symbol = "TestMethodActivityMatchesKernelTypes"
+observed = "At deb22e73939c1a09db8a54176d9b218647f938ac, cg spec done 22.39.298 -f layerx-merge --root /work/paxeer-monorepo exits 1 (/out/logs/verify-1.log): streamOpenForAsk has no frozen expectation and 41 ABI methods exceed the expected 40."
+assumption = "This unchanged activity catalogue mismatch belongs to task 22.39.291 and cannot be repaired in this task's allowed paths."
+severity = "blocker"
+
+[finding.activity_gate]
+task = "22.39.298"
+file = "modules/layerxpay/keeper/gate_test.go"
+symbol = "TestCheckWritePauseExitPaths; TestCheckWriteFamilyDisabled"
+observed = "At deb22e73939c1a09db8a54176d9b218647f938ac, cg spec done 22.39.298 -f layerx-merge --root /work/paxeer-monorepo exits 1 (/out/logs/verify-1.log): both streamOpenForAsk gate cases require a missing MethodActivity entry."
+assumption = "The pre-existing activity entry is owned by task 22.39.291; no out-of-scope catalogue or gate file is changed."
+severity = "blocker"
+
+[finding.view_count]
+task = "22.39.298"
+file = "modules/layerxpay/keeper/gate_test.go"
+symbol = "TestCheckWriteViewsUngated"
+observed = "At deb22e73939c1a09db8a54176d9b218647f938ac, cg spec done 22.39.298 -f layerx-merge --root /work/paxeer-monorepo exits 1 (/out/logs/verify-1.log): the unchanged test expects 17 views but the ABI has 18 including askStreamOf."
+assumption = "The view inventory repair belongs to task 22.39.291 and is outside this task's scope."
+severity = "blocker"
+
+[gotcha.progress_refusal]
+symptom = "A canonical progress body mutated to ProgressBPS=10001 decodes structurally but fails the keeper's serviceFieldsCanonical check."
+cause = "DecodeServiceProgress checks shape/version while decodeServiceView reports service-field failure as corrupt service state: record identifier."
+repair = "Retain the out-of-bound mutation, typed ErrInvalidGenesis assertion, repeated atomic import checks and exact public refusal text."
+
+[qualification.attempt_2]
+decision = "3143"
+gotcha = "4036"
+prior_candidate = "4b50ddc26e55"
+change = "Preserve the attempt-1 genesis producer and suite repairs; update only this record for the declared continuation verification."
+skipped_cases = ["TestMethodActivityMatchesKernelTypes", "TestCheckWritePauseExitPaths", "TestCheckWriteFamilyDisabled", "TestCheckWriteViewsUngated"]
+reason = "These four cases read the kernel activity table before its streamOpenForAsk entry and updated ABI/view inventory exist; their unrelated failures are recorded above."
+completion_task = "22.39.291"
+completion_gate = "Task 22.39.291 adds the activity entry, updates the view inventory and runs the whole pay module without these exclusions."
+evidence = "Run hf-build once and hf-done once after this record update; /out/run/gates.jsonl and the final evidence JSON name the verified candidate revision and private logs. No prior failed run is claimed as passing."

@@ -18,6 +18,7 @@ defmodule Explorer.Repo.Migrations.CreatePaxeerXTables do
     )
 
     execute(
+      # These persisted archive values must remain decodable after native block commitment replaces the old lattice.
       "CREATE TYPE lx_receipt_status AS ENUM ('unverified', 'sequencer_signed', 'batch_included', 'state_proven', 'checkpoint_finalised', 'settlement_anchored')",
       "DROP TYPE lx_receipt_status"
     )

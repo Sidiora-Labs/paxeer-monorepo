@@ -7,6 +7,9 @@ pub type SequencerEndpoint = crate::sequencer::SequencerEndpoint;
 pub type SequencerBlock = crate::sequencer::SequencerBlock;
 pub type BatchHeaderError = SequencerError;
 
+/// # Errors
+///
+/// Returns RPC errors or an unavailable error when the requested block is absent.
 pub fn lookup(
     endpoint: &SequencerEndpoint,
     height: u64,
@@ -16,6 +19,9 @@ pub fn lookup(
         .ok_or(BatchHeaderError::Unavailable)
 }
 
+/// # Errors
+///
+/// Returns RPC errors or an unavailable error when the requested block is absent.
 pub fn lookup_untrusted(
     endpoint: &SequencerEndpoint,
     height: u64,
@@ -23,6 +29,9 @@ pub fn lookup_untrusted(
     lookup(endpoint, height)
 }
 
+/// # Errors
+///
+/// Returns RPC errors or an unavailable error when the requested block is absent.
 pub fn lookup_with_history(
     endpoint: &SequencerEndpoint,
     height: u64,

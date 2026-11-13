@@ -184,7 +184,7 @@ func TestCmdQueryAirdropNetwork(t *testing.T) {
 			{cli.CmdQueryAirdropClaimed, []string{pool, holder[2:], "1"}, "AirdropClaimed", &types.QueryAirdropClaimedRequest{Pool: pool, Holder: holder[2:], Epoch: 1}, codes.InvalidArgument, 18},
 		} {
 			output, commandErr := run(tc.newCmd(), tc.args...)
-			require.ErrorContains(t, commandErr, "invalid address")
+			require.Equal(t, "invalid request", status.Convert(commandErr).Message())
 			require.Equal(t, tc.grpcCode, status.Code(commandErr))
 			require.Empty(t, output)
 			data, err := cfg.Codec.Marshal(tc.request)

@@ -18,10 +18,20 @@ impl Default for ChainsConfig {
 }
 
 impl ChainsConfig {
+    /// Reads the chains precompile address from the environment.
+    ///
+    /// # Errors
+    /// Returns a configuration error if the configured address is not exactly
+    /// 20 bytes of hexadecimal.
     pub fn from_env() -> Result<Self, IndexError> {
         Self::from_lookup(&|key| std::env::var(key).ok())
     }
 
+    /// Reads the chains precompile address, using the default when unset.
+    ///
+    /// # Errors
+    /// Returns a configuration error if the configured address is not exactly
+    /// 20 bytes of hexadecimal.
     pub fn from_lookup(lookup: &impl Fn(&str) -> Option<String>) -> Result<Self, IndexError> {
         let config = Self {
             precompile: lookup("LAYERX_INDEXER_CHAINS_PRECOMPILE")
@@ -36,6 +46,12 @@ impl ChainsConfig {
     }
 }
 
+/// Builds the chain registry event definitions at the configured address.
+///
+/// # Panics
+/// Panics if `config.precompile` is not exactly 20 bytes of hexadecimal.
+/// Configurations returned by `ChainsConfig::from_lookup` satisfy this bound.
+#[must_use]
 pub fn chains_abi(config: &ChainsConfig) -> Vec<LoadedAbi> {
     use AbiType::{Address, String as Text, Uint};
     let definitions = [
@@ -117,6 +133,7 @@ pub enum ChainRow {
     Operator { id: u32, operator: String },
 }
 
+#[must_use]
 pub fn decode(event: &DecodedEvent, height: u64, _tx_hash: &str) -> Option<ChainRow> {
     if event.contract != "chains_registry" {
         return None;

@@ -1,3 +1,11 @@
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 use layerx_agentd::{
     human::{HumanOperationError, HumanRefusal, HumanWireResponse},
     managed_agent::{self, FinalizationEvidence, ManagedAgentCheck},
@@ -7,6 +15,8 @@ use std::{collections::BTreeSet, os::unix::fs::PermissionsExt};
 
 // Minimal lifecycle producers copied from repair_22_31_219; no regression tests are included.
 mod lifecycle_fixtures {
+    use super::{require_ok, require_some};
+
     use ed25519_dalek::{Signer, SigningKey};
     use layerx_agentd::{
         human::{
@@ -55,7 +65,12 @@ mod lifecycle_fixtures {
         format!("0x{}", hex::encode(bytes))
     }
     fn decode_hex(v: &Value) -> Vec<u8> {
-        must(hex::decode(v.as_str().unwrap().strip_prefix("0x").unwrap()))
+        must(hex::decode(require_some(
+            v.as_str()
+                .unwrap_or_else(|| panic!("{}", "required test value"))
+                .strip_prefix("0x"),
+            "required test value",
+        )))
     }
     struct Directory(PathBuf);
     impl Directory {
@@ -158,10 +173,10 @@ mod lifecycle_fixtures {
     }
     fn protobuf_varint(mut value: u64, bytes: &mut Vec<u8>) {
         while value >= 128 {
-            bytes.push(value as u8 | 128);
+            bytes.push(value.to_le_bytes()[0] | 128);
             value >>= 7;
         }
-        bytes.push(value as u8);
+        bytes.push(value.to_le_bytes()[0]);
     }
     fn protobuf_bytes(number: u64, value: &[u8], bytes: &mut Vec<u8>) {
         protobuf_varint(number << 3 | 2, bytes);
@@ -179,38 +194,55 @@ mod lifecycle_fixtures {
     // encoded by the peer rather than using NativeResultSource's result encoder.
     fn abci_response(receipt: &Value) -> Vec<u8> {
         let q = |name: &str| {
-            u64::from_str_radix(receipt[name].as_str().unwrap().trim_start_matches("0x"), 16)
-                .unwrap()
+            require_ok(
+                u64::from_str_radix(
+                    require_some(receipt[name].as_str(), "required test value")
+                        .trim_start_matches("0x"),
+                    16,
+                ),
+                "required test value",
+            )
         };
         let mut response = Vec::new();
         protobuf_integer(1, q("gasUsed"), &mut response);
         if receipt["vmError"] != "" {
             protobuf_bytes(
                 2,
-                receipt["vmError"].as_str().unwrap().as_bytes(),
+                require_some(receipt["vmError"].as_str(), "required test value").as_bytes(),
                 &mut response,
             );
         }
         protobuf_bytes(3, &decode_hex(&receipt["returnData"]), &mut response);
         protobuf_bytes(
             4,
-            receipt["txHash"].as_str().unwrap().as_bytes(),
+            require_some(receipt["txHash"].as_str(), "required test value").as_bytes(),
             &mut response,
         );
-        for log in receipt["logs"].as_array().unwrap() {
+        for log in require_some(receipt["logs"].as_array(), "required test value") {
             let mut bytes = Vec::new();
-            protobuf_bytes(1, log["address"].as_str().unwrap().as_bytes(), &mut bytes);
-            for topic in log["topics"].as_array().unwrap() {
-                protobuf_bytes(2, topic.as_str().unwrap().as_bytes(), &mut bytes);
+            protobuf_bytes(
+                1,
+                require_some(log["address"].as_str(), "required test value").as_bytes(),
+                &mut bytes,
+            );
+            for topic in require_some(log["topics"].as_array(), "required test value") {
+                protobuf_bytes(
+                    2,
+                    require_some(topic.as_str(), "required test value").as_bytes(),
+                    &mut bytes,
+                );
             }
             protobuf_bytes(3, &decode_hex(&log["data"]), &mut bytes);
             protobuf_integer(
                 4,
-                u64::from_str_radix(
-                    log["logIndex"].as_str().unwrap().trim_start_matches("0x"),
-                    16,
-                )
-                .unwrap(),
+                require_ok(
+                    u64::from_str_radix(
+                        require_some(log["logIndex"].as_str(), "required test value")
+                            .trim_start_matches("0x"),
+                        16,
+                    ),
+                    "required test value",
+                ),
                 &mut bytes,
             );
             protobuf_bytes(5, &bytes, &mut response);
@@ -234,7 +266,7 @@ mod lifecycle_fixtures {
             nonce: 1,
             max_priority_fee_per_gas: 1,
             max_fee_per_gas: 2,
-            gas_limit: 100000,
+            gas_limit: 100_000,
             to: [0; 20],
             data: vec![],
         };
@@ -271,17 +303,26 @@ mod lifecycle_fixtures {
             created_at: 1,
             updated_at: 1,
             verified_evidence: vec![[1; 32]],
-            actor: String::from_utf8(actor().as_bytes().to_vec()).unwrap(),
+            actor: require_ok(
+                String::from_utf8(actor().as_bytes().to_vec()),
+                "required test value",
+            ),
             primary_authority: hex::encode(owner_word()),
             custody_key: "owner".into(),
             custody_public_key: [9; 32],
             owner_account: format!(
                 "agent:{}:main",
-                std::str::from_utf8(actor().as_bytes()).unwrap()
+                require_ok(
+                    std::str::from_utf8(actor().as_bytes()),
+                    "required test value"
+                )
             ),
             budget_account: format!(
                 "agent:{}:budget:managed",
-                std::str::from_utf8(actor().as_bytes()).unwrap()
+                require_ok(
+                    std::str::from_utf8(actor().as_bytes()),
+                    "required test value"
+                )
             ),
             budget_asset: [4; 32],
             purpose_hash: [5; 32],
@@ -346,7 +387,7 @@ mod lifecycle_fixtures {
         must(summary.fixed(&[0; 20]));
         must(summary.fixed(&hash(b"")));
         must(summary.u32(0));
-        must(summary.u32(logs.len() as u32));
+        must(summary.u32(require_ok(u32::try_from(logs.len()), "test value fits u32")));
         must(summary.u8(4));
         must(summary.fixed(b"upax"));
         let mut e = Encoder::new(16384);
@@ -371,7 +412,10 @@ mod lifecycle_fixtures {
         for (index, body) in std::iter::once(summary.finish())
             .chain(logs.iter().map(|log| {
                 let mut body = log.address().to_vec();
-                body.push(log.topics().len() as u8);
+                body.push(require_ok(
+                    u8::try_from(log.topics().len()),
+                    "test value fits u8",
+                ));
                 for topic in log.topics() {
                     body.extend_from_slice(topic);
                 }
@@ -381,7 +425,7 @@ mod lifecycle_fixtures {
             .enumerate()
         {
             must(e.u16(12));
-            must(e.u16(index as u16));
+            must(e.u16(require_ok(u16::try_from(index), "test value fits u16")));
             must(e.u16(0));
             must(e.tag(if index == 0 { 1 } else { 3 }, 3));
             must(e.u8(0));
@@ -418,16 +462,16 @@ mod lifecycle_fixtures {
     fn retain_receipt(
         store: &mut Store,
         tenant: &TenantId,
-        call: Eip1559Call,
+        call: &Eip1559Call,
         action: [u8; 32],
-        logs: Vec<layerx_proof::sequencer_logs::SequencerLog>,
+        logs: &[layerx_proof::sequencer_logs::SequencerLog],
     ) -> HumanFinalizationEvidence {
         let height = HEIGHT;
         let raw = must(call.sign(&[1; 32]));
         let tx = must(Outbox::default().enqueue(store, tenant.clone(), raw.clone()));
         let signer = SigningKey::from_bytes(&[31; 32]);
-        let digest = must(receipt_digest(&protocol_receipt(&raw, &logs, None)));
-        let canonical = protocol_receipt(&raw, &logs, Some(signer.sign(&digest).to_bytes()));
+        let digest = must(receipt_digest(&protocol_receipt(&raw, logs, None)));
+        let canonical = protocol_receipt(&raw, logs, Some(signer.sign(&digest).to_bytes()));
         // Both signed log effects and their committed ABCI result are emitted by the peer transcript.
         let peer = json!({"gasUsed":"0x1","vmError":"","returnData":"0x","txHash":rpc_hex(&tx),"logs":logs.iter().map(|log|
         json!({"address":rpc_hex(&log.address()),"topics":log.topics().iter().map(|t|rpc_hex(t)).collect::<Vec<_>>(),
@@ -436,7 +480,13 @@ mod lifecycle_fixtures {
         let inclusion = must(NativeResultSource::from_results(&results, 0));
         let root =
             layerx_programs::chain_proof::merkle::hash_from_byte_slices(&[&inclusion.result]);
-        let checkpoint = committed(height + 1, NOW as i64 / 1000, [1; 32], root, 4);
+        let checkpoint = committed(
+            height + 1,
+            require_ok(i64::try_from(NOW), "test value fits i64") / 1000,
+            [1; 32],
+            root,
+            4,
+        );
         let key = ReceiptKeyEntry {
             key_id: [11; 32],
             public_key: signer.verifying_key().to_bytes(),
@@ -471,7 +521,7 @@ mod lifecycle_fixtures {
             + 'static,
     ) -> HumanWireResponse {
         use human::frame::HumanFrameTransport;
-        let bytes = must(human::encode_lifecycle_request(&request));
+        let bytes = must(human::encode_lifecycle_request(request));
         let (a, b) = must(UnixStream::pair());
         let worker = thread::spawn(move || {
             let mut transport = must(human::AcceptedTransport::new(
@@ -505,14 +555,17 @@ mod lifecycle_fixtures {
         let path = directory.0.clone();
         let tenant = tenant.clone();
         socket_exchange(request, move |request| {
-            let mut store = Store::open(&path).unwrap();
+            let mut store = require_ok(Store::open(&path), "required test value");
             managed_agent::apply_lifecycle_request(&mut store, &tenant, request)
         })
     }
     fn agent_state(bytes: &[u8]) -> u8 {
         let mut offset = 0;
         for _ in 0..3 {
-            let n = u32::from_be_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
+            let n = u32::from_be_bytes(require_ok(
+                bytes[offset..offset + 4].try_into(),
+                "required test value",
+            )) as usize;
             offset += 4 + n;
         }
         bytes[offset]
@@ -563,17 +616,17 @@ mod lifecycle_fixtures {
         let evidence = retain_receipt(
             store,
             tenant,
-            Eip1559Call {
+            &Eip1559Call {
                 chain_id: 125,
                 nonce: 63,
                 max_priority_fee_per_gas: 1,
                 max_fee_per_gas: 2,
-                gas_limit: 100000,
+                gas_limit: 100_000,
                 to: call.target.address(),
                 data: must(call.encode()),
             },
             [63; 32],
-            logs,
+            &logs,
         );
         assert_ne!(evidence.action_key, evidence.tx_hash);
         evidence
@@ -652,11 +705,13 @@ fn lifecycle_request_refusal_names_its_check_over_the_socket() {
 #[test]
 fn authority_revocation_refusal_names_the_window_check() {
     let root = std::env::temp_dir().join(format!("managed-check-613-{}", std::process::id()));
-    std::fs::create_dir(&root).expect("create private store directory");
-    std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
-        .expect("private directory permissions");
-    let store = Store::open(&root).expect("real durable store");
-    let tenant = TenantId::new("managed-check-613").expect("tenant");
+    require_ok(std::fs::create_dir(&root), "create private store directory");
+    require_ok(
+        std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700)),
+        "private directory permissions",
+    );
+    let store = require_ok(Store::open(&root), "real durable store");
+    let tenant = require_ok(TenantId::new("managed-check-613"), "tenant");
     let evidence = FinalizationEvidence {
         action_key: [1; 32],
         activity_id: [2; 32],
@@ -686,5 +741,5 @@ fn authority_revocation_refusal_names_the_window_check() {
         }
     }
     drop(store);
-    std::fs::remove_dir_all(root).expect("remove private store");
+    require_ok(std::fs::remove_dir_all(root), "remove private store");
 }

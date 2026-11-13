@@ -73,7 +73,7 @@ fn assert_publication_effects_match_node_view(receipt: &Value) -> TestResult {
     }
     let status =
         layerx_gas_station::rpc::quantity(receipt["status"].as_str().ok_or("missing status")?)?;
-    assert_eq!(protocol.result_code(), if status == 1 { 0 } else { 1 });
+    assert_eq!(protocol.result_code(), i32::from(status != 1));
     Ok(())
 }
 

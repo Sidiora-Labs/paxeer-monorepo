@@ -1,0 +1,19 @@
+[livestream]
+module = "services/launchpad/livestream"
+
+[findings]
+errcheck = "8 response, database and file close results are checked."
+goconst = "83 repeated lifecycle, action, quality, route and media values use package constants."
+goimports = "7 imports use the package import grouping."
+gofmt = "4 constant declarations use Go formatting."
+gosec = "6 configured file paths retain their validation and database pool size is range checked."
+ineffassign = "1 transition intent is set by the selected action."
+staticcheck = "3 runtime profile and identifier checks use direct conditions."
+
+[comments]
+config_bind = "internal/config/config.go:164 preserves the accepted IPv6 wildcard address."
+config_document = "internal/config/config.go:512 reads a regular digest-bound runtime document."
+config_material = "internal/config/config.go:676 reads a configured regular certificate or key file."
+measurement_source = "internal/streams/production_measurement.go:214 reads a relative digest-bound source file."
+measurement_output = "internal/streams/production_measurement.go:407 exclusively creates a file under the validated run directory."
+measurement_arrivals = "internal/streams/production_measurement.go:605 reopens the arrivals file created for the run."

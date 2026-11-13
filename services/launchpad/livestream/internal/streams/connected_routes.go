@@ -51,7 +51,7 @@ func (h *Handlers) operationMutation(w http.ResponseWriter, r *http.Request, act
 		if err != nil {
 			return nil, err
 		}
-		return json.Marshal(map[string]any{"operation": result})
+		return json.Marshal(map[string]any{operationField: result})
 	})
 }
 
@@ -87,7 +87,7 @@ func (h *Handlers) operationMutationResponse(w http.ResponseWriter, r *http.Requ
 	var envelope sharedauth.OperationEnvelope
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
-	if decoder.Decode(&envelope) != nil || decoder.Decode(new(any)) != io.EOF {
+	if decoder.Decode(&envelope) != nil || decoder.Decode(new(any)) != io.EOF || envelope.Version != 1 {
 		h.lifecycleError(w, ErrDenied)
 		return
 	}
@@ -130,13 +130,13 @@ func (h *Handlers) operationMutationResponse(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", jsonMediaType)
 	w.WriteHeader(http.StatusAccepted)
 	_, _ = w.Write(response)
 }
 func boundedBody(w http.ResponseWriter, r *http.Request, max int, dst any) ([]byte, bool) {
 	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-	if err != nil || mediaType != "application/json" || r.Header.Get("Content-Encoding") != "" {
+	if err != nil || mediaType != jsonMediaType || r.Header.Get("Content-Encoding") != "" {
 		writeRequestError(w, http.StatusUnsupportedMediaType, ruleMediaType, "JSON request required")
 		return nil, false
 	}
@@ -224,7 +224,7 @@ func (h *Handlers) frozenAction(w http.ResponseWriter, r *http.Request, action s
 		return
 	}
 	adapt := AdaptV2StreamStart
-	if action == "end" {
+	if action == endAction {
 		adapt = AdaptV2StreamEnd
 	}
 	h.actionCore(w, r, action, o, raw, string(body.ExpectedRevision), adapt)
@@ -237,7 +237,7 @@ func (h *Handlers) actionCore(w http.ResponseWriter, r *http.Request, action str
 		return
 	}
 	mutate := func(ctx context.Context, tx pgx.Tx, d Authorization) (Operation, error) {
-		if action == "rotate" {
+		if action == rotateAction {
 			return h.lifecycle.RequestRotationTx(ctx, tx, o.ID, d.Wallet, revision)
 		}
 		if action == "restore" {
@@ -299,7 +299,7 @@ func (s *LifecycleStore) EditTx(ctx context.Context, tx pgx.Tx, id, wallet, titl
 	if o.Revision != revision {
 		return Operation{}, ErrConflict
 	}
-	if !strings.EqualFold(o.Wallet, wallet) || o.State == "ENDED" || o.State == "FAILED" || o.State == "SUSPENDED" {
+	if !strings.EqualFold(o.Wallet, wallet) || o.State == stateEnded || o.State == stateFailed || o.State == stateSuspended {
 		return Operation{}, ErrDenied
 	}
 	o, err = readOperation(tx.QueryRow(ctx, fmt.Sprintf("UPDATE %s.stream_operations SET title=$2,revision=revision+1 WHERE id=$1 RETURNING "+opColumns, s.schema), id, title))
@@ -324,7 +324,7 @@ func (h *Handlers) viewerSession(w http.ResponseWriter, r *http.Request) {
 		h.lifecycleError(w, err)
 		return
 	}
-	if o.State != "LIVE" {
+	if o.State != stateLive {
 		h.lifecycleError(w, ErrState)
 		return
 	}
@@ -363,7 +363,7 @@ func (h *Handlers) viewerSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, 200, map[string]any{"streamId": o.ID, "sessionId": session, "token": token, "expiresAt": expires.UTC().Format(time.RFC3339)})
+	writeJSON(w, 200, map[string]any{streamIDField: o.ID, "sessionId": session, "token": token, "expiresAt": expires.UTC().Format(time.RFC3339)})
 }
 func (h *Handlers) connectedHeartbeat(w http.ResponseWriter, r *http.Request) {
 	if h.lifecycle == nil || h.viewerTokens == nil || h.viewers == nil {
@@ -417,7 +417,7 @@ func (h *Handlers) heartbeatCore(w http.ResponseWriter, r *http.Request, session
 		h.lifecycleError(w, err)
 		return
 	}
-	if o.State != "LIVE" {
+	if o.State != stateLive {
 		h.lifecycleError(w, ErrState)
 		return
 	}
@@ -454,7 +454,7 @@ func (h *Handlers) heartbeatCore(w http.ResponseWriter, r *http.Request, session
 		if estimate.Stale {
 			var response v2.StreamHeartbeatResponse
 			if err = json.Unmarshal(raw, &response); err == nil {
-				response.Data.ViewerQuality = "stale"
+				response.Data.ViewerQuality = qualityStale
 				raw, err = marshalV2Lifecycle("StreamHeartbeatResponse", response)
 			}
 			if err != nil {
@@ -466,9 +466,9 @@ func (h *Handlers) heartbeatCore(w http.ResponseWriter, r *http.Request, session
 		writeJSON(w, http.StatusOK, json.RawMessage(raw))
 		return
 	}
-	quality := "verified"
+	quality := qualityVerified
 	if estimate.Stale {
-		quality = "stale"
+		quality = qualityStale
 	}
 	writeJSON(w, 200, map[string]any{"viewerCount": estimate.Count, "viewerQuality": quality, "estimated": true})
 }
@@ -526,7 +526,7 @@ func (h *Handlers) connectedCredential(w http.ResponseWriter, r *http.Request) {
 		if !strings.EqualFold(current.Wallet, d.Wallet) || !d.ExpiresAt.After(h.clock()) {
 			return nil, ErrDenied
 		}
-		if current.State != "READY" && current.State != "LIVE" {
+		if current.State != stateReady && current.State != stateLive {
 			return nil, ErrState
 		}
 		allowed, e := h.restrictions.AllowedTx(ctx, tx, d.Wallet, current.Pool)
@@ -556,7 +556,7 @@ func (h *Handlers) connectedCredential(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, 200, map[string]any{"streamId": o.ID, "ingestKey": key})
+	writeJSON(w, 200, map[string]any{streamIDField: o.ID, "ingestKey": key})
 }
 func (p *RestrictionReader) AllowedTx(ctx context.Context, tx pgx.Tx, wallet, pool string) (bool, error) {
 	if p == nil || tx == nil || !addressPattern.MatchString(wallet) || !addressPattern.MatchString(pool) {
@@ -770,7 +770,7 @@ func (h *Handlers) playbackAccess(w http.ResponseWriter, r *http.Request) {
 		h.lifecycleError(w, err)
 		return
 	}
-	if operation.State != "LIVE" {
+	if operation.State != stateLive {
 		h.lifecycleError(w, ErrDenied)
 		return
 	}
@@ -806,7 +806,7 @@ func (h *Handlers) privatePlayback(w http.ResponseWriter, r *http.Request) {
 		h.lifecycleError(w, ErrUnavailable)
 		return
 	}
-	if !private || o.State != "LIVE" {
+	if !private || o.State != stateLive {
 		h.lifecycleError(w, ErrDenied)
 		return
 	}
@@ -815,7 +815,7 @@ func (h *Handlers) privatePlayback(w http.ResponseWriter, r *http.Request) {
 		h.lifecycleError(w, ErrUnavailable)
 		return
 	}
-	view, err := AdaptV2Stream(o, playback.URL, nil, "unavailable")
+	view, err := AdaptV2Stream(o, playback.URL, nil, qualityUnavailable)
 	if err != nil {
 		h.lifecycleError(w, err)
 		return

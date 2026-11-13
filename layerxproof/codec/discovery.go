@@ -58,8 +58,8 @@ func (h *ProgramDiscoveryHead) Digest() [32]byte {
 	return out
 }
 
-// DecodeProgramHeadAttestation decodes the LNI program head attestation
-// response payload and proof material with their exact fixed layout.
+// DecodeProgramHeadAttestation decodes a program head attestation payload
+// and proof material with their exact fixed layout, independently of transport.
 func DecodeProgramHeadAttestation(payload, proofMaterial []byte) (*ProgramHeadAttestation, error) {
 	if len(payload) != ProgramHeadAttestPayloadBytes || len(proofMaterial) != ProgramHeadAttestProofBytes ||
 		binary.BigEndian.Uint16(payload[:2]) != programHeadAttestVersion {

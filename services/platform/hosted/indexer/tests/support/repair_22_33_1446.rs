@@ -360,7 +360,8 @@ fn authority() -> FinalityAuthority {
 
 fn signed(header: &Header, signers: &[(u8, bool)]) -> Commit {
     let mut commit = Commit {
-        height: header.height as u64,
+        height: u64::try_from(header.height)
+            .unwrap_or_else(|_| panic!("u64 fixture value out of range")),
         round: 0,
         block_id: BlockId {
             hash: header.hash().to_vec(),
@@ -397,7 +398,12 @@ fn signed(header: &Header, signers: &[(u8, bool)]) -> Commit {
         encode_length_delimited(2, &parts, &mut block);
         encode_length_delimited(4, &block, &mut vote);
         let mut time = Vec::new();
-        encode_varint_field(1, timestamp.seconds as u64, &mut time);
+        encode_varint_field(
+            1,
+            u64::try_from(timestamp.seconds)
+                .unwrap_or_else(|_| panic!("u64 fixture value out of range")),
+            &mut time,
+        );
         encode_varint_field(2, u64::from(timestamp.nanos), &mut time);
         encode_length_delimited(5, &time, &mut vote);
         encode_length_delimited(6, header.chain_id.as_bytes(), &mut vote);
@@ -421,7 +427,7 @@ fn signed(header: &Header, signers: &[(u8, bool)]) -> Commit {
 fn header(height: u64, root: Digest32) -> Header {
     Header {
         chain_id: CHAIN_ID.to_owned(),
-        height: height as i64,
+        height: i64::try_from(height).unwrap_or_else(|_| panic!("i64 fixture value out of range")),
         app_hash: root.bytes().to_vec(),
         version: ConsensusVersion { block: 11, app: 1 },
         time: Timestamp {
@@ -461,6 +467,11 @@ fn native_membership(state: &[u8], program: [u8; 32], cell: &[u8]) -> (Vec<u8>, 
     native_membership_version(state, program, cell, 1)
 }
 
+/// Encodes a native namespace membership proof for a state cell.
+///
+/// # Panics
+/// Panics if the encoded IAVL version overflows or fixture serialization fails.
+#[must_use]
 pub fn native_membership_version(
     state: &[u8],
     program: [u8; 32],
@@ -486,10 +497,16 @@ pub fn native_membership_version(
     }
     let mut manifest = vec![0, 1];
     manifest.extend(1u32.to_be_bytes());
-    manifest.extend((cell.len() as u16).to_be_bytes());
+    manifest.extend(
+        (u16::try_from(cell.len()).unwrap_or_else(|_| panic!("u16 fixture value out of range")))
+            .to_be_bytes(),
+    );
     manifest.extend(cell);
     manifest.extend(Sha256::digest(state));
-    manifest.extend((state.len() as u32).to_be_bytes());
+    manifest.extend(
+        (u32::try_from(state.len()).unwrap_or_else(|_| panic!("u32 fixture value out of range")))
+            .to_be_bytes(),
+    );
     let mut head = vec![0, 1];
     head.extend(1u32.to_be_bytes());
     head.extend(Sha256::digest(&manifest));
@@ -497,12 +514,17 @@ pub fn native_membership_version(
     key.extend(program);
     key.push(1);
     let mut prefix = vec![0, 2];
-    encode_varint(version.checked_mul(2).expect("IAVL version"), &mut prefix);
+    encode_varint(
+        version
+            .checked_mul(2)
+            .unwrap_or_else(|| panic!("IAVL version")),
+        &mut prefix,
+    );
     let (proof, store_root) = leaf(&key, &head, &prefix);
     let (outer, app_hash) = leaf(b"lxphost", &store_root, &[0]);
     let mut multistore = Vec::new();
     encode_length_delimited(1, &outer, &mut multistore);
-    (serde_json::to_vec(&json!({"membership": {"proof": proof, "multistore": multistore}, "manifest": manifest})).expect("fixture JSON"), app_hash)
+    (serde_json::to_vec(&json!({"membership": {"proof": proof, "multistore": multistore}, "manifest": manifest})).unwrap_or_else(|error| panic!("{}: {error:?}", "fixture JSON")), app_hash)
 }
 
 fn certify_state(state: &[u8], program: [u8; 32], cell: &[u8]) -> Checked<Material> {
@@ -525,7 +547,8 @@ impl Scratch {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
-        fs::create_dir(&path).expect("create scratch directory");
+        fs::create_dir(&path)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "create scratch directory"));
         Self(path)
     }
     fn db(&self) -> PathBuf {
@@ -534,21 +557,22 @@ impl Scratch {
 }
 impl Drop for Scratch {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).expect("remove scratch directory");
+        fs::remove_dir_all(&self.0)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "remove scratch directory"));
     }
 }
 
-fn snapshot_observation<'a>(
-    state: &'a [u8],
+fn snapshot_observation(
+    state: &[u8],
     facts: layerx_programs_ai_market::queries::CaptureFacts,
-) -> Checked<SnapshotObservation<'a>> {
-    Ok(SnapshotObservation {
+) -> SnapshotObservation<'_> {
+    SnapshotObservation {
         state,
         facts,
         read: ReadVerification::SequencerSigned,
         source_activity: facts.proof.block_hash,
         observed_at_ms: 4000,
-    })
+    }
 }
 
 fn read_request(stream: &mut TcpStream) -> Option<Vec<u8>> {
@@ -623,7 +647,7 @@ fn within(range: &BlockscoutRange, from: u64, to: u64, absent: &[u64]) -> Blocks
 // recorded address, topics and data; only the containing transaction differs.
 fn registry_log() -> Value {
     let fixture: Value = serde_json::from_str(include_str!("../fixtures/chains_blocks.json"))
-        .expect("recorded registry emission");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "recorded registry emission"));
     fixture["scope"]["receipts"]
         ["0x00000000000000000000000000000000000000000000000000000000000007d1"]["logs"][0]
         .clone()
@@ -631,10 +655,10 @@ fn registry_log() -> Value {
 
 fn recorded_chain() -> Value {
     let mut chain: Value = serde_json::from_str(include_str!("../../fixtures/paxeer_blocks.json"))
-        .expect("recorded node chain");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "recorded node chain"));
     let transaction = chain["canonical"]["blocks"]["2"]["transactions"][2]["hash"]
         .as_str()
-        .expect("registry transaction")
+        .unwrap_or_else(|| panic!("registry transaction"))
         .to_owned();
     let log = &mut chain["receipts"][transaction]["logs"][0];
     let recorded = registry_log();
@@ -646,9 +670,12 @@ fn recorded_chain() -> Value {
 fn database_rows() -> BlockscoutRange {
     let mut rows: BlockscoutRange =
         serde_json::from_str(include_str!("../fixtures/backfill_blockscout.json"))
-            .expect("recorded database rows");
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "recorded database rows"));
     let recorded = registry_log();
-    let bytes = |value: &Value| unhex(value.as_str().expect("recorded bytes")).expect("hex");
+    let bytes = |value: &Value| {
+        unhex(value.as_str().unwrap_or_else(|| panic!("recorded bytes")))
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "hex"))
+    };
     let log = &mut rows.logs[1];
     log.address_hash = bytes(&recorded["address"]);
     log.first_topic = Some(bytes(&recorded["topics"][0]));
@@ -663,13 +690,14 @@ struct Node {
     url: String,
     stop: Arc<AtomicBool>,
     thread: Option<thread::JoinHandle<()>>,
-    full_blocks: Arc<AtomicU64>,
-    receipts: Arc<AtomicU64>,
 }
 impl Node {
     fn new(tenant: bool, missing_receipts: bool) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind node fixture");
-        let address = listener.local_addr().expect("node fixture address");
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "bind node fixture"));
+        let address = listener
+            .local_addr()
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "node fixture address"));
         let stop = Arc::new(AtomicBool::new(false));
         let stopped = Arc::clone(&stop);
         let full_blocks = Arc::new(AtomicU64::new(0));
@@ -680,10 +708,13 @@ impl Node {
         if tenant {
             for block in chain["canonical"]["blocks"]
                 .as_object_mut()
-                .expect("blocks")
+                .unwrap_or_else(|| panic!("blocks"))
                 .values_mut()
             {
-                for tx in block["transactions"].as_array_mut().expect("transactions") {
+                for tx in block["transactions"]
+                    .as_array_mut()
+                    .unwrap_or_else(|| panic!("transactions"))
+                {
                     tx["chainId"] = json!(format!("0x{:x}", 125_000_001u64));
                 }
             }
@@ -693,22 +724,31 @@ impl Node {
                 if stopped.load(Ordering::Acquire) {
                     break;
                 }
-                let mut stream = incoming.expect("node fixture connection");
+                let mut stream = incoming
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "node fixture connection"));
                 stream
                     .set_read_timeout(Some(Duration::from_secs(5)))
-                    .expect("read timeout");
-                let body = read_request(&mut stream).expect("JSON-RPC HTTP request");
-                let request: Value = serde_json::from_slice(&body).expect("JSON-RPC request");
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "read timeout"));
+                let body =
+                    read_request(&mut stream).unwrap_or_else(|| panic!("JSON-RPC HTTP request"));
+                let request: Value = serde_json::from_slice(&body)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "JSON-RPC request"));
                 let params = &request["params"];
-                let result = match request["method"].as_str().expect("method") {
+                let result = match request["method"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("method"))
+                {
                     "eth_chainId" => chain["chain_id"].clone(),
                     "eth_blockNumber" => chain["canonical"]["head"].clone(),
                     "eth_getBlockByNumber" => {
                         let height = u64::from_str_radix(
-                            params[0].as_str().expect("height").trim_start_matches("0x"),
+                            params[0]
+                                .as_str()
+                                .unwrap_or_else(|| panic!("height"))
+                                .trim_start_matches("0x"),
                             16,
                         )
-                        .expect("quantity");
+                        .unwrap_or_else(|error| panic!("{}: {error:?}", "quantity"));
                         let mut block = chain["canonical"]["blocks"][height.to_string()].clone();
                         if params[1] == true {
                             full_count.fetch_add(1, Ordering::Relaxed);
@@ -724,22 +764,21 @@ impl Node {
                         if missing_receipts {
                             Value::Null
                         } else {
-                            chain["receipts"][params[0].as_str().expect("hash")].clone()
+                            chain["receipts"][params[0].as_str().unwrap_or_else(|| panic!("hash"))]
+                                .clone()
                         }
                     }
                     other => panic!("unexpected node method {other}"),
                 };
                 let response =
                     json!({"jsonrpc":"2.0", "id":request["id"], "result":result}).to_string();
-                write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}",response.len()).expect("node response");
+                write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}",response.len()).unwrap_or_else(|error| panic!("{}: {error:?}", "node response"));
             }
         });
         Self {
             url: format!("http://{address}"),
             stop,
             thread: Some(thread),
-            full_blocks,
-            receipts,
         }
     }
     fn ingester(&self) -> Checked<PaxeerIngester> {
@@ -775,9 +814,9 @@ impl Drop for Node {
         let _ = TcpStream::connect(self.url.trim_start_matches("http://"));
         self.thread
             .take()
-            .expect("fixture thread")
+            .unwrap_or_else(|| panic!("fixture thread"))
             .join()
-            .expect("node fixture joined");
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "node fixture joined"));
     }
 }
 
@@ -792,7 +831,7 @@ fn register_tenant(store: &Store) -> Checked {
         chain_id: 125_000_001,
         created_height: 0,
         bond: "100000000000000000000".into(),
-        gas_allowance: 500000,
+        gas_allowance: 500_000,
         byte_allowance: 65536,
         fee_share_bps: 100,
     })?;
@@ -812,10 +851,20 @@ fn recorded_namespace() -> Checked<Material> {
         "../../../../../../programs/tests/vectors/ics23-market-namespaces-app-hash.json"
     ))?;
     let namespace = &transcript["entries"][0]["namespace"];
-    let bytes = |field: &str| unhex(namespace[field].as_str().expect("recorded hex"));
+    let bytes = |field: &str| {
+        unhex(
+            namespace[field]
+                .as_str()
+                .unwrap_or_else(|| panic!("recorded hex")),
+        )
+    };
     let header = header(
         1000,
-        Digest32::new(bytes("app_hash")?.try_into().expect("app hash"))?,
+        Digest32::new(
+            bytes("app_hash")?
+                .try_into()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "app hash")),
+        )?,
     );
     Ok(Material {
         commit: signed(&header, &[(1, false), (2, false), (3, false)]),
@@ -829,7 +878,8 @@ fn recorded_namespace() -> Checked<Material> {
 
 fn material_at(state: &[u8], height: u64) -> Checked<Material> {
     let mut material = certify_state(state, PROGRAM, layerx_programs_ai_market::SHARED_STATE_KEY)?;
-    material.header.height = height as i64;
+    material.header.height =
+        i64::try_from(height).unwrap_or_else(|_| panic!("i64 fixture value out of range"));
     material.commit = signed(&material.header, &[(1, false), (2, false), (3, false)]);
     Ok(material)
 }
@@ -851,10 +901,12 @@ fn captured(
                 .app_hash
                 .as_slice()
                 .try_into()
-                .expect("app hash"),
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "app hash")),
         )?,
-        observed_sequence: material.header.height as u64,
-        execution_height: material.header.height as u64,
+        observed_sequence: u64::try_from(material.header.height)
+            .unwrap_or_else(|_| panic!("u64 fixture value out of range")),
+        execution_height: u64::try_from(material.header.height)
+            .unwrap_or_else(|_| panic!("u64 fixture value out of range")),
         block_hash: Digest32::new(material.header.hash())?,
     };
     let chunks = read_all(state)?;
@@ -882,6 +934,68 @@ fn admit(
     })?)
 }
 
+fn assert_reputation_conflict(
+    mut projector: ReputationProjector,
+    dir: &Scratch,
+    state: &[u8],
+    changed: &[u8],
+    committed: &Material,
+    request: &HistoryRequest,
+) -> Checked {
+    let later = material_at(state, 1001)?;
+    assert_eq!(
+        admit(&mut projector, state, &later)?,
+        Admission::Advanced { height: 1001 }
+    );
+    let latest = projector.read_history(request)?;
+    assert!(matches!(
+        admit(&mut projector, state, committed),
+        Err(Failure::Reputation(ReputationError::StaleProof {
+            accepted: 1001,
+            offered: 1000
+        }))
+    ));
+    drop(projector);
+    let mut projector = ReputationProjector::open(&dir.db(), authority(), chain()?, program()?)?;
+    assert_eq!(projector.read_history(request)?, latest);
+    assert_eq!(
+        admit(&mut projector, state, &later)?,
+        Admission::AlreadyAccepted { height: 1001 }
+    );
+    assert!(matches!(
+        admit(&mut projector, changed, &later),
+        Err(Failure::Reputation(ReputationError::Commit(
+            ProofError::InvalidProof
+        )))
+    ));
+    let conflict = material_at(changed, 1001)?;
+    let conflict_error = projector
+        .admit(&FinalizedRead {
+            proof: captured(changed, &conflict)?.0,
+            chunks: &read_all(changed)?,
+            commit: conflict.evidence(),
+            publication_time_ms: PUBLICATION_TIME_MS,
+        })
+        .err()
+        .unwrap_or_else(|| panic!("two authenticated roots at one height must halt"));
+    assert!(matches!(&conflict_error, ReputationError::Conflict(_)));
+    assert_eq!(projector.read_history(request), Err(conflict_error.clone()));
+    drop(projector);
+    let mut reopened = ReputationProjector::open(&dir.db(), authority(), chain()?, program()?)?;
+    assert_eq!(reopened.read_history(request), Err(conflict_error.clone()));
+    assert!(
+        matches!(admit(&mut reopened, state, &later), Err(Failure::Reputation(error)) if error == conflict_error)
+    );
+    Ok(())
+}
+
+/// Checks finalized reputation membership, rollback, conflict, and reopening.
+///
+/// # Errors
+/// Returns an error when fixture setup or a checked operation fails.
+///
+/// # Panics
+/// Panics if a case assertion fails or fixture data violates its shape.
 pub fn reputation_committed_membership_rollback_conflict_and_reopen() -> Checked {
     let participant = worker(1)?;
     let original = observed(participant, 1, 999)?;
@@ -929,9 +1043,9 @@ pub fn reputation_committed_membership_rollback_conflict_and_reopen() -> Checked
     let mut document: Value = serde_json::from_slice(&altered_leaf.proof)?;
     let value = document["membership"]["proof"]
         .as_array_mut()
-        .expect("leaf bytes");
-    let byte = value.last_mut().expect("nonempty leaf");
-    *byte = json!(byte.as_u64().expect("byte") ^ 1);
+        .unwrap_or_else(|| panic!("leaf bytes"));
+    let byte = value.last_mut().unwrap_or_else(|| panic!("nonempty leaf"));
+    *byte = json!(byte.as_u64().unwrap_or_else(|| panic!("byte")) ^ 1);
     altered_leaf.proof = serde_json::to_vec(&document)?;
     let recorded = recorded_namespace()?;
     for invalid in [
@@ -958,52 +1072,7 @@ pub fn reputation_committed_membership_rollback_conflict_and_reopen() -> Checked
         )))
     ));
     assert_eq!(projector.read_history(&request)?, accepted);
-    let later = material_at(&state, 1001)?;
-    assert_eq!(
-        admit(&mut projector, &state, &later)?,
-        Admission::Advanced { height: 1001 }
-    );
-    let latest = projector.read_history(&request)?;
-    assert!(matches!(
-        admit(&mut projector, &state, &committed),
-        Err(Failure::Reputation(ReputationError::StaleProof {
-            accepted: 1001,
-            offered: 1000
-        }))
-    ));
-    drop(projector);
-    let mut projector = ReputationProjector::open(&dir.db(), authority(), chain()?, program()?)?;
-    assert_eq!(projector.read_history(&request)?, latest);
-    assert_eq!(
-        admit(&mut projector, &state, &later)?,
-        Admission::AlreadyAccepted { height: 1001 }
-    );
-    assert!(matches!(
-        admit(&mut projector, &changed, &later),
-        Err(Failure::Reputation(ReputationError::Commit(
-            ProofError::InvalidProof
-        )))
-    ));
-    let conflict = material_at(&changed, 1001)?;
-    let conflict_error = projector
-        .admit(&FinalizedRead {
-            proof: captured(&changed, &conflict)?.0,
-            chunks: &read_all(&changed)?,
-            commit: conflict.evidence(),
-            publication_time_ms: PUBLICATION_TIME_MS,
-        })
-        .expect_err("two authenticated roots at one height must halt");
-    assert!(matches!(&conflict_error, ReputationError::Conflict(_)));
-    assert_eq!(
-        projector.read_history(&request),
-        Err(conflict_error.clone())
-    );
-    drop(projector);
-    let mut reopened = ReputationProjector::open(&dir.db(), authority(), chain()?, program()?)?;
-    assert_eq!(reopened.read_history(&request), Err(conflict_error.clone()));
-    assert!(
-        matches!(admit(&mut reopened, &state, &later), Err(Failure::Reputation(error)) if error == conflict_error)
-    );
+    assert_reputation_conflict(projector, &dir, &state, &changed, &committed, &request)?;
     Ok(())
 }
 
@@ -1013,7 +1082,7 @@ fn observe_state(
     material: &Material,
 ) -> Checked<layerx_indexer::ai_market::SnapshotRecord> {
     let (_, _, facts) = captured(state, material)?;
-    Ok(store.observe(&snapshot_observation(state, facts)?)?)
+    Ok(store.observe(&snapshot_observation(state, facts))?)
 }
 
 // The archive peer reads its response from disk on every request. Dropping it
@@ -1026,8 +1095,11 @@ struct Archive {
 }
 impl Archive {
     fn open(path: PathBuf, digest: StateDigest) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("archive bind");
-        let address = listener.local_addr().expect("archive address");
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "archive bind"));
+        let address = listener
+            .local_addr()
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "archive address"));
         let stop = Arc::new(AtomicBool::new(false));
         let stopped = Arc::clone(&stop);
         let expected = format!("GET /{} ", layerx_indexer::codec::hex(digest.as_bytes()));
@@ -1036,14 +1108,17 @@ impl Archive {
                 if stopped.load(Ordering::Acquire) {
                     break;
                 }
-                let mut stream = incoming.expect("archive connection");
+                let mut stream =
+                    incoming.unwrap_or_else(|error| panic!("{}: {error:?}", "archive connection"));
                 stream
                     .set_read_timeout(Some(Duration::from_secs(5)))
-                    .expect("archive timeout");
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "archive timeout"));
                 let mut request = Vec::new();
                 loop {
                     let mut bytes = [0; 1024];
-                    let n = stream.read(&mut bytes).expect("archive request");
+                    let n = stream
+                        .read(&mut bytes)
+                        .unwrap_or_else(|error| panic!("{}: {error:?}", "archive request"));
                     assert!(n > 0);
                     request.extend_from_slice(&bytes[..n]);
                     if request.windows(4).any(|w| w == b"\r\n\r\n") {
@@ -1051,14 +1126,17 @@ impl Archive {
                     }
                 }
                 assert!(String::from_utf8_lossy(&request).starts_with(&expected));
-                let bytes = fs::read(&path).expect("durable archive bytes");
+                let bytes = fs::read(&path)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "durable archive bytes"));
                 write!(
                     stream,
                     "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
                     bytes.len()
                 )
-                .expect("archive headers");
-                stream.write_all(&bytes).expect("archive body");
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "archive headers"));
+                stream
+                    .write_all(&bytes)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "archive body"));
             }
         });
         Self {
@@ -1069,7 +1147,7 @@ impl Archive {
                 },
                 Duration::from_secs(5),
             )
-            .expect("archive endpoint"),
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "archive endpoint")),
             address,
             stop,
             thread: Some(thread),
@@ -1082,14 +1160,128 @@ impl Drop for Archive {
         let _ = TcpStream::connect(self.address);
         self.thread
             .take()
-            .expect("archive thread")
+            .unwrap_or_else(|| panic!("archive thread"))
             .join()
-            .expect("archive stopped");
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "archive stopped"));
     }
 }
 
+fn assert_invalid_archive_memberships(state: &[u8], old_material: &Material) -> Checked<Vec<u8>> {
+    let (section, _) = frame(vec![observed(worker(1)?, 1, 999)?], &[completion(1, 999)?])?;
+    let changed = state_with(&section)?;
+    let bad_store = ProjectionStore::open_in_memory()?;
+    let changed_record = observe_state(&bad_store, &changed, old_material)?;
+    assert_eq!(
+        bad_store.promote(
+            &changed_record.snapshot_id,
+            &old_material.evidence(),
+            &authority(),
+            PUBLICATION_TIME_MS
+        ),
+        Err(ViewError::FinalityUnavailable)
+    );
+    assert_eq!(
+        bad_store
+            .snapshot(&changed_record.snapshot_id)?
+            .unwrap_or_else(|| panic!("provisional"))
+            .rank,
+        0
+    );
+    assert!(bad_store.pending_events(&market()?, 16)?.is_empty());
+    let mut altered_leaf = material_at(state, 1000)?;
+    let mut document: Value = serde_json::from_slice(&altered_leaf.proof)?;
+    let last = document["manifest"]
+        .as_array_mut()
+        .unwrap_or_else(|| panic!("manifest"))
+        .last_mut()
+        .unwrap_or_else(|| panic!("manifest byte"));
+    *last = json!(last.as_u64().unwrap_or_else(|| panic!("byte")) ^ 1);
+    altered_leaf.proof = serde_json::to_vec(&document)?;
+    let wrong_key = certify_state(state, PROGRAM, b"unrelated/state")?;
+    let wrong_program =
+        certify_state(state, [77; 32], layerx_programs_ai_market::SHARED_STATE_KEY)?;
+    let recorded = recorded_namespace()?;
+    for invalid in [&altered_leaf, &wrong_key, &wrong_program, &recorded] {
+        layerx_indexer::ai_market::verify_block_commit(&invalid.evidence(), &authority())?;
+        let store = ProjectionStore::open_in_memory()?;
+        let observed = observe_state(&store, state, invalid)?;
+        assert_eq!(
+            store.promote(
+                &observed.snapshot_id,
+                &invalid.evidence(),
+                &authority(),
+                PUBLICATION_TIME_MS
+            ),
+            Err(ViewError::FinalityUnavailable)
+        );
+        assert_eq!(
+            store
+                .snapshot(&observed.snapshot_id)?
+                .unwrap_or_else(|| panic!("unpromoted"))
+                .rank,
+            0
+        );
+        assert!(store.pending_events(&market()?, 16)?.is_empty());
+    }
+    Ok(changed)
+}
+
+fn assert_archive_recovery(
+    dir: &Scratch,
+    old: &layerx_indexer::ai_market::SnapshotRecord,
+    old_binding: &[u8],
+    archive_path: &Path,
+    path: &str,
+) -> Checked {
+    use layerx_indexer::ai_market::Viewer;
+    let store = ProjectionStore::open(&dir.db())?;
+    let archived = store
+        .snapshot(&old.snapshot_id)?
+        .unwrap_or_else(|| panic!("recovered archive header"));
+    assert_eq!(archived.binding, Some(old_binding.to_vec()));
+    assert!(!archived.retained);
+    let archive = Archive::open(archive_path.to_path_buf(), old.state_digest);
+    let (status, recovered) = archive.endpoint.get(path)?;
+    assert_eq!(status, 200);
+    assert_eq!(codec::state_digest(&recovered)?, old.state_digest);
+    let mut altered = recovered.clone();
+    *altered
+        .last_mut()
+        .unwrap_or_else(|| panic!("archive bytes")) ^= 1;
+    assert_eq!(
+        store.restore_archived(&old.snapshot_id, &altered),
+        Err(ViewError::IntegrityFailure)
+    );
+    assert_eq!(store.snapshot(&old.snapshot_id)?, Some(archived));
+    store.restore_archived(&old.snapshot_id, &recovered)?;
+    let viewer = Viewer::for_principal("repair-archive")?;
+    let restored = store.market_view(&viewer, &market()?, Some(&old.snapshot_id), None)?;
+    assert_eq!(
+        restored.binding,
+        layerx_programs_ai_market::queries::SnapshotBinding::decode(
+            &old.binding.clone().unwrap_or_else(|| panic!("old binding"))
+        )?
+    );
+    assert_eq!(store.pending_events(&market()?, 16)?.len(), 2);
+    drop(archive);
+    drop(store);
+    let reopened = ProjectionStore::open(&dir.db())?;
+    assert_eq!(
+        reopened.market_view(&viewer, &market()?, Some(&old.snapshot_id), None)?,
+        restored
+    );
+    Ok(())
+}
+
+/// Checks snapshot membership and archived state across a restart.
+///
+/// # Errors
+/// Returns an error when fixture setup or a checked operation fails.
+///
+/// # Panics
+/// Panics if a case assertion fails or fixture data violates its shape.
 pub fn snapshot_membership_archive_transport_and_restart() -> Checked {
-    use layerx_indexer::ai_market::{ProjectionState, Viewer};
+    use layerx_indexer::ai_market::ProjectionState;
     let dir = Scratch::new("snapshot-archive");
     let state = created_state()?;
     let old_material = material_at(&state, 1000)?;
@@ -1101,7 +1293,7 @@ pub fn snapshot_membership_archive_transport_and_restart() -> Checked {
     bad_signature.signatures[0]
         .signature
         .as_mut()
-        .expect("signature")[0] ^= 1;
+        .unwrap_or_else(|| panic!("signature"))[0] ^= 1;
     assert_eq!(
         store.promote(
             &provisional.snapshot_id,
@@ -1137,71 +1329,16 @@ pub fn snapshot_membership_archive_transport_and_restart() -> Checked {
     )?;
     assert_eq!(old.projection, ProjectionState::FinalizedPublishable);
     assert_eq!(old.rank, FINALIZED_RANK);
-    let old_binding = old.binding.clone().expect("finalized binding");
+    let old_binding = old
+        .binding
+        .clone()
+        .unwrap_or_else(|| panic!("finalized binding"));
     let pending = store.pending_events(&market()?, 16)?;
     assert_eq!(pending.len(), 1);
     assert_eq!(pending[0].binding, old_binding);
     assert_eq!(pending[0].snapshot_id, old.snapshot_id);
 
-    let (section, _) = frame(vec![observed(worker(1)?, 1, 999)?], &[completion(1, 999)?])?;
-    let changed = state_with(&section)?;
-    let bad_store = ProjectionStore::open_in_memory()?;
-    let changed_record = observe_state(&bad_store, &changed, &old_material)?;
-    assert_eq!(
-        bad_store.promote(
-            &changed_record.snapshot_id,
-            &old_material.evidence(),
-            &authority(),
-            PUBLICATION_TIME_MS
-        ),
-        Err(ViewError::FinalityUnavailable)
-    );
-    assert_eq!(
-        bad_store
-            .snapshot(&changed_record.snapshot_id)?
-            .expect("provisional")
-            .rank,
-        0
-    );
-    assert!(bad_store.pending_events(&market()?, 16)?.is_empty());
-    let mut altered_leaf = material_at(&state, 1000)?;
-    let mut document: Value = serde_json::from_slice(&altered_leaf.proof)?;
-    let last = document["manifest"]
-        .as_array_mut()
-        .expect("manifest")
-        .last_mut()
-        .expect("manifest byte");
-    *last = json!(last.as_u64().expect("byte") ^ 1);
-    altered_leaf.proof = serde_json::to_vec(&document)?;
-    let wrong_key = certify_state(&state, PROGRAM, b"unrelated/state")?;
-    let wrong_program = certify_state(
-        &state,
-        [77; 32],
-        layerx_programs_ai_market::SHARED_STATE_KEY,
-    )?;
-    let recorded = recorded_namespace()?;
-    for invalid in [&altered_leaf, &wrong_key, &wrong_program, &recorded] {
-        layerx_indexer::ai_market::verify_block_commit(&invalid.evidence(), &authority())?;
-        let store = ProjectionStore::open_in_memory()?;
-        let observed = observe_state(&store, &state, invalid)?;
-        assert_eq!(
-            store.promote(
-                &observed.snapshot_id,
-                &invalid.evidence(),
-                &authority(),
-                PUBLICATION_TIME_MS
-            ),
-            Err(ViewError::FinalityUnavailable)
-        );
-        assert_eq!(
-            store
-                .snapshot(&observed.snapshot_id)?
-                .expect("unpromoted")
-                .rank,
-            0
-        );
-        assert!(store.pending_events(&market()?, 16)?.is_empty());
-    }
+    let changed = assert_invalid_archive_memberships(&state, &old_material)?;
     let next_material = material_at(&changed, 1001)?;
     let next = observe_state(&store, &changed, &next_material)?;
     let next = store.promote(
@@ -1225,7 +1362,7 @@ pub fn snapshot_membership_archive_transport_and_restart() -> Checked {
     assert_eq!(
         store
             .snapshot(&old.snapshot_id)?
-            .expect("archived")
+            .unwrap_or_else(|| panic!("archived"))
             .projection,
         ProjectionState::Archived
     );
@@ -1234,43 +1371,17 @@ pub fn snapshot_membership_archive_transport_and_restart() -> Checked {
     drop(before);
     drop(state);
     // Restart both sides before retrieving any recovery bytes.
-    let store = ProjectionStore::open(&dir.db())?;
-    let archived = store
-        .snapshot(&old.snapshot_id)?
-        .expect("recovered archive header");
-    assert_eq!(archived.binding, Some(old_binding));
-    assert!(!archived.retained);
-    let archive = Archive::open(archive_path, old.state_digest);
-    let (status, recovered) = archive.endpoint.get(&path)?;
-    assert_eq!(status, 200);
-    assert_eq!(codec::state_digest(&recovered)?, old.state_digest);
-    let mut altered = recovered.clone();
-    *altered.last_mut().expect("archive bytes") ^= 1;
-    assert_eq!(
-        store.restore_archived(&old.snapshot_id, &altered),
-        Err(ViewError::IntegrityFailure)
-    );
-    assert_eq!(store.snapshot(&old.snapshot_id)?, Some(archived));
-    store.restore_archived(&old.snapshot_id, &recovered)?;
-    let viewer = Viewer::for_principal("repair-archive")?;
-    let restored = store.market_view(&viewer, &market()?, Some(&old.snapshot_id), None)?;
-    assert_eq!(
-        restored.binding,
-        layerx_programs_ai_market::queries::SnapshotBinding::decode(
-            &old.binding.expect("old binding")
-        )?
-    );
-    assert_eq!(store.pending_events(&market()?, 16)?.len(), 2);
-    drop(archive);
-    drop(store);
-    let reopened = ProjectionStore::open(&dir.db())?;
-    assert_eq!(
-        reopened.market_view(&viewer, &market()?, Some(&old.snapshot_id), None)?,
-        restored
-    );
+    assert_archive_recovery(&dir, &old, &old_binding, &archive_path, &path)?;
     Ok(())
 }
 
+/// Checks authenticated state binding and wrong-key refusal.
+///
+/// # Errors
+/// Returns an error when fixture setup or a checked operation fails.
+///
+/// # Panics
+/// Panics if a case assertion fails or fixture data violates its shape.
 pub fn binding_consumes_authenticated_store_proof_and_refuses_wrong_keys() -> Checked {
     use layerx_programs_ai_market::queries::{bind_snapshot, SnapshotBinding, BINDING_MAX_BYTES};
     let state = created_state()?;
@@ -1358,26 +1469,7 @@ pub fn binding_consumes_authenticated_store_proof_and_refuses_wrong_keys() -> Ch
     Ok(())
 }
 
-pub fn tenant_backfill_preserves_chain_id_history_events_and_summary() -> Checked {
-    let server = Node::new(true, false);
-    let node = server.ingester()?;
-    let live = Store::open_in_memory()?;
-    register_tenant(&live)?;
-    assert_eq!(
-        node.step(&live)?,
-        StepOutcome::Advanced {
-            units: 3,
-            position: 3
-        }
-    );
-    let expected = tenant_history(&live)?;
-    assert!(!expected.0.is_empty());
-    assert_eq!(expected.1.len(), 1);
-    assert_eq!(expected.1[0]["name"], "ChainStatusChanged");
-    assert_eq!(expected.1[0]["decoded"]["args"]["id"], "1");
-    assert_eq!(expected.2["tx_count"], 5);
-    assert!(expected.2["gas_used"].as_u64().expect("gas") > 0);
-    assert!(live.transfers("paxeer")?.is_empty());
+fn checked_tenant_database_rows() -> Checked<BlockscoutRange> {
     let mut rows = database_rows();
     for row in &mut rows.transactions {
         row.chain_id = Some("125000001".into());
@@ -1387,10 +1479,13 @@ pub fn tenant_backfill_preserves_chain_id_history_events_and_summary() -> Checke
         let mut chain = recorded_chain();
         for block in chain["canonical"]["blocks"]
             .as_object_mut()
-            .expect("blocks")
+            .unwrap_or_else(|| panic!("blocks"))
             .values_mut()
         {
-            for tx in block["transactions"].as_array_mut().expect("transactions") {
+            for tx in block["transactions"]
+                .as_array_mut()
+                .unwrap_or_else(|| panic!("transactions"))
+            {
                 tx["chainId"] = json!("0x7735941");
             }
         }
@@ -1399,10 +1494,10 @@ pub fn tenant_backfill_preserves_chain_id_history_events_and_summary() -> Checke
     for (height, block) in &converted {
         let live_txs = chain["canonical"]["blocks"][height.to_string()]["transactions"]
             .as_array()
-            .expect("live transactions");
+            .unwrap_or_else(|| panic!("live transactions"));
         let db_txs = block.block["transactions"]
             .as_array()
-            .expect("database transactions");
+            .unwrap_or_else(|| panic!("database transactions"));
         assert_eq!(db_txs.len(), live_txs.len());
         for (database, live) in db_txs.iter().zip(live_txs) {
             for field in [
@@ -1421,6 +1516,42 @@ pub fn tenant_backfill_preserves_chain_id_history_events_and_summary() -> Checke
             assert_eq!(database["chainId"], "0x7735941");
         }
     }
+    Ok(rows)
+}
+
+/// Checks tenant backfill history, events, and summary.
+///
+/// # Errors
+/// Returns an error when fixture setup or a checked operation fails.
+///
+/// # Panics
+/// Panics if a case assertion fails or fixture data violates its shape.
+pub fn tenant_backfill_preserves_chain_id_history_events_and_summary() -> Checked {
+    let server = Node::new(true, false);
+    let node = server.ingester()?;
+    let live = Store::open_in_memory()?;
+    register_tenant(&live)?;
+    assert_eq!(
+        node.step(&live)?,
+        StepOutcome::Advanced {
+            units: 3,
+            position: 3
+        }
+    );
+    let expected = tenant_history(&live)?;
+    assert!(!expected.0.is_empty());
+    assert_eq!(expected.1.len(), 1);
+    assert_eq!(expected.1[0]["name"], "ChainStatusChanged");
+    assert_eq!(expected.1[0]["decoded"]["args"]["id"], "1");
+    assert_eq!(expected.2["tx_count"], 5);
+    assert!(
+        expected.2["gas_used"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("gas"))
+            > 0
+    );
+    assert!(live.transfers("paxeer")?.is_empty());
+    let rows = checked_tenant_database_rows()?;
     let dir = Scratch::new("tenant-cutover");
     let store = Store::open(&dir.db())?;
     register_tenant(&store)?;
@@ -1433,7 +1564,13 @@ pub fn tenant_backfill_preserves_chain_id_history_events_and_summary() -> Checke
         2
     );
     assert_eq!(asked, vec![(1, 1), (2, 2)]);
-    assert_eq!(store.cursor("paxeer")?.expect("cutover").position, 2);
+    assert_eq!(
+        store
+            .cursor("paxeer")?
+            .unwrap_or_else(|| panic!("cutover"))
+            .position,
+        2
+    );
     assert_eq!(store.chain_summary(1)?["tx_count"], 4);
     let at_cutover = tenant_history(&store)?;
     drop(store);
@@ -1444,7 +1581,10 @@ pub fn tenant_backfill_preserves_chain_id_history_events_and_summary() -> Checke
     let store = Store::open(&dir.db())?;
     assert_eq!(tenant_history(&store)?, at_cutover);
     assert_eq!(
-        store.cursor("paxeer")?.expect("recovered cursor").position,
+        store
+            .cursor("paxeer")?
+            .unwrap_or_else(|| panic!("recovered cursor"))
+            .position,
         2
     );
     assert_eq!(
@@ -1456,15 +1596,31 @@ pub fn tenant_backfill_preserves_chain_id_history_events_and_summary() -> Checke
     );
     assert_eq!(tenant_history(&store)?, expected);
     assert!(store.transfers("paxeer")?.is_empty());
-    assert_eq!(store.chain(1)?.expect("tenant").status, "paused");
+    assert_eq!(
+        store.chain(1)?.unwrap_or_else(|| panic!("tenant")).status,
+        "paused"
+    );
     drop(store);
     let reopened = Store::open(&dir.db())?;
     assert_eq!(tenant_history(&reopened)?, expected);
-    assert_eq!(reopened.cursor("paxeer")?.expect("live cursor").position, 3);
+    assert_eq!(
+        reopened
+            .cursor("paxeer")?
+            .unwrap_or_else(|| panic!("live cursor"))
+            .position,
+        3
+    );
     Ok(())
 }
 
-pub fn daemon_observation_order_allows_disabled_index_evm_fallback() -> Checked {
+struct DisabledIndexPeer {
+    address: std::net::SocketAddr,
+    stop: Arc<AtomicBool>,
+    calls: Arc<std::sync::Mutex<Vec<String>>>,
+    server: thread::JoinHandle<()>,
+}
+
+fn disabled_index_peer() -> Checked<DisabledIndexPeer> {
     let listener = TcpListener::bind("127.0.0.1:0")?;
     let address = listener.local_addr()?;
     let stopped = Arc::new(AtomicBool::new(false));
@@ -1477,14 +1633,21 @@ pub fn daemon_observation_order_allows_disabled_index_evm_fallback() -> Checked 
             if stopped.load(Ordering::Acquire) {
                 break;
             }
-            let mut stream = incoming.expect("node connection");
+            let mut stream =
+                incoming.unwrap_or_else(|error| panic!("{}: {error:?}", "node connection"));
             stream
                 .set_read_timeout(Some(Duration::from_secs(5)))
-                .expect("timeout");
-            let body = read_request(&mut stream).expect("request");
-            let request: Value = serde_json::from_slice(&body).expect("JSON-RPC request");
-            let method = request["method"].as_str().expect("method");
-            requests.lock().expect("calls").push(method.into());
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "timeout"));
+            let body = read_request(&mut stream).unwrap_or_else(|| panic!("request"));
+            let request: Value = serde_json::from_slice(&body)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "JSON-RPC request"));
+            let method = request["method"]
+                .as_str()
+                .unwrap_or_else(|| panic!("method"));
+            requests
+                .lock()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "calls"))
+                .push(method.into());
             let result = match method {
                 "status" => {
                     json!({"node_info":{"other":{"tx_index":"off"}}, "sync_info":{"latest_block_height":"3", "catching_up":false}})
@@ -1495,19 +1658,20 @@ pub fn daemon_observation_order_allows_disabled_index_evm_fallback() -> Checked 
                     let height = u64::from_str_radix(
                         request["params"][0]
                             .as_str()
-                            .expect("height")
+                            .unwrap_or_else(|| panic!("height"))
                             .trim_start_matches("0x"),
                         16,
                     )
-                    .expect("quantity");
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "quantity"));
                     chain["canonical"]["blocks"][height.to_string()].clone()
                 }
-                "eth_getTransactionReceipt" => {
-                    chain["receipts"][request["params"][0].as_str().expect("hash")].clone()
-                }
+                "eth_getTransactionReceipt" => chain["receipts"][request["params"][0]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("hash"))]
+                .clone(),
                 "tx_search" => {
                     let response = json!({"jsonrpc":"2.0", "id":request["id"], "error":{"code":-32603,"message":"Internal error","data":layerx_indexer::paxeer::TX_INDEX_DISABLED}}).to_string();
-                    write!(stream,"HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}",response.len()).expect("error response");
+                    write!(stream,"HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}",response.len()).unwrap_or_else(|error| panic!("{}: {error:?}", "error response"));
                     continue;
                 }
                 _ => panic!("unexpected node method {method}"),
@@ -1519,9 +1683,116 @@ pub fn daemon_observation_order_allows_disabled_index_evm_fallback() -> Checked 
                 "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}",
                 response.len()
             )
-            .expect("response");
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "response"));
         }
     });
+    Ok(DisabledIndexPeer {
+        address,
+        stop,
+        calls,
+        server,
+    })
+}
+
+fn assert_disabled_index_result(
+    calls: &Arc<std::sync::Mutex<Vec<String>>>,
+    outcome: Result<StepOutcome, IndexError>,
+    store: Store,
+    dir: &Scratch,
+) -> Checked {
+    assert_eq!(
+        calls
+            .lock()
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "calls"))
+            .first()
+            .map(String::as_str),
+        Some("status")
+    );
+    assert_eq!(
+        &calls
+            .lock()
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "calls"))[..4],
+        ["status", "eth_chainId", "eth_blockNumber", "tx_search"]
+    );
+    assert_eq!(
+        outcome?,
+        StepOutcome::Advanced {
+            units: 3,
+            position: 3
+        }
+    );
+    assert_eq!(
+        store
+            .cursor("paxeer")?
+            .unwrap_or_else(|| panic!("fallback cursor"))
+            .position,
+        3
+    );
+    assert!(!store.transfers("paxeer")?.is_empty());
+    assert_eq!(
+        store
+            .chain(1)?
+            .unwrap_or_else(|| panic!("registered tenant"))
+            .status,
+        "paused"
+    );
+    let comet = store
+        .source_observation("comet")?
+        .unwrap_or_else(|| panic!("Comet observation"));
+    assert_eq!(comet.source_head, Some(3));
+    assert_eq!(comet.last_error.as_deref(), Some("tx_index_disabled"));
+    assert!(comet.last_success_at.is_none());
+    let readiness = layerx_indexer::api::Readiness {
+        sources: vec!["comet"],
+        stall_after_secs: 30,
+        started_at: 0,
+        explorer: None,
+    };
+    let document = layerx_indexer::api::readiness_document(&store, &readiness)?;
+    assert_eq!(document.status, "unavailable");
+    assert_ne!(document.sources[0].state, "ready");
+    let transfers = store.transfers("paxeer")?;
+    let events = store.events("paxeer")?;
+    drop(store);
+    let reopened = Store::open(&dir.db())?;
+    assert_eq!(
+        reopened
+            .cursor("paxeer")?
+            .unwrap_or_else(|| panic!("recovered cursor"))
+            .position,
+        3
+    );
+    assert_eq!(reopened.transfers("paxeer")?, transfers);
+    assert_eq!(reopened.events("paxeer")?, events);
+    assert_eq!(
+        reopened
+            .chain(1)?
+            .unwrap_or_else(|| panic!("recovered tenant"))
+            .status,
+        "paused"
+    );
+    let comet = reopened
+        .source_observation("comet")?
+        .unwrap_or_else(|| panic!("recovered Comet observation"));
+    assert_eq!(comet.last_error.as_deref(), Some("tx_index_disabled"));
+    assert!(comet.last_success_at.is_none());
+    Ok(())
+}
+
+/// Checks EVM fallback when transaction indexing is disabled.
+///
+/// # Errors
+/// Returns an error when fixture setup or a checked operation fails.
+///
+/// # Panics
+/// Panics if a case assertion fails or fixture data violates its shape.
+pub fn daemon_observation_order_allows_disabled_index_evm_fallback() -> Checked {
+    let DisabledIndexPeer {
+        address,
+        stop,
+        calls,
+        server,
+    } = disabled_index_peer()?;
     let endpoint = Endpoint::parse(
         &format!("http://{address}"),
         Security::Plaintext {
@@ -1555,64 +1826,9 @@ pub fn daemon_observation_order_allows_disabled_index_evm_fallback() -> Checked 
     let outcome = node.daemon_step(&store);
     stop.store(true, Ordering::Release);
     let _ = TcpStream::connect(address);
-    server.join().expect("node stopped");
-    assert_eq!(
-        calls.lock().expect("calls").first().map(String::as_str),
-        Some("status")
-    );
-    assert_eq!(
-        &calls.lock().expect("calls")[..4],
-        ["status", "eth_chainId", "eth_blockNumber", "tx_search"]
-    );
-    assert_eq!(
-        outcome?,
-        StepOutcome::Advanced {
-            units: 3,
-            position: 3
-        }
-    );
-    assert_eq!(
-        store.cursor("paxeer")?.expect("fallback cursor").position,
-        3
-    );
-    assert!(!store.transfers("paxeer")?.is_empty());
-    assert_eq!(store.chain(1)?.expect("registered tenant").status, "paused");
-    let comet = store
-        .source_observation("comet")?
-        .expect("Comet observation");
-    assert_eq!(comet.source_head, Some(3));
-    assert_eq!(comet.last_error.as_deref(), Some("tx_index_disabled"));
-    assert!(comet.last_success_at.is_none());
-    let readiness = layerx_indexer::api::Readiness {
-        sources: vec!["comet"],
-        stall_after_secs: 30,
-        started_at: 0,
-        explorer: None,
-    };
-    let document = layerx_indexer::api::readiness_document(&store, &readiness)?;
-    assert_eq!(document.status, "unavailable");
-    assert_ne!(document.sources[0].state, "ready");
-    let transfers = store.transfers("paxeer")?;
-    let events = store.events("paxeer")?;
-    drop(store);
-    let reopened = Store::open(&dir.db())?;
-    assert_eq!(
-        reopened
-            .cursor("paxeer")?
-            .expect("recovered cursor")
-            .position,
-        3
-    );
-    assert_eq!(reopened.transfers("paxeer")?, transfers);
-    assert_eq!(reopened.events("paxeer")?, events);
-    assert_eq!(
-        reopened.chain(1)?.expect("recovered tenant").status,
-        "paused"
-    );
-    let comet = reopened
-        .source_observation("comet")?
-        .expect("recovered Comet observation");
-    assert_eq!(comet.last_error.as_deref(), Some("tx_index_disabled"));
-    assert!(comet.last_success_at.is_none());
+    server
+        .join()
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "node stopped"));
+    assert_disabled_index_result(&calls, outcome, store, &dir)?;
     Ok(())
 }

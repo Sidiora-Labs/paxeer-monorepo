@@ -31,10 +31,11 @@ fn finality_evidence_v2_matches_vector() {
         app_hash: [0xC2; 32],
         store_proof_digest: [0xD2; 32],
     };
-    let native_state_root = Digest32::new([0xA1; 32]).expect("native root");
+    let native_state_root =
+        Digest32::new([0xA1; 32]).unwrap_or_else(|error| panic!("{}: {error:?}", "native root"));
     let evidence = committed
         .finality_evidence(native_state_root)
-        .expect("v2 evidence");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "v2 evidence"));
     assert_eq!(evidence.native_state_root, native_state_root);
     assert_eq!(evidence.block_height, committed.height);
     assert_eq!(evidence.block_hash.bytes(), committed.block_hash);
@@ -45,19 +46,26 @@ fn finality_evidence_v2_matches_vector() {
     );
     assert_eq!(evidence.rank, FINALIZED_RANK);
     let binding = SnapshotBinding {
-        chain: ChainDomain::new([10; 32]).expect("chain"),
-        program: ProgramId::new([11; 32]).expect("program"),
-        market: MarketId::new([12; 32]).expect("market"),
+        chain: ChainDomain::new([10; 32]).unwrap_or_else(|error| panic!("{}: {error:?}", "chain")),
+        program: ProgramId::new([11; 32])
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "program")),
+        market: MarketId::new([12; 32]).unwrap_or_else(|error| panic!("{}: {error:?}", "market")),
         observed_sequence: 0x0102_0304_0506_0708,
         execution_height: 0x1112_1314_1516_1718,
-        batch_id: Digest32::new([0xBB; 32]).expect("read block hash"),
+        batch_id: Digest32::new([0xBB; 32])
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "read block hash")),
         native_state_root: evidence.native_state_root,
         revision: 0x2122_2324_2526_2728,
-        state_digest: StateDigest::new([0xD1; 32]).expect("state digest"),
+        state_digest: StateDigest::new([0xD1; 32])
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "state digest")),
         epoch: Presence::Present(0x3132_3334_3536_3738),
-        config: Version::new(0x4142_4344_4546_4748).expect("config"),
-        policy: PolicyDigest::new([0xE1; 32]).expect("policy"),
-        roster: Presence::Present(RosterDigest::new([0xF1; 32]).expect("roster")),
+        config: Version::new(0x4142_4344_4546_4748)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "config")),
+        policy: PolicyDigest::new([0xE1; 32])
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "policy")),
+        roster: Presence::Present(
+            RosterDigest::new([0xF1; 32]).unwrap_or_else(|error| panic!("{}: {error:?}", "roster")),
+        ),
         block_height: evidence.block_height,
         block_hash: evidence.block_hash,
         app_hash: evidence.app_hash,
@@ -66,15 +74,35 @@ fn finality_evidence_v2_matches_vector() {
         publication_time_ms: 0x6162_6364_6566_6768,
     };
     let vector = include_str!("../../../../../programs/tests/vectors/snapshot-binding-v2.hex");
-    let pinned = unhex(vector.strip_suffix('\n').expect("vector newline")).expect("vector hex");
+    let pinned = unhex(
+        vector
+            .strip_suffix('\n')
+            .unwrap_or_else(|| panic!("vector newline")),
+    )
+    .unwrap_or_else(|error| panic!("{}: {error:?}", "vector hex"));
     let mut encoded = [0; BINDING_MAX_BYTES];
-    let n = binding.encode(&mut encoded).expect("encode v2 binding");
+    let n = binding
+        .encode(&mut encoded)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "encode v2 binding"));
     assert_eq!(n, BINDING_MAX_BYTES);
     assert_eq!(vector.len(), 2 * n + 1);
     assert_eq!(&encoded[..n], pinned.as_slice());
     assert_eq!(hex(&encoded[..n]), vector.trim_end());
-    binding.require_finalized().expect("rank-4 commit evidence");
+    binding
+        .require_finalized()
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "rank-4 commit evidence"));
 
+    assert_verified_commit_binding(&binding, committed, native_state_root, &pinned, n, encoded);
+}
+
+fn assert_verified_commit_binding(
+    binding: &SnapshotBinding,
+    committed: VerifiedCommit,
+    native_state_root: Digest32,
+    pinned: &[u8],
+    n: usize,
+    mut encoded: [u8; BINDING_MAX_BYTES],
+) {
     // Exercise the same conversion with an actual verified consensus commit.
     let key = SigningKey::from_bytes(&[7; 32]);
     let validators = vec![Validator {
@@ -114,11 +142,12 @@ fn finality_evidence_v2_matches_vector() {
         },
         &authority,
     )
-    .expect("verify signed block commit");
-    let root = Digest32::new(verified.app_hash).expect("verified native root");
+    .unwrap_or_else(|error| panic!("{}: {error:?}", "verify signed block commit"));
+    let root = Digest32::new(verified.app_hash)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "verified native root"));
     let actual = verified
         .finality_evidence(root)
-        .expect("verified v2 evidence");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "verified v2 evidence"));
     assert_eq!(actual.block_height, committed.height);
     assert_eq!(actual.block_hash.bytes(), header.hash());
     assert_eq!(actual.app_hash.bytes(), committed.app_hash);
@@ -134,19 +163,19 @@ fn finality_evidence_v2_matches_vector() {
         app_hash: actual.app_hash,
         store_proof_digest: actual.store_proof_digest,
         rank: actual.rank,
-        ..binding
+        ..*binding
     };
     assert_eq!(rebound.snapshot_id(), binding.snapshot_id());
     let m = rebound
         .encode(&mut encoded)
-        .expect("encode verified commit binding");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "encode verified commit binding"));
     assert_eq!(m, n);
-    assert_ne!(&encoded[..m], pinned.as_slice());
+    assert_ne!(&encoded[..m], pinned);
 
     let signature = commit.signatures[0]
         .signature
         .as_mut()
-        .expect("commit signature");
+        .unwrap_or_else(|| panic!("commit signature"));
     signature[0] ^= 1;
     assert_eq!(
         verify_block_commit(
@@ -179,7 +208,8 @@ fn finality_evidence_v2_matches_vector() {
 
 fn signed_commit(header: &Header, key: &SigningKey) -> Commit {
     let mut commit = Commit {
-        height: u64::try_from(header.height).expect("positive block height"),
+        height: u64::try_from(header.height)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "positive block height")),
         round: 0,
         block_id: BlockId {
             hash: header.hash().to_vec(),
@@ -208,7 +238,8 @@ fn signed_commit(header: &Header, key: &SigningKey) -> Commit {
     let mut time = Vec::new();
     encode_varint_field(
         1,
-        u64::try_from(header.time.seconds).expect("positive timestamp"),
+        u64::try_from(header.time.seconds)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "positive timestamp")),
         &mut time,
     );
     encode_varint_field(2, u64::from(header.time.nanos), &mut time);
@@ -216,7 +247,7 @@ fn signed_commit(header: &Header, key: &SigningKey) -> Commit {
     encode_length_delimited(6, header.chain_id.as_bytes(), &mut vote);
     let mut sign_bytes = Vec::new();
     encode_varint(
-        u64::try_from(vote.len()).expect("vote length"),
+        u64::try_from(vote.len()).unwrap_or_else(|error| panic!("{}: {error:?}", "vote length")),
         &mut sign_bytes,
     );
     sign_bytes.extend_from_slice(&vote);
@@ -230,7 +261,7 @@ fn signed_commit(header: &Header, key: &SigningKey) -> Commit {
 }
 
 #[path = "support/repair_22_33_1446.rs"]
-mod repair_paths;
+pub mod repair_paths;
 
 #[test]
 fn binding_consumes_authenticated_store_proof_and_refuses_wrong_keys(

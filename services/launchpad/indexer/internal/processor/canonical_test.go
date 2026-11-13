@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -282,7 +283,7 @@ func TestCanonicalProcessorConcurrentFencingPostgres(t *testing.T) {
 	}
 	assertRows(t, pool, true)
 	// Reset only this owned DB, then race a paused old owner against its successor.
-	if _, err := pool.Exec(ctx, `TRUNCATE indexer.indexer_raw_logs,indexer.pools,indexer.swaps,indexer.indexer_block_completeness,indexer.indexer_ingest_outbox,indexer.indexer_ingest_commits; UPDATE indexer.indexer_ingest_watermarks SET raw_complete_height=100,typed_complete_height=100`); err != nil {
+	if _, err := pool.Exec(ctx, `TRUNCATE indexer.indexer_accounting_fills,indexer.indexer_raw_logs,indexer.pools,indexer.swaps,indexer.indexer_block_completeness,indexer.indexer_ingest_outbox,indexer.indexer_ingest_commits; UPDATE indexer.indexer_ingest_watermarks SET raw_complete_height=100,typed_complete_height=100`); err != nil {
 		t.Fatal(err)
 	}
 	if err := st.ReleaseLease(ctx, 125, "live", "A", b.Fence); err != nil {
@@ -383,23 +384,31 @@ func TestCanonicalDatabaseOutageAcknowledgesNothingPostgres(t *testing.T) {
 	b := prepare(t, pool)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	fixture, err := url.Parse(dsn)
+	if err != nil || !strings.HasPrefix(fixture.Path, "/kd_2c5416329a7e470a0541ecb6_") {
+		t.Fatal("database outage only allowed on exact fixture")
+	}
+	name := strings.TrimPrefix(fixture.Path, "/")
+	fixture.Path = "/kindle_fixture"
+	control, err := pgx.Connect(ctx, fixture.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer control.Close(context.Background())
 	observer, err := pgx.Connect(ctx, dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer observer.Close(context.Background())
-	var name string
-	if err = observer.QueryRow(ctx, `SELECT current_database()`).Scan(&name); err != nil {
-		t.Fatal(err)
-	}
+	observerPID := observer.PgConn().PID()
 	if !strings.HasPrefix(name, "kd_2c5416329a7e470a0541ecb6_") {
 		t.Fatal("database outage only allowed on exact fixture")
 	}
-	if _, err = observer.Exec(ctx, "ALTER DATABASE "+pgx.Identifier{name}.Sanitize()+" ALLOW_CONNECTIONS false"); err != nil {
+	if _, err = control.Exec(ctx, "ALTER DATABASE "+pgx.Identifier{name}.Sanitize()+" ALLOW_CONNECTIONS false"); err != nil {
 		t.Fatal(err)
 	}
-	defer observer.Exec(context.Background(), "ALTER DATABASE "+pgx.Identifier{name}.Sanitize()+" ALLOW_CONNECTIONS true")
-	if _, err = observer.Exec(ctx, `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid()`); err != nil {
+	defer control.Exec(context.Background(), "ALTER DATABASE "+pgx.Identifier{name}.Sanitize()+" ALLOW_CONNECTIONS true")
+	if _, err = control.Exec(ctx, `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=$1 AND pid<>$2`, name, observerPID); err != nil {
 		t.Fatal(err)
 	}
 	if err = store.New(pool).IngestReady(ctx, 125, "live", "A", b.Fence); err == nil {
@@ -412,7 +421,7 @@ func TestCanonicalDatabaseOutageAcknowledgesNothingPostgres(t *testing.T) {
 	if err = observer.QueryRow(ctx, `SELECT raw_complete_height,(SELECT count(*) FROM indexer.indexer_ingest_commits) FROM indexer.indexer_ingest_watermarks`).Scan(&height, &count); err != nil || height != 100 || count != 0 {
 		t.Fatalf("outage durable state=%d/%d err=%v", height, count, err)
 	}
-	if _, err = observer.Exec(ctx, "ALTER DATABASE "+pgx.Identifier{name}.Sanitize()+" ALLOW_CONNECTIONS true"); err != nil {
+	if _, err = control.Exec(ctx, "ALTER DATABASE "+pgx.Identifier{name}.Sanitize()+" ALLOW_CONNECTIONS true"); err != nil {
 		t.Fatal(err)
 	}
 	if err = process(ctx, pool, b); err != nil {

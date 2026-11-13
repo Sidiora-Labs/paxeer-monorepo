@@ -40,10 +40,10 @@ Describe the result you expected and how it differs from what happened.
 - Network selection, chain id, and public RPC URL without credentials:
 
 Paxeer mainnet-beta uses EVM chain id `125` (`0x7d`). Its public JSON-RPC uses
-the node's root URL, for example `https://api-mainnet-beta.paxeer.network`.
+the node's root URL.
 The app reads its default from `NEXT_PUBLIC_PAXEER_RPC_URL`; mention a custom
 endpoint or selected tenant domain if relevant. See the
-[changelog's network context](../../../../docs/wallet/app/CHANGELOG.md#network-context).
+[public RPC reference](../../../../docs/site/docs/reference/public-rpc.md).
 
 ## Screenshots
 

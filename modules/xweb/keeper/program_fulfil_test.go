@@ -646,13 +646,49 @@ func TestFulfilProgramCommittedCapacity(t *testing.T) {
 	account := ProgramFeeAccount(paxProgramAsset.id)
 	require.True(t, s.balance(account, paxProgramAsset.denom).IsZero())
 
+	// The arena still refuses a reservation larger than its hard bound.
+	before := s.state()
+	require.EqualError(t, s.k.reserveProgramAnswer(s.ctx, ProgramCommittedCapacity+1), "LXP_ARENA_EXHAUSTED")
+	require.Equal(t, before, s.state())
+
+	// Repair 128 makes the 64 hot slots renewable: admission archives the
+	// oldest completed answer, retaining its contents and replay tombstone.
+	firstHeader := bytes.Clone(s.answerPart(programFulfilP, 1, 0))
+	firstChunk := bytes.Clone(s.answerPart(programFulfilP, 1, 1))
 	s.record(programFulfilP, 65, types.KindSearch, programFulfilPayload, paxProgramAsset, sdk.NewInt(5))
-	s.refuse(s.signed(s.observation(programFulfilP, 65, []byte("answer"), 6), s.keys[:3]...), "LXP_ARENA_EXHAUSTED")
 	require.Equal(t, sdk.NewInt(5), s.balance(account, paxProgramAsset.denom))
 	require.Equal(t, byte(0), s.fulfilledByte(programFulfilP, 65))
 	require.Nil(t, s.answerPart(programFulfilP, 65, 0))
-	require.Equal(t, uint64(64), s.k.ProgramCommittedCount(s.ctx))
+	require.Equal(t, uint64(63), s.k.ProgramCommittedCount(s.ctx))
 	require.Equal(t, uint64(1), s.k.ProgramPendingCount(s.ctx))
+	require.Nil(t, s.answerPart(programFulfilP, 1, 0))
+	require.Nil(t, s.answerPart(programFulfilP, 1, 1))
+	store := s.ctx.KVStore(s.k.storeKey)
+	require.Equal(t, firstHeader, store.Get(programArchiveKey(programFulfilP, 1, 0)))
+	require.Equal(t, firstChunk, store.Get(programArchiveKey(programFulfilP, 1, 1)))
+	require.Equal(t, byte(1), s.fulfilledByte(programFulfilP, 1))
+
+	raw := s.signed(s.observation(programFulfilP, 65, []byte("answer"), 6), s.keys[:3]...)
+	require.NoError(t, s.k.FulfilProgram(s.ctx, raw))
+	require.True(t, s.balance(account, paxProgramAsset.denom).IsZero())
+	require.Equal(t, byte(1), s.fulfilledByte(programFulfilP, 65))
+	require.Equal(t, firstHeader, s.answerPart(programFulfilP, 65, 0))
+	require.Equal(t, firstChunk, s.answerPart(programFulfilP, 65, 1))
+	require.Equal(t, uint64(64), s.k.ProgramCommittedCount(s.ctx))
+	require.Zero(t, s.k.ProgramPendingCount(s.ctx))
+	for index, share := range []int64{3, 1, 1, 0} {
+		require.Equal(t, sdk.NewInt(65*share), s.balance(s.payout(index), paxProgramAsset.denom))
+	}
+	for id := uint64(1); id <= 65; id++ {
+		result, err := s.k.GetProgramResult(s.ctx, programFulfilP, id)
+		require.NoError(t, err)
+		require.Equal(t, ProgramResult{ContentDigest: programFulfilDigest, FullLength: 6,
+			ResponseLength: 6, Response: []byte("answer")}, result)
+	}
+	s.refuse(s.signed(s.observation(programFulfilP, 1, []byte("answer"), 6), s.keys[:3]...), "LXP_SEQUENCE_REUSED")
+	s.refuse(raw, "LXP_SEQUENCE_REUSED")
+	message, broken := ProgramCountersInvariant(s.k)(s.ctx)
+	require.False(t, broken, message)
 }
 
 func TestFeeAccountDerivation(t *testing.T) {

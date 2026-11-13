@@ -32,7 +32,7 @@ pub struct BudgetRecordEntry {
 
 /// The state-proven state of one budget: its record entry, the budget account balance of the
 /// budget asset and the head the state was proven at, equal to the record head. `activity_id`
-/// equals the record activity_id; a state read proves current state rather than one producing
+/// equals the record `activity_id`; a state read proves current state rather than one producing
 /// activity, so it is `None`.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BudgetState {

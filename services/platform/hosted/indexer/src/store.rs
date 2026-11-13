@@ -1,6 +1,6 @@
-//! The durable decoded store: one SQLite file, written only in whole units.
+//! The durable decoded store: one `SQLite` file, written only in whole units.
 //!
-//! A unit is one LayerX batch or one Paxeer block. Its transfers, events,
+//! A unit is one `LayerX` batch or one Paxeer block. Its transfers, events,
 //! assets, accounts, chain link and cursor advance are committed in a single
 //! transaction, so a crash leaves the store at the previous unit boundary and
 //! restart resumes from the durable cursor. Rollback deletes every row above
@@ -13,9 +13,9 @@
 
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use rusqlite::{params, Connection, OptionalExtension as _, Row};
+use rusqlite::{params, Connection, OptionalExtension as _, Row, TransactionBehavior};
 use serde_json::{json, Value};
 
 use crate::chains::{ChainRecord, ChainRow, ChainTransaction};
@@ -240,7 +240,7 @@ CREATE TABLE IF NOT EXISTS chain_links(
 ";
 
 /// Evidence source of the published node stability level: block commit.
-/// It never implies LayerX settlement.
+/// It never implies `LayerX` settlement.
 pub const STABILITY_SOURCE: &str = "block_commit";
 /// Explorer row keys are strictly below this value.
 pub const EXPLORER_KEY_LIMIT: u64 = (1 << 62) - 1;
@@ -417,7 +417,7 @@ pub struct AssetRow {
     pub metadata: Value,
 }
 
-/// One chain unit: a LayerX batch or a Paxeer block.
+/// One chain unit: a `LayerX` batch or a Paxeer block.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Unit {
     pub chain: String,
@@ -531,7 +531,7 @@ fn add_bond(left: &str, right: &str) -> Result<String, IndexError> {
     Ok(sum)
 }
 
-/// The shared SQLite store.
+/// The shared `SQLite` store.
 pub struct Store {
     connection: Mutex<Connection>,
 }
@@ -719,9 +719,10 @@ impl Store {
     /// Opens (creating when absent) the store at `path`.
     ///
     /// # Errors
-    /// Returns [`IndexError::Store`] when SQLite cannot open or migrate it.
+    /// Returns [`IndexError::Store`] when `SQLite` cannot open or migrate it.
     pub fn open(path: &Path) -> Result<Self, IndexError> {
         let connection = Connection::open(path)?;
+        connection.busy_timeout(Duration::from_secs(5))?;
         connection.pragma_update(None, "journal_mode", "WAL")?;
         Self::initialise(connection)
     }
@@ -729,7 +730,7 @@ impl Store {
     /// Opens a private in-memory store.
     ///
     /// # Errors
-    /// Returns [`IndexError::Store`] when SQLite fails.
+    /// Returns [`IndexError::Store`] when `SQLite` fails.
     pub fn open_in_memory() -> Result<Self, IndexError> {
         Self::initialise(Connection::open_in_memory()?)
     }
@@ -765,7 +766,7 @@ impl Store {
 
     /// Retain pre-upgrade documents for historical inspection, outside every output query.
     fn retire_settlement_documents(connection: &mut Connection) -> Result<(), IndexError> {
-        let tx = connection.transaction()?;
+        let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         tx.execute_batch("CREATE TABLE IF NOT EXISTS retired_settlement_evidence(
             chain TEXT NOT NULL, activity_id TEXT NOT NULL, sequence INTEGER NOT NULL,
             document TEXT NOT NULL, last_attempt INTEGER NOT NULL,
@@ -792,7 +793,7 @@ impl Store {
         if current > 0 {
             return Ok(());
         }
-        let transaction = connection.transaction()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         transaction.execute_batch(
             "ALTER TABLE assets ADD COLUMN configured INTEGER NOT NULL DEFAULT 0;
              ALTER TABLE assets ADD COLUMN configured_metadata_json TEXT;
@@ -826,7 +827,7 @@ impl Store {
         };
         let transfers = has_column("transfers")?;
         let explorer = has_column("explorer_transfers")?;
-        let transaction = connection.transaction()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         if !transfers {
             transaction.execute_batch(
                 "ALTER TABLE transfers ADD COLUMN tx_index INTEGER NOT NULL DEFAULT 0",
@@ -858,7 +859,7 @@ impl Store {
     /// The durable cursor of `chain`, when it has indexed anything.
     ///
     /// # Errors
-    /// Returns [`IndexError::Store`] on SQLite failure.
+    /// Returns [`IndexError::Store`] on `SQLite` failure.
     pub fn cursor(&self, chain: &str) -> Result<Option<Cursor>, IndexError> {
         let connection = self.lock()?;
         let row = connection
@@ -889,7 +890,7 @@ impl Store {
     /// The stored link of `chain` at `position`.
     ///
     /// # Errors
-    /// Returns [`IndexError::Store`] on SQLite failure.
+    /// Returns [`IndexError::Store`] on `SQLite` failure.
     pub fn link(&self, chain: &str, position: u64) -> Result<Option<StoredLink>, IndexError> {
         let connection = self.lock()?;
         Self::link_in(&connection, chain, position)
@@ -931,10 +932,10 @@ impl Store {
     /// links are retained for reorg detection.
     ///
     /// # Errors
-    /// Returns [`IndexError::Store`] on SQLite failure; nothing is written.
+    /// Returns [`IndexError::Store`] on `SQLite` failure; nothing is written.
     pub fn commit(&self, unit: &Unit, finality_depth: u64) -> Result<(), IndexError> {
         let mut connection = self.lock()?;
-        let transaction = connection.transaction()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let stamp = now();
         let (finalized, finalized_boundary) =
             Self::write_unit(&transaction, unit, finality_depth, stamp)?;
@@ -959,7 +960,7 @@ impl Store {
     /// anything.
     ///
     /// # Errors
-    /// Returns [`IndexError::Store`] on SQLite failure.
+    /// Returns [`IndexError::Store`] on `SQLite` failure.
     pub fn backfill_cursor(&self, chain: &str) -> Result<Option<BackfillCursor>, IndexError> {
         let connection = self.lock()?;
         let row = connection
@@ -985,10 +986,10 @@ impl Store {
     ///
     /// # Errors
     /// Returns [`IndexError::Integrity`] on overlap with live history and
-    /// [`IndexError::Store`] on SQLite failure; nothing is written.
+    /// [`IndexError::Store`] on `SQLite` failure; nothing is written.
     pub fn commit_backfill(&self, unit: &Unit, finality_depth: u64) -> Result<(), IndexError> {
         let mut connection = self.lock()?;
-        let transaction = connection.transaction()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         if let Some(live) = Self::live_position(&transaction, &unit.chain)? {
             if live >= unit.position {
                 return Err(IndexError::Integrity(format!(
@@ -1017,7 +1018,7 @@ impl Store {
     /// # Errors
     /// Returns [`IndexError::Integrity`] when the live cursor is past the
     /// cutover or the backfill has not reached it, and
-    /// [`IndexError::Store`] on SQLite failure.
+    /// [`IndexError::Store`] on `SQLite` failure.
     pub fn finish_backfill(
         &self,
         chain: &str,
@@ -1025,7 +1026,7 @@ impl Store {
         finality_depth: u64,
     ) -> Result<(), IndexError> {
         let mut connection = self.lock()?;
-        let transaction = connection.transaction()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         match Self::live_position(&transaction, chain)? {
             Some(live) if live > cutover => {
                 return Err(IndexError::Integrity(format!(
@@ -1127,6 +1128,10 @@ impl Store {
 
     /// Writes a unit's rows and chain link, prunes links below the new
     /// finalized position, and answers that position with its boundary.
+    #[allow(
+        clippy::too_many_lines,
+        reason = "Keep every row family and cursor update in one atomic unit write path."
+    )]
     fn write_unit(
         transaction: &Connection,
         unit: &Unit,
@@ -1134,16 +1139,16 @@ impl Store {
         stamp: i64,
     ) -> Result<(Option<u64>, Option<i64>), IndexError> {
         let position = signed(unit.position)?;
-        for (ordinal, event) in unit
+        for (event, ordinal) in unit
             .events
             .iter()
             .filter(|event| event.source == "chain-registry-change")
-            .enumerate()
+            .zip(0_i64..)
         {
             let change: ChainRow = serde_json::from_value(event.decoded.clone())
                 .map_err(|error| IndexError::Store(format!("chain registry change: {error}")))?;
             transaction.execute("INSERT INTO chain_registry_events(source_chain, position, ordinal, data) VALUES(?1, ?2, ?3, ?4)",
-                params![unit.chain, position, ordinal as i64, event.decoded.to_string()])?;
+                params![unit.chain, position, ordinal, event.decoded.to_string()])?;
             Self::apply_chain_event(transaction, &change)?;
         }
         let mut chain_transactions = Vec::new();
@@ -1355,7 +1360,7 @@ impl Store {
         )?;
         let finalized = unit.position.checked_sub(finality_depth);
         let finalized_boundary = match finalized {
-            Some(finalized) => Self::link_in(&transaction, &unit.chain, finalized)?
+            Some(finalized) => Self::link_in(transaction, &unit.chain, finalized)?
                 .map(|link| signed(link.boundary))
                 .transpose()?,
             None => None,
@@ -1526,10 +1531,14 @@ impl Store {
     ///
     /// # Errors
     /// Returns [`IndexError::ReorgBeyondFinality`] when the fork is below the
-    /// finalized position and [`IndexError::Store`] on SQLite failure.
+    /// finalized position and [`IndexError::Store`] on `SQLite` failure.
+    #[allow(
+        clippy::too_many_lines,
+        reason = "Keep the finality checks and every projection deletion in one atomic rollback path."
+    )]
     pub fn rollback(&self, chain: &str, fork: Option<u64>) -> Result<(), IndexError> {
         let mut connection = self.lock()?;
-        let transaction = connection.transaction()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let finalized: Option<i64> = transaction
             .query_row(
                 "SELECT finalized_position FROM cursors WHERE chain = ?1",
@@ -1547,80 +1556,77 @@ impl Store {
                 });
             }
         }
-        let above = match fork {
-            Some(fork) => {
-                let link = Self::link_in(&transaction, chain, fork)?.ok_or_else(|| {
-                    IndexError::ReorgBeyondFinality {
-                        source: chain.to_owned(),
-                        position: fork,
-                    }
-                })?;
-                let boundary = signed(link.boundary)?;
-                let depth: Option<String> = transaction
-                    .query_row(
-                        "SELECT stability_depth FROM cursors WHERE chain = ?1",
-                        params![chain],
-                        |row| row.get(0),
-                    )
-                    .optional()?
-                    .flatten();
-                let local_boundary = match depth {
-                    Some(depth) => {
-                        let depth = depth.parse::<u64>().map_err(|_| {
-                            IndexError::Integrity("invalid retained stability depth".into())
-                        })?;
-                        match fork.checked_sub(depth) {
-                            Some(position) => Self::link_in(&transaction, chain, position)?
-                                .map(|link| signed(link.boundary))
-                                .transpose()?,
-                            None => None,
-                        }
-                    }
-                    None => None,
-                };
-                transaction.execute(
-                    "UPDATE cursors SET finalized_boundary = ?2 WHERE chain = ?1",
-                    params![chain, local_boundary],
-                )?;
-                transaction.execute(
-                    "DELETE FROM transfers WHERE chain = ?1 AND height_or_seq > ?2",
-                    params![chain, boundary],
-                )?;
-                transaction.execute(
-                    "DELETE FROM settlement_evidence WHERE chain = ?1 AND sequence > ?2",
-                    params![chain, boundary],
-                )?;
-                transaction.execute(
-                    "DELETE FROM events WHERE chain = ?1 AND height_or_seq > ?2",
-                    params![chain, boundary],
-                )?;
-                transaction.execute(
-                    "DELETE FROM holder_records WHERE chain = ?1 AND height > ?2",
-                    params![chain, boundary],
-                )?;
-                transaction.execute(
-                    "DELETE FROM chain_links WHERE chain = ?1 AND position > ?2",
-                    params![chain, signed(fork)?],
-                )?;
-                transaction.execute(
-                    "UPDATE cursors SET position = ?2, hash = ?3, updated_at = ?4 WHERE chain = ?1",
-                    params![chain, signed(fork)?, link.hash, now()],
-                )?;
-                signed(fork)?
-            }
-            None => {
-                for statement in [
-                    "DELETE FROM transfers WHERE chain = ?1",
-                    "DELETE FROM settlement_evidence WHERE chain = ?1",
-                    "DELETE FROM events WHERE chain = ?1",
-                    "DELETE FROM holder_records WHERE chain = ?1",
-                    "DELETE FROM chain_links WHERE chain = ?1",
-                    "DELETE FROM cursors WHERE chain = ?1",
-                ] {
-                    transaction.execute(statement, params![chain])?;
+        let above = if let Some(fork) = fork {
+            let link = Self::link_in(&transaction, chain, fork)?.ok_or_else(|| {
+                IndexError::ReorgBeyondFinality {
+                    source: chain.to_owned(),
+                    position: fork,
                 }
-                -1
+            })?;
+            let boundary = signed(link.boundary)?;
+            let depth: Option<String> = transaction
+                .query_row(
+                    "SELECT stability_depth FROM cursors WHERE chain = ?1",
+                    params![chain],
+                    |row| row.get(0),
+                )
+                .optional()?
+                .flatten();
+            let local_boundary = match depth {
+                Some(depth) => {
+                    let depth = depth.parse::<u64>().map_err(|_| {
+                        IndexError::Integrity("invalid retained stability depth".into())
+                    })?;
+                    match fork.checked_sub(depth) {
+                        Some(position) => Self::link_in(&transaction, chain, position)?
+                            .map(|link| signed(link.boundary))
+                            .transpose()?,
+                        None => None,
+                    }
+                }
+                None => None,
+            };
+            transaction.execute(
+                "UPDATE cursors SET finalized_boundary = ?2 WHERE chain = ?1",
+                params![chain, local_boundary],
+            )?;
+            transaction.execute(
+                "DELETE FROM transfers WHERE chain = ?1 AND height_or_seq > ?2",
+                params![chain, boundary],
+            )?;
+            transaction.execute(
+                "DELETE FROM settlement_evidence WHERE chain = ?1 AND sequence > ?2",
+                params![chain, boundary],
+            )?;
+            transaction.execute(
+                "DELETE FROM events WHERE chain = ?1 AND height_or_seq > ?2",
+                params![chain, boundary],
+            )?;
+            transaction.execute(
+                "DELETE FROM holder_records WHERE chain = ?1 AND height > ?2",
+                params![chain, boundary],
+            )?;
+            transaction.execute(
+                "DELETE FROM chain_links WHERE chain = ?1 AND position > ?2",
+                params![chain, signed(fork)?],
+            )?;
+            transaction.execute(
+                "UPDATE cursors SET position = ?2, hash = ?3, updated_at = ?4 WHERE chain = ?1",
+                params![chain, signed(fork)?, link.hash, now()],
+            )?;
+            signed(fork)?
+        } else {
+            for statement in [
+                "DELETE FROM transfers WHERE chain = ?1",
+                "DELETE FROM settlement_evidence WHERE chain = ?1",
+                "DELETE FROM events WHERE chain = ?1",
+                "DELETE FROM holder_records WHERE chain = ?1",
+                "DELETE FROM chain_links WHERE chain = ?1",
+                "DELETE FROM cursors WHERE chain = ?1",
+            ] {
+                transaction.execute(statement, params![chain])?;
             }
+            -1
         };
         let nodes = {
             let mut statement = transaction.prepare(
@@ -1680,6 +1686,11 @@ impl Store {
         Ok(())
     }
 
+    /// Inserts one chain registry record.
+    ///
+    /// # Errors
+    /// Returns `IndexError::Store` for a database or mutex failure, duplicate record,
+    /// or a numeric field outside the signed storage range.
     pub fn insert_chain(&self, row: &ChainRecord) -> Result<(), IndexError> {
         Self::insert_chain_in(&*self.lock()?, row)
     }
@@ -1715,6 +1726,11 @@ impl Store {
         Ok(())
     }
 
+    /// Updates the status of one existing chain.
+    ///
+    /// # Errors
+    /// Returns `IndexError::Integrity` for an invalid status or unknown chain,
+    /// or `IndexError::Store` for a database or mutex failure.
     pub fn update_chain_status(&self, id: u32, status: &str) -> Result<(), IndexError> {
         if !matches!(
             status,
@@ -1731,6 +1747,12 @@ impl Store {
         )
     }
 
+    /// Adds a decimal amount to an existing chain's bond.
+    ///
+    /// # Errors
+    /// Returns `IndexError::Integrity` for a malformed decimal bond or amount,
+    /// or a sum exceeding the 256-bit unsigned range,
+    /// or `IndexError::Store` for a missing chain, database or mutex failure.
     pub fn update_chain_bond(&self, id: u32, amount: &str) -> Result<(), IndexError> {
         Self::apply_chain_event(
             &*self.lock()?,
@@ -1741,6 +1763,12 @@ impl Store {
         )
     }
 
+    /// Sets the canonical lowercase operator address of an existing chain.
+    ///
+    /// # Errors
+    /// Returns `IndexError::Decode` for an invalid 20-byte hexadecimal address,
+    /// `IndexError::Integrity` for an unknown chain, or `IndexError::Store`
+    /// for a database or mutex failure.
     pub fn update_chain_operator(&self, id: u32, operator: &str) -> Result<(), IndexError> {
         crate::codec::unhex_fixed::<20>(operator)?;
         Self::apply_chain_event(
@@ -1752,6 +1780,10 @@ impl Store {
         )
     }
 
+    /// Reads one chain by registry ID.
+    ///
+    /// # Errors
+    /// Returns `IndexError::Store` for database, column decoding or mutex failures.
     pub fn chain(&self, id: u32) -> Result<Option<ChainRecord>, IndexError> {
         Ok(self
             .lock()?
@@ -1759,6 +1791,10 @@ impl Store {
             .optional()?)
     }
 
+    /// Reads one chain by its exact registered name.
+    ///
+    /// # Errors
+    /// Returns `IndexError::Store` for database, column decoding or mutex failures.
     pub fn chain_by_name(&self, name: &str) -> Result<Option<ChainRecord>, IndexError> {
         Ok(self
             .lock()?
@@ -1766,6 +1802,10 @@ impl Store {
             .optional()?)
     }
 
+    /// Reads every registered chain in ID order.
+    ///
+    /// # Errors
+    /// Returns `IndexError::Store` for database, column decoding or mutex failures.
     pub fn chains(&self) -> Result<Vec<ChainRecord>, IndexError> {
         let connection = self.lock()?;
         let mut statement = connection.prepare("SELECT * FROM chains ORDER BY id")?;
@@ -1775,6 +1815,10 @@ impl Store {
         Ok(rows)
     }
 
+    /// Reads a chain's transaction count, gas usage and last indexed height.
+    ///
+    /// # Errors
+    /// Returns `IndexError::Store` for database, column decoding or mutex failures.
     pub fn chain_summary(&self, id: u32) -> Result<Value, IndexError> {
         let activity = self
             .lock()?
@@ -1797,6 +1841,11 @@ impl Store {
         )
     }
 
+    /// Pages one chain's events or transfers after a row cursor.
+    ///
+    /// # Errors
+    /// Returns `IndexError::Store` for database, mutex or row decoding failures,
+    /// or a cursor or fetch size outside the signed storage range.
     pub fn chain_page(
         &self,
         id: u32,
@@ -1840,7 +1889,7 @@ impl Store {
     /// True when `address` is registered as a pointer contract.
     ///
     /// # Errors
-    /// Returns [`IndexError::Store`] on SQLite failure.
+    /// Returns [`IndexError::Store`] on `SQLite` failure.
     pub fn is_pointer(&self, address: &str) -> Result<bool, IndexError> {
         let connection = self.lock()?;
         Ok(connection
@@ -1858,10 +1907,10 @@ impl Store {
     /// from anything units observe, and rollback never removes them.
     ///
     /// # Errors
-    /// Returns [`IndexError::Store`] on SQLite failure; nothing is written.
+    /// Returns [`IndexError::Store`] on `SQLite` failure; nothing is written.
     pub fn register_assets(&self, assets: &[AssetRow]) -> Result<(), IndexError> {
         let mut connection = self.lock()?;
-        let transaction = connection.transaction()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         for asset in assets {
             transaction.execute(
                 "INSERT INTO assets(asset, chain, kind, address, denom, first_seen, metadata_json,
@@ -1890,7 +1939,7 @@ impl Store {
     /// paging rules.
     ///
     /// # Errors
-    /// Returns [`IndexError::Store`] on SQLite failure.
+    /// Returns [`IndexError::Store`] on `SQLite` failure.
     pub fn history(
         &self,
         account: &str,
@@ -1904,7 +1953,7 @@ impl Store {
     /// Whether the explorer history of `account` has been imported in full.
     ///
     /// # Errors
-    /// Returns [`IndexError::Store`] on SQLite failure.
+    /// Returns [`IndexError::Store`] on `SQLite` failure.
     pub fn explorer_imported(&self, account: &str) -> Result<bool, IndexError> {
         let connection = self.lock()?;
         Ok(connection
@@ -1920,7 +1969,7 @@ impl Store {
     /// The saved next-page query for an unfinished explorer feed.
     ///
     /// # Errors
-    /// Returns [`IndexError::Store`] on SQLite failure.
+    /// Returns [`IndexError::Store`] on `SQLite` failure.
     pub fn explorer_progress(
         &self,
         account: &str,
@@ -1957,7 +2006,7 @@ impl Store {
     /// `complete`, records that its explorer history is imported in full.
     ///
     /// # Errors
-    /// Returns [`IndexError::Store`] on SQLite failure or an out-of-range key.
+    /// Returns [`IndexError::Store`] on `SQLite` failure or an out-of-range key.
     pub fn import_explorer(
         &self,
         account: &str,
@@ -1966,7 +2015,7 @@ impl Store {
         complete: bool,
     ) -> Result<(), IndexError> {
         let mut connection = self.lock()?;
-        let transaction = connection.transaction()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         for (key, row) in rows {
             if *key >= EXPLORER_KEY_LIMIT {
                 return Err(IndexError::Store(format!(
@@ -2022,7 +2071,7 @@ impl Store {
     /// `limit` of 0 reads as 1.
     ///
     /// # Errors
-    /// Returns [`IndexError::Store`] on SQLite failure.
+    /// Returns [`IndexError::Store`] on `SQLite` failure.
     pub fn merged_history(
         &self,
         account: &str,
@@ -2318,6 +2367,12 @@ impl Store {
         Ok(records.collect::<Result<Vec<_>, _>>()?)
     }
 
+    /// Reads the complete name portfolio of an owner in registration order.
+    ///
+    /// # Errors
+    /// Returns `IndexError::NameResultLimit` if the complete result exceeds
+    /// `MAXIMUM_NAME_RESULTS`, or `IndexError::Store` for database, column
+    /// decoding or mutex failures.
     pub fn names_owned_by(
         &self,
         address: &str,
@@ -2336,6 +2391,12 @@ impl Store {
         )
     }
 
+    /// Reads all names resolving to an address in registration order.
+    ///
+    /// # Errors
+    /// Returns `IndexError::NameResultLimit` if the complete result exceeds
+    /// `MAXIMUM_NAME_RESULTS`, or `IndexError::Store` for database, column
+    /// decoding or mutex failures.
     pub fn names_resolving_to(
         &self,
         address: &str,
@@ -2354,6 +2415,16 @@ impl Store {
         )
     }
 
+    /// Reads a name case-insensitively, adding the `.pax` suffix when absent.
+    ///
+    /// # Errors
+    /// Returns `IndexError::NameResultLimit` if candidate names exceed
+    /// `MAXIMUM_NAME_RESULTS`, or `IndexError::Store` for database, column
+    /// decoding or mutex failures.
+    #[allow(
+        clippy::case_sensitive_file_extension_comparisons,
+        reason = "The suffix is a name-service domain, not a file extension; the name is already ASCII lowercase."
+    )]
     pub fn name(&self, name: &str) -> Result<Option<NameRecord>, IndexError> {
         let name = name.to_ascii_lowercase();
         let name = if name.ends_with(".pax") {
@@ -2371,6 +2442,12 @@ impl Store {
         .next())
     }
 
+    /// Reads the complete event history of a name node in height and log order.
+    ///
+    /// # Errors
+    /// Returns `IndexError::NameResultLimit` if the history exceeds
+    /// `MAXIMUM_NAME_RESULTS`, or `IndexError::Store` for database, column
+    /// decoding or mutex failures.
     pub fn name_events(&self, node: &str, order: NameOrder) -> Result<Vec<Value>, IndexError> {
         let connection = self.lock()?;
         let mut statement = connection.prepare(&format!(
@@ -2395,6 +2472,17 @@ impl Store {
         Ok(events)
     }
 
+    /// Resolves an address through its forward-confirmed active reverse name,
+    /// or its unique active forward name when no reverse name is stored.
+    ///
+    /// # Errors
+    /// Returns `IndexError::Decode` for an invalid address, `IndexError::NameResultLimit`
+    /// for an oversized candidate set, or `IndexError::Store` for database, column
+    /// decoding or mutex failures.
+    #[allow(
+        clippy::case_sensitive_file_extension_comparisons,
+        reason = "The suffix is a name-service domain, not a file extension; the reverse name is already ASCII lowercase."
+    )]
     pub fn name_for_address(&self, address: &str) -> Result<Option<NameRecord>, IndexError> {
         let reverse_node = crate::names::reverse_node(address)
             .map(|node| crate::codec::hex0x(&node))
@@ -2437,7 +2525,7 @@ impl Store {
     /// Every event row of `chain`, oldest first, for inspection and tests.
     ///
     /// # Errors
-    /// Returns [`IndexError::Store`] on SQLite failure.
+    /// Returns [`IndexError::Store`] on `SQLite` failure.
     pub fn events(&self, chain: &str) -> Result<Vec<Value>, IndexError> {
         let connection = self.lock()?;
         let mut statement = connection.prepare(
@@ -2465,7 +2553,7 @@ impl Store {
     /// Every transfer row of `chain`, oldest first.
     ///
     /// # Errors
-    /// Returns [`IndexError::Store`] on SQLite failure.
+    /// Returns [`IndexError::Store`] on `SQLite` failure.
     pub fn transfers(&self, chain: &str) -> Result<Vec<Value>, IndexError> {
         let connection = self.lock()?;
         let finality = Self::finality(&connection)?;
@@ -2478,7 +2566,7 @@ impl Store {
         )?;
         let rows = statement
             .query_map(params![chain], |row| {
-                Ok(Self::transfer_document(row, &finality)?)
+                Self::transfer_document(row, &finality)
             })?
             .collect::<Result<Vec<_>, _>>()?;
         Ok(rows)
@@ -2487,7 +2575,7 @@ impl Store {
     /// Whether `account` has been seen on `chain`.
     ///
     /// # Errors
-    /// Returns [`IndexError::Store`] on SQLite failure.
+    /// Returns [`IndexError::Store`] on `SQLite` failure.
     pub fn account_known(&self, chain: &str, account: &str) -> Result<bool, IndexError> {
         let connection = self.lock()?;
         Ok(connection
@@ -2554,7 +2642,7 @@ impl Store {
     /// Assets in registration order.
     ///
     /// # Errors
-    /// Returns [`IndexError::Store`] on SQLite failure.
+    /// Returns [`IndexError::Store`] on `SQLite` failure.
     pub fn assets(&self, cursor: Option<u64>, limit: usize) -> Result<Page, IndexError> {
         let connection = self.lock()?;
         let lower = cursor.map_or(Ok(0), signed)?;
@@ -2583,7 +2671,7 @@ impl Store {
     /// One asset with its transfer count.
     ///
     /// # Errors
-    /// Returns [`IndexError::Store`] on SQLite failure.
+    /// Returns [`IndexError::Store`] on `SQLite` failure.
     pub fn asset(&self, asset: &str) -> Result<Option<Value>, IndexError> {
         let connection = self.lock()?;
         let found = connection
@@ -2609,6 +2697,10 @@ impl Store {
         Ok(Some(document))
     }
 
+    /// Marks a source session as awaiting reconciliation.
+    ///
+    /// # Errors
+    /// Returns `IndexError::Store` for database or mutex failures.
     pub fn start_source(&self, chain: &str) -> Result<(), IndexError> {
         self.lock()?.execute(
             "INSERT INTO source_sessions(chain, reconciled) VALUES (?1, 0)
@@ -2618,6 +2710,11 @@ impl Store {
         Ok(())
     }
 
+    /// Persists a source's observed head and observation time.
+    ///
+    /// # Errors
+    /// Returns `IndexError::Store` for database or mutex failures, or a head
+    /// outside the signed storage range.
     pub fn record_source_head(&self, chain: &str, head: Option<u64>) -> Result<(), IndexError> {
         self.lock()?.execute(
             "INSERT INTO source_observations(chain, source_head, source_head_at) VALUES (?1, ?2, ?3)
@@ -2631,7 +2728,7 @@ impl Store {
     /// the indexed cursor position at that moment, clearing the failure streak.
     ///
     /// # Errors
-    /// Returns [`IndexError::Store`] on SQLite failure.
+    /// Returns [`IndexError::Store`] on `SQLite` failure.
     pub fn record_source_success(
         &self,
         chain: &str,
@@ -2639,7 +2736,7 @@ impl Store {
         indexed_position: Option<u64>,
     ) -> Result<(), IndexError> {
         let mut connection = self.lock()?;
-        let connection = connection.transaction()?;
+        let connection = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let observed_at: i64 = connection.query_row(
             "SELECT source_head_at FROM source_observations WHERE chain = ?1",
             params![chain],
@@ -2666,7 +2763,7 @@ impl Store {
     /// successful observation and extending the failure streak.
     ///
     /// # Errors
-    /// Returns [`IndexError::Store`] on SQLite failure.
+    /// Returns [`IndexError::Store`] on `SQLite` failure.
     pub fn record_source_failure(&self, chain: &str, error: &str) -> Result<(), IndexError> {
         let connection = self.lock()?;
         connection.execute(
@@ -2686,7 +2783,7 @@ impl Store {
     /// restart.
     ///
     /// # Errors
-    /// Returns [`IndexError::Store`] on SQLite failure.
+    /// Returns [`IndexError::Store`] on `SQLite` failure.
     pub fn source_observation(&self, chain: &str) -> Result<Option<SourceObservation>, IndexError> {
         let connection = self.lock()?;
         let row = connection
@@ -2727,7 +2824,7 @@ impl Store {
     /// A cheap liveness probe of the database.
     ///
     /// # Errors
-    /// Returns [`IndexError::Store`] when SQLite cannot answer.
+    /// Returns [`IndexError::Store`] when `SQLite` cannot answer.
     pub fn ping(&self) -> Result<(), IndexError> {
         let connection = self.lock()?;
         connection.query_row("SELECT 1", [], |_| Ok(()))?;

@@ -1,3 +1,11 @@
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 use layerx_agentd::human::{HumanOperationError, HumanPeer};
 use layerx_agentd::human_runtime::{HumanAuthorityBoundary, RemoteHumanAuthority};
 use layerx_types::{ids::Did, verify::VerificationLevel};
@@ -84,10 +92,16 @@ fn certificate(issuer: Option<(&X509, &PKey<Private>)>) -> (X509, PKey<Private>)
 fn documents() -> Value {
     let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..");
     let path = committed_documents::corpus_path(&repository);
-    let metadata = std::fs::metadata(&path).expect(committed_documents::CORPUS_READ_EXPECTATION);
+    let metadata = require_ok(
+        std::fs::metadata(&path),
+        committed_documents::CORPUS_READ_EXPECTATION,
+    );
     assert!(metadata.is_file());
     assert_eq!(metadata.permissions().mode() & 0o077, 0);
-    let bytes = std::fs::read(path).expect(committed_documents::CORPUS_READ_EXPECTATION);
+    let bytes = require_ok(
+        std::fs::read(path),
+        committed_documents::CORPUS_READ_EXPECTATION,
+    );
     must(serde_json::from_slice(&bytes))
 }
 
@@ -106,70 +120,10 @@ fn repair_22_31_535_remote_consumers_require_committed_producer_documents() {
     let tls = must(TlsAcceptor::new(identity));
     let produced = corpus.clone();
     let server = std::thread::spawn(move || {
-        let mut requests = 0;
-        for rank in [
-            VerificationLevel::COMMITTED.wire_rank(),
-            4,
-            5,
-            0,
-            1,
-            2,
-            3,
-            7,
-            u8::MAX,
-        ] {
-            for (name, route) in [
-                ("budget", "budget-state"),
-                ("policy", "key-policy"),
-                ("scope", "capability-scope"),
-            ] {
-                let deadline = Instant::now() + Duration::from_secs(10);
-                let tcp = loop {
-                    match listener.accept() {
-                        Ok((stream, _)) => break stream,
-                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                            assert!(
-                                Instant::now() < deadline,
-                                "missing {route} request for rank {rank}"
-                            );
-                            std::thread::sleep(Duration::from_millis(1));
-                        }
-                        Err(error) => panic!("accept: {error}"),
-                    }
-                };
-                must(tcp.set_read_timeout(Some(Duration::from_secs(5))));
-                must(tcp.set_write_timeout(Some(Duration::from_secs(5))));
-                let mut stream = must(tls.accept(tcp));
-                let mut request = Vec::new();
-                while !request.ends_with(b"\r\n\r\n") {
-                    let mut byte = [0];
-                    must(stream.read_exact(&mut byte));
-                    request.push(byte[0]);
-                    assert!(request.len() < 16384);
-                }
-                let request = must(std::str::from_utf8(&request));
-                assert!(
-                    request.starts_with(&format!(
-                        "GET /v1/agent/{route}?tenant=repair-tenant&principal=repair-principal&"
-                    )),
-                    "{request}"
-                );
-                assert!(request
-                    .to_ascii_lowercase()
-                    .contains(&format!("authorization: bearer {}", "a".repeat(32))));
-                let mut document = produced[name].clone();
-                if rank != VerificationLevel::COMMITTED.wire_rank() {
-                    document["verification"] = json!(rank);
-                }
-                let body = must(serde_json::to_vec(&document));
-                must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()));
-                must(stream.write_all(&body));
-                requests += 1;
-            }
-        }
-        requests
+        let requests = 0;
+        finish_repair_22_31_535_remote_consumers_require_committed_producer_documents_2_repair_22_31_535(&listener, &tls, &produced, requests)
     });
-    let mut authority = must(RemoteHumanAuthority::connect(
+    let authority = must(RemoteHumanAuthority::connect(
         &endpoint,
         "a".repeat(32),
         Duration::from_secs(5),
@@ -183,12 +137,24 @@ fn repair_22_31_535_remote_consumers_require_committed_producer_documents() {
         subject: None,
     };
     let id = |value: &Value| -> [u8; 32] {
-        must(hex::decode(value.as_str().unwrap()))
-            .try_into()
-            .unwrap()
+        require_ok(
+            must(hex::decode(require_some(
+                value.as_str(),
+                "required test value",
+            )))
+            .try_into(),
+            "required test value",
+        )
     };
-    let policy_did = must(Did::new(corpus["policy_did"].as_str().unwrap().as_bytes()));
-    let scope_did = must(Did::new(corpus["scope_did"].as_str().unwrap().as_bytes()));
+    finish_repair_22_31_535_remote_consumers_require_committed_producer_documents_1_repair_22_31_535(&corpus, server, authority, &peer, id);
+}
+
+fn finish_repair_22_31_535_remote_consumers_require_committed_producer_documents_2_repair_22_31_535(
+    listener: &TcpListener,
+    tls: &TlsAcceptor,
+    produced: &Value,
+    mut requests: i32,
+) -> i32 {
     for rank in [
         VerificationLevel::COMMITTED.wire_rank(),
         4,
@@ -200,10 +166,86 @@ fn repair_22_31_535_remote_consumers_require_committed_producer_documents() {
         7,
         u8::MAX,
     ] {
-        let budget = authority.budget_state(&peer, id(&corpus["budget_id"]));
-        let policy = authority.key_rotation_policy(&peer, &policy_did, false);
+        for (name, route) in [
+            ("budget", "budget-state"),
+            ("policy", "key-policy"),
+            ("scope", "capability-scope"),
+        ] {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            let tcp = loop {
+                match listener.accept() {
+                    Ok((stream, _)) => break stream,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        assert!(
+                            Instant::now() < deadline,
+                            "missing {route} request for rank {rank}"
+                        );
+                        std::thread::sleep(Duration::from_millis(1));
+                    }
+                    Err(error) => panic!("accept: {error}"),
+                }
+            };
+            must(tcp.set_read_timeout(Some(Duration::from_secs(5))));
+            must(tcp.set_write_timeout(Some(Duration::from_secs(5))));
+            let mut stream = must(tls.accept(tcp));
+            let mut request = Vec::new();
+            while !request.ends_with(b"\r\n\r\n") {
+                let mut byte = [0];
+                must(stream.read_exact(&mut byte));
+                request.push(byte[0]);
+                assert!(request.len() < 16384);
+            }
+            let request = must(std::str::from_utf8(&request));
+            assert!(
+                request.starts_with(&format!(
+                    "GET /v1/agent/{route}?tenant=repair-tenant&principal=repair-principal&"
+                )),
+                "{request}"
+            );
+            assert!(request
+                .to_ascii_lowercase()
+                .contains(&format!("authorization: bearer {}", "a".repeat(32))));
+            let mut document = produced[name].clone();
+            if rank != VerificationLevel::COMMITTED.wire_rank() {
+                document["verification"] = json!(rank);
+            }
+            let body = must(serde_json::to_vec(&document));
+            must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()));
+            must(stream.write_all(&body));
+            requests += 1;
+        }
+    }
+    requests
+}
+
+fn finish_repair_22_31_535_remote_consumers_require_committed_producer_documents_1_repair_22_31_535(
+    corpus: &Value,
+    server: std::thread::JoinHandle<i32>,
+    mut authority: RemoteHumanAuthority,
+    peer: &HumanPeer,
+    id: impl Fn(&Value) -> [u8; 32],
+) {
+    let policy_did = must(Did::new(
+        require_some(corpus["policy_did"].as_str(), "required test value").as_bytes(),
+    ));
+    let scope_did = must(Did::new(
+        require_some(corpus["scope_did"].as_str(), "required test value").as_bytes(),
+    ));
+    for rank in [
+        VerificationLevel::COMMITTED.wire_rank(),
+        4,
+        5,
+        0,
+        1,
+        2,
+        3,
+        7,
+        u8::MAX,
+    ] {
+        let budget = authority.budget_state(peer, id(&corpus["budget_id"]));
+        let policy = authority.key_rotation_policy(peer, &policy_did, false);
         let scope = authority.capability_scope(
-            &peer,
+            peer,
             &scope_did,
             id(&corpus["scope"]["authority"]),
             id(&corpus["scope"]["action_key"]),
@@ -222,15 +264,24 @@ fn repair_22_31_535_remote_consumers_require_committed_producer_documents() {
             }
             assert_eq!(
                 budget.remaining.to_string(),
-                corpus["budget"]["remaining"].as_str().unwrap()
+                require_some(
+                    corpus["budget"]["remaining"].as_str(),
+                    "required test value"
+                )
             );
             assert_eq!(
                 policy.policy_revision,
-                corpus["policy"]["policy_revision"].as_u64().unwrap()
+                require_some(
+                    corpus["policy"]["policy_revision"].as_u64(),
+                    "required test value"
+                )
             );
             assert_eq!(
                 scope.observed_sequence,
-                corpus["scope"]["observed_sequence"].as_u64().unwrap()
+                require_some(
+                    corpus["scope"]["observed_sequence"].as_u64(),
+                    "required test value"
+                )
             );
         } else {
             assert!(

@@ -16,6 +16,48 @@ use layerx_types::intent::{BudgetId, Sequence};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use serde_json::Value;
 
+fn retired_kind_plan() -> (JourneyId, ModuleRegistry, JourneyPlan) {
+    let id = JourneyId::new("jrn_retiredwithdraw").or_fail("journey id");
+    let activity = ActivityType::new(ModuleId::Budget, 8).or_fail("activity");
+    let registry = ModuleRegistry::new(&[
+        ModuleRegistration::new(ModuleId::Budget, &[activity]).or_fail("module")
+    ])
+    .or_fail("registry");
+    let intent = Intent::v1(IntentKind::BudgetDefund(
+        BudgetDefund::new(
+            BudgetId::new([0x21; 32]),
+            AccountId::parse("agent:did:layerx:alice:budget:travel").or_fail("budget account"),
+            AccountId::parse("agent:did:layerx:alice:main").or_fail("owner account"),
+            AssetId::new([0x22; 32]),
+            Amount::from_u128(37),
+            Sequence::from_u64(7),
+            IdempotencyKey::new([0x31; 32]),
+        )
+        .or_fail("intent"),
+    ));
+    let plan = JourneyPlan::new(
+        id.clone(),
+        JourneyKind::Move,
+        [0x41; 32],
+        KeyId::new("human-primary").or_fail("custody key"),
+        Operation::ProtocolMutation,
+        vec![JourneyLeg::new(
+            intent,
+            [0x31; 32],
+            AgentDid::new("did:layerx:alice").or_fail("actor"),
+            AuthorityRef::new("custody-human-primary").or_fail("authority"),
+            7,
+            19,
+            100,
+            200,
+            1_000,
+        )
+        .or_fail("leg")],
+    )
+    .or_fail("plan");
+    (id, registry, plan)
+}
+
 #[test]
 fn stored_journey_of_a_retired_kind_reads_as_closed() {
     let root = directory("journey-retired-kind");
@@ -23,96 +65,59 @@ fn stored_journey_of_a_retired_kind_reads_as_closed() {
     let map = tenancy(&[("alice", "alice-tenant")]);
     let (mut store, digest) = install_and_open(&root, &map, retention);
     let owner = principal("alice");
-    let id = JourneyId::new("jrn_retiredwithdraw").expect("journey id");
-    let activity = ActivityType::new(ModuleId::Budget, 8).expect("activity");
-    let registry = ModuleRegistry::new(&[
-        ModuleRegistration::new(ModuleId::Budget, &[activity]).expect("module")
-    ])
-    .expect("registry");
-    let intent = Intent::v1(IntentKind::BudgetDefund(
-        BudgetDefund::new(
-            BudgetId::new([0x21; 32]),
-            AccountId::parse("agent:did:layerx:alice:budget:travel").expect("budget account"),
-            AccountId::parse("agent:did:layerx:alice:main").expect("owner account"),
-            AssetId::new([0x22; 32]),
-            Amount::from_u128(37),
-            Sequence::from_u64(7),
-            IdempotencyKey::new([0x31; 32]),
-        )
-        .expect("intent"),
-    ));
-    let plan = JourneyPlan::new(
-        id.clone(),
-        JourneyKind::Move,
-        [0x41; 32],
-        KeyId::new("human-primary").expect("custody key"),
-        Operation::ProtocolMutation,
-        vec![JourneyLeg::new(
-            intent,
-            [0x31; 32],
-            AgentDid::new("did:layerx:alice").expect("actor"),
-            AuthorityRef::new("custody-human-primary").expect("authority"),
-            7,
-            19,
-            100,
-            200,
-            1_000,
-        )
-        .expect("leg")],
-    )
-    .expect("plan");
+    let (id, registry, plan) = retired_kind_plan();
     {
-        let mut scope = store.principal(&owner).expect("scope");
-        let live = JourneyEngine::start(&mut scope, &plan, &registry, 100).expect("persist plan");
+        let mut scope = store.principal(&owner).or_fail("scope");
+        let live = JourneyEngine::start(&mut scope, &plan, &registry, 100).or_fail("persist plan");
         assert_eq!(
-            live.status().expect("live status").state(),
+            live.status().or_fail("live status").state(),
             JourneyState::GettingReady
         );
         let row = scope
             .keys(Table::Journeys)
             .into_iter()
             .find(|key| key.as_str().starts_with("journey-"))
-            .expect("journey row");
+            .or_fail("journey row");
         let mut historical: Value = serde_json::from_slice(
             scope
                 .get(Table::Journeys, &row)
-                .expect("stored plan")
+                .or_fail("stored plan")
                 .bytes(),
         )
-        .expect("production record");
+        .or_fail("production record");
         assert_eq!(historical["legs"][0]["preparation"]["account_sequence"], 7);
         assert_eq!(historical["legs"][0]["preparation"]["pending_nonce"], 19);
         historical["kind"] = Value::String("withdraw".to_owned());
         historical["legs"][0]["preparation"]
             .as_object_mut()
-            .expect("preparation")
+            .or_fail("preparation")
             .remove("pending_nonce");
         scope
             .put(
                 Table::Journeys,
                 row,
                 100,
-                serde_json::to_vec(&historical).expect("legacy encoding"),
+                serde_json::to_vec(&historical).or_fail("legacy encoding"),
             )
-            .expect("persist historical record");
+            .or_fail("persist historical record");
     }
     drop(store);
-    let mut store = PrincipalStore::open(&root, retention, digest).expect("restart store");
+    let mut store = PrincipalStore::open(&root, retention, digest).or_fail("restart store");
     {
-        let mut scope = store.principal(&owner).expect("reopened scope");
+        let mut scope = store.principal(&owner).or_fail("reopened scope");
         let historical = JourneyEngine::load(&scope, &id)
-            .expect("load historical")
-            .expect("journey");
+            .or_fail("load historical")
+            .or_fail("journey");
         assert_eq!(historical.kind(), None);
         assert_eq!(historical.historical_kind(), Some("withdraw"));
-        let status = historical.status().expect("historical status");
+        let status = historical.status().or_fail("historical status");
         assert_eq!(status.state(), JourneyState::Closed);
         assert_eq!(status.phases(), &[JourneyPhase::Compiled]);
         assert_eq!(status.receipt_digests(), &[None]);
-        let listed = JourneyEngine::list(&scope).expect("list historical");
+        let listed = JourneyEngine::list(&scope).or_fail("list historical");
         assert_eq!(listed.len(), 1);
         assert_eq!(
-            listed[0].status().expect("listed status").state(),
+            listed[0].status().or_fail("listed status").state(),
             JourneyState::Closed
         );
         assert!(matches!(
@@ -121,10 +126,10 @@ fn stored_journey_of_a_retired_kind_reads_as_closed() {
         ));
         assert_eq!(
             JourneyEngine::load(&scope, &id)
-                .expect("reload")
-                .expect("retained")
+                .or_fail("reload")
+                .or_fail("retained")
                 .status()
-                .expect("still closed")
+                .or_fail("still closed")
                 .state(),
             JourneyState::Closed
         );
@@ -136,9 +141,15 @@ fn stored_journey_of_a_retired_kind_reads_as_closed() {
         );
     }
     assert_eq!(
-        serde_json::from_str::<JourneyKind>("\"move\"").expect("live kind"),
+        serde_json::from_str::<JourneyKind>("\"move\"").or_fail("live kind"),
         JourneyKind::Move
     );
     drop(store);
-    std::fs::remove_dir_all(root).expect("remove test store");
+    std::fs::remove_dir_all(root).or_fail("remove test store");
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

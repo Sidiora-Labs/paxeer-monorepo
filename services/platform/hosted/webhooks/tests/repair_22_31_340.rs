@@ -198,20 +198,48 @@ fn serve_transcripts(
     (endpoint, worker)
 }
 
-#[test]
-fn finding_3_authority_receipt_is_accepted_and_a_foreign_network_is_refused() {
-    let network = configured_network(&must(bind_network(NODE, WEBHOOKS)));
-    let fixture: Value = must(serde_json::from_str(include_str!(
-        "../../gateway/tests/fixtures/maintained-authority.json"
-    )));
-    let receipt = must(hex_decode(fixture["receipt_hex"].as_str().unwrap()));
-    let pin = must(layerx_platform_gateway::configured_sequencer(
-        fixture["sequencer_id"].as_str().unwrap(),
-        fixture["sequencer_public_key"].as_str().unwrap(),
-        fixture["first_batch"].as_str().unwrap(),
-        fixture["last_batch"].as_str().unwrap(),
+fn assert_authority_fields(response: &Value, facts: &layerx_platform_authority::AuthorityFacts) {
+    for (field, expected) in [
+        ("batch_id", facts.batch_id),
+        ("asset", facts.asset),
+        ("previous_state_root", facts.previous_state_root),
+        ("resulting_state_root", facts.resulting_state_root),
+        ("sequencer_public_key", facts.sequencer_public_key),
+    ] {
+        assert_eq!(response[field], hex_encode(&expected));
+    }
+}
+
+fn maintained_fixture(
+    fixture: &Value,
+) -> (
+    Vec<u8>,
+    layerx_platform_gateway::SequencerAuthorization,
+    layerx_platform_authority::BatchEvidence,
+    &str,
+) {
+    let receipt = must(hex_decode(
+        fixture["receipt_hex"]
+            .as_str()
+            .unwrap_or_else(|| panic!("expected authority field")),
     ));
-    let activity = fixture["authority"]["activity_id"].as_str().unwrap();
+    let pin = must(layerx_platform_gateway::configured_sequencer(
+        fixture["sequencer_id"]
+            .as_str()
+            .unwrap_or_else(|| panic!("expected authority field")),
+        fixture["sequencer_public_key"]
+            .as_str()
+            .unwrap_or_else(|| panic!("expected authority field")),
+        fixture["first_batch"]
+            .as_str()
+            .unwrap_or_else(|| panic!("expected authority field")),
+        fixture["last_batch"]
+            .as_str()
+            .unwrap_or_else(|| panic!("expected authority field")),
+    ));
+    let activity = fixture["authority"]["activity_id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("expected authority field"));
     let evidence = must(parse_replica_evidence(
         &must(serde_json::to_vec(&json!({
             "authority_replica_id": "01".repeat(32),
@@ -221,6 +249,16 @@ fn finding_3_authority_receipt_is_accepted_and_a_foreign_network_is_refused() {
         [1; 32],
         pin.public_key(),
     ));
+    (receipt, pin, evidence, activity)
+}
+
+#[test]
+fn finding_3_authority_receipt_is_accepted_and_a_foreign_network_is_refused() {
+    let network = configured_network(&must(bind_network(NODE, WEBHOOKS)));
+    let fixture: Value = must(serde_json::from_str(include_str!(
+        "../../gateway/tests/fixtures/maintained-authority.json"
+    )));
+    let (receipt, pin, evidence, activity) = maintained_fixture(&fixture);
     let facts = must(authorized_batch_by_activity(
         must(fixed_hex(activity)),
         &receipt,
@@ -243,15 +281,7 @@ fn finding_3_authority_receipt_is_accepted_and_a_foreign_network_is_refused() {
     response["network_id"] = json!(network);
     // The retained envelope must agree with the real authority producer before
     // crossing the transport. The deployment name is independent of signed LXP network bytes.
-    for (field, expected) in [
-        ("batch_id", facts.batch_id),
-        ("asset", facts.asset),
-        ("previous_state_root", facts.previous_state_root),
-        ("resulting_state_root", facts.resulting_state_root),
-        ("sequencer_public_key", facts.sequencer_public_key),
-    ] {
-        assert_eq!(response[field], hex_encode(&expected));
-    }
+    assert_authority_fields(&response, &facts);
     let foreign_networks = ["testnet", "foreign-network", "layerx-testnet-other"];
     let mut authority_bodies = vec![must(serde_json::to_string(&response))];
     for foreign in foreign_networks {
@@ -290,7 +320,9 @@ fn finding_3_authority_receipt_is_accepted_and_a_foreign_network_is_refused() {
         &receipt,
         layerx_platform_gateway::ReceiptKeys::HistoricalKernel(pin.public_key()),
     ));
-    let protocol = decoded.protocol().unwrap();
+    let protocol = decoded
+        .protocol()
+        .unwrap_or_else(|| panic!("expected authority field"));
     let result: Value = must(serde_json::from_slice(operation.response()));
     assert_eq!(result["batch_id"], hex_encode(&facts.batch_id));
     assert_eq!(

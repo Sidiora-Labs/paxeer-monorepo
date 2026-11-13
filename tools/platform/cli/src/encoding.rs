@@ -1,3 +1,4 @@
+#[must_use]
 pub fn hex_encode(bytes: &[u8]) -> String {
     const DIGITS: &[u8; 16] = b"0123456789abcdef";
     let mut encoded = String::with_capacity(bytes.len() * 2);
@@ -8,6 +9,9 @@ pub fn hex_encode(bytes: &[u8]) -> String {
     encoded
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn hex_decode(name: &str, encoded: &str) -> Result<Vec<u8>, String> {
     if !encoded.len().is_multiple_of(2) {
         return Err(format!(
@@ -26,6 +30,9 @@ pub fn hex_decode(name: &str, encoded: &str) -> Result<Vec<u8>, String> {
         .collect()
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn fixed_hex<const N: usize>(name: &str, encoded: &str) -> Result<[u8; N], String> {
     let decoded = hex_decode(name, encoded)?;
     decoded

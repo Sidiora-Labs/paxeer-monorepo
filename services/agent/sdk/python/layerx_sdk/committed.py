@@ -285,8 +285,13 @@ def verify_committed_transaction(raw_transaction: bytes, receipt_height: int, *,
         raise ValueError("landing height regression")
     # Comet tx proofs commit to SHA256(tx) leaves, not Ethereum transaction hashes.
     data = _hex(proof["data"])
-    if data != raw_transaction and _committed_evm_transaction(data) != raw_transaction:
-        raise ValueError("transaction inclusion identity mismatch")
+    if data != raw_transaction:
+        try:
+            committed_transaction = _committed_evm_transaction(data)
+        except ValueError as error:
+            raise ValueError("transaction inclusion identity mismatch") from error
+        if committed_transaction != raw_transaction:
+            raise ValueError("transaction inclusion identity mismatch")
     inclusion_header = header
     if "execution_header" in proof:
         execution = proof["execution_header"]

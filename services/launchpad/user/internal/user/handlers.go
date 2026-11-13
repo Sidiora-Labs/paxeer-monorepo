@@ -306,7 +306,7 @@ func (h *Handlers) uploadImage(imageType string) http.HandlerFunc {
 			sharedhttp.WriteRequestBodyError(w, http.StatusBadRequest, sharedhttp.RuleMultipart, "image could not be read")
 			return
 		}
-		if int64(len(buf)) > maxSize {
+		if int64(len(buf)) > maxSize || len(buf) > int(^uint32(0)>>1) {
 			sharedhttp.WriteRequestBodyError(w, http.StatusRequestEntityTooLarge, sharedhttp.RuleMaxBytes, imageType+" too large")
 			return
 		}
@@ -354,7 +354,7 @@ func (h *Handlers) uploadImage(imageType string) http.HandlerFunc {
 			ImageType:     imageType,
 			StorageKey:    storageKey,
 			MimeType:      mime,
-			SizeBytes:     int32(len(buf)),
+			SizeBytes:     int32(len(buf)), //nolint:gosec // The upload size is bounded by int32 before storage.
 			UploadedAt:    now,
 		}); err != nil {
 			h.fail(w, "upsert image", err)
@@ -399,7 +399,11 @@ func (h *Handlers) serveImage(imageType string) http.HandlerFunc {
 			h.fail(w, "store get", err)
 			return
 		}
-		defer obj.Body.Close()
+		defer func() {
+			if err := obj.Body.Close(); err != nil {
+				h.logErr("store body close", err)
+			}
+		}()
 
 		w.Header().Set("Content-Type", img.MimeType)
 		w.Header().Set("Cache-Control", "public, no-cache, max-age=0, must-revalidate")
@@ -542,5 +546,10 @@ func (h *Handlers) logErr(op string, err error) {
 }
 
 func (h *Handlers) profileCacheKey(addr string) string {
-	return cacheKeyPrefix + h.publicURL + ":" + addr
+	return ProfileCacheKey(h.publicURL, addr)
+}
+
+// ProfileCacheKey is shared by legacy reads and development profile writes.
+func ProfileCacheKey(publicURL, addr string) string {
+	return cacheKeyPrefix + strings.TrimRight(publicURL, "/") + ":" + strings.ToLower(addr)
 }

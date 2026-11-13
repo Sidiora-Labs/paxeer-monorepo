@@ -33,6 +33,7 @@ import (
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/engine"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/store"
 )
 
@@ -43,18 +44,21 @@ import (
 // JSON-RPC, on which the real SidioraERC20 artifact is deployed and a real
 // transaction emits the EventEmitter MarketCreated log.
 
-const devFixtureRedis = "redis://:kindle_fixture_password@127.0.0.1:26379/0"
-
 const devPool = "0x00000000000000000000000000000000000d0d01"
 
 type devChain struct {
 	backend *simulated.Backend
 	url     string
 	key     *ecdsa.PrivateKey
+	chainID *big.Int
 	nonce   uint64
 }
 
 func newDevChain(t *testing.T) *devChain {
+	return newDevChainWithID(t, 1337)
+}
+
+func newDevChainWithID(t *testing.T, chainID int64) *devChain {
 	t.Helper()
 	key, err := crypto.GenerateKey()
 	if err != nil {
@@ -67,14 +71,17 @@ func newDevChain(t *testing.T) *devChain {
 	port := listener.Addr().(*net.TCPAddr).Port
 	_ = listener.Close()
 	funds := new(big.Int).Exp(big.NewInt(10), big.NewInt(21), nil)
-	backend := simulated.NewBackend(types.GenesisAlloc{crypto.PubkeyToAddress(key.PublicKey): {Balance: funds}}, func(n *node.Config, _ *ethconfig.Config) {
+	backend := simulated.NewBackend(types.GenesisAlloc{crypto.PubkeyToAddress(key.PublicKey): {Balance: funds}}, func(n *node.Config, eth *ethconfig.Config) {
+		chain := *eth.Genesis.Config
+		chain.ChainID = big.NewInt(chainID)
+		eth.Genesis.Config = &chain
 		n.HTTPHost = "127.0.0.1"
 		n.HTTPPort = port
 		n.HTTPModules = []string{"eth"}
 	})
 	t.Cleanup(func() { _ = backend.Close() })
 	backend.Commit()
-	return &devChain{backend: backend, url: "http://127.0.0.1:" + strconv.Itoa(port), key: key}
+	return &devChain{backend: backend, url: "http://127.0.0.1:" + strconv.Itoa(port), key: key, chainID: big.NewInt(chainID)}
 }
 
 func (c *devChain) send(t *testing.T, to *common.Address, data []byte, gas uint64) *types.Receipt {
@@ -90,8 +97,8 @@ func (c *devChain) send(t *testing.T, to *common.Address, data []byte, gas uint6
 		t.Fatal(err)
 	}
 	feeCap := new(big.Int).Add(tip, new(big.Int).Mul(head.BaseFee, big.NewInt(2)))
-	tx := types.NewTx(&types.DynamicFeeTx{ChainID: big.NewInt(1337), Nonce: c.nonce, GasTipCap: tip, GasFeeCap: feeCap, Gas: gas, To: to, Data: data})
-	signed, err := types.SignTx(tx, types.LatestSignerForChainID(big.NewInt(1337)), c.key)
+	tx := types.NewTx(&types.DynamicFeeTx{ChainID: c.chainID, Nonce: c.nonce, GasTipCap: tip, GasFeeCap: feeCap, Gas: gas, To: to, Data: data})
+	signed, err := types.SignTx(tx, types.LatestSignerForChainID(c.chainID), c.key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,7 +209,7 @@ func newDevFixture(t *testing.T, withChain bool) devFixture {
 		t.Cleanup(client.Close)
 		f.rpc = client
 	}
-	rdb := goredis.NewClient(parseRedisOpts(devFixtureRedis))
+	rdb := goredis.NewClient(parseRedisOpts(internaltest.NewRedisURL(t)))
 	t.Cleanup(func() { _ = rdb.Close() })
 	if err := rdb.Ping(context.Background()).Err(); err != nil {
 		t.Fatal(err)
@@ -295,7 +302,7 @@ func TestDevelopmentUDFHistoryFromWebhookCandles(t *testing.T) {
 	// A new pool's first swaps arrive through the signed indexer webhook.
 	events := []map[string]any{}
 	for i, price := range []string{"1000000000000000000", "3000000000000000000", "2000000000000000000"} {
-		events = append(events, map[string]any{"eventName": "Swap", "blockNumber": 100 + i, "blockTimestamp": 1760000000 + int64(i)*60, "txHash": "0x" + strings.Repeat(strconv.Itoa(i+1), 64), "logIndex": 0, "args": map[string]any{"poolAddress": devPool, "sender": "0x00000000000000000000000000000000000000aa", "isBuy": true, "amountIn": "2500000", "amountOut": "1000", "fee": "1", "price": price}})
+		events = append(events, map[string]any{"eventName": "Swap", "blockNumber": 100 + i, "position": engine.ChainOrder{Height: uint64(100 + i)}, "blockTimestamp": 1760000000 + int64(i)*60, "txHash": "0x" + strings.Repeat(strconv.Itoa(i+1), 64), "logIndex": 0, "args": map[string]any{"poolAddress": devPool, "sender": "0x00000000000000000000000000000000000000aa", "isBuy": true, "amountIn": "2500000", "amountOut": "1000", "fee": "1", "price": price}})
 	}
 	raw, _ := json.Marshal(map[string]any{"events": events})
 	rec := httptest.NewRecorder()
@@ -357,7 +364,7 @@ func TestDevelopmentUDFHistoryFromWebhookCandles(t *testing.T) {
 	}
 
 	// A further swap changes the stored rows and therefore the snapshot.
-	more, _ := json.Marshal(map[string]any{"events": []map[string]any{{"eventName": "Swap", "blockNumber": 200, "blockTimestamp": 1760000200, "txHash": "0x" + strings.Repeat("9", 64), "logIndex": 0, "args": map[string]any{"poolAddress": devPool, "sender": "0x00000000000000000000000000000000000000bb", "isBuy": false, "amountIn": "10", "amountOut": "1000000", "fee": "1", "price": "500000000000000000"}}}})
+	more, _ := json.Marshal(map[string]any{"events": []map[string]any{{"eventName": "Swap", "blockNumber": 200, "position": engine.ChainOrder{Height: 200}, "blockTimestamp": 1760000200, "txHash": "0x" + strings.Repeat("9", 64), "logIndex": 0, "args": map[string]any{"poolAddress": devPool, "sender": "0x00000000000000000000000000000000000000bb", "isBuy": false, "amountIn": "10", "amountOut": "1000000", "fee": "1", "price": "500000000000000000"}}}})
 	rec = httptest.NewRecorder()
 	f.router.ServeHTTP(rec, signedRequest(more))
 	if rec.Code != 200 {
@@ -438,6 +445,48 @@ func TestDevelopmentUDFSymbolsFromIndexerAndChain(t *testing.T) {
 	rec, _ = f.get(t, "/v2/udf/symbols?symbol=nope")
 	if rec.Code != 422 {
 		t.Fatalf("invalid symbol %d", rec.Code)
+	}
+	for _, tc := range []struct {
+		name, tokenAddress, poolID, txHash, want string
+		height                                   int64
+	}{
+		{"invalid token address", "invalid", poolID.Hex(), receipt.TxHash.Hex(), "invalid development creation record", receipt.BlockNumber.Int64()},
+		{"invalid pool identity", strings.ToLower(token.Hex()), "invalid", receipt.TxHash.Hex(), "invalid development creation record", receipt.BlockNumber.Int64()},
+		{"missing creation receipt", strings.ToLower(token.Hex()), poolID.Hex(), "0x" + strings.Repeat("0", 64), "creation receipt unavailable", receipt.BlockNumber.Int64()},
+		{"changed creation height", strings.ToLower(token.Hex()), poolID.Hex(), receipt.TxHash.Hex(), "creation receipt conflicts", receipt.BlockNumber.Int64() + 1},
+		{"unmatched creation event", strings.ToLower(token.Hex()), "0x" + strings.Repeat("e", 64), receipt.TxHash.Hex(), "creation log not found", receipt.BlockNumber.Int64()},
+		{"token without metadata", devPool, poolID.Hex(), receipt.TxHash.Hex(), "token metadata unavailable", receipt.BlockNumber.Int64()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := f.pool.Exec(context.Background(), `UPDATE indexer.pools SET token_address=$2,pool_id=$3,tx_hash=$4,created_block=$5 WHERE lower(pool_address)=$1`, devPool, tc.tokenAddress, tc.poolID, tc.txHash, tc.height); err != nil {
+				t.Fatal(err)
+			}
+			candidate, err := (&DevelopmentPoolMetadataSource{Pool: f.pool, Chain: f.rpc}).Resolve(context.Background(), devPool)
+			if _, restoreErr := f.pool.Exec(context.Background(), `UPDATE indexer.pools SET token_address=$2,pool_id=$3,tx_hash=$4,created_block=$5 WHERE lower(pool_address)=$1`, devPool, strings.ToLower(token.Hex()), poolID.Hex(), receipt.TxHash.Hex(), receipt.BlockNumber.Int64()); restoreErr != nil {
+				t.Fatal(restoreErr)
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.want) || candidate.Address != "" {
+				t.Fatalf("changed creation evidence: %+v, %v", candidate, err)
+			}
+		})
+	}
+	if _, err := f.pool.Exec(context.Background(), `ALTER TABLE indexer.pools RENAME TO pools_held`); err != nil {
+		t.Fatal(err)
+	}
+	if candidate, err := (&DevelopmentPoolMetadataSource{Pool: f.pool, Chain: f.rpc}).Resolve(context.Background(), devPool); err == nil || candidate.Address != "" || !strings.Contains(err.Error(), "pools") {
+		t.Fatalf("unavailable development creation catalog: %+v, %v", candidate, err)
+	}
+	if _, err := f.pool.Exec(context.Background(), `ALTER TABLE indexer.pools_held RENAME TO pools`); err != nil {
+		t.Fatal(err)
+	}
+	unavailable, err := rpc.DialHTTP("http://127.0.0.1:1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(unavailable.Close)
+	resolver.Chain = unavailable
+	if candidate, err := resolver.Resolve(context.Background(), devPool); err == nil || candidate.Address != "" || !strings.Contains(err.Error(), "chain head unavailable") {
+		t.Fatalf("unavailable development chain head: %+v, %v", candidate, err)
 	}
 }
 

@@ -1,5 +1,4 @@
-#[path = "support/abi_versions.rs"]
-mod abi_versions;
+use layerx_programs_runtime::test_support as abi_versions;
 
 use layerx_programs_runtime::test_support::{
     add_module, code_section, export_section, func_body, function_section, module, type_section,
@@ -330,6 +329,8 @@ fn abi_upgrades_are_monotonic_and_historical_versions_remain_admitted() {
 
 #[test]
 fn every_supported_abi_transition_preserves_lifecycle_history() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     use layerx_programs_runtime::{AbiVersionRefusal, WasmValue};
     let versions = abi_versions::supported_abi_versions();
     assert!(versions.contains(&ABI_V5_VERSION));
@@ -396,7 +397,9 @@ fn every_supported_abi_transition_preserves_lifecycle_history() {
                 assert_eq!(receipt.version(), 2);
                 assert_eq!(receipt.old_code_hash(), Some(initial_hash));
                 assert_eq!(receipt.new_code_hash(), next_hash);
-                let migration = receipt.migration().expect("successful migration receipt");
+                let migration = receipt
+                    .migration()
+                    .assert_success("successful migration receipt");
                 assert_eq!(migration.abi_version, requested);
                 assert_eq!(migration.outputs, vec![WasmValue::I32(0)]);
                 // A third revision observes the exact installed second revision.
@@ -410,7 +413,7 @@ fn every_supported_abi_transition_preserves_lifecycle_history() {
                         abi_version: requested,
                         migration: None,
                     })
-                    .unwrap();
+                    .assert_success("test value");
                 assert_eq!(third.version(), 3);
                 assert_eq!(third.old_code_hash(), Some(next_hash));
                 assert_eq!(third.new_code_hash(), initial_hash);

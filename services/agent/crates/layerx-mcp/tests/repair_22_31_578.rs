@@ -1,3 +1,6 @@
+use layerx_mcp_test_support::option_assertion;
+use layerx_mcp_test_support::result_assertion;
+
 use layerx_crypto::disclosure::call::{bind_call, ConstructMethod};
 use layerx_crypto::disclosure::{AmountRole, CounterpartyRole};
 use layerx_crypto::payments::Payment;
@@ -16,10 +19,19 @@ fn receive() -> Payment {
         .as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).expect("hex text"), 16).expect("hex byte")
+            result_assertion::required(
+                u8::from_str_radix(
+                    result_assertion::required(std::str::from_utf8(pair), "hex text"),
+                    16,
+                ),
+                "hex byte",
+            )
         })
         .collect();
-    Payment::decode(ModuleId::Asset, 6, &payload, ACTOR).expect("authenticated Receive")
+    result_assertion::required(
+        Payment::decode(ModuleId::Asset, 6, &payload, ACTOR),
+        "authenticated Receive",
+    )
 }
 
 fn options() -> CallOptions {
@@ -36,17 +48,21 @@ fn options() -> CallOptions {
 #[test]
 fn draw_dimensions_follow_the_encoded_receive_and_bound_ledger_draw() {
     let payment = receive();
-    let payload = payment.encode(ACTOR).expect("payments encoder");
-    let (call, decoded) =
-        prepare_alias_call_with_receive(PaymentTool::DrawGrant, &payload, ACTOR, &options())
-            .expect("prepare and retain decoded Receive");
+    let payload = result_assertion::required(payment.encode(ACTOR), "payments encoder");
+    let (call, decoded) = result_assertion::required(
+        prepare_alias_call_with_receive(PaymentTool::DrawGrant, &payload, ACTOR, &options()),
+        "prepare and retain decoded Receive",
+    );
     assert_eq!(decoded.as_ref(), Some(&payment));
     assert_eq!(
-        prepare_alias_call(PaymentTool::DrawGrant, &payload, ACTOR, &options())
-            .expect("existing alias entry point"),
+        result_assertion::required(
+            prepare_alias_call(PaymentTool::DrawGrant, &payload, ACTOR, &options()),
+            "existing alias entry point"
+        ),
         call
     );
-    let disclosure = bind_call(&call, options().from).expect("bound LedgerDraw");
+    let disclosure =
+        result_assertion::required(bind_call(&call, options().from), "bound LedgerDraw");
     let Payment::Receive {
         from,
         to,
@@ -60,7 +76,7 @@ fn draw_dimensions_follow_the_encoded_receive_and_bound_ledger_draw() {
         panic!("Receive fixture");
     };
     assert!(matches!(
-        disclosure.construct_method().expect("validated method"),
+        result_assertion::required(disclosure.construct_method(), "validated method"),
         Some(ConstructMethod::LedgerDraw {
             recipient,
             amount: draw_amount,
@@ -84,7 +100,10 @@ fn draw_dimensions_follow_the_encoded_receive_and_bound_ledger_draw() {
     assert_ne!(disclosure.asset, *asset);
     assert_ne!(from, to);
     assert_eq!(
-        draw_policy_dimensions(decoded.as_ref(), &disclosure).expect("DrawGrant dimensions"),
+        result_assertion::required(
+            draw_policy_dimensions(decoded.as_ref(), &disclosure),
+            "DrawGrant dimensions"
+        ),
         (*amount, *asset, *from)
     );
 }
@@ -92,13 +111,15 @@ fn draw_dimensions_follow_the_encoded_receive_and_bound_ledger_draw() {
 #[test]
 fn draw_dimensions_refuse_each_receive_mismatch_and_missing_receive() {
     let payment = receive();
-    let payload = payment.encode(ACTOR).expect("payments encoder");
-    let (call, decoded) =
-        prepare_alias_call_with_receive(PaymentTool::DrawGrant, &payload, ACTOR, &options())
-            .expect("prepared Receive");
-    let disclosure = bind_call(&call, options().from).expect("bound LedgerDraw");
+    let payload = result_assertion::required(payment.encode(ACTOR), "payments encoder");
+    let (call, decoded) = result_assertion::required(
+        prepare_alias_call_with_receive(PaymentTool::DrawGrant, &payload, ACTOR, &options()),
+        "prepared Receive",
+    );
+    let disclosure =
+        result_assertion::required(bind_call(&call, options().from), "bound LedgerDraw");
     for field in ["grant", "idempotency_key", "amount", "recipient"] {
-        let mut mismatched = decoded.clone().expect("retained Receive");
+        let mut mismatched = option_assertion::required(decoded.clone(), "retained Receive");
         let Payment::Receive {
             grant,
             idempotency_key,
@@ -147,11 +168,13 @@ fn draw_dimensions_refuse_each_receive_mismatch_and_missing_receive() {
 #[test]
 fn draw_dimensions_refuse_other_methods_and_altered_disclosures() {
     let payment = receive();
-    let payload = payment.encode(ACTOR).expect("payments encoder");
-    let (call, decoded) =
-        prepare_alias_call_with_receive(PaymentTool::DrawGrant, &payload, ACTOR, &options())
-            .expect("prepared Receive");
-    let disclosure = bind_call(&call, options().from).expect("bound LedgerDraw");
+    let payload = result_assertion::required(payment.encode(ACTOR), "payments encoder");
+    let (call, decoded) = result_assertion::required(
+        prepare_alias_call_with_receive(PaymentTool::DrawGrant, &payload, ACTOR, &options()),
+        "prepared Receive",
+    );
+    let disclosure =
+        result_assertion::required(bind_call(&call, options().from), "bound LedgerDraw");
     let mut altered = disclosure.clone();
     altered.amounts[0].value += 1;
     assert!(matches!(
@@ -163,12 +186,14 @@ fn draw_dimensions_refuse_other_methods_and_altered_disclosures() {
         panic!("Receive fixture");
     };
     let issue = Payment::IssueGrant(*payer_grant);
-    let payload = issue.encode(ACTOR).expect("grant encoder");
-    let (call, receive) =
-        prepare_alias_call_with_receive(PaymentTool::IssueGrant, &payload, ACTOR, &options())
-            .expect("prepared IssueGrant");
+    let payload = result_assertion::required(issue.encode(ACTOR), "grant encoder");
+    let (call, receive) = result_assertion::required(
+        prepare_alias_call_with_receive(PaymentTool::IssueGrant, &payload, ACTOR, &options()),
+        "prepared IssueGrant",
+    );
     assert!(receive.is_none());
-    let disclosure = bind_call(&call, options().from).expect("bound IssueGrant");
+    let disclosure =
+        result_assertion::required(bind_call(&call, options().from), "bound IssueGrant");
     assert_eq!(disclosure.payment.as_ref(), Some(&issue));
     assert!(matches!(
         draw_policy_dimensions(decoded.as_ref(), &disclosure),

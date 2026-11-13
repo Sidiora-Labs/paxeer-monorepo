@@ -357,10 +357,9 @@ fn execute(v: &Value) -> Result<Value, BridgeError> {
             let rpc = rpc.with_clock(
                 layerx_client::runtime_clock::RuntimeClock::from_environment().map_err(|_| ())?,
             );
-            return rpc
-                .get_balances(text(v, "did")?)
+            rpc.get_balances(text(v, "did")?)
                 .map(layerx_sdk::rpc::BalancesSnapshot::into_value)
-                .map_err(BridgeError::Rpc);
+                .map_err(BridgeError::Rpc)
         }
         "balance" => balance(v, node),
         "wait" => wait(v, rpc, &policy),

@@ -97,6 +97,18 @@ const nextConfig: NextConfig = {
   },
 
   transpilePackages: [...TRANSPILE_PACKAGES],
+  webpack(config) {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@base-org/account': false,
+      '@coinbase/cdp-sdk': false,
+    };
+    config.resolve.extensionAlias = {
+      ...config.resolve.extensionAlias,
+      '.js': ['.ts', '.tsx', '.js'],
+    };
+    return config;
+  },
 };
 
 // Wrap with Sentry. Source-map upload only runs when SENTRY_AUTH_TOKEN is set

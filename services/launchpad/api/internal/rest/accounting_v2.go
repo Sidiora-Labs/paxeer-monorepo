@@ -9,11 +9,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
@@ -69,7 +71,10 @@ func (h AccountingV2Handler) sign(r store.AccountingPageRequest, candles bool, s
 	if expiry == 0 {
 		expiry = time.Now().Add(15 * time.Minute).Unix()
 	}
-	raw := make([]byte, 115)
+	if expiry < 0 {
+		return "", store.ErrDataIntegrity
+	}
+	raw := make([]byte, 115, 147)
 	raw[0] = 1
 	binary.BigEndian.PutUint16(raw[1:3], 125)
 	copy(raw[3:19], accountingFilter(r, candles))
@@ -133,7 +138,10 @@ func (h AccountingV2Handler) cursor(r store.AccountingPageRequest, candles bool,
 	upper := binary.BigEndian.Uint64(raw[51:59])
 	observed := binary.BigEndian.Uint64(raw[59:67])
 	now := time.Now()
-	if boundary > 9223372036854775807 || upper < 1 || upper > 9223372036854775807 || expiry <= uint64(now.Unix()) || expiry > uint64(now.Add(15*time.Minute).Unix()) || observed > uint64(now.UnixMilli()) || observed == 0 {
+	if boundary > math.MaxInt64 || upper < 1 || upper > math.MaxInt64 || expiry > math.MaxInt64 || observed > math.MaxInt64 || observed == 0 {
+		return invalid()
+	}
+	if int64(expiry) <= now.Unix() || int64(expiry) > now.Add(15*time.Minute).Unix() || int64(observed) > now.UnixMilli() {
 		return invalid()
 	}
 	r.ExpectedSnapshot = id.String()
@@ -170,7 +178,7 @@ func accountingRequest(req *http.Request, candles bool) (store.AccountingPageReq
 	if err != nil {
 		return r, "", err
 	}
-	allowed := map[string]bool{"limit": true, "cursor": true}
+	allowed := map[string]bool{literalLimit: true, literalCursor: true}
 	if candles {
 		allowed["interval"] = true
 		allowed["from"] = true
@@ -183,7 +191,7 @@ func accountingRequest(req *http.Request, candles bool) (store.AccountingPageReq
 			return r, "", errors.New("unknown, duplicate or empty parameter")
 		}
 	}
-	r.Pool, err = store.Address(chi.URLParam(req, "poolAddress"))
+	r.Pool, err = store.Address(chi.URLParam(req, literalPoolAddress))
 	if err != nil {
 		return r, "", err
 	}
@@ -192,16 +200,16 @@ func accountingRequest(req *http.Request, candles bool) (store.AccountingPageReq
 	if candles {
 		max = store.MaxCanonicalCandles
 	}
-	if value := q.Get("limit"); value != "" {
+	if value := q.Get(literalLimit); value != "" {
 		n, err := strconv.Atoi(value)
 		if err != nil || strconv.Itoa(n) != value || n < 1 || n > max {
 			return r, "", errors.New("limit outside contract bound")
 		}
 		r.Limit = n
 	}
-	shape := map[string]any{"poolAddress": r.Pool, "limit": r.Limit}
-	if token := q.Get("cursor"); token != "" {
-		shape["cursor"] = token
+	shape := map[string]any{literalPoolAddress: r.Pool, literalLimit: r.Limit}
+	if token := q.Get(literalCursor); token != "" {
+		shape[literalCursor] = token
 	}
 	name := "TradesRequest"
 	if candles {
@@ -238,7 +246,7 @@ func accountingRequest(req *http.Request, candles bool) (store.AccountingPageReq
 	if err = interfaces.ValidateJSON(name, raw); err != nil {
 		return r, "", err
 	}
-	return r, q.Get("cursor"), nil
+	return r, q.Get(literalCursor), nil
 }
 func accountingError(w http.ResponseWriter, status int, code string, retry bool) {
 	id := uuid.NewString()
@@ -252,20 +260,20 @@ func accountingError(w http.ResponseWriter, status int, code string, retry bool)
 		w.Header().Set("Retry-After", "1")
 	}
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]any{"code": code, "message": code, "requestId": id, "retryable": retry, "retryAfterMs": delay, "fieldErrors": []any{}, "details": nil})
+	_ = json.NewEncoder(w).Encode(map[string]any{"code": code, "message": code, literalRequestId: id, "retryable": retry, "retryAfterMs": delay, "fieldErrors": []any{}, "details": nil})
 }
 func (h AccountingV2Handler) Candles(w http.ResponseWriter, r *http.Request) { h.serve(w, r, true) }
 func (h AccountingV2Handler) Trades(w http.ResponseWriter, r *http.Request)  { h.serve(w, r, false) }
 func (h AccountingV2Handler) serve(w http.ResponseWriter, req *http.Request, candles bool) {
 	r, token, err := accountingRequest(req, candles)
 	if err != nil {
-		WriteV2APIError(w, req, 422, "FIELD_INVALID")
+		WriteV2APIError(w, req, 422, literalFIELDINVALID)
 		return
 	}
 	if token != "" {
 		r, err = h.cursor(r, candles, token)
 		if err != nil {
-			WriteV2APIError(w, req, 400, "CURSOR_INVALID")
+			WriteV2APIError(w, req, 400, literalCURSORINVALID)
 			return
 		}
 	}
@@ -283,17 +291,17 @@ func (h AccountingV2Handler) serve(w http.ResponseWriter, req *http.Request, can
 	}
 	if err != nil {
 		if errors.Is(err, store.ErrDataIntegrity) {
-			WriteV2APIError(w, req, 503, "INTEGRITY_QUARANTINED")
+			WriteV2APIError(w, req, 503, literalINTEGRITYQUARANTINED)
 		} else if token != "" && errors.Is(err, store.ErrAccountingNotReady) {
-			WriteV2APIError(w, req, 400, "CURSOR_INVALID")
+			WriteV2APIError(w, req, 400, literalCURSORINVALID)
 		} else {
-			WriteV2APIError(w, req, 503, "DEPENDENCY_UNAVAILABLE")
+			WriteV2APIError(w, req, 503, literalDEPENDENCYUNAVAILABLE)
 		}
 		return
 	}
 	body, err := h.EncodeCachePage(r, candles, page, responseRequestID(w))
 	if err != nil {
-		WriteV2APIError(w, req, 503, "INTEGRITY_QUARANTINED")
+		WriteV2APIError(w, req, 503, literalINTEGRITYQUARANTINED)
 		return
 	}
 	id := responseRequestID(w)
@@ -301,6 +309,7 @@ func (h AccountingV2Handler) serve(w http.ResponseWriter, req *http.Request, can
 	w.Header().Set("X-Schema-Version", "2")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "application/json")
+	//nolint:gosec // EncodeCachePage produces the declared JSON response bytes.
 	_, _ = w.Write(body)
 }
 
@@ -344,15 +353,15 @@ func (h AccountingV2Handler) EncodeCachePage(r store.AccountingPageRequest, cand
 		}
 		next = &value
 	}
-	data := map[string]any{"items": page.Items}
+	data := map[string]any{literalItems: page.Items}
 	name := "TradesResponse"
 	if candles {
 		name = "CandlesResponse"
-		data["snapshotId"] = page.SnapshotID
-		data["seriesModelVersion"] = page.SeriesModelVersion
+		data[literalSnapshotId] = page.SnapshotID
+		data[literalSeriesModelVersion] = page.SeriesModelVersion
 	}
 	id := requestID
-	body, err := json.Marshal(map[string]any{"requestId": id, "data": data, "watermark": page.Watermark, "revision": page.Revision, "quality": "partial", "nextCursor": next, "generatedAt": page.GeneratedAt})
+	body, err := json.Marshal(map[string]any{literalRequestId: id, literalData: data, literalWatermark: page.Watermark, literalRevision: page.Revision, literalQuality: literalPartial, literalNextCursor: next, literalGeneratedAt: page.GeneratedAt})
 	if err != nil || len(body) > store.PublicJSONMaxBytes || interfaces.ValidateJSON(name, body) != nil {
 		return nil, store.ErrDataIntegrity
 	}

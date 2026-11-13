@@ -273,6 +273,8 @@ var forkModuleStates = []forkModuleState{
 
 // assertForkGenesis reads the genesis state the plan wrote for every module the
 // fork brings, through each module's own store entry and keeper.
+// The historical parameter checks remain necessary even for merge-disabled
+// modules; their catalogue allowance requirements are in ../repair_22_39_275.kvx.
 func assertForkGenesis(c *checks, a *app.App, ctx sdk.Context) {
 	for _, state := range forkModuleStates {
 		key := a.GetKey(state.StoreKey)

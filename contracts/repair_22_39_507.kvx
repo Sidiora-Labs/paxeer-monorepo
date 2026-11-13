@@ -1,0 +1,9 @@
+[contracts]
+proxy_setup = "The Sidiora proxy has its ERC-1967 implementation and ERC-7201 owner storage set before its first call; the owner upgrades and initializes atomically."
+governance_deployment = "The governance suite deploys the imported Treasury source type, compiled as Treasury.sol/Treasury.json."
+format_rule = "WPAX.sol retains its source bytes and is the sole format exclusion in foundry.paxeer.toml; all other project contracts use forge fmt."
+wpax_sha256 = "d738cf25647ea7560551cbb3586a2b4b048ac1a28cc53ed535d52b1449b9a991"
+changed_paths = ["contracts/src", "contracts/test", "tests/solidity/governance/SidioraProxyTimelock.t.sol", "foundry.paxeer.toml", "tools/benchmark/loadtest/contracts/evm/src", "contracts/repair_22_39_507.kvx"]
+build_command = "FOUNDRY_CONFIG=foundry.paxeer.toml forge build --offline --root ."
+test_command = "FOUNDRY_CONFIG=foundry.paxeer.toml forge test --offline --root ."
+format_commands = ["FOUNDRY_CONFIG=foundry.paxeer.toml forge fmt --check --root .", "sh tools/benchmark/loadtest/contracts/evm/setup.sh", "forge fmt --check --root tools/benchmark/loadtest/contracts/evm"]

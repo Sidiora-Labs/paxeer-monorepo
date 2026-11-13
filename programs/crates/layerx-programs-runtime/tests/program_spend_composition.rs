@@ -5,12 +5,14 @@ use layerx_programs_runtime::{
 };
 
 fn spend(owner: ProgramId, asset: [u8; 32], to: [u8; 32], maximum: u128) -> Capability {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let seed = b"composition/retained";
     Capability::ProgramSpend {
         owner_program: owner,
         seed: seed.to_vec(),
         source_account: derive_program_account(owner, seed)
-            .expect("derived account")
+            .assert_success("derived account")
             .bytes(),
         asset,
         to,
@@ -20,15 +22,17 @@ fn spend(owner: ProgramId, asset: [u8; 32], to: [u8; 32], maximum: u128) -> Capa
 
 #[test]
 fn canonical_program_grants_narrow_at_every_depth_and_repeated_visit() {
-    let owner = ProgramId::new([1; 32]).expect("owner");
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    let owner = ProgramId::new([1; 32]).assert_success("owner");
     let mut inherited =
-        CapabilitySet::new([spend(owner, [2; 32], [3; 32], 100)]).expect("root grant");
+        CapabilitySet::new([spend(owner, [2; 32], [3; 32], 100)]).assert_success("root grant");
     for maximum in (1..100).rev() {
         let bytes = inherited.canonical_encoding();
         let decoded = CapabilitySet::new(
-            CapabilitySet::decode_v2_canonical(&bytes).expect("canonical grant"),
+            CapabilitySet::decode_v2_canonical(&bytes).assert_success("canonical grant"),
         )
-        .expect("decoded grant");
+        .assert_success("decoded grant");
         assert_eq!(decoded, inherited);
         assert_eq!(
             decoded.narrow([spend(owner, [2; 32], [3; 32], maximum + 2)]),
@@ -44,14 +48,16 @@ fn canonical_program_grants_narrow_at_every_depth_and_repeated_visit() {
         );
         inherited = decoded
             .narrow([spend(owner, [2; 32], [3; 32], maximum)])
-            .expect("strictly downward grant");
+            .assert_success("strictly downward grant");
     }
 }
 
 #[test]
 fn fanout_does_not_merge_distinct_principal_or_program_authority() {
-    let owner = ProgramId::new([5; 32]).expect("owner");
-    let child = ProgramId::new([6; 32]).expect("child");
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    let owner = ProgramId::new([5; 32]).assert_success("owner");
+    let child = ProgramId::new([6; 32]).assert_success("child");
     let root = CapabilitySet::new([
         Capability::Transfer402 {
             asset: [7; 32],
@@ -60,11 +66,11 @@ fn fanout_does_not_merge_distinct_principal_or_program_authority() {
         },
         spend(owner, [7; 32], [8; 32], 100),
     ])
-    .expect("distinct grants");
+    .assert_success("distinct grants");
     for maximum in [20, 30, 40] {
         let branch = root
             .narrow([spend(owner, [7; 32], [8; 32], maximum)])
-            .expect("branch");
+            .assert_success("branch");
         assert_eq!(
             branch.narrow([spend(owner, [7; 32], [8; 32], maximum + 1)]),
             Err(AbiError::CapabilityEscalation)
@@ -87,7 +93,9 @@ fn fanout_does_not_merge_distinct_principal_or_program_authority() {
 
 #[test]
 fn encoded_program_grants_never_change_legacy_or_accept_unknown_tags() {
-    let owner = ProgramId::new([9; 32]).expect("owner");
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    let owner = ProgramId::new([9; 32]).assert_success("owner");
     let legacy = CapabilitySet::new([
         Capability::StorageRead,
         Capability::Transfer402 {
@@ -96,14 +104,14 @@ fn encoded_program_grants_never_change_legacy_or_accept_unknown_tags() {
             maximum_amount: 5,
         },
     ])
-    .expect("legacy")
+    .assert_success("legacy")
     .canonical_encoding();
     assert_eq!(
         CapabilitySet::decode_canonical(&legacy),
         CapabilitySet::decode_v2_canonical(&legacy)
     );
     let encoded = CapabilitySet::new([spend(owner, [10; 32], [11; 32], 5)])
-        .expect("program grant")
+        .assert_success("program grant")
         .canonical_encoding();
     assert_eq!(
         CapabilitySet::decode_canonical(&encoded),
@@ -134,9 +142,11 @@ fn actual_guest(
     Result<layerx_programs_runtime::V2AuthorizedExecutionRecord, ExecutionError>,
     Storage,
 ) {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let directory = std::path::PathBuf::from(
         std::env::var("PAXEER_X_SPEND_GUESTS")
-            .expect("source-bound native guest producer is required"),
+            .assert_success("source-bound native guest producer is required"),
     );
     let mut owner_bytes = [0; 32];
     owner_bytes[0] = 0x61;
@@ -144,15 +154,15 @@ fn actual_guest(
     child_bytes[0] = 0x62;
     let mut descendant_bytes = [0; 32];
     descendant_bytes[0] = 0x63;
-    let owner = ProgramId::new(owner_bytes).expect("owner");
-    let child = ProgramId::new(child_bytes).expect("child");
-    let descendant = ProgramId::new(descendant_bytes).expect("descendant");
+    let owner = ProgramId::new(owner_bytes).assert_success("owner");
+    let child = ProgramId::new(child_bytes).assert_success("child");
+    let descendant = ProgramId::new(descendant_bytes).assert_success("descendant");
     let mut asset = [0; 32];
     asset[0] = 9;
     let payee: [u8; 32] = std::fs::read(directory.join("payee.bin"))
-        .expect("actual native payee")
+        .assert_success("actual native payee")
         .try_into()
-        .expect("payee width");
+        .assert_success("payee width");
     let seed = b"composition/vault";
     let grants = CapabilitySet::new([
         Capability::Call { program: child },
@@ -162,34 +172,36 @@ fn actual_guest(
         Capability::ProgramSpend {
             owner_program: owner,
             seed: seed.to_vec(),
-            source_account: derive_program_account(owner, seed).expect("source").bytes(),
+            source_account: derive_program_account(owner, seed)
+                .assert_success("source")
+                .bytes(),
             asset,
             to: payee,
             maximum_amount: 20,
         },
     ])
-    .expect("grants");
-    let engine = WasmEngine::declared().expect("real engine");
+    .assert_success("grants");
+    let engine = WasmEngine::declared().assert_success("real engine");
     let module = engine
         .validate_candidate_v2(
             &std::fs::read(directory.join(format!("case{variant}.owner.wasm")))
-                .expect("owner guest"),
+                .assert_success("owner guest"),
         )
-        .expect("owner module");
+        .assert_success("owner module");
     let callee = engine
         .validate_candidate_v2(
             &std::fs::read(directory.join(format!("case{variant}.child.wasm")))
-                .expect("child guest"),
+                .assert_success("child guest"),
         )
-        .expect("child module");
+        .assert_success("child module");
     let mut catalog = ProgramCatalog::new();
     assert!(catalog.insert(child, callee).is_none());
     let descendant_module = engine
         .validate_candidate_v2(
             &std::fs::read(directory.join(format!("case{variant}.descendant.wasm")))
-                .expect("descendant guest"),
+                .assert_success("descendant guest"),
         )
-        .expect("descendant module");
+        .assert_success("descendant module");
     assert!(catalog.insert(descendant, descendant_module).is_none());
     let mut storage = Storage::default();
     let result = Executor::declared().execute_authorized_candidate(
@@ -198,7 +210,7 @@ fn actual_guest(
             module: &module,
             program: owner,
             authorization: AuthorizationContext::new(
-                PrincipalId::new([3; 32]).expect("principal"),
+                PrincipalId::new([3; 32]).assert_success("principal"),
                 grants,
             ),
             receipts: &layerx_programs_runtime::abi::UnavailableReceiptOracle,
@@ -213,9 +225,11 @@ fn actual_guest(
 
 #[test]
 fn actual_guest_narrowing_preserves_owner_leg_and_repeated_visits() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     for variant in [0, 4] {
         let (result, storage) = actual_guest(variant);
-        let record = result.expect("real composed guest succeeds");
+        let record = result.assert_success("real composed guest succeeds");
         let layerx_programs_runtime::V2ActivityOutcome::Success { effects, .. } = record.outcome()
         else {
             panic!("actual guest did not succeed");
@@ -243,17 +257,20 @@ fn actual_guest_escalation_rolls_back_the_preceding_owner_leg() {
 
 #[test]
 fn actual_native_failure_terminal_retains_class_reason_and_rejecting_frame() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     use layerx_programs_runtime::terminal::{
         decode_terminal_payload, CandidateTerminalOutcome, ExecutionTerminal, TerminalDetail,
     };
     let directory = std::path::PathBuf::from(
         std::env::var("PAXEER_X_SPEND_RESULTS")
-            .expect("actual native signed receipt terminal evidence is required"),
+            .assert_success("actual native signed receipt terminal evidence is required"),
     );
     for variant in [1, 2, 3, 5, 6, 7] {
         let encoded = std::fs::read(directory.join(format!("case{variant}.terminal.bin")))
-            .expect("actual native terminal");
-        let decoded = decode_terminal_payload(2, 2, &encoded).expect("canonical failure terminal");
+            .assert_success("actual native terminal");
+        let decoded =
+            decode_terminal_payload(2, 2, &encoded).assert_success("canonical failure terminal");
         let TerminalDetail::Execution(ExecutionTerminal::CandidateV4 {
             outcome: CandidateTerminalOutcome::Failure(failure),
             ..
@@ -265,7 +282,7 @@ fn actual_native_failure_terminal_retains_class_reason_and_rejecting_frame() {
         frame[0] = if variant == 5 { 0x62 } else { 0x61 };
         assert_eq!(
             failure.program(),
-            ProgramId::new(frame).expect("rejecting frame")
+            ProgramId::new(frame).assert_success("rejecting frame")
         );
         assert_eq!(
             failure.class(),
@@ -280,10 +297,12 @@ fn actual_native_failure_terminal_retains_class_reason_and_rejecting_frame() {
 
 #[test]
 fn actual_returned_proposals_are_staged_by_owner_after_child_return() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     for (variant, amount, legs, calls) in [(8, 7, 1, 1), (9, 7, 1, 2), (10, 7, 2, 2), (11, 8, 8, 8)]
     {
         let (result, storage) = actual_guest(variant);
-        let record = result.expect("owner-mediated real guest succeeds");
+        let record = result.assert_success("owner-mediated real guest succeeds");
         let layerx_programs_runtime::V2ActivityOutcome::Success { effects, .. } = record.outcome()
         else {
             panic!("owner-mediated guest did not succeed");
@@ -312,16 +331,19 @@ fn actual_late_returned_proposal_cannot_escape_atomic_owner_budget() {
 
 #[test]
 fn actual_native_owner_budget_denial_has_authenticated_failure_terminal() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     use layerx_programs_runtime::terminal::{
         decode_terminal_payload, CandidateTerminalOutcome, ExecutionTerminal, TerminalDetail,
     };
     let directory = std::path::PathBuf::from(
         std::env::var("PAXEER_X_SPEND_RESULTS")
-            .expect("actual native signed receipt terminal evidence is required"),
+            .assert_success("actual native signed receipt terminal evidence is required"),
     );
     let encoded = std::fs::read(directory.join("case12.terminal.bin"))
-        .expect("actual owner budget denial terminal");
-    let decoded = decode_terminal_payload(2, 2, &encoded).expect("canonical failure terminal");
+        .assert_success("actual owner budget denial terminal");
+    let decoded =
+        decode_terminal_payload(2, 2, &encoded).assert_success("canonical failure terminal");
     let TerminalDetail::Execution(ExecutionTerminal::CandidateV4 {
         outcome: CandidateTerminalOutcome::Failure(failure),
         ..
@@ -333,7 +355,7 @@ fn actual_native_owner_budget_denial_has_authenticated_failure_terminal() {
     owner[0] = 0x61;
     assert_eq!(
         failure.program(),
-        ProgramId::new(owner).expect("actual owner frame")
+        ProgramId::new(owner).assert_success("actual owner frame")
     );
     assert_eq!(
         failure.class(),

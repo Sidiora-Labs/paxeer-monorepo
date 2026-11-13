@@ -163,6 +163,18 @@ func decimal(row map[string]interface{}, key string, bits int) (uint64, bool) {
 	parsed, err := strconv.ParseUint(value, 10, bits)
 	return parsed, err == nil
 }
+
+// historyID accepts the two ID namespaces emitted by the indexer without
+// changing the externally visible ID or admitting noncanonical decimals.
+func historyID(value string) (uint64, bool, bool) {
+	number, imported := strings.CutPrefix(value, "explorer:")
+	if !decimalPattern.MatchString(number) || number == "0" {
+		return 0, imported, false
+	}
+	id, err := strconv.ParseUint(number, 10, 64)
+	return id, imported, err == nil
+}
+
 func rowFrom(document map[string]interface{}, account Account, q Query) (Row, error) {
 	for _, field := range []string{"id", "height_or_seq", "chain", "kind", "direction", "account", "asset", "amount", "tx_id", "ordinal", "tx_index", "log_index"} {
 		if _, ok := text(document, field); !ok {
@@ -194,7 +206,7 @@ func rowFrom(document map[string]interface{}, account Account, q Query) (Row, er
 	tx, tOK := decimal(document, "tx_index", 32)
 	log, lOK := decimal(document, "log_index", 32)
 	ordinal, oOK := decimal(document, "ordinal", 64)
-	_, idOK := decimal(document, "id", 64)
+	_, _, idOK := historyID(row.ID)
 	_, finalOK := document["final"].(bool)
 	counterpartyOK := document["counterparty"] == nil
 	if _, ok := document["counterparty"].(string); ok {
@@ -204,7 +216,7 @@ func rowFrom(document map[string]interface{}, account Account, q Query) (Row, er
 	if ordinal > 0 {
 		expectedLog = ordinal - 1
 	}
-	if !hOK || !tOK || !lOK || !oOK || !idOK || row.ID == "0" || !finalOK || !counterpartyOK || expectedLog != log || !decimalPattern.MatchString(row.Amount) || !ValidKind(row.Kind) || (row.Chain != "paxeer" && row.Chain != "layerx") || (row.Direction != "in" && row.Direction != "out") || row.Account != account.Account || row.Asset == "" || row.TxID == "" || (q.Kind != nil && row.Kind != *q.Kind) {
+	if !hOK || !tOK || !lOK || !oOK || !idOK || !finalOK || !counterpartyOK || expectedLog != log || !decimalPattern.MatchString(row.Amount) || !ValidKind(row.Kind) || (row.Chain != "paxeer" && row.Chain != "layerx") || (row.Direction != "in" && row.Direction != "out") || row.Account != account.Account || row.Asset == "" || row.TxID == "" || (q.Kind != nil && row.Kind != *q.Kind) {
 		return Row{}, Invalid()
 	}
 	row.Stability.Source = row.FinalBasis
@@ -359,8 +371,11 @@ func Merge(pages []Page, accounts []Account, limit int, tagged bool) (Page, erro
 		if ao != bo {
 			return ao < bo
 		}
-		ai, _ := strconv.ParseUint(a.ID, 10, 64)
-		bi, _ := strconv.ParseUint(b.ID, 10, 64)
+		ai, aImported, _ := historyID(a.ID)
+		bi, bImported, _ := historyID(b.ID)
+		if aImported != bImported {
+			return !aImported
+		}
 		return ai < bi
 	})
 	if len(result.Items) > limit {

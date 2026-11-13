@@ -1,4 +1,8 @@
-//! Findings and baseline constraints are recorded in src/repair_22_33_1513.kvx.
+//! Findings and baseline constraints are recorded in `src/repair_22_33_1513.kvx`.
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 use std::collections::BTreeSet;
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -180,7 +184,7 @@ fn reopen(root: &Path) -> (Store, SessionRegistry) {
     (store, sessions)
 }
 fn token(sessions: &SessionRegistry) -> Token {
-    let record = sessions.get(&tenant(), SESSION).unwrap();
+    let record = require_some(sessions.get(&tenant(), SESSION), "required test value");
     must(sessions.authenticate_bearer(&tenant(), SESSION, record.request.token_id))
 }
 
@@ -359,12 +363,12 @@ impl NodeTranscript {
                         length = Some(must(value.trim().parse::<usize>()));
                     }
                 }
-                let length = length.unwrap();
+                let length = require_some(length, "required test value");
                 assert!(length <= 65_536);
                 let mut body = vec![0; length];
                 must(reader.read_exact(&mut body));
                 let request: Value = must(serde_json::from_slice(&body));
-                let result = match request["method"].as_str().unwrap() {
+                let result = match require_some(request["method"].as_str(), "required test value") {
                     "eth_chainId" => json!("0x7d"),
                     "pax_sequencerReceipt" => {
                         assert_eq!(request["params"], json!([case["receiptJson"]["txHash"]]));
@@ -374,7 +378,10 @@ impl NodeTranscript {
                     "px_getCommit" => {
                         assert_eq!(
                             request["params"],
-                            json!([case["height"].as_u64().unwrap().to_string()])
+                            json!(
+                                [require_some(case["height"].as_u64(), "required test value")
+                                    .to_string()]
+                            )
                         );
                         case["material"].clone()
                     }
@@ -409,7 +416,7 @@ impl NodeTranscript {
 impl Drop for NodeTranscript {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
-        must(self.worker.take().unwrap().join());
+        must(require_some(self.worker.take(), "required test value").join());
     }
 }
 fn producer() -> Value {
@@ -420,7 +427,7 @@ fn producer() -> Value {
 fn fixed<const N: usize>(value: &Value) -> [u8; N] {
     must(
         must(hex::decode(
-            value.as_str().unwrap().trim_start_matches("0x"),
+            require_some(value.as_str(), "required test value").trim_start_matches("0x"),
         ))
         .try_into(),
     )
@@ -430,8 +437,8 @@ fn pin(case: &Value) -> ReceiptKeyEntry {
     ReceiptKeyEntry {
         key_id: fixed(&key["keyId"]),
         public_key: fixed(&key["publicKey"]),
-        first_height: key["firstHeight"].as_u64().unwrap(),
-        last_height: key["lastHeight"].as_u64().unwrap(),
+        first_height: require_some(key["firstHeight"].as_u64(), "required test value"),
+        last_height: require_some(key["lastHeight"].as_u64(), "required test value"),
     }
 }
 
@@ -457,12 +464,14 @@ fn receipt_v2_unverified_ingress_authenticates_producer_transport_and_restart() 
         assert_eq!(expected.metadata.tx_index, verified.execution().index);
         assert_eq!(
             &expected.metadata.receipt_signature[..64],
-            &verified
-                .receipt()
-                .protocol()
-                .unwrap()
-                .sequencer_signature()
-                .unwrap()
+            &require_some(
+                verified
+                    .receipt()
+                    .protocol()
+                    .unwrap_or_else(|| panic!("{}", "required test value"))
+                    .sequencer_signature(),
+                "required test value"
+            )
         );
         assert_eq!(
             must(receipt::store_verified_if_absent(
@@ -608,14 +617,15 @@ fn receipt_v2_unverified_ingress_refuses_wire_forgery_and_unpinned_keys() {
             "status" => case["receiptJson"]["status"] = json!("0x0"),
             "gasUsed" => case["receiptJson"]["gasUsed"] = json!("0x1"),
             "logs" => {
-                case["receiptJson"]["logs"][0]["address"] = json!(format!("0x{}", "ff".repeat(20)))
+                case["receiptJson"]["logs"][0]["address"] = json!(format!("0x{}", "ff".repeat(20)));
             }
             "signature" => {
                 let mut bytes = must(hex::decode(
-                    case["receiptJson"]["receipt"]
-                        .as_str()
-                        .unwrap()
-                        .trim_start_matches("0x"),
+                    require_some(
+                        case["receiptJson"]["receipt"].as_str(),
+                        "required test value",
+                    )
+                    .trim_start_matches("0x"),
                 ));
                 let last = bytes.len() - 1;
                 bytes[last] ^= 1;
@@ -907,42 +917,46 @@ fn receipt_v2_unverified_ingress_requires_real_committed_block_and_sequence_cove
     case["receiptJson"] = case["view"].clone();
     case["pinnedKey"] = case["key"].clone();
     let trust = ChainProofVerifier {
-        chain_id: case["material"]["signedHeader"]["header"]["chain_id"]
-            .as_str()
-            .unwrap()
-            .to_owned(),
+        chain_id: require_some(
+            case["material"]["signedHeader"]["header"]["chain_id"].as_str(),
+            "required test value",
+        )
+        .to_owned(),
         validators: must(decode_validators(&case["validators"])),
     };
     let batch = must(hex::decode(
-        case["batch"].as_str().unwrap().trim_start_matches("0x"),
+        require_some(case["batch"].as_str(), "required test value").trim_start_matches("0x"),
     ));
-    let ids: Vec<[u8; 32]> = case["activityIds"]
-        .as_array()
-        .unwrap()
+    let ids: Vec<[u8; 32]> = require_some(case["activityIds"].as_array(), "required test value")
         .iter()
         .map(fixed)
         .collect();
     let proof = SimpleProof {
-        total: must(case["proof"]["total"].as_str().unwrap().parse()),
-        index: must(case["proof"]["index"].as_str().unwrap().parse()),
+        total: must(require_some(case["proof"]["total"].as_str(), "required test value").parse()),
+        index: must(require_some(case["proof"]["index"].as_str(), "required test value").parse()),
         leaf_hash: must(
-            must(openssl::base64::decode_block(
-                case["proof"]["leaf_hash"].as_str().unwrap(),
-            ))
+            must(openssl::base64::decode_block(require_some(
+                case["proof"]["leaf_hash"].as_str(),
+                "required test value",
+            )))
             .try_into(),
         ),
-        aunts: case["proof"]["aunts"]
-            .as_array()
-            .unwrap()
+        aunts: require_some(case["proof"]["aunts"].as_array(), "required test value")
             .iter()
             .map(|aunt| {
-                must(must(openssl::base64::decode_block(aunt.as_str().unwrap())).try_into())
+                must(
+                    must(openssl::base64::decode_block(require_some(
+                        aunt.as_str(),
+                        "required test value",
+                    )))
+                    .try_into(),
+                )
             })
             .collect(),
     };
     let evidence = ReceiptCommitEvidence {
         verifier: &trust,
-        covering_height: case["height"].as_u64().unwrap(),
+        covering_height: require_some(case["height"].as_u64(), "required test value"),
         batch_transaction: &batch,
         transaction_proof: &proof,
         activity_ids: &ids,
@@ -981,6 +995,36 @@ fn receipt_v2_unverified_ingress_requires_real_committed_block_and_sequence_cove
     let authenticated = must(AuthenticatedTransactionReceipt::from_authenticated(
         &committed,
     ));
+    continue_receipt_v2_unverified_ingress_requires_real_committed_block_and_sequence_coverage_1_repair_22_33_1513(ContinueReceiptV2UnverifiedIngressRequiresRealCommittedBlockAndSequenceCoverage1Repair22331513Context { case, trust: &trust, batch: &batch, ids: &ids, proof: &proof, evidence, keys, hash, directory, store, receipted, initial, committed, authenticated });
+}
+
+struct ContinueReceiptV2UnverifiedIngressRequiresRealCommittedBlockAndSequenceCoverage1Repair22331513Context<
+    'a,
+> {
+    case: Value,
+    trust: &'a layerx_programs::ChainProofVerifier,
+    batch: &'a Vec<u8>,
+    ids: &'a Vec<[u8; 32]>,
+    proof: &'a layerx_programs::chain_proof::merkle::SimpleProof,
+    evidence: layerx_client::rpc::receipt_commit::ReceiptCommitEvidence<'a>,
+    keys: [ReceiptKeyEntry; 1],
+    hash: [u8; 32],
+    directory: Directory,
+    store: Store,
+    receipted: layerx_client::rpc::receipt::AuthenticatedReceipt,
+    initial: AuthenticatedTransactionReceipt,
+    committed: layerx_client::rpc::receipt::AuthenticatedReceipt,
+    authenticated: AuthenticatedTransactionReceipt,
+}
+
+fn continue_receipt_v2_unverified_ingress_requires_real_committed_block_and_sequence_coverage_1_repair_22_33_1513(
+    context: ContinueReceiptV2UnverifiedIngressRequiresRealCommittedBlockAndSequenceCoverage1Repair22331513Context<'_>,
+) {
+    use layerx_client::rpc::receipt::lookup_authenticated_with_commit;
+    use layerx_client::rpc::receipt_commit::ReceiptCommitEvidence;
+
+    let ContinueReceiptV2UnverifiedIngressRequiresRealCommittedBlockAndSequenceCoverage1Repair22331513Context { case, trust, batch, ids, proof, evidence, keys, hash, directory, mut store, receipted, initial, committed, authenticated } = context;
+
     let expected = must(receipt::store_verified_if_absent(
         &mut store,
         tenant(),
@@ -1005,7 +1049,7 @@ fn receipt_v2_unverified_ingress_requires_real_committed_block_and_sequence_cove
         match damage {
             "commit-signature" => {
                 altered["material"]["signedHeader"]["commit"]["signatures"][0]["signature"] =
-                    json!(openssl::base64::encode_block(&[0; 64]))
+                    json!(openssl::base64::encode_block(&[0; 64]));
             }
             "block-hash" => altered["block"]["hash"] = json!(format!("0x{}", "ff".repeat(32))),
             "activity-coverage" => activity_ids[0][0] ^= 1,
@@ -1013,10 +1057,10 @@ fn receipt_v2_unverified_ingress_requires_real_committed_block_and_sequence_cove
         }
         let peer = NodeTranscript::open(&altered);
         let altered_evidence = ReceiptCommitEvidence {
-            verifier: &trust,
+            verifier: trust,
             covering_height: evidence.covering_height,
-            batch_transaction: &batch,
-            transaction_proof: &proof,
+            batch_transaction: batch,
+            transaction_proof: proof,
             activity_ids: &activity_ids,
         };
         let before = must(fs::read(directory.0.join("store.bin")));

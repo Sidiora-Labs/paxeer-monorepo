@@ -1,0 +1,24 @@
+[task]
+id = "22.39.360"
+decision = "3246"
+gotcha = "4175"
+acceptance = "22998.1"
+base_revision = "85a5a12b6acf02912d362035fe9e3c4196587cc2"
+
+[corpus]
+test = "TestProgramTerminalV5HistoricalCodecCorpus"
+file = "services/agent/crates/layerx-sdk/tests/fixtures/program-terminal-v5-corpus.json"
+package_relative_path = "../../../services/agent/crates/layerx-sdk/tests/fixtures/program-terminal-v5-corpus.json"
+choice = "Use the exact PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS value when set, including an empty value; otherwise read the committed recording from the Go package directory. Unreadable supplied paths and an absent committed recording fail through os.ReadFile; no skip is added."
+source_revision = "7c02f42054af0d5f3cb5837370f40e69e05c54fa"
+recording_commit = "0db59930c604a198b6198ff635259cbc2429fcd7"
+case_count = 10
+cases = "ABI3 and ABI4 each cover success, failure, resource, callback and settlement. All existing signature, digest, ABI, activity binding, accounting, program identity, truncation, trailing byte, graph and public verifier refusal assertions remain intact."
+
+[qualification]
+build_cmd = "cd sdk/platform/go && go vet ."
+verify_cmd = "test -s sdk/platform/go/repair_22_39_360.kvx && cd sdk/platform/go && env -u PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS go test -count=1 -run 'TestProgramTerminalV5HistoricalCodecCorpus' ."
+result = "The terminating hf-done evidence and private /out/run/gates.jsonl record the actual result, exact verified candidate revision, command, exit code and log path. No gate success is claimed before execution, and this record is part of the candidate with no edits after passing qualification."
+
+[gotcha.scope]
+observed = "The initial tree contains runner-owned workflow and task-start bookkeeping outside scope; preserve it. The explicit task forbids spec/ and GOTCHA.kvx writes, commits and pushes."

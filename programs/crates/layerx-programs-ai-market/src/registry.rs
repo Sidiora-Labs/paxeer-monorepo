@@ -1,19 +1,20 @@
 use crate::{
-    codec::{derive_market, Reader, Writer},
+    codec::{Reader, Writer, derive_market},
     errors::{
-        CodecResult, ARITHMETIC, BAD_VERSION, CAPACITY, F01_ACCOUNT_BINDING_MISSING,
+        ARITHMETIC, BAD_VERSION, CAPACITY, CodecResult, F01_ACCOUNT_BINDING_MISSING,
         F01_CAPACITY_UNAVAILABLE, F01_PRINCIPAL_MISMATCH, F01_VERSION_MISMATCH,
         F01_WRONG_LIFECYCLE, NON_CANONICAL, WRONG_MARKET,
     },
     policy::{
-        validate_policy_records, PendingPolicy, PolicyHistoryHeader, TaskPolicyV1,
-        PENDING_POLICY_BYTES, POLICY_HISTORY_HEADER_BYTES, TASK_POLICY_BYTES,
+        PENDING_POLICY_BYTES, POLICY_HISTORY_HEADER_BYTES, PendingPolicy, PolicyHistoryHeader,
+        TASK_POLICY_BYTES, TaskPolicyV1, validate_policy_records,
     },
     types::{
         AccountId, AssetId, ChainDomain, Digest32, EpochPhase, EpochWindows, MarketId,
         MetadataDigest, Presence, PrincipalId, ProgramId,
     },
 };
+
 use layerx_program_sdk::payments::PreparedProgramAccount;
 
 pub const MARKET_HEADER_ABSENT_BYTES: usize = 384;
@@ -75,12 +76,13 @@ pub fn derive_rewards_account(program: ProgramId, asset: AssetId) -> CodecResult
     let seed = layerx_program_sdk::ProgramAccountSeed::new(crate::REWARDS_ACCOUNT_SEED)
         .map_err(|_| F01_ACCOUNT_BINDING_MISSING)?;
     let length = u32::try_from(seed.bytes().len()).map_err(|_| F01_ACCOUNT_BINDING_MISSING)?;
-    let mut hash = crate::codec::Sha256State::new();
-    hash.update(b"LayerX/programs/program-account/v1\0");
-    hash.update(program.as_bytes());
-    hash.update(&length.to_be_bytes());
-    hash.update(seed.bytes());
-    let account = AccountId::new(hash.finalize()).map_err(|_| F01_ACCOUNT_BINDING_MISSING)?;
+    let account = AccountId::new(crate::codec::sha256([
+        b"LayerX/programs/program-account/v1\0".as_slice(),
+        program.as_bytes(),
+        &length.to_be_bytes(),
+        seed.bytes(),
+    ])?)
+    .map_err(|_| F01_ACCOUNT_BINDING_MISSING)?;
     #[cfg(target_arch = "wasm32")]
     {
         *derived = Some((program, asset, account));

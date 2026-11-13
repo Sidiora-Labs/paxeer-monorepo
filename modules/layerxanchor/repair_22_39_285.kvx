@@ -1,0 +1,49 @@
+[repair.22.39.285]
+criterion = "22998.1"
+decisions = ["3101", "3104", "3122"]
+starting_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+verified_revision = "/out/run/gates.jsonl: the final passing build and verify rows identify the same immutable candidate revision, including this record."
+qualification = "Success requires hf-build and hf-done to pass at the same candidate revision; this record alone does not claim a gate result."
+
+[findings.before]
+source = "The task's recorded main-tree inventory, confirmed by source inspection at starting_revision; no baseline scan is rerun because the ordered gate budget permits verification only through hf-done after implementation."
+command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path modules/layerxanchor"
+count = 2
+
+[finding.1]
+path = "modules/layerxanchor/keeper/custody_reader.go"
+line = 6
+component = "custody-deposit"
+symbol = "layerxcustody"
+disposition = "allowed_reference"
+repair = "Retain the actual custody types import and add its exact line to allowed_references with the merge-disabled surface justification; FinalizedCheckpoint is still the return type required by the live AnchorReader interface."
+
+[finding.2]
+path = "modules/layerxanchor/keeper/custody_reader.go"
+line = 36
+component = "custody-deposit"
+symbol = "layerxcustody"
+disposition = "allowed_reference"
+repair = "Correct the adapter comment to describe the retained pre-merge interface and allow that exact documentation line with the same justification, preserving the original module and interface names."
+
+[implementation]
+catalogue = "tools/paxeer-x/retired_callers.json"
+allowance_path = "modules/layerxanchor/keeper/custody_reader.go"
+boundary = "The allowance covers only the two exact source lines, without extending the tree-wide allowance to other custody references."
+contract = "A compile-time assignment of CustodyAnchor to custodytypes.AnchorReader checks all five real methods, including FinalizedCheckpoint, without replacing types or changing runtime behavior."
+live_interface = "modules/layerxcustody/types/anchor.go declares AnchorReader and FinalizedCheckpoint; modules/layerxcustody/keeper/anchor_reader_test.go and deposit_root_test.go still install NewCustodyAnchor through SetAnchorReader."
+retirement = "modules/layerxcustody/keeper/retire.go and modules/layerxanchor/keeper/retire.go retain the merge retirement checks; this repair does not enable retired custody or anchor ingress."
+
+[findings.after]
+required_count = 0
+evidence = "/out/run/gates.jsonl: final passing verify row and its private log; the last verify_cmd step exits zero only when the scoped retired-caller scan has no findings."
+
+[qualification]
+build_command = "go build ./modules/layerxanchor/..."
+verify_command = "cg spec done 22.39.285 -f layerx-merge --root /work/paxeer-monorepo"
+verify_cmd = "test -s modules/layerxanchor/repair_22_39_285.kvx && go test -count=1 ./modules/layerxanchor/keeper/ && python3 tools/paxeer-x/tests/retired_callers_test.py --path modules/layerxanchor"
+evidence = "/out/run/gates.jsonl records revision, command, exit and private log for each gate; hf-done runs the declared verification and graph checks."
+
+[gotcha.scope]
+observed = "The task requires implementation before any test, restricts verification to hf-done, and excludes root GOTCHA.kvx and spec files from edit scope."
+resolution = "Record the supplied baseline inventory and this workflow conflict here, preserve pre-existing bookkeeping changes, and run only the authorized gates after the whole implementation is complete."

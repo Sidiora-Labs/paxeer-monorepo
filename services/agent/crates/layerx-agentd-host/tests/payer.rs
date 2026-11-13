@@ -1,5 +1,4 @@
-#[path = "../src/payer.rs"]
-mod payer;
+use layerx_agentd_host::payer;
 
 use layerx_agentd::prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget};
 use layerx_client::sequencer::{ExecutedReceipt, ReceiptKeyEntry, SequencerLog};
@@ -10,6 +9,7 @@ use layerx_wire::encode::Encoder;
 use layerx_wire::hash::receipt_digest;
 use layerx_wire::limits::{MAX_MESSAGE_BYTES, MAX_SEQUENCER_EFFECTS, PROTOCOL_VERSION};
 use sha2::{Digest as _, Sha256};
+use std::io::Write as _;
 use std::os::unix::fs::OpenOptionsExt as _;
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -34,6 +34,7 @@ fn sha256(bytes: &[u8]) -> [u8; 32] {
     Sha256::digest(bytes).into()
 }
 
+#[must_use]
 pub fn published_keys() -> Vec<ReceiptKeyEntry> {
     vec![ReceiptKeyEntry {
         key_id: KEY_ID,
@@ -72,7 +73,6 @@ fn sign_digest(seed: [u8; 32], digest: &[u8; 32]) -> Result<[u8; 64]> {
             0x04, 0x20,
         ];
         pkcs8.extend_from_slice(&seed);
-        use std::io::Write as _;
         std::fs::OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -178,6 +178,15 @@ fn encode_execution(execution: &ExecutedReceipt, signature: Option<[u8; 64]>) ->
     Ok(encoder.finish())
 }
 
+/// Signs an execution receipt for a ledger call.
+///
+/// # Errors
+///
+/// Returns an error if calldata conversion, receipt encoding or signing fails.
+///
+/// # Panics
+///
+/// Panics if calldata does not contain the selector and the selected call words.
 pub fn signed_execution(
     sender: [u8; 20],
     tx_hash: [u8; 32],
@@ -185,32 +194,30 @@ pub fn signed_execution(
     data: &[u8],
     seed: [u8; 32],
 ) -> Result<ExecutedReceipt> {
-    let word = |offset: usize| -> [u8; 32] {
-        data[offset..offset + 32].try_into().expect("calldata word")
-    };
+    let word = |offset: usize| -> Result<[u8; 32]> { Ok(data[offset..offset + 32].try_into()?) };
     let (topics, log_data) = match &data[..4] {
         [0x78, 0xea, 0x11, 0xdb] => (
             vec![
                 transaction_hash(b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)"),
-                word(164),
-                word(4),
-                word(36),
+                word(164)?,
+                word(4)?,
+                word(36)?,
             ],
-            [word(68), word(100)].concat(),
+            [word(68)?, word(100)?].concat(),
         ),
         [0x2e, 0x89, 0x49, 0x0f] => (
             vec![
                 transaction_hash(
                     b"PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)",
                 ),
-                word(4),
+                word(4)?,
                 PAYER,
-                word(36),
+                word(36)?,
             ],
-            [ASSET, word(68), word(100), word(196)].concat(),
+            [ASSET, word(68)?, word(100)?, word(196)?].concat(),
         ),
         [0xd0, 0xd5, 0x34, 0x80] => (
-            vec![transaction_hash(b"PayerGrantIssued(bytes32)"), word(68)],
+            vec![transaction_hash(b"PayerGrantIssued(bytes32)"), word(68)?],
             vec![],
         ),
         _ => return Err("unexpected ledger call".into()),
@@ -232,8 +239,8 @@ pub fn signed_execution(
             data: log_data,
             log_index: 0,
         }],
-        gas_used: 0x10000,
-        cumulative_gas_used: 0x10000,
+        gas_used: 0x0001_0000,
+        cumulative_gas_used: 0x0001_0000,
         effective_gas_price: 1_000_000_000,
         fee_denom: "upax".to_owned(),
         payment_denom: "upax".to_owned(),
@@ -364,9 +371,8 @@ fn web_payment_reports_the_pay_exact_log_amount() -> Result {
     Ok(())
 }
 
-
 #[path = "support/payer_audit.rs"]
-mod payer_audit;
+pub mod payer_audit;
 
 #[test]
 fn payer_equal_denom_fixture_accepts_independent_receipt_and_rejects_either_change() {

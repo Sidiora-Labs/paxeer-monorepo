@@ -17,6 +17,66 @@ from urllib.parse import urlsplit
 ROOT = Path(__file__).resolve().parents[3]
 RECORD = Path(__file__).with_name("repair_22_33_219.kvx")
 
+GUEST_RECIPE_PATH = "programs/crates/layerx-programs-ai-market/tests/fixtures/guest-recipe.sh"
+
+
+def guest_recipe():
+    return (ROOT / GUEST_RECIPE_PATH).read_text(encoding="utf-8")
+
+
+def guest_recipe_array(name):
+    match = re.search(r"^" + re.escape(name) + r"=\(\n(.*?)\n\)", guest_recipe(), re.M | re.S)
+    assert match, name
+    return shlex.split(match.group(1))
+
+
+def guest_recipe_compile_contract():
+    recipe = guest_recipe()
+    assert "PAXAI_GUEST_OPT_LEVEL=z" in recipe
+    assert "PAXAI_GUEST_CRATE_TYPE=cdylib" in recipe
+    assert "export CARGO_PROFILE_RELEASE_OPT_LEVEL=\"$PAXAI_GUEST_OPT_LEVEL\"" in recipe
+    for value in ("LTO=true", "CODEGEN_UNITS=1", "PANIC=abort", "STRIP=true"):
+        assert "export CARGO_PROFILE_RELEASE_" + value in recipe
+    assert 'unset CARGO_ENCODED_RUSTFLAGS' in recipe
+    flags = guest_recipe_array("PAXAI_GUEST_RUSTFLAGS")
+    assert flags[:4] == ["-C", "target-feature=-reference-types", "-C", "link-arg=--compress-relocations"]
+    assert flags[4:] == [
+        "-C", "llvm-args=--enable-merge-functions", "-C", "llvm-args=--ir-outliner",
+        "-C", "llvm-args=--inline-threshold=40",
+    ]
+    assert 'export RUSTFLAGS="${PAXAI_GUEST_RUSTFLAGS[*]}"' in recipe
+    compile_line = re.search(
+        r'^    ("\$\{PROGRAMS_CARGO:-cargo\}" rustc.*?)\n\)', recipe, re.M | re.S,
+    )
+    assert compile_line
+    assert shlex.split(compile_line.group(1).replace("\\\n", " ")) == [
+        "${PROGRAMS_CARGO:-cargo}", "rustc", "--locked", "--release", "--target",
+        "wasm32-unknown-unknown", "-p", "layerx-programs-ai-market", "--lib",
+        "--crate-type", "$PAXAI_GUEST_CRATE_TYPE",
+    ]
+    assert 'paxai_guest_compile "$source_dir"' in recipe
+    assert 'paxai_guest_package "$target_dir/wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm" "$output"' in recipe
+
+
+def guest_recipe_optimizer_contract():
+    recipe = guest_recipe()
+    guard = re.search(r"^    command -v wasm-opt[^\n]+\n(.*?)^    \}", recipe, re.M | re.S)
+    assert guard and "wasm-opt is required" in guard.group(1)
+    assert "return 1" in guard.group(1) and "|| true" not in guard.group(0)
+    assert "PAXAI_GUEST_OPTIMIZER_VERSION='wasm-opt version 133 (version_133)'" in recipe
+    assert 'if [[ "$(wasm-opt --version)" != "$PAXAI_GUEST_OPTIMIZER_VERSION" ]]; then' in recipe
+    assert "AI market guest requires Binaryen 133" in recipe
+    assert recipe.count("    paxai_guest_require_optimizer\n") == 2
+    passes = guest_recipe_array("PAXAI_GUEST_PASSES")
+    assert passes[0] == "-Oz"
+    assert passes[-2:] == ["--strip-debug", "--strip-producers"]
+    assert "--flatten" in passes and "--rereloop" in passes
+    assert "--merge-similar-functions" in passes and passes.count("--converge") == 2
+    assert 'wasm-opt "${PAXAI_GUEST_PASSES[@]}" "$1" -o "$2"' in recipe
+    metadata = (ROOT / "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-opt-z.kvx").read_text()
+    assert f'postprocess = "wasm-opt {" ".join(passes)}"' in metadata
+    return passes
+
 
 def source(path):
     return (ROOT / path).read_text(encoding="utf-8")
@@ -58,18 +118,10 @@ def test_005_ai_release_override_matches_real_guest_package():
 
 def test_005_production_build_consumes_release_profile():
     commands = [line.strip() for line in production_recipe()]
-    builds = [line for line in commands if "$(PROGRAMS_CARGO) build" in line]
-    assert len(builds) == 1
-    args = shlex.split(builds[0])
-    assert args[:3] == ["cd", "programs", "&&"]
-    assert "$(PROGRAMS_CARGO)" in args
-    assert "--locked" in args and "--release" in args
-    assert "--profile" not in args
-    assert args[args.index("--target") + 1] == "wasm32-unknown-unknown"
-    assert args[args.index("-p") + 1] == "layerx-programs-ai-market"
-    # The retained command-level setting agrees with the canonical package override.
-    config = tomllib.loads(args[args.index("--config") + 1])
-    assert config["profile"]["release"]["opt-level"] == "z"
+    build = "PAXAI_CHAIN_DOMAIN=$(PAXAI_CHAIN_DOMAIN) PROGRAMS_CARGO=$(PROGRAMS_CARGO) bash " + GUEST_RECIPE_PATH + " build programs $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm"
+    assert commands.count(build) == 1
+    assert commands[2] == "@bash " + GUEST_RECIPE_PATH + " check"
+    guest_recipe_compile_contract()
     cargo_config = tomllib.loads(source("programs/.cargo/config.toml"))
     assert cargo_config["net"]["offline"] is True
     assert cargo_config["source"]["vendored-sources"]["directory"] == "vendor"
@@ -77,12 +129,10 @@ def test_005_production_build_consumes_release_profile():
 
 def test_005_optimized_payload_guard_includes_real_envelope():
     commands = [line.strip() for line in production_recipe()]
-    optimizer = next(line for line in commands if line.startswith("wasm-opt "))
-    assert optimizer.startswith("wasm-opt -Oz --strip-debug --strip-producers ")
-    assert "/wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm -o " in optimizer
-    output = shlex.split(optimizer.split(" -o ", 1)[1])
-    assert output == ["$(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm"]
-    artifact = output[0]
+    guest_recipe_optimizer_contract()
+    optimizer = next(line for line in commands if "guest-recipe.sh build programs " in line)
+    artifact = shlex.split(optimizer)[-1]
+    assert artifact == "$(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm"
     guard = next(line for line in commands if line.startswith("@test "))
     match = re.fullmatch(
         r'@test "\$\$\(wc -c < ' + re.escape(artifact)
@@ -226,7 +276,7 @@ def test_005_packaging_docs_use_canonical_override_and_envelope():
     ]
     for fact in (
         "524288 bytes", "104-byte", "524184 bytes", "108 fixed bytes plus the interface bytes",
-        "make paxai-host-boundary-build", "wasm-opt -Oz --strip-debug --strip-producers",
+        "make paxai-host-boundary-build", "guest-recipe.sh", "Binaryen 133",
         "same file", "does not establish that the final payload fits",
     ):
         assert fact in prose, fact

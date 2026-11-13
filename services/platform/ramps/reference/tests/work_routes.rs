@@ -1,3 +1,5 @@
+include!("../src/required.rs");
+
 use std::fs;
 use std::io::{Read as _, Write as _};
 use std::net::{SocketAddr, TcpListener, TcpStream};
@@ -15,14 +17,14 @@ impl Workspace {
     fn new() -> Self {
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .expect("clock")
+            .required("clock")
             .as_nanos();
         let workspace = Self(
             std::env::temp_dir().join(format!("layerx-ramp-work-{}-{nanos}", std::process::id())),
         );
-        fs::create_dir(&workspace.0).expect("create workspace");
+        fs::create_dir(&workspace.0).required("create workspace");
         fs::set_permissions(&workspace.0, fs::Permissions::from_mode(0o700))
-            .expect("private workspace");
+            .required("private workspace");
         for args in [
             vec![
                 "req",
@@ -67,7 +69,7 @@ impl Workspace {
                 .args(args)
                 .current_dir(&workspace.0)
                 .output()
-                .expect("generate client TLS material");
+                .required("generate client TLS material");
             assert!(
                 output.status.success(),
                 "{}",
@@ -78,7 +80,7 @@ impl Workspace {
             workspace.path("identity.p12"),
             fs::Permissions::from_mode(0o600),
         )
-        .expect("private TLS identity");
+        .required("private TLS identity");
         workspace.private_file("password", b"ramp-test-password\n");
         workspace.private_file("service-token", b"work-route-service-token\n");
         workspace.private_file("operator-token", b"work-route-operator-token\n");
@@ -91,8 +93,8 @@ impl Workspace {
 
     fn private_file(&self, name: &str, bytes: &[u8]) -> PathBuf {
         let path = self.path(name);
-        fs::write(&path, bytes).expect("write protected file");
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).expect("protect file");
+        fs::write(&path, bytes).required("write protected file");
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).required("protect file");
         path
     }
 
@@ -163,7 +165,7 @@ impl Workspace {
                 }],
                 "max_fee_per_gas": 1000,
                 "max_priority_fee_per_gas": 2,
-                "gas_limit_cap": 100000,
+                "gas_limit_cap": 100_000,
                 "signer_endpoint": "https://signer.example.test",
                 "signer_token_file": p("service-token"),
                 "actor_did": did
@@ -184,7 +186,7 @@ impl Workspace {
         });
         self.private_file(
             "config.json",
-            &serde_json::to_vec(&config).expect("encode config"),
+            &serde_json::to_vec(&config).required("encode config"),
         )
     }
 }
@@ -205,18 +207,18 @@ impl Ramp {
                 .stdout(Stdio::null())
                 .stderr(Stdio::piped())
                 .spawn()
-                .expect("start ramp"),
+                .required("start ramp"),
         );
         let deadline = Instant::now() + Duration::from_secs(30);
         loop {
-            if let Some(status) = ramp.0.try_wait().expect("poll ramp") {
+            if let Some(status) = ramp.0.try_wait().required("poll ramp") {
                 let mut stderr = String::new();
                 ramp.0
                     .stderr
                     .take()
-                    .expect("ramp stderr")
+                    .required("ramp stderr")
                     .read_to_string(&mut stderr)
-                    .expect("read startup error");
+                    .required("read startup error");
                 panic!("ramp exited before listening: {status}: {stderr}");
             }
             if let Ok(stream) = TcpStream::connect_timeout(&address, Duration::from_millis(100)) {
@@ -241,28 +243,28 @@ impl Drop for Ramp {
 fn request(mut stream: TcpStream, method: &str, path: &str, body: &[u8]) -> (u16, Value) {
     stream
         .set_read_timeout(Some(Duration::from_secs(5)))
-        .expect("read timeout");
+        .required("read timeout");
     stream
         .set_write_timeout(Some(Duration::from_secs(5)))
-        .expect("write timeout");
+        .required("write timeout");
     write!(stream,
         "{method} {path} HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer work-route-operator-token\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-        body.len()).expect("write headers");
-    stream.write_all(body).expect("write request body");
+        body.len()).required("write headers");
+    stream.write_all(body).required("write request body");
     let mut response = String::new();
     stream
         .read_to_string(&mut response)
-        .expect("read HTTP response");
+        .required("read HTTP response");
     let (headers, body) = response
         .split_once("\r\n\r\n")
-        .expect("HTTP response boundary");
+        .required("HTTP response boundary");
     let status = headers
         .split_ascii_whitespace()
         .nth(1)
-        .expect("HTTP status")
+        .required("HTTP status")
         .parse()
-        .expect("numeric HTTP status");
-    (status, serde_json::from_str(body).expect("JSON response"))
+        .required("numeric HTTP status");
+    (status, serde_json::from_str(body).required("JSON response"))
 }
 
 #[test]
@@ -280,10 +282,10 @@ fn verify_receipt_mode_refuses_activity_hex() {
             .arg(&missing)
             .arg(hash)
             .output()
-            .expect("run receipt verifier");
+            .required("run receipt verifier");
         assert_eq!(output.status.code(), Some(1));
         assert!(output.stdout.is_empty());
-        let stderr = String::from_utf8(output.stderr).expect("verifier diagnostic");
+        let stderr = String::from_utf8(output.stderr).required("verifier diagnostic");
         assert!(
             stderr.contains("usage: --verify-receipt CONFIG.json ORDER.json TRANSACTION_HASH"),
             "{stderr}"
@@ -299,7 +301,7 @@ fn verify_receipt_mode_refuses_activity_hex() {
         .arg(&missing)
         .arg(format!("0x{}", "ab".repeat(32)))
         .output()
-        .expect("run verifier with transaction hash");
+        .required("run verifier with transaction hash");
     assert_eq!(output.status.code(), Some(1));
     assert!(
         String::from_utf8_lossy(&output.stderr).contains("protected verifier input unavailable")
@@ -309,8 +311,8 @@ fn verify_receipt_mode_refuses_activity_hex() {
 #[test]
 fn work_route_refuses_native_payload_field() {
     let workspace = Workspace::new();
-    let reservation = TcpListener::bind("127.0.0.1:0").expect("reserve ramp address");
-    let address = reservation.local_addr().expect("ramp address");
+    let reservation = TcpListener::bind("127.0.0.1:0").required("reserve ramp address");
+    let address = reservation.local_addr().required("ramp address");
     let config = workspace.config(address);
     drop(reservation);
     let _ramp = Ramp::start(&config, address);
@@ -331,10 +333,10 @@ fn work_route_refuses_native_payload_field() {
                 body["account_sequence"] = json!(1);
             }
             let (status, response) = request(
-                TcpStream::connect(address).expect("connect to work route"),
+                TcpStream::connect(address).required("connect to work route"),
                 "POST",
                 "/internal/v1/work",
-                &serde_json::to_vec(&body).expect("encode work"),
+                &serde_json::to_vec(&body).required("encode work"),
             );
             assert_eq!(status, 400, "{response}");
             assert_eq!(response, json!({"error": "work_invalid"}));
@@ -342,10 +344,10 @@ fn work_route_refuses_native_payload_field() {
     }
     let body = json!({"order_digest": ([7_u8; 32]), "action": "submit_layerx"});
     let (status, response) = request(
-        TcpStream::connect(address).expect("connect without retired field"),
+        TcpStream::connect(address).required("connect without retired field"),
         "POST",
         "/internal/v1/work",
-        &serde_json::to_vec(&body).expect("encode current work request"),
+        &serde_json::to_vec(&body).required("encode current work request"),
     );
     assert_eq!(status, 404, "{response}");
     assert_eq!(response, json!({"error": "order_not_found"}));
@@ -362,10 +364,10 @@ fn work_route_refuses_native_payload_field() {
             "account_sequence": 1
         });
         let (status, response) = request(
-            TcpStream::connect(address).expect("connect with invalid account sequence"),
+            TcpStream::connect(address).required("connect with invalid account sequence"),
             "POST",
             "/internal/v1/work",
-            &serde_json::to_vec(&body).expect("encode invalid work request"),
+            &serde_json::to_vec(&body).required("encode invalid work request"),
         );
         assert_eq!(status, 400, "{response}");
         assert_eq!(response, json!({"error": "work_invalid"}));

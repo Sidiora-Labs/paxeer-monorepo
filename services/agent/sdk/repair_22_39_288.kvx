@@ -1,0 +1,302 @@
+[meta]
+task = "22.39.288"
+requirement = "22998.1"
+base_revision = "6d3b4c37bdbfc9fa167a41fc812e460da9b9c3d7"
+qualification_revision = "The final hf-build and hf-done rows of /out/run/gates.jsonl name the verified candidate revision."
+evidence = "Only a passing hf-done on the hf-build candidate qualifies this repair; the private ledger records revision, command, exit and log. The runner owns publication."
+
+[continuation]
+attempt = 2
+previous_base_revision = "2860cad02046d39225295bf26281b61e9b59c124"
+preserved_attempt_revision = "c7da4d6fd3ae5fe6a074871944207e9c130836fd"
+prerequisite = "Task 22.39.297 is done and its registry snapshot repair is present in the continuation base."
+readiness_producer = "services/agent/sdk/typescript/test/repair-22-33-23.test.ts daemon_probe_uses_hosted_authentication_and_disclosure assigns readinessReply = readiness before invoking the probe with expected_readiness = readiness."
+qualification = "Build the entire preserved implementation before hf-done so both gates record the same final candidate; all qualification rows below describe attempt 1 until the continuation ledger records the current result."
+
+[surface.python]
+files = ["services/agent/sdk/python/layerx_sdk/px.py", "services/agent/sdk/python/layerx_sdk/px.pyi"]
+producer = "services/platform/hosted/gateway/openrpc.json method names and result schemas; services/agent/sdk/typescript/src/px.ts PxClient and src/inference_market.ts JSON decoders"
+change = "Expose all five inference reads, including the currently published px_getInferenceReceipts, in PxMethod, PX_METHODS and PxClient. Decode immutable typed views with bounded integers, row counts, identifiers, ordering and identity bindings. Preserve the object-only public call contract while the private transport handles the two array results. Restore receipt-key declarations already present at runtime to the stub."
+
+[cases.px_methods_list_is_the_hosted_gateway_px_set]
+file = "services/agent/sdk/typescript/test/px.test.ts"
+producer = "services/platform/hosted/gateway/openrpc.json methods; services/agent/sdk/typescript/src/px.ts PX_METHODS"
+change = "Pin the five actual inference method names and compare the full px inventory to the contract; retain every lx alias refusal."
+
+[cases.receipt_keys_shape]
+file = "services/agent/sdk/typescript/test/px.test.ts"
+producer = "services/platform/hosted/gateway/openrpc.json methods and px_getReceiptKeys; src/px.ts decodePxReceiptKeys"
+change = "Assert the full current contract set while preserving every key shape, range, duplicate, overflow and immutability check."
+
+[cases.python_px_matches_ts]
+file = "services/agent/sdk/typescript/test/px.test.ts"
+producer = "services/agent/sdk/typescript/src/px.ts PX_METHODS; services/agent/sdk/python/layerx_sdk/px.py PxClient"
+change = "Declare the named test function, compare the Python inventory to TypeScript and require all inference helpers to be callable; retain network and receipt-key cross-language parity assertions."
+
+[cases.python_px_inference_requests_match_contract]
+file = "services/agent/sdk/typescript/test/px.test.ts"
+producer = "services/platform/hosted/gateway/openrpc.json params; src/px.ts PxClient inference methods"
+change = "Observe the real Python HTTP client sending the five named requests at the root without issuing a fabricated response; assert exact params and request IDs, malformed identifier rejection before network use and incomplete view rejection."
+
+[cases.px_amounts_decode_up_to_uint256]
+file = "services/agent/sdk/typescript/test/px.test.ts"
+producer = "services/agent/sdk/typescript/package.json scripts and scripts/run-tests.mjs ci/self-contained/external-node selection"
+change = "Assert the current test -> test:ci -> ci runner and test:self-contained commands by their producer names. Keep every uint256 acceptance, uint256 overflow and uint64 count bound and the Python parity subprocess."
+
+[cases.commit_inclusion_refuses_unrelated_valid_commit]
+file = "services/agent/sdk/typescript/test/repair-22-31-148.test.ts"
+producer = "rpc/px_kernel.go pxSequenceBatchResult.ActivityIDs and sequence-batch activity ID derivation; src/verifier.ts NodeCommittedReceiptEvidence and verifyCommittedReceipt"
+change = "Supply the authenticated receipt activity ID in the single-transaction recorded inclusion and the recorded successor header at evidence construction. Retain all commit, proof, transaction, result, log and signature assertions; explicitly refuse omitted activityIds as hash_mismatch and retain unrelated-activity refusal. No verifier changes."
+
+[cases.proof_gas_station_producer_transport_consumer]
+file = "services/agent/sdk/typescript/test/proof_gas_station.test.ts"
+producer = "services/wallet/pnpm-workspace.yaml ../../sdk/wallet member; sdk/wallet/package.json viem dependency; sdk/wallet/src/modules/gas-station.ts"
+change = "Assert viem resolves from the real wallet package before loading its consumer; the declared build installs the wallet workspace. All signed quote, submission, fresh-read and refusal assertions remain."
+
+[recordings.web_search]
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange and tests/fixtures/client-exchange.json with gateway/exact.json; services/agent/sdk/typescript/test/record-web-search.mjs metered capture"
+change = "Keep the local regenerated metered exchange; load exact challenge and settlement rows from the current Rust producer capture paired with gateway/exact.json. Assert the transaction hash is keccak256 of the unmodified recorded raw transaction and exact idempotency keys agree. Re-sign only existing explicit refusal vectors."
+observation = "At this base verifyWebSearchPayment calls verifySequencerReceipt and never consumes committed inclusion; the exact rows in the local metered capture are historical legacy transactions while gateway/exact.json contains the subsequently recorded type-2 transactions. Adding activityIds to these seller receipts cannot repair their mismatched raw bytes; follow the matching producer recordings. Node inclusion activityIds are supplied in the committed-receipt case."
+
+[cases.web_search_1]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "web_settlement_transaction_is_the_draw_transaction_hash"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Use the unchanged regenerated metered recording; retain grant binding, transaction, scheme, path and payer-header assertions."
+
+[cases.web_search_2]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "web_search_client_verifies_the_payment_with_pinned_receipt_keys"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Use the current exact recording as the baseline for key and signature refusals; retain the unmodified receipt equality assertion."
+
+[cases.web_search_3]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "web_search_receipt_shape_matches_sequencer"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Use current exact recordings across all currencies and retain exact round-trip bytes, module, operation, settlement and payment-header assertions."
+
+[cases.web_search_4]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "wrong public key"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Use the matched current exact raw bytes and receipt; retain receipt-unverified and the original key/signature/result mutation and send-count assertions."
+
+[cases.web_search_5]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "unknown key id"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Use the matched current exact raw bytes and receipt; retain receipt-unverified and the original key/signature/result mutation and send-count assertions."
+
+[cases.web_search_6]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "height outside range"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Use the matched current exact raw bytes and receipt; retain receipt-unverified and the original key/signature/result mutation and send-count assertions."
+
+[cases.web_search_7]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "failed result"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Use the matched current exact raw bytes and receipt; retain receipt-unverified and the original key/signature/result mutation and send-count assertions."
+
+[cases.web_search_8]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "corrupted signature"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Use the matched current exact raw bytes and receipt; retain receipt-unverified and the original key/signature/result mutation and send-count assertions."
+
+[cases.web_search_9]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "unknown signing key"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Use the matched current exact raw bytes and receipt; retain receipt-unverified and the original key/signature/result mutation and send-count assertions."
+
+[cases.web_search_10]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "SID unmodified recorded exact payment"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Use the current Rust exact exchange for this currency and its gateway/exact.json raw transaction; preserve byte round trip, transaction, currency, digest and sent payment equality."
+
+[cases.web_search_11]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "PAX unmodified recorded exact payment"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Use the current Rust exact exchange for this currency and its gateway/exact.json raw transaction; preserve byte round trip, transaction, currency, digest and sent payment equality."
+
+[cases.web_search_12]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "USDC unmodified recorded exact payment"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Use the current Rust exact exchange for this currency and its gateway/exact.json raw transaction; preserve byte round trip, transaction, currency, digest and sent payment equality."
+
+[cases.web_search_13]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "USDL unmodified recorded exact payment"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Use the current Rust exact exchange for this currency and its gateway/exact.json raw transaction; preserve byte round trip, transaction, currency, digest and sent payment equality."
+
+[cases.web_search_14]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "refuse receipt shape 1/6"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Mutate only the existing signed module/operation refusal vector on matched recorded input and retain settlement-operation-mismatch."
+
+[cases.web_search_15]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "refuse receipt shape 1/2"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Mutate only the existing signed module/operation refusal vector on matched recorded input and retain settlement-operation-mismatch."
+
+[cases.web_search_16]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "refuse receipt shape 13/2"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Mutate only the existing signed module/operation refusal vector on matched recorded input and retain settlement-operation-mismatch."
+
+[cases.web_search_17]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "refuse receipt shape 12/6"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Mutate only the existing signed module/operation refusal vector on matched recorded input and retain settlement-operation-mismatch."
+
+[cases.web_search_18]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "refuse wrong receipt amount"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Mutate only the existing signed log field refusal vector on matched recorded input and retain receipt-offer-mismatch."
+
+[cases.web_search_19]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "refuse wrong receipt asset"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Mutate only the existing signed log field refusal vector on matched recorded input and retain receipt-offer-mismatch."
+
+[cases.web_search_20]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "refuse wrong receipt recipient"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Mutate only the existing signed log field refusal vector on matched recorded input and retain receipt-offer-mismatch."
+
+[cases.web_search_21]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "refuse wrong receipt payer"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Mutate only the existing signed log field refusal vector on matched recorded input and retain receipt-offer-mismatch."
+
+[cases.web_search_22]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "wrong settlement payer"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Mutate only the existing settlement field on matched recorded input; retain settlement-payer-mismatch and exactly one sent paid request."
+
+[cases.web_search_23]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "wrong transaction hash"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Mutate only the existing settlement field on matched recorded input; retain settlement-receipt-mismatch and exactly one sent paid request."
+
+[cases.web_search_24]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "malformed transaction"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Mutate only the existing settlement field on matched recorded input; retain settlement-receipt-mismatch and exactly one sent paid request."
+
+[cases.web_search_25]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "altered transaction"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Mutate only the existing settlement field on matched recorded input; retain settlement-receipt-mismatch and exactly one sent paid request."
+
+[cases.web_search_26]
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+name = "wrong digest"
+producer = "services/interop/crates/x-websearch/tests/payment.rs exact_exchange; tests/fixtures/client-exchange.json and gateway/exact.json; test/record-web-search.mjs for metered rows; src/web-search.ts verifyWebSearchPayment and settlement checks"
+change = "Mutate only the existing settlement field on matched recorded input; retain settlement-receipt-mismatch and exactly one sent paid request."
+
+[qualification]
+build = "hf-build"
+verify = "hf-done"
+ledger = "/out/run/gates.jsonl"
+logs = "/out/logs/build-*.log and /out/logs/verify-*.log"
+format = "No SDK Python or TypeScript formatter is configured; apply repository .editorconfig whitespace and final-newline rules to touched files."
+
+[gotchas]
+recording_identity = "Local regenerated metered captures also contain historical exact rows; do not pair those exact receipts with the subsequently recorded type-2 gateway/exact.json transactions. Follow the current exact producer without regenerating or re-signing a positive receipt."
+contract_inventory = "The task history mentions four inference reads, but the current contract and TypeScript client also publish px_getInferenceReceipts; assert all five actual producer names."
+
+[qualification.corepack_environment]
+revision = "1ad19b38712fb92f1d6978fdad37008bba7a752a"
+command = "corepack enable && cd services/wallet && pnpm install --frozen-lockfile --ignore-scripts && cd ../.. && npm --prefix services/agent/sdk/typescript ci --no-audit --no-fund && pnpm --dir services/agent/sdk/typescript run build && python3 -m py_compile services/agent/sdk/python/layerx_sdk/px.py"
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Corepack rejected the task-prescribed pnpm invocation in the SDK because the ancestor package.json declares npm, after both installs succeeded; compilation did not run."
+repair = "Run both declared gates with COREPACK_ENABLE_STRICT=0 so Corepack permits the explicitly requested package-manager binary in this mixed npm/pnpm repository; frozen installs, compiler checks, test selection, graph checks and all product assertions remain intact. No package manifest changes."
+
+[qualification.first_verify]
+revision = "bfe763b5237cf0bf707b8ad00d7f3896c73131ed"
+command = "cg spec done 22.39.288 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "52 TypeScript files executed; web-search-sequencer.test.ts, proof_gas_station.test.ts, Python parity and Python inference HTTP request tests passed; inventory assertions and an absent Comet vote adapter failed, alongside the unrelated revert digest pin. Python pytest was not reached."
+
+[repair.contract_inventory]
+files = ["services/agent/sdk/typescript/src/px.ts", "services/agent/sdk/python/layerx_sdk/px.py", "services/agent/sdk/python/layerx_sdk/px.pyi", "services/agent/sdk/typescript/test/px.test.ts"]
+cases = ["px_methods_list_is_the_hosted_gateway_px_set", "receipt_keys_shape", "python_px_matches_ts"]
+producer = "services/platform/hosted/gateway/openrpc.json methods"
+change = "Preserve full inventory equality and explicit name pins: the contract also carries px_register, px_getCommit, px_getValidators, px_getSequenceBatch, px_requestFunds, px_listHolderRecords, px_getCapabilities and px_getRouteCatalogue. Include these actual producer names in both SDK inventories and PxMethod declarations, for 21 total. Keep all five typed inference helpers and their request checks."
+
+[repair.absent_commit_vote]
+file = "services/agent/sdk/typescript/test/repair-22-31-148.test.ts"
+case = "commit_inclusion_refuses_unrelated_valid_commit"
+producer = "sdk/platform/conformance/fixtures/vector-v4-committed.json positive.receiptInclusion.NextCommit.Signatures; Comet BlockIDFlagAbsent serialization and src/verifier.ts verifyCometCommit"
+change = "Model absent versus signed votes as a discriminated union. For flag 1 assert the recorded null signature and empty validator address, then represent that explicit absence as empty byte arrays. Signed and nil votes still decode their recorded signatures, and every positive inclusion and refusal assertion remains."
+
+[finding.revert_digest]
+task = "22.39.288"
+file = "services/agent/sdk/typescript/test/revert.test.ts"
+symbol = "module-level conformance digest assertion"
+observed = "At bfe763b5237cf0bf707b8ad00d7f3896c73131ed, cg spec done 22.39.288 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): revert.test.ts expects digest 33b199cc9d053de8bf9753bacb5f9e34687a0fded7c15f051f27f5b62b9ec155 but the producer reports 6a9f742816f66fc1707c20ded000821c47bf9ac4715387e825e2da8e2b63615f; its importing repair-22-33-24.test.ts also fails."
+assumption = "The out-of-scope revert pin and producer digest require their owning repair; leave both untouched and do not independently rerun or reinvestigate this recorded failure."
+severity = "blocker"
+
+[qualification.continuation_first_verify]
+revision = "cc3dc12cdf018e52a38d7df688ca840ec4c16e81"
+command = "cg spec done 22.39.288 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The fresh build passes all px, web-search, wallet and hosted readiness cases; the committed inclusion case reaches a stale signed-power equality, and the unrelated provenance pin also fails. Python pytest is not reached."
+
+[repair.recorded_commit_power]
+file = "services/agent/sdk/typescript/test/repair-22-31-148.test.ts"
+case = "commit_inclusion_refuses_unrelated_valid_commit"
+producer = "sdk/platform/conformance/fixtures/vector-v4-committed.json positive.receiptInclusion.NextValidators and NextCommit.Signatures"
+change = "Pin both recorded validator powers (7000000000 and 1), both vote flags (signed 2 and absent 1), exactly 7000000000 signed power and exactly 7000000001 total power. The previous unanimity equality disagreed with the producer's explicit absent vote. Keep every inclusion, signature, proof and refusal check."
+
+[finding.provenance_digest]
+task = "22.39.288"
+file = "services/agent/sdk/typescript/test/repair-22-33-24.test.ts"
+symbol = "repair_22_33_24_preserves_recorded_producer_provenance"
+observed = "At cc3dc12cdf018e52a38d7df688ca840ec4c16e81, cg spec done 22.39.288 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): the out-of-scope provenance assertion expects fc3fe1494c91ff8720a8d8fced398ea6c483c7aa70e3b655212e2b68de75eaab but observes 5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b."
+assumption = "The existing provenance pin belongs to its owning repair; leave its assertion and input untouched and do not independently rerun or investigate the recorded failure."
+severity = "blocker"
+
+[repair.web_search_exact_log_suite]
+task = "22.39.288"
+file = "services/agent/sdk/typescript/test/web-search.test.ts"
+symbol = "webSearchExactPaymentLogReceipts"
+base_revision = "7c02f42054af0d5f3cb5837370f40e69e05c54fa"
+preserved_attempt_revision = "634b81d5b2ee76d26eabbddc52550b6bf1c8de05"
+producer = "test/fixtures/repair-22-33-24/committed.json positive.signedReceipt refreshed by 22.39.299; test/record-web-search.mjs recorder key and test/recorded-web-search.ts webReceiptKeys; src/sequencer-receipt-codec.ts encodeSequencerReceipt; src/web-search.ts verifyWebSearchPayment"
+change = "Report and assert that the authenticated committed recording is module 12 operation 2. Derive the refusal receipt from it with module 12 operation 6 and the seller recorder pin's batch height and context; sign the producer codec's unsigned bytes with the suite's recorder key, authenticate with webReceiptKeys, then require settlement-operation-mismatch from the real client before delivery and an empty received list. Preserve both valid delivery cases and all log, signature, transaction, pin and idempotency refusal assertions. No source file changes in this continuation."
+qualification = "The final hf-build and hf-done ledger rows identify the verified revision, exact commands, exits and private evidence logs; run both on the same unchanged candidate."
+
+[repair.python_committed_transaction_error]
+task = "22.39.288"
+file = "services/agent/sdk/python/layerx_sdk/committed.py"
+symbol = "verify_committed_transaction"
+observed = "At 7066c38a97ff799ce583a7f6bb7cbeb6600669c8, cg spec done 22.39.288 -f layerx-merge --root /work/paxeer-monorepo exited 1 (private log /out/logs/verify-1.log): all 52 TypeScript files passed; Python reported 148 passed and this one failure at line 313 because the malformed committed transaction raises invalid committed transaction field while the assertion expects inclusion identity."
+producer = "services/agent/sdk/python/layerx_sdk/committed.py _committed_evm_transaction decodes the Comet proof datum as an EVM envelope; verify_committed_transaction binds that decoded transaction or the original proof bytes to the caller's transaction."
+change = "Decision 3164, gotcha 4083: when the proof datum differs from the caller's transaction, guard the committed-envelope decode. Translate its ValueError to transaction inclusion identity mismatch and reject a successfully decoded but different transaction with the same identity refusal. Preserve matching raw transaction and matching committed-envelope acceptance, commit authentication and inclusion proof checks. Change no tests."
+cases = ["services/agent/sdk/python/tests/test_retired_kernel_receipts.py test_retained_receipt_and_commit_verification_are_public", "tests/agent/sdk/python/test_repair_22_31_147.py", "services/agent/sdk/python/tests/test_web_search_sequencer.py", "services/agent/sdk/python/tests/test_x402_http_sequencer.py"]
+qualification = "Run hf-build and hf-done on the final unchanged candidate; the last rows of /out/run/gates.jsonl name the exact verified revision, commands, exits and private evidence logs."

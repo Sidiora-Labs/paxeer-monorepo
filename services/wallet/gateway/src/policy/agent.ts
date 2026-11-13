@@ -1,5 +1,7 @@
 import { decodeFunctionData, encodeFunctionData, type Hex } from 'viem';
 import { PRECOMPILE_ADDRESSES, SCHEDULER_ABI, STREAMS_ABI } from '../precompiles.js';
+import { publicClient } from '../chainReads.js';
+import { agentWalletUserId, findWalletByUserId } from '../db/wallets.js';
 import { env } from '../env.js';
 import {
   countAgentSignaturesLastMinute,
@@ -7,17 +9,14 @@ import {
   sumAgentDailyValue,
   type AgentPolicyRow,
   type AgentPolicyRuleRow,
-  type AgentPrincipalRow,
+  type AgentPrincipalRow
 } from '../db/agents.js';
 
 export const ERC20_APPROVE_SELECTOR = '0x095ea7b3';
 export const ERC20_TRANSFER_SELECTOR = '0xa9059cbb';
 export const ERC20_TRANSFER_FROM_SELECTOR = '0x23b872dd';
 
-export function decodeAddressArg(
-  data: string,
-  argIndex: number,
-): string | null {
+export function decodeAddressArg(data: string, argIndex: number): string | null {
   const start = 2 + 8 + 64 * argIndex;
   const end = start + 64;
   if (data.length < end) return null;
@@ -37,7 +36,7 @@ export function decodeUintArg(data: string, argIndex: number): bigint | null {
 
 export function decodeMoverCounterparty(
   selector: string,
-  data: string,
+  data: string
 ): { counterparty: string | null; isApprove: boolean; known: boolean } {
   switch (selector.toLowerCase()) {
     case ERC20_APPROVE_SELECTOR:
@@ -48,7 +47,7 @@ export function decodeMoverCounterparty(
       return {
         counterparty: decodeAddressArg(data, 0),
         isApprove: true,
-        known: true,
+        known: true
       };
     case ERC20_TRANSFER_SELECTOR:
     case '0x1296ee62':
@@ -56,7 +55,7 @@ export function decodeMoverCounterparty(
       return {
         counterparty: decodeAddressArg(data, 0),
         isApprove: false,
-        known: true,
+        known: true
       };
     case ERC20_TRANSFER_FROM_SELECTOR:
     case '0x42842e0e':
@@ -66,7 +65,7 @@ export function decodeMoverCounterparty(
       return {
         counterparty: decodeAddressArg(data, 1),
         isApprove: false,
-        known: true,
+        known: true
       };
     case '0xac9650d8':
     case '0x5ae401dc':
@@ -159,14 +158,12 @@ export function effectivePolicy(p: AgentPolicyRow | null): EffectivePolicy {
   return {
     mode: p?.mode ?? env.AGENT_DEFAULT_MODE,
     maxTxValueWei: p?.max_tx_value_wei ?? env.AGENT_DEFAULT_MAX_TX_VALUE_WEI,
-    maxDailyValueWei:
-      p?.max_daily_value_wei ?? env.AGENT_DEFAULT_MAX_DAILY_VALUE_WEI,
-    rateLimitPerMin:
-      p?.rate_limit_per_min ?? env.AGENT_DEFAULT_RATE_LIMIT_PER_MINUTE,
+    maxDailyValueWei: p?.max_daily_value_wei ?? env.AGENT_DEFAULT_MAX_DAILY_VALUE_WEI,
+    rateLimitPerMin: p?.rate_limit_per_min ?? env.AGENT_DEFAULT_RATE_LIMIT_PER_MINUTE,
     maxApproveWei: p?.max_approve_wei ?? env.AGENT_DEFAULT_MAX_APPROVE_WEI,
     allowNativeTransfer: p?.allow_native_transfer ?? false,
     withdrawalAllowlistOnly: p?.withdrawal_allowlist_only ?? true,
-    dailyResetUtcHour: p?.daily_reset_utc_hour ?? 0,
+    dailyResetUtcHour: p?.daily_reset_utc_hour ?? 0
   };
 }
 
@@ -190,7 +187,7 @@ function indexRules(rules: AgentPolicyRuleRow[]): RuleIndex {
     allowContracts: new Set(),
     allowTokenCaps: new Map(),
     hasAllowContracts: false,
-    withdrawalAllowlist: new Set(),
+    withdrawalAllowlist: new Set()
   };
   for (const r of rules) {
     const v = r.value.toLowerCase();
@@ -216,7 +213,7 @@ function indexRules(rules: AgentPolicyRuleRow[]): RuleIndex {
 function deny(
   code: AgentDenyCode,
   message: string,
-  detail?: Record<string, unknown>,
+  detail?: Record<string, unknown>
 ): AgentDecision {
   return { allow: false, code, message, detail };
 }
@@ -225,15 +222,7 @@ function deny(
 function dailyWindowStartIso(hour: number): string {
   const now = new Date();
   const start = new Date(
-    Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate(),
-      hour,
-      0,
-      0,
-      0,
-    ),
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hour, 0, 0, 0)
   );
   if (start.getTime() > now.getTime()) start.setUTCDate(start.getUTCDate() - 1);
   return start.toISOString();
@@ -252,16 +241,14 @@ export interface EvaluateAgentInput {
  * exceeded the normal caps, `reservedBudgetId` carries the budget that was
  * atomically charged — the route MUST release it if the send fails.
  */
-export async function evaluateAgent(
-  input: EvaluateAgentInput,
-): Promise<AgentDecision> {
+export async function evaluateAgent(input: EvaluateAgentInput): Promise<AgentDecision> {
   return evaluateAgentIntent(input, false, 0);
 }
 
 async function evaluateAgentIntent(
   input: EvaluateAgentInput,
   movementOnly: boolean,
-  depth: number,
+  depth: number
 ): Promise<AgentDecision> {
   const { principal } = input;
   let intent = input.intent;
@@ -269,18 +256,12 @@ async function evaluateAgentIntent(
 
   // 0. Freeze — the instant kill switch.
   if (principal.is_frozen) {
-    return deny(
-      'AGENT_FROZEN',
-      'agent is frozen by its owner; no actions permitted',
-    );
+    return deny('AGENT_FROZEN', 'agent is frozen by its owner; no actions permitted');
   }
 
   // 1. Mode — read_only forbids all signing (tx, message, typed-data).
   if (eff.mode === 'read_only') {
-    return deny(
-      'MODE_READ_ONLY',
-      'agent policy mode is read_only; signing is disabled',
-    );
+    return deny('MODE_READ_ONLY', 'agent policy mode is read_only; signing is disabled');
   }
 
   // Messages / typed-data carry no destination or transferable value at this
@@ -303,28 +284,24 @@ async function evaluateAgentIntent(
     if (eff.mode !== 'full') {
       return deny(
         'CONTRACT_CREATION_BLOCKED',
-        'contract creation requires a full-mode agent policy',
+        'contract creation requires a full-mode agent policy'
       );
     }
     if (value > eff.maxTxValueWei) {
       return deny('TX_VALUE_CAP', 'deployment value exceeds the per-tx cap', {
         value: value.toString(),
-        cap: eff.maxTxValueWei.toString(),
+        cap: eff.maxTxValueWei.toString()
       });
     }
     if (value > 0n) {
       const windowStart = dailyWindowStartIso(eff.dailyResetUtcHour);
       const dailySpent = await sumAgentDailyValue(principal.did, windowStart);
       if (dailySpent + value > eff.maxDailyValueWei) {
-        return deny(
-          'DAILY_VALUE_CAP',
-          'daily value cap exceeded by this deployment',
-          {
-            used: dailySpent.toString(),
-            request: value.toString(),
-            cap: eff.maxDailyValueWei.toString(),
-          },
-        );
+        return deny('DAILY_VALUE_CAP', 'daily value cap exceeded by this deployment', {
+          used: dailySpent.toString(),
+          request: value.toString(),
+          cap: eff.maxDailyValueWei.toString()
+        });
       }
     }
     const limited = await rateLimited(principal.did, eff.rateLimitPerMin);
@@ -332,15 +309,31 @@ async function evaluateAgentIntent(
     return { allow: true, reservedBudgetId: null, reservedValueWei: value };
   }
   const to = intent.to.toLowerCase();
+  if (idx.denyContracts.has(to)) {
+    return deny('CONTRACT_DENYLISTED', 'target contract is on the deny list', {
+      contract: to
+    });
+  }
+  const signedSelector = !isEmptyData && data.length >= 10 ? data.slice(0, 10) : null;
+  if (signedSelector && idx.denySelectors.has(signedSelector)) {
+    return deny('SELECTOR_DENYLISTED', 'method selector is on the deny list', {
+      selector: signedSelector
+    });
+  }
+
   let scheduled: AgentTxIntent | null = null;
   if (to === PRECOMPILE_ADDRESSES.scheduler || to === PRECOMPILE_ADDRESSES.streams) {
-    if (depth >= 16) return deny('COUNTERPARTY_UNDECODED', 'scheduled call nesting exceeds the policy bound');
-    const decoded = decodePrecompilePolicy(intent);
-    if (!decoded) return deny('COUNTERPARTY_UNDECODED', 'precompile movement cannot be decoded from signed calldata');
+    if (depth >= 16)
+      return deny('COUNTERPARTY_UNDECODED', 'scheduled call nesting exceeds the policy bound');
+    const decoded = await decodePrecompilePolicy(intent, principal.did);
+    if (!decoded)
+      return deny(
+        'COUNTERPARTY_UNDECODED',
+        'precompile movement cannot be decoded from signed calldata'
+      );
     intent = decoded.intent;
     scheduled = decoded.scheduled;
   }
-
 
   // Decode selector + asset-moving operands from calldata.
   let selector: string | null = null;
@@ -352,10 +345,7 @@ async function evaluateAgentIntent(
 
   if (!isEmptyData) {
     if (data.length < 10) {
-      return deny(
-        'INVALID_TX_SHAPE',
-        'tx.data must be empty or contain a 4-byte selector',
-      );
+      return deny('INVALID_TX_SHAPE', 'tx.data must be empty or contain a 4-byte selector');
     }
     selector = data.slice(0, 10);
     mover = decodeMoverCounterparty(selector, data);
@@ -383,57 +373,46 @@ async function evaluateAgentIntent(
     }
   }
 
-  if (movementOnly && mover?.known &&
-      (mover.counterparty === null || ![ERC20_APPROVE_SELECTOR, ERC20_TRANSFER_SELECTOR,
-        ERC20_TRANSFER_FROM_SELECTOR].includes(selector!))) {
+  if (
+    movementOnly &&
+    mover?.known &&
+    (mover.counterparty === null ||
+      ![
+        ERC20_APPROVE_SELECTOR,
+        ERC20_TRANSFER_SELECTOR,
+        ERC20_TRANSFER_FROM_SELECTOR
+      ].includes(selector!))
+  ) {
     return deny('COUNTERPARTY_UNDECODED', 'scheduled movement has no decodable counterparty');
   }
-  if (movementOnly && (selector === ERC20_TRANSFER_SELECTOR ||
-      selector === ERC20_TRANSFER_FROM_SELECTOR || selector === ERC20_APPROVE_SELECTOR) &&
-      (tokenRecipient === null || tokenAmount === null)) {
+  if (
+    movementOnly &&
+    (selector === ERC20_TRANSFER_SELECTOR ||
+      selector === ERC20_TRANSFER_FROM_SELECTOR ||
+      selector === ERC20_APPROVE_SELECTOR) &&
+    (tokenRecipient === null || tokenAmount === null)
+  ) {
     return deny('COUNTERPARTY_UNDECODED', 'scheduled token movement is malformed');
   }
 
   // 3. Denylist — deny always beats allow.
-  if (idx.denyContracts.has(to)) {
-    return deny('CONTRACT_DENYLISTED', 'target contract is on the deny list', {
-      contract: to,
-    });
-  }
-  if (selector && idx.denySelectors.has(selector)) {
-    return deny('SELECTOR_DENYLISTED', 'method selector is on the deny list', {
-      selector,
-    });
-  }
   if (tokenContract && idx.denyTokens.has(tokenContract)) {
     return deny('TOKEN_DENYLISTED', 'token is on the deny list', {
-      token: tokenContract,
+      token: tokenContract
     });
   }
   if (tokenRecipient && idx.denyAddresses.has(tokenRecipient)) {
-    return deny(
-      'ADDRESS_DENYLISTED',
-      'counterparty address is on the deny list',
-      {
-        address: tokenRecipient,
-      },
-    );
+    return deny('ADDRESS_DENYLISTED', 'counterparty address is on the deny list', {
+      address: tokenRecipient
+    });
   }
 
   // 4. Allowlist — in trade_only, when explicit allow-contract rules exist, the
   //    target MUST be allowlisted. `full` mode skips the allowlist requirement.
-  if (
-    eff.mode === 'trade_only' &&
-    idx.hasAllowContracts &&
-    !idx.allowContracts.has(to)
-  ) {
-    return deny(
-      'CONTRACT_NOT_ALLOWLISTED',
-      'target contract is not on the trade allowlist',
-      {
-        contract: to,
-      },
-    );
+  if (eff.mode === 'trade_only' && idx.hasAllowContracts && !idx.allowContracts.has(to)) {
+    return deny('CONTRACT_NOT_ALLOWLISTED', 'target contract is not on the trade allowlist', {
+      contract: to
+    });
   }
 
   // 5. Withdrawal allowlist — any recipient that can RECEIVE funds (native
@@ -445,46 +424,36 @@ async function evaluateAgentIntent(
         'COUNTERPARTY_UNDECODED',
         'known asset-moving call has no decodable counterparty',
         {
-          selector,
-        },
+          selector
+        }
       );
     }
     const recipientNeedingAllow: string | null =
       value > 0n && isEmptyData
         ? to // bare native transfer → funds go to `to`
         : (tokenRecipient ?? null); // token recipient / spender / operator
-    if (
-      recipientNeedingAllow &&
-      !idx.withdrawalAllowlist.has(recipientNeedingAllow)
-    ) {
+    if (recipientNeedingAllow && !idx.withdrawalAllowlist.has(recipientNeedingAllow)) {
       return deny(
         'WITHDRAWAL_NOT_ALLOWLISTED',
         'recipient/spender is not on the withdrawal allowlist',
-        { recipient: recipientNeedingAllow },
+        { recipient: recipientNeedingAllow }
       );
     }
   }
 
   // 6. Native transfer switch — a bare PAX transfer is a withdrawal vector.
   if (value > 0n && isEmptyData && !eff.allowNativeTransfer) {
-    return deny(
-      'NATIVE_TRANSFER_BLOCKED',
-      'native PAX transfers are disabled for this agent',
-    );
+    return deny('NATIVE_TRANSFER_BLOCKED', 'native PAX transfers are disabled for this agent');
   }
 
   // 7. Approve cap.
   if (isApprove) {
     const approveAmount = tokenAmount ?? decodeApproveAmount(data);
     if (approveAmount !== null && approveAmount > eff.maxApproveWei) {
-      return deny(
-        'APPROVE_CAP',
-        'approve amount exceeds the per-agent approval cap',
-        {
-          amount: approveAmount.toString(),
-          cap: eff.maxApproveWei.toString(),
-        },
-      );
+      return deny('APPROVE_CAP', 'approve amount exceeds the per-agent approval cap', {
+        amount: approveAmount.toString(),
+        cap: eff.maxApproveWei.toString()
+      });
     }
   }
 
@@ -495,33 +464,19 @@ async function evaluateAgentIntent(
       cap !== null &&
       cap !== undefined &&
       tokenAmount === null &&
-      (selector === ERC20_TRANSFER_SELECTOR ||
-        selector === ERC20_TRANSFER_FROM_SELECTOR)
+      (selector === ERC20_TRANSFER_SELECTOR || selector === ERC20_TRANSFER_FROM_SELECTOR)
     ) {
-      return deny(
-        'INVALID_TX_SHAPE',
-        'token transfer has no decodable amount',
-        {
-          token: tokenContract,
-          selector,
-        },
-      );
+      return deny('INVALID_TX_SHAPE', 'token transfer has no decodable amount', {
+        token: tokenContract,
+        selector
+      });
     }
-    if (
-      cap !== null &&
-      cap !== undefined &&
-      tokenAmount !== null &&
-      tokenAmount > cap
-    ) {
-      return deny(
-        'TOKEN_VALUE_CAP',
-        'token amount exceeds the per-tx cap for this token',
-        {
-          token: tokenContract,
-          amount: tokenAmount.toString(),
-          cap: cap.toString(),
-        },
-      );
+    if (cap !== null && cap !== undefined && tokenAmount !== null && tokenAmount > cap) {
+      return deny('TOKEN_VALUE_CAP', 'token amount exceeds the per-tx cap for this token', {
+        token: tokenContract,
+        amount: tokenAmount.toString(),
+        cap: cap.toString()
+      });
     }
   }
 
@@ -550,7 +505,7 @@ async function evaluateAgentIntent(
         did: principal.did,
         targetContract: to,
         token: null,
-        valueWei: value,
+        valueWei: value
       });
       if (!reservedBudgetId) {
         if (!withinPerTx) {
@@ -559,19 +514,15 @@ async function evaluateAgentIntent(
             'tx value exceeds the per-tx cap and no budget covers it',
             {
               value: value.toString(),
-              cap: eff.maxTxValueWei.toString(),
-            },
+              cap: eff.maxTxValueWei.toString()
+            }
           );
         }
-        return deny(
-          'DAILY_VALUE_CAP',
-          'daily value cap exceeded and no budget covers it',
-          {
-            used: dailySpent.toString(),
-            request: value.toString(),
-            cap: eff.maxDailyValueWei.toString(),
-          },
-        );
+        return deny('DAILY_VALUE_CAP', 'daily value cap exceeded and no budget covers it', {
+          used: dailySpent.toString(),
+          request: value.toString(),
+          cap: eff.maxDailyValueWei.toString()
+        });
       }
     }
   }
@@ -584,10 +535,7 @@ async function evaluateAgentIntent(
  * budget. Fails open on a transient DB error (the value caps are the hard
  * guard). Returns null when within the limit.
  */
-async function rateLimited(
-  did: string,
-  perMin: number,
-): Promise<AgentDecision | null> {
+async function rateLimited(did: string, perMin: number): Promise<AgentDecision | null> {
   try {
     const recent = await countAgentSignaturesLastMinute(did);
     if (recent >= perMin) {
@@ -611,24 +559,37 @@ function decodeApproveAmount(data: string): bigint | null {
 }
 
 /** Decode only signed operands; helper annotations never grant precompile authority. */
-function decodePrecompilePolicy(intent: AgentTxIntent): {
+async function decodePrecompilePolicy(
+  intent: AgentTxIntent,
+  did: string
+): Promise<{
   intent: AgentTxIntent;
   scheduled: AgentTxIntent | null;
-} | null {
+} | null> {
   const to = intent.to!.toLowerCase();
   const data = (intent.data ?? '0x').toLowerCase() as Hex;
   const clean: AgentTxIntent = {
-    kind: 'transaction', to, data, value: intent.value ?? 0n,
-    tokenContract: null, tokenRecipient: null, tokenAmount: null, isApprove: false,
+    kind: 'transaction',
+    to,
+    data,
+    value: intent.value ?? 0n,
+    tokenContract: null,
+    tokenRecipient: null,
+    tokenAmount: null,
+    isApprove: false
   };
   try {
     if (to === PRECOMPILE_ADDRESSES.scheduler) {
       const call = decodeFunctionData({ abi: SCHEDULER_ABI, data });
-      if (encodeFunctionData({ abi: SCHEDULER_ABI, ...call }).toLowerCase() !== data) return null;
+      if (encodeFunctionData({ abi: SCHEDULER_ABI, ...call }).toLowerCase() !== data)
+        return null;
       if (call.functionName === 'schedule') {
         const [target, callData] = call.args;
         clean.tokenRecipient = target.toLowerCase();
-        return { intent: clean, scheduled: { kind: 'transaction', to: target, data: callData, value: 0n } };
+        return {
+          intent: clean,
+          scheduled: { kind: 'transaction', to: target, data: callData, value: 0n }
+        };
       }
       // Rescheduling by id cannot establish the retained job's destination.
       if (call.functionName === 'reschedule') return null;
@@ -645,8 +606,35 @@ function decodePrecompilePolicy(intent: AgentTxIntent): {
       clean.tokenAmount = cap;
       return { intent: clean, scheduled: null };
     }
-    // These calls move or increase funds for an id, without signed payee/token operands.
-    if (call.functionName === 'settle' || call.functionName === 'close' || call.functionName === 'updateRate') return null;
+    if (
+      call.functionName === 'settle' ||
+      call.functionName === 'close' ||
+      call.functionName === 'updateRate'
+    ) {
+      const [id] = call.args;
+      const stream = await publicClient().readContract({
+        address: PRECOMPILE_ADDRESSES.streams,
+        abi: STREAMS_ABI,
+        functionName: 'getStream',
+        args: [id]
+      });
+      const wallet = await findWalletByUserId(agentWalletUserId(did), 'agent');
+      if (
+        !wallet ||
+        !stream.active ||
+        stream.id !== id ||
+        stream.payer.toLowerCase() !== wallet.address.toLowerCase() ||
+        BigInt(stream.payee) === 0n ||
+        BigInt(stream.token) === 0n ||
+        stream.cap === 0n ||
+        stream.settled > stream.cap
+      )
+        return null;
+      clean.tokenRecipient = stream.payee.toLowerCase();
+      clean.tokenContract = stream.token.toLowerCase();
+      clean.tokenAmount = stream.cap;
+      return { intent: clean, scheduled: null };
+    }
     return { intent: clean, scheduled: null };
   } catch {
     return null;

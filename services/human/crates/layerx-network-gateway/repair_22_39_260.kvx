@@ -1,0 +1,132 @@
+[meta]
+task = "22.39.260"
+source_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+status = "implemented-awaiting-qualification"
+continuation_revision = "6494a22f3c68de3828b3c8328b4727f0c6cfda2a"
+base_revision = "8742bd00eb3acc490f28e5d26038636590216955"
+baseline_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path services/human/crates/layerx-network-gateway --path services/human/crates/layerx-human-test-support --path services/human/crates/layerx-human-kms --path services/human/tools"
+baseline_exit = 1
+baseline_findings = 12
+tests_declared = []
+qualification = "Only hf-build and hf-done run qualification; their private gate ledger binds the unchanged candidate revision, command, exit and log. No gate result is claimed in this record."
+allowed_references = "The continuation scope includes tools/paxeer-x/retired_callers.json; the exact-line allowances below are applied there under decisions 3125 and 3132."
+gotcha = "The scanner permits underscore suffix matches: retired sign_disclosed matches the live sign_disclosed_call replacement; checker rejection strings are also reported as callers."
+network_gateway = "No initial finding: the prerequisite catalogue task already retained the live px_listAssets and px_getNetwork methods. Correct the obsolete two-execution-domain introduction without removing live methods."
+
+[finding.1]
+path = "services/human/crates/layerx-human-kms/src/attestor.rs"
+line = 1042
+component = "envelope-signing"
+symbol = "sign_disclosed"
+status = "allowed-reference"
+repair = "The source already calls the live secp256k1 EIP-1559 signing replacement, which validates disclosure and recovers the sender; retain the call and allow its exact line."
+
+[finding.2]
+path = "services/human/crates/layerx-human-test-support/src/evidence_node.rs"
+line = 193
+component = "layerxctl-port"
+symbol = "LNI"
+status = "repaired"
+repair = "Replace the historical listener comment with the HTTP signed EVM transaction boundary actually served."
+
+[finding.3]
+path = "services/human/crates/layerx-human-test-support/src/evidence_node.rs"
+line = 193
+component = "lni"
+symbol = "LNI"
+status = "repaired"
+repair = "Replace the historical listener comment with the HTTP signed EVM transaction boundary actually served."
+
+[finding.4]
+path = "services/human/tools/boundary-check/src/lib.rs"
+line = 13
+component = "human-two-domain"
+symbol = "layerx-human-movement-provider"
+status = "allowed-reference"
+repair = "Retain the exact retired-crate rejection pattern; removing it would weaken the manifest and workspace-member policy."
+
+[finding.5]
+path = "services/human/tools/boundary-check/src/lib.rs"
+line = 13
+component = "human-two-domain"
+symbol = "layerx-paxeer-client"
+status = "allowed-reference"
+repair = "Retain the exact retired-crate rejection pattern; removing it would weaken the manifest and workspace-member policy."
+
+[finding.6]
+path = "services/human/tools/boundary-check/src/lib.rs"
+line = 16
+component = "layerxctl-port"
+symbol = "lni"
+status = "allowed-reference"
+repair = "Retain the exact source-import rejection pattern, consistent with the existing catalogue allowance for this checker's direct-core-connection refusals."
+
+[finding.7]
+path = "services/human/tools/boundary-check/src/lib.rs"
+line = 16
+component = "lni"
+symbol = "lni"
+status = "allowed-reference"
+repair = "Retain the exact source-import rejection pattern, consistent with the existing catalogue allowance for this checker's direct-core-connection refusals."
+
+[finding.8]
+path = "services/human/tools/boundary-check/src/lib.rs"
+line = 17
+component = "checkpoint-finality"
+symbol = "layerx_proof::checkpoint"
+status = "allowed-reference"
+repair = "Retain the exact checkpoint settlement import rejection pattern; this checker does not consume the retired API."
+
+[finding.9]
+path = "services/human/tools/boundary-check/src/lib.rs"
+line = 17
+component = "settlement-domain"
+symbol = "SettlementDomain"
+status = "allowed-reference"
+repair = "Retain the exact checkpoint settlement import rejection pattern; this checker does not consume the retired API."
+
+[finding.10]
+path = "services/human/tools/boundary-check/src/lib.rs"
+line = 18
+component = "wire-codec"
+symbol = "layerx_wire::activity"
+status = "allowed-reference"
+repair = "Retain the exact activity-codec import rejection pattern; this checker does not consume the retired API."
+
+[finding.11]
+path = "services/human/tools/dependency-policy.sh"
+line = 12
+component = "human-two-domain"
+symbol = "layerx-human-movement-provider"
+status = "allowed-reference"
+repair = "Retain the exact dependency-name rejection in the anchored regular expression; deleting it would admit a forbidden dependency."
+
+[finding.12]
+path = "services/human/tools/dependency-policy.sh"
+line = 12
+component = "human-two-domain"
+symbol = "layerx-paxeer-client"
+status = "allowed-reference"
+repair = "Retain the exact dependency-name rejection in the anchored regular expression; deleting it would admit a forbidden dependency."
+
+[allowed_reference.1]
+path = "services/human/crates/layerx-human-kms/src/attestor.rs"
+lines = ["let mut future = signer::sign_disclosed_call(&signer, call, disclosure, from);"]
+citation = "The envelope-signing removal (11029) retains this EIP-1559 disclosure-bound signer, implemented in services/agent/crates/layerx-crypto/src/signer.rs; the retired function prefix matches the live replacement."
+
+[allowed_reference.2]
+path = "services/human/tools/boundary-check/src/lib.rs"
+lines = ["const RETIRED_CRATES: &[&str] = &[\"layerx-human-movement-provider\", \"layerx-paxeer-client\"];", "\"layerx_client::lni\",", "\"layerx_proof::checkpoint::SettlementDomain\",", "\"layerx_wire::activity\","]
+citation = "These exact strings enforce the human retired-surface refusals (11047, 11021, 11024, 11028 and 11030); they reject the retired crates and imports rather than consume their APIs."
+
+[allowed_reference.3]
+path = "services/human/tools/dependency-policy.sh"
+lines = ["banned=\"$banned\"'|layerx-human-movement-provider|layerx-paxeer-client|ctor|inventory)$'"]
+citation = "The human two-domain removal (11047) retains these exact package names solely to reject forbidden dependencies in the resolved Cargo metadata."
+
+[live_probe.real_repeated_account_and_balance_lookup_preserves_owner]
+path = "services/human/crates/layerx-network-gateway/src/lib.rs"
+variable = "PAXEER_X_IDENTITY_FIXTURE"
+absent = "Print that live identity resolution did not run because PAXEER_X_IDENTITY_FIXTURE is unset and return, as required by decision 3132."
+present = "Read the real fixture and preserve all existing identity resolution, repeated account and balance lookup, owner and conflicting-selector assertions; invalid paths, JSON, selectors or answers still fail."
+evidence = "A passing library gate without this variable does not prove live identity resolution; the private hf-done log and gates.jsonl record the actual qualified revision."

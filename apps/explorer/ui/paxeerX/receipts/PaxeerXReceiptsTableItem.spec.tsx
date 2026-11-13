@@ -35,7 +35,9 @@ function receipts_table_item_has_no_rung_badge() {
   const row = container.querySelector(`[data-receipt="${ receipt.id }"]`) as HTMLElement;
 
   expect(row).toBeTruthy();
-  expect(row.querySelector(`a[href="/paxeer-x/receipts/${ receipt.id }"]`)).toBeTruthy();
+  expect(row.querySelector(`a[href="/tx/${ receipt.transaction_hash }"]`)).toBeTruthy();
+  expect(row.querySelectorAll('a')).toHaveLength(2);
+  expect(row.querySelector('a[href^="/paxeer-x/receipts"]')).toBeNull();
   expect(row.querySelector(`a[href="/block/${ receipt.block_number }"]`)?.textContent).toBe(String(receipt.block_number));
   expect(row.querySelectorAll('td')).toHaveLength(3);
   expect(row.querySelector('[data-rung]')).toBeNull();
@@ -50,13 +52,23 @@ describe('PaxeerXReceiptsTableItem', () => {
 
   it('receipts_table_item_has_no_rung_badge', receipts_table_item_has_no_rung_badge);
 
-  it('marks the row with the receipt it carries and links it to its page', () => {
+  it('kernel_receipt_row_keeps_the_id_and_copy_controls_without_links', function kernelReceiptRowKeepsTheIdAndCopyControlsWithoutLinks() {
+    const { container } = renderItem(PAXEER_X_KERNEL_RECEIPTS_ITEM);
+    const row = container.querySelector(`[data-receipt="${ PAXEER_X_KERNEL_RECEIPTS_ITEM.id }"]`) as HTMLElement;
+
+    expect(row.querySelectorAll('td')[0]?.textContent).toBe('0x0000000000...0033');
+    expect(screen.getAllByLabelText('copy')).toHaveLength(2);
+    expect(row.querySelector('a')).toBeNull();
+    expect(row.querySelector('[data-rung]')).toBeNull();
+  });
+
+  it('marks the row with the receipt it carries and links it to its transaction', () => {
     const { container } = renderItem();
 
     const row = container.querySelector(`[data-receipt="${ receipt.id }"]`) as HTMLElement;
 
     expect(row).toBeTruthy();
-    expect(row.querySelector(`a[href="/paxeer-x/receipts/${ receipt.id }"]`)).toBeTruthy();
+    expect(row.querySelector(`a[href="/tx/${ receipt.transaction_hash }"]`)).toBeTruthy();
   });
 
   it('offers the receipt and the account with a copy control each', () => {

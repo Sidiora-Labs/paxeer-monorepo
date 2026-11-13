@@ -387,8 +387,6 @@ function evidence(value: unknown, what: string): EvidenceRef[] {
       }
       decoded.tx_hash = ref.tx_hash;
     }
-    if ('settlement_domain' in ref)
-      decoded.settlement_domain = text(ref.settlement_domain, `${what} settlement_domain`);
     return decoded;
   });
 }

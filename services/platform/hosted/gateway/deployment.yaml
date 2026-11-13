@@ -187,7 +187,10 @@ spec:
   podSelector: {matchLabels: {app: layerx-gateway}}
   policyTypes: [Ingress, Egress]
   ingress:
-    - from: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: ingress-nginx}}}, {podSelector: {matchLabels: {app: layerx-mainnet-beta-control}}}]
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: ingress-nginx}}
+        - namespaceSelector: {matchLabels: {layerx-control-plane: enabled}}
+          podSelector: {matchLabels: {layerx-plane: control}}
       ports: [{protocol: TCP, port: 9443}]
     - from:
         - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: layerx-internal}}

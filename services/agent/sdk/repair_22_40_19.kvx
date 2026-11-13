@@ -1,0 +1,27 @@
+[meta]
+source = "precompiles/launchpad/abi.json"
+sdk_generator = "cd services/agent/sdk/typescript && node scripts/generate-precompile-writes.mjs"
+explorer_generator = "cd services/explorer/services/sig-provider && python3 sig-provider/src/sources/generate_precompiles.py"
+result = "The SDK write and event tables and the explorer ABI inventory include the chain launch entries."
+
+[generated.typescript]
+path = "services/agent/sdk/typescript/src/generated/precompile-writes.ts"
+added_entries = 12
+added_functions = 8
+added_events = 4
+result = "Generated from the launchpad ABI."
+
+[generated.python]
+path = "services/agent/sdk/python/layerx_sdk/generated/precompile_writes.py"
+added_entries = 12
+added_functions = 8
+added_events = 4
+result = "Generated from the launchpad ABI."
+
+[generated.explorer]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+added_entries = 177
+added_functions = 13
+added_events = 4
+added_errors = 160
+result = "Generated from the declared producer ABI inventory."

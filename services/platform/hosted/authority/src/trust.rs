@@ -80,6 +80,7 @@ pub(super) fn replica(
         .as_str()
         .and_then(|text| layerx_platform_authority::hex::decode32(text).ok())
         .ok_or(EvidenceRefusal::SequencerKey)?;
+    snapshot(config, public_key).map_err(|()| EvidenceRefusal::SequencerKey)?;
     let authorization = keys
         .iter()
         .find(|key| key.public_key() == public_key)

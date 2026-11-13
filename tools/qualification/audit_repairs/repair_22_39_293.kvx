@@ -1,0 +1,156 @@
+[repair]
+task = "22.39.293"
+requirement = "22998.1"
+source_revision = "2910889b640274b1b6f2bd14a2fba25019093bb2"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision_evidence = "The final hf-done row in /out/run/gates.jsonl names the exact verified candidate revision, command, exit and private log; the final response copies it. This source record cannot embed its own commit ID."
+baseline = "No baseline gate was run. Initial gate counters were zero, no gates.jsonl existed, and only runner bookkeeping changes were present."
+policy = "Re-record only live producer pins. Keep historical audit metadata, all tests, assertions of the original criteria, and exact digest normalizations. No producer code changes."
+review_only = "This Python task does not execute Rust, Go, TypeScript or live node gates; those remain owner evidence."
+
+[case.px_getSequenceBatch]
+test_file = "tools/qualification/audit_repairs/test_px_node_root_design.py"
+test = "test_px_node_root_method_contract_sources_and_decision"
+producers = ["services/platform/hosted/gateway/openrpc.json"]
+assertion = "Full hosted method equality for px_getSequenceBatch; full archived design equality remains independently pinned."
+producer_task = "18.1764.1"
+
+[case.px_getHistory]
+test_file = "tools/qualification/audit_repairs/test_px_node_root_design.py"
+test = "test_px_node_root_method_contract_sources_and_decision"
+producers = ["services/platform/hosted/gateway/openrpc.json"]
+assertion = "Full hosted method equality for px_getHistory; full archived design equality remains independently pinned."
+producer_task = "18.1632.1"
+
+[case.px_getUnifiedHistory]
+test_file = "tools/qualification/audit_repairs/test_px_node_root_design.py"
+test = "test_px_node_root_method_contract_sources_and_decision"
+producers = ["services/platform/hosted/gateway/openrpc.json"]
+assertion = "Full hosted method equality for px_getUnifiedHistory; full archived design equality remains independently pinned."
+producer_task = "18.1632.1"
+
+[case.wallet]
+test_file = "tools/qualification/audit_repairs/test_repair_22_31_605.py"
+test = "test_wallet_runs_unfiltered_vitest_in_both_directories"
+producers = [".github/workflows/wallet-test.yml", "tools/ci/run_wallet_vitest.py", "services/wallet/pnpm-workspace.yaml"]
+assertion = "Select each install by command and directory; require services/wallet workspace and apps/wallet app installs before the unchanged two-directory test matrix."
+producer_task = "22.39.178"
+
+[case.launchpad_test]
+test_file = "tools/qualification/audit_repairs/test_repair_22_33_1016.py"
+test = "test_each_workspace_gate_requires_successful_discovery"
+producers = ["services/launchpad/Makefile", "tests/ci/data/launchpad_go_tests.py"]
+assertion = "test requires successful discovery before the current runner, propagates failure, and records empty coverage explicitly where applicable."
+producer_task = "22.39.75"
+
+[case.launchpad_race]
+test_file = "tools/qualification/audit_repairs/test_repair_22_33_1016.py"
+test = "test_each_workspace_gate_requires_successful_discovery"
+producers = ["services/launchpad/Makefile", "tests/ci/data/launchpad_go_tests.py"]
+assertion = "race requires successful discovery before the current runner, propagates failure, and records empty coverage explicitly where applicable."
+producer_task = "22.39.75"
+
+[case.launchpad_cover]
+test_file = "tools/qualification/audit_repairs/test_repair_22_33_1016.py"
+test = "test_each_workspace_gate_requires_successful_discovery"
+producers = ["services/launchpad/Makefile", "tests/ci/data/launchpad_go_tests.py"]
+assertion = "cover requires successful discovery before the current runner, propagates failure, and records empty coverage explicitly where applicable."
+producer_task = "22.39.75"
+
+[case.coverage]
+test_file = "tools/qualification/audit_repairs/test_repair_22_33_1017.py"
+test = "test_makefile_boundary_and_wiring_request_are_explicit"
+producers = ["services/launchpad/Makefile", "tests/ci/data/launchpad_go_tests.py"]
+assertion = "Exact coverage runner profile argument, atomic per-package profiles and final profile serialization; inventory and money-module checks retained."
+producer_task = "22.39.75"
+
+[case.webhook_lock]
+test_file = "tools/qualification/audit_repairs/test_repair_22_33_1331.py"
+test = "test_finding_36_every_affected_lock_matches_manifest_without_resolution_churn"
+producers = ["services/platform/Cargo.lock", "services/platform/hosted/webhooks/Cargo.toml"]
+assertion = "Full remaining lock SHA256 re-recorded; exact affected-lock inventory, dependency equality, uniqueness and retired-codec absence retained."
+producer_task = "18.1809.1"
+
+[case.openrpc_full]
+test_file = "tools/qualification/audit_repairs/test_repair_22_33_1417.py"
+test = "test_035_inherited_repair_preserves_entire_openrpc_document"
+producers = ["services/platform/hosted/gateway/openrpc.json"]
+assertion = "Exact UTF-8 whole-document SHA256 re-recorded without changing normalization or original audit base."
+producer_task = "18.1632.1"
+
+[case.history_account_contract]
+test_file = "tools/qualification/audit_repairs/test_repair_22_33_1443.py"
+test = "test_real_recorded_unified_answer_validates_every_closed_history_object"
+producers = ["services/platform/hosted/gateway/openrpc.json", "rpc/px_history.go", "apps/web/e2e/fixtures/px-get-unified-history.json", "services/platform/hosted/gateway/src/history.rs"]
+assertion = "Unchanged producer-recorded gateway answer validates; live unified account bounds are exactly 1..16 with side-specific address patterns and both row sides."
+producer_task = "22.34.3"
+
+[case.history_refusals]
+test_file = "tools/qualification/audit_repairs/test_repair_22_33_1443.py"
+test = "test_closed_history_contracts_reject_extra_missing_and_malformed_fields"
+producers = ["services/platform/hosted/gateway/openrpc.json", "rpc/px_history.go"]
+assertion = "All closed-object extra/missing-field and malformed-row checks retained; reject 0 or 17 accounts and cross-side/unknown-side accounts; accept the declared 16-account boundary."
+producer_task = "22.34.3"
+
+[case.clock_inventory]
+test_file = "tools/qualification/audit_repairs/test_repair_22_33_1565.py"
+test = "test_clock_scanner_violations_have_exact_out_of_scope_owner_requests"
+producers = ["services/agent/crates/layerx-mcp/tests/support/native_reads.rs", "services/agent/crates/layerx-mcp/tests/support/seller_server.rs", "services/agent/crates/layerx-sdk/tests/issue_1764.rs", "services/agent/tools/boundary-check/src/main.rs"]
+assertion = "Retain all historical clock owner requests and add three live sources; exact equality with complete scanner inventory and no new allowlisting."
+producer_task = "22.39.224, 18.1764.1"
+
+[case.python_sdk_inventory]
+test_file = "tools/qualification/audit_repairs/test_repair_22_33_19.py"
+test = "test_existing_receipt_restart_and_rejection_suites_are_preserved"
+producers = ["tests/agent/sdk/python/test_account_derivation.py", "services/agent/sdk/python/pyproject.toml"]
+assertion = "Re-record every full local module digest and the complete ordered central-module digest and count; exact local inventory and test declarations retained."
+producer_task = "18.1840.1"
+
+[case.bank_result_producer]
+test_file = "tools/qualification/audit_repairs/test_repair_22_33_64.py"
+test = "test_exact_bank_amount_asset_limit_and_consensus_head_schemas_are_preserved"
+producers = ["services/platform/hosted/gateway/src/paxeer.rs", "services/platform/hosted/gateway/openrpc.json", "tools/platform/cli/src/wallet_gateway.rs"]
+assertion = "Task 22.39.240 removed the shared balances constructor call; assert its absence and the exact direct result object with resolved account, pinned height and decoded balances. Retain exact amount, asset limit, consensus schema and refusal checks."
+producer_task = "22.39.240"
+
+[case.human_receipt_route]
+test_file = "tools/qualification/audit_repairs/test_repair_22_33_29.py"
+test = "test_evidence_route_producer_and_portable_consumer_remain_connected"
+producers = ["services/human/crates/layerx-human-service/src/server/production_reads.rs", "services/interop/crates/layerx-portable/src/receipt.rs"]
+assertion = "Task 18.1714.1 replaced the receipt-only predicate with an exact rung/label match accepting verified committed receipts; require both valid pairs and refusal of every other pair."
+producer_task = "18.1714.1"
+
+[case.daemon_receipt_reference]
+test_file = "tools/qualification/audit_repairs/test_repair_22_33_626.py"
+test = "test_039_recorded_daemon_track_transcript_and_strict_decoder_agree"
+producers = ["services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs", "sdk/integrations/agents/test/fixtures/daemon-submission-transcript.json", "sdk/integrations/agents/src/tools.ts"]
+assertion = "Pin current producer receipt_ref; retain exact legacy consumer recording adaptation and transcript equality; assert task 18.1684.1 removed signed-byte hashing from owner and now decodes/re-encodes unsigned canonical bytes."
+producer_task = "18.1684.1"
+
+[case.openrpc_canonical]
+test_file = "tools/qualification/audit_repairs/test_repair_22_33_64.py"
+test = "test_all_unrelated_openrpc_contracts_match_the_recorded_base"
+producers = ["services/platform/hosted/gateway/openrpc.json"]
+assertion = "Full normalized-document SHA256 re-recorded with exactly the original exclusions; original audit base retained."
+producer_task = "18.1632.1"
+
+[case.authz_error_translation]
+test_file = "tools/qualification/audit_repairs/test_repair_22_33_738.py"
+test = "test_sdk_producer_transport_and_result_contracts"
+producers = ["sdk/baseapp/abci.go", "sdk/client/query.go", "sdk/x/authz/keeper/keeper.go"]
+assertion = "Task 18.1678.1 removed raw gRPC message wrapping; assert absence, exact NotFound mapping, non-debug conversion and trace-only raw log handling; all authorization execution-code and transport checks retained."
+producer_task = "18.1678.1"
+
+[case.vendored_source]
+test_file = "tools/qualification/audit_repairs/test_repair_22_36_1.py"
+test = "test_code_specs_dot_directories_and_assets_are_preserved"
+producers = ["tools/hyperfide/.gitignore", "tools/hyperfide/package.json"]
+assertion = "Re-pin live source tree at input main revision; retain every original relocation file, exact Git blob/mode checks, more than 10000 files and restored hook inclusion."
+producer_task = "18.1772.1, 22.39.173"
+
+[gotchas]
+scope = "GOTCHA.kvx and spec files are out of scope; observations are recorded here. Runner setup remains intact."
+wallet_install = "The workflow now has two identical pnpm install commands in different directories; command-only indexing selects the services/wallet workspace install before the apps/wallet install."
+receipt_reference = "The daemon owner hashes the unsigned canonical encoding while the legacy TypeScript consumer fixture still uses a tagged signed-byte reference; preserve its explicit recorded adaptation and do not claim their runtime integration is qualified."
+paths = "Use NUL-delimited Git inventories so Unicode recording paths remain literal."
+bank_constructor = "The first hf-done at b72089bdfeb8aa6b7127ff59a811b33dcd0f6952 exited 1 (/out/logs/verify-1.log): 260 cases passed and the bank result pin still expected a constructor call removed by 22.39.240; re-pin the exact direct result object and rebuild before the final hf-done."

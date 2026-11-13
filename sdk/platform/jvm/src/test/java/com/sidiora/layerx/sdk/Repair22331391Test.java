@@ -26,7 +26,7 @@ public final class Repair22331391Test {
         var catalogue = new GeneratedCatalogueProgramsTest();
         assertAll("program-metadata-test",
             catalogue::programOperationsNameLayerxprogramsCalls,
-            catalogue::nativePrepareReturnsEip1559Transaction);
+            catalogue::nativePrepareCarriesThePreparationRecord);
     }
 
     @Test

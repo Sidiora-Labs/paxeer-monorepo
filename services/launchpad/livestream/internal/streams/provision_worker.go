@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/livepeer"
 	"strings"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/livepeer"
 )
 
 type ProvisionWorker struct {
@@ -43,16 +44,16 @@ func (w *ProvisionWorker) Step(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	if o.ProviderID != "" || (o.State != "REQUESTED" && o.State != "PROVISIONING" && o.State != "ENDING" && o.State != "SUSPENDED") {
-		outcome = "idle"
+	if o.ProviderID != "" || (o.State != stateRequested && o.State != stateProvisioning && o.State != stateEnding && o.State != stateSuspended) {
+		outcome = idleOutcome
 		return nil
 	}
 	allowed, err := w.Restrictions.Allowed(bounded, o.Wallet, o.Pool)
 	if err != nil {
 		return ErrUnavailable
 	}
-	if !allowed && o.State != "ENDING" && o.State != "SUSPENDED" {
-		if o.State == "REQUESTED" {
+	if !allowed && o.State != stateEnding && o.State != stateSuspended {
+		if o.State == stateRequested {
 			_, err = w.Store.FailBeforeProvision(bounded, o.ID, o.Revision, ProvisionPolicyRevoked)
 			outcome = "policy_revoked"
 			return err
@@ -63,7 +64,7 @@ func (w *ProvisionWorker) Step(ctx context.Context, id string) error {
 			return err
 		}
 	}
-	if o.State == "REQUESTED" {
+	if o.State == stateRequested {
 		o, err = w.Store.BeginProvision(bounded, id)
 		if err != nil {
 			return err
@@ -71,13 +72,13 @@ func (w *ProvisionWorker) Step(ctx context.Context, id string) error {
 	}
 	allocation := provisionAllocation{Store: w.Store, Provider: w.Provider}
 	remote, err := allocation.resolve(bounded, o, owner)
-	if errors.Is(err, livepeer.ErrCorrelationMissing) && (o.State == "ENDING" || o.State == "SUSPENDED") {
+	if errors.Is(err, livepeer.ErrCorrelationMissing) && (o.State == stateEnding || o.State == stateSuspended) {
 		err = w.Store.finishUnallocated(bounded, o.ID, owner)
 		if err != nil {
 			outcome = "provider_create_ambiguous"
 			return err
 		}
-		outcome = "idle"
+		outcome = idleOutcome
 		return nil
 	}
 	if err != nil {
@@ -126,7 +127,7 @@ func (a provisionAllocation) resolve(ctx context.Context, o Operation, owner str
 		return nil, ErrUnavailable
 	}
 	if errors.Is(err, livepeer.ErrCorrelationMissing) {
-		if o.State == "ENDING" || o.State == "SUSPENDED" {
+		if o.State == stateEnding || o.State == stateSuspended {
 			return nil, err
 		}
 		if err = a.Store.reserveProviderCreate(ctx, o.ID, owner, o.Revision); err != nil {
@@ -242,7 +243,7 @@ func (w *ProvisionWorker) RotationStep(ctx context.Context, id string) error {
 		if err != nil {
 			return err
 		}
-		if next.State == "READY" || next.State == "LIVE" {
+		if next.State == stateReady || next.State == stateLive {
 			_, err = w.Store.pool.Exec(ctx, fmt.Sprintf("UPDATE %s.stream_key_rotations SET status='ready',revision=revision+1 WHERE old_stream_id=$1 AND status<>'ready'", w.Store.schema), id)
 			return err
 		}
@@ -252,7 +253,7 @@ func (w *ProvisionWorker) RotationStep(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	if old.State != "ENDED" || old.Intent != "rotate" {
+	if old.State != stateEnded || old.Intent != rotateAction {
 		return ErrUnavailable
 	}
 	_, err = w.Provider.GetStream(ctx, old.ProviderID)

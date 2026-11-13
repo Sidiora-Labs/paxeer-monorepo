@@ -12,7 +12,7 @@ use layerx_programs_runtime::{
 const EXECUTION_V2_GOLDEN: &str = include_str!("../vectors/execution-v2.hex");
 
 fn exported_vector(
-    case: String,
+    case: &str,
     left: i32,
     right: i32,
     record: &layerx_programs_runtime::ExecutionRecord,
@@ -20,7 +20,13 @@ fn exported_vector(
     let evidence = record
         .canonical_evidence()
         .iter()
-        .map(|byte| format!("{byte:02x}"))
+        .flat_map(|byte| {
+            let digits = b"0123456789abcdef";
+            [
+                char::from(digits[usize::from(byte >> 4)]),
+                char::from(digits[usize::from(byte & 0x0f)]),
+            ]
+        })
         .collect::<String>();
     serde_json::json!({"case": case, "left": left, "right": right, "evidence": evidence})
 }
@@ -207,7 +213,7 @@ fn execution_evidence_matches_the_architecture_independent_golden() {
     assert_eq!(record.canonical_evidence(), decode_hex(EXECUTION_V2_GOLDEN));
     export_vectors(
         "golden.json",
-        &[exported_vector("golden-add".to_string(), 19, 23, &record)],
+        &[exported_vector("golden-add", 19, 23, &record)],
     );
 }
 
@@ -230,7 +236,12 @@ fn equal_executions_consume_equal_budgets() {
         let second = execute_add(left, right);
         assert_eq!(first, second, "metering diverged in case {case}");
         assert_eq!(first.canonical_evidence(), second.canonical_evidence());
-        exported.push(exported_vector(format!("property-{case}"), left, right, &first));
+        exported.push(exported_vector(
+            &format!("property-{case}"),
+            left,
+            right,
+            &first,
+        ));
     }
     export_vectors("properties.json", &exported);
 }

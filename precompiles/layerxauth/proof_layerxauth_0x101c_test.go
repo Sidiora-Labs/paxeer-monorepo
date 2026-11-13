@@ -74,8 +74,12 @@ func TestProofLayerxauth0x101c(t *testing.T) {
 	}
 
 	txIndex := 0
-	deliver := func(account utils.TestAcct, to common.Address, input []byte, expectedCode uint32) (*evmtypes.Receipt, *evmtypes.MsgEVMTransactionResponse) {
+	deliver := func(account utils.TestAcct, to common.Address, input []byte, reason string) (*evmtypes.Receipt, *evmtypes.MsgEVMTransactionResponse) {
 		t.Helper()
+		expectedCode := uint32(0)
+		if reason != "" {
+			expectedCode = sdkerrors.ErrEVMVMError.ABCICode()
+		}
 		signer := ethtypes.LatestSignerForChainID(a.EvmKeeper.ChainID(ctx))
 		signed, err := ethtypes.SignTx(ethtypes.NewTx(&ethtypes.LegacyTx{
 			Nonce:    a.EvmKeeper.GetNonce(ctx, account.EvmAddress),
@@ -117,15 +121,11 @@ func TestProofLayerxauth0x101c(t *testing.T) {
 		require.Positive(t, receipt.GasUsed)
 		require.Equal(t, response.GasUsed, receipt.GasUsed)
 		expectedVMError := ""
-		if expectedCode == sdkerrors.ErrEVMVMError.ABCICode() {
-			expectedVMError = vm.ErrExecutionReverted.Error()
+		if reason != "" {
+			expectedVMError = vm.ErrExecutionReverted.Error() + "|" + reason
 		}
 		require.Equal(t, expectedVMError, response.VmError)
-		if expectedVMError == "" {
-			require.Empty(t, receipt.VmError)
-		} else {
-			require.Contains(t, receipt.VmError, expectedVMError)
-		}
+		require.Equal(t, expectedVMError, receipt.VmError)
 		txIndex++
 		return receipt, &response
 	}
@@ -165,7 +165,7 @@ func TestProofLayerxauth0x101c(t *testing.T) {
 	require.NoError(t, err)
 	bindInput, err := addressPrecompile.GetABI().Pack("bindLayerX", didKey, ed25519.Sign(private, message))
 	require.NoError(t, err)
-	boundReceipt, _ := deliver(sender, common.HexToAddress(addr.AddrAddress), bindInput, 0)
+	boundReceipt, _ := deliver(sender, common.HexToAddress(addr.AddrAddress), bindInput, "")
 	require.Equal(t, uint32(ethtypes.ReceiptStatusSuccessful), boundReceipt.Status)
 	actor, err := a.LayerXAuthKeeper.Actor(ctx, sender.EvmAddress)
 	require.NoError(t, err)
@@ -173,7 +173,7 @@ func TestProofLayerxauth0x101c(t *testing.T) {
 	registration := append(append([]byte{0x71, 1, 0, 2}, actor.Authority.Actor[:]...), didKey[:]...)
 	lifecycleInput, err := authABI.Pack("recordLifecycle", registration, [32]byte{0x41})
 	require.NoError(t, err)
-	_, registrationResponse := deliver(sender, authAddress, lifecycleInput, 0)
+	_, registrationResponse := deliver(sender, authAddress, lifecycleInput, "")
 	registered, err := authABI.Unpack("recordLifecycle", registrationResponse.ReturnData)
 	require.NoError(t, err)
 	sequence := registered[0].(uint64)
@@ -190,7 +190,7 @@ func TestProofLayerxauth0x101c(t *testing.T) {
 	actionKey := [32]byte{0x33}
 	input, err := authABI.Pack("grantSession", body, uint64(100), actionKey)
 	require.NoError(t, err)
-	granted, response := deliver(sender, authAddress, input, 0)
+	granted, response := deliver(sender, authAddress, input, "")
 	output, err := authABI.Unpack("grantSession", response.ReturnData)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{grantID}, output)
@@ -213,7 +213,7 @@ func TestProofLayerxauth0x101c(t *testing.T) {
 		t.Helper()
 		data, err := authABI.Pack(name, args...)
 		require.NoError(t, err)
-		_, result := deliver(sender, authAddress, data, 0)
+		_, result := deliver(sender, authAddress, data, "")
 		values, err := authABI.Unpack(name, result.ReturnData)
 		require.NoError(t, err)
 		return values
@@ -223,7 +223,7 @@ func TestProofLayerxauth0x101c(t *testing.T) {
 	summary := view("sessionKey", grantID)[0].([]byte)
 	require.Len(t, summary, 209)
 	require.Equal(t, sessionKey[:], summary[133:165])
-	failed, refusal := deliver(unbound, authAddress, input, sdkerrors.ErrEVMVMError.ABCICode())
+	failed, refusal := deliver(unbound, authAddress, input, "LXP_AUTH_SCOPE")
 	require.Equal(t, uint32(ethtypes.ReceiptStatusFailed), failed.Status)
 	require.Empty(t, failed.Logs)
 	reason, err := abi.UnpackRevert(refusal.ReturnData)
@@ -231,7 +231,7 @@ func TestProofLayerxauth0x101c(t *testing.T) {
 	require.Equal(t, "LXP_AUTH_SCOPE", reason)
 	require.Equal(t, []interface{}{body, false, uint64(0)}, view("getGrant", grantID))
 	// Repeating the producer is refused before any additional logs or state are committed.
-	duplicate, replay := deliver(sender, authAddress, input, sdkerrors.ErrEVMVMError.ABCICode())
+	duplicate, replay := deliver(sender, authAddress, input, "LXP_SEQUENCE_REUSED")
 	require.Empty(t, duplicate.Logs)
 	reason, err = abi.UnpackRevert(replay.ReturnData)
 	require.NoError(t, err)
@@ -240,7 +240,7 @@ func TestProofLayerxauth0x101c(t *testing.T) {
 	require.NoError(t, err)
 	revokeInput, err := authABI.Pack("revokeGrant", grantID, uint8(1), next)
 	require.NoError(t, err)
-	revoked, _ := deliver(sender, authAddress, revokeInput, 0)
+	revoked, _ := deliver(sender, authAddress, revokeInput, "")
 	require.Len(t, revoked.Logs, 2)
 	require.Equal(t, []string{authABI.Events["GrantRevoked"].ID.Hex(), common.Hash(grantID).Hex()}, revoked.Logs[0].Topics)
 	values, err := authABI.Events["GrantRevoked"].Inputs.NonIndexed().Unpack(revoked.Logs[0].Data)

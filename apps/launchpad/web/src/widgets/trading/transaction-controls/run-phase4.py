@@ -42,7 +42,7 @@ def configure(path, digest, root, runner):
     require(sha(path) == digest, 'Measurement configuration hash mismatch')
     c = json.loads(Path(path).read_text())
     require(c.get('schema_version') == 1 and c.get('realm') == 'private-anvil125' and c.get('allow_fixture_mutation') is True, 'Explicit isolated measurement authority required')
-    sys.path.insert(0, str(root / 'tools/production'))
+    sys.path.insert(0, str(root / 'tools/launchpad/production'))
     evidence = importlib.import_module('dispatcher.evidence')
     current = evidence.source_digest(root)
     binding = c.get('binding', {})

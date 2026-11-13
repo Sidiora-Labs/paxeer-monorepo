@@ -545,6 +545,9 @@ pub struct ExecutedUcpPayment {
 /// Typed `LayerX` payment boundary used by the UCP seller.
 pub trait UcpPaymentPlane {
     /// Returns deployment-owned payment units. Unconfigured planes refuse checkout.
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     fn service_config(&self) -> Result<UcpServiceConfig, UcpError> {
         Err(UcpError::CurrencyBindingRequired)
     }
@@ -794,6 +797,9 @@ fn verify_order_evidence(
     Ok(())
 }
 
+///
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn verify_sequencer_receipt(
     submission: &CheckoutSubmission,
     canonical_receipt: &[u8],

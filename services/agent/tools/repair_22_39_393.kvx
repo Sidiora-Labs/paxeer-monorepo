@@ -1,0 +1,9 @@
+[repair.22.39.393]
+decision = "3313, 3315"
+cause = "Cargo metadata includes development dependencies, so a package-name sweep included SQLite crates used only by test targets."
+closure = "Start at each agent workspace member and follow only ordinary and build edges in the resolved dependency graph; refuse a listed crate in that closure and show one member-to-crate path."
+coverage = "The license rule still inspects every metadata package, and the unsafe rule still inspects every agent crate source file."
+cases = "All six cases passed: a direct development edge and a development edge below a nonmember dependency are excluded; direct ordinary and build edges and a transitive ordinary edge are refused with the asserted path; repository metadata passes."
+repository_policy = "The policy passed on the repository metadata without an argument."
+bans_audit = "Unavailable because the executable is absent from this environment."
+wrappers = "rusqlite is admitted only below layerx-indexer; libsqlite3-sys is admitted only below rusqlite."

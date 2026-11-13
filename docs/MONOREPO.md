@@ -1,269 +1,87 @@
 # Monorepo layout
 
-This repository contains one Paxeer X Network: the `paxd` node with the LayerX kernel embedded in it, contracts, hosted services, SDKs and applications. The kernel participates in block proposal and execution inside the network; a receipt is final when its block is committed. Source directories and language-specific builds are development boundaries within that network.
-
-See [Paxeer Network](paxeer-network.md) for chain identity, public endpoints and tenant domains. The tables below distinguish existing paths from planned moves. See [Contributing](../CONTRIBUTING.md#specifications-come-first) for the specifications that govern layout changes.
+This repository contains the Paxeer network node, its embedded kernel, contracts,
+services, SDKs and applications. `paxd` runs BFT consensus and calls the kernel
+for execution and block proposal. Receipts are final when their blocks commit.
+Paxeer mainnet-beta uses EVM chain ID `125` (`0x7d`); sub-chains are tenant
+domains in the same network. See the [network overview](paxeer-network.md).
 
 ## Root layout
 
-Every tracked top-level directory and file has one row below, including hidden
-configuration entries. Generated build output and untracked local state are outside
-this inventory. The current checkout has 43 directories and 41 files; the inventory
-changes as tracked root entries change.
-
-| Entry | Kind | Purpose and configuration |
-| --- | --- | --- |
-| `.agents/` | Directory | Local coding-agent skills, including the Codify workflow. |
-| `.cgignore` | File | Codify graph indexing include and exclude rules. |
-| `.claude/` | Directory | Claude settings and local ignore rules. |
-| `.coderabbit.yaml` | File | Code review automation settings and language-specific review guidance. |
-| `.codex/` | Directory | Codex hook configuration. |
-| `.codify/` | Directory | Codify agent context and lifecycle hooks. |
-| `.cursor/` | Directory | Cursor MCP configuration and generated workflow rules. |
-| `.devcontainer/` | Directory | Development container definition, Dockerfile and environment template. |
-| `.editorconfig` | File | Shared encoding, whitespace, indentation and newline conventions. |
-| `.gemini/` | Directory | Gemini coding-agent settings. |
-| `.gitattributes` | File | Git file attributes and text handling rules. |
-| `.github/` | Directory | CI workflows, contribution templates and GitHub automation. |
-| `.gitignore` | File | Untracked dependency, build and local-state exclusions. |
-| `.gitmodules` | File | Git submodule configuration retained at the repository root. |
-| `.golangci.yml` | File | Go lint configuration for the node and related packages. |
-| `.markdownlint.yaml` | File | Markdown lint rules. |
-| `.mcp.json` | File | Root MCP server configuration for Codify. |
-| `.opencode/` | Directory | OpenCode coding-agent configuration. |
-| `.pre-commit-config.yaml` | File | Pre-commit whitespace, Markdown, YAML, Rust and Solidity checks. |
-| `.yamllint.yaml` | File | YAML lint rules. |
-| `AGENTS.md` | File | The same generated workflow pointer as CLAUDE.md, rendered from spec/workflow.kvx by tools/specgen; edit the source specification. |
-| `CHANGELOG.md` | File | Release change history. |
-| `CITATION.cff` | File | Machine-readable project citation metadata. |
-| `CLAUDE.md` | File | The same generated workflow pointer as AGENTS.md, rendered from spec/workflow.kvx by tools/specgen; edit the source specification. |
-| `CODEMAP.md` | File | Repository code map and component navigation. |
-| `CODE_OF_CONDUCT.md` | File | Community conduct policy. |
-| `CONTRIBUTING.md` | File | Contributor setup, development and contribution guidance. |
-| `CONTRIBUTORS.md` | File | Contributor acknowledgements. |
-| `GOTCHA.kvx` | File | Append-only engineering gotcha ledger. |
-| `GOVERNANCE.md` | File | Project governance and decision-making policy. |
-| `LICENSE` | File | Repository Apache-2.0 license; imported components retain their own licenses. |
-| `Makefile` | File | C17 kernel library and tool builds, focused tests, and workspace orchestration; includes chain.mk. |
-| `NOTICE` | File | Copyright and third-party attribution notices. |
-| `README.md` | File | Network overview, entry points, build commands and documentation links. |
-| `RELEASE.md` | File | Release artifacts, qualification and network upgrade procedure. |
-| `SECURITY.md` | File | Security policy and vulnerability reporting instructions. |
-| `SUPPORT.md` | File | Support channels and issue guidance. |
-| `admin/` | Directory | Top-level Go package implementing the node administration gRPC server, including runtime log-level control and generated admin types. |
-| `api/` | Directory | Protobuf API sources and compatibility tests for chain modules and administration; root Buf configuration generates Go packages in modules, precompiles and admin/types. |
-| `apps/` | Directory | User-facing applications, including launchpad, perps, wallet, bridge, explorer, names and the inference peer; several own pnpm sub-project workspaces. |
-| `buf.baseline.binpb` | File | Binary protobuf descriptor baseline for API compatibility checks. |
-| `buf.gen.yaml` | File | Root Buf code-generation inputs and plugin settings. |
-| `buf.lock` | File | Pinned remote protobuf dependencies for the root Buf workspace. |
-| `buf.yaml` | File | Root multi-module protobuf workspace, lint and breaking-change settings. |
-| `chain.mk` | File | Go node build, version stamping, lint and test targets used by the root Makefile. |
-| `cmd/` | Directory | C-kernel development tools: layerx-genesis and layerx-module-registry; also the Rust layerxctl CLI and retirement checks. The production node entrypoint is daemon/paxd. |
-| `codify.kvx` | File | Codify project paths, graph indexing and sync settings. |
-| `consensus/` | Directory | BFT consensus implementation, networking, ABCI, consensus types and RPC support used by paxd. |
-| `contracts/` | Directory | Solidity contracts, Foundry dependencies and tests, plus separate bridge and launchpad contract projects. |
-| `core/` | Directory | Pinned upstream dependencies under core/deps, with provenance and vendor pin records. |
-| `custodyproof/` | Directory | Top-level Go package for decoding and verifying custody and bank-state proofs, including retained historical proof formats. |
-| `daemon/` | Directory | Production paxd command entrypoint and node lifecycle commands. |
-| `deploy/` | Directory | Deployment descriptors and launchpad production topology and observability material. |
-| `docker/` | Directory | Container builds, compose files and container deployment support. |
-| `docs/` | Directory | Architecture and component guides, wiki, documentation site, translations and engineering records. |
-| `engine/` | Directory | EVM execution engine packages integrated into the Go node. |
-| `foundry.paxeer.toml` | File | Separate Paxeer chain Foundry project: contracts/src sources, contracts/test tests, contracts/lib dependencies, contracts/out artifacts, forge-std/OpenZeppelin remappings and Solidity 0.8.27. Select with FOUNDRY_CONFIG=foundry.paxeer.toml. |
-| `foundry.toml` | File | Root kernel-contract Foundry project: contracts sources excluding the separate Paxeer, bridge and launchpad trees; Solidity 0.8.27 with optimization and via_ir, build/forge-artifacts output and build/forge-cache cache. Names and governance profiles select their own tests; make test-contracts selects tests/solidity. |
-| `go.mod` | File | Root Go module identity, Go toolchain and dependency requirements for node and top-level Go packages. |
-| `go.sum` | File | Go dependency checksums corresponding to go.mod. |
-| `include/` | Directory | Public C17 LayerX kernel headers under include/layerx, including the ABI and module interfaces. |
-| `interchain/` | Directory | IBC protocol, client, channel and transfer packages for the node. |
-| `launchpad/` | Directory | Launchpad production system specification under launchpad/spec; implementation services live in services/launchpad and clients in apps/launchpad. |
-| `layerxproof/` | Directory | Top-level Go packages for proof codecs, portable exports and receipt verification, with test vectors and explicit retirement guards. |
-| `migrations/` | Directory | C-kernel SQLite schemas, owned by retained kernel tooling rather than an off-chain service: 0001_projection.sql is loaded by src/storage/lxp_projection.c; 0001_genesis_sections.sql and 0007_history_index.sql retain historical schemas. Three SQL files and README.md are tracked here; see the migration guide. |
-| `modules/` | Directory | Native chain modules and the modules/lxphost Go/cgo host for the embedded C kernel. |
-| `node/` | Directory | Go application wiring, integrated sequencer, block proposal, upgrades and chain-state execution. |
-| `package-lock.json` | File | Tracked npm dependency lockfile for the root package.json workspaces. |
-| `package.json` | File | Declares npm@11.19.1 as the root package manager, using package-lock.json; lists npm SDK, middleware and example workspaces. pnpm-workspace.yaml and pnpm-lock.yaml belong to the pnpm sub-projects, not this root. |
-| `precompiles/` | Directory | Native EVM precompiles and ABI definitions, including ledger, payments, authority and Programs interfaces. |
-| `programs/` | Directory | The kernel Programs WASM tree: deterministic Rust guest runtime, registry, C/Rust bridge, SDKs, reference programs and sandbox linked into paxd. Distinct from the CosmWasm module and its VM wrapper. |
-| `rpc/` | Directory | Node JSON-RPC server, methods and compatibility tests. |
-| `rust-toolchain.toml` | File | Pinned Rust toolchain and components for the Rust workspaces. |
-| `scripts/` | Directory | CI, release, qualification, protobuf generation and workspace scripts. |
-| `sdk/` | Directory | Cosmos SDK framework fork plus client SDKs and integrations, including launchpad, wallet and chainflow packages. |
-| `services/` | Directory | Off-chain services: agent, interop, hosted platform, launchpad, explorer, human control plane, embedded wallet and bridge deployment; some own pnpm workspaces. |
-| `spec/` | Directory | Feature requirements, acceptance criteria, dependency-ordered tasks and the workflow source. |
-| `src/` | Directory | C17 LayerX kernel implementation: deterministic execution, modules, storage and supporting runtime code embedded through modules/lxphost. |
-| `storage/` | Directory | Go database and storage implementations used by node packages. |
-| `tests/` | Directory | Shared C kernel, Solidity, integration, CI regression, fixture and vector suites; packages also keep local tests. |
-| `tools/` | Directory | Developer, operator, release, launchpad and platform tools, including Hyperfide and pinned tool snapshots; tools/hyperfide owns its pnpm workspace. |
-| `utils/` | Directory | Shared Go utility packages used by the node and its components. |
-| `wasm/` | Directory | CosmWasm chain module and application integration in Go, including wasm/x/wasm and protobuf sources; executes contracts through wasm-runtime. |
-| `wasm-runtime/` | Directory | CosmWasm VM wrapper: Go APIs and cgo bindings backed by the Rust libwasmvm library. Distinct from the wasm chain module and kernel Programs runtime. |
-
-The root uses npm and `package-lock.json`. Each pnpm sub-project keeps its own
-`pnpm-workspace.yaml` and `pnpm-lock.yaml`, for example
-[`apps/launchpad/`](../apps/launchpad/), [`apps/perps/`](../apps/perps/),
-[`services/wallet/`](../services/wallet/) and
-[`tools/hyperfide/`](../tools/hyperfide/). Neither pnpm file is tracked at the root.
-
-The three WASM-related trees serve distinct layers: `wasm/` integrates CosmWasm
-with the chain, `wasm-runtime/` binds the CosmWasm VM, and `programs/` hosts the
-kernel's deterministic WASM programs. For the retained SQL schemas and their
-consumers, see [`migrations/README.md`](../migrations/README.md).
-
-## Target groups
-
-| Group | Holds |
-| --- | --- |
-| `apps/` | User-facing frontends |
-| `services/` | Off-chain programs |
-| `sdk/` | Client and guest SDKs |
-| `core/` | The chain: kernel, node packages, framework fork, programs runtime and pinned upstream libraries |
-| `tests/` | Shared test trees and fixtures; packages also retain local tests |
-| `tools/` | Developer and operator tools |
-| `contracts/` | On-chain sources |
-
-`api/`, `deploy/`, `docker/`, `docs/`, `scripts/`, `spec/` and the root build and community files stay at the root.
-
-## Current tree
-
 | Path | Contents |
 | --- | --- |
-| `apps/perps` | The Hyperpax perps frontend |
-| `apps/wallet`, `apps/web` | Wallet app and web app |
-| `apps/explorer` | Block explorer frontend |
-| `apps/inference-peer` | Standalone inference peer package with the pinned MIT Pooled WebGPU engine, room frame codec and WebSocket/WebRTC transport; see its `README.md`, `NOTICE` and `LICENSE-ENGINE` |
-| `apps/bridge` | Bridge frontend |
-| `apps/launchpad` | Launchpad web and mobile apps and the client workspace files |
-| `services/agent` | Agent daemon, MCP server, shared Rust crates, TypeScript and Python SDKs |
-| `services/interop` | Interop gateway, bridge relayer and agent-commerce services |
-| `services/platform` | Hosted developer platform, middleware, perps data and ramps |
-| `services/explorer` | Block explorer backend, services and deployment |
-| `services/launchpad` | Launchpad services |
-| `services/human` | Human control plane Rust workspace (crates, schema, tools) |
-| `services/wallet` | Embedded wallet service: attestor, ceremony, gateway, demo, schema, deployment and runbooks |
-| `services/bridge` | Bridge deployment |
-| `sdk/platform`, `sdk/integrations` | Platform SDKs (Go, JVM, .NET, Swift) and framework integrations |
-| `sdk/launchpad` | Launchpad protocol, shared libraries and client packages |
-| `sdk/chainflow` | Chainflow client libraries for Go, Python, Rust and TypeScript |
-| `sdk/js` | First-party `@pax-js/cosmos` package, edited in place and aligned to the protos of this repository |
-| `sdk/wallet` | Wallet SDK (`@paxeer/wallet`), a member of the `services/wallet` pnpm workspace |
-| `daemon/paxd`, `node`, `rpc` | Node entrypoint, application wiring and node JSON-RPC |
-| `src`, `include`, `modules/lxphost` | C kernel implementation and headers, and its Go/cgo host inside `paxd` |
-| `modules`, `precompiles`, `programs` | Chain modules, EVM precompiles and programs runtime |
-| `core/deps` | Pinned snapshots of the upstream libraries the node builds from, each with a `VENDOR.kvx` pin record |
-| `tests/` | Kernel C tests, `tests/fuzz`, `tests/integration`, `tests/occ`, `tests/testutil`, `tests/fixtures`, Solidity and vector suites |
-| `tools/hpx`, `tools/platform`, `tools/launchpad` | Node installer and registry, platform CLI, emulator and release tooling, launchpad tools |
-| `tools/loadtest`, `tools/paxctl`, `tools/uci`, `tools/wasm-tools` | Pinned tool snapshots with `VENDOR.kvx` pin records |
-| `contracts/` | Root Foundry sources; `contracts/src` and `contracts/test` use `foundry.paxeer.toml` |
-| `contracts/bridge` | Bridge vault contracts for EVM chains, the Solana program and test vectors |
-| `contracts/launchpad` | Launchpad contracts |
-| `deploy/` | Deployment descriptors, including `deploy/launchpad` |
+| [src/](../src/), [include/](../include/) | C17 kernel implementation and public headers |
+| [daemon/paxd/](../daemon/paxd/) | Production Go node entry point |
+| [node/](../node/), [consensus/](../consensus/) | Node lifecycle, ABCI integration and BFT consensus |
+| [modules/](../modules/), [precompiles/](../precompiles/) | Chain modules and EVM precompiles |
+| [modules/lxphost/](../modules/lxphost/) | Go-to-native kernel and programs host integration |
+| [rpc/](../rpc/), [api/](../api/) | JSON-RPC implementation and protobuf APIs |
+| [storage/](../storage/), [sdk/](../sdk/) | Chain storage and the Go chain SDK |
+| [core/deps/](../core/deps/) | Pinned upstream dependencies |
+| [programs/](../programs/) | Rust programs runtime, sandbox and guests |
+| [contracts/](../contracts/) | Solidity contracts and project-specific tests |
+| [services/](../services/) | Agent, platform, launchpad, wallet and other services |
+| [apps/](../apps/) | Wallet, explorer, inference peer and other applications |
+| [sdk/integrations/](../sdk/integrations/), [services/platform/examples/](../services/platform/examples/) | Integration packages and example consumers |
+| [docker/](../docker/), [deploy/](../deploy/) | Image definitions and deployment configuration |
+| [tools/](../tools/) | Build, release, deployment and development utilities |
+| [tests/](../tests/) | Native, integration and conformance tests |
+| [docs/](./), [spec/](../spec/) | Documentation and protocol specifications |
 
-## Inference peer room transport
-
-The local adapter lives in [`src/wire.mjs`](../apps/inference-peer/src/wire.mjs)
-and [`src/transport.mjs`](../apps/inference-peer/src/transport.mjs); the MIT
-engine snapshot remains separate. Import these source modules directly from a
-browser ES module or the native runtime. There is no compilation step.
-
-`encodeFrame({ kind, roomId, sequence, payload })` returns a `Uint8Array`;
-`decodeFrame(bytes)` accepts an `ArrayBuffer` or a byte view and returns those
-four fields. All integers use network byte order. One WebSocket message or data
-channel message carries exactly one frame, at most **65536 bytes including its
-header**. Decoding rejects unknown kinds, malformed UTF-8/JSON, truncated bodies
-and extra bytes. The binary layout is:
-
-| Field | Encoding |
-| --- | --- |
-| Kind | u16; hello=1, offer=2, deal=3, deal-ack=4, activation=5, lap-receipt=6, countersign=7, canary-answer=8, bye=9 |
-| Body length | u32, excludes the six-byte kind/length header |
-| Room ID length, room ID | u16 byte length followed by nonempty UTF-8 text |
-| Sequence | u32 |
-| Payload | Raw bytes for activation; a UTF-8 JSON object for every other kind |
-
-`SignalClient(url, { roomId, hello })` uses the browser or Node 22+ WebSocket
-API. `hello` carries `peerKey`, `signature`, `nonce` and `manifest` with version
-2; the caller supplies the signature over the room ID and nonce. `connect()`
-sends hello and resolves with the host's offer frame. The application must
-validate that offer against the chain's room record before accepting a deal.
-The host offer carries the model/runtime digests, layer plan and price; a deal
-payload carries `dealId` and `peers` (distinct peer-key strings). Frame events
-arrive as `event.detail`; a received deal can be acknowledged once through
-`acknowledgeDeal(dealId)`. The client enforces hello → offer → deal → deal-ack
-order, matching room IDs and increasing incoming signalling sequences. Its
-ten-second offer deadline is configurable as `timeoutMs`.
-
-WebRTC relays use kind `offer` with payload `{ to, relay }`; the host supplies
-the admitted sender as `{ from, to, relay }` when forwarding. `relay` contains
-either `description: { type, sdp }` (offer/answer) or
-`candidate: { candidate, sdpMid, ... }`. The host must authenticate the sender
-and forward only to the named admitted peer. The planned host listener is
-not present in this checkout; these envelopes define the peer side of that
-integration. The declared transport tests use a loopback WebSocket stand-in,
-without qualifying chain admission or live host interoperability.
-
-After receiving and validating a deal, create a browser mesh with
-`await PeerMesh.create(signal, { mode: "browser", rtcConfig })` and call
-`await mesh.join(deal.payload)`. Joining allocates connections for the deal's
-other peers, sends deal-ack, and starts SDP/ICE exchange. The lexicographically
-smaller peer key initiates each connection; candidates arriving before the
-remote description are buffered with a bound. Listen for `open` events before
-calling `mesh.send(peerKey, kind, payload)`. Mesh frame events carry
-`{ peerKey, frame }`. Native callers use `mode: "native"` and must provision
-the optional `node-datachannel` package and its native binary so that it is
-resolvable from this package. Missing WebRTC support or native dependencies
-fails explicitly. Browser and native `rtcConfig` values use their respective
-backend's ICE server configuration format.
-
-Each connection has a reliable ordered `control` channel and a reliable
-unordered `activations` channel, both with protocol `paxeer-room-v1`.
-Activations retain their sequence for the layer scheduler to handle arrival
-order; control sequences must increase. Both signalling and mesh sends reject
-backpressure above four maximum-size frames. Mesh sends also respect the
-negotiated SCTP message limit. Applications split larger tensors into bounded
-activation messages. Invalid incoming mesh traffic or connection failure
-closes the mesh and emits an `error` event; signalling loss closes it too.
-`close()` releases sockets or peer connections and can be called repeatedly.
-The focused gate covers every frame kind, size and decode refusals, the real
-WebSocket client handshake and named-peer relay; it does not exercise a
-browser or native WebRTC connection.
-
-## Trees that move under core in a later release
-
-These are planned directory moves, not additional deployments. In particular, the current kernel sources still live at the repository root.
-
-| Current path | Destination |
-| --- | --- |
-| `src`, `include`, `cmd`, `migrations` | `core/kernel` |
-| `sdk` framework fork entries | `core/cosmos-sdk` |
-| `consensus`, `interchain`, `wasm`, `wasm-runtime`, `storage`, `modules`, `precompiles`, `node`, `rpc`, `engine`, `daemon`, `admin`, `custodyproof`, `layerxproof`, `utils` | `core/<name>` |
-| `programs/sdk` | `sdk/programs` |
-| `programs` | `core/programs` |
+The root [Makefile](../Makefile) builds the kernel and coordinates language
+workspaces. [chain.mk](../chain.mk) owns Go node targets.
+[go.mod](../go.mod) declares the root Go module and local dependency replacements.
+[package.json](../package.json) declares the root npm workspaces.
+Applications with their own package manifests use their declared package manager
+and lockfile.
 
 ## Build boundaries
 
-- **Kernel library**: C17 (`-std=c17` in the root `Makefile`); `make build` produces `build/liblayerx.a`. Native tests and replay, arithmetic, fault and fuzz qualification exercise this library. These checks alone do not qualify the integrated node; see [Qualification](QUALIFICATION.md).
-- **Integrated node**: Go 1.25.8 (`go.mod`), built through `chain.mk`. `make paxeer-build` builds `build/paxd`; `make paxd-build` also stamps the release version from `tools/release/version.json`. The native prerequisite `make paxd-native-libs` builds the C library and release programs sandbox archive, linked by `modules/lxphost/host.go`. `make paxeer-lint`, `make paxeer-test` and `make paxeer-ci` cover the Go tree; `make test-paxd-domain` includes the kernel host, node, EVM keeper and RPC tests.
-- **Workspaces and contracts**: Rust 1.91.1 (`rust-toolchain.toml`), Solidity 0.8.27 (`foundry.toml` and `foundry.paxeer.toml`), and the npm workspaces listed in `package.json`. `make test-contracts` selects `tests/solidity` for the root Foundry project. The separate Foundry configuration selects `contracts/src` and `contracts/test`; see [Build and test](paxeer-network.md#build-and-test).
-- **Aggregate checks**: `make workspace-build` composes the declared kernel, node, service, tool and contract builds. `make monorepo-ci` depends on `workspace-ci`, which composes source audit, inventory, workspace build, test and lint targets. It does not replace the explicit replay, arithmetic, fault or fuzz qualification matrices. Run aggregate and sanitizer gates at wave or release qualification; an individual task runs only its declared build and verification.
-- `make ci` runs `public-audit`, kernel tests, a two-build archive comparison, consensus symbol checks and sanitizer suites. `scripts/ci/layout-check.sh` and `scripts/ci/vendor-verify.sh` check the layout and the vendored snapshots.
+Run these commands from the repository root with the required toolchains installed:
+
+| Target | Result |
+| --- | --- |
+| `make build` | Build the C kernel library and tools |
+| `make paxd-native-libs` | Build the kernel and release programs sandbox archives and the evmone shared library needed by the node |
+| `make paxeer-build` | Build the native prerequisites and linked Go node |
+| `make paxd-build` | Build the node with release version metadata |
+| `make programs-build` | Build the programs workspace |
+| `make agent-build` | Build the agent workspace |
+| `make workspace-build` | Build the repository workspaces |
+| `make workspace-test` | Run workspace tests |
+| `make workspace-lint` | Run workspace lint checks |
+| `make monorepo-ci` | Run source audit, inventory, workspace builds, tests and lint |
+
+The kernel uses C17, the root Go module declares Go 1.25.8, and
+[rust-toolchain.toml](../rust-toolchain.toml) pins Rust 1.91.1.
+The root Foundry configurations pin Solidity 0.8.27.
+`foundry.toml` defines the kernel-contract project; `make test-contracts`
+selects its `names` and `governance` profiles. `foundry.paxeer.toml` defines
+the separate `contracts/src` and `contracts/test` project, selected with
+`FOUNDRY_CONFIG=foundry.paxeer.toml`.
+The node's native integration is declared in
+[modules/lxphost/host.go](../modules/lxphost/host.go).
+See [Qualification](QUALIFICATION.md) for the test suites and their coverage.
 
 ## Trust boundaries
 
-The network's consensus commit is the authority for finality. There is no separate execution-to-settlement hop between the kernel and `paxd`.
+The embedded kernel and Go node share consensus and committed-state authority.
+Hosted services, agents and applications consume that network; local HTTP
+success and off-chain inference receipts do not establish committed finality.
+Public node JSON-RPC uses the node root URL. The
+[hosted gateway contract](../services/platform/hosted/gateway/openrpc.json)
+defines hosted identity and faucet operations.
 
-- Kernel execution is reached through the node's `modules/lxphost` integration and chain modules. Native balances, asset-ledger state and receipts must be interpreted in that committed chain state.
-- Hosted services, explorers and bridge clients consume node APIs and committed evidence. Their databases, caches and request acknowledgements do not establish network finality. The node serves the `px` namespace at its root; the hosted `px_register` and `px_requestFunds` operations are declared in `services/platform/hosted/gateway/openrpc.json`.
-- A sub-chain is a tenant domain in the database, with its own namespace and allowances under the same network security. Creating one needs no new node infrastructure.
-- Retained legacy source or migration code is not a deployment inventory. The standalone `layerxd` daemon and checkpoint/guarantor settlement model are retired.
-- Imported code keeps its license and provenance boundaries. In particular, the explorer backend and frontend run as separate processes; consult `services/explorer/LICENSE`, `apps/explorer/LICENSE` and the imported service licenses before redistribution.
-
-## Workflows
-
-Workflows live in `.github/workflows/`. `node-build.yml` builds native libraries and `paxd` and exercises the host integration; its pull-request paths include kernel, programs and node sources. Other package workflows include `agent.yml`, `human.yml`, `platform.yml`, `programs-conformance.yml`, `explorer-build.yml` and `bridge-test.yml`, alongside the `paxeer-*.yml` workflows. Consult each workflow's triggers and commands for its actual coverage.
+Inference hosts and peers run off-chain. The
+[inference market guides](agent/inference-market/README.md) describe program
+operations, metered streams, client routes and development attestation limits.
+The [inference peer guide](../apps/inference-peer/README.md) describes the
+browser and native peer interfaces.
 
 ## Further reading
 
-- [`README.md`](../README.md): network overview, build and test commands
-- [`CONTRIBUTING.md`](../CONTRIBUTING.md): contribution guidelines
-- [`QUALIFICATION.md`](QUALIFICATION.md): evidence levels and qualification gates
-- [`paxeer-network.md`](paxeer-network.md): merged runtime, root node endpoints and tenant domains
+- [Network overview](paxeer-network.md)
+- [Documentation index](README.md)
+- [Docker local cluster](../docker/README.md)
+- [Launchpad deployment](../deploy/launchpad/README.md)
+- [Agent compatibility](agent/COMPATIBILITY.md)

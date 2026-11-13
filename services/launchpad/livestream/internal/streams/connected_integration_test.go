@@ -93,6 +93,12 @@ func TestConnectedTitleCASAndCursorBindingUseActualPostgres(t *testing.T) {
 	}
 }
 func TestEncryptedProviderBindingRetainsNoPlaintext(t *testing.T) {
+	for _, name := range []string{"L40_TEST_VAULT_URL", "L40_TEST_VAULT_TOKEN", "L40_TEST_VAULT_KEY"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	s := fixture(t)
 	ctx := context.Background()
 	if _, err := s.pool.Exec(ctx, s.ConnectedSchemaSQL()); err != nil {
@@ -207,6 +213,12 @@ func TestConnectedSignedLedgerAndLifecycleCommitTogether(t *testing.T) {
 }
 
 func TestRotationIntentWaitsForRevocationAndRejectsStaleOwnerWrite(t *testing.T) {
+	for _, name := range []string{"L40_TEST_VAULT_URL", "L40_TEST_VAULT_TOKEN", "L40_TEST_VAULT_KEY"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	s := fixture(t)
 	ctx := context.Background()
 	if _, err := s.pool.Exec(ctx, s.ConnectedSchemaSQL()+s.RotationSchemaSQL()); err != nil {
@@ -357,6 +369,12 @@ func TestPrivatePlaybackPolicyInvalidatesEarlierViewerTokens(t *testing.T) {
 }
 
 func TestInterruptedProvisionBindingPreservesStopIntent(t *testing.T) {
+	for _, name := range []string{"L40_TEST_VAULT_URL", "L40_TEST_VAULT_TOKEN", "L40_TEST_VAULT_KEY"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	for _, state := range []string{"ENDING", "SUSPENDED"} {
 		t.Run(state, func(t *testing.T) {
 			s := fixture(t)
@@ -448,6 +466,12 @@ func TestUnallocatedStopNeverCertifiesAmbiguousCreate(t *testing.T) {
 }
 
 func TestActualProviderCreationSurvivesCredentialPersistenceInterruption(t *testing.T) {
+	for _, name := range []string{"L40_TEST_LIVEPEER_URL", "L40_TEST_LIVEPEER_KEY", "L40_TEST_PLAYBACK_WEBHOOK_ID"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	endpoint, key, webhook := os.Getenv("L40_TEST_LIVEPEER_URL"), os.Getenv("L40_TEST_LIVEPEER_KEY"), os.Getenv("L40_TEST_PLAYBACK_WEBHOOK_ID")
 	if endpoint == "" || key == "" || webhook == "" {
 		t.Fatal("actual admitted Livepeer provider and registered playback webhook required")

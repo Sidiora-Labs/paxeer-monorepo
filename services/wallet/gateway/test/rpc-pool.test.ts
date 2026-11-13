@@ -35,14 +35,27 @@ const nodes: Node[] = [];
 
 function startNode(): Promise<Node> {
   const node: Node = {
-    server: null as unknown as Server, url: '', failing: false, head: 1000, calls: [], requests: [],
-    revertCalls: false, sendError: null, receipt: null, latestCount: 9, lookupFails: false,
+    server: null as unknown as Server,
+    url: '',
+    failing: false,
+    head: 1000,
+    calls: [],
+    requests: [],
+    revertCalls: false,
+    sendError: null,
+    receipt: null,
+    latestCount: 9,
+    lookupFails: false,
   };
   node.server = createServer((req, res) => {
     const chunks: Buffer[] = [];
     req.on('data', (c: Buffer) => chunks.push(c));
     req.on('end', () => {
-      const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { id: number; method: string; params: unknown[] };
+      const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
+        id: number;
+        method: string;
+        params: unknown[];
+      };
       node.calls.push(body.method);
       node.requests.push({ method: body.method, params: body.params });
       if (node.failing) {
@@ -60,13 +73,22 @@ function startNode(): Promise<Node> {
         case 'eth_chainId':
           return reply({ result: '0x7d' });
         case 'eth_getTransactionByHash':
-          if (node.lookupFails) return reply({ error: { code: -32000, message: 'transaction index unavailable' } });
+          if (node.lookupFails)
+            return reply({
+              error: { code: -32000, message: 'transaction index unavailable' },
+            });
           return reply({ result: null });
         case 'eth_getTransactionCount':
-          if (body.params[1] === 'pending') return reply({ error: { code: -32000, message: 'pending block is not available' } });
+          if (body.params[1] === 'pending')
+            return reply({
+              error: { code: -32000, message: 'pending block is not available' },
+            });
           return reply({ result: `0x${node.latestCount.toString(16)}` });
         case 'eth_call':
-          if (node.revertCalls) return reply({ error: { code: 3, message: 'execution reverted', data: '0x' } });
+          if (node.revertCalls)
+            return reply({
+              error: { code: 3, message: 'execution reverted', data: '0x' },
+            });
           return reply({ result: '0x' });
         case 'eth_estimateGas':
           return reply({ result: '0x5208' });
@@ -100,7 +122,7 @@ function startNode(): Promise<Node> {
       node.url = `http://127.0.0.1:${(node.server.address() as AddressInfo).port}`;
       nodes.push(node);
       r(node);
-    }),
+    })
   );
 }
 
@@ -109,7 +131,14 @@ let b: Node;
 let sequencer: Node;
 
 function pool(lag = 20): RpcPool {
-  return new RpcPool({ urls: [a.url, b.url], sequencerUrl: a.url, chainId: 125, lagThresholdBlocks: lag, timeoutMs: 3_000, healthIntervalMs: 60_000 });
+  return new RpcPool({
+    urls: [a.url, b.url],
+    sequencerUrl: a.url,
+    chainId: 125,
+    lagThresholdBlocks: lag,
+    timeoutMs: 3_000,
+    healthIntervalMs: 60_000,
+  });
 }
 
 beforeAll(async () => {
@@ -137,25 +166,56 @@ afterAll(async () => {
 });
 
 async function writeGoesToSequencerEndpointOnly(): Promise<void> {
-  const p = rpcPoolFromConfig({ ...env, RPC_URLS: [a.url, b.url], SEQUENCER_RPC_URL: sequencer.url });
-  const signed: Hex = '0x02f86b';
-  expect(await p.sendRawTransactionVia(signed)).toEqual({ hash: `0x${'11'.repeat(32)}`, member: sequencer.url });
+  const p = rpcPoolFromConfig({
+    ...env,
+    RPC_URLS: [a.url, b.url],
+    SEQUENCER_RPC_URL: sequencer.url,
+  });
+  const account = privateKeyToAccount(`0x${'01'.repeat(32)}`);
+  const signed = await account.signTransaction({
+    type: 'eip1559',
+    chainId: 125,
+    nonce: 9,
+    to: account.address,
+    value: 1n,
+    gas: 21_000n,
+    maxFeePerGas: 7n,
+    maxPriorityFeePerGas: 3n,
+  });
+  expect(await p.sendRawTransactionVia(signed)).toEqual({
+    hash: `0x${'11'.repeat(32)}`,
+    member: sequencer.url,
+  });
   expect(sequencer.requests).toEqual([{ method: 'eth_sendRawTransaction', params: [signed] }]);
   expect(a.calls).toEqual([]);
   expect(b.calls).toEqual([]);
 
   sequencer.sendError = { code: -32000, message: 'already known' };
-  expect(await p.sendRawTransactionVia(signed)).toEqual({ hash: keccak256(signed), member: sequencer.url });
+  expect(await p.sendRawTransactionVia(signed)).toEqual({
+    hash: keccak256(signed),
+    member: sequencer.url,
+  });
   expect(sequencer.calls).toEqual(['eth_sendRawTransaction', 'eth_sendRawTransaction']);
 
   sequencer.failing = true;
   await expect(p.sendRawTransactionVia(signed)).rejects.toThrow('HTTP 500');
-  expect(sequencer.requests).toEqual(Array.from({ length: 3 }, () => ({ method: 'eth_sendRawTransaction', params: [signed] })));
+  expect(sequencer.requests).toEqual(
+    Array.from({ length: 3 }, () => ({
+      method: 'eth_sendRawTransaction',
+      params: [signed],
+    }))
+  );
   expect(a.calls).toEqual([]);
   expect(b.calls).toEqual([]);
 
-  const unconfigured = rpcPoolFromConfig({ ...env, RPC_URLS: [a.url, b.url], SEQUENCER_RPC_URL: undefined });
-  await expect(unconfigured.sendRawTransactionVia(signed)).rejects.toThrow('SEQUENCER_RPC_URL is not configured');
+  const unconfigured = rpcPoolFromConfig({
+    ...env,
+    RPC_URLS: [a.url, b.url],
+    SEQUENCER_RPC_URL: undefined,
+  });
+  await expect(unconfigured.sendRawTransactionVia(signed)).rejects.toThrow(
+    'SEQUENCER_RPC_URL is not configured'
+  );
   expect(a.calls).toEqual([]);
   expect(b.calls).toEqual([]);
 
@@ -167,23 +227,54 @@ async function writeGoesToSequencerEndpointOnly(): Promise<void> {
 }
 
 async function sequencerReceiptReadsPaxSequencerReceipt(): Promise<void> {
-  const p = rpcPoolFromConfig({ ...env, RPC_URLS: [a.url, b.url], SEQUENCER_RPC_URL: sequencer.url });
+  const p = rpcPoolFromConfig({
+    ...env,
+    RPC_URLS: [a.url, b.url],
+    SEQUENCER_RPC_URL: sequencer.url,
+  });
   const hash: Hex = `0x${'11'.repeat(32)}`;
   expect(await p.sequencerReceipt(hash)).toBeNull();
   expect(sequencer.requests).toEqual([{ method: 'pax_sequencerReceipt', params: [hash] }]);
 
   sequencer.receipt = {
-    rung: 'receipted', txHash: hash, nonce: '0x9', seq: '0x2a', height: '0x3e8', index: '0x0',
-    timestamp: '0x6500', status: '0x1', returnData: '0xabcd',
-    logs: [{ address: '0x00000000000000000000000000000000000000b1', topics: [hash], data: '0xab', logIndex: '0x0' }],
-    gasUsed: '0x5208', cumulativeGasUsed: '0x5208', effectiveGasPrice: '0x7', feeDenom: 'apax', feeAmount: '0x23e38',
-    sponsor: '0x0000000000000000000000000000000000000000', from: '0x00000000000000000000000000000000000000b1',
-    to: '0x00000000000000000000000000000000000000b2', contractAddress: '0x0000000000000000000000000000000000000000',
-    vmError: '', keyId: `0x${'22'.repeat(32)}`, receipt: '0x01020304',
+    rung: 'receipted',
+    txHash: hash,
+    nonce: '0x9',
+    seq: '0x2a',
+    height: '0x3e8',
+    index: '0x0',
+    timestamp: '0x6500',
+    status: '0x1',
+    returnData: '0xabcd',
+    logs: [
+      {
+        address: '0x00000000000000000000000000000000000000b1',
+        topics: [hash],
+        data: '0xab',
+        logIndex: '0x0',
+      },
+    ],
+    gasUsed: '0x5208',
+    cumulativeGasUsed: '0x5208',
+    effectiveGasPrice: '0x7',
+    feeDenom: 'apax',
+    feeAmount: '0x23e38',
+    sponsor: '0x0000000000000000000000000000000000000000',
+    from: '0x00000000000000000000000000000000000000b1',
+    to: '0x00000000000000000000000000000000000000b2',
+    contractAddress: '0x0000000000000000000000000000000000000000',
+    vmError: '',
+    keyId: `0x${'22'.repeat(32)}`,
+    receipt: '0x01020304',
   };
   expect(await p.sequencerReceipt(hash)).toEqual(sequencer.receipt);
 
-  sequencer.receipt = { ...sequencer.receipt, rung: 'committed', blockNumber: '0x3e9', blockHash: hash };
+  sequencer.receipt = {
+    ...sequencer.receipt,
+    rung: 'committed',
+    blockNumber: '0x3e9',
+    blockHash: hash,
+  };
   expect(await p.sequencerReceipt(hash)).toEqual(sequencer.receipt);
 
   sequencer.receipt = { rung: 'submitted', txHash: hash, nonce: '0x9' };
@@ -191,12 +282,20 @@ async function sequencerReceiptReadsPaxSequencerReceipt(): Promise<void> {
 
   sequencer.failing = true;
   await expect(p.sequencerReceipt(hash)).rejects.toThrow('HTTP 500');
-  expect(sequencer.requests).toEqual(Array.from({ length: 5 }, () => ({ method: 'pax_sequencerReceipt', params: [hash] })));
+  expect(sequencer.requests).toEqual(
+    Array.from({ length: 5 }, () => ({ method: 'pax_sequencerReceipt', params: [hash] }))
+  );
   expect(a.calls).toEqual([]);
   expect(b.calls).toEqual([]);
 
-  const unconfigured = rpcPoolFromConfig({ ...env, RPC_URLS: [a.url, b.url], SEQUENCER_RPC_URL: undefined });
-  await expect(unconfigured.sequencerReceipt(hash)).rejects.toThrow('SEQUENCER_RPC_URL is not configured');
+  const unconfigured = rpcPoolFromConfig({
+    ...env,
+    RPC_URLS: [a.url, b.url],
+    SEQUENCER_RPC_URL: undefined,
+  });
+  await expect(unconfigured.sequencerReceipt(hash)).rejects.toThrow(
+    'SEQUENCER_RPC_URL is not configured'
+  );
   expect(sequencer.calls).toHaveLength(5);
   expect(a.calls).toEqual([]);
   expect(b.calls).toEqual([]);
@@ -238,8 +337,16 @@ test(sequencerReceiptReadsPaxSequencerReceipt, sequencerReceiptReadsPaxSequencer
 const nonceTooLowTests = {
   async 'nonce too low with a lagging member reporting latest <= nonce is outcome unknown, not a conflict'(): Promise<void> {
     const account = privateKeyToAccount(`0x${'01'.repeat(32)}`);
-    const signed = await account.signTransaction({ type: 'eip1559', chainId: 125, nonce: 9,
-      to: account.address, value: 1n, gas: 21_000n, maxFeePerGas: 7n, maxPriorityFeePerGas: 3n });
+    const signed = await account.signTransaction({
+      type: 'eip1559',
+      chainId: 125,
+      nonce: 9,
+      to: account.address,
+      value: 1n,
+      gas: 21_000n,
+      maxFeePerGas: 7n,
+      maxPriorityFeePerGas: 3n,
+    });
     const p = pool();
     a.sendError = { code: -32000, message: 'nonce too low' };
     a.latestCount = 9;
@@ -251,10 +358,19 @@ const nonceTooLowTests = {
     const error: unknown = await p.sendRawTransactionVia(signed).catch((err: unknown) => err);
     expect(error).toBeInstanceOf(BroadcastOutcomeUnknownError);
     expect(error).not.toBeInstanceOf(NonceConflictError);
-    expect(custodyRefusal(error)).toEqual({ status: 202, body: {
-      error: 'outcome_unknown', tx_hash: keccak256(signed), nonce: 9, retry: 'poll_receipt',
-      poll: 'eth_getTransactionReceipt', must_not_resubmit: true, member: null, members: 2,
-    } });
+    expect(custodyRefusal(error)).toEqual({
+      status: 202,
+      body: {
+        error: 'outcome_unknown',
+        tx_hash: keccak256(signed),
+        nonce: 9,
+        retry: 'poll_receipt',
+        poll: 'eth_getTransactionReceipt',
+        must_not_resubmit: true,
+        member: null,
+        members: 2,
+      },
+    });
     for (const node of [a, b]) {
       expect(node.requests.filter((r) => r.method === 'eth_getTransactionCount')).toEqual([
         { method: 'eth_getTransactionCount', params: [account.address, 'latest'] },
@@ -266,9 +382,21 @@ const nonceTooLowTests = {
   },
   async 'nonce too low with every member past the nonce and the hash unknown everywhere is nonce consumed'(): Promise<void> {
     const account = privateKeyToAccount(`0x${'02'.repeat(32)}`);
-    const signed = await account.signTransaction({ type: 'eip1559', chainId: 125, nonce: 9,
-      to: account.address, value: 1n, gas: 21_000n, maxFeePerGas: 7n, maxPriorityFeePerGas: 3n });
-    const p = rpcPoolFromConfig({ ...env, RPC_URLS: [a.url, b.url], SEQUENCER_RPC_URL: sequencer.url });
+    const signed = await account.signTransaction({
+      type: 'eip1559',
+      chainId: 125,
+      nonce: 9,
+      to: account.address,
+      value: 1n,
+      gas: 21_000n,
+      maxFeePerGas: 7n,
+      maxPriorityFeePerGas: 3n,
+    });
+    const p = rpcPoolFromConfig({
+      ...env,
+      RPC_URLS: [a.url, b.url],
+      SEQUENCER_RPC_URL: sequencer.url,
+    });
     sequencer.sendError = { code: -32000, message: 'nonce too low' };
     for (const node of [a, b, sequencer]) node.latestCount = 14;
 
@@ -276,9 +404,16 @@ const nonceTooLowTests = {
     expect(error).toBeInstanceOf(NonceConflictError);
     expect(error).not.toBeInstanceOf(BroadcastOutcomeUnknownError);
     expect(error).toMatchObject({ consumed: true, nonce: 9, members: 3 });
-    expect(custodyRefusal(error)).toEqual({ status: 409, body: {
-      error: 'nonce_consumed', retry: 'prepare', nonce: 9, member: null, members: 3,
-    } });
+    expect(custodyRefusal(error)).toEqual({
+      status: 409,
+      body: {
+        error: 'nonce_consumed',
+        retry: 'prepare',
+        nonce: 9,
+        member: null,
+        members: 3,
+      },
+    });
     for (const node of [a, b, sequencer]) {
       expect(node.requests.filter((r) => r.method === 'eth_getTransactionCount')).toEqual([
         { method: 'eth_getTransactionCount', params: [account.address, 'latest'] },
@@ -297,29 +432,57 @@ const lookupTests = {
     const p = pool();
     const hash: Hex = `0x${'42'.repeat(32)}`;
     a.lookupFails = true;
-    expect(await p.lookupTransaction(hash, null)).toEqual({ known: false, unreachable: [0], members: 2 });
+    expect(await p.lookupTransaction(hash, null)).toEqual({
+      known: false,
+      unreachable: [0],
+      members: 2,
+    });
     expect((await p.checkHealth()).map((ep) => ep.state)).toEqual(['healthy', 'healthy']);
-    expect(await p.lookupTransaction(hash, null)).toEqual({ known: false, unreachable: [0], members: 2 });
+    expect(await p.lookupTransaction(hash, null)).toEqual({
+      known: false,
+      unreachable: [0],
+      members: 2,
+    });
 
     await new Promise<void>((resolve) => setTimeout(resolve, BROADCAST_GRACE_MS + 1));
     expect((await p.checkHealth()).map((ep) => ep.state)).toEqual(['healthy', 'healthy']);
-    expect(await p.lookupTransaction(hash, null)).toEqual({ known: false, unreachable: [], members: 2 });
+    expect(await p.lookupTransaction(hash, null)).toEqual({
+      known: false,
+      unreachable: [],
+      members: 2,
+    });
     expect(a.calls).toContain('eth_blockNumber');
     expect(a.calls.filter((method) => method === 'eth_getTransactionByHash')).toHaveLength(3);
 
     a.lookupFails = false;
-    expect(await p.lookupTransaction(hash, null)).toEqual({ known: false, unreachable: [], members: 2 });
+    expect(await p.lookupTransaction(hash, null)).toEqual({
+      known: false,
+      unreachable: [],
+      members: 2,
+    });
     a.lookupFails = true;
-    expect(await p.lookupTransaction(hash, null)).toEqual({ known: false, unreachable: [0], members: 2 });
+    expect(await p.lookupTransaction(hash, null)).toEqual({
+      known: false,
+      unreachable: [0],
+      members: 2,
+    });
     b.lookupFails = true;
-    expect(await p.lookupTransaction(hash, null)).toEqual({ known: false, unreachable: [0, 1], members: 2 });
+    expect(await p.lookupTransaction(hash, null)).toEqual({
+      known: false,
+      unreachable: [0, 1],
+      members: 2,
+    });
   },
 };
 
 test(
-  lookupTests['drops a member whose transaction lookups fail past the grace period while its health checks pass'],
-  lookupTests['drops a member whose transaction lookups fail past the grace period while its health checks pass'],
-  BROADCAST_GRACE_MS + 10_000,
+  lookupTests[
+    'drops a member whose transaction lookups fail past the grace period while its health checks pass'
+  ],
+  lookupTests[
+    'drops a member whose transaction lookups fail past the grace period while its health checks pass'
+  ],
+  BROADCAST_GRACE_MS + 10_000
 );
 
 describe('RpcPool', () => {
@@ -377,7 +540,11 @@ describe('RpcPool', () => {
     a.calls = [];
     b.calls = [];
     const err = await p
-      .simulate({ from: '0x00000000000000000000000000000000000000b2', to: '0x00000000000000000000000000000000000000b3', data: '0x' })
+      .simulate({
+        from: '0x00000000000000000000000000000000000000b2',
+        to: '0x00000000000000000000000000000000000000b3',
+        data: '0x',
+      })
       .catch((e: unknown) => e);
     expect(err).toBeInstanceOf(RpcResponseError);
     expect((err as RpcResponseError).code).toBe(3);
@@ -417,7 +584,10 @@ describe('RpcPool', () => {
     });
     expect(pinned).toEqual({ gas: 25_200n, maxFeePerGas: 7n, maxPriorityFeePerGas: 3n });
 
-    const live = await p.prepareGas({ from: '0x00000000000000000000000000000000000000b4', gas: 50_000n });
+    const live = await p.prepareGas({
+      from: '0x00000000000000000000000000000000000000b4',
+      gas: 50_000n,
+    });
     expect(live.gas).toBe(50_000n);
     expect(live.maxPriorityFeePerGas).toBe(1_000_000_000n);
     expect(live.maxFeePerGas).toBeGreaterThan(2_000_000_000n);

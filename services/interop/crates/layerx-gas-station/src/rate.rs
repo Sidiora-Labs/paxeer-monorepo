@@ -912,18 +912,56 @@ fn field_quantity(value: &Value, name: &str) -> Result<u128, RpcFault> {
     quantity(value[name].as_str().ok_or(RpcFault::Malformed)?)
 }
 
-/// Verifies the node's sequencer layout and binds the JSON execution view to
-/// the authenticated summary and log effects. Returns the signed execution outcome.
-/// # Errors
-/// Refuses unsigned evidence or any disagreement with the node's canonical layout.
-pub fn verify_sequencer_view(
+fn sha256_word(value: &[u8]) -> Result<Word, RpcFault> {
+    layerx_platform_internal::secret::unhex(&layerx_platform_internal::secret::sha256_hex(value))
+        .ok_or(RpcFault::Malformed)?
+        .try_into()
+        .map_err(|_| RpcFault::Malformed)
+}
+
+fn verify_effect_logs(
+    logs: &[Value],
+    effects: &[layerx_wire::receipt::Effect],
+    module_id: u16,
+) -> Result<(), RpcFault> {
+    for (index, (log, effect)) in logs.iter().zip(effects).enumerate() {
+        let body = effect.body();
+        if effect.module_id() != module_id
+            || usize::from(effect.ordinal()) != index + 1
+            || effect.kind() != 3
+            || body.len() < 53
+        {
+            return Err(RpcFault::Malformed);
+        }
+        let count = usize::from(body[20]);
+        let topics = log["topics"].as_array().ok_or(RpcFault::Malformed)?;
+        if count > 4
+            || body.len() != 53 + 32 * count
+            || topics.len() != count
+            || log["address"] != hex(&body[..20])
+            || field_quantity(log, "logIndex")? != index as u128
+        {
+            return Err(RpcFault::Malformed);
+        }
+        for (index, topic) in topics.iter().enumerate() {
+            if *topic != hex(&body[21 + index * 32..21 + (index + 1) * 32]) {
+                return Err(RpcFault::Malformed);
+            }
+        }
+        let data = bytes(log["data"].as_str().ok_or(RpcFault::Malformed)?)?;
+        if sha256_word(&data)? != body[body.len() - 32..] {
+            return Err(RpcFault::Malformed);
+        }
+    }
+    Ok(())
+}
+
+fn verify_view_metadata(
     view: &Value,
+    protocol: &layerx_wire::receipt::ProtocolReceipt,
     transaction_hash: &Word,
     keys: &[SequencerAuthorization],
-) -> Result<bool, RpcFault> {
-    let signed = bytes(view["receipt"].as_str().ok_or(RpcFault::Malformed)?)?;
-    let verified = verify_sequencer_signature(&signed, keys).map_err(|_| RpcFault::Malformed)?;
-    let protocol = verified.protocol().ok_or(RpcFault::Malformed)?;
+) -> Result<u128, RpcFault> {
     let status = match protocol.result_code() {
         0 => 1u128,
         1 => 0,
@@ -978,6 +1016,22 @@ pub fn verify_sequencer_view(
     if view["signingKey"] != hex(&signing_key.public_key()) {
         return Err(RpcFault::Malformed);
     }
+    Ok(status)
+}
+
+/// Verifies the node's sequencer layout and binds the JSON execution view to
+/// the authenticated summary and log effects. Returns the signed execution outcome.
+/// # Errors
+/// Refuses unsigned evidence or any disagreement with the node's canonical layout.
+pub fn verify_sequencer_view(
+    view: &Value,
+    transaction_hash: &Word,
+    keys: &[SequencerAuthorization],
+) -> Result<bool, RpcFault> {
+    let signed = bytes(view["receipt"].as_str().ok_or(RpcFault::Malformed)?)?;
+    let verified = verify_sequencer_signature(&signed, keys).map_err(|_| RpcFault::Malformed)?;
+    let protocol = verified.protocol().ok_or(RpcFault::Malformed)?;
+    let status = verify_view_metadata(view, protocol, transaction_hash, keys)?;
     let effects = protocol.effects();
     let summary = effects.first().ok_or(RpcFault::Malformed)?;
     let body = summary.body();
@@ -1021,22 +1075,14 @@ pub fn verify_sequencer_view(
         return Err(RpcFault::Malformed);
     }
     let payment = view["paymentDenom"].as_str().ok_or(RpcFault::Malformed)?;
-    let sha256 = |value: &[u8]| -> Result<Word, RpcFault> {
-        layerx_platform_internal::secret::unhex(&layerx_platform_internal::secret::sha256_hex(
-            value,
-        ))
-        .ok_or(RpcFault::Malformed)?
-        .try_into()
-        .map_err(|_| RpcFault::Malformed)
-    };
     let returned = bytes(view["returnData"].as_str().ok_or(RpcFault::Malformed)?)?;
     let vm_error = view["vmError"].as_str().ok_or(RpcFault::Malformed)?;
     if payment.is_empty()
         || payment.len() > 64
-        || sha256(payment.as_bytes())? != protocol.asset()
+        || sha256_word(payment.as_bytes())? != protocol.asset()
         || returned.len() != u32_at(100)? as usize
-        || sha256(&returned)? != protocol.activity_root()
-        || sha256(vm_error.as_bytes())? != body[68..100]
+        || sha256_word(&returned)? != protocol.activity_root()
+        || sha256_word(vm_error.as_bytes())? != body[68..100]
     {
         return Err(RpcFault::Malformed);
     }
@@ -1044,35 +1090,7 @@ pub fn verify_sequencer_view(
     if logs.len() != u32_at(104)? as usize || effects.len() != logs.len() + 1 {
         return Err(RpcFault::Malformed);
     }
-    for (index, (log, effect)) in logs.iter().zip(&effects[1..]).enumerate() {
-        let body = effect.body();
-        if effect.module_id() != protocol.module_id()
-            || usize::from(effect.ordinal()) != index + 1
-            || effect.kind() != 3
-            || body.len() < 53
-        {
-            return Err(RpcFault::Malformed);
-        }
-        let count = usize::from(body[20]);
-        let topics = log["topics"].as_array().ok_or(RpcFault::Malformed)?;
-        if count > 4
-            || body.len() != 53 + 32 * count
-            || topics.len() != count
-            || log["address"] != hex(&body[..20])
-            || field_quantity(log, "logIndex")? != index as u128
-        {
-            return Err(RpcFault::Malformed);
-        }
-        for (index, topic) in topics.iter().enumerate() {
-            if *topic != hex(&body[21 + index * 32..21 + (index + 1) * 32]) {
-                return Err(RpcFault::Malformed);
-            }
-        }
-        let data = bytes(log["data"].as_str().ok_or(RpcFault::Malformed)?)?;
-        if sha256(&data)? != body[body.len() - 32..] {
-            return Err(RpcFault::Malformed);
-        }
-    }
+    verify_effect_logs(logs, &effects[1..], protocol.module_id())?;
     Ok(status == 1)
 }
 

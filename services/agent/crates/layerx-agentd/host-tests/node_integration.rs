@@ -1,7 +1,10 @@
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
 mod runtime_clock_server;
 
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "This including target uses only the disposable node from proof_native_reads.rs"
+)]
 #[path = "../tests/proof_native_reads.rs"]
 mod node_routes;
 
@@ -84,19 +87,19 @@ fn node_integration(config: &NodeRpcConfig) -> Command {
     command
 }
 
+struct Inputs([PathBuf; 2]);
+impl Drop for Inputs {
+    fn drop(&mut self) {
+        for path in &self.0 {
+            let _ = std::fs::remove_file(path);
+        }
+    }
+}
 fn startup_output(command: &mut Command) -> Result<Output, Box<dyn Error>> {
     let clock = ClockAuthority::start()?;
     let root = clock.socket.parent().ok_or("clock directory is missing")?;
     let policy = root.join("native-policy.json");
     let secret = root.join("operator-secret");
-    struct Inputs([PathBuf; 2]);
-    impl Drop for Inputs {
-        fn drop(&mut self) {
-            for path in &self.0 {
-                let _ = std::fs::remove_file(path);
-            }
-        }
-    }
     let _inputs = Inputs([policy.clone(), secret.clone()]);
     let mut secret_bytes = zeroize::Zeroizing::new([0_u8; 32]);
     getrandom::fill(secret_bytes.as_mut())

@@ -160,7 +160,7 @@ fn every_inclusive_section_cap_and_total_includes_all_framing() {
     state.control.feature_bytes = &feature;
     assert_eq!(value(state.encoded_len()), MAX_STATE_BYTES);
     let maximum = encoded(&state);
-    assert_eq!(maximum.len(), 196_608);
+    assert_eq!(maximum.len(), layerx_programs_ai_market::MAX_STATE_BYTES);
     assert_eq!(value(decode_shared_state(&maximum)), state);
     assert_eq!(encoded(&value(decode_shared_state(&maximum))), maximum);
     let mut one_past = maximum.clone();

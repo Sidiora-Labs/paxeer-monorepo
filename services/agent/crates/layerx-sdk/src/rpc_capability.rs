@@ -110,7 +110,7 @@ mod agent {
             .ok_or_else(|| violation(operation))
     }
 
-    fn array<'a>(value: &'a Value, operation: Operation) -> Result<&'a Vec<Value>, EnvelopeError> {
+    fn array(value: &Value, operation: Operation) -> Result<&Vec<Value>, EnvelopeError> {
         value.as_array().ok_or_else(|| violation(operation))
     }
 

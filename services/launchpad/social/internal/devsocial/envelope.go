@@ -39,7 +39,7 @@ func headers(w http.ResponseWriter) {
 // writeData writes a v2 envelope after validating it against the named
 // contract schema; a body that fails its own contract is never sent.
 func writeData(w http.ResponseWriter, r *http.Request, status int, schema string, data any, next *string) {
-	body, err := json.Marshal(map[string]any{"requestId": requestID(r), "data": data, "nextCursor": next, "watermark": nil, "revision": nil, "quality": "complete", "generatedAt": stamp(time.Now())})
+	body, err := json.Marshal(map[string]any{"requestId": requestID(r), "data": data, "nextCursor": next, "watermark": nil, revisionField: nil, "quality": "complete", "generatedAt": stamp(time.Now())})
 	if err == nil {
 		err = v2.ValidateJSON(schema, body)
 	}
@@ -174,7 +174,7 @@ func interactionError(w http.ResponseWriter, status int, code string) {
 func interactionData(w http.ResponseWriter, data any, next *string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "private, no-store")
-	_ = json.NewEncoder(w).Encode(map[string]any{"requestId": uuid.NewString(), "data": data, "nextCursor": next, "watermark": nil, "revision": nil, "quality": "complete", "generatedAt": stamp(time.Now())})
+	_ = json.NewEncoder(w).Encode(map[string]any{"requestId": uuid.NewString(), "data": data, "nextCursor": next, "watermark": nil, revisionField: nil, "quality": "complete", "generatedAt": stamp(time.Now())})
 }
 
 // idempotencyKey is the client's Idempotency-Key, or a fresh one when absent

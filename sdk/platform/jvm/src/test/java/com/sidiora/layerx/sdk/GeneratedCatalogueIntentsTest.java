@@ -28,10 +28,15 @@ public final class GeneratedCatalogueIntentsTest {
         expected.putNull("tx_hash");
         var request = JSON.treeToValue(vector.required("plan_request"),
             GeneratedSchema.HumanOperations.INTENT_PLAN.requestType());
-        assertEquals("0x9858effd232b4033e47d90003d41ec34ecaeda94", request.source().evm_address());
-        assertEquals(BigInteger.valueOf(125), request.source().resolution().chainId());
+        assertEquals(GeneratedSchema.HumanModels.IntentEndpointKind.PAXEER_WALLET, request.source().kind());
+        assertNull(request.source().account());
+        assertNull(request.source().evm_address());
+        assertNull(request.source().resolution());
+        assertEquals(vector.required("plan_request"), JSON.valueToTree(request));
         var plan = JSON.treeToValue(vector.required("plan_result"), GeneratedSchema.HumanOperations.INTENT_PLAN.responseType());
         var model = JSON.treeToValue(vector.required("plan_result"), GeneratedSchema.HumanModels.IntentPlan.class);
+        assertEquals("0x9858effd232b4033e47d90003d41ec34ecaeda94", plan.legs().getFirst().source().evm_address());
+        assertEquals(BigInteger.valueOf(125), plan.legs().getFirst().source().resolution().chainId());
         assertEquals(2, plan.legs().size());
         assertEquals(model.legs(), plan.legs());
         assertNull(plan.tx_hash());
@@ -43,13 +48,20 @@ public final class GeneratedCatalogueIntentsTest {
             JsonNode wire = expected.required("legs").get(i);
             assertEquals(i, leg.index());
             assertEquals(wire.required("to").asText(), leg.to());
-            assertEquals(wire.required("data").asText(), leg.data());
-            assertEquals(wire.required("chainId").bigIntegerValue(), leg.chainId());
+            assertEquals(wire.required("calldata").asText(), leg.calldata());
+            assertEquals(wire.required("chain_id").bigIntegerValue(), leg.chain_id());
             assertEquals(GeneratedSchema.HumanModels.IntentDomain.PAXEER, leg.domain());
-            assertEquals(leg.payment().paymentReference(), plan.signing_requirements().get(i).action_key());
-            assertTrue(leg.data().startsWith("0x78ea11db"));
+            byte[] calldata = HexFormat.of().parseHex(leg.calldata().substring(2));
+            assertEquals(plan.signing_requirements().get(i).action_key(),
+                HexFormat.of().formatHex(Arrays.copyOfRange(calldata, calldata.length - 32, calldata.length)));
+            assertEquals(wire.required("value").textValue(), leg.value().toString());
+            assertEquals(wire.required("nonce").bigIntegerValue(), leg.nonce());
+            assertEquals(wire.required("gas_limit").bigIntegerValue(), leg.gas_limit());
+            assertEquals(wire.required("max_fee_per_gas").textValue(), leg.max_fee_per_gas().toString());
+            assertEquals(wire.required("max_priority_fee_per_gas").textValue(), leg.max_priority_fee_per_gas().toString());
+            assertTrue(leg.calldata().startsWith("0x78ea11db"));
             assertThrows(UnsupportedOperationException.class, () -> plan.legs().add(leg));
-            for (String field : List.of("to", "data", "chainId")) {
+            for (String field : List.of("to", "calldata", "chain_id", "value", "nonce", "gas_limit", "max_fee_per_gas", "max_priority_fee_per_gas")) {
                 ObjectNode missing = wire.deepCopy();
                 missing.remove(field);
                 assertThrows(DatabindException.class,
@@ -57,12 +69,12 @@ public final class GeneratedCatalogueIntentsTest {
             }
             for (BigInteger invalid : List.of(BigInteger.valueOf(-1), BigInteger.ONE.shiftLeft(64))) {
                 ObjectNode invalidChain = wire.deepCopy();
-                invalidChain.put("chainId", invalid);
+                invalidChain.put("chain_id", invalid);
                 assertThrows(DatabindException.class,
                     () -> JSON.treeToValue(invalidChain, GeneratedSchema.HumanModels.IntentLeg.class));
             }
         }
-        assertNotEquals(plan.legs().get(0).data(), plan.legs().get(1).data());
+        assertNotEquals(plan.legs().get(0).calldata(), plan.legs().get(1).calldata());
         assertThrows(IllegalArgumentException.class,
             () -> GeneratedSchema.HumanModels.IntentDomain.fromWire("layerx"));
 
@@ -90,7 +102,7 @@ public final class GeneratedCatalogueIntentsTest {
                 ((ParameterizedType) legs.getGenericType()).getActualTypeArguments()[0]);
         }
         assertTrue(components(GeneratedSchema.HumanModels.IntentLeg.class)
-            .containsAll(Set.of("to", "data", "chainId")));
+            .containsAll(Set.of("to", "calldata", "chain_id", "value", "nonce", "gas_limit", "max_fee_per_gas", "max_priority_fee_per_gas")));
         nativeRequestsCarryProgramCalldata();
     }
 
@@ -124,6 +136,11 @@ public final class GeneratedCatalogueIntentsTest {
         assertEquals(committed, response.verification());
         assertEquals(material, JSON.valueToTree(exported));
         assertEquals(material, JSON.valueToTree(response));
+        ObjectNode included = material.deepCopy().put("rung", "committed").put("inclusion_height", 10L);
+        assertEquals(included, JSON.valueToTree(JSON.treeToValue(included,
+            GeneratedSchema.HumanModels.EvidenceMaterial.class)));
+        assertEquals(included, JSON.valueToTree(JSON.treeToValue(included,
+            GeneratedSchema.HumanOperations.EVIDENCE_GET.responseType())));
         for (Class<?> type : List.of(GeneratedSchema.HumanModels.EvidenceRef.class,
                 GeneratedSchema.HumanModels.EvidenceMaterial.class,
                 GeneratedSchema.HumanOperations.EvidenceGetResponse.class)) {

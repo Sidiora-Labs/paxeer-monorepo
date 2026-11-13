@@ -23,7 +23,7 @@ const (
 	AvailabilityAll uint8 = 0x1f
 )
 
-// Availability classes of lxp_da_class, as bits of the attestation mask.
+// Historical checkpoint availability classes, as bits of the attestation mask.
 const (
 	AvailabilityActivities       uint8 = 1 << 0
 	AvailabilityReceipts         uint8 = 1 << 1
@@ -32,8 +32,8 @@ const (
 	AvailabilityRecoveryMetadata uint8 = 1 << 4
 )
 
-// GuarantorAttestation is one guarantor's signed statement over a checkpoint
-// (lxp_guarantor_attestation). The signature is secp256k1 over
+// GuarantorAttestation decodes a historical signed checkpoint statement.
+// The signature is secp256k1 over
 // SHA256("LXP/v2/guarantor-attestation\0" || 189-byte statement) with an EVM
 // recovery identifier, so the signer is recoverable with ecrecover.
 type GuarantorAttestation struct {
@@ -100,8 +100,7 @@ func DecodeSettlementReference(encoded []byte) (*SettlementReference, error) {
 	return s, nil
 }
 
-// CheckpointCertificate is the guarantor checkpoint certificate
-// (lxp_guarantor_cert in the layerxd checkpoint payload form): the canonical
+// CheckpointCertificate decodes the historical checkpoint payload: the canonical
 // batch header, the validity proof, up to 32 attestations strictly ascending
 // by guarantor identifier, the declared threshold, and the settlement
 // reference, which is empty before settlement and 110 bytes after it.

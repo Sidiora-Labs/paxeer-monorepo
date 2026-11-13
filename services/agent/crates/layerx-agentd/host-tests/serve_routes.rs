@@ -1,4 +1,7 @@
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "This including target exercises the read routes and does not call every daemon entry point"
+)]
 #[path = "../src/main.rs"]
 mod daemon;
 
@@ -238,12 +241,13 @@ impl NodePeer {
                 };
                 stream
                     .set_read_timeout(Some(Duration::from_secs(2)))
-                    .unwrap();
+                    .unwrap_or_else(|error| panic!("node peer operation failed: {error}"));
                 stream
                     .set_write_timeout(Some(Duration::from_secs(2)))
-                    .unwrap();
+                    .unwrap_or_else(|error| panic!("node peer operation failed: {error}"));
                 if let Some(config) = &tls {
-                    let connection = rustls::ServerConnection::new(Arc::clone(config)).unwrap();
+                    let connection = rustls::ServerConnection::new(Arc::clone(config))
+                        .unwrap_or_else(|error| panic!("node peer operation failed: {error}"));
                     let mut stream = rustls::StreamOwned::new(connection, stream);
                     while stream.conn.is_handshaking() {
                         if stream.conn.complete_io(&mut stream.sock).is_err() {
@@ -275,23 +279,38 @@ impl NodePeer {
         let mut length = None;
         loop {
             let mut line = String::new();
-            assert_ne!(reader.read_line(&mut line).unwrap(), 0);
+            assert_ne!(
+                reader
+                    .read_line(&mut line)
+                    .unwrap_or_else(|error| panic!("node peer operation failed: {error}")),
+                0
+            );
             if line == "\r\n" {
                 break;
             }
             if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                length = Some(value.trim().parse::<usize>().unwrap());
+                length = Some(
+                    value
+                        .trim()
+                        .parse::<usize>()
+                        .unwrap_or_else(|error| panic!("node peer operation failed: {error}")),
+                );
             }
         }
-        let length = length.unwrap();
+        let length = length.unwrap_or_else(|| panic!("node request requires Content-Length"));
         assert!(length <= 64 * 1024);
         let mut bytes = vec![0; length];
-        reader.read_exact(&mut bytes).unwrap();
-        let request: Value = serde_json::from_slice(&bytes).unwrap();
+        reader
+            .read_exact(&mut bytes)
+            .unwrap_or_else(|error| panic!("node peer operation failed: {error}"));
+        let request: Value = serde_json::from_slice(&bytes)
+            .unwrap_or_else(|error| panic!("node peer operation failed: {error}"));
         assert_eq!(request["jsonrpc"], "2.0");
         assert_eq!(request["params"], json!([]));
         captured.fetch_add(1, Ordering::AcqRel);
-        let state = *current.lock().unwrap();
+        let state = *current
+            .lock()
+            .unwrap_or_else(|error| panic!("node peer operation failed: {error}"));
         let (status, answer) = if matches!(state, NodeState::Unavailable) {
             (503, json!({"error": "node_unavailable"}))
         } else {
@@ -313,7 +332,9 @@ impl NodePeer {
                         }]})
                     };
                     let decoded = layerx_client::sequencer::decode_receipt_keys(&result)
-                        .expect("node receipt keys satisfy the production contract");
+                        .unwrap_or_else(|error| {
+                            panic!("node receipt keys violate the production contract: {error:?}")
+                        });
                     assert_eq!(
                         decoded,
                         if matches!(state, NodeState::NoKeys) {
@@ -333,20 +354,26 @@ impl NodePeer {
         };
         let answer = answer.to_string();
         let mut stream = reader.into_inner();
-        write!(stream, "HTTP/1.1 {status} Result\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len()).unwrap();
-        stream.flush().unwrap();
+        write!(stream, "HTTP/1.1 {status} Result\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len()).unwrap_or_else(|error| panic!("node peer operation failed: {error}"));
+        stream
+            .flush()
+            .unwrap_or_else(|error| panic!("node peer operation failed: {error}"));
     }
 
     fn set(&self, state: NodeState) {
-        *self.state.lock().unwrap() = state;
+        *self
+            .state
+            .lock()
+            .unwrap_or_else(|error| panic!("node peer operation failed: {error}")) = state;
     }
 
     fn stop(&mut self) {
         self.stopping.store(true, Ordering::Release);
         if let Some(worker) = self.worker.take() {
-            if worker.join().is_err() && !thread::panicking() {
-                panic!("node peer failed");
-            }
+            assert!(
+                worker.join().is_ok() || thread::panicking(),
+                "node peer failed"
+            );
         }
     }
 }
@@ -449,7 +476,9 @@ fn healthz_trusts_the_configured_node_ca_over_https() -> Result<()> {
         deadline: Duration::from_secs(2),
     };
     assert_eq!(
-        NodeRpc::connect_with_ca(&node_config, &[]).unwrap_err(),
+        NodeRpc::connect_with_ca(&node_config, &[])
+            .err()
+            .unwrap_or_else(|| panic!("node connection must refuse an untrusted CA")),
         NodeRpcError::Sequencer(SequencerError::Tls)
     );
     let service = RouteService::start_at(&authority, url.clone(), false)?;

@@ -18,11 +18,15 @@ static bool dump_executed_v4;
 static bool dump_principal_v4;
 static bool dump_mutated_leg_v4;
 static bool per_asset_call;
+static unsigned int destination_call_case;
+static bool dump_destination_authorization;
 static unsigned int event_bounds_case;
 static const uint8_t executed_sequencer_seed[32] = {0x45U};
 static int lifecycle_vector_signature(lxp_activity *activity,
                                       uint8_t public_key[32], uint8_t signature[64]);
 static int lifecycle_vector_hex(const uint8_t *bytes, size_t length);
+static int stored_fixture_hex(const char *document, const char *field,
+    uint8_t *bytes, size_t capacity, size_t *length);
 
 static int executed_public_key(const uint8_t seed[32], uint8_t public_key[32])
 {
@@ -336,8 +340,9 @@ static size_t staged_terminal_module(uint8_t *out, bool resource)
     return cursor;
 }
 
-static size_t counter_transfer_module(uint8_t *out, const uint8_t asset[32],
-                                      const uint8_t destination[32])
+static size_t destination_transfer_module(uint8_t *out, const uint8_t asset[32],
+                                      const uint8_t destination[32],
+                                      const uint8_t *direct_destination)
 {
     static const uint8_t header[] = {0U, 0x61U, 0x73U, 0x6dU, 1U, 0U, 0U, 0U};
     static const uint8_t types[] = {
@@ -353,7 +358,8 @@ static size_t counter_transfer_module(uint8_t *out, const uint8_t asset[32],
         0x41U, 0x80U, 1U, 0x41U, 32U, 0x41U, 0xa0U, 1U, 0x41U, 32U,
         0x10U, 0U, 0x1aU, 0x41U, 0U, 0x0bU
     };
-    uint8_t section[128];
+    uint8_t section[256];
+    uint8_t mixed_code[64];
     size_t cursor = 0U, length = 0U;
     append_bytes(out, &cursor, header, sizeof(header));
     append_section(out, &cursor, 1U, types, sizeof(types));
@@ -374,16 +380,34 @@ static size_t counter_transfer_module(uint8_t *out, const uint8_t asset[32],
     append_name(section, &length, "memory");
     section[length++] = 2U; section[length++] = 0U;
     append_section(out, &cursor, 7U, section, length);
-    append_section(out, &cursor, 10U, code, sizeof(code));
+    if (direct_destination != NULL) {
+        static const uint8_t second[] = {
+            0x42U, 0U, 0x42U, 1U, 0x41U, 0x80U, 1U, 0x41U, 32U,
+            0x41U, 0xc0U, 1U, 0x41U, 32U, 0x10U, 0U, 0x1aU
+        };
+        (void)memcpy(mixed_code, code, sizeof(code) - 3U);
+        mixed_code[6] = (uint8_t)(code[6] + sizeof(second));
+        (void)memcpy(mixed_code + sizeof(code) - 3U, second, sizeof(second));
+        (void)memcpy(mixed_code + sizeof(code) - 3U + sizeof(second),
+                     code + sizeof(code) - 3U, 3U);
+        append_section(out, &cursor, 10U, mixed_code, sizeof(code) + sizeof(second));
+    } else append_section(out, &cursor, 10U, code, sizeof(code));
     length = 0U;
     section[length++] = 1U; section[length++] = 0U;
     section[length++] = 0x41U; section[length++] = 0x80U;
     section[length++] = 1U; section[length++] = 0x0bU;
-    section[length++] = 64U;
+    section[length++] = direct_destination == NULL ? 64U : 96U;
     append_bytes(section, &length, asset, 32U);
     append_bytes(section, &length, destination, 32U);
+    if (direct_destination != NULL) append_bytes(section, &length, direct_destination, 32U);
     append_section(out, &cursor, 11U, section, length);
     return cursor;
+}
+
+static size_t counter_transfer_module(uint8_t *out, const uint8_t asset[32],
+                                      const uint8_t destination[32])
+{
+    return destination_transfer_module(out, asset, destination, NULL);
 }
 
 static size_t candidate_module(uint8_t *out, const uint8_t *entry,
@@ -1124,6 +1148,85 @@ static int event_bounds_execute(lxp_kernel *kernel,lxp_activity *activity,
     return 0;
 }
 
+static uint32_t destination_u32(const uint8_t *bytes)
+{
+    return ((uint32_t)bytes[0] << 24U) | ((uint32_t)bytes[1] << 16U) |
+        ((uint32_t)bytes[2] << 8U) | bytes[3];
+}
+
+static int destination_terminal_evidence(const lxp_receipt *receipt,
+    const uint8_t destination_account[32], const uint8_t direct_account[32], bool mixed)
+{
+    static const uint8_t domain[] = "LayerX/programs/402LXP/account-bound-set/v2";
+    static const uint8_t terminal_domain[] = "LXP/programs/terminal-applied-legs/v1";
+    const lxp_byte_span terminal = receipt->program_outcome.terminal_payload;
+    size_t offset, auth_length = 0U, legs_offset;
+    const uint8_t *authorization = NULL;
+    if (receipt->program_outcome.encoding_version != 4U ||
+        receipt->program_outcome.terminal_kind != LXP_PROGRAM_TERMINAL_SUCCESS ||
+        terminal.length < sizeof(terminal_domain) + 8U ||
+        memcmp(terminal.bytes, terminal_domain, sizeof(terminal_domain)) != 0)
+        return 1;
+    legs_offset = sizeof(terminal_domain) + 4U +
+        destination_u32(terminal.bytes + sizeof(terminal_domain));
+    if (legs_offset + 4U > terminal.length ||
+        destination_u32(terminal.bytes + legs_offset) != (mixed ? 230U : 115U) ||
+        terminal.length - legs_offset - 4U != (mixed ? 230U : 115U) ||
+        memcmp(terminal.bytes + legs_offset + 4U + 33U, destination_account, 32U) != 0 ||
+        (mixed && memcmp(terminal.bytes + legs_offset + 4U + 115U + 33U,
+                         direct_account, 32U) != 0)) return 1;
+    for (offset = 4U; offset + sizeof(domain) <= legs_offset; ++offset) {
+        if (memcmp(terminal.bytes + offset, domain, sizeof(domain)) == 0) {
+            auth_length = destination_u32(terminal.bytes + offset - 4U);
+            if (authorization != NULL || auth_length > legs_offset - offset) return 1;
+            authorization = terminal.bytes + offset;
+        }
+    }
+    if (authorization == NULL || auth_length < sizeof(domain) + 4U) return 1;
+    offset = sizeof(domain) + 4U + destination_u32(authorization + sizeof(domain));
+    for (size_t index = 0U; index < (mixed ? 2U : 1U); ++index) {
+        for (size_t side = 0U; side < 2U; ++side) {
+            size_t length;
+            if (offset + 2U > auth_length) return 1;
+            length = ((size_t)authorization[offset] << 8U) | authorization[offset + 1U];
+            offset += 2U;
+            if (length > auth_length - offset ||
+                (length == 0U) != (index == 1U && side == 1U)) return 1;
+            offset += length;
+        }
+    }
+    if (offset != auth_length) return 1;
+    if (!dump_destination_authorization) {
+        char document[8192];
+        uint8_t expected[2048], expected_root[32];
+        size_t length, root_length, count;
+        char *object;
+        FILE *file = fopen("programs/fixtures/pay5/destination-authorization-vectors.json", "rb");
+        if (file == NULL) return 1;
+        count = fread(document, 1U, sizeof(document) - 1U, file);
+        if (ferror(file) || fclose(file) != 0) return 1;
+        document[count] = '\0';
+        object = strchr(document, '{');
+        if (mixed && object != NULL) {
+            object = strchr(object, '}');
+            if (object != NULL) object = strchr(object + 1U, '{');
+        }
+        if (object == NULL ||
+            stored_fixture_hex(object, "encoded", expected, sizeof(expected), &length) != 0 ||
+            stored_fixture_hex(object, "root", expected_root, sizeof(expected_root), &root_length) != 0 ||
+            length != auth_length || root_length != 32U ||
+            memcmp(expected, authorization, auth_length) != 0 ||
+            memcmp(expected_root, receipt->program_outcome.transfer_root, 32U) != 0) return 1;
+    }
+    if (dump_destination_authorization) {
+        if (printf("{\"name\":\"%s\",", mixed ? "native-mixed-destinations" : "native-identity-destination") < 0 ||
+            executed_hex_field("encoded", authorization, auth_length) != 0 ||
+            executed_hex_field("root", receipt->program_outcome.transfer_root, 32U) != 0 ||
+            printf("\"accept\":true}\n") < 0) return 1;
+    }
+    return 0;
+}
+
 static int deploy_and_upgrade_artifacts_case(uint16_t protocol_version,
                                             bool separate_counters)
 {
@@ -1175,6 +1278,8 @@ static int deploy_and_upgrade_artifacts_case(uint16_t protocol_version,
     lx_account *treasury;
     lx_account *counter_recipient = NULL;
     uint8_t counter_recipient_id[32];
+    lx_account *destination_other = NULL, *destination_escrow = NULL;
+    uint8_t destination_identity[32], destination_escrow_id[32];
     lxp_transfer_asset_state fee_asset_state;
     lx_programs_transfer_runtime runtime;
     lxp_activity activity;
@@ -1247,6 +1352,35 @@ static int deploy_and_upgrade_artifacts_case(uint16_t protocol_version,
                             NULL, &counter_recipient) != LXP_OK)
             return 1;
         wasm_length = counter_transfer_module(wasm, fee_asset, counter_recipient_id);
+        if (destination_call_case != 0U) {
+            static const uint8_t did_recipient[] = "did:lxp:counter-recipient";
+            static const uint8_t escrow_name[] = "agent:did:lxp:counter-recipient:escrow:primary";
+            static const uint8_t asset_name[] = "agent:did:lxp:counter-recipient:asset:0900000000000000000000000000000000000000000000000000000000000000";
+            const uint8_t other_asset[32] = {8U};
+            destination_other = counter_recipient;
+            if (lxp_ledger_bootstrap_balance(destination_other, other_asset,
+                    (lxp_u128){0U, 13U}, 0U) != LXP_OK ||
+                lx_account_id_from_string(escrow_name, sizeof(escrow_name) - 1U,
+                    destination_escrow_id) != LXP_OK ||
+                lx_account_open(&accounts, escrow_name, sizeof(escrow_name) - 1U,
+                    destination_escrow_id, 1U, LX_ACCOUNT_OPEN_GENESIS, NULL,
+                    &destination_escrow) != LXP_OK ||
+                lxp_ledger_bootstrap_balance(destination_escrow, fee_asset,
+                    (lxp_u128){0U, 5U}, 0U) != LXP_OK ||
+                lxp_did_id_derive(did_recipient, sizeof(did_recipient) - 1U,
+                    destination_identity) != LXP_OK) return 1;
+            counter_recipient = NULL;
+            if (destination_call_case != 3U &&
+                (lx_account_id_from_string(asset_name, sizeof(asset_name) - 1U,
+                    counter_recipient_id) != LXP_OK ||
+                 lx_account_open(&accounts, asset_name, sizeof(asset_name) - 1U,
+                    counter_recipient_id, 1U, LX_ACCOUNT_OPEN_GENESIS, NULL,
+                    &counter_recipient) != LXP_OK ||
+                 lxp_ledger_bootstrap_balance(counter_recipient, fee_asset,
+                    (lxp_u128){0U, 0U}, 0U) != LXP_OK)) return 1;
+            wasm_length = destination_transfer_module(wasm, fee_asset,
+                destination_identity, destination_call_case == 2U ? destination_escrow_id : NULL);
+        }
     }
     (void)memset(authority.authority_hash, 0x55, 32U);
     (void)memset(&fee_asset_state, 0, sizeof(fee_asset_state));
@@ -1352,6 +1486,93 @@ static int deploy_and_upgrade_artifacts_case(uint16_t protocol_version,
         kernel.blobs[0].length != wasm_length ||
         memcmp(kernel.blobs[0].bytes, wasm, wasm_length) != 0)
         return artifact_fixture_failure(protocol_version, __LINE__);
+    if (destination_call_case != 0U) {
+        uint8_t capabilities[164] = {0U};
+        uint8_t destination_call[CALL_FIXED_BYTES + 256U];
+        const bool mixed = destination_call_case == 2U;
+        const bool missing = destination_call_case == 3U;
+        const uint8_t *capability_destinations[2] = {
+            destination_identity, destination_escrow_id
+        };
+        lxp_result status;
+        size_t kv_count = kernel.module_kv_count, blob_count = kernel.blob_count;
+        uint64_t ledger_sequence = actor->next_sequence;
+        capabilities[1] = mixed ? 2U : 1U;
+        if (mixed && memcmp(capability_destinations[0], capability_destinations[1], 32U) > 0) {
+            capability_destinations[0] = destination_escrow_id;
+            capability_destinations[1] = destination_identity;
+        }
+        for (size_t index = 0U; index < (mixed ? 2U : 1U); ++index) {
+            size_t offset = 2U + index * 81U;
+            capabilities[offset] = 5U;
+            (void)memcpy(capabilities + offset + 1U, fee_asset, 32U);
+            (void)memcpy(capabilities + offset + 33U,
+                         capability_destinations[index], 32U);
+            capabilities[offset + 80U] = 1U;
+        }
+        payload_length = call_payload_with_capabilities(destination_call, program_id,
+            capabilities, mixed ? sizeof(capabilities) : 83U);
+        fill_activity(&activity, LX_PROGRAMS_CALL, destination_call, payload_length,
+            did, sizeof(did) - 1U, primary_key);
+        activity.protocol_version = protocol_version;
+        activity.account_sequence = 1U;
+        activity.idempotency_key[31] = 0x73U;
+        activity.fee_limit = (lxp_u128){0U, 67108864U};
+        execution.global_sequence = 2U;
+        execution.fee_balance = actor->balance;
+        actor_before = actor->balance;
+        treasury_before = treasury->balance;
+        (void)memcpy(original_root, kernel.current_state_root, 32U);
+        if (lxp_arena_reset(&arena, 0U) != LXP_OK) return 1;
+        status = execute_artifact_fixture_activity(&kernel, &activity, &execution, &receipt);
+        if (missing) {
+            if (status != LXP_OK || receipt.result_code != LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE ||
+                actor->next_sequence != ledger_sequence || identity->next_sequence != 2U ||
+                state.next_sequence != 3U || kernel.module_kv_count != kv_count ||
+                kernel.blob_count != blob_count || receipt.effects.count != 0U ||
+                exact_fee_applied(actor_before, treasury_before, actor, treasury,
+                    receipt.fee_charged) != 0 ||
+                receipt.program_outcome.terminal_kind != LXP_PROGRAM_TERMINAL_FAILURE ||
+                !lxp_ct_is_zero(receipt.program_outcome.transfer_root, 32U) ||
+                !lxp_ct_is_zero(receipt.transfer_set_root, 32U))
+                return artifact_fixture_failure(protocol_version, __LINE__);
+        } else {
+            if (status != LXP_OK)
+                return artifact_fixture_failure(protocol_version, __LINE__);
+            if (receipt.result_code != LXP_OK)
+                return artifact_fixture_failure(protocol_version, __LINE__);
+            if (actor->next_sequence != ledger_sequence + 1U)
+                return artifact_fixture_failure(protocol_version, __LINE__);
+            if (identity->next_sequence != 2U)
+                return artifact_fixture_failure(protocol_version, __LINE__);
+            if (state.next_sequence != 3U)
+                return artifact_fixture_failure(protocol_version, __LINE__);
+            if (counter_recipient == NULL)
+                return artifact_fixture_failure(protocol_version, __LINE__);
+            if (counter_recipient->balance.hi != 0U)
+                return artifact_fixture_failure(protocol_version, __LINE__);
+            if (counter_recipient->balance.lo != 1U)
+                return artifact_fixture_failure(protocol_version, __LINE__);
+            if (counter_recipient->next_sequence != 0U)
+                return artifact_fixture_failure(protocol_version, __LINE__);
+            if (lxp_ct_is_zero(receipt.program_outcome.transfer_root, 32U))
+                return artifact_fixture_failure(protocol_version, __LINE__);
+            if (memcmp(receipt.transfer_set_root, receipt.program_outcome.transfer_root, 32U) != 0)
+                return artifact_fixture_failure(protocol_version, __LINE__);
+            if (destination_terminal_evidence(&receipt, counter_recipient_id,
+                    destination_escrow_id, mixed) != 0)
+                return artifact_fixture_failure(protocol_version, __LINE__);
+        }
+        if (destination_other->balance.hi != 0U || destination_other->balance.lo != 13U ||
+            destination_other->next_sequence != 0U ||
+            destination_escrow->balance.hi != 0U ||
+            destination_escrow->balance.lo != (mixed ? 6U : 5U) ||
+            destination_escrow->next_sequence != 0U)
+            return artifact_fixture_failure(protocol_version, __LINE__);
+        while (kernel.blob_count != 0U) free(kernel.blobs[--kernel.blob_count].bytes);
+        lx_account_registry_release(&accounts);
+        return lxp_state_store_destroy(&state) == LXP_OK ? 0 : 1;
+    }
     if (separate_counters) {
         uint8_t capabilities[83] = {0U, 1U, 5U};
         uint64_t ledger_before;
@@ -2967,6 +3188,12 @@ int main(int argc, char **argv)
     if (stored_fixture_hex_nesting_case() != 0) return 1;
     if (argc == 3 && strcmp(argv[1], "--stored-historical-lifecycle") == 0)
         return stored_historical_lifecycle(argv[2]);
+    if (argc == 2 && (strcmp(argv[1], "--dump-identity-destination") == 0 ||
+                      strcmp(argv[1], "--dump-mixed-destinations") == 0)) {
+        destination_call_case = strcmp(argv[1], "--dump-mixed-destinations") == 0 ? 2U : 1U;
+        dump_destination_authorization = true;
+        return deploy_and_upgrade_artifacts_case(LXP_PROTOCOL_VERSION_STATE_COMMITMENT, true);
+    }
     if (argc == 2 && strcmp(argv[1], "--dump-asset-account-v4") == 0) {
         per_asset_call = true;
         dump_executed_v3 = true;
@@ -2994,6 +3221,10 @@ int main(int argc, char **argv)
     if (deploy_and_upgrade_artifacts_case(
             LXP_PROTOCOL_VERSION_STATE_COMMITMENT, true) != 0) return 1;
     per_asset_call = false;
+    for (destination_call_case = 1U; destination_call_case <= 3U; ++destination_call_case) {
+        if (deploy_and_upgrade_artifacts_case(LXP_PROTOCOL_VERSION_STATE_COMMITMENT, true) != 0) return 1;
+    }
+    destination_call_case = 0U;
     if (malformed_call_payloads() != 0) return 1;
     if (maximum_capability_transport_only_boundary() != 0) return 1;
     if (call_access_declaration_is_activity_bound() != 0) return 1;

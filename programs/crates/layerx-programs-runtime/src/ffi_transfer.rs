@@ -113,7 +113,7 @@ pub(crate) fn issue_program_spend_for_set(
 ) -> Result<(u64, Option<ActiveProgramSpendGuard>), TransferLawError> {
     let transfer_set_root = transfers.kernel_root();
     let mut permits = Vec::new();
-    for leg in transfers.legs() {
+    for (index, leg) in transfers.legs().iter().enumerate() {
         let TransferSource::Program(authority) = &leg.source else {
             continue;
         };
@@ -129,7 +129,9 @@ pub(crate) fn issue_program_spend_for_set(
             frame_path,
             frame_depth,
             owner_root_frame,
-            destination: leg.to,
+            destination: transfers.kernel_canonical()[index * 115 + 33..index * 115 + 65]
+                .try_into()
+                .map_err(|_| TransferLawError::InvalidTransferSet)?,
             asset: leg.asset,
             amount: leg.amount,
             transfer_set_root,
@@ -452,6 +454,30 @@ pub unsafe extern "C" fn layerx_programs_consume_program_spend_authorization(
         permit.consumed = true;
         RESULT_OK
     })
+}
+
+#[cfg(test)]
+pub(crate) fn consume_bound_program_spend_for_test(
+    token: u64,
+    source: &[u8; 32],
+    destination: &[u8; 32],
+    asset: &[u8; 32],
+    root: &[u8; 32],
+) -> i32 {
+    unsafe {
+        layerx_programs_consume_program_spend_authorization(
+            token,
+            MODULE_PROGRAMS,
+            source.as_ptr(),
+            destination.as_ptr(),
+            asset.as_ptr(),
+            0,
+            1,
+            REASON_PAYMENT,
+            TRANSFER_CONSERVED,
+            root.as_ptr(),
+        )
+    }
 }
 
 /// Creates and consumes the existing owner-root program-spend capability for

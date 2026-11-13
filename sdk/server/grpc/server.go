@@ -58,3 +58,23 @@ func StartGRPCServer(clientCtx client.Context, app types.Application, address st
 		return grpcSrv, nil
 	}
 }
+
+// StopGRPCServer drains RPCs for gracePeriod, then cancels outstanding RPCs.
+// It joins GracefulStop before returning and reports whether all RPCs drained.
+func StopGRPCServer(server *grpc.Server, gracePeriod time.Duration) bool {
+	done := make(chan struct{})
+	go func() {
+		server.GracefulStop()
+		close(done)
+	}()
+	timer := time.NewTimer(gracePeriod)
+	defer timer.Stop()
+	select {
+	case <-done:
+		return true
+	case <-timer.C:
+		server.Stop()
+		<-done
+		return false
+	}
+}

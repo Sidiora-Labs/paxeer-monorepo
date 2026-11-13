@@ -26,7 +26,6 @@ use layerx_agentd::sign::{
 use layerx_agentd::store::{Store, TenantId};
 use layerx_crypto::local::LocalSigner;
 use layerx_crypto::send::{ledger_payment_call, CallOptions};
-use layerx_crypto::session::IssuedSessionKey;
 use layerx_crypto::signer::Signer as _;
 use layerx_human_service::custody::{
     AgentContractError, AgentSessionContract, AgentSessionProvision, EnvelopeKms, KeyClass,
@@ -125,7 +124,6 @@ impl IdentityResolver for IdentityBoundary {
 }
 
 struct InstalledSession {
-    issued: IssuedSessionKey,
     signer: ProvisionedSessionKey,
     actor_address: [u8; 20],
     debit_signer: LocalSigner,
@@ -412,7 +410,6 @@ impl AgentSessionContract for AgentLayer {
             grant_id,
             InstalledSession {
                 current_revocation_sequence: issued.revocation_sequence,
-                issued,
                 signer,
                 actor_address,
                 debit_signer: LocalSigner::new(seed),
@@ -958,4 +955,8 @@ mod current_rotation_path;
 #[test]
 fn current_rotation_uses_production_preparation_and_custody() {
     current_rotation_path::current_rotation_reaches_custody("session-keys-current-rotation");
+}
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

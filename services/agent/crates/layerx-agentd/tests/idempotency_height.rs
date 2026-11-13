@@ -208,7 +208,9 @@ fn replay_settled_on_the_node_maps_to_idempotent_replay() {
     assert_eq!(error.class, ErrorClass::CoreRejection);
     assert_eq!(error.request_id, RequestId(9));
     assert_eq!(
-        error.protocol_result_code.map(|code| code.raw()),
+        error
+            .protocol_result_code
+            .map(layerx_types::result::ResultCode::raw),
         Some(-302)
     );
     assert_eq!(error.retriability, Retriability::Terminal);

@@ -53,3 +53,12 @@ pub mod policy_history;
 
 #[doc(hidden)]
 pub mod test_support;
+
+/// Refuse an invariant violation without constructing an error on the accepted path.
+fn reject_if<E>(condition: bool, error: impl FnOnce() -> E) -> Result<(), E> {
+    if condition {
+        Err(error())
+    } else {
+        Ok(())
+    }
+}

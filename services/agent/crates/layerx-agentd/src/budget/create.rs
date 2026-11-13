@@ -95,6 +95,9 @@ pub trait BudgetIdentitySource {
     fn identity(&self) -> Result<BudgetCreateIdentity, BudgetCreationError>;
 }
 
+/// # Errors
+/// Returns an error if the budget call, identity, expiry, limit or source context is invalid,
+/// or committed state does not confirm the mutation.
 pub fn budget_create_identity<T: BudgetIdentitySource + ?Sized>(
     source: &T,
     _registry: &ModuleRegistry,
@@ -105,7 +108,7 @@ pub fn budget_create_identity<T: BudgetIdentitySource + ?Sized>(
 pub(crate) fn selector(signature: &str) -> [u8; 4] {
     transaction_hash(signature.as_bytes())[..4]
         .try_into()
-        .expect("selector width")
+        .unwrap_or_else(|error| panic!("selector width: {error:?}"))
 }
 
 pub(crate) fn word(data: &[u8], index: usize) -> Result<[u8; 32], BudgetCreationError> {
@@ -140,14 +143,19 @@ impl BudgetIdentitySource for [u8] {
             return Err(BudgetCreationError::NotBudgetCreation);
         }
         let data = &call.data;
-        let rollover = integer(data, 11, 1)? as u8;
+        let rollover = u8::try_from(integer(data, 11, 1)?)
+            .map_err(|_| BudgetCreationError::NotBudgetCreation)?;
         let carry_cap = integer(data, 5, 16)?;
-        let period_length_ms = integer(data, 7, 8)? as u64;
-        let period_start_ms = integer(data, 8, 8)? as u64;
-        let expiry_ms = integer(data, 9, 8)? as u64;
+        let period_length_ms = u64::try_from(integer(data, 7, 8)?)
+            .map_err(|_| BudgetCreationError::NotBudgetCreation)?;
+        let period_start_ms = u64::try_from(integer(data, 8, 8)?)
+            .map_err(|_| BudgetCreationError::NotBudgetCreation)?;
+        let expiry_ms = u64::try_from(integer(data, 9, 8)?)
+            .map_err(|_| BudgetCreationError::NotBudgetCreation)?;
         let source_account = if native { word(data, 12)? } else { [0; 32] };
         let source_sequence = if native {
-            integer(data, 13, 8)? as u64
+            u64::try_from(integer(data, 13, 8)?)
+                .map_err(|_| BudgetCreationError::NotBudgetCreation)?
         } else {
             0
         };
@@ -175,7 +183,8 @@ impl BudgetIdentitySource for [u8] {
             period_length_ms,
             period_start_ms,
             expiry_ms,
-            revocation_sequence: integer(data, 10, 8)? as u64,
+            revocation_sequence: u64::try_from(integer(data, 10, 8)?)
+                .map_err(|_| BudgetCreationError::NotBudgetCreation)?,
             rollover,
             source_account,
             source_sequence,
@@ -254,6 +263,9 @@ pub(crate) fn budget_log<'a>(
 }
 
 impl BudgetRequest {
+    /// # Errors
+    /// Returns an error if the budget call, identity, expiry, limit or source context is invalid,
+    /// or committed state does not confirm the mutation.
     pub fn create_protocol_budget(
         &self,
         identity: &BudgetCreateIdentity,
@@ -410,7 +422,8 @@ impl SequencerBudgetPipeline {
                     .source_account
                     .ok_or(BudgetCreationError::ContextMismatch)?,
                 record.asset_id,
-                integer(&call.data, 2, 8)? as u64,
+                u64::try_from(integer(&call.data, 2, 8)?)
+                    .map_err(|_| BudgetCreationError::NotBudgetCreation)?,
             )?;
         }
         let hash = self
@@ -613,6 +626,9 @@ pub enum BudgetCreationError {
     ContextMismatch,
 }
 
+/// # Errors
+/// Returns an error if the budget call, identity, expiry, limit or source context is invalid,
+/// or committed state does not confirm the mutation.
 pub fn create_protocol_budget<R: BudgetReceiptEvidence, S>(
     _store: &mut Store,
     request: &BudgetRequest,
@@ -690,6 +706,9 @@ where
 }
 
 /// Checks the source nonce and the sender's source ownership at one authenticated checkpoint.
+/// # Errors
+/// Returns an error if the budget call, identity, expiry, limit or source context is invalid,
+/// or committed state does not confirm the mutation.
 pub fn validate_native_budget_source(
     endpoint: &SequencerEndpoint,
     height: u64,
@@ -725,11 +744,12 @@ pub fn validate_native_budget_source(
     {
         return Err(BudgetCreationError::ContextMismatch);
     }
-    let length = u64::from_be_bytes(
+    let length = usize::try_from(u64::from_be_bytes(
         binding[88..96]
             .try_into()
             .map_err(|_| BudgetCreationError::ContextMismatch)?,
-    ) as usize;
+    ))
+    .map_err(|_| BudgetCreationError::ContextMismatch)?;
     if length == 0
         || length > 512
         || binding.len() != 96 + length.div_ceil(32) * 32

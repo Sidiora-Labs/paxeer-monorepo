@@ -13,16 +13,35 @@ mod repair_22_31_485 {
     const MAX256: &str =
         "115792089237316195423570985008687907853269984665640564039457584007913129639935";
 
-    fn encoded(response: Response) -> Value {
+    fn encoded(response: &Response) -> Value {
         assert_eq!(response.status, 200, "{}", response.body);
         assert_eq!(response.retry_after, None);
-        let mut body: Value = serde_json::from_str(&response.body).unwrap();
-        assert_eq!(body.as_object().unwrap().len(), 3);
+        let mut body: Value = serde_json::from_str(&response.body)
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        assert_eq!(
+            body.as_object()
+                .unwrap_or_else(|| panic!("required value"))
+                .len(),
+            3
+        );
         assert_eq!(body["ok"], true);
-        let trace = body["trace"].as_str().unwrap();
-        assert!(trace.strip_prefix("core-").unwrap().parse::<u64>().unwrap() > 0);
-        body.as_object_mut().unwrap().remove("trace");
-        body.as_object_mut().unwrap().remove("ok");
+        let trace = body["trace"]
+            .as_str()
+            .unwrap_or_else(|| panic!("required value"));
+        assert!(
+            trace
+                .strip_prefix("core-")
+                .unwrap_or_else(|| panic!("required value"))
+                .parse::<u64>()
+                .unwrap_or_else(|error| panic!("required value: {error:?}"))
+                > 0
+        );
+        body.as_object_mut()
+            .unwrap_or_else(|| panic!("required value"))
+            .remove("trace");
+        body.as_object_mut()
+            .unwrap_or_else(|| panic!("required value"))
+            .remove("ok");
         body
     }
 
@@ -37,7 +56,7 @@ mod repair_22_31_485 {
             },
             paxeer: Some(PxPaxeerAccount {
                 address: [0x12; 20],
-                balance: Uint256::from_decimal(balance).unwrap(),
+                balance: Uint256::from_decimal(balance).unwrap_or_else(|| panic!("required value")),
                 nonce: 7,
                 height: 42,
             }),
@@ -55,9 +74,14 @@ mod repair_22_31_485 {
         let id = format!("0x{}", "12".repeat(20));
         for amount in ["0", "340282366920938463463374607431768211456", MAX256] {
             let joined = account(amount);
-            let balance = joined.paxeer.as_ref().unwrap().balance.bytes();
+            let balance = joined
+                .paxeer
+                .as_ref()
+                .unwrap_or_else(|| panic!("required value"))
+                .balance
+                .bytes();
             assert_eq!(
-                encoded(public_reads::native_account_result(
+                encoded(&public_reads::native_account_result(
                     joined.clone(),
                     &id,
                     42,
@@ -77,7 +101,8 @@ mod repair_22_31_485 {
                 let response =
                     public_reads::native_account_result(joined.clone(), &id, 42, different, 7);
                 assert_eq!(response.status, 502);
-                let body: Value = serde_json::from_str(&response.body).unwrap();
+                let body: Value = serde_json::from_str(&response.body)
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"));
                 assert_eq!(body["error"]["code"], "account_snapshot_mismatch");
             }
             let response = public_reads::native_account_result(joined, &id, 42, balance, 8);
@@ -107,7 +132,7 @@ mod repair_22_31_485 {
             "decimals": 6, "total_units": MAX256, "paused": false
         });
         assert_eq!(
-            encoded(public_reads::native_asset_result(&asset)),
+            encoded(&public_reads::native_asset_result(&asset)),
             json!({"result":{"asset":expected}})
         );
         let absent = PxAssetEntry {
@@ -127,7 +152,7 @@ mod repair_22_31_485 {
             joined_limit: 16,
         };
         assert_eq!(
-            encoded(public_reads::native_assets_result(&table)),
+            encoded(&public_reads::native_assets_result(&table)),
             json!({"result":{"assets":[expected, {"asset_id":"bank:unavailable"}]}})
         );
         for symbol in ["", "ABCDEFGHIJKLMNOPQ", "é"] {
@@ -138,7 +163,8 @@ mod repair_22_31_485 {
                 public_reads::native_assets_result(&invalid),
             ] {
                 assert_eq!(response.status, 502);
-                let body: Value = serde_json::from_str(&response.body).unwrap();
+                let body: Value = serde_json::from_str(&response.body)
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"));
                 assert_eq!(body["error"]["code"], "invalid_asset_symbol");
             }
         }
@@ -169,7 +195,7 @@ mod repair_22_31_485 {
                 latest_committed_height: 42,
             };
             assert_eq!(
-                encoded(public_reads::native_node_info_result(head, &key, [3; 32])),
+                encoded(&public_reads::native_node_info_result(head, &key, [3; 32])),
                 json!({"result": {
                     "protocol_version": layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
                     "network_id": "repair-network", "chain_head_sequence": "42", "latest_sealed_batch": "43",

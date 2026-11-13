@@ -1,0 +1,69 @@
+[repair.22.39.326]
+title = "Refresh native witness fixtures and the recorded Rust module-width verdict"
+starting_revision = "999b977b9270b708dda976c9874786b91a97fdd7"
+requirement = "22998.1"
+scope = "layerxproof"
+baseline = "Not run: the explicit Order forbids tests before complete implementation and verification outside hf-done; no earlier hf-build/hf-done ledger or task changes existed at inspection. Historical failures below are the task inventory at 7de3a9051436, not a claimed run at the starting revision."
+build_command = "go build ./layerxproof/... && go test -count=1 -run '^$' ./layerxproof/codec/... ./layerxproof/verify/..."
+verify_command = "test -s layerxproof/repair_22_39_326.kvx && go test -count=1 -timeout 30m ./layerxproof/codec/... ./layerxproof/verify/..."
+evidence = "The verified candidate revision, exact command, exit code and private log are recorded by hf-build/hf-done in /out/run/gates.jsonl and copied verbatim in the final evidence JSON; this record is part of that candidate, so it does not embed its own recursive commit hash."
+
+[producer.native_witness]
+commit = "b37eb82c177a90aa046c214fa879cbc671fbc5c5"
+source = "modules/lxphost/host.go"
+source_sha256 = "f48c429b5124e019adfe65a2ff9e005a63979e5de31fe873adc75a18b733bbeb"
+generator = "python3 layerxproof/codec/testdata/record_repair_m1.py"
+output = "layerxproof/codec/internal/nativefixture/lxphost_native.h"
+contract = "Extract the production C preamble through lxphost_reset byte for byte, excluding only cgo directives; existing tests compare the entire snapshot against the producer before consuming real C-built witnesses. The twelve-leaf compatibility fixture still uses the unchanged production C encoder/decoder/verifier."
+
+[producer.host_transcript]
+commit = "b37eb82c177a90aa046c214fa879cbc671fbc5c5"
+source = "modules/lxphost/host.go"
+generator = "python3 layerxproof/verify/testdata/record_repair_m2.py"
+output = "layerxproof/verify/testdata/repair_m2.json"
+contract = "The existing recorder compiles the current production host preamble, commits account/module state, persists a snapshot, destroys the original host, restores a new host, and regenerates native witnesses; every source hash and every resulting byte comes from the recorder. No transcript field was edited by hand."
+
+[case.TestNativeStateProofsFromCore]
+inventory_first_error = "codec/codec_test.go:292: fixture must compile the current production node creation and reset code"
+cause = "The committed host preamble predates the production Programs execution wrapper and node fields."
+repair = "Regenerate lxphost_native.h from the current producer; retain all current-host, twelve-leaf compatibility and historical core witness assertions."
+
+[case.TestRepairM_1_CurrentHostNativeWitnesses]
+inventory_first_error = "codec/repair_m1_test.go:254: fixture must compile the current production node creation and reset code"
+cause = "The same byte-exact host preamble snapshot is stale."
+repair = "Regenerate the snapshot, including programs_iface, gas accounting and the production module registration wrapper; keep all 32 native witnesses, registration/path/root/account assertions and refusal classes."
+
+[case.TestRepairM_2_CurrentCHostStateAndAccountProof]
+inventory_first_error = "verify/repair_m2_test.go:225: native producer modules/lxphost/host.go changed; regenerate the recorded transcript"
+cause = "The producer source hash and the committed host state no longer match the production host."
+repair = "Run record_repair_m2.py, regenerating the complete transcript, native roots, paths, proofs, persisted snapshot, manifest digest and provenance hashes."
+
+[case.TestRepairM_2_PersistedCHostRecovery]
+inventory_first_error = "verify/repair_m2_test.go:233: native producer modules/lxphost/host.go changed; regenerate the recorded transcript"
+cause = "The restart proof reads the same stale transcript before validating recovery."
+repair = "Capture the real snapshot-store write/read and restored host again; retain exact before/after state equality, manifest binding and full 128-bit account balances."
+
+[case.TestRepairM_2_RestoredProofRejectsForeignBindingsAndTampering]
+inventory_first_error = "verify/repair_m2_test.go:266: native producer modules/lxphost/host.go changed; regenerate the recorded transcript"
+cause = "The restored account witnesses and source provenance came from the earlier host."
+repair = "Regenerate all restored witnesses with the existing recorder; retain exact foreign identity/asset, state-root substitution, balance/path tampering and trailing-byte refusals."
+
+[case.TestStateProofMatchesRust]
+inventory_first_error = "verify/verify_test.go:117: module-tree-width: Go verdict <nil>, Rust valid=false"
+cause = "The historical fixture labels eleven leaves unsupported, while both current Go and current Rust sources implement the current native width contract."
+native_source = "src/state/lxp_state_root.c:lxp_state_module_root_count returns max(8, highest registered module)+1; src/state/lxp_state_proof.c:root accepts widths 9 through LXP_MODULE_RESERVED_COUNT+1 (12). The current host registers module 10 and emits width 11."
+native_proof_commit = "a66af7c870a43e00f7f3ff1e3e0104ffb21d489b"
+rust_source = "services/agent/crates/layerx-proof/src/state_witness.rs:StateWitness::root already accepts the native 9..=12 range and binds module_id inside it."
+rust_source_commit = "6b74041116674ce6959b025e52b4f1a13682b7d3"
+verdict = "Width 11 is valid; no Go or Rust verifier bound needs widening or narrowing at this revision. The recorded Rust verdict and the obsolete codec input-rewrite shim are stale."
+generator = "python3 layerxproof/testdata/record_state_vectors.py"
+repair = "Compile the actual production Rust StateWitness source with the actual layerx-types dependency; preserve the original width-11 wire/root as valid-module-tree-width-11, generate module-tree-width at invalid width 13, and record Rust verdicts/refusal classes for every state case. Assert all other historical expectations unchanged. Remove the codec-only wire rewrite so codec and verify consume identical recorded bytes."
+tests = "TestStateWitnessAgainstRustFixture and TestStateWitnessRefusalClasses retain their assertions; TestStateProofMatchesRust additionally requires both the exact width-11 inclusion and ErrStateModule refusal cases. Native host and twelve-leaf compatibility cases remain in both codec gates."
+
+[gotcha.scope_and_evidence]
+symptom = "The task asks for a starting verify run and root/spec ledger updates while its explicit Order forbids manual verification and all edits outside layerxproof."
+do = "Follow the explicit gate order and scope, record the historical inventory without claiming a baseline run, retain task notes here, and bind final qualification to the private runner ledger."
+
+[gotcha.stale_rust_fixture]
+symptom = "The fixture generator named in vectors.json is absent and its width-11 negative verdict predates the current production Rust verifier."
+do = "Refresh state verdicts from the actual production Rust source with the in-scope recorder; keep non-state sections intact and preserve the original positive witness as well as the invalid-width refusal."

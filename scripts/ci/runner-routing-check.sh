@@ -4,7 +4,8 @@ set -eu
 root=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)
 cd "$root"
 
-exec python3 - "$@" <<'PY'
+container_runtime_use() {
+    exec python3 - "$@" <<'PY'
 import glob
 import os
 import re
@@ -21,25 +22,25 @@ scorecard.yml                   analysis                         scorecard      
 explorer-build.yml              explorer-backend                 container         ubuntu-24.04
 explorer-build.yml              explorer-lint-backend            docker-command    ubuntu-24.04
 explorer-images.yml             publish                          docker-action     ubuntu-24.04
-human.yml                       browser-performance              docker-command    ubuntu-24.04
 mirror-live.yml                 publish-retrieve                 layerx-testnet    [self-hosted, layerx-testnet]
 mirror-verification-live.yml    mirror-only                      layerx-testnet    [self-hosted, layerx-testnet]
-paxeer-cross-arch-build.yml     macos-arm64                      macos             macos-latest
-paxeer-db-tests.yml             test                             docker-action     ubuntu-latest
-paxeer-db-tests.yml             coverage                         docker-action     ubuntu-latest
-paxeer-docker-build.yml         pax-images                       docker-action     ubuntu-latest
-paxeer-docker-publish.yml       pax-images                       docker-action     ubuntu-latest
-paxeer-ecr.yml                  publisher                        ecr               ubuntu-latest
-paxeer-go-test.yml              test                             docker-action     ubuntu-latest
-paxeer-go-test.yml              coverage                         docker-action     ubuntu-latest
-paxeer-hpx-registry.yml         release                          macos             macos-latest
-paxeer-integration-test.yml     prepare-cluster                  docker-action     ubuntu-latest
-paxeer-integration-test.yml     integration-tests                docker-action     ubuntu-latest
-paxeer-libwasmvm.yml            build                            docker-command    ubuntu-latest
-paxeer-nightly-ecr.yml          publish                          ecr               ubuntu-latest
-paxeer-ghcr-integration-test-cleanup.yml cleanup                   publishing-credential ubuntu-latest
-paxeer-proto-registry.yml       push                             publishing-credential ubuntu-latest
-paxeer-release-publish.yml      releaser                         publishing-credential ubuntu-latest
+paxeer-cross-arch-build.yml     macos-arm64                      macos             macos-15
+paxeer-db-tests.yml             test                             docker-action     ubuntu-24.04
+paxeer-db-tests.yml             coverage                         docker-action     ubuntu-24.04
+paxeer-docker-build.yml         pax-images                       docker-action     ubuntu-24.04
+paxeer-docker-publish.yml       pax-images                       docker-action     ubuntu-24.04
+paxeer-ecr.yml                  publisher                        ecr               ubuntu-24.04
+paxeer-go-test.yml              test                             docker-action     ubuntu-24.04
+paxeer-go-test.yml              coverage                         docker-action     ubuntu-24.04
+paxeer-go-test.yml              autobahn-integration             docker-command    ubuntu-24.04
+paxeer-hpx-registry.yml         release                          macos             macos-15
+paxeer-integration-test.yml     prepare-cluster                  docker-action     ubuntu-24.04
+paxeer-integration-test.yml     integration-tests                docker-action     ubuntu-24.04
+paxeer-libwasmvm.yml            build                            docker-command    ubuntu-24.04
+paxeer-nightly-ecr.yml          publish                          ecr               ubuntu-24.04
+paxeer-ghcr-integration-test-cleanup.yml cleanup                   publishing-credential ubuntu-24.04
+paxeer-proto-registry.yml       push                             publishing-credential ubuntu-24.04
+paxeer-release-publish.yml      releaser                         publishing-credential ubuntu-24.04
 platform.yml                    ios-application-artifact         macos             macos-15
 platform.yml                    real-ios-journey                 macos             macos-15
 platform.yml                    release-pipeline                 release-pipeline  ubuntu-24.04
@@ -51,10 +52,10 @@ platform.yml                    publish-maven-central            publish        
 platform.yml                    publish-swiftpm                  publish           ubuntu-24.04
 platform.yml                    publish-nuget                    publish           ubuntu-24.04
 programs-conformance.yml        deterministic-execution          matrix-runner     ${{ matrix.os }}
-publish-images.yml              plan                             publish           ubuntu-latest
-publish-images.yml              images                           publish           ubuntu-latest
-publish-images.yml              images-dependent                 publish           ubuntu-latest
-publish-images.yml              gate                             publish           ubuntu-latest
+publish-images.yml              plan                             publish           ubuntu-24.04
+publish-images.yml              images                           publish           ubuntu-24.04
+publish-images.yml              images-dependent                 publish           ubuntu-24.04
+publish-images.yml              gate                             publish           ubuntu-24.04
 publish-images.yml              publish                          docker-command    ubuntu-24.04
 publish-images.yml              attest                           docker-command    ubuntu-24.04
 publish-images.yml              promote                          docker-command    ubuntu-24.04
@@ -75,7 +76,9 @@ REASONS = {
 CONTAINER_RUNTIME = re.compile(
     r"(?:^|[;&|(`])\s*(?:sudo\s+)?(?:docker|podman)\s"
     r"|scripts/explorer/lint-backend\.sh"
-    r"|services/explorer/deploy/tools/mix-in-builder\.sh",
+    r"|services/explorer/deploy/tools/mix-in-builder\.sh"
+    r"|(?:^|[;&|(`])\s*(?:sudo\s+)?make[ \t]+"
+    r"(?:[^\n;&|]*[ \t]+)?autobahn-integration-test(?=\s|$)",
     re.MULTILINE,
 )
 MATRIX_REFERENCE = re.compile(r"\$\{\{\s*matrix\.([A-Za-z0-9_-]+)\s*\}\}")
@@ -234,3 +237,6 @@ if failures:
         print(failure, file=sys.stderr)
     sys.exit(1)
 PY
+}
+
+container_runtime_use "$@"

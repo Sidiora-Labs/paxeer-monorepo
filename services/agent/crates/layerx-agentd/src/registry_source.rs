@@ -4,8 +4,8 @@
 //! most 16 KiB, unknown fields refused): `version` = 1, `endpoint` = an HTTPS
 //! authority without credentials/path/query/fragment, `server_ca_der`,
 //! `client_certificate_pem`, `client_private_key_pem`, `request_token_file`,
-//! `deadline_ms` (1..=60_000 milliseconds), and `maximum_response_bytes`
-//! (1..=1_048_576 bytes). File fields are filesystem paths. Configuration and
+//! `deadline_ms` (`1..=60_000` milliseconds), and `maximum_response_bytes`
+//! (`1..=1_048_576` bytes). File fields are filesystem paths. Configuration and
 //! material are read with `config::read_protected_source`: regular, nonsymlink,
 //! process-owned files with no group/other permissions. CA, certificate chain and
 //! private key are each bounded to 64 KiB. The bearer file is bounded to 4096
@@ -118,36 +118,47 @@ pub struct VerifiedRegistrySource {
 }
 
 impl VerifiedRegistrySource {
+    #[must_use]
     pub const fn source(&self) -> &SourceStatus {
         &self.source
     }
+    #[must_use]
     pub fn pipeline(&self) -> Option<&str> {
         self.pipeline.as_deref()
     }
+    #[must_use]
     pub const fn deployment_receipt_digest(&self) -> [u8; 32] {
         self.deployment_receipt_digest
     }
+    #[must_use]
     pub const fn current_head_receipt_digest(&self) -> [u8; 32] {
         self.current_head_receipt_digest
     }
+    #[must_use]
     pub const fn program(&self) -> [u8; 32] {
         self.program
     }
+    #[must_use]
     pub const fn version(&self) -> u32 {
         self.version
     }
+    #[must_use]
     pub const fn code_hash(&self) -> [u8; 32] {
         self.code_hash
     }
+    #[must_use]
     pub const fn state_root(&self) -> [u8; 32] {
         self.state_root
     }
+    #[must_use]
     pub const fn observed_sequence(&self) -> u64 {
         self.observed_sequence
     }
+    #[must_use]
     pub const fn observed_at(&self) -> u64 {
         self.observed_at
     }
+    #[must_use]
     pub const fn valid_through(&self) -> u64 {
         self.valid_through
     }
@@ -248,6 +259,9 @@ fn endpoint(value: &str) -> Result<String, RegistrySourceError> {
 }
 
 impl RegistrySourceProvider {
+    /// # Errors
+    /// Returns an error if the protected registry configuration, identity, response bounds or
+    /// source authorization is invalid or unavailable.
     pub fn from_protected_config(path: &Path) -> Result<Self, RegistrySourceError> {
         let bytes = protected(path, 16 * 1024)?;
         let config: Configuration =
@@ -292,13 +306,12 @@ impl RegistrySourceProvider {
             }
         }
         let mut keys = ureq::tls::parse_pem(&private);
-        let private_key = match keys
+        let Some(ureq::tls::PemItem::PrivateKey(private_key)) = keys
             .next()
             .transpose()
             .map_err(|_| RegistrySourceError::Identity)?
-        {
-            Some(ureq::tls::PemItem::PrivateKey(value)) => value,
-            _ => return Err(RegistrySourceError::Identity),
+        else {
+            return Err(RegistrySourceError::Identity);
         };
         if chain.is_empty() || keys.next().is_some() {
             return Err(RegistrySourceError::Identity);
@@ -328,6 +341,9 @@ impl RegistrySourceProvider {
 
     /// Enriches an independently authenticated native interface over mTLS.
     /// See the module contract for units, bindings and typed refusals.
+    /// # Errors
+    /// Returns an error if the protected registry configuration, identity, response bounds or
+    /// source authorization is invalid or unavailable.
     pub fn read(
         &self,
         native: &ProgramInterfaceRead,

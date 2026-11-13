@@ -1,5 +1,5 @@
 //! mcp-history-scan: real invocation producer, durable store, evidence consumer and restart.
-//! Finding/test mapping and baseline constraints: src/repair_22_33_1508.kvx.
+//! Finding/test mapping and baseline constraints: `src/repair_22_33_1508.kvx`.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;
@@ -155,9 +155,9 @@ fn settle(
     id: usize,
     tool: &'static str,
 ) -> Vec<u8> {
-    let handle = match must(permit.mcp_begin(control, identity(id, tool))) {
-        McpInvocationStart::Started(handle) => handle,
-        _ => panic!("new invocation did not start"),
+    let McpInvocationStart::Started(handle) = must(permit.mcp_begin(control, identity(id, tool)))
+    else {
+        panic!("new invocation did not start")
     };
     let response = must(serde_json::to_vec(
         &serde_json::json!({"id": id, "tool": tool}),
@@ -176,8 +176,9 @@ fn settle(
 }
 
 fn evidence(store: &Arc<Mutex<Store>>, tenant: &TenantId, id: usize, tool: &str) -> Value {
+    let guard = must(store.lock());
     must(mcp_store_evidence_for_tool(
-        &*must(store.lock()),
+        &guard,
         tenant,
         identity(id, TOOL).idempotency_key,
         Some(tool),
@@ -282,6 +283,50 @@ fn mcp_history_scan_archives_reopens_and_revokes_only_the_affected_working_set()
             .last_transition_candidates,
         1
     );
+    assert_history_revocation_and_reopen(HistoryRevocation {
+        root,
+        owner,
+        token,
+        begun,
+        first,
+        unresolved,
+        store,
+        control,
+        auth,
+        sibling_auth,
+        archived,
+    });
+}
+
+struct HistoryRevocation {
+    root: Root,
+    owner: TenantId,
+    token: Token,
+    begun: McpInvocationHandle,
+    first: Value,
+    unresolved: Value,
+    store: Arc<Mutex<Store>>,
+    control: SessionControl,
+    auth: OperationPermit,
+    sibling_auth: OperationPermit,
+    archived: McpInvocationHandle,
+}
+
+fn assert_history_revocation_and_reopen(context: HistoryRevocation) {
+    let HistoryRevocation {
+        root,
+        owner,
+        token,
+        begun,
+        first,
+        unresolved,
+        store,
+        control,
+        auth,
+        sibling_auth,
+        archived,
+    } = context;
+
     assert_eq!(
         sibling_auth.stop().reason(),
         Some(Termination::SessionRevoked)
@@ -387,13 +432,15 @@ fn mcp_history_scan_lookup_preserves_tool_tenant_and_archive_identity() {
         control.mcp_evidence(&owner, identity(1, TOOL).idempotency_key),
         Err(McpInvocationError::Conflict)
     ));
+    let guard = must(store.lock());
     assert!(must(mcp_store_evidence_for_tool(
-        &*must(store.lock()),
+        &guard,
         &owner,
         identity(1, TOOL).idempotency_key,
         Some("absent.tool")
     ))
     .is_none());
+    drop(guard);
     assert!(must(
         control.mcp_evidence(&tenant("absent-tenant"), identity(1, TOOL).idempotency_key)
     )

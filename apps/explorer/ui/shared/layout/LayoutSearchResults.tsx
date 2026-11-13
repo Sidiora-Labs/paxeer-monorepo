@@ -5,11 +5,9 @@ import type { Props } from './types';
 import * as Layout from './components';
 
 const LayoutSearchResults = ({ children }: Props) => {
-
   return (
     <Layout.Root content={ children }>
       <Layout.Container>
-        <Layout.NavBar/>
         { children }
       </Layout.Container>
     </Layout.Root>

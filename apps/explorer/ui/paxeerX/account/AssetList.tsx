@@ -53,7 +53,7 @@ const AssetList = ({ items, isLoading }: Props) => {
       showRows={ <ScanShowRows value={ rowsPerPage } onValueChange={ handleRowsPerPageChange } isLoading={ isLoading }/> }
     >
       { items.length === 0 ? (
-        <Text color="text.secondary" px={ 4 } py={ 6 }>No assets are held by this account.</Text>
+        <Text role="status" color="text.secondary" px={ 4 } py={ 6 }>No assets are held by this account.</Text>
       ) : (
         <TableRoot variant="scan" minW="700px" data-label="paxeer-x-assets">
           <TableHeader>

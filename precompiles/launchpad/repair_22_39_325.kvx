@@ -1,0 +1,56 @@
+[repair.22.39.325]
+task = "22.39.325"
+mode = "BUILD"
+requirement = "22998.1"
+decision = "3174"
+gotchas = ["4095", "3046"]
+base_revision = "58b13adf38b27ead85e97d36ab93c545d1b59cae"
+starting_revision = "df6ca3d00e1c37eb5d4cc407f82d8fc4c88ef44e"
+verified_revision = "The final hf-done receipt pins the exact candidate revision in /out/run/gates.jsonl and /out/logs/verify-*.log; the passing hf-build receipt must name that same revision."
+private_evidence_location = "/out/run/gates.jsonl"
+qualification = "Only the bounded hf-build and hf-done receipts establish execution and qualification; no gate result is claimed before it runs."
+
+[baseline]
+revision = "7de3a9051436"
+source = "GOTCHA.kvx gotcha.4095, task 22.39.249 attempt 3 at de8890871068, private log /out/logs/verify-1.log in that attempt."
+observed = "The recorded red launchpad cases are TestOpticalHooksSeeTheContractCallers at optical_test.go:70 through :57, TestCollectionServesEverySelector at nft_test.go:376 through :185 and :114, TestFeeRightReceiverHook at nft_test.go:582, and TestTreasurySurfaceServesTheABI at treasury_test.go:306 with 41 expected and 51 found."
+starting_run = "Not run separately: the explicit gate order requires implementation before hf-build and hf-done and forbids running verify_cmd by hand first; no fresh starting-revision result or unavailable historical error text is claimed."
+ledger = "No earlier hf-build or hf-done rows were present when the working tree and /out/run/gate.json were inspected; both used counts were zero."
+
+[case.TestOpticalHooksSeeTheContractCallers]
+site = "precompiles/launchpad/optical_test.go:opticalContracts"
+cause = "The compiler subprocess is mandatory, but solc was absent from the sandbox PATH; the inherited inventory identifies command.Output as the first failing assertion without retaining its diagnostic here."
+producer_commit = "44838a0598: task 18.924.1 compiles the real in-tree optical contracts by default; 696461f54c8a66d3ef53e87c6a495358f90af595 relocates their source tree to contracts/launchpad."
+repair = "Install the genuine native solc 0.8.27 compiler matching contracts/launchpad/hardhat.config.js into the gate PATH; preserve the existing source compilation, Paris target, callback caller, flags, storage, accounting, vesting and revert assertions unchanged."
+compiler = "solc-linux-amd64-v0.8.27+commit.40a35a09"
+compiler_sha256 = "0xb9977d500c17cba6f0032ca939ef98c4decf6363f19f386d05fb02f708115264"
+compiler_origin = "ethereum/solc-bin linux-amd64 release binary, checksum checked against its list.json before installation."
+
+[case.TestCollectionServesEverySelector]
+site = "precompiles/launchpad/nft_test.go:nftGenesis and newNFTEnv"
+cause = "The fixture predates the explicit FeeRightCollection.OwnerTokens export contract; validation refuses fee-right owner enumeration missing or wrong owner for 1 before any selector executes."
+producer_commit = "74b08abddb101496da616c7337d2436500dd77d2, task 22.31.34: preserve ERC721Enumerable owner order across export/import rather than deriving it from global token order."
+repair = "Include the actual holder's ordered token list [1] in the genesis fixture and assert exact OwnerTokens equality after the real keeper imports and exports it; retain genesis validation and all 37 selector, enumeration, event and refusal assertions."
+
+[case.TestFeeRightReceiverHook]
+site = "precompiles/launchpad/nft_test.go:newNFTEnv and nftGenesis"
+cause = "The same missing OwnerTokens record prevents genesis import for the contract receiver holder."
+producer_commit = "74b08abddb101496da616c7337d2436500dd77d2"
+repair = "The shared fixture records whichever holder the case supplies, including nftReceiver, and asserts its exported enumeration; preserve mint and both safe-transfer overloads, caller and data checks, receiver refusal bytes, and state/log rollback assertions unchanged."
+
+[case.TestTreasurySurfaceServesTheABI]
+site = "precompiles/launchpad/treasury_test.go:TestTreasurySurfaceServesTheABI"
+cause = "The 41-byte length assertion retained the former runtime while treasurySurfaceRuntime, fixture installation and the real role-surface writer already used the 51-byte native-value guard."
+producer_commit = "76d6a76d08d4e02f5830b7a9b880e90ceec89f4f, task 22.31.36: reject native value before forwarding to the launchpad precompile."
+governing_record = "modules/launchpad/keeper/repair_22_39_315.kvx, commit 68964425e461281ea0b42fde1aebb34b908495a8, runtime.rules and runtime.writers: historical v6.12.0 pool replay retains the installed 41-byte runtime; creation and InstallRoleSurfaces use the guarded 51-byte runtime."
+address_rule = "The case reads the generation 2 Treasury role at 0xBb82d74E071e03d8E68F1d78Fae9EFe8b6b7A723, not a migrated pool address."
+repair = "Assert length 51, preserve the exact independently recorded runtime bytes, require equality with the keeper runtime and pin its Keccak-256 to the staged guarded identity in sdk/launchpad/shared/config/deployment/manifest.go; retain every Treasury ABI, event, deposit, role and refusal assertion."
+installed_pool_hash = "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+guarded_role_hash = "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993"
+
+[qualification.gates]
+build_command = "go build ./precompiles/launchpad/... && go test -count=1 -run '^$' ./precompiles/launchpad/..."
+verify_command = "test -s precompiles/launchpad/repair_22_39_325.kvx && go test -count=1 -timeout 30m ./precompiles/launchpad/..."
+wrapper_command = "cg spec done 22.39.325 -f layerx-merge --root /work/paxeer-monorepo"
+evidence = "Copy revision, command, exit and log from the final hf-done receipt; build and verification must qualify the unchanged candidate."
+scope = "Root gotcha/spec bookkeeping and publication belong to the runner; only precompiles/launchpad source records and tests are changed."

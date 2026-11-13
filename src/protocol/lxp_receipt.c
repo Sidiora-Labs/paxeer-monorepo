@@ -1023,6 +1023,7 @@ lxp_result lxp_verified_receipt_index_lookup(
 }
 
 
+/* Equality binds every committed receipt fact, including network and height. */
 static bool verified_authority_facts_equal(
     const lxp_verified_receipt_authority_facts *left,
     const lxp_verified_receipt_authority_facts *right)

@@ -31,7 +31,7 @@ func RegisterPoolStats(r chi.Router, st *store.Store, rdb *goredis.Client) {
 // the TS pool-stats single route.
 func statsByPool(st *store.Store, rdb *goredis.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		poolAddress := chi.URLParam(r, "poolAddress")
+		poolAddress := chi.URLParam(r, valuePoolAddress)
 		ctx := r.Context()
 
 		if cached, err := rdb.Get(ctx, cacheKey(poolAddress)).Result(); err == nil && cached != "" {

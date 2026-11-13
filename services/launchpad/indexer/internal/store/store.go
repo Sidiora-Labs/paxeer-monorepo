@@ -99,7 +99,11 @@ func (s *Store) SwapCount(ctx context.Context) (int64, error) { return s.q.GetSw
 
 // InsertPool persists a MarketCreated pool row.
 func (s *Store) InsertPool(ctx context.Context, p sqlcdb.InsertPoolParams) error {
-	return s.q.InsertPool(ctx, p)
+	if err := s.q.InsertPool(ctx, p); err != nil {
+		return err
+	}
+	_, err := s.db.Exec(ctx, `UPDATE indexer.pools p SET home_chain=c.chain FROM indexer.launched_chains c WHERE lower(p.pool_address)=lower(c.pool) AND lower(p.token_address)=lower(c.token) AND p.pool_address=$1 AND (p.home_chain=0 OR p.home_chain=c.chain)`, p.PoolAddress)
+	return err
 }
 
 // InsertSwap persists a Swap row.

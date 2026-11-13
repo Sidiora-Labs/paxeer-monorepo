@@ -7,8 +7,8 @@ because the kit refuses those by name rather than emulating them.
 
 LayerX programs execute inside `paxd` on the single Paxeer BFT network. The
 kernel is part of the network and proposes blocks; a receipt is final when its
-block commits. Public Ethereum JSON-RPC uses the root URL, for example
-`https://api-mainnet-beta.paxeer.network` or `https://api1.mainnet-beta.paxeer.network`,
+block commits. Public Ethereum JSON-RPC uses the root URL documented in the
+[public RPC reference](../../../docs/site/docs/reference/public-rpc.md),
 with chain ID 125 (`0x7d`). Program execution and monetary effects belong to the
 same chain transaction. Sub-chains are tenant domains in the database.
 
@@ -332,7 +332,8 @@ separately from payment effects.
 | `delegatecall` | there is no shared storage frame; every call runs in the callee's own namespace |
 | `create`/`create2` | programs are deployed through the lifecycle, not from inside an execution |
 | `ecrecover` | `layerx_porting_evm_guest::ecrecover`, backed by typed secp256k1 recovery and guest-reachable Keccak-256 |
-| floating point, randomness, `block.prevrandao` | refused at validation as non-deterministic |
+| floating point | floating-point types and instructions are refused at validation |
+| ambient randomness, `block.prevrandao` | no equivalent context primitive; use explicit authenticated protocol inputs |
 
 `keccak256` inside an ABI-v2 contract calls the guest-reachable primitive. The
 historical PublicLock port can still precompute its constant slot addresses,
@@ -405,9 +406,9 @@ the original port, which is why the rebuild is reproducible.
 
 The local `execute_purchase`, `execute_has_valid_key` and
 `execute_remaining_periods` helpers run the metered executor. `settle` calls
-`strict_settle` with a supplied `KernelTransferPrimitive`. These are library
-phases within qualification, not independent network services. In production,
-the node applies program and monetary effects in the chain transaction;
+`strict_settle` with a supplied `KernelTransferPrimitive`. These phases run in
+the porting library. In production, the node applies program and monetary
+effects in the chain transaction;
 committed blocks determine finality. Source verification alone does not prove
 account registration, inclusion or successful live execution.
 
@@ -451,7 +452,7 @@ query state and metadata, and `16`/`17` revoke and refuse further allowance
 spending. These recorded fixtures do not certify a live deployment. The
 integration tests in [`tests/repair_22_33_239.rs`](tests/repair_22_33_239.rs)
 execute the committed guest in-process using the real SDK codec and the
-runtime's public authenticated ABI-v5 qualification path, and compare its
+runtime's authenticated ABI-v5 calls, and compare its
 ABI-v2 registry interface to the fixture. They do not run the native C replay
 tool or claim to re-execute kernel asset-pause checks.
 
@@ -529,4 +530,20 @@ Account-bound settlement evidence retains the signer authorization and commits
 the actual account endpoints. The Go, Swift, .NET and JVM terminal verifiers
 decode and bind the `LayerX/programs/402LXP/account-bound-set/v1` evidence; the
 native PAY5 fixture exercises the same encoding end to end.
+
+A transfer leg may name an identity as its destination and pays that identity's
+one payment account for the leg's asset. If the identity has no payment account
+for that asset, or more than one, the transfer is refused. When at least one
+destination is an identity, the account-bound evidence uses
+`LayerX/programs/402LXP/account-bound-set/v2\0`, followed by the u32 big-endian
+length and bytes of the original authorization, then, for every leg, the u16
+big-endian length and bytes of the source name followed by the u16 big-endian
+length and bytes of the destination name. Source names follow the version 1
+rules; destination names are empty for account-id and asset fee-account
+destinations. The runtime derives each named destination account from the
+identity, asset and canonical name before committing the account endpoints and
+transfer root. Grant and capability checks retain the destination bytes supplied
+by the program. A set without an identity destination keeps its version 1 bytes;
+a version 2 wrapper with all destination names empty is refused.
+
 Never sign an envelope as an account ID.

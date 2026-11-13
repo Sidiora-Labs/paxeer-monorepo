@@ -17,9 +17,10 @@ defmodule Explorer.Chain.PaxeerX.Receipt do
     evidence verified against the pinned network and sequencer key
     (`kernel_verification` is `:sequencer_verified`; the database enforces it).
 
-  `status` is the receipt verification lattice the kernel publishes: unverified,
+  `status` preserves the historical receipt verification lattice: unverified,
   sequencer signed, batch included, state proven, checkpoint finalised, settlement
-  anchored.
+  anchored. Archive reads expose this frozen value as `verification_status`;
+  current native transaction finality is determined by verified block commitment.
 
   Changes in the schema should be reflected in the bulk import module:
   - `Explorer.Chain.Import.Runner.PaxeerX.Receipts`
@@ -40,7 +41,7 @@ defmodule Explorer.Chain.PaxeerX.Receipt do
   * `receipt_id` - the kernel identifier of the receipt (the activity id for kernel rows).
   * `account` - the kernel account the receipt belongs to.
   * `payload_hash` - the hash of the receipt payload.
-  * `status` - the rung the receipt has reached on the verification lattice.
+  * `status` - the frozen historical verification rung recorded for this receipt.
   * `transaction_hash` - the hash of the transaction that emitted the log (EVM rows only).
   * `log_index` - the index of the log within its block (EVM rows only).
   * `block_hash` - the hash of the block that holds the transaction (EVM rows only).
@@ -98,7 +99,7 @@ defmodule Explorer.Chain.PaxeerX.Receipt do
   end
 
   @doc """
-  The rungs of the receipt verification lattice the schema admits.
+  The historical verification rungs retained for decoding archived receipts.
   """
   @spec statuses() :: [atom()]
   def statuses, do: @statuses

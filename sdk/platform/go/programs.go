@@ -1546,6 +1546,9 @@ func programOccupancyPaymentAccount(did []byte, asset [32]byte, assetScoped bool
 
 func programAuthorizationV2(encoded []byte) bool {
 	domain := []byte("LayerX/programs/402LXP/account-bound-set/v1\x00")
+	if bytes.HasPrefix(encoded, []byte("LayerX/programs/402LXP/account-bound-set/v2\x00")) {
+		domain = []byte("LayerX/programs/402LXP/account-bound-set/v2\x00")
+	}
 	if bytes.HasPrefix(encoded, domain) {
 		cursor := programTerminalCursor{value: encoded[len(domain):]}
 		encoded = cursor.take(int(cursor.u32()))
@@ -1591,11 +1594,16 @@ func programPrincipalPaymentAccount(principal, asset [32]byte, name []byte) ([32
 
 func verifyProgramTransferAuthorization(encoded []byte, expected [32]byte) error {
 	boundDomain := []byte("LayerX/programs/402LXP/account-bound-set/v1\x00")
+	boundDomainV2 := []byte("LayerX/programs/402LXP/account-bound-set/v2\x00")
+	bindDestinations := bytes.HasPrefix(encoded, boundDomainV2)
+	if bindDestinations {
+		boundDomain = boundDomainV2
+	}
 	var names *programTerminalCursor
 	if bytes.HasPrefix(encoded, boundDomain) {
 		wrapper := programTerminalCursor{value: encoded[len(boundDomain):]}
 		encoded = wrapper.take(int(wrapper.u32()))
-		if wrapper.failed || bytes.HasPrefix(encoded, boundDomain) {
+		if wrapper.failed || bytes.HasPrefix(encoded, []byte("LayerX/programs/402LXP/account-bound-set/v1\x00")) || bytes.HasPrefix(encoded, boundDomainV2) {
 			return errors.New("invalid Programs account-bound set")
 		}
 		names = &wrapper
@@ -1637,6 +1645,7 @@ func verifyProgramTransferAuthorization(encoded []byte, expected [32]byte) error
 	}
 	leaves := make([][32]byte, 0, legCount)
 	total := Uint128{}
+	hasNamedDestination := false
 	for index := uint64(0); index < legCount; index++ {
 		frameStart := cursor.offset
 		if !consumeProgramFrame(&cursor) {
@@ -1700,6 +1709,20 @@ func verifyProgramTransferAuthorization(encoded []byte, expected [32]byte) error
 					return err
 				}
 			}
+			if bindDestinations {
+				destinationName := names.take(int(names.u16()))
+				if names.failed {
+					return errors.New("truncated Programs destination payment account")
+				}
+				if len(destinationName) != 0 {
+					var err error
+					to, err = programPrincipalPaymentAccount(to, asset, destinationName)
+					if err != nil {
+						return err
+					}
+					hasNamedDestination = true
+				}
+			}
 		}
 		var amountOK bool
 		total, amountOK = total.Add(amount)
@@ -1719,6 +1742,9 @@ func verifyProgramTransferAuthorization(encoded []byte, expected [32]byte) error
 	}
 	if cursor.failed || !cursor.finished() || names != nil && (names.failed || !names.finished()) {
 		return errors.New("trailing Programs transfer authorization")
+	}
+	if bindDestinations && !hasNamedDestination {
+		return errors.New("Programs destination account-bound set has no named destination")
 	}
 	for len(leaves) > 1 {
 		next := make([][32]byte, 0, (len(leaves)+1)/2)

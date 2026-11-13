@@ -9,6 +9,32 @@ namespace LayerX.Sdk.Tests;
 public sealed class ReceiptFixtureTests
 {
     [Fact]
+    public void NativeDestinationAuthorizationVectors()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(FixturePath("../../../../programs/fixtures/pay5/destination-authorization-vectors.json")));
+        var decode = typeof(ProgramsClient).GetMethod("DecodeAuthorizationRoot", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var version = typeof(ProgramsClient).GetMethod("AuthorizationV2", BindingFlags.NonPublic | BindingFlags.Static)!;
+        foreach (var vector in document.RootElement.EnumerateArray())
+        {
+            var encoded = HexField(vector, "encoded"); var root = HexField(vector, "root");
+            if (vector.GetProperty("accept").GetBoolean())
+            {
+                Assert.True((bool)version.Invoke(null, new object[] { encoded })!);
+                Assert.Equal(root, (byte[])decode.Invoke(null, new object[] { encoded })!);
+            }
+            else
+            {
+                var error = Record.Exception(() => {
+                    var actual = (byte[])decode.Invoke(null, new object[] { encoded })!;
+                    if (!actual.SequenceEqual(root)) throw new InvalidDataException();
+                });
+                Assert.NotNull(error);
+                Assert.True(error is InvalidDataException || error is TargetInvocationException { InnerException: InvalidDataException });
+            }
+        }
+    }
+
+    [Fact]
     public void NativeAccountAuthorizationVectors()
     {
         using var document = JsonDocument.Parse(File.ReadAllText(FixturePath("../../../../programs/fixtures/pay5/account-authorization-vectors.json")));

@@ -1,0 +1,189 @@
+[meta]
+task = "22.39.316"
+mode = "BUILD"
+base_revision = "795086023d2cefb4c1be927aaefbb8eec029e47e"
+seed_revision = "aa1dd32ca6740a2a4adcc205fe776c0c9105d577"
+original_attempt_base = "dc2b45b72dcca7aec0a2a86ddd3b6b577dcb39e8"
+basis = "Decision 3167 and gotcha 4087"
+
+[layout]
+ledger_bytes = 206
+dictionary_bytes = 17152
+epoch_rows_bytes = 25806
+refund_record_bytes = 97
+reward_state_max_bytes = 43261
+reward_derivation = "206 + 256*67 + 33*(174 + 32*19) + (1+96); Funding emits the entire fixed encoding, so later occupied dictionary slots, epoch rows and refund records cannot grow it"
+payout_max_bytes = 8009
+payout_derivation = "9-byte tag + 64*99 credit bytes + 16*104 cursor bytes; this region overlays 11 trailing epoch rows INSIDE REWARD_STATE_BYTES, so it is not added twice"
+payout_owner = "src/rewards.rs PAYOUT_REGION_MAX_BYTES, PAYOUT_REGION_AT, PAYOUT_END, EpochRows::has_payouts, rewards::enable_payouts and RewardState::check"
+f05_current_max_bytes = 2200
+f05_history_max_bytes = 3586
+f05_joint_max_bytes = 5786
+f05_derivation = "Current: 56 + 8*64 report commitments + 32*50 worker aggregates + 32 root; history: 2 + 32*112 summaries; src/aggregation_codec.rs CURRENT_MAX_BYTES, HISTORY_MAX_BYTES and F05_MAX_BYTES"
+room_book_max_bytes = 79460
+book_derivation = "20 + ROOM_CAPACITY*ROOM_RECORD_BYTES + ASK_CAPACITY*193 + BID_CAPACITY*162 + DEAL_CAPACITY*(146+36*32) + BID_CAPACITY*169; the existing bound also covers compressed posted-bond identities and sparse adjustments"
+room_joint_framing_bytes = 13
+framing_derivation = "u32 book length + 9-byte PAXAI/F11 suffix; the reward prefix and F05 tail have no additional outer framing"
+settlement_max_bytes = 128520
+sum = "43261 (including payouts) + 5786 + 79460 + 13 = 128520"
+former_settlement_payload_cap = 81912
+shortfall_bytes = 46608
+growth_bytes = 49152
+rounding = "ceil(46608/4096)*4096 = 49152"
+former_settlement_section_cap = 81920
+new_settlement_section_cap = 131072
+new_settlement_payload_cap = 131064
+former_state_cap = 196608
+new_state_cap = 245760
+headroom_bytes = 2544
+capacities = "ROOM_CAPACITY=16, ASK_CAPACITY=64, BID_CAPACITY=128, DEAL_CAPACITY=16 and every record encoding are unchanged"
+
+[section_owners]
+write = "state::encode_room_market_parts frames prefix/book; rooms::apply writes the book; rewards::apply_fund/apply/Call::commit and apply_split_payout write fixed F06 and carry its tail; aggregation::apply writes F05 current/history; epoch::reserve/open/history and closure carry or change F06/F05; bonds::apply writes F06 and the book; roster carries settlement"
+read = "state::room_market and settlement_rewards; rewards::FundingView/View and EpochRows; aggregation::view/captured_aggregation; epoch, closure, roster; bonds, rooms, placement and canary read RoomBook; laps reads RoomBook and carries settlement (lap records live in Control); queries reads F06/F05 and the room book"
+assertion = "rooms::SETTLEMENT_MAX_BYTES <= Section::SettlementClaims.payload_cap() is checked at compile time; REWARD_STATE_BYTES already includes the bounded payout overlay"
+
+[consumers]
+section = "STATE_SECTION_CAPS[3]=131072; Section::payload_cap subtracts its unchanged 8-byte header"
+state = "MAX_STATE_BYTES=245760; all six charged caps sum to it; reputation::COMMON_CAP derives from MAX_STATE_BYTES"
+scratch = "Section-derived caps propagate to aggregation, rewards, rooms, bonds, epoch, closure, reputation_transition and dispatch; MAX_STATE_BYTES propagates to the guest current/next Arena, codec PREIMAGE, epoch state workspaces and dispatch rebind buffers"
+guest = "The guest Arena declares current and next buffers using MAX_STATE_BYTES and scratch using dispatch::SCRATCH_BYTES; codec PREIMAGE declares a third MAX_STATE_BYTES buffer. No independent numeric memory declaration needs widening. The generated Wasm memory declaration is checked by real metered instantiation"
+capture = "queries::FULL_CAPTURE_CHUNKS derives ceil(MAX_STATE_BYTES/MAX_CHUNK_BYTES)=30; full capture, maximum chunk offsets, framing and one-past-limit refusals follow the new bound"
+cases = "canonical_contract, aggregation_contract, state_contract, f04_canonical, market_policy_codec, view_binding, f11_rooms_and_deals, reputation_lifecycle, reputation_vectors and the lib packaging-domain assertion retain their boundary assertions using the new bound or constants"
+runtime = "activity_budget.rs: 196608 means three simultaneously live 65536-byte Wasm pages in unrelated call graphs, not the market state bound; all declarations and assertions retain their original values, with the distinction recorded beside the depth-three test"
+
+[protocol]
+program_state_bound_name = "layerx_program_sdk::MAX_STORAGE_VALUE_BYTES / layerx_programs_runtime::storage::MAX_STORAGE_VALUE_BYTES"
+program_state_bound_bytes = 1048576
+program_state = "245760 <= 1048576; a compile-time assertion in src/lib.rs and the settlement_capacity test enforce this storage-value protocol bound"
+activity_memory_bound_name = "layerx_programs_runtime::meter::DEFAULT_MEMORY_BYTES / DeclaredBudget::protocol_maximum().memory_bytes()"
+activity_memory_bound_bytes = 16777216
+memory = "settlement_capacity asserts the total of current/next/PREIMAGE, dispatch scratch, event and result buffers fits 16777216 and instantiates the rebuilt full guest under ResourceBudget::declared(), checking actual compiler memory including SDK statics and stack"
+
+[deployment]
+record = "sdk/launchpad/shared/config/deployment/current.json: deploymentVersion paxeer125-v6.12.0, status active, chainId 125, activationHeight 37220320"
+handler = "node/upgrades.go: mergeStoreUpgrades adds LayerXProgramsStoreKey and LayerXHostStoreKey; mergePrecompileGate enables 0x101D only at MergeUpgrade; continueMergeUpgradePlan installs hosted guest ABI 5"
+upgrade_name = "precompiles/common/precompiles.go defines MergeUpgrade=v7.0, the repository name of the requested 7.0.0 upgrade"
+conclusion = "The recorded deployment precedes the merge, which introduces both program storage and its precompile; no market program state exists on that pre-merge network, so changing these section offsets needs no stored-state migration. This is source/deployment-record evidence, not a new live-chain observation"
+
+[guest_artifacts]
+generator = "make -s paxai-host-boundary-build, executed inside hf-build: cargo release opt-level=z, wasm-opt -Oz --strip-debug --strip-producers, unchanged size gate and native host-boundary harness"
+outputs = "programs/target/wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm; build/paxai-host-boundary/ai_market.wasm; build/paxai-host-boundary/manifest"
+committed_inventory = "git ls-files '*.wasm' '*sha256*' '*manifest*' '*guest*' contains no committed market guest package or current guest digest; programs/abi-frozen.sha256 contains ABI vector hashes, not guest hashes"
+external_digest_finding = "No current market guest digest outside the allowed paths was found. Historical measurement records and source-revision attribution pins are historical evidence, not generated current-guest artifacts"
+evidence = "The final matching build/verify entries in /out/run/gates.jsonl; settlement_capacity validates the generated package and preserves the 524184-byte deployment bound"
+
+[regression]
+fixture = "tests/support/f11_rooms.rs is the unchanged F11 room/deal producer extracted from f11_rooms_and_deals.rs; both targets include it, and every successful routed operation asserts the section and state bounds"
+capacity_test = "tests/settlement_capacity.rs funds via dispatch, reaches the fixed maximum F06 encoding, opens 16 rooms, posts 64 asks, applies 128 LockBond/PostBid pairs across the two model books, records 16 deals, checks all four next-operation capacity refusals plus LockBond, and decodes every persisted bond after restart"
+assertions = "No test removed, ignored, skipped or weakened; the existing capture test name is retained for case identity while its chunk assertions change to 30"
+
+[comparison.start]
+revision = "795086023d2cefb4c1be927aaefbb8eec029e47e"
+command = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --no-fail-fast"
+exit = 101
+log = "/out/logs/22.39.316-comparison-start.log"
+status = "measured"
+passed_count = 561
+failed_by_target = "{\"f03_evaluator_host\": [\"native_f03_schedule_capacity_role_conflicts_and_revocation\"], \"fuel_budget\": [\"fund_entry_gas_for_committed_receipt_fixture_is_bounded\", \"every_routed_operation_fits_the_protocol_cpu_fuel_cap\", \"fund_fits_the_protocol_cpu_fuel_cap\"], \"host_boundary\": [\"a03_native_stage_open_refusal_cancel_and_restage\", \"a09_native_policy_variants_and_maxima\", \"native_read_selectors_return_exact_snapshot_without_writes\", \"a16_native_policy_width_and_assessment_modes\", \"a02_native_activation_schedule_rebinds_worker_revision_and_needs_readiness\", \"a01_native_create_binds_principal_origin_and_refuses_duplicates\", \"a19_native_treasury_presence_and_later_setters\", \"native_selectors_preserve_exact_routed_refusals\", \"native_context_binds_chain_program_and_height\"], \"rewards_native\": [\"reward_conservation_authority_and_rollback\", \"reward_finality_recovery_and_capacity\"]}"
+checkout = "Isolated detached checkout of the current task base; the applied attempt-1 tree in the task checkout was preserved; CARGO_TARGET_DIR points at the task checkout programs/target to share build output"
+
+[comparison.final]
+revision = "795086023d2cefb4c1be927aaefbb8eec029e47e plus the source SHA256 below; the matching hf-build/hf-done ledger binds the complete candidate including this record"
+source_sha256 = "7b69b007dc07f0c7f68162489c245595e96015822d79ca7bc031f60167a7eb00"
+command = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --no-fail-fast"
+exit = 101
+log = "/out/logs/22.39.316-comparison-final-repaired.log"
+target_dir = "/work/paxeer-monorepo/programs/target/task-22-39-316"
+status = "measured"
+passed_count = 563
+failed_by_target = "{\"f03_evaluator_host\": [\"native_f03_schedule_capacity_role_conflicts_and_revocation\"], \"fuel_budget\": [\"fund_entry_gas_for_committed_receipt_fixture_is_bounded\", \"fund_fits_the_protocol_cpu_fuel_cap\", \"every_routed_operation_fits_the_protocol_cpu_fuel_cap\"], \"host_boundary\": [\"a03_native_stage_open_refusal_cancel_and_restage\", \"native_read_selectors_return_exact_snapshot_without_writes\", \"a19_native_treasury_presence_and_later_setters\", \"a09_native_policy_variants_and_maxima\", \"a02_native_activation_schedule_rebinds_worker_revision_and_needs_readiness\", \"native_context_binds_chain_program_and_height\", \"a01_native_create_binds_principal_origin_and_refuses_duplicates\", \"a16_native_policy_width_and_assessment_modes\", \"native_selectors_preserve_exact_routed_refusals\"], \"rewards_native\": [\"reward_conservation_authority_and_rollback\", \"reward_finality_recovery_and_capacity\"], \"settlement_capacity\": [\"rebuilt_guest_instantiates_within_the_activity_memory_declaration\"]}"
+passed_at_start_failed_at_end = "{}"
+starting_passing_tests_not_executed_at_end = "{}"
+artifact_prerequisite = "Both full-crate measurements precede hf-build; neither checkout had build/paxai-host-boundary/manifest. The final-only rebuilt_guest_instantiates_within_the_activity_memory_declaration case refuses the absent manifest; hf-build generates it before the declared hf-done verification"
+source_identity = "SHA256 of sorted crate .rs/.toml paths and contents followed by runtime/tests/activity_budget.rs, each framed as relative path + NUL + content + NUL; excludes this evidence record and generated artifacts"
+
+[finding.comparison_gate_conflict]
+task = "22.39.316"
+file = "task instructions: ALLOWED GATES and do_3"
+symbol = "full-crate before/after comparison"
+observed = "At base dc2b45b72dcca7aec0a2a86ddd3b6b577dcb39e8, do_3 requests two aggregate test runs but ALLOWED GATES admits only hf-build and hf-done, and implementation order prohibits a starting-revision test before implementation; neither aggregate command has been run"
+assumption = "Follow the explicit bounded-gate list unless the user resolves the conflict; keep missing evidence explicit rather than claiming no regressions"
+severity = "assumption"
+resolved = "Decision 3182 explicitly authorizes both full-crate runs as measurements in attempt 2; see comparison.start and comparison.final"
+
+[qualification]
+build_command = "hf-build"
+verify_command = "hf-done"
+revision = "The exact final candidate revision is recorded by the last matching build and verify entries in /out/run/gates.jsonl"
+evidence = "The last hf-done line and /out/run/gates.jsonl bind revision, full cg spec done command, exit and private log; qualification requires matching successful build and verify candidates"
+publish = "The runner commits; this task makes no commit or push"
+
+[finding.workflow_default_context]
+task = "22.39.316"
+file = "Codify default session context"
+symbol = "cg review / cg guard"
+observed = "At base dc2b45b72dcca7aec0a2a86ddd3b6b577dcb39e8, cg review exited zero but selected unrelated task 18.1667.1 and cg guard exited zero reporting no task in progress; their default-context output is not qualification evidence for this task (session transcript /out/logs/codex-1.jsonl)"
+assumption = "Use the explicitly task-bound hf-build and hf-done commands for qualification, without changing the runner-owned spec or session context"
+severity = "note"
+
+[repair.first]
+source_attempt = 1
+revision = "dd9569c32cf8a0a0bf960195f0f555af7ecb9a6c"
+command = "make -s paxai-host-boundary-build && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The guest and native host-boundary harness passed; reputation_vectors directly includes reputation.rs and its crate root did not re-export MAX_STATE_BYTES after COMMON_CAP was derived from it"
+repair = "Re-export the production MAX_STATE_BYTES alongside codec, errors and types in reputation_vectors.rs, retaining every source-vector assertion"
+
+[guest_measurement]
+source_attempt = 1
+revision = "aa1dd32ca6740a2a4adcc205fe776c0c9105d577"
+packaged_bytes = 524069
+sha256 = "222968f69729edced3eb66dd9ed2c7e2b8b2938f82adfb53622e98494ac117ea"
+initial_memory_pages = 61
+initial_memory_bytes = 3997696
+protocol_memory_bytes = 16777216
+evidence = "Historical attempt-1 measurement from /out/logs/22.39.316-guest-artifact.json; this continuation rebuilds via hf-build and validates via the guest-instantiation case, with new gate evidence in /out/run/gates.jsonl"
+assertion = "The rebuilt guest's actual memory declaration, including Rust stack, SDK statics and resized state/scratch buffers, remains within the one-activity protocol memory ceiling"
+
+[repair.second]
+source_attempt = 1
+revision = "17c3c6d858aba524f31ce21b8d0012b4bc53d4e0"
+command = "make -s paxai-host-boundary-build && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+exit = 101
+log = "/out/logs/build-2.log"
+observed = "The guest and native host-boundary harness passed; settlement_capacity imported the storage-value protocol constant from the runtime crate root instead of its public storage module"
+repair = "Import layerx_programs_runtime::storage::MAX_STORAGE_VALUE_BYTES; retain the exact resource-limit and full-capacity assertions"
+
+[continuation.deal_conflict]
+basis = "Decision 3182 and gotcha 4104"
+producer = "rooms::apply_record_deal checks the open room, open ask/model/price, roster, bid room, layer capacity, admitted workers, distinct peers and bond, then inserts the deal; rooms::apply marks its ask Matched"
+refusing_condition = "placement::apply validates the staged book with PlacementBook::decode; its consumed bid bitmap returns CONFLICT when a bid occurs in two deals, so reusing bids 1 and 2 refuses the second deal"
+repair = "Deal i owns ask i+1 and bids 2*i+1 and 2*i+2, all in room 100, alternating PEER_A/PEER_B; the 8- and 12-layer ranges fit the 16-layer bid capacity; the overflow request uses still-unused ask 17 and bids 33/34"
+diagnostics = "The routed RecordDeal assertion includes the zero-based deal index, ask, layers and decoded refusal, and asserts the persisted matched ask and exact layers after each success"
+unchanged = "All four capacity counts and overflow refusals, every production refusal and encoding, the settlement compile-time bound and both protocol bounds remain asserted"
+
+[finding.shared_target_measurement]
+task = "22.39.316"
+file = "programs/target/debug"
+symbol = "Cargo cross-checkout fingerprint reuse"
+observed = "At base 795086023d2cefb4c1be927aaefbb8eec029e47e plus final source SHA256 500e09dd5ea41e9556b7952e8fd0794e09692eb5ca1fe58c48961f0e55eace83, cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --no-fail-fast exited 101 before running tests because its cached library still names the baseline checkout and lacks the three new constants; /out/logs/22.39.316-comparison-final.log"
+assumption = "Use programs/target/task-22-39-316 for the final measurement and both gates to isolate its fingerprints from the starting checkout; the invalid shared-cache attempt is not a final-tree regression measurement"
+severity = "note"
+
+[continuation.reputation_boundary]
+revision = "795086023d2cefb4c1be927aaefbb8eec029e47e plus source SHA256 500e09dd5ea41e9556b7952e8fd0794e09692eb5ca1fe58c48961f0e55eace83"
+command = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --no-fail-fast"
+exit = 101
+log = "/out/logs/22.39.316-comparison-final-isolated.log"
+observed = "The task case funded_reward_state_and_all_room_book_capacities_fit_together passed with all four capacities, but reputation_vectors::a11_capacity_budgets_and_synchronised_retention_primitive retained 172032/172033 as the old common-bound remainder and no longer reached the one-byte-over refusal"
+repair = "Use COMMON_CAP - JOINT_CAP for the inclusive budget and COMMON_CAP - JOINT_CAP + 1 for the refusal; keep the same assertion and refusal, with no production change or loosened bound"
+
+[finding.inherited_measurement_failures]
+task = "22.39.316"
+file = "programs/crates/layerx-programs-ai-market/tests"
+symbol = "f03_evaluator_host, fuel_budget, host_boundary, rewards_native"
+observed = "At 795086023d2cefb4c1be927aaefbb8eec029e47e and final source SHA256 7b69b007dc07f0c7f68162489c245595e96015822d79ca7bc031f60167a7eb00, cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --no-fail-fast exited 101 with the same fifteen failing names in these four targets; exact names and private logs are recorded in comparison.start and comparison.final"
+assumption = "These baseline failures are inherited; no test that passed at the start fails at the end, and every initially passing named test executes at the end"
+severity = "note"

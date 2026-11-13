@@ -33,18 +33,18 @@ type historyCursor struct {
 
 func boundedPage(q url.Values, def, maximum, minimum int, scope string) (p historyPage, err error) {
 	p.Limit = def
-	for _, field := range []string{"limit", "offset", "cursor"} {
+	for _, field := range []string{valueLimit, valueOffset, valueCursor} {
 		if values, ok := q[field]; ok && (len(values) != 1 || values[0] == "") {
 			return p, errors.New("invalid pagination")
 		}
 	}
-	if value, ok := q["limit"]; ok {
+	if value, ok := q[valueLimit]; ok {
 		p.Limit, err = strconv.Atoi(value[0])
 		if err != nil {
 			return p, err
 		}
 	}
-	if value, ok := q["offset"]; ok {
+	if value, ok := q[valueOffset]; ok {
 		p.Offset, err = strconv.Atoi(value[0])
 		if err != nil {
 			return p, err
@@ -53,8 +53,8 @@ func boundedPage(q url.Values, def, maximum, minimum int, scope string) (p histo
 	if p.Limit < minimum || p.Limit > maximum || p.Offset < 0 || p.Offset > legacyOffsetMaximum {
 		return p, errors.New("pagination outside bounds; use a cursor for deep history")
 	}
-	if raw, ok := q["cursor"]; ok {
-		if _, offset := q["offset"]; offset || len(raw[0]) > 2048 {
+	if raw, ok := q[valueCursor]; ok {
+		if _, offset := q[valueOffset]; offset || len(raw[0]) > 2048 {
 			return p, errors.New("invalid cursor pagination")
 		}
 		body, e := base64.RawURLEncoding.Strict().DecodeString(raw[0])

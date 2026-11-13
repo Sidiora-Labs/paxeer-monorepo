@@ -1,0 +1,383 @@
+[repair.22.39.270]
+mode = "BUILD"
+base_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+decisions = ["3101", "3104", "3125", "3130"]
+acceptance = "22998.1"
+inventory_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/explorer"
+inventory_exit = 1
+inventory_findings = 34
+scope = "The twenty paths authorized for the continued task, including the three receipt specs and the retired-reference catalogue; the attempt-1 production repair stands."
+continued_from_revision = "797672453a4cc868c9ac5f0610e840588cce2071"
+
+[finding.1]
+path = "apps/explorer/lib/hooks/useNavItems.tsx"
+line = 381
+component = "explorer-kernel-views"
+symbol = "paxeer-x/anchors"
+repair = "Removed the retired navigation entries and the dead route-filter branch; native blocks and transactions remain the current chain navigation."
+
+[finding.2]
+path = "apps/explorer/lib/hooks/useNavItems.tsx"
+line = 383
+component = "explorer-kernel-views"
+symbol = "paxeer-x/anchors"
+repair = "Removed the retired navigation entries and the dead route-filter branch; native blocks and transactions remain the current chain navigation."
+
+[finding.3]
+path = "apps/explorer/lib/hooks/useNavItems.tsx"
+line = 387
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Removed the retired navigation entries and the dead route-filter branch; native blocks and transactions remain the current chain navigation."
+
+[finding.4]
+path = "apps/explorer/lib/hooks/useNavItems.tsx"
+line = 389
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Removed the retired navigation entries and the dead route-filter branch; native blocks and transactions remain the current chain navigation."
+
+[finding.5]
+path = "apps/explorer/lib/hooks/useNavItems.tsx"
+line = 504
+component = "explorer-kernel-views"
+symbol = "paxeer-x/anchors"
+repair = "Removed the retired navigation entries and the dead route-filter branch; native blocks and transactions remain the current chain navigation."
+
+[finding.6]
+path = "apps/explorer/lib/hooks/useNavItems.tsx"
+line = 504
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Removed the retired navigation entries and the dead route-filter branch; native blocks and transactions remain the current chain navigation."
+
+[finding.7]
+path = "apps/explorer/lib/metadata/getPageOgType.ts"
+line = 51
+component = "explorer-kernel-views"
+symbol = "paxeer-x/anchors"
+repair = "Removed the retired route registration; the existing native block and transaction metadata and analytics entries serve the replacement pages."
+
+[finding.8]
+path = "apps/explorer/lib/metadata/getPageOgType.ts"
+line = 52
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Removed the retired route registration; the existing native block and transaction metadata and analytics entries serve the replacement pages."
+
+[finding.9]
+path = "apps/explorer/lib/metadata/getPageOgType.ts"
+line = 53
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Removed the retired route registration; the existing native block and transaction metadata and analytics entries serve the replacement pages."
+
+[finding.10]
+path = "apps/explorer/lib/metadata/templates/description.ts"
+line = 54
+component = "explorer-kernel-views"
+symbol = "paxeer-x/anchors"
+repair = "Removed the retired route registration; the existing native block and transaction metadata and analytics entries serve the replacement pages."
+
+[finding.11]
+path = "apps/explorer/lib/metadata/templates/description.ts"
+line = 55
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Removed the retired route registration; the existing native block and transaction metadata and analytics entries serve the replacement pages."
+
+[finding.12]
+path = "apps/explorer/lib/metadata/templates/description.ts"
+line = 56
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Removed the retired route registration; the existing native block and transaction metadata and analytics entries serve the replacement pages."
+
+[finding.13]
+path = "apps/explorer/lib/metadata/templates/title.ts"
+line = 58
+component = "explorer-kernel-views"
+symbol = "paxeer-x/anchors"
+repair = "Removed the retired route registration; the existing native block and transaction metadata and analytics entries serve the replacement pages."
+
+[finding.14]
+path = "apps/explorer/lib/metadata/templates/title.ts"
+line = 59
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Removed the retired route registration; the existing native block and transaction metadata and analytics entries serve the replacement pages."
+
+[finding.15]
+path = "apps/explorer/lib/metadata/templates/title.ts"
+line = 60
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Removed the retired route registration; the existing native block and transaction metadata and analytics entries serve the replacement pages."
+
+[finding.16]
+path = "apps/explorer/lib/mixpanel/getPageType.ts"
+line = 49
+component = "explorer-kernel-views"
+symbol = "paxeer-x/anchors"
+repair = "Removed the retired route registration; the existing native block and transaction metadata and analytics entries serve the replacement pages."
+
+[finding.17]
+path = "apps/explorer/lib/mixpanel/getPageType.ts"
+line = 50
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Removed the retired route registration; the existing native block and transaction metadata and analytics entries serve the replacement pages."
+
+[finding.18]
+path = "apps/explorer/lib/mixpanel/getPageType.ts"
+line = 51
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Removed the retired route registration; the existing native block and transaction metadata and analytics entries serve the replacement pages."
+
+[finding.19]
+path = "apps/explorer/nextjs/nextjs-routes.d.ts"
+line = 84
+component = "explorer-kernel-views"
+symbol = "paxeer-x/anchors"
+repair = "Regenerated nextjs-routes.d.ts with nextjs-routes/core.js writeNextjsRoutes after removing the three retired page entrypoints."
+
+[finding.20]
+path = "apps/explorer/nextjs/nextjs-routes.d.ts"
+line = 85
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Regenerated nextjs-routes.d.ts with nextjs-routes/core.js writeNextjsRoutes after removing the three retired page entrypoints."
+
+[finding.21]
+path = "apps/explorer/nextjs/nextjs-routes.d.ts"
+line = 86
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Regenerated nextjs-routes.d.ts with nextjs-routes/core.js writeNextjsRoutes after removing the three retired page entrypoints."
+
+[finding.22]
+path = "apps/explorer/pages/paxeer-x/anchors.tsx"
+line = 11
+component = "explorer-kernel-views"
+symbol = "paxeer-x/anchors"
+repair = "Deleted the retired page entrypoint; current data is served by the existing native block and transaction pages."
+
+[finding.23]
+path = "apps/explorer/pages/paxeer-x/receipts.tsx"
+line = 11
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Deleted the retired page entrypoint; current data is served by the existing native block and transaction pages."
+
+[finding.24]
+path = "apps/explorer/pages/paxeer-x/receipts/[id].tsx"
+line = 11
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Deleted the retired page entrypoint; current data is served by the existing native block and transaction pages."
+
+[finding.25]
+path = "apps/explorer/public/openapi.yaml"
+line = 56
+component = "explorer-kernel-views"
+symbol = "paxeer-x/anchors"
+repair = "Regenerated from live backend routes and the base OpenApiSpex snapshot, then omitted schema definitions unreachable from all emitted operations and shared response components; no retired endpoint or unreachable receipt verification schema is emitted."
+
+[finding.26]
+path = "apps/explorer/public/openapi.yaml"
+line = 449
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Regenerated from live backend routes and the base OpenApiSpex snapshot, then omitted schema definitions unreachable from all emitted operations and shared response components; no retired endpoint or unreachable receipt verification schema is emitted."
+
+[finding.27]
+path = "apps/explorer/public/openapi.yaml"
+line = 525
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Regenerated from live backend routes and the base OpenApiSpex snapshot, then omitted schema definitions unreachable from all emitted operations and shared response components; no retired endpoint or unreachable receipt verification schema is emitted."
+
+[finding.28]
+path = "apps/explorer/public/openapi.yaml"
+line = 15497
+component = "checkpoint-evidence"
+symbol = "settlement_anchored"
+repair = "Regenerated from live backend routes and the base OpenApiSpex snapshot, then omitted schema definitions unreachable from all emitted operations and shared response components; no retired endpoint or unreachable receipt verification schema is emitted."
+
+[finding.29]
+path = "apps/explorer/public/openapi.yaml"
+line = 16991
+component = "checkpoint-evidence"
+symbol = "settlement_anchored"
+repair = "Regenerated from live backend routes and the base OpenApiSpex snapshot, then omitted schema definitions unreachable from all emitted operations and shared response components; no retired endpoint or unreachable receipt verification schema is emitted."
+
+[finding.30]
+path = "apps/explorer/public/openapi.yaml"
+line = 18264
+component = "checkpoint-evidence"
+symbol = "settlement_anchored"
+repair = "Regenerated from live backend routes and the base OpenApiSpex snapshot, then omitted schema definitions unreachable from all emitted operations and shared response components; no retired endpoint or unreachable receipt verification schema is emitted."
+
+[finding.31]
+path = "apps/explorer/types/api/paxeerXArchive.ts"
+line = 88
+component = "checkpoint-evidence"
+symbol = "settlement_anchored"
+repair = "Removed the retired terminal verification status from the literal tuple and its derived union; checkpoint_finalised is the final admitted archive status."
+
+[finding.32]
+path = "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptDetails.tsx"
+line = 19
+component = "checkpoint-evidence"
+symbol = "settlement_anchored"
+repair = "Removed the retired verification label and described completion as frozen archive evidence rather than a newly anchored verification."
+
+[finding.33]
+path = "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsListItem.tsx"
+line = 28
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Linked EVM archive receipt identifiers to the native transaction page using transaction_hash; kernel archive identifiers without an EVM transaction remain copyable plain text."
+
+[finding.34]
+path = "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTableItem.tsx"
+line = 26
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Linked EVM archive receipt identifiers to the native transaction page using transaction_hash; kernel archive identifiers without an EVM transaction remain copyable plain text."
+
+[generation.routes]
+source = "apps/explorer/pages"
+command = "cd apps/explorer && node --input-type=module -e \"import { writeNextjsRoutes } from './node_modules/nextjs-routes/core.js'; writeNextjsRoutes({ dir: process.cwd(), outDir: 'nextjs' });\""
+consequence = "The generator also includes the already existing inference page and assistant/inference API routes; their exhaustive metadata maps are updated within scope."
+
+[generation.openapi]
+source = "services/explorer/backend routers and operation specs; the OpenApiSpex component and operation export retained in the base apps/explorer/public/openapi.yaml"
+snapshot_command = "git show d5a0c9940685169b25d2095344655f65d2ff6420:apps/explorer/public/openapi.yaml > /out/run/explorer-openapi-base.yaml"
+generator = "services/explorer/deploy/tools/gen-swagger.py build with chain_type=paxeer_x, include_web=false, include_admin=false, version=10.2.6 and spex=[/out/run/explorer-openapi-base.yaml]"
+reachability = "Starting from every emitted path and every non-schema component, follow local schema $ref values recursively; emit only the reached schemas using the generator Dumper, sort_keys=false, allow_unicode=true, width=120."
+removed_unreachable_schemas = ["PaxeerXAnchor", "PaxeerXReceipt", "PaxeerXReceiptDetails", "PaxeerXVerificationStatus"]
+preserved = "The base OpenApiSpex export preserves the existing constraints of unrelated served operations instead of replacing them with the static generator object placeholders."
+
+[archive.table]
+path = "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTable.tsx"
+change = "Identify the remaining frozen archive table with a caption linking current chain data to native blocks."
+constraint = "The archive page module and its tests still import this component outside task scope; its deletion would break those imports. The retired Next.js entrypoint is removed."
+
+[qualification]
+build_command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn lint:tsc"
+verify_command = "test -s apps/explorer/repair_22_39_270.kvx && cd apps/explorer && yarn vitest run ui/paxeerX/anchors ui/paxeerX/chains ui/paxeerX/feed ui/paxeerX/receipts && python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/explorer"
+build_reference = "Private runner /out/run/gates.jsonl, final kind=build row: revision, command, exit, log."
+verify_reference = "Private runner /out/run/gates.jsonl, final kind=verify row: revision, command, exit, log."
+verified_revision = "By reference: the final kind=verify revision in /out/run/gates.jsonl, only if its exit is zero and its revision matches the passing build; this record is part of that candidate."
+status = "Continued implementation ready for hf-build and hf-done; the current result is recorded by revision, command, exit and log in the private runner ledger."
+
+[attempt_1.constraint.legacy_tests]
+files = ["apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsListItem.spec.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTableItem.spec.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTable.spec.tsx"]
+observed = "Existing tests explicitly require links to the retired receipt detail URL. The catalogue replacement requires native transaction pages; test changes are outside SCOPE and assertions remain intact."
+assumption = "Qualification must expose this contradiction rather than restore a retired link or weaken its assertion."
+
+[constraint.archive_backend]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/archive_receipt.ex"
+observed = "The frozen archive backend schema still lists the retired terminal verification spelling; its source and the allowed-reference catalogue are outside this task scope."
+assumption = "This task removes the frontend retired status according to the current catalogue without changing the backend or adding a hidden status alias."
+
+[gotcha.working_directory]
+symptom = "A root-relative implementation script invoked from the explorer directory could not open its first input and exited before any source mutation."
+resolution = "Ran the implementation script from the repository root and the route generator from the explorer directory."
+
+[gotcha.codegen]
+symptom = "Static OpenAPI generation without a Spex export replaces detailed operation schemas with object placeholders."
+resolution = "Regenerated with the actual OpenApiSpex export from the base artifact and removed only unreachable schema definitions."
+
+[gotcha.table_caption]
+symptom = "The repository formatter rejected a direct Chakra Table import because table components must come from toolkit."
+resolution = "Used a native caption element inside toolkit TableRoot; no restricted import or additional wrapper is needed."
+
+[attempt_1.evidence.build]
+revision = "9bb89a8c1de7251aa9466df63806ada094efb967"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn lint:tsc"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[attempt_1.evidence.verify]
+revision = "9bb89a8c1de7251aa9466df63806ada094efb967"
+command = "cg spec done 22.39.270 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[attempt_1.qualification.result]
+test_files_failed = 7
+test_files_passed = 14
+test_files_skipped_by_existing_suite = 3
+tests_failed = 16
+tests_passed = 110
+tests_todo_in_existing_suite = 8
+retired_url_assertions_failed = 4
+unrelated_account_assertions_failed = 12
+retired_caller_scan_executed = false
+test_changes = "No test file, assertion, skip, ignore, todo or expected-failure marker was changed."
+repair_cycles_used = 0
+bounded_repair_constraint = "The four receipt assertions require restoring the forbidden retired URLs or editing out-of-scope tests, and the other twelve failures are outside scope; no unchanged gate or recorded unrelated failure is rerun."
+
+[attempt_1.qualification.finding.legacy_receipt_routes]
+task = "22.39.270"
+file = "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsListItem.spec.tsx; apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTable.spec.tsx; apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTableItem.spec.tsx"
+symbol = "retired receipt URL assertions"
+observed = "At revision 9bb89a8c1de7251aa9466df63806ada094efb967, command cg spec done 22.39.270 -f layerx-merge --root /work/paxeer-monorepo exited 1, log /out/logs/verify-1.log; four assertions require links to the retired receipt detail route instead of the catalogue-required native transaction page."
+assumption = "Resolving the contradiction requires new authorization to migrate these test expectations, because the task forbids editing them or restoring retired references."
+severity = "blocker"
+
+[attempt_1.qualification.finding.account_activity]
+task = "22.39.270"
+file = "apps/explorer/ui/paxeerX/account/ActivityListItem.tsx"
+symbol = "ActivityListItem"
+observed = "At revision 9bb89a8c1de7251aa9466df63806ada094efb967, command cg spec done 22.39.270 -f layerx-merge --root /work/paxeer-monorepo exited 1, log /out/logs/verify-1.log; ten assertions in the untouched ActivityList, ActivityListItem and repair-22-33-502 tests fail on activity labels, status-ladder rendering and the expected 2.5 USDX amount."
+assumption = "These account behavior failures are outside this task and are recorded without repairs or reruns."
+severity = "blocker"
+
+[attempt_1.qualification.finding.account_assets]
+task = "22.39.270"
+file = "apps/explorer/ui/paxeerX/account/AssetList.tsx"
+symbol = "AssetList"
+observed = "At revision 9bb89a8c1de7251aa9466df63806ada094efb967, command cg spec done 22.39.270 -f layerx-merge --root /work/paxeer-monorepo exited 1, log /out/logs/verify-1.log; two assertions in the untouched AssetList and repair-22-33-502 tests fail because the expected empty-account message is absent."
+assumption = "These account behavior failures are outside this task and are recorded without repairs or reruns."
+severity = "blocker"
+
+[continuation.receipt_list_spec]
+path = "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsListItem.spec.tsx"
+follows_findings = ["33"]
+repair = "Migrated the receipt ID assertion to its transaction_hash URL, kept the exact block URL assertion and existing no-badge checks, and added a kernel case that asserts the displayed ID, both copy controls and absence of links."
+allowance = "The exact negative assertion against retired receipt URLs is retained in the catalogue as regression documentation; it cannot permit a production caller."
+
+[continuation.receipt_table_item_spec]
+path = "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTableItem.spec.tsx"
+follows_findings = ["34"]
+repair = "Both prior receipt-link assertions now check the native transaction URL, preserving row identity, exact block URL, column count and absence of rung badges; the added kernel case checks the displayed ID, both copy controls and absence of links."
+allowance = "The exact negative assertion against retired receipt URLs is retained in the catalogue as regression documentation; it cannot permit a production caller."
+
+[continuation.receipt_table_spec]
+path = "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTable.spec.tsx"
+follows_findings = ["34"]
+repair = "Migrated the table receipt-link assertion to its native transaction URL and added exact per-row transaction and block URL checks for both EVM rows, plus the kernel ID, copy controls, absence of links and no-rung assertions."
+allowance = "The exact negative assertion against retired receipt URLs is retained in the catalogue as regression documentation; it cannot permit a production caller."
+
+[continuation.retained_archive_behavior]
+follows_findings = ["33", "34"]
+observed = "The preserved attempt-1 components render receipt IDs without a transaction hash as copyable text, and the retired receipt page entrypoint is deleted."
+resolution = "Preserved that real behavior and tested it explicitly, following the ruling to keep the attempt-1 tree and never reintroduce retired receipt links."
+
+[continuation.catalogue]
+path = "tools/paxeer-x/retired_callers.json"
+source_search = "Tracked explorer source searched against every catalogue symbol with the catalogue identifier boundaries; no production match remains after the inherited repairs."
+change = "Added three file-and-line allowances documenting only the specs' negative assertions against retired receipt URLs; no production symbol or tree is exempted."
+verification = "The declared hf-done gate must execute the final retired-caller scan; a source search alone is not gate evidence."
+
+[continuation.gate_working_directory]
+observed = "The declared verify_cmd changes into apps/explorer before invoking tools/paxeer-x/tests/retired_callers_test.py, but that checker exists only at the repository root."
+assumption = "The declared command is authoritative and will run unchanged through hf-done; any resulting missing-checker failure is recorded as a gate-path blocker outside the authorized source scope."
+
+[gotcha.continuation_formatter]
+symptom = "The explorer ESLint layout formatter also reports semantic rules, including the pre-existing snake-case receipts_table_item_has_no_rung_badge helper and its indirect assertion registration."
+resolution = "New regression callbacks use named camelCase function expressions with direct assertions; the pre-existing test helper and registration remain intact."

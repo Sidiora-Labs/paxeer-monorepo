@@ -2,6 +2,8 @@
 
 import React from 'react';
 
+import type { PaxeerXActivityItem } from 'types/api/paxeerX';
+
 import * as paxeerXMock from 'mocks/paxeerX/unifiedAccount';
 import { describe, expect, it, test } from 'vitest';
 import { screen } from 'vitest/lib';
@@ -35,7 +37,7 @@ describe('ActivityList', () => {
 
     const { container } = render(<ActivityList { ...pagination } items={ account.activity } total={ account.activity_total }/>);
 
-    expect(screen.getByText('There is no Paxeer X activity for this account yet.')).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toBe('There is no Paxeer X activity for this account yet.');
     expect(container.querySelectorAll('[data-activity]')).toHaveLength(0);
     expect(container.querySelector('[data-title]')?.textContent).toBe('A total of 0 activity entries found');
   });
@@ -47,7 +49,7 @@ describe('ActivityList', () => {
 
     const kinds = Array.from(container.querySelectorAll('[data-activity] td:first-child')).map((cell) => cell.textContent);
 
-    expect(kinds).toEqual([ 'Token transfer', 'Transaction' ]);
+    expect(kinds).toEqual([ 'Transaction', 'Transaction' ]);
   });
 
   it('humanizes a kind outside the known vocabulary', () => {
@@ -62,8 +64,17 @@ describe('ActivityList', () => {
     const { container, rerender } = render(<ActivityList { ...pagination } items={ paxeerXMock.unifiedAccount.activity }/>);
 
     expect(container.querySelectorAll('[data-rung]')).toHaveLength(2);
-    expect(container.querySelector('[data-rung="committed"]')).toBeTruthy();
-    expect(container.querySelector('[data-rung="receipted"]')).toBeTruthy();
+    expect(container.querySelectorAll('[data-rung="committed"]')).toHaveLength(2);
+    expect(screen.getAllByText('Committed')).toHaveLength(2);
+
+    rerender(<ActivityList
+      { ...pagination }
+      items={ [ { ...paxeerXMock.unifiedAccount.activity[0], status: 'receipted' } ] }
+      total={ 1 }
+    />);
+
+    expect(container.querySelectorAll('[data-rung]')).toHaveLength(1);
+    expect(container.querySelector('[data-rung="receipted"]')?.textContent).toBe('Receipted');
 
     rerender(<ActivityList
       { ...pagination }
@@ -72,12 +83,21 @@ describe('ActivityList', () => {
     />);
 
     expect(container.querySelectorAll('[data-rung]')).toHaveLength(1);
-    expect(container.querySelector('[data-rung="submitted"]')).toBeTruthy();
+    expect(container.querySelector('[data-rung="submitted"]')?.textContent).toBe('Submitted');
   });
 
   it('scales amounts by the asset decimals without network-side labels', () => {
-    render(<ActivityList { ...pagination } items={ paxeerXMock.unifiedAccount.activity }/>);
+    const tokenTransfer: PaxeerXActivityItem = {
+      ...paxeerXMock.unifiedAccount.activity[0],
+      kind: 'token_transfer',
+      asset: paxeerXMock.tokenAsset,
+      amount: '2500000',
+    };
+    const items = [ ...paxeerXMock.unifiedAccount.activity, tokenTransfer ];
 
+    render(<ActivityList { ...pagination } items={ items } total={ 3 }/>);
+
+    expect(screen.getByText('0 HPX')).toBeTruthy();
     expect(screen.getByText('1.5 HPX')).toBeTruthy();
     expect(screen.getByText('2.5 USDX')).toBeTruthy();
     expect(screen.queryByText('Chain')).toBeNull();
@@ -103,7 +123,23 @@ describe('ActivityList', () => {
     const methods = Array.from(container.querySelectorAll('[data-activity] [data-scan-method]'))
       .map((chip) => chip.getAttribute('data-scan-method'));
 
-    expect(methods).toEqual([ 'Token transfer', 'Transaction' ]);
+    expect(methods).toEqual([ 'Transaction', 'Transaction' ]);
+  });
+
+  it('keeps a token transfer kind on its method chip', () => {
+    const tokenTransfer: PaxeerXActivityItem = {
+      ...paxeerXMock.unifiedAccount.activity[0],
+      kind: 'token_transfer',
+      asset: paxeerXMock.tokenAsset,
+      amount: '2500000',
+    };
+    const { container } = render(<ActivityList { ...pagination } items={ [ tokenTransfer ] } total={ 1 }/>);
+    const row = container.querySelector('[data-activity]');
+
+    expect(row?.getAttribute('data-kind')).toBe('token_transfer');
+    expect(row?.querySelector('td:first-child')?.textContent).toBe('Token transfer');
+    expect(row?.querySelector('[data-scan-method]')?.getAttribute('data-scan-method')).toBe('Token transfer');
+    expect(screen.getByText('2.5 USDX')).toBeTruthy();
   });
 
   it('heads the card with a loading title while the page is on its way', () => {

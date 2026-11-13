@@ -228,7 +228,7 @@ func TestRepairM_1319_RelayWorkspaceRetirement(t *testing.T) {
 }
 
 func TestRepairM_1319_CustodyGenesisRetirement(t *testing.T) {
-	repair467Restored(t, "custody-genesis.py")
+	repair1319Absent(t, "custody-genesis.py")
 	p := repair1319Profile(t)
 	if p.Node.Bootstrap != "../node/bootstrap.sh" {
 		t.Fatalf("wrong genesis owner: %s", p.Node.Bootstrap)
@@ -256,7 +256,7 @@ func TestRepairM_1319_CustodyGenesisRetirement(t *testing.T) {
 }
 
 func TestRepairM_1319_RelayDeployerRetirement(t *testing.T) {
-	repair467Restored(t, "deploy-contracts.sh")
+	repair1319Absent(t, "deploy-contracts.sh")
 	for _, phase := range []string{"deploy", "permissions", "activate", "bond", "finalize", "bootstrap", "authority-schedule", "authority-execute", "status", "check-profile"} {
 		var output bytes.Buffer
 		err := RunDeployment([]string{phase, "this-profile-does-not-exist"}, &output)
@@ -274,7 +274,8 @@ func TestRepairM_1319_RelayDeployerRetirement(t *testing.T) {
 }
 
 func TestRepairM_1319_DeploymentKeyArgv(t *testing.T) {
-	repair467Restored(t, "deploy-contracts.sh", "evm.py")
+	repair1319Absent(t, "deploy-contracts.sh")
+	repair467Restored(t, "evm.py")
 	secret := strings.Repeat("ac", 32)
 	for _, args := range [][]string{
 		{"manifest", "deployment-profile.json", "--private-key", secret},
@@ -316,7 +317,7 @@ func TestRepairM_1319_DeploymentKeyArgv(t *testing.T) {
 }
 
 func TestRepairM_1319_DeploymentPhaseRecovery(t *testing.T) {
-	// The native handoff remains read-only beside the restored compatibility runner.
+	// The native handoff remains read-only after retiring the compatibility runner.
 	// Reopen the real handoff beside recorded chain effects: no phase or legacy
 	// record may be inferred or published on either side of this restart.
 	root := t.TempDir()

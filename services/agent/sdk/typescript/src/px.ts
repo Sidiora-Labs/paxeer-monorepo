@@ -13,6 +13,19 @@ import {
   type UnifiedHistoryPage,
 } from "./history.js";
 import { decodeJsonRpcResponse, type RpcParam } from "./rpc.js";
+import {
+  decodeInferenceRooms,
+  decodeInferenceRoom,
+  decodeInferenceDeal,
+  decodeInferencePeer,
+  decodeInferenceReceipts,
+  inferenceId,
+  InferenceMarketError,
+  type InferenceRoom,
+  type InferenceDealView,
+  type InferencePeer,
+  type InferenceReceiptBatch,
+} from "./inference_market.js";
 
 const MAX_RESPONSE_BYTES = 9 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 1024 * 1024;
@@ -28,6 +41,7 @@ const HEX_QUANTITY = /^0x[0-9a-f]{1,64}$/u;
 /** The joined asset ceiling the gateway answers within. */
 export const PX_MAXIMUM_JOINED_ASSETS = 1024;
 
+/** Exact method names published by the hosted gateway OpenRPC contract. */
 export const PX_METHODS = [
   "px_resolveAccount",
   "px_getAccount",
@@ -37,6 +51,19 @@ export const PX_METHODS = [
   "px_getReceiptKeys",
   "px_getHistory",
   "px_getUnifiedHistory",
+  "px_getInferenceRooms",
+  "px_getInferenceRoom",
+  "px_getInferenceDeal",
+  "px_getInferencePeer",
+  "px_getInferenceReceipts",
+  "px_register",
+  "px_getCommit",
+  "px_getValidators",
+  "px_getSequenceBatch",
+  "px_requestFunds",
+  "px_listHolderRecords",
+  "px_getCapabilities",
+  "px_getRouteCatalogue",
 ] as const;
 export type PxMethod = (typeof PX_METHODS)[number];
 
@@ -112,6 +139,7 @@ export interface PxNetworkHead {
   readonly networkId: string;
   readonly paxeer: PxPaxeerHead;
   readonly layerx: Readonly<Record<string, unknown>> | null;
+  /** Gateway block-commit observation; callers verify inclusion against pinned validators. */
   readonly latestCommittedHeight: bigint;
 }
 
@@ -202,10 +230,71 @@ export class PxClient {
     );
   }
 
+  public async getInferenceRooms(): Promise<readonly InferenceRoom[]> {
+    return this.call("px_getInferenceRooms", [], decodeInferenceRooms);
+  }
+
+  public async getInferenceRoom(roomId: string): Promise<InferenceRoom> {
+    const id = inferenceId(roomId);
+    const room = await this.call(
+      "px_getInferenceRoom",
+      [id],
+      decodeInferenceRoom,
+    );
+    if (room.roomId !== id) throw new InferenceMarketError("room binding");
+    return room;
+  }
+
+  public async getInferenceDeal(dealId: string): Promise<InferenceDealView> {
+    const id = inferenceId(dealId);
+    const deal = await this.call(
+      "px_getInferenceDeal",
+      [id],
+      decodeInferenceDeal,
+    );
+    if (deal.dealId !== id) throw new InferenceMarketError("deal binding");
+    return deal;
+  }
+
+  public async getInferencePeer(peerKey: string): Promise<InferencePeer> {
+    const id = inferenceId(peerKey);
+    const peer = await this.call(
+      "px_getInferencePeer",
+      [id],
+      decodeInferencePeer,
+    );
+    if (peer.peerKey !== id) throw new InferenceMarketError("peer binding");
+    return peer;
+  }
+
+  public async getInferenceReceipts(
+    dealId: string,
+  ): Promise<readonly InferenceReceiptBatch[]> {
+    const id = inferenceId(dealId);
+    const batches = await this.call(
+      "px_getInferenceReceipts",
+      [id],
+      decodeInferenceReceipts,
+    );
+    if (batches.some((batch) => batch.dealId !== id))
+      throw new InferenceMarketError("receipt binding");
+    return batches;
+  }
+
+  private call(
+    method: PxMethod,
+    params: readonly RpcParam[],
+  ): Promise<Record<string, unknown>>;
+  private call<T>(
+    method: PxMethod,
+    params: readonly RpcParam[],
+    decode: (value: unknown) => T,
+  ): Promise<T>;
   private async call(
     method: PxMethod,
     params: readonly RpcParam[],
-  ): Promise<Record<string, unknown>> {
+    decode: (value: unknown) => unknown = object,
+  ): Promise<unknown> {
     if (!PX_METHODS.includes(method)) throw new Error("Invalid gateway method");
     const id = (++this.#id).toString();
     const body = Buffer.from(
@@ -224,10 +313,21 @@ export class PxClient {
       headers.authorization = authorization;
     });
     const bytes = await this.send(headers, body);
-    const answer: unknown = JSON.parse(
-      new TextDecoder("utf-8", { fatal: true }).decode(bytes),
-    );
-    return decodeJsonRpcResponse(answer, id);
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    const answer: unknown =
+      method === "px_getReceiptKeys"
+        ? parseReceiptKeyResponse(text)
+        : JSON.parse(text);
+    if (
+      answer !== null &&
+      typeof answer === "object" &&
+      !Array.isArray(answer) &&
+      "result" in answer
+    ) {
+      const envelope = { ...answer, result: { value: answer.result } };
+      return decode(decodeJsonRpcResponse(envelope, id).value);
+    }
+    return decode(decodeJsonRpcResponse(answer, id));
   }
 
   private send(headers: Record<string, string>, body: Buffer): Promise<Buffer> {
@@ -267,6 +367,22 @@ export class PxClient {
       request.end(body);
     });
   }
+}
+
+function parseReceiptKeyResponse(text: string): unknown {
+  const lossless = text.replace(
+    /"(?:\\.|[^"\\])*"|(-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)/g,
+    (token, number: string | undefined) => {
+      if (
+        number !== undefined &&
+        /^-?(?:0|[1-9][0-9]*)$/.test(number) &&
+        !Number.isSafeInteger(Number(number))
+      )
+        return JSON.stringify(number);
+      return token;
+    },
+  );
+  return JSON.parse(lossless) as unknown;
 }
 
 /** Normalises the three public account spellings the gateway addresses. */

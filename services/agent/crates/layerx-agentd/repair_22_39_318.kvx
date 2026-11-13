@@ -1,0 +1,60 @@
+[meta]
+task = "22.39.318"
+decision = "3171"
+gotcha = "4091"
+acceptance = "22998.1"
+base_revision = "ddcf9ecff380a673b905a42dd460cbeb828a198a"
+verified_revision_source = "/out/run/gates.jsonl: matching candidate revision in the final hf-build and hf-done records"
+evidence_policy = "Exact revision, command, exit and private log are issued by the bounded gate runner; this source record does not assert a gate that has not run."
+
+[selection]
+sites = "human_runtime.rs::recover_tenant_budget_with_evidence and recover_owner_budget; human_runtime.rs::verified_policy_budget; budget/reconcile.rs::reconcile_state and ProtocolBudgetState<CommittedBudgetEvidence>::reconcile; budget/divergence.rs::DivergenceAuditRecord"
+former = "Compare receipt.global_sequence to period_start..window_end_sequence(), although period_start and period_length are block-time milliseconds."
+current = "Both production consumers use select_budget_period_receipts: period_start <= authenticated receipt block time in milliseconds < period_end_ms()."
+canonical = "Legacy and current receipts expose a signed canonical ProtocolReceipt::timestamp() in milliseconds; signature, identity and inclusion checks precede selection. Current metadata carries authenticated block_height and no timestamp."
+header = "When the canonical timestamp is zero, legacy receipts use their verified inclusion header timestamp_ms. Current receipts use CommittedReads::open at metadata.block_height and its verified checkpoint header; offline recovery can reuse the verified budget-state checkpoint only at exactly the receipt height. Header seconds are checked-multiplied by 1000 and nanos are truncated to milliseconds, matching budget_proof.rs. Per-selection header lookups are cached by block height."
+missing = "A persisted receipt with no establishable time increments EvidenceMissing exactly like a receipt without evidence. ReceiptMetadata has neither time nor height, so its period is unknown and it remains an admission hold regardless of sequence. Invalid evidence still refuses recovery."
+names = "Daemon reconciliation and divergence bounds use window_start_ms and window_end_ms. LocalAccounting uses at_period_start and millisecond accessors internally while retaining its original public window_start_sequence field for existing external struct literals. layerx-client::ProtocolBudgetRecord adds period_end_ms and retains window_end_sequence for other callers."
+compatibility = "No wire or storage field layout changes. budget/hold.rs, including rebuild_accounting, is unchanged. Existing daemon test callers use the millisecond constructor and accessors with identical assertions."
+
+[tests]
+file = "tests/repair_22_39_318.rs"
+period = "period_start 1760000000000, one day, protocol consumption 25, small sequence and evidenced receipt at the inclusive start: receipt_consumed 25, reconciled and admitted after reopen and repeated recovery. Receipts one millisecond before the period and at its exclusive end are excluded; the last millisecond is included."
+holds = "Missing persisted evidence and absent canonical/header time each leave exactly one EvidenceMissing admission hold and preserve the durable unresolved reservation."
+header = "Missing canonical time uses the signed batch inclusion header; a current receipt uses a verified block-height-matched checkpoint with submillisecond nanos truncated. A checkpoint at a different height leaves it held."
+authority = "Canonical receipt time has precedence over header time; altering the signed timestamp refuses recovery."
+producer = "Replay the unmodified V1-layerxledger-pay-exact receipt from rpc/sequencer_receipt_vectors_test.go over loopback JSON-RPC through lookup_authenticated and store_verified_if_absent, close producer and Store, reopen, recover requested consumption 25 and assert reconciled admission."
+
+[suites.starting_revision]
+revision = "ddcf9ecff380a673b905a42dd460cbeb828a198a"
+suites = ["budget_schema", "budget_unknown", "recovery"]
+result = "Not run: the explicit allowed gates and implementation-first order reserve all execution for hf-build and hf-done after implementation. No baseline pass or red-test execution is claimed."
+
+[suites.current_revision]
+suites = ["budget_schema", "budget_unknown", "recovery"]
+execution = "The declared integration test includes each original suite as an unchanged test module, apart from the required millisecond constructor and accessor in budget_schema. All cases execute in the sole hf-done verification command."
+result_source = "Final /out/logs/verify-<n>.log and /out/run/gates.jsonl; no result is asserted before execution."
+command = "test -s services/agent/crates/layerx-agentd/repair_22_39_318.kvx && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_39_318"
+
+[gotcha.scope]
+symptom = "Session workflow requests root GOTCHA/spec updates and publication, while this task forbids edits outside its scope and reserves commits for the runner."
+resolution = "Retain task findings here, preserve pre-existing setup changes, use bounded gate evidence and leave publication to the runner."
+
+[qualification.dependent_compatibility]
+revision = "c8348a5ad7ab64dfb27ed792c21bb55facb22762"
+command = "cargo check --locked --manifest-path /work/paxeer-monorepo/services/human/Cargo.toml --all-targets -p layerx-human-identity-provider -p layerx-human-kms -p layerx-human-security-provider -p layerx-human-service -p layerx-human-test-support -p layerx-intents"
+exit = 101
+log = "/out/logs/dependents-1.log"
+observed = "E0560 at services/human/crates/layerx-human-service/src/agents/spend.rs:324: LocalAccounting has no field named window_start_sequence."
+repair = "Preserve the original public LocalAccounting field and layout for the out-of-scope caller; all daemon construction and reconciliation use at_period_start, window_start_ms and set_window_start_ms. No type, assertion, bound or evidence check is widened."
+
+[qualification.header_fixture]
+revision = "e1fcc0bd853105dcb22a227dbd34246abdcee772"
+command = "cg spec done 22.39.318 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "22 tests passed, including every budget_schema, budget_unknown and recovery case; current_receipt_without_time_uses_only_a_verified_header_at_its_height failed during budget_witness construction with Committed."
+repair = "The generalized getBudget fixture retained expiry 5000 before the modern period_start, violating decode_get_budget's expiry > period_start check; give its ABI output an expiry at least period_start + period_length, preserving the original 5000 expiry for old fixtures and every production validation and test assertion."
+
+[qualification.budget]
+policy = "The wrapper counts each additional build and verify separately; the compatibility rebuild used one repair allowance. Rebuilding the expiry repair consumes the remaining allowance, so any subsequently refused verification is not claimed as a pass. Final qualification is established only by the exact runner evidence."

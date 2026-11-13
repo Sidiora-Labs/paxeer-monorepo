@@ -47,6 +47,7 @@ pub use verified::{
 pub struct Config {
     pub listen: String,
     pub journal: PathBuf,
+    /// Compatibility field; deployment evidence is read through the node RPC source.
     pub deployment_lni_socket: Option<PathBuf>,
     pub mirror: PathBuf,
     pub verified: PathBuf,
@@ -69,6 +70,7 @@ pub struct Config {
     pub node_authorization: String,
     pub outbound_ca_der: Vec<u8>,
     pub outbound_client_identity: Option<RegistryClientIdentity>,
+    /// Independent hosted evidence endpoint, verified against pinned chain trust.
     pub receipt_authority_endpoint: String,
     pub receipt_authority_authorization: String,
     pub receipt_authority_replica_id: [u8; 32],

@@ -4,11 +4,13 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/binary"
+	"fmt"
 	"math/big"
 	"testing"
 
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/testvectors"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/addr"
@@ -364,31 +366,56 @@ func TestLayerXBindRustSignerVectorThroughPrecompile(t *testing.T) {
 	require.NoError(t, err)
 	accepted := 0
 	for _, bind := range fixture.Binds {
-		if bind.Nonce != 0 {
-			continue
-		}
-		cosmosChainID := "layerx-binding-test"
-		if bind.ChainID == 125 {
-			cosmosChainID = "hyperpax_125-1"
-		}
-		h := newLayerXHarness(t, cosmosChainID)
-		require.Equal(t, bind.ChainID, h.chainID.Uint64(), bind.Name)
-		evmAddress := common.Address(bind.EVMAddress)
-		_, _, err := h.run(layerXCall{caller: evmAddress}, addr.BindLayerXMethod, fixture.PublicKey, bind.Signature[:])
-		if !bind.Valid {
-			require.ErrorIs(t, err, types.ErrLayerXSignature, bind.Name)
-			continue
-		}
-		require.NoError(t, err, bind.Name)
-		accepted++
-		ret, _, err := h.run(layerXCall{caller: evmAddress, readOnly: true}, addr.GetUnifiedAccountMethod, evmAddress)
-		require.NoError(t, err)
-		unified := h.unpack(addr.GetUnifiedAccountMethod, ret)
-		require.Equal(t, fixture.PublicKey, unified[2].([32]byte))
-		require.Equal(t, fixture.MainAccountID, unified[3].([32]byte), "main account id differs from the Rust wire crate's")
-		ret, _, err = h.run(layerXCall{caller: evmAddress, readOnly: true}, addr.GetLayerXDidMethod, evmAddress)
-		require.NoError(t, err)
-		require.Equal(t, fixture.Did, h.unpack(addr.GetLayerXDidMethod, ret)[1].(string))
+		t.Run(bind.Name, func(t *testing.T) {
+			cosmosChainID := "layerx-binding-test"
+			if bind.ChainID == 125 {
+				cosmosChainID = "hyperpax_125-1"
+			} else {
+				require.Equal(t, uint64(713714), bind.ChainID, bind.Name)
+				cosmosChainID = fmt.Sprintf("layerx-binding-vector-%d", bind.ChainID)
+				require.LessOrEqual(t, bind.ChainID, uint64(1<<63-1))
+				previous, existed := config.ChainIDMapping[cosmosChainID]
+				config.ChainIDMapping[cosmosChainID] = int64(bind.ChainID)
+				t.Cleanup(func() {
+					if existed {
+						config.ChainIDMapping[cosmosChainID] = previous
+					} else {
+						delete(config.ChainIDMapping, cosmosChainID)
+					}
+				})
+			}
+			h := newLayerXHarness(t, cosmosChainID)
+			require.Equal(t, bind.ChainID, h.chainID.Uint64(), bind.Name)
+			evmAddress := common.Address(bind.EVMAddress)
+			message, err := types.LayerXBindMessage(h.chainID, evmAddress, bind.Nonce)
+			require.NoError(t, err)
+			require.Equal(t, bind.Message, message, bind.Name)
+			otherKey, otherPrivate := newDidKey(t)
+			for h.nonce(evmAddress) < bind.Nonce {
+				_, _, err := h.run(layerXCall{caller: evmAddress}, addr.BindLayerXMethod, otherKey, h.sign(otherPrivate, evmAddress, h.nonce(evmAddress)))
+				require.NoError(t, err)
+				_, _, err = h.run(layerXCall{caller: evmAddress}, addr.UnbindLayerXMethod)
+				require.NoError(t, err)
+			}
+			require.Equal(t, bind.Nonce, h.nonce(evmAddress), bind.Name)
+			_, _, err = h.run(layerXCall{caller: evmAddress}, addr.BindLayerXMethod, fixture.PublicKey, bind.Signature[:])
+			if !bind.Valid {
+				require.ErrorIs(t, err, types.ErrLayerXSignature, bind.Name)
+				require.Equal(t, bind.Nonce, h.nonce(evmAddress), bind.Name)
+				return
+			}
+			require.NoError(t, err, bind.Name)
+			require.Equal(t, bind.Nonce+1, h.nonce(evmAddress), bind.Name)
+			accepted++
+			ret, _, err := h.run(layerXCall{caller: evmAddress, readOnly: true}, addr.GetUnifiedAccountMethod, evmAddress)
+			require.NoError(t, err)
+			unified := h.unpack(addr.GetUnifiedAccountMethod, ret)
+			require.Equal(t, fixture.PublicKey, unified[2].([32]byte))
+			require.Equal(t, fixture.MainAccountID, unified[3].([32]byte), "main account id differs from the Rust wire crate's")
+			ret, _, err = h.run(layerXCall{caller: evmAddress, readOnly: true}, addr.GetLayerXDidMethod, evmAddress)
+			require.NoError(t, err)
+			require.Equal(t, fixture.Did, h.unpack(addr.GetLayerXDidMethod, ret)[1].(string))
+		})
 	}
-	require.GreaterOrEqual(t, accepted, 1)
+	require.Equal(t, 2, accepted)
 }

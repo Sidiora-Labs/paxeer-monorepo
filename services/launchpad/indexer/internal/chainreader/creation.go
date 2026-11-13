@@ -2,11 +2,12 @@ package chainreader
 
 import (
 	"fmt"
+	"math/big"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"math/big"
 )
 
 var marketCreatedFactoryTopic = crypto.Keccak256Hash([]byte("MarketCreated(address,address,address,uint256,address)"))

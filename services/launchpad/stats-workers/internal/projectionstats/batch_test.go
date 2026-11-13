@@ -53,7 +53,7 @@ func TestPhase2ActualReceiptBatchAndReplay(t *testing.T) {
 		}
 	}
 	var mismatches int
-	err = r.pool.QueryRow(ctx, "SELECT count(*) FROM "+r.schema+".minute_buckets b WHERE (b.volume,b.buys,b.sells,b.revision) IS DISTINCT FROM (SELECT sum(t.volume),count(*) FILTER(WHERE side='buy'),count(*) FILTER(WHERE side='sell'),count(*) FROM "+r.schema+".trade_facts t WHERE t.pool=b.pool AND t.projection_version=b.projection_version AND t.block_timestamp/60*60=b.start)").Scan(&mismatches)
+	err = r.pool.QueryRow(ctx, "SELECT count(*) FROM "+r.schema+".minute_buckets b WHERE (b.volume,b.buys,b.sells,b.revision) IS DISTINCT FROM (SELECT ROW(sum(t.volume),count(*) FILTER(WHERE side='buy'),count(*) FILTER(WHERE side='sell'),count(*)) FROM "+r.schema+".trade_facts t WHERE t.pool=b.pool AND t.projection_version=b.projection_version AND t.block_timestamp/60*60=b.start)").Scan(&mismatches)
 	if err != nil || mismatches != 0 {
 		t.Fatal(mismatches, err)
 	}

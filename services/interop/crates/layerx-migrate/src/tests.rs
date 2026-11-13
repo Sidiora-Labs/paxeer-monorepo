@@ -106,8 +106,7 @@ impl TestPlane {
         let canonical = self.encode_binding_receipt(
             activity_id,
             self.binding_sequence,
-            previous,
-            resulting,
+            (previous, resulting),
             batch_id,
             ownership,
             key,
@@ -133,8 +132,7 @@ impl TestPlane {
         let canonical = self.encode_custody_receipt(
             activity_id,
             self.custody_sequence,
-            previous,
-            resulting,
+            (previous, resulting),
             batch_id,
             finality,
             key,
@@ -193,12 +191,12 @@ impl TestPlane {
         &self,
         activity_id: [u8; 32],
         sequence: u64,
-        previous: [u8; 32],
-        resulting: [u8; 32],
+        state_roots: ([u8; 32], [u8; 32]),
         batch_id: [u8; 32],
         ownership: &VerifiedOwnership,
         key: [u8; 32],
     ) -> Vec<u8> {
+        let (previous, resulting) = state_roots;
         let mut bytes = Vec::new();
         push_u16(&mut bytes, 2);
         push_u16(&mut bytes, 0x5201);
@@ -245,12 +243,12 @@ impl TestPlane {
         &self,
         activity_id: [u8; 32],
         sequence: u64,
-        previous: [u8; 32],
-        resulting: [u8; 32],
+        state_roots: ([u8; 32], [u8; 32]),
         batch_id: [u8; 32],
         finality: &VerifiedAssetFinality,
         key: [u8; 32],
     ) -> Vec<u8> {
+        let (previous, resulting) = state_roots;
         let debit_before = 5_000_u128;
         let credit_before = 10_000_u128;
         let mut bytes = Vec::new();
@@ -1185,13 +1183,16 @@ fn migration_settles_receipts_under_one_fixed_sequencer_key_id() {
     assert_eq!(binding_keys, pinned_keys);
     assert_eq!(custody_keys, pinned_keys);
     for receipt in [&binding_receipt, &custody_receipt] {
-        let verified = layerx_proof::receipt::verify_sequencer_signature(
+        let receipt_verified = layerx_proof::receipt::verify_sequencer_signature(
             &receipt.signed_receipt,
             layerx_proof::receipt::ReceiptKeys::HeightRanges(&pinned_keys),
         )
         .unwrap_or_else(|error| panic!("fixed-key receipt: {error:?}"));
         assert_eq!(
-            verified.protocol().unwrap().context_hash(),
+            receipt_verified
+                .protocol()
+                .unwrap_or_else(|| panic!("expected Some value"))
+                .context_hash(),
             TEST_SEQUENCER_KEY_ID
         );
     }
@@ -1245,14 +1246,16 @@ fn migration_refuses_a_receipt_paying_another_claim() {
         let request = crate::translation_request(key, crate::ownership_digest(claim), &trace)
             .unwrap_or_else(|error| panic!("request: {error}"));
         assert_eq!(
-            crate::begin(&mut gateway, &alice, &request, &trace, 10).unwrap(),
+            crate::begin(&mut gateway, &alice, &request, &trace, 10)
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
             TranslationStatus::Pending
         );
     }
     let (evidence, receipt_keys) = plane.mint_binding_receipt(&claims[0], keys[0]);
     let error = gateway
         .settle_with_sequencer_evidence(&alice, keys[1], &evidence, &receipt_keys, &trace, 11)
-        .unwrap_err();
+        .err()
+        .unwrap_or_else(|| panic!("expected Err value"));
     assert_eq!(
         error.into_error(),
         SequencerSettlementError::PaymentUnmatched
@@ -1274,12 +1277,14 @@ fn migration_refuses_a_receipt_paying_another_claim() {
         },
         |receipt_digest| MigrationState::AccountMapped { receipt_digest },
     )
-    .unwrap_err();
+    .err()
+    .unwrap_or_else(|| panic!("expected Err value"));
     assert_eq!(error.into_error(), MigrationError::ReceiptMismatch);
-    let request =
-        crate::translation_request(keys[1], crate::ownership_digest(&claims[1]), &trace).unwrap();
+    let request = crate::translation_request(keys[1], crate::ownership_digest(&claims[1]), &trace)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     assert_eq!(
-        crate::begin(&mut gateway, &alice, &request, &trace, 13).unwrap(),
+        crate::begin(&mut gateway, &alice, &request, &trace, 13)
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
         TranslationStatus::Pending
     );
     let settled = crate::settle(

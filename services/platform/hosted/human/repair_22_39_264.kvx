@@ -1,0 +1,242 @@
+[repair.22.39.264]
+acceptance = "22998.1"
+mode = "BUILD"
+baseline_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+baseline_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path services/platform/hosted/human --path services/platform/hosted/node"
+baseline_exit = 1
+baseline_findings = 25
+baseline_evidence = "/out/logs/codex-1.jsonl"
+continuation_base_revision = "8742bd00eb3acc490f28e5d26038636590216955"
+previous_attempt_revision = "797c2ed99d56781a1202f0386b82ab3473112e9d"
+baseline_state = "The scoped sources matched the merged main base and the private gate ledger contained no earlier gate runs; the runner had already started the task."
+qualification = "The private /out/run/gates.jsonl ledger names the exact built and verified candidate revisions, commands, exit codes and private logs; no passing qualification is claimed before hf-done passes on the built candidate."
+
+[implementation]
+owner_transport = "Removed the unreachable socket receipt exchange and its transport version constant; the real merged_owner producer already submits and checks EVM transactions, while Reader, signed receipt decoding and guardian verification remain intact."
+agent_configuration = "Publish NODE_RPC_URL from the existing component HTTPS RPC configuration and NODE_CHAIN_ID from the supplied EVM chain ID, matching NodeRpcConfig::from_environment in services/agent/crates/layerx-agentd/src/node_rpc.rs."
+retained_contract = "The old socket projection and its README migration entry remain because test_hosted_human_first_batch_migration_barriers requires their exact names, contents and documentation; their removal would contradict an assertion outside this task scope."
+provisioning_case = "The negative provisioning assertion now reads every guarantor-runtime symbol from the real retired-caller catalogue; this includes a stricter substring check than the former executable-specific literal, without deleting or skipping a case."
+refusal_checks = "Retained handover configuration and inherited retired node environment capabilities still refuse before publication or adoption; their names identify rejected inputs and are not transport calls."
+
+[resolution.catalogue_scope]
+path = "tools/paxeer-x/retired_callers.json"
+observed = "Attempt 1 could not add the required allowances because the catalogue was outside its permitted paths."
+resolution = "Attempt 2 explicitly admits the catalogue under decision 3125; exact-line allowances now document the retained migration projection and the live refusal checks without exempting other lines or paths."
+
+[resolution.retained_material_contract]
+path = "services/platform/hosted/human/test_repair_22_33_40.py"
+symbol = "test_hosted_human_first_batch_migration_barriers"
+observed = "At the base revision lines 128-129 require the retired socket file and exact contents, and lines 137-139 require its name in the README; both files are scanned as retired references."
+resolution = "Keep this assertion intact and apply the catalogue allowances authorized by decision 3125 to the exact README and material projection lines."
+
+[gotcha.scope]
+observed = "The generic workflow requests edits to spec files and the root gotcha ledger plus commit/push, but the task forbids each action."
+resolution = "Record task findings here, leave runner bookkeeping untouched, use only hf-build/hf-done and let the runner commit."
+
+[finding.1]
+path = "services/platform/hosted/human/README.md"
+line = 377
+component = "layerxctl-port"
+symbol = "LNI"
+status = "allowed_reference"
+resolution = "Publish and document the current RPC settings and allow only the exact historical projection lines in the catalogue under decision 3125; the unchanged migration-barrier test requires this retained projection, which cannot establish merged node readiness."
+
+[finding.2]
+path = "services/platform/hosted/human/README.md"
+line = 377
+component = "lni"
+symbol = "LNI"
+status = "allowed_reference"
+resolution = "Publish and document the current RPC settings and allow only the exact historical projection lines in the catalogue under decision 3125; the unchanged migration-barrier test requires this retained projection, which cannot establish merged node readiness."
+
+[finding.3]
+path = "services/platform/hosted/human/README.md"
+line = 378
+component = "layerxctl-port"
+symbol = "lni"
+status = "allowed_reference"
+resolution = "Publish and document the current RPC settings and allow only the exact historical projection lines in the catalogue under decision 3125; the unchanged migration-barrier test requires this retained projection, which cannot establish merged node readiness."
+
+[finding.4]
+path = "services/platform/hosted/human/README.md"
+line = 378
+component = "lni"
+symbol = "lni"
+status = "allowed_reference"
+resolution = "Publish and document the current RPC settings and allow only the exact historical projection lines in the catalogue under decision 3125; the unchanged migration-barrier test requires this retained projection, which cannot establish merged node readiness."
+
+[finding.5]
+path = "services/platform/hosted/human/history_material.py"
+line = 26
+component = "handover-client"
+symbol = "LAYERX_AGENT_HANDOVER"
+status = "allowed_reference"
+resolution = "Retain the live migration refusal and allow only its exact rejected-input list in the catalogue under decision 3125; no obsolete setting is produced or consumed as a transport."
+
+[finding.6]
+path = "services/platform/hosted/human/material.py"
+line = 846
+component = "layerxctl-port"
+symbol = "LNI"
+status = "allowed_reference"
+resolution = "Publish and document the current RPC settings and allow only the exact historical projection lines in the catalogue under decision 3125; the unchanged migration-barrier test requires this retained projection, which cannot establish merged node readiness."
+
+[finding.7]
+path = "services/platform/hosted/human/material.py"
+line = 846
+component = "layerxctl-port"
+symbol = "lni"
+status = "allowed_reference"
+resolution = "Publish and document the current RPC settings and allow only the exact historical projection lines in the catalogue under decision 3125; the unchanged migration-barrier test requires this retained projection, which cannot establish merged node readiness."
+
+[finding.8]
+path = "services/platform/hosted/human/material.py"
+line = 846
+component = "lni"
+symbol = "LNI"
+status = "allowed_reference"
+resolution = "Publish and document the current RPC settings and allow only the exact historical projection lines in the catalogue under decision 3125; the unchanged migration-barrier test requires this retained projection, which cannot establish merged node readiness."
+
+[finding.9]
+path = "services/platform/hosted/human/material.py"
+line = 846
+component = "lni"
+symbol = "lni"
+status = "allowed_reference"
+resolution = "Publish and document the current RPC settings and allow only the exact historical projection lines in the catalogue under decision 3125; the unchanged migration-barrier test requires this retained projection, which cannot establish merged node readiness."
+
+[finding.10]
+path = "services/platform/hosted/human/owner_native.py"
+line = 20
+component = "layerxctl-port"
+symbol = "LNI"
+status = "repaired"
+resolution = "Removed the dead socket receipt transport and its version constant; retained signed-receipt parsing and the live merged EVM producer."
+
+[finding.11]
+path = "services/platform/hosted/human/owner_native.py"
+line = 20
+component = "lni"
+symbol = "LNI"
+status = "repaired"
+resolution = "Removed the dead socket receipt transport and its version constant; retained signed-receipt parsing and the live merged EVM producer."
+
+[finding.12]
+path = "services/platform/hosted/human/owner_native.py"
+line = 71
+component = "layerxctl-port"
+symbol = "LNI"
+status = "repaired"
+resolution = "Removed the dead socket receipt transport and its version constant; retained signed-receipt parsing and the live merged EVM producer."
+
+[finding.13]
+path = "services/platform/hosted/human/owner_native.py"
+line = 71
+component = "lni"
+symbol = "LNI"
+status = "repaired"
+resolution = "Removed the dead socket receipt transport and its version constant; retained signed-receipt parsing and the live merged EVM producer."
+
+[finding.14]
+path = "services/platform/hosted/human/owner_native.py"
+line = 76
+component = "layerxctl-port"
+symbol = "LNI"
+status = "repaired"
+resolution = "Removed the dead socket receipt transport and its version constant; retained signed-receipt parsing and the live merged EVM producer."
+
+[finding.15]
+path = "services/platform/hosted/human/owner_native.py"
+line = 76
+component = "lni"
+symbol = "LNI"
+status = "repaired"
+resolution = "Removed the dead socket receipt transport and its version constant; retained signed-receipt parsing and the live merged EVM producer."
+
+[finding.16]
+path = "services/platform/hosted/human/owner_native.py"
+line = 78
+component = "layerxctl-port"
+symbol = "LNI"
+status = "repaired"
+resolution = "Removed the dead socket receipt transport and its version constant; retained signed-receipt parsing and the live merged EVM producer."
+
+[finding.17]
+path = "services/platform/hosted/human/owner_native.py"
+line = 78
+component = "lni"
+symbol = "LNI"
+status = "repaired"
+resolution = "Removed the dead socket receipt transport and its version constant; retained signed-receipt parsing and the live merged EVM producer."
+
+[finding.18]
+path = "services/platform/hosted/human/owner_native.py"
+line = 80
+component = "layerxctl-port"
+symbol = "LNI"
+status = "repaired"
+resolution = "Removed the dead socket receipt transport and its version constant; retained signed-receipt parsing and the live merged EVM producer."
+
+[finding.19]
+path = "services/platform/hosted/human/owner_native.py"
+line = 80
+component = "lni"
+symbol = "LNI"
+status = "repaired"
+resolution = "Removed the dead socket receipt transport and its version constant; retained signed-receipt parsing and the live merged EVM producer."
+
+[finding.20]
+path = "services/platform/hosted/human/owner_native.py"
+line = 82
+component = "layerxctl-port"
+symbol = "LNI"
+status = "repaired"
+resolution = "Removed the dead socket receipt transport and its version constant; retained signed-receipt parsing and the live merged EVM producer."
+
+[finding.21]
+path = "services/platform/hosted/human/owner_native.py"
+line = 82
+component = "lni"
+symbol = "LNI"
+status = "repaired"
+resolution = "Removed the dead socket receipt transport and its version constant; retained signed-receipt parsing and the live merged EVM producer."
+
+[finding.22]
+path = "services/platform/hosted/human/repair_m1401_cases.py"
+line = 313
+component = "guarantor-runtime"
+symbol = "layerx-guarantor"
+status = "repaired"
+resolution = "Assert absence of every guarantor-runtime catalogue symbol instead of only one executable variant; the existing negative assertion is strictly strengthened."
+
+[finding.23]
+path = "services/platform/hosted/node/generation_client.py"
+line = 25
+component = "layerxctl-port"
+symbol = "LNI"
+status = "allowed_reference"
+resolution = "Retain the live fail-closed inherited-environment check and allow only its exact rejected socket setting and prefix-check lines in the catalogue under decision 3125; obsolete capabilities are rejected before current generation files are adopted."
+
+[finding.24]
+path = "services/platform/hosted/node/generation_client.py"
+line = 25
+component = "lni"
+symbol = "LNI"
+status = "allowed_reference"
+resolution = "Retain the live fail-closed inherited-environment check and allow only its exact rejected socket setting and prefix-check lines in the catalogue under decision 3125; obsolete capabilities are rejected before current generation files are adopted."
+
+[finding.25]
+path = "services/platform/hosted/node/generation_client.py"
+line = 156
+component = "guarantor-runtime"
+symbol = "LAYERX_GUARANTOR_"
+status = "allowed_reference"
+resolution = "Retain the live fail-closed inherited-environment check and allow only its exact rejected socket setting and prefix-check lines in the catalogue under decision 3125; obsolete capabilities are rejected before current generation files are adopted."
+
+[continuation.review]
+owner_transport = "The attempt-1 removal leaves no LNI reference in owner_native.py; its merged_owner delegation, signed receipt decoding and guardian verification remain intact."
+provisioning_case = "The attempt-1 negative assertion reads guarantor-runtime symbols from the catalogue and therefore needs no additional allowance for a retired executable literal."
+allowance_scope = "Four exact-file catalogue entries cover two README lines, one historical material setting, one rejected trust-input list and two inherited-environment refusal lines."
+qualification_evidence = "/out/run/gates.jsonl"
+verified_revision_source = "The final successful verify row in /out/run/gates.jsonl records revision, command, exit and log for this repair record and the same candidate built by hf-build."
+prior_unrelated_failure = "Attempt 1's nine provisioning failures are recorded in gotcha 3989 and owned by task 22.39.289; decision 3126 supplies this task's declared verification command."

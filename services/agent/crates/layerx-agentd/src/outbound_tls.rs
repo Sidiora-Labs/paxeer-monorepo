@@ -4,6 +4,7 @@ use ureq::tls::{Certificate, RootCerts, TlsConfig, TlsProvider};
 mod tests;
 
 #[doc(hidden)]
+#[must_use]
 pub fn private_ca(ca_der: &[u8]) -> Option<TlsConfig> {
     if ca_der.is_empty() {
         return None;
@@ -49,8 +50,18 @@ fn private_ca_refuses_empty_trust_roots() {
 }
 
 #[cfg(test)]
-#[path = "../../../../../services/platform/tests/support/tls_boundary.rs"]
-pub(crate) mod tls_boundary;
+pub(crate) mod tls_boundary {
+    #[allow(
+        clippy::expect_used,
+        reason = "The shared TLS fixture expects its required certificate material"
+    )]
+    pub(crate) fn qualify(test_name: &str, probe: impl Fn(&str) -> Result<Vec<u8>, String>) {
+        mod fixture {
+            include!("../../../../../services/platform/tests/support/tls_boundary.rs");
+        }
+        fixture::qualify(test_name, probe);
+    }
+}
 
 #[test]
 fn private_ca_checks_the_actual_server_identity() {

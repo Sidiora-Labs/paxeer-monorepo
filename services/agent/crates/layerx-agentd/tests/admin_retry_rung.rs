@@ -35,7 +35,10 @@ fn backlog(requested: VerificationLevel) -> VerificationBacklog {
 }
 
 #[test]
-#[allow(deprecated)]
+#[allow(
+    deprecated,
+    reason = "Proves that the retained settlement-anchored compatibility request is refused"
+)]
 fn retired_settlement_retry_is_refused() {
     let (mut surface, root) = surface("retired-settlement");
     let context = must(OperatorContext::new("retry-operator", [3; 32]));

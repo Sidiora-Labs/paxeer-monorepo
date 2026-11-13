@@ -32,7 +32,7 @@ fn receive(socket: &mut WebSocket<TcpStream>) -> Value {
     }
 }
 
-fn send(socket: &mut WebSocket<TcpStream>, value: Value) {
+fn send(socket: &mut WebSocket<TcpStream>, value: &Value) {
     socket.send(Message::Text(value.to_string().into())).must();
 }
 
@@ -58,12 +58,12 @@ fn open(logs: Vec<Value>) -> (EventStream, JoinHandle<()>) {
         );
         send(
             &mut socket,
-            json!({"jsonrpc":"2.0", "id":1, "result":"0xlogs"}),
+            &json!({"jsonrpc":"2.0", "id":1, "result":"0xlogs"}),
         );
         for log in logs {
             send(
                 &mut socket,
-                json!({
+                &json!({
                     "jsonrpc":"2.0", "method":"eth_subscription",
                     "params":{"subscription":"0xlogs", "result":log}
                 }),
@@ -73,7 +73,10 @@ fn open(logs: Vec<Value>) -> (EventStream, JoinHandle<()>) {
             receive(&mut socket),
             json!({"jsonrpc":"2.0", "id":2, "method":"eth_unsubscribe", "params":["0xlogs"]})
         );
-        send(&mut socket, json!({"jsonrpc":"2.0", "id":2, "result":true}));
+        send(
+            &mut socket,
+            &json!({"jsonrpc":"2.0", "id":2, "result":true}),
+        );
         assert!(matches!(socket.read().must(), Message::Close(_)));
         assert!(matches!(
             socket.flush(),

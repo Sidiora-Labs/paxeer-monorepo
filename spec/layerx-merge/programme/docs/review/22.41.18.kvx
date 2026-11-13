@@ -1,0 +1,159 @@
+[manifest]
+task = "22.41.18"
+pages = 39
+
+[page.1]
+path = "docs/wiki/Sandbox.md"
+status = "corrected"
+
+[page.2]
+path = "docs/wiki/SdkQuickstartDotNet.md"
+status = "corrected"
+
+[page.3]
+path = "docs/wiki/SdkQuickstartGo.md"
+status = "corrected"
+
+[page.4]
+path = "docs/wiki/SdkQuickstartJvm.md"
+status = "corrected"
+
+[page.5]
+path = "docs/wiki/SdkQuickstartPython.md"
+status = "corrected"
+
+[page.6]
+path = "docs/wiki/SdkQuickstartRust.md"
+status = "corrected"
+
+[page.7]
+path = "docs/wiki/SdkQuickstartSwift.md"
+status = "corrected"
+
+[page.8]
+path = "docs/wiki/SdkQuickstartTypeScript.md"
+status = "corrected"
+
+[page.9]
+path = "docs/wiki/SdkQuickstarts.md"
+status = "corrected"
+
+[page.10]
+path = "docs/wiki/SdkTerminalVerification.md"
+status = "corrected"
+
+[page.11]
+path = "docs/wiki/Sequencing.md"
+status = "corrected"
+
+[page.12]
+path = "docs/wiki/Service.md"
+status = "corrected"
+
+[page.13]
+path = "docs/wiki/SettlementEvidence.md"
+status = "corrected"
+
+[page.14]
+path = "docs/wiki/Spot.md"
+status = "corrected"
+
+[page.15]
+path = "docs/wiki/StorageScan.md"
+status = "corrected"
+
+[page.16]
+path = "docs/wiki/Stream.md"
+status = "corrected"
+
+[page.17]
+path = "docs/wiki/Ucp.md"
+status = "corrected"
+
+[page.18]
+path = "docs/wiki/UnifiedNetwork.md"
+status = "corrected"
+
+[page.19]
+path = "docs/wiki/VirtualChains.md"
+status = "corrected"
+
+[page.20]
+path = "docs/wiki/VisaTap.md"
+status = "corrected"
+
+[page.21]
+path = "docs/wiki/X402Transport.md"
+status = "corrected"
+
+[page.22]
+path = "engine/tests/AGENTS.md"
+status = "corrected"
+
+[page.23]
+path = "interchain/README.md"
+status = "corrected"
+
+[page.24]
+path = "interchain/modules/apps/27-interchain-accounts/README.md"
+status = "corrected"
+
+[page.25]
+path = "interchain/modules/apps/transfer/keeper/MBT_README.md"
+status = "corrected"
+
+[page.26]
+path = "interchain/modules/apps/transfer/spec/01_concepts.md"
+status = "corrected"
+
+[page.27]
+path = "interchain/modules/apps/transfer/spec/02_state.md"
+status = "reviewed"
+
+[page.28]
+path = "interchain/modules/apps/transfer/spec/03_state_transitions.md"
+status = "corrected"
+
+[page.29]
+path = "interchain/modules/apps/transfer/spec/04_messages.md"
+status = "corrected"
+
+[page.30]
+path = "interchain/modules/apps/transfer/spec/05_events.md"
+status = "reviewed"
+
+[page.31]
+path = "interchain/modules/apps/transfer/spec/06_metrics.md"
+status = "reviewed"
+
+[page.32]
+path = "interchain/modules/apps/transfer/spec/07_params.md"
+status = "corrected"
+
+[page.33]
+path = "interchain/modules/apps/transfer/spec/README.md"
+status = "reviewed"
+
+[page.34]
+path = "interchain/modules/core/spec/01_concepts.md"
+status = "reviewed"
+
+[page.35]
+path = "interchain/modules/light-clients/06-solomachine/spec/01_concepts.md"
+status = "reviewed"
+
+[page.36]
+path = "interchain/modules/light-clients/06-solomachine/spec/02_state.md"
+status = "corrected"
+
+[page.37]
+path = "interchain/modules/light-clients/06-solomachine/spec/03_state_transitions.md"
+status = "reviewed"
+
+[page.38]
+path = "interchain/modules/light-clients/06-solomachine/spec/README.md"
+status = "reviewed"
+
+[page.39]
+path = "interchain/testing/README.md"
+status = "reviewed"

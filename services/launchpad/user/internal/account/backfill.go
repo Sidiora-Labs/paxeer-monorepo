@@ -88,7 +88,7 @@ func legacyWatchInventory(ctx context.Context, tx pgx.Tx, wallet string) ([]lega
 }
 
 func legacySourceBytes(wallet string, profiles, images []json.RawMessage, watches []legacyWatch) ([]byte, error) {
-	return json.Marshal(map[string]any{"wallet": wallet, "profiles": profiles, "images": images, "watchlist": watches})
+	return json.Marshal(map[string]any{"wallet": wallet, "profiles": profiles, domainImages: images, fieldWatchlist: watches})
 }
 
 func legacyProfileProjection(ctx context.Context, wallet string, raw json.RawMessage, images []json.RawMessage) (Profile, error) {
@@ -109,7 +109,7 @@ func legacyProfileProjection(ctx context.Context, wallet string, raw json.RawMes
 	if patch.DisplayName != nil {
 		profile.DisplayName = *patch.DisplayName
 	}
-	for _, key := range []string{"website", "twitter", "telegram", "discord"} {
+	for _, key := range []string{socialWebsite, socialTwitter, socialTelegram, socialDiscord} {
 		var value *string
 		if e := json.Unmarshal(fields[key], &value); e != nil {
 			return profile, e
@@ -120,7 +120,7 @@ func legacyProfileProjection(ctx context.Context, wallet string, raw json.RawMes
 		if e := SafeLink(*value); e != nil {
 			return profile, e
 		}
-		if key == "website" {
+		if key == socialWebsite {
 			profile.Website = value
 		} else {
 			profile.Socials[key] = *value
@@ -216,7 +216,7 @@ func (s Store) BackfillLegacyRange(ctx context.Context, r BackfillRange) (Backfi
 	if e != nil {
 		return out, e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackAccountTx(ctx, tx)
 	if _, e = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, "account-stable-read-cutover"); e != nil {
 		return out, e
 	}
@@ -440,7 +440,7 @@ func (s Store) SetStableAccountReads(ctx context.Context, enabled bool) error {
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackAccountTx(ctx, tx)
 	if _, e = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, "account-stable-read-cutover"); e != nil {
 		return e
 	}
@@ -547,9 +547,9 @@ func (h HTTP) BackfillLegacyRange(ctx context.Context, r BackfillRange) (Backfil
 	ctx = context.WithValue(ctx, runtimeKey{}, h.Runtime)
 	started := time.Now()
 	counts, e := h.Store.BackfillLegacyRange(ctx, r)
-	outcome := "success"
+	outcome := outcomeSuccess
 	if e != nil {
-		outcome = "failed"
+		outcome = stateFailed
 	}
 	h.Runtime.Metrics.Observe("backfill", outcome, time.Since(started))
 	return counts, e

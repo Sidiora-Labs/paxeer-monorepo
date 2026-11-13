@@ -1,0 +1,104 @@
+[meta]
+task = "22.39.265"
+base_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+continuation_base_revision = "8742bd00eb3acc490f28e5d26038636590216955"
+previous_attempt_revision = "2bb0dda2e731354ce4d579e166c796b214aad7a4"
+decisions = ["3101", "3104", "3105", "3125"]
+status = "implemented-pending-qualification"
+scan_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path services/platform/ramps --path services/platform/examples --path services/platform/tools"
+scan_exit = 1
+scan_findings = 9
+scope_constraint = "The continuation admits the catalogue alongside the original six paths; the historical repair record and every dependency refusal check remain intact."
+
+[finding.1]
+path = "services/platform/examples/marketplace/repair-22-31-349.kvx"
+line = 16
+component = "websearch-kernel-relay"
+symbol = "lx_getSequence"
+resolution = "documented-reference"
+reason = "This historical record describes a pre-existing test contract, not a live caller; decision 3104's documentation pattern repair_*.kvx misses the hyphenated record name."
+repair = "Added this exact historical record to documentation_paths in tools/paxeer-x/retired_callers.json with its reason under decision 3125."
+
+[finding.2]
+path = "services/platform/examples/support/runtime.mjs"
+line = 276
+component = "finality-authority"
+symbol = "receipt_authority"
+resolution = "repaired"
+repair = "The shared hex32 parser reports invalid_hex32 for invalid 32-byte hexadecimal input; its callers include program IDs, assets, roots, receipt digests and receipt keys, and it has no retired authority dependency."
+preserved = "The 64-digit hexadecimal assertion, case acceptance, optional 0x prefix and byte conversion remain intact."
+
+[finding.3]
+path = "services/platform/ramps/journey_contract.py"
+line = 109
+component = "settlement-domain"
+symbol = "settlement_domain"
+resolution = "repaired"
+repair = "Validate the producer's integer chain_id as 125 instead of accepting a textual settlement label; keep term, transaction, block, rung, finality, replay and recovery bindings."
+
+[finding.4]
+path = "services/platform/ramps/reference/src/main.rs"
+line = 1148
+component = "settlement-domain"
+symbol = "settlement_domain"
+resolution = "repaired"
+repair = "The rebalance presentation emits chain_id from state.layerx.chain_id, the configured chain used by the real settlement and recovery verifier, instead of a constant textual domain."
+preserved = "Every operation, transaction, asset, amount, account, block, height and rung field is retained; no authority or validator evidence is fabricated."
+
+[finding.5]
+path = "services/platform/ramps/sandbox-journey.sh"
+line = 501
+component = "settlement-domain"
+symbol = "settlement_domain"
+resolution = "repaired"
+repair = "Require the initial rebalance response to carry integer chain_id 125 and continue to validate the full response through observe_rebalance."
+
+[finding.6]
+path = "services/platform/ramps/sandbox-journey.sh"
+line = 514
+component = "settlement-domain"
+symbol = "settlement_domain"
+resolution = "repaired"
+repair = "Bind each polled response to the initial chain_id while retaining operation and transaction identity checks and observe_rebalance's strict chain, terms, finality and monotonicity checks."
+
+[finding.7]
+path = "services/platform/ramps/sandbox-journey.sh"
+line = 562
+component = "settlement-domain"
+symbol = "settlement_domain"
+resolution = "repaired"
+repair = "Record the verified final response's chain_id in protected rebalance evidence instead of emitting a textual domain label."
+
+[finding.8]
+path = "services/platform/tools/dependency-policy.sh"
+line = 27
+component = "human-two-domain"
+symbol = "layerx-paxeer-client"
+resolution = "allowed-reference"
+reason = "This negative dependency policy must name the retired crate to reject it across the full resolved graph; removing or disguising the name would weaken the policy."
+repair = "Added a script-scoped layerx-paxeer-client allowed_references entry in tools/paxeer-x/retired_callers.json with a citation preserving both explicit dependency bans."
+
+[finding.9]
+path = "services/platform/tools/dependency-policy.sh"
+line = 52
+component = "human-two-domain"
+symbol = "layerx-paxeer-client"
+resolution = "allowed-reference"
+reason = "The ramp's transitive reachability check explicitly rejects this retired crate and must continue to reject the same graph."
+repair = "The same script-scoped catalogue allowance as finding.8 covers this refusal check; the policy documents why both explicit bans remain."
+
+[continuation.live_kernel_reference]
+path = "services/platform/ramps"
+symbol = "receipt_authority"
+resolution = "allowed-reference"
+reason = "Decision 3125 preserves the live lxp_verified_receipt_authority_facts kernel identifier on the ramp surface; a path-scoped catalogue allowance documents that its prefix does not refer to the retired finality service."
+observation = "The retained nine-finding scan has no separate live kernel identifier finding; this allowance implements the explicit continuation ruling without inventing a tenth finding."
+
+[qualification]
+revision = "The exact final candidate revision is recorded by the bounded gate ledger, not inferred from the starting HEAD."
+build_command = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp --tests && bash -n services/platform/ramps/*-journey.sh services/platform/tools/dependency-policy.sh"
+verify_command = "test -s services/platform/ramps/repair_22_39_265.kvx && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp --bins && python3 -m py_compile services/platform/ramps/journey_contract.py && node --check services/platform/examples/support/runtime.mjs && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/platform/ramps --path services/platform/examples --path services/platform/tools"
+evidence = "The private /out/run/gates.jsonl ledger and /out/logs/build-*.log and verify-*.log contain exact candidate revisions, commands, exits and logs; the final response copies the last gate's JSON verbatim."
+limit = "No test is deleted, skipped, weakened or run outside the declared qualification gates; no claim of a clean scan or successful qualification is made before hf-done passes."
+interface_note = "The continuation's declared verification uses --bins, resolving the previous attempt's --lib failure without changing the binary-only package manifest."
+consumer_note = "The existing HTTP-route integration test and tools/bringup response decoder are outside scope; their settlement-label contract needs reconciliation by their owner, and this task does not weaken those assertions."

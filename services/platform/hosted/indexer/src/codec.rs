@@ -30,7 +30,7 @@ pub fn unhex(text: &str) -> Result<Vec<u8>, IndexError> {
         .strip_prefix("0x")
         .or_else(|| text.strip_prefix("0X"))
         .unwrap_or(text);
-    if digits.len() % 2 != 0 {
+    if !digits.len().is_multiple_of(2) {
         return Err(IndexError::Decode(format!("odd-length hex: {text}")));
     }
     let bytes = digits.as_bytes();
@@ -156,7 +156,7 @@ pub fn is_zero(bytes: &[u8]) -> bool {
 /// bits.
 pub fn base64_decode(text: &str) -> Result<Vec<u8>, IndexError> {
     let bytes = text.as_bytes();
-    if bytes.len() % 4 != 0 {
+    if !bytes.len().is_multiple_of(4) {
         return Err(IndexError::Decode(
             "base64 length is not a multiple of four".to_owned(),
         ));

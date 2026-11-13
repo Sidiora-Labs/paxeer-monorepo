@@ -8,10 +8,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"github.com/jackc/pgx/v5"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 var (
@@ -80,13 +81,13 @@ func Authorized(p Principal, pool string, mutate bool, now time.Time) bool {
 	if !walletRE.MatchString(p.Wallet) || p.SessionID == "" || !now.Before(p.Expires) {
 		return false
 	}
-	if p.Role == "global_administrator" {
+	if p.Role == globalAdministratorRole {
 		return !mutate || (!p.StepUp.After(now) && now.Sub(p.StepUp) <= 5*time.Minute)
 	}
 	if pool == "" {
 		return !mutate && p.Role == "reviewer"
 	}
-	return contains(p.Pools, pool) && (p.Role == "room_moderator" || (!mutate && p.Role == "reviewer"))
+	return contains(p.Pools, pool) && (p.Role == roomModeratorRole || (!mutate && p.Role == "reviewer"))
 }
 func Bounded(s string, n int) bool { return strings.TrimSpace(s) != "" && len(s) <= n }
 

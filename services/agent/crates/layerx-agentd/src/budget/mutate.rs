@@ -37,6 +37,7 @@ pub enum BudgetMutation {
 
 impl BudgetMutation {
     /// Native source account nonce, independent of the committed block coordinate.
+    #[must_use]
     pub const fn source_sequence(&self) -> Option<u64> {
         match self {
             Self::Fund { source_height, .. } => *source_height,
@@ -44,6 +45,7 @@ impl BudgetMutation {
         }
     }
 
+    #[must_use]
     pub const fn revocation_sequence(&self) -> Option<u64> {
         match self {
             Self::Revoke {
@@ -130,7 +132,10 @@ pub fn budget_mutation_identity(
         }
         let amount = integer(data, 1, 16)?;
         let source_height = if native {
-            Some(integer(data, 2, 8)? as u64)
+            Some(
+                u64::try_from(integer(data, 2, 8)?)
+                    .map_err(|_| BudgetCreationError::NotBudgetCreation)?,
+            )
         } else {
             None
         };
@@ -145,7 +150,8 @@ pub fn budget_mutation_identity(
         });
     }
     if data.starts_with(&selector("budgetRevoke(bytes32,uint64)")) && data.len() == 68 {
-        let revocation_height = integer(data, 1, 8)? as u64;
+        let revocation_height = u64::try_from(integer(data, 1, 8)?)
+            .map_err(|_| BudgetCreationError::NotBudgetCreation)?;
         if revocation_height <= context.revocation_sequence {
             return Err(BudgetCreationError::StaleRevocation);
         }
@@ -296,6 +302,9 @@ where
 /// Checks an already committed native mutation without admitting a new submission.
 /// External native producers may execute methods the daemon disclosure producer cannot yet prepare.
 /// The same receipt, state identity, monotonic counter and debit checks apply to both paths.
+/// # Errors
+/// Returns an error if the budget call, identity, expiry, limit or source context is invalid,
+/// or committed state does not confirm the mutation.
 pub fn verify_committed_budget_mutation<S>(
     signed_transaction: &[u8],
     registry: &ModuleRegistry,

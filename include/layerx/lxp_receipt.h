@@ -125,6 +125,7 @@ typedef struct lxp_verified_receipt_facts {
     uint8_t resulting_state_root[32];
 } lxp_verified_receipt_facts;
 
+/* Network- and height-bound facts from canonical committed receipts. */
 typedef struct lxp_verified_receipt_authority_facts {
     uint16_t version;
     uint32_t network_id;

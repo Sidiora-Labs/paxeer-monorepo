@@ -43,10 +43,16 @@ pub struct NativeFeePolicy {
     pub asset: AssetMetadata,
 }
 
+/// # Errors
+///
+/// Returns RPC errors or malformed-response errors when asset metadata or the gas estimate cannot be decoded.
 pub fn list_assets(endpoint: &PxEndpoint) -> Result<PxAssetTable, SequencerError> {
     endpoint.list_assets()
 }
 
+/// # Errors
+///
+/// Returns RPC errors or malformed-response errors when the asset is absent from the returned table.
 pub fn get_asset(
     endpoint: &PxEndpoint,
     asset: impl AsRef<str>,
@@ -58,6 +64,9 @@ pub fn get_asset(
         .ok_or(SequencerError::Unavailable)
 }
 
+/// # Errors
+///
+/// Returns RPC errors or malformed-response errors when asset metadata or the gas estimate cannot be decoded.
 pub fn estimate_fee(
     endpoint: &SequencerEndpoint,
     call: &CallRequest,

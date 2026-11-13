@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"strconv"
 	"strings"
@@ -79,7 +80,7 @@ func (s sourceBootstrapper) load(ctx context.Context, tx pgx.Tx, pool string) (c
 	if err = json.Unmarshal(positionWire, &b.Position); err != nil {
 		return b, err
 	}
-	if accounting.ValidatePartitionPosition(b.Position) != nil || b.Position.Sequence != "1" || b.Position.PreviousEffectIdentity != "" || b.Position.PartitionKind != "market" || b.Position.PartitionKey != "125:"+pool || b.Position.ProjectionVersion != config.ProjectionVersion {
+	if accounting.ValidatePartitionPosition(b.Position) != nil || b.Position.Sequence != "1" || b.Position.PreviousEffectIdentity != "" || b.Position.PartitionKind != marketPartitionKind || b.Position.PartitionKey != "125:"+pool || b.Position.ProjectionVersion != config.ProjectionVersion {
 		return b, fmt.Errorf("%w: first partition position is not a market origin", ErrAccountingAuthority)
 	}
 	publicationWire, err := sourcebootstrap.MarketPublication(ctx, tx, b.Position.SourceEventID, config.ProjectionVersion)
@@ -173,12 +174,12 @@ func (s sourceBootstrapper) verify(ctx context.Context, tx pgx.Tx, b chartSource
 	if err != nil {
 		return err
 	}
-	if receipt == nil || receipt.Status != types.ReceiptStatusSuccessful || receipt.BlockHash.Hex() != b.Creation.BlockHash || receipt.BlockNumber == nil || receipt.BlockNumber.Int64() != b.Creation.Height || int64(receipt.TransactionIndex) != b.Creation.TransactionIndex {
+	if receipt == nil || receipt.Status != types.ReceiptStatusSuccessful || receipt.BlockHash.Hex() != b.Creation.BlockHash || receipt.BlockNumber == nil || receipt.BlockNumber.Int64() != b.Creation.Height || b.Creation.TransactionIndex < 0 || uint64(receipt.TransactionIndex) != uint64(b.Creation.TransactionIndex) {
 		return fmt.Errorf("%w: creation receipt conflicts with indexed creation", ErrAccountingAuthority)
 	}
 	var created *types.Log
 	for _, log := range receipt.Logs {
-		if int64(log.Index) == b.Creation.LogIndex {
+		if b.Creation.LogIndex >= 0 && uint64(log.Index) == uint64(b.Creation.LogIndex) {
 			created = log
 		}
 	}
@@ -270,6 +271,9 @@ SELECT count(*),COALESCE(min(p),-1),COALESCE(max(l),-1),count(*) FILTER (WHERE l
 	encodedTopics, err := json.Marshal(topics)
 	if err != nil {
 		return err
+	}
+	if first.Index > math.MaxInt64 || first.BlockNumber > math.MaxInt64 {
+		return ErrAccountingAuthority
 	}
 	var same bool
 	err = tx.QueryRow(bounded, `SELECT topics=$4::jsonb AND data=$5 AND block_hash=$6 AND emitter=$7 FROM indexer.indexer_raw_logs_v1 WHERE chain_id=125 AND transaction_hash=$1 AND log_index=$2 AND height=$3`, first.TxHash.Hex(), int64(first.Index), int64(first.BlockNumber), encodedTopics, first.Data, first.BlockHash.Hex(), strings.ToLower(first.Address.Hex())).Scan(&same)

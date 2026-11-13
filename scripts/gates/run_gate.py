@@ -58,6 +58,14 @@ def permitted_output(path: Path, evidence_root: Path) -> bool:
         parent = ROOT.joinpath(*parts[:index])
         if part == "target" and (parent / "Cargo.toml").is_file():
             return True
+        if part == "target" and (parent / "pom.xml").is_file():
+            return True
+        if part == ".build" and (parent / "Package.swift").is_file():
+            return True
+        if part in {"obj", "bin"} and any(
+            project.is_file() for project in parent.glob("*.csproj")
+        ):
+            return True
         if part in {"dist", ".next"} and (parent / "package.json").is_file():
             return True
         if part in {"artifacts", "cache"} and any(

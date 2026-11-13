@@ -1,5 +1,6 @@
 use native_tls::{Certificate, Identity, TlsConnector};
 use std::collections::BTreeMap;
+use std::fmt::Write as _;
 use std::io::{Read, Write};
 use std::net::{IpAddr, SocketAddr, TcpStream, ToSocketAddrs};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -323,7 +324,7 @@ impl Client {
             path,
             bearer,
             idempotency,
-            headers,
+            headers: _,
             body,
         } = *request;
         if body.len() > MAX_BODY
@@ -377,50 +378,7 @@ impl Client {
                             },
                         )
                         .map_err(|error| error.to_string())?;
-                    let authorization = bearer.map_or_else(String::new, |value| {
-                        format!("Authorization: Bearer {value}\r\n")
-                    });
-                    let idempotency = idempotency
-                        .map_or_else(String::new, |value| format!("Idempotency-Key: {value}\r\n"));
-                    let mut extra = String::new();
-                    for (name, value) in headers {
-                        if name.is_empty()
-                            || name.contains(['\r', '\n', ':'])
-                            || value.contains(['\r', '\n'])
-                            || name.len() > 64
-                            || value.len() > 4096
-                        {
-                            return Err("outbound header is invalid".to_owned());
-                        }
-                        extra.push_str(name);
-                        extra.push_str(": ");
-                        extra.push_str(value);
-                        extra.push_str("\r\n");
-                    }
-                    if let Some(deadline) = deadline {
-                        let absolute = SystemTime::now()
-                            .checked_add(remaining(deadline)?)
-                            .and_then(|value| value.duration_since(UNIX_EPOCH).ok())
-                            .ok_or("invalid admission deadline")?;
-                        extra.push_str(&format!(
-                            "x-layerx-admission-deadline-ms: {}\r\n",
-                            absolute.as_millis()
-                        ));
-                    }
-                    write!(
-                        stream,
-                        "{method} {path} HTTP/1.1\r\nHost: {}\r\nAccept: application/json\r\nContent-Type: application/json\r\nUser-Agent: LayerX-Hosted/1\r\n{authorization}{idempotency}{extra}Content-Length: {}\r\nConnection: close\r\n\r\n",
-                        endpoint.authority(),
-                        body.len()
-                    )
-                    .map_err(|error| error.to_string())?;
-                    stream.write_all(body).map_err(|error| error.to_string())?;
-                    stream.flush().map_err(|error| error.to_string())?;
-                    let response = read_response(&mut stream)?;
-                    if let Some(deadline) = deadline {
-                        remaining(deadline)?;
-                    }
-                    return Ok(response);
+                    return send_request(&mut stream, request, &path, deadline);
                 }
                 Err(error) => last = Some(error),
             }
@@ -430,6 +388,69 @@ impl Client {
             |error| error.to_string(),
         ))
     }
+}
+
+fn send_request(
+    stream: &mut (impl Read + Write),
+    request: &OutboundRequest<'_>,
+    path: &str,
+    deadline: Option<Instant>,
+) -> Result<Response, String> {
+    let OutboundRequest {
+        endpoint,
+        method,
+        bearer,
+        idempotency,
+        headers,
+        body,
+        ..
+    } = *request;
+    let authorization = bearer.map_or_else(String::new, |value| {
+        format!("Authorization: Bearer {value}\r\n")
+    });
+    let idempotency =
+        idempotency.map_or_else(String::new, |value| format!("Idempotency-Key: {value}\r\n"));
+    let mut extra = String::new();
+    for (name, value) in headers {
+        if name.is_empty()
+            || name.contains(['\r', '\n', ':'])
+            || value.contains(['\r', '\n'])
+            || name.len() > 64
+            || value.len() > 4096
+        {
+            return Err("outbound header is invalid".to_owned());
+        }
+        extra.push_str(name);
+        extra.push_str(": ");
+        extra.push_str(value);
+        extra.push_str("\r\n");
+    }
+    if let Some(deadline) = deadline {
+        let absolute = SystemTime::now()
+            .checked_add(remaining(deadline)?)
+            .and_then(|value| value.duration_since(UNIX_EPOCH).ok())
+            .ok_or("invalid admission deadline")?;
+        write!(
+            extra,
+            "x-layerx-admission-deadline-ms: {}\r\n",
+            absolute.as_millis()
+        )
+        .map_err(|error| error.to_string())?;
+    }
+    write!(
+        stream,
+        "{method} {path} HTTP/1.1\r\nHost: {}\r\nAccept: application/json\r\nContent-Type: application/json\r\nUser-Agent: LayerX-Hosted/1\r\n{authorization}{idempotency}{extra}Content-Length: {}\r\nConnection: close\r\n\r\n",
+        endpoint.authority(),
+        body.len()
+    )
+    .map_err(|error| error.to_string())?;
+    stream.write_all(body).map_err(|error| error.to_string())?;
+    stream.flush().map_err(|error| error.to_string())?;
+    let response = read_response(stream)?;
+    if let Some(deadline) = deadline {
+        remaining(deadline)?;
+    }
+    Ok(response)
 }
 
 fn read_response(stream: &mut impl Read) -> Result<Response, String> {

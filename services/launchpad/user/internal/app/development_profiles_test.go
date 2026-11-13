@@ -3,6 +3,9 @@ package app_test
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,11 +14,13 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 
+	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	v1 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v1"
 	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 
@@ -95,7 +100,29 @@ func TestDevelopmentProfileReads(t *testing.T) {
 			t.Fatalf("sign: %v", e)
 		}
 		body, _ := json.Marshal(map[string]any{"data": data, "message": message, "signature": hexutil.Encode(signature)})
-		resp, raw := do(http.MethodPost, "/users/"+checksum, body, nil)
+		digest, e := sharedauth.BodyDigest(body)
+		if e != nil {
+			t.Fatal(e)
+		}
+		nonce := make([]byte, 32)
+		if _, e := rand.Read(nonce); e != nil {
+			t.Fatal(e)
+		}
+		now := time.Now().Unix()
+		operation := sharedauth.OperationEnvelope{Version: 2, ChainID: "125", Environment: "launchpad-user-legacy", Actor: wallet, Action: "profile.update", Method: http.MethodPost, Path: "/users/" + checksum, BodyHash: digest, Nonce: hex.EncodeToString(nonce), IssuedAt: now, ExpiresAt: now + 300}
+		statement, e := operation.Statement()
+		if e != nil {
+			t.Fatal(e)
+		}
+		signed, e := crypto.Sign(accounts.TextHash([]byte(statement)), key)
+		if e != nil {
+			t.Fatal(e)
+		}
+		encoded, e := json.Marshal(operation)
+		if e != nil {
+			t.Fatal(e)
+		}
+		resp, raw := do(http.MethodPost, "/users/"+checksum, body, map[string]string{sharedauth.OperationEnvelopeHeader: base64.RawURLEncoding.EncodeToString(encoded), sharedauth.OperationSignatureHeader: hexutil.Encode(signed)})
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("legacy save = %d %s", resp.StatusCode, raw)
 		}

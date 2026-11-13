@@ -105,6 +105,9 @@ pub(crate) fn decode_bundle(
     Ok(result)
 }
 
+/// # Errors
+///
+/// Returns the operation decoding error when fields, fact references, proof bundles or the export height are malformed.
 pub fn decode_offline_export(
     value: &Value,
     operation: Operation,

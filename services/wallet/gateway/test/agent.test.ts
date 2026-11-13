@@ -1,3 +1,4 @@
+import { TestChain } from './support/chain.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
@@ -11,6 +12,7 @@ import {
 } from './support/identity.js';
 import { startCustodyAuthority } from './support/custody.js';
 
+const chain = new TestChain(125, 'evm');
 let idp: IdentityProvider;
 let pg: EphemeralPostgres;
 let custody: Awaited<ReturnType<typeof startCustodyAuthority>>;
@@ -22,11 +24,14 @@ let policyModule: typeof import('../src/policy/agent.js');
 let poolModule: typeof import('../src/db/pool.js');
 
 beforeAll(async () => {
+  await chain.start();
   idp = await startIdentityProvider();
   process.env.SUPABASE_URL = idp.url;
   process.env.AGENT_JWT_SECRET = randomBytes(32).toString('hex');
   process.env.LOG_LEVEL = 'error';
-  process.env.RPC_URLS = `${idp.url}/rpc`;
+  process.env.RPC_URLS = chain.url;
+  process.env.HYPERPAXEER_RPC_URL = chain.url;
+  process.env.SEQUENCER_RPC_URL = chain.url;
   custody = await startCustodyAuthority(idp, process.env.RPC_URLS);
   Object.assign(process.env, custody.env);
   pg = await startPostgres();
@@ -46,6 +51,7 @@ afterAll(async () => {
   await pg?.stop();
   await custody?.stop();
   await idp?.stop();
+  await chain.stop();
 }, 120_000);
 
 async function authenticate(
@@ -76,6 +82,14 @@ async function authenticate(
     is_frozen: boolean;
   };
   expect(body.scope).toBe('read');
+  // Authentication no longer provisions a wallet. These request-signing cases
+  // explicitly prepare the legacy encrypted wallet whose signer they exercise.
+  const wallets = await import('../src/db/wallets.js');
+  const { wallet } = await wallets.provisionWalletForUser(
+    wallets.agentWalletUserId(agent.did),
+    'agent'
+  );
+  await (await import('../src/db/agents.js')).setPrincipalWallet(agent.did, wallet.id);
   return { token: body.token, owner: body.owner_user_id, frozen: body.is_frozen };
 }
 
@@ -333,7 +347,12 @@ const withdrawalAllowlistTests = {
         detail: { recipient: counterparty },
       });
       expect(
-        await policyModule.evaluateAgent({ principal, policy, rules: [withdrawalRule], intent })
+        await policyModule.evaluateAgent({
+          principal,
+          policy,
+          rules: [withdrawalRule],
+          intent,
+        })
       ).toMatchObject({ allow: true });
       expect(
         await policyModule.evaluateAgent({

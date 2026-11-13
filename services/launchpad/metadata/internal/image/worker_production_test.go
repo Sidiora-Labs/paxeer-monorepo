@@ -61,6 +61,12 @@ func TestProductionSupportedWebPActualDecoder(t *testing.T) {
 }
 
 func TestProductionActualIsolatedDimensionBomb(t *testing.T) {
+	for _, name := range []string{"KINDLE_RASTER_CGROUP_PARENT"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	executable, e := os.Executable()
 	if e != nil {
 		t.Fatal(e)

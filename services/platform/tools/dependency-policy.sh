@@ -24,6 +24,7 @@ case "$#" in
         ;;
 esac
 
+# Retired crate names remain explicit refusal rules, including in the ramp graph below.
 banned='^(bindgen|sqlx-sqlite|layerx-core|layerx-protocol-core|layerx-paxeer-client|ctor|inventory)$'
 banned_packages=$(jq -r --arg banned "$banned" \
     '[.packages[].name | select(test($banned))] | join("\n")' "$metadata_file")

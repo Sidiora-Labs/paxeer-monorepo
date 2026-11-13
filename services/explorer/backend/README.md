@@ -1,17 +1,16 @@
 # Paxeer X Network Explorer backend
 
-This is the backend of the Paxeer X Network block explorer: a fork of the
-Blockscout Elixir umbrella application, imported from `blockscout/blockscout`
-at tag `v10.2.6` (see [upstream provenance](../../../docs/explorer/UPSTREAM.md)). It indexes
+This is the backend of the Paxeer X Network block explorer, a Blockscout
+Elixir umbrella application with package version `10.2.6`. It indexes
 Paxeer mainnet-beta over node EVM JSON-RPC, stores indexed data in PostgreSQL,
 and serves the explorer frontend in [`apps/explorer`](../../../apps/explorer).
 
 Paxeer is one BFT `paxd` network, with EVM chain id **125** (`0x7d`). Its kernel
 is part of the network and proposes blocks; a receipt is final once its block
 is committed. The explorer's indexed view can lag the node. Public node
-JSON-RPC uses root URLs such as `https://api1.mainnet-beta.paxeer.network/`;
-the [explorer overview](../README.md#network-and-interfaces) lists the node
-names and links to the hosted gateway's `px_` contract. Sub-chains are tenant
+JSON-RPC uses each configured node's root URL. The
+[explorer overview](../README.md#network-and-interfaces) describes node access
+and links to the hosted gateway's `px_` contract. Sub-chains are tenant
 domains in the database, launchable without new infrastructure.
 
 ## Umbrella applications
@@ -87,8 +86,8 @@ the recorded observations under `price_update.observations`.
 [`paxeerXLists.ts`](../../../apps/explorer/lib/api/services/general/paxeerXLists.ts)
 registers the transaction status and signature resources alongside explicitly
 archived anchor and receipt resources. Use `/transactions/:transaction_hash_param/status`
-for current transaction observations. Unified accounts and native feeds do
-not require archive records or the retired unprefixed anchor/receipt routes.
+for current transaction observations. Unified accounts and native feeds
+use indexed native data independently of the frozen archive records.
 
 ### Native account, status and capabilities
 
@@ -161,9 +160,9 @@ receipt and evidence-backed rung, and
 `/api/v2/transactions/:transaction_hash_param/status` for current transaction
 observations. A signed receipt alone is `receipted`; verified native inclusion
 establishes `committed`. Follow the archive's returned pagination parameters. An invalid or
-unknown receipt ID returns HTTP `404`. The old unprefixed
-`/api/v2/paxeer-x/anchors` and `/api/v2/paxeer-x/receipts` routes were removed
-and return not-found; use the explicit `/archive/` paths above.
+unknown receipt ID returns HTTP `404`. Use the explicit `/archive/` paths above
+for historical anchors and receipts; current transaction observations use the
+native status and signature endpoints.
 Archive items carry `frozen: true`; their historical verification fields do
 not establish a current transaction's rung. Live native receipts and feed
 submissions do not populate these frozen archives.
@@ -225,7 +224,7 @@ lint scripts and local Docker Compose stack.
 
 ## Contributing
 
-Upstream's contribution guide and code of conduct are kept in
+The contribution guide and code of conduct are in
 [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## License

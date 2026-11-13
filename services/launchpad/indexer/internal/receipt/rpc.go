@@ -20,6 +20,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
@@ -186,17 +188,17 @@ func (t *boundedRPCTransport) archived(method string, params []json.RawMessage) 
 		return false
 	}
 	switch method {
-	case "eth_getBlockByNumber":
+	case valueEthGetBlockByNumber:
 		var tag string
 		if json.Unmarshal(params[0], &tag) != nil || !strings.HasPrefix(tag, "0x") {
 			return false
 		}
 		height, err := strconv.ParseUint(tag[2:], 16, 64)
 		return err == nil && t.floor > 0 && height < t.floor
-	case "eth_getBlockByHash", "eth_getBlockReceipts":
+	case valueEthGetBlockByHash, valueEthGetBlockReceipts:
 		var hash string
 		return json.Unmarshal(params[0], &hash) == nil && t.hashes[strings.ToLower(hash)]
-	case "eth_getCode", "eth_getStorageAt", "eth_call":
+	case valueEthGetCode, valueEthGetStorageAt, valueEthCall:
 		var pinned struct {
 			BlockHash string `json:"blockHash"`
 		}
@@ -208,7 +210,7 @@ func (t *boundedRPCTransport) archived(method string, params []json.RawMessage) 
 // learn records blocks the archive served so later reads pinned to them route
 // directly to the archive.
 func (t *boundedRPCTransport) learn(method string, encoded []byte) {
-	if method != "eth_getBlockByNumber" && method != "eth_getBlockByHash" {
+	if method != valueEthGetBlockByNumber && method != valueEthGetBlockByHash {
 		return
 	}
 	var envelope struct {
@@ -273,10 +275,10 @@ func (t *boundedRPCTransport) RoundTrip(request *http.Request) (*http.Response, 
 	}
 	limit, timeout := rpcScalarResponseBytes, time.Second
 	switch call.Method {
-	case "eth_call", "eth_getStorageAt", "eth_chainId", "eth_blockNumber":
-	case "eth_getCode":
+	case valueEthCall, valueEthGetStorageAt, "eth_chainId", "eth_blockNumber":
+	case valueEthGetCode:
 		limit = rpcCodeResponseBytes
-	case "eth_getBlockByHash", "eth_getBlockByNumber":
+	case valueEthGetBlockByHash, valueEthGetBlockByNumber:
 		if len(call.Params) != 2 {
 			return nil, ErrQualification
 		}
@@ -288,7 +290,7 @@ func (t *boundedRPCTransport) RoundTrip(request *http.Request) (*http.Response, 
 		if full {
 			limit, timeout = rpcBundleResponseBytes, 15*time.Second
 		}
-	case "eth_getBlockReceipts", "eth_getTransactionReceipt":
+	case valueEthGetBlockReceipts, "eth_getTransactionReceipt":
 		limit, timeout = rpcBundleResponseBytes, 15*time.Second
 	case "anvil_nodeInfo":
 		limit = rpcHeaderResponseBytes
@@ -339,7 +341,11 @@ func (t *boundedRPCTransport) RoundTrip(request *http.Request) (*http.Response, 
 		t.learn(call.Method, encoded)
 	}
 	response.Body = io.NopCloser(bytes.NewReader(encoded))
-	response.ContentLength = int64(len(encoded))
+	lenEncodedInt64, conversionErr := checked.Convert[int64](len(encoded))
+	if conversionErr != nil {
+		return nil, conversionErr
+	}
+	response.ContentLength = lenEncodedInt64
 	return response, nil
 }
 
@@ -410,11 +416,15 @@ func (t *boundedRPCTransport) exchangeVia(read context.Context, upstream *http.T
 	if err != nil {
 		return nil, nil, err
 	}
-	defer response.Body.Close()
-	if response.ContentLength > int64(limit) {
+	defer checked.Close(response.Body)
+	limitInt64, conversionErr := checked.Convert[int64](limit)
+	if conversionErr != nil {
+		return nil, nil, conversionErr
+	}
+	if response.ContentLength > limitInt64 {
 		return nil, nil, fmt.Errorf("receipt RPC response exceeds byte cap: %w", ErrQualification)
 	}
-	encoded, err := io.ReadAll(io.LimitReader(response.Body, int64(limit)+1))
+	encoded, err := io.ReadAll(io.LimitReader(response.Body, limitInt64+1))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -446,7 +456,7 @@ func historicalRetry(method string, encoded []byte) bool {
 		return true
 	}
 	switch method {
-	case "eth_getBlockByHash", "eth_getBlockReceipts", "eth_getTransactionReceipt", "eth_getCode", "eth_getStorageAt", "eth_call":
+	case valueEthGetBlockByHash, valueEthGetBlockReceipts, "eth_getTransactionReceipt", valueEthGetCode, valueEthGetStorageAt, valueEthCall:
 		if envelope.Error != nil {
 			return strings.Contains(strings.ToLower(envelope.Error.Message), "not found")
 		}
@@ -538,7 +548,7 @@ func NewRPCQualificationWithAttestation(ctx context.Context, client *ethclient.C
 		return nil, ErrQualification
 	}
 	for role, id := range approved.Roles {
-		if o.Manifest.Roles[role] != id {
+		if !o.Manifest.Roles[role].MatchesApproved(id) {
 			return nil, ErrQualification
 		}
 	}
@@ -573,7 +583,7 @@ func NewPrivateFixtureRPCQualification(ctx context.Context, client *ethclient.Cl
 	if client == nil || !strings.HasPrefix(f.DeploymentVersion, "private-fixture-") || f.ActivationHeight == 0 || len(f.Roles) < 12 || len(f.Roles) > 64 || len(f.CreationTransactions) == 0 || len(f.CreationTransactions) > 128 {
 		return nil, ErrQualification
 	}
-	for _, role := range []string{"EventEmitter", "ProtocolConfig", "Router", "Quoter", "SidioraFactory", "PoolRegistry", "FeeAccumulator", "SidioraNFT", "FeesRouter", "OpticalRegistry", "PoolBeacon", "USDL"} {
+	for _, role := range []string{valueEventEmitter, "ProtocolConfig", valueRouter, "Quoter", valueSidioraFactory, "PoolRegistry", "FeeAccumulator", "SidioraNFT", "FeesRouter", "OpticalRegistry", "PoolBeacon", valueUSDL} {
 		if !validRPCIdentity(f.Roles[role]) {
 			return nil, ErrQualification
 		}
@@ -586,7 +596,7 @@ func NewPrivateFixtureRPCQualification(ctx context.Context, client *ethclient.Cl
 		}
 		seen[address] = true
 	}
-	if f.Roles["USDL"].Kind != "direct" || f.Roles["PoolBeacon"].Kind != "beacon" {
+	if f.Roles[valueUSDL].Kind != valueDirect || f.Roles["PoolBeacon"].Kind != valueBeacon {
 		return nil, ErrQualification
 	}
 	o := RPCOptions{Manifest: deployment.Manifest{DeploymentVersion: f.DeploymentVersion, ChainID: 125, ActivationHeight: f.ActivationHeight, Roles: f.Roles}, CatalogJSON: f.CatalogJSON, Epochs: f.Epochs, Discovery: f.Discovery, GenesisHash: f.GenesisHash, Timeout: f.Timeout}
@@ -614,7 +624,11 @@ func NewPrivateFixtureRPCQualification(ctx context.Context, client *ethclient.Cl
 			return nil, ErrQualification
 		}
 		block, receipts, err := a.pinnedBlockAt(read, r.BlockHash, 0)
-		if err != nil || r.TransactionIndex >= uint(len(receipts)) || !receiptEqual(r, receipts[r.TransactionIndex]) {
+		lenReceiptsUint, conversionErr := checked.Convert[uint](len(receipts))
+		if conversionErr != nil {
+			return nil, conversionErr
+		}
+		if err != nil || r.TransactionIndex >= lenReceiptsUint || !receiptEqual(r, receipts[r.TransactionIndex]) {
 			return nil, ErrQualification
 		}
 		tx := block.Transactions[r.TransactionIndex]
@@ -628,20 +642,20 @@ func NewPrivateFixtureRPCQualification(ctx context.Context, client *ethclient.Cl
 	}
 	for role, identity := range f.Roles {
 		address := common.HexToAddress(identity.Address)
-		proxied := identity.Kind != "direct" && identity.Kind != "surface" && identity.Kind != "precompile"
-		if identity.Kind != "precompile" && f.CreationTransactions[address] == (common.Hash{}) || proxied && f.CreationTransactions[common.HexToAddress(identity.ImplementationAddress)] == (common.Hash{}) {
+		proxied := identity.Kind != valueDirect && identity.Kind != valueSurface && identity.Kind != valuePrecompile
+		if identity.Kind != valuePrecompile && f.CreationTransactions[address] == (common.Hash{}) || proxied && f.CreationTransactions[common.HexToAddress(identity.ImplementationAddress)] == (common.Hash{}) {
 			return nil, ErrQualification
 		}
 		kind := role
-		if kind == "USDL" {
-			kind = "SidioraERC20"
+		if kind == valueUSDL {
+			kind = valueSidioraERC20
 		}
 		e := RPCCodeEpoch{Deployment: decode.Deployment{Address: address, Role: kind}, Identity: identity}
 		if _, err = a.validateCode(read, e, latestHash); err != nil {
 			return nil, err
 		}
 	}
-	decimals, err := a.word(read, common.HexToAddress(f.Roles["USDL"].Address), "decimals()", latestHash)
+	decimals, err := a.word(read, common.HexToAddress(f.Roles[valueUSDL].Address), "decimals()", latestHash)
 	if err != nil || new(big.Int).SetBytes(decimals).Cmp(big.NewInt(6)) != 0 {
 		return nil, ErrQualification
 	}
@@ -668,7 +682,7 @@ func newRPCQualification(ctx context.Context, client *ethclient.Client, o RPCOpt
 	if !private {
 		supplemental, err = historicalEmitterEpochs(owned.Manifest, owned.CatalogJSON)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("historical emitter epochs: %w", err)
 		}
 	}
 	for _, epoch := range supplemental {
@@ -691,11 +705,11 @@ func newRPCQualification(ctx context.Context, client *ethclient.Client, o RPCOpt
 		return nil, ErrQualification
 	}
 	for _, template := range owned.Discovery {
-		if (template.Role != "SidioraPool" && template.Role != "SidioraERC20") || !rpcHash(template.RuntimeHash) || len(template.ABIRevision) != 64 || !validCodeRanges(template.Role, template.Immutables) {
+		if (template.Role != valueSidioraPool && template.Role != valueSidioraERC20) || !rpcHash(template.RuntimeHash) || len(template.ABIRevision) != 64 || !validCodeRanges(template.Role, template.Immutables) {
 			return nil, ErrQualification
 		}
 		switch template.Kind {
-		case "", "beacon_proxy", "surface":
+		case "", valueBeaconProxy, valueSurface:
 		default:
 			return nil, ErrQualification
 		}
@@ -711,7 +725,7 @@ func newRPCQualification(ctx context.Context, client *ethclient.Client, o RPCOpt
 			if common.HexToAddress(id.Address) != e.Deployment.Address {
 				continue
 			}
-			if id != e.Identity || (e.Deployment.Role != role && !(role == "USDL" && e.Deployment.Role == "SidioraERC20")) {
+			if id != e.Identity || (e.Deployment.Role != role && (role != valueUSDL || e.Deployment.Role != valueSidioraERC20)) {
 				return nil, ErrQualification
 			}
 			matched = true
@@ -727,11 +741,11 @@ func newRPCQualification(ctx context.Context, client *ethclient.Client, o RPCOpt
 			}
 		}
 		if !matched {
-			if e.Deployment.Role == "SidioraPool" {
-				if e.Identity.Kind == "surface" {
+			if e.Deployment.Role == valueSidioraPool {
+				if e.Identity.Kind == valueSurface {
 					matchedTemplate := false
 					for _, template := range owned.Discovery {
-						if template.Role == "SidioraPool" && template.Kind == "surface" && common.HexToHash(e.Identity.RuntimeHash) == common.HexToHash(template.RuntimeHash) {
+						if template.Role == valueSidioraPool && template.Kind == valueSurface && common.HexToHash(e.Identity.RuntimeHash) == common.HexToHash(template.RuntimeHash) {
 							matchedTemplate = true
 						}
 					}
@@ -740,17 +754,17 @@ func newRPCQualification(ctx context.Context, client *ethclient.Client, o RPCOpt
 					}
 				} else {
 					beacon := owned.Manifest.Roles["PoolBeacon"]
-					if e.Identity.Kind != "beacon_proxy" || common.HexToAddress(e.Identity.BeaconAddress) != common.HexToAddress(beacon.Address) || common.HexToAddress(e.Identity.ImplementationAddress) != common.HexToAddress(beacon.ImplementationAddress) || common.HexToHash(e.Identity.ImplementationHash) != common.HexToHash(beacon.ImplementationHash) {
+					if e.Identity.Kind != valueBeaconProxy || common.HexToAddress(e.Identity.BeaconAddress) != common.HexToAddress(beacon.Address) || common.HexToAddress(e.Identity.ImplementationAddress) != common.HexToAddress(beacon.ImplementationAddress) || common.HexToHash(e.Identity.ImplementationHash) != common.HexToHash(beacon.ImplementationHash) {
 						return nil, ErrQualification
 					}
 				}
-			} else if e.Deployment.Role != "SidioraERC20" || e.Identity.Kind != "direct" {
+			} else if e.Deployment.Role != valueSidioraERC20 || e.Identity.Kind != valueDirect {
 				return nil, ErrQualification
 			}
 		}
 		deployments[i] = e.Deployment
 	}
-	for _, role := range []string{"EventEmitter", "Router", "SidioraFactory", "PoolRegistry", "ProtocolConfig", "USDL"} {
+	for _, role := range []string{valueEventEmitter, valueRouter, valueSidioraFactory, "PoolRegistry", "ProtocolConfig", valueUSDL} {
 		if !coverage[common.HexToAddress(owned.Manifest.Roles[role].Address)] {
 			return nil, ErrQualification
 		}
@@ -800,7 +814,7 @@ func newRPCQualification(ctx context.Context, client *ethclient.Client, o RPCOpt
 		}
 		seenGenerations[generation.ActivationHeight] = true
 		if _, err = a.historicalAuthority(read, generation.ActivationHeight); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("historical authority at %d: %w", generation.ActivationHeight, err)
 		}
 	}
 	return a, nil
@@ -809,20 +823,20 @@ func validRPCIdentity(i deployment.Role) bool {
 	if !common.IsHexAddress(i.Address) || common.HexToAddress(i.Address) == (common.Address{}) {
 		return false
 	}
-	if i.Kind == "precompile" {
+	if i.Kind == valuePrecompile {
 		return i.Address == deployment.LaunchpadPrecompileAddress && i.RuntimeHash == "" && i.ImplementationAddress == "" && i.ImplementationHash == "" && i.BeaconAddress == ""
 	}
 	if !rpcHash(i.RuntimeHash) {
 		return false
 	}
 	switch i.Kind {
-	case "direct", "surface":
+	case valueDirect, valueSurface:
 		return i.ImplementationAddress == "" && i.ImplementationHash == "" && i.BeaconAddress == ""
-	case "erc1967", "beacon", "beacon_proxy":
+	case valueErc1967, valueBeacon, valueBeaconProxy:
 		if !common.IsHexAddress(i.ImplementationAddress) || common.HexToAddress(i.ImplementationAddress) == (common.Address{}) || !rpcHash(i.ImplementationHash) {
 			return false
 		}
-		if i.Kind == "beacon_proxy" {
+		if i.Kind == valueBeaconProxy {
 			return common.IsHexAddress(i.BeaconAddress) && common.HexToAddress(i.BeaconAddress) != (common.Address{})
 		}
 		return true
@@ -1005,7 +1019,7 @@ func (a *RPCQualification) validateCode(ctx context.Context, e RPCCodeEpoch, blo
 }
 
 func (a *RPCQualification) validateCodeUncached(ctx context.Context, e RPCCodeEpoch, block common.Hash) (string, error) {
-	if e.Identity.Kind == "precompile" {
+	if e.Identity.Kind == valuePrecompile {
 		// A precompile has no runtime code to hash: its identity is the
 		// manifest-fixed address bound to the LaunchpadPrecompile role.
 		if !validRPCIdentity(e.Identity) || e.Deployment.Role != deployment.LaunchpadPrecompileRole || e.Deployment.Address != common.HexToAddress(deployment.LaunchpadPrecompileAddress) || e.Deployment.Address != common.HexToAddress(e.Identity.Address) {
@@ -1019,9 +1033,9 @@ func (a *RPCQualification) validateCodeUncached(ctx context.Context, e RPCCodeEp
 	}
 	var impl common.Address
 	switch e.Identity.Kind {
-	case "erc1967", "beacon_proxy":
+	case valueErc1967, valueBeaconProxy:
 		slot := deployment.ImplementationSlot
-		if e.Identity.Kind == "beacon_proxy" {
+		if e.Identity.Kind == valueBeaconProxy {
 			slot = deployment.BeaconSlot
 		}
 		raw, err := a.storageAt(ctx, e.Deployment.Address, slot, block)
@@ -1032,7 +1046,7 @@ func (a *RPCQualification) validateCodeUncached(ctx context.Context, e RPCCodeEp
 		if err != nil {
 			return "", err
 		}
-		if e.Identity.Kind == "beacon_proxy" {
+		if e.Identity.Kind == valueBeaconProxy {
 			manifest, err := a.epochManifest(e)
 			if err != nil {
 				return "", err
@@ -1050,16 +1064,16 @@ func (a *RPCQualification) validateCodeUncached(ctx context.Context, e RPCCodeEp
 				return "", err
 			}
 		}
-	case "beacon":
+	case valueBeacon:
 		impl, err = a.address(ctx, e.Deployment.Address, "implementation()", block)
 		if err != nil {
 			return "", err
 		}
-	case "direct", "surface":
+	case valueDirect, valueSurface:
 	default:
 		return "", ErrQualification
 	}
-	if e.Identity.Kind != "direct" && e.Identity.Kind != "surface" {
+	if e.Identity.Kind != valueDirect && e.Identity.Kind != valueSurface {
 		if impl != common.HexToAddress(e.Identity.ImplementationAddress) {
 			return "", ErrQualification
 		}
@@ -1095,7 +1109,7 @@ func (a *RPCQualification) codeEpochDigest(e RPCCodeEpoch) (string, error) {
 				}
 			}
 		}
-		if !configured && (e.Deployment.Role == "SidioraPool" || e.Deployment.Role == "SidioraERC20") && e.Deployment.Until != nil && e.Deployment.Until.Block == a.options.Manifest.ActivationHeight && e.Deployment.Until.Transaction == 0 && e.Deployment.Until.Log == 0 {
+		if !configured && (e.Deployment.Role == valueSidioraPool || e.Deployment.Role == valueSidioraERC20) && e.Deployment.Until != nil && e.Deployment.Until.Block == a.options.Manifest.ActivationHeight && e.Deployment.Until.Transaction == 0 && e.Deployment.Until.Log == 0 {
 			e.Deployment.Until = nil
 		}
 	}
@@ -1165,11 +1179,19 @@ func (a *RPCQualification) pinnedReceipts(ctx context.Context, block pinnedBlock
 	totalBytes := 0
 	for i, r := range receipts {
 		t := block.Transactions[i]
-		if r == nil || r.Bloom != types.CreateBloom(r) || r.BlockNumber == nil || r.BlockNumber.Cmp(header.Number) != 0 || r.BlockHash != hash || r.TxHash != t.Hash() || r.TransactionIndex != uint(i) || r.Type != t.Type() || (r.Status != 0 && r.Status != 1) || len(r.Logs) > 4096 {
+		iUint, conversionErr := checked.Convert[uint](i)
+		if conversionErr != nil {
+			return pinnedBlock{}, nil, conversionErr
+		}
+		if r == nil || r.Bloom != types.CreateBloom(r) || r.BlockNumber == nil || r.BlockNumber.Cmp(header.Number) != 0 || r.BlockHash != hash || r.TxHash != t.Hash() || r.TransactionIndex != iUint || r.Type != t.Type() || (r.Status != 0 && r.Status != 1) || len(r.Logs) > 4096 {
 			return pinnedBlock{}, nil, ErrQualification
 		}
 		for _, l := range r.Logs {
-			if l == nil || l.Removed || l.BlockHash != hash || l.BlockNumber != number || l.TxHash != t.Hash() || l.TxIndex != uint(i) || l.Index != logIndex || logIndex > math.MaxUint32 || len(l.Topics) > 4 || len(l.Data) > decode.MaxFieldBytes {
+			iUint2, conversionErr := checked.Convert[uint](i)
+			if conversionErr != nil {
+				return pinnedBlock{}, nil, conversionErr
+			}
+			if l == nil || l.Removed || l.BlockHash != hash || l.BlockNumber != number || l.TxHash != t.Hash() || l.TxIndex != iUint2 || l.Index != logIndex || logIndex > math.MaxUint32 || len(l.Topics) > 4 || len(l.Data) > decode.MaxFieldBytes {
 				return pinnedBlock{}, nil, ErrQualification
 			}
 			totalBytes += 256 + len(l.Data) + 32*len(l.Topics)
@@ -1206,7 +1228,11 @@ func (a *RPCQualification) Bundle(ctx context.Context, hash common.Hash) (Bundle
 	if err != nil {
 		return Bundle{}, err
 	}
-	if r.TransactionIndex >= uint(len(receipts)) || !receiptEqual(r, receipts[r.TransactionIndex]) || block.Transactions[r.TransactionIndex].Hash() != hash {
+	lenReceiptsUint2, conversionErr := checked.Convert[uint](len(receipts))
+	if conversionErr != nil {
+		return Bundle{}, conversionErr
+	}
+	if r.TransactionIndex >= lenReceiptsUint2 || !receiptEqual(r, receipts[r.TransactionIndex]) || block.Transactions[r.TransactionIndex].Hash() != hash {
 		return Bundle{}, ErrQualification
 	}
 	b := Bundle{Receipt: receipts[r.TransactionIndex], Transaction: block.Transactions[r.TransactionIndex], Header: block.Header, BlockHash: block.Hash, PrepayReceipts: []*types.Receipt{}}
@@ -1237,7 +1263,11 @@ func (a *RPCQualification) ValidateReceipt(ctx context.Context, b Bundle) error 
 		return ErrQualification
 	}
 	index := b.Receipt.TransactionIndex
-	if index >= uint(len(receipts)) || block.Transactions[index].Hash() != b.Transaction.Hash() || !receiptEqual(receipts[index], b.Receipt) {
+	lenReceiptsUint3, conversionErr := checked.Convert[uint](len(receipts))
+	if conversionErr != nil {
+		return conversionErr
+	}
+	if index >= lenReceiptsUint3 || block.Transactions[index].Hash() != b.Transaction.Hash() || !receiptEqual(receipts[index], b.Receipt) {
 		return ErrQualification
 	}
 	for _, r := range b.PrepayReceipts {
@@ -1248,7 +1278,11 @@ func (a *RPCQualification) ValidateReceipt(ctx context.Context, b Bundle) error 
 		if err != nil {
 			return err
 		}
-		if r.TransactionIndex >= uint(len(prior)) || !receiptEqual(r, prior[r.TransactionIndex]) {
+		lenPriorUint, conversionErr := checked.Convert[uint](len(prior))
+		if conversionErr != nil {
+			return conversionErr
+		}
+		if r.TransactionIndex >= lenPriorUint || !receiptEqual(r, prior[r.TransactionIndex]) {
 			return ErrQualification
 		}
 	}
@@ -1288,7 +1322,7 @@ func (a *RPCQualification) StableMetadata(ctx context.Context, pool common.Addre
 	}
 	order := decode.Order{Block: header.Number.Uint64(), Transaction: ^uint(0), Log: ^uint(0)}
 	pe, err := a.epoch(pool, order)
-	if err != nil || pe.Deployment.Role != "SidioraPool" {
+	if err != nil || pe.Deployment.Role != valueSidioraPool {
 		return out, ErrQualification
 	}
 	manifest, err := a.epochManifest(pe)
@@ -1304,20 +1338,20 @@ func (a *RPCQualification) StableMetadata(ctx context.Context, pool common.Addre
 		return out, err
 	}
 	settlement, err := a.address(read, pool, "usdlAddress()", hash)
-	if err != nil || settlement != common.HexToAddress(manifest.Roles["USDL"].Address) {
+	if err != nil || settlement != common.HexToAddress(manifest.Roles[valueUSDL].Address) {
 		return out, ErrQualification
 	}
 	emitter, err := a.address(read, pool, "eventEmitter()", hash)
-	if err != nil || emitter != common.HexToAddress(manifest.Roles["EventEmitter"].Address) {
+	if err != nil || emitter != common.HexToAddress(manifest.Roles[valueEventEmitter].Address) {
 		return out, fmt.Errorf("%w: configured pool emitter %s: %v", ErrQualification, emitter, err)
 	}
-	if pe.Identity.Kind == "surface" {
+	if pe.Identity.Kind == valueSurface {
 		// The attested native pool surface executes in the launchpad
 		// precompile, which emits Swap at its own address. The market still
 		// retains its configured EventEmitter binding, but that retired
 		// contract does not issue native economic events and may have no code.
 		native, approved := manifest.Roles[deployment.LaunchpadPrecompileRole]
-		if !approved || native.Kind != "precompile" || native.Address != deployment.LaunchpadPrecompileAddress {
+		if !approved || native.Kind != valuePrecompile || native.Address != deployment.LaunchpadPrecompileAddress {
 			return out, ErrQualification
 		}
 		emitter = common.HexToAddress(native.Address)
@@ -1335,7 +1369,7 @@ func (a *RPCQualification) StableMetadata(ctx context.Context, pool common.Addre
 		if err != nil {
 			return out, fmt.Errorf("%w: metadata epoch for %s: %v", ErrQualification, address, err)
 		}
-		if address == emitter && pe.Identity.Kind == "surface" {
+		if address == emitter && pe.Identity.Kind == valueSurface {
 			if e.Deployment.Role != deployment.LaunchpadPrecompileRole || e.Identity != manifest.Roles[deployment.LaunchpadPrecompileRole] {
 				return out, fmt.Errorf("%w: native emitter epoch differs from approved precompile identity", ErrQualification)
 			}
@@ -1376,7 +1410,11 @@ func (a *RPCQualification) StableMetadata(ctx context.Context, pool common.Addre
 	if err != nil {
 		return out, err
 	}
-	return StablePoolMetadata{Pool: pool, Token: token, Settlement: settlement, TokenDecimals: uint8(new(big.Int).SetBytes(td).Uint64()), SettlementDecimals: 6, DeploymentID: sourceManifest.DeploymentVersion, ABIRevision: revision, EmitterCodeEpoch: emitterEpoch, PoolCodeEpoch: poolEpoch, BlockHash: hash}, nil
+	tdUint64Uint8, conversionErr := checked.Convert[uint8](new(big.Int).SetBytes(td).Uint64())
+	if conversionErr != nil {
+		return StablePoolMetadata{}, conversionErr
+	}
+	return StablePoolMetadata{Pool: pool, Token: token, Settlement: settlement, TokenDecimals: tdUint64Uint8, SettlementDecimals: 6, DeploymentID: sourceManifest.DeploymentVersion, ABIRevision: revision, EmitterCodeEpoch: emitterEpoch, PoolCodeEpoch: poolEpoch, BlockHash: hash}, nil
 }
 func (a *RPCQualification) SourceProvenance(ctx context.Context, b Bundle, address common.Address) (accounting.Provenance, error) {
 	var out accounting.Provenance
@@ -1407,7 +1445,7 @@ func (a *RPCQualification) SourceProvenance(ctx context.Context, b Bundle, addre
 	if err != nil {
 		return out, err
 	}
-	hd, err := digest(b.Header)
+	hd, err := provenanceHeaderDigest(b.Header)
 	if err != nil {
 		return out, err
 	}
@@ -1416,10 +1454,10 @@ func (a *RPCQualification) SourceProvenance(ctx context.Context, b Bundle, addre
 		return out, err
 	}
 	out = accounting.Provenance{DeploymentID: manifest.DeploymentVersion, ABIRevision: e.Deployment.ABIRevision, EmitterCodeEpoch: ep, ReceiptSHA256: hex.EncodeToString(rd[:]), HeaderSHA256: hex.EncodeToString(hd[:])}
-	if e.Deployment.Role == "SidioraPool" {
+	if e.Deployment.Role == valueSidioraPool {
 		out.PoolCodeEpoch = ep
 	}
-	if e.Deployment.Role == "SidioraFactory" {
+	if e.Deployment.Role == valueSidioraFactory {
 		pools := map[common.Address]bool{}
 		for _, l := range b.Receipt.Logs {
 			if l.Address != address {
@@ -1429,7 +1467,7 @@ func (a *RPCQualification) SourceProvenance(ctx context.Context, b Bundle, addre
 			if err != nil {
 				return out, err
 			}
-			if env.Status != "decoded" || env.EventName != "MarketCreated" || env.Event == nil || env.Family == nil || env.Family.Authority != "native" {
+			if env.Status != valueDecoded || env.EventName != valueMarketCreated || env.Event == nil || env.Family == nil || env.Family.Authority != valueNative {
 				continue
 			}
 			value, ok := env.Event.Args["pool"].(string)
@@ -1451,7 +1489,7 @@ func (a *RPCQualification) SourceProvenance(ctx context.Context, b Bundle, addre
 	return out, nil
 }
 func (a *RPCQualification) ExecutionPolicy(ctx context.Context, b Bundle, index uint32) (accounting.ExecutionPolicy, error) {
-	unavailable := accounting.ExecutionPolicy{Quality: "unavailable", Evidence: []accounting.EvidenceRef{}}
+	unavailable := accounting.ExecutionPolicy{Quality: valueUnavailable, Evidence: []accounting.EvidenceRef{}}
 	if err := a.ValidateReceipt(ctx, b); err != nil {
 		return unavailable, err
 	}
@@ -1464,7 +1502,11 @@ func (a *RPCQualification) ExecutionPolicy(ctx context.Context, b Bundle, index 
 		}
 		if env.Family != nil && env.Family.EconomicFill {
 			fills++
-			if uint32(l.Index) == index {
+			lIndexUint32, conversionErr := checked.Convert[uint32](l.Index)
+			if conversionErr != nil {
+				return accounting.ExecutionPolicy{}, conversionErr
+			}
+			if lIndexUint32 == index {
 				selected = env
 			}
 		}
@@ -1477,7 +1519,7 @@ func (a *RPCQualification) ExecutionPolicy(ctx context.Context, b Bundle, index 
 	}
 	data := b.Transaction.Data()
 	to := b.Transaction.To()
-	if to == nil || *to != common.HexToAddress(a.options.Manifest.Roles["Router"].Address) || len(data) != 132 || (!bytes.Equal(data[:4], crypto.Keccak256([]byte("buy(address,uint256,uint256,uint256)"))[:4]) && !bytes.Equal(data[:4], crypto.Keccak256([]byte("sell(address,uint256,uint256,uint256)"))[:4])) {
+	if to == nil || *to != common.HexToAddress(a.options.Manifest.Roles[valueRouter].Address) || len(data) != 132 || (!bytes.Equal(data[:4], crypto.Keccak256([]byte("buy(address,uint256,uint256,uint256)"))[:4]) && !bytes.Equal(data[:4], crypto.Keccak256([]byte("sell(address,uint256,uint256,uint256)"))[:4])) {
 		return unavailable, nil
 	}
 	poolID, ok := selected.Event.Args["poolId"].(string)
@@ -1562,7 +1604,10 @@ func (a *RPCQualification) ExecutionPolicy(ctx context.Context, b Bundle, index 
 	preDigest := accounting.Digest(hex.EncodeToString(preHash[:]))
 	replayDigest := accounting.Digest(hex.EncodeToString(replayHash[:]))
 	zero := strings.ToLower(optical.Hex())
-	bps := uint16(fee)
+	bps, conversionErr := checked.Convert[uint16](fee)
+	if conversionErr != nil {
+		return accounting.ExecutionPolicy{}, conversionErr
+	}
 	return accounting.ExecutionPolicy{Quality: "qualified_execution", FeeBPS: &bps, ConfigDigest: &configDigest, PreTransactionStateDigest: &preDigest, ReplayEvidenceDigest: &replayDigest, OpticalImplementation: &zero, Evidence: []accounting.EvidenceRef{{Kind: "first-transaction-constant-fee-nohook", ArtifactSHA256: string(replayDigest), ArtifactID: strings.ToLower(b.Transaction.Hash().Hex())}}}, nil
 }
 func rawRecord(l *types.Log) store.RawRecord {
@@ -1570,24 +1615,21 @@ func rawRecord(l *types.Log) store.RawRecord {
 	for i, t := range l.Topics {
 		topics[i] = strings.ToLower(t.Hex())
 	}
-	return store.RawRecord{TransactionHash: strings.ToLower(l.TxHash.Hex()), BlockHash: strings.ToLower(l.BlockHash.Hex()), Emitter: strings.ToLower(l.Address.Hex()), Height: int64(l.BlockNumber), TransactionIndex: uint32(l.TxIndex), LogIndex: uint32(l.Index), Topics: topics, Data: append([]byte{}, l.Data...)}
+	return store.RawRecord{TransactionHash: strings.ToLower(l.TxHash.Hex()), BlockHash: strings.ToLower(l.BlockHash.Hex()), Emitter: strings.ToLower(l.Address.Hex()), Height: int64(l.BlockNumber), TransactionIndex: uint32(l.TxIndex), LogIndex: uint32(l.Index), Topics: topics, Data: append([]byte{}, l.Data...)} //nolint:gosec // chain value uses the existing signed storage representation
 }
 func (a *RPCQualification) discover(ctx context.Context, receipts types.Receipts) (*RPCQualification, error) {
-	owned, err := clone(a.options)
-	if err != nil {
-		return nil, err
-	}
+	owned := a.options
 	changed := false
 	for _, r := range receipts {
 		for _, l := range r.Logs {
-			if l.Address != common.HexToAddress(owned.Manifest.Roles["SidioraFactory"].Address) {
+			if l.Address != common.HexToAddress(owned.Manifest.Roles[valueSidioraFactory].Address) {
 				continue
 			}
 			env, err := a.registry.Decode(*l)
 			if err != nil {
 				return nil, err
 			}
-			if env.Status != "decoded" || env.EventName != "MarketCreated" || env.EmitterRole != "SidioraFactory" || env.Event == nil || env.Family == nil || env.Family.Authority != "native" {
+			if env.Status != valueDecoded || env.EventName != valueMarketCreated || env.EmitterRole != valueSidioraFactory || env.Event == nil || env.Family == nil || env.Family.Authority != valueNative {
 				continue
 			}
 			factory, err := a.epoch(l.Address, decode.Order{Block: l.BlockNumber, Transaction: l.TxIndex, Log: l.Index})
@@ -1597,7 +1639,7 @@ func (a *RPCQualification) discover(ctx context.Context, receipts types.Receipts
 			if _, err = a.validateCode(ctx, factory, l.BlockHash); err != nil {
 				return nil, err
 			}
-			for _, item := range []struct{ Key, Role string }{{"token", "SidioraERC20"}, {"pool", "SidioraPool"}} {
+			for _, item := range []struct{ Key, Role string }{{"token", valueSidioraERC20}, {"pool", valueSidioraPool}} {
 				value, ok := env.Event.Args[item.Key].(string)
 				if !ok || !common.IsHexAddress(value) {
 					return nil, ErrQualification
@@ -1620,7 +1662,7 @@ func (a *RPCQualification) discover(ctx context.Context, receipts types.Receipts
 				if _, err = a.validateCode(ctx, e, l.BlockHash); err != nil {
 					return nil, err
 				}
-				if item.Role == "SidioraERC20" {
+				if item.Role == valueSidioraERC20 {
 					source, err := a.address(ctx, address, "deploymentFactory()", l.BlockHash)
 					if err != nil || source != l.Address {
 						return nil, ErrQualification
@@ -1628,6 +1670,12 @@ func (a *RPCQualification) discover(ctx context.Context, receipts types.Receipts
 				}
 				if len(owned.Epochs) >= 4096 {
 					return nil, ErrQualification
+				}
+				if !changed {
+					owned, err = clone(a.options)
+					if err != nil {
+						return nil, err
+					}
 				}
 				owned.Epochs = append(owned.Epochs, e)
 				changed = true
@@ -1676,7 +1724,12 @@ func (a *RPCQualification) pinRange(ctx context.Context, from, to uint64, gate b
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			if pinned, ok := a.reads.takeAhead(ctx, from+uint64(i)); ok {
+			offset, err := checked.Convert[uint64](i)
+			if err != nil {
+				errs[i] = err
+				return
+			}
+			if pinned, ok := a.reads.takeAhead(ctx, from+offset); ok {
 				if !pinned.skipped {
 					a.reads.storeBlock(pinned.block.Hash, cachedBlock{pinned.block, pinned.receipts})
 				}
@@ -1692,7 +1745,7 @@ func (a *RPCQualification) pinRange(ctx context.Context, from, to uint64, gate b
 			defer func() { <-slots }()
 			read, cancel := context.WithTimeout(ctx, a.options.Timeout)
 			defer cancel()
-			block, receipts, skipped, err := a.pinnedBlockAtHeight(read, from+uint64(i), gate)
+			block, receipts, skipped, err := a.pinnedBlockAtHeight(read, from+offset, gate)
 			if err != nil {
 				errs[i] = err
 				return
@@ -1715,7 +1768,11 @@ func (a *RPCQualification) pinRange(ctx context.Context, from, to uint64, gate b
 func (a *RPCQualification) sourceBlocks(ctx context.Context, from, to uint64) (store.CanonicalBatch, *RPCQualification, error) {
 	a.sourceMu.Lock()
 	defer a.sourceMu.Unlock()
-	b := store.CanonicalBatch{ChainID: 125, PreviousHeight: int64(from) - 1, Blocks: []store.BlockCompleteness{}, Records: []store.RawRecord{}}
+	fromInt64, conversionErr := checked.Convert[int64](from)
+	if conversionErr != nil {
+		return store.CanonicalBatch{}, nil, conversionErr
+	}
+	b := store.CanonicalBatch{ChainID: 125, PreviousHeight: fromInt64 - 1, Blocks: []store.BlockCompleteness{}, Records: []store.RawRecord{}}
 	if from < a.options.Manifest.ActivationHeight || to < from || to > math.MaxInt64 || to-from >= 64 {
 		return b, nil, ErrBinding
 	}
@@ -1785,7 +1842,12 @@ func (a *RPCQualification) sourceBlocks(ctx context.Context, from, to uint64) (s
 				}
 			}
 		}
-		b.Blocks = append(b.Blocks, store.BlockCompleteness{Height: int64(height), Hash: strings.ToLower(block.Hash.Hex()), RawCount: count, FetchComplete: true, RequiredDecodeComplete: true})
+		heightInt64, conversionErr := checked.Convert[int64](height)
+		if conversionErr != nil {
+			cancel()
+			return b, nil, conversionErr
+		}
+		b.Blocks = append(b.Blocks, store.BlockCompleteness{Height: heightInt64, Hash: strings.ToLower(block.Hash.Hex()), RawCount: count, FetchComplete: true, RequiredDecodeComplete: true})
 		prior = block.Hash
 		cancel()
 	}
@@ -1848,7 +1910,15 @@ func (a *RPCQualification) QualifiedBatch(ctx context.Context, b store.Canonical
 	if b.ChainID != 125 || len(b.Records) > 65536 || len(b.Blocks) == 0 || len(b.Blocks) > 64 || b.Blocks[0].Height < 0 || b.Blocks[len(b.Blocks)-1].Height < 0 {
 		return nil, ErrBinding
 	}
-	expected, authority, err := a.sourceBlocks(ctx, uint64(b.Blocks[0].Height), uint64(b.Blocks[len(b.Blocks)-1].Height))
+	firstHeightUint, conversionErr := checked.Convert[uint64](b.Blocks[0].Height)
+	if conversionErr != nil {
+		return nil, conversionErr
+	}
+	lastHeightUint, conversionErr := checked.Convert[uint64](b.Blocks[len(b.Blocks)-1].Height)
+	if conversionErr != nil {
+		return nil, conversionErr
+	}
+	expected, authority, err := a.sourceBlocks(ctx, firstHeightUint, lastHeightUint)
 	if err != nil {
 		return nil, err
 	}
@@ -1862,10 +1932,18 @@ func (a *RPCQualification) QualifiedBatch(ctx context.Context, b store.Canonical
 	}
 	byPosition := map[string]store.RawRecord{}
 	for _, raw := range expected.Records {
-		byPosition[raw.TransactionHash+":"+strconv.FormatUint(uint64(raw.LogIndex), 10)] = raw
+		rawLogIndexUint64, conversionErr := checked.Convert[uint64](raw.LogIndex)
+		if conversionErr != nil {
+			return nil, conversionErr
+		}
+		byPosition[raw.TransactionHash+":"+strconv.FormatUint(rawLogIndexUint64, 10)] = raw
 	}
 	for _, raw := range b.Records {
-		key := raw.TransactionHash + ":" + strconv.FormatUint(uint64(raw.LogIndex), 10)
+		rawLogIndexUint642, conversionErr := checked.Convert[uint64](raw.LogIndex)
+		if conversionErr != nil {
+			return nil, conversionErr
+		}
+		key := raw.TransactionHash + ":" + strconv.FormatUint(rawLogIndexUint642, 10)
 		want, ok := byPosition[key]
 		if !ok {
 			return nil, ErrBinding

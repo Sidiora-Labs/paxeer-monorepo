@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -39,6 +40,7 @@ func platformMetrics(st *store.Store, rdb *goredis.Client) http.HandlerFunc {
 		}
 		m, err := st.PlatformMetrics(ctx, shareddb.NowSeconds())
 		if err != nil {
+			slog.ErrorContext(ctx, "platform metrics failed", "error", err)
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "platform metrics failed")
 			return
 		}

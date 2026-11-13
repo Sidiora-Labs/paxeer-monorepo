@@ -1,9 +1,9 @@
 //! Startup and reconnection readiness for the node JSON-RPC connection.
 //!
-//! The maintained contract is `contracts/agent-config.md`: Gate::readiness_gate(&NodeRpc)
-//! returns ReadinessStatus, closes writes before every refresh, and increments its
+//! The maintained contract is `contracts/agent-config.md`: `Gate::readiness_gate(&NodeRpc)`
+//! returns `ReadinessStatus`, closes writes before every refresh, and increments its
 //! process-local generation only after fresh keys pass the protected key policy.
-//! Chain-id mismatches are refused by NodeRpc::connect before a Gate sees the connection.
+//! Chain-id mismatches are refused by `NodeRpc::connect` before a Gate sees the connection.
 
 use layerx_client::sequencer::ReceiptKeyEntry;
 
@@ -30,6 +30,9 @@ pub struct InferenceBootGate {
 }
 
 impl InferenceBootGate {
+    /// # Errors
+    /// Returns an error if inference availability is invalid or degraded, the required feature is
+    /// unavailable, or the deal is not admitted.
     pub fn require_f11(components: &serde_json::Value) -> Result<(), InferenceBootError> {
         let components = components
             .as_object()
@@ -40,6 +43,9 @@ impl InferenceBootGate {
         }
     }
 
+    /// # Errors
+    /// Returns an error if inference availability is invalid or degraded, the required feature is
+    /// unavailable, or the deal is not admitted.
     pub fn ready(
         &mut self,
         reference: crate::degraded::Reference,
@@ -67,10 +73,14 @@ impl InferenceBootGate {
         );
     }
 
+    #[must_use]
     pub fn status(&self) -> crate::degraded::Status {
         self.controller.status()
     }
 
+    /// # Errors
+    /// Returns an error if inference availability is invalid or degraded, the required feature is
+    /// unavailable, or the deal is not admitted.
     pub fn admit_deal<T, E>(
         &mut self,
         deal: [u8; 32],
@@ -89,6 +99,9 @@ impl InferenceBootGate {
         Ok(result)
     }
 
+    /// # Errors
+    /// Returns an error if inference availability is invalid or degraded, the required feature is
+    /// unavailable, or the deal is not admitted.
     pub fn serve_deal<T>(
         &self,
         deal: &[u8; 32],
@@ -100,6 +113,9 @@ impl InferenceBootGate {
         Ok(self.controller.serve_open_inference_deal(operation))
     }
 
+    /// # Errors
+    /// Returns an error if inference availability is invalid or degraded, the required feature is
+    /// unavailable, or the deal is not admitted.
     pub fn close_deal(&mut self, deal: &[u8; 32]) -> Result<(), InferenceBootError> {
         if self.open_deals.remove(deal) {
             Ok(())

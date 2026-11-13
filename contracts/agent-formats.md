@@ -39,12 +39,25 @@ JSON consensus integers use canonical decimal strings, without signs, padding
 or whitespace. Fixed identifiers are lowercase hexadecimal with exact widths.
 Do not convert u64/u128 quantities through floating-point numbers.
 
-Native activity records retain `protocol_version`, `module` and `ordinal`.
+The JSON `NativeActivityV1` record retains `version`, `module` and `ordinal`
+as decimal strings; its version identifies the native protocol.
 Native purpose, signature and local-grant records are closed versioned objects;
 their canonical encodings are declared in `v1.kvx` and implemented in
 [identity.rs](../services/agent/crates/layerx-agent-api/src/identity.rs).
 A structurally valid signature carrier does not establish signing authority:
 the runtime must verify the actual signer, current ownership, expiry and session.
+
+### Send consent
+
+The `native_send_v1` preparation profile carries `SignedNativeSendPurposeV2`.
+Its purpose binds the stable owner DID, current Ed25519 `consent_public_key`,
+independently recovered `evm_sender`, transaction type 2 and chain ID 125,
+along with the tenant, agent, session, capability, expiry and exact preparation
+commitments. The consent signature covers SHA-256 of the canonical purpose
+bytes under the NUL-terminated `LayerX/native/send-purpose/v2` domain. The
+EIP-1559 transaction signature is checked separately; neither signing key is
+derived from the DID. The purpose codec is in
+[native_send.rs](../services/agent/crates/layerx-agent-api/src/native_send.rs).
 
 ## Agent API response
 
@@ -74,8 +87,8 @@ Exact overrides and the executable/library distinction are described under
 ## Agentd store
 
 [`Store`](../services/agent/crates/layerx-agentd/src/store/mod.rs) persists
-`store.bin`, with magic `LXAS` and current schema version **3**. Forward migration
-supports versions 1 through 3 and refuses newer schemas. Every `TenantKey`
+`store.bin`, with magic `LXAS` and current schema version **4**. Forward migration
+supports versions 1 through 4 and refuses newer schemas. Every `TenantKey`
 contains tenant, object kind and opaque ID; canonical key bytes use a big-endian
 u16 tenant length, UTF-8 tenant, u8 kind, big-endian u32 ID length and ID bytes.
 Never recover a record by dropping its tenant coordinate.
@@ -118,19 +131,15 @@ ordinary frame. The decoder rejects trailing data. Authentication comes from
 the Unix peer UID, not from these bytes. See the
 [selector table](agent-human-peer.md#selectors).
 
-## LNI frame
+## Node JSON-RPC
 
-This anchor is retained for obsolete registry links. The pre-merge LNI frame
-schema is removed from the current agent tree. Active node communication uses
-[JSON-RPC clients](agent-rust-api.md#client); the local
-[Human peer frame](#human-peer-frame) is a different transport and format.
-
-## LNI capabilities
-
-The pre-merge LNI capability list is retired with that schema. Do not infer
-method availability from its historical capability names. Agent operations use
-the current [catalogue](agent-api.md#operation-catalogue), and hosted `px_`
-methods use the gateway's [OpenRPC document](../services/platform/hosted/gateway/openrpc.json).
+Node writes submit exact signed EIP-1559 bytes with `eth_sendRawTransaction`.
+Read precompile views with `eth_call`, and native state with gRPC queries and
+ICS23 proofs pinned to a committed block height. Offline evidence binds chain
+ID 125, the committed header and the validator set at that height. See the
+[JSON-RPC client](agent-rust-api.md#client) and the current
+[operation catalogue](agent-api.md#operation-catalogue). The local
+[Human peer frame](#human-peer-frame) has its own codec and authentication.
 
 ## MCP binding document
 
@@ -237,6 +246,7 @@ attempt count u32be and next-attempt time u64be. Times are milliseconds. The
 tenant-scoped configuration key includes the submission ID. `LXUR` is retired
 and refused as `unknown.state_version`; corrupt/current-hash mismatches are
 `unknown.state_corrupt`. Receipt lookup, nonce observations and exact-byte
-resend remain distinct observations. Backoff starts at 1 second and caps at
-60 seconds, including deterministic jitter. A missing receipt or unavailable
-lookup does not prove execution failure.
+resend remain distinct observations. The backoff base starts at 1 second and
+doubles with each attempt, up to 60 seconds. Deterministic jitter adds between
+zero and one quarter of the base; the total delay is capped at 60 seconds.
+A missing receipt or unavailable lookup does not prove execution failure.

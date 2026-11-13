@@ -837,22 +837,19 @@ fn event_identity(tenant: &TenantId, event: &CoreEvent) -> Result<EventIdentity,
     hasher.update((tenant.as_str().len() as u64).to_be_bytes());
     hasher.update(tenant.as_str().as_bytes());
     let log = event.log()?;
-    match log.transaction_hash {
-        Some(transaction_hash) => {
-            hasher.update(b"transaction-log");
-            hasher.update(log.block_height.to_be_bytes());
-            hasher.update(transaction_hash);
-            hasher.update(log.log_index.to_be_bytes());
-        }
-        None => {
-            // Ingestion admits hashless transactions only with a block
-            // hash and refuses replacement of their canonical log bytes.
-            hasher.update(b"block-log");
-            hasher.update(log.block_hash.ok_or(DeliveryError::InvalidEvent)?);
-            hasher.update(log.block_height.to_be_bytes());
-            hasher.update(log.tx_index.to_be_bytes());
-            hasher.update(log.log_index.to_be_bytes());
-        }
+    if let Some(transaction_hash) = log.transaction_hash {
+        hasher.update(b"transaction-log");
+        hasher.update(log.block_height.to_be_bytes());
+        hasher.update(transaction_hash);
+        hasher.update(log.log_index.to_be_bytes());
+    } else {
+        // Ingestion admits hashless transactions only with a block
+        // hash and refuses replacement of their canonical log bytes.
+        hasher.update(b"block-log");
+        hasher.update(log.block_hash.ok_or(DeliveryError::InvalidEvent)?);
+        hasher.update(log.block_height.to_be_bytes());
+        hasher.update(log.tx_index.to_be_bytes());
+        hasher.update(log.log_index.to_be_bytes());
     }
     Ok(EventIdentity::new(hasher.finalize().into()))
 }

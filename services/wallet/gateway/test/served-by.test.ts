@@ -1,3 +1,4 @@
+import { TestChain } from './support/chain.js';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { generateKeyPairSync, randomBytes, randomUUID, sign } from 'node:crypto';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -191,12 +192,9 @@ describe('sponsorship identity boundary', () => {
     });
     expect(response.statusCode).toBe(200);
     expect(response.json().wallet).toMatchObject(wallet);
-    const { rows } = await poolModule
-      .getPool()
-      .query<{ count: string }>(
-        "select count(*)::text as count from wallets where user_id = $1 and kind = 'standard'",
-        [userId]
-      );
+    const { rows } = await poolModule.getPool().query<{
+      count: string;
+    }>("select count(*)::text as count from wallets where user_id = $1 and kind = 'standard'", [userId]);
     expect(rows).toEqual([{ count: '1' }]);
   });
 
@@ -275,6 +273,7 @@ let gatewayBase: string;
 let gatewayEnv: NodeJS.ProcessEnv;
 const children: Array<{ process: ChildProcess; logs: string[] }> = [];
 let gatewayLogs: string[];
+const entryChain = new TestChain(125, 'evm');
 
 function launch(command: string, args: string[], env: NodeJS.ProcessEnv) {
   const process = spawn(command, args, {
@@ -366,12 +365,8 @@ beforeAll(async () => {
         })
     )
   );
-  const rpcUrl = `http://127.0.0.1:${ports[10]}`;
-  launch(
-    process.env.ANVIL_BIN ?? 'anvil',
-    ['--host', '127.0.0.1', '--port', String(ports[10]), '--chain-id', '125', '--silent'],
-    process.env
-  );
+  await entryChain.start();
+  const rpcUrl = entryChain.url;
   const bin = buildAttestor(work);
   for (const [i, id] of ids.entries()) {
     const nodeKey = join(work, `${id}.key`);
@@ -472,6 +467,7 @@ async function stopGatewayEntry() {
     await exited;
     clearTimeout(timer);
   }
+  await entryChain.stop();
   if (work) rmSync(work, { recursive: true, force: true });
   if (pki) rmSync(pki.dir, { recursive: true, force: true });
 }

@@ -38,11 +38,12 @@ fn frame_ranges(bytes: &[u8]) -> Vec<std::ops::Range<usize>> {
     let mut offset = HEADER_BYTES;
     while offset < bytes.len() {
         let length_offset = offset + 4 + 8 + 32;
-        let length = u32::from_be_bytes(
+        let length = usize::try_from(u32::from_be_bytes(
             bytes[length_offset..length_offset + 4]
                 .try_into()
                 .unwrap_or_else(|_| panic!("payload length")),
-        ) as usize;
+        ))
+        .unwrap_or_else(|error| panic!("encoded length: {error}"));
         let end = offset + FRAME_FIXED_BYTES + length;
         ranges.push(offset..end);
         offset = end;

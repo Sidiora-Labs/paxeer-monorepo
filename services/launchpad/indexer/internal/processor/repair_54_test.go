@@ -397,7 +397,7 @@ func repair54ReceiptInputs(t *testing.T) runtimedocs.Inputs {
 	if !ok {
 		t.Fatal("historical deployment is not approved")
 	}
-	reviewed, err := os.ReadFile(filepath.Join(repositoryRoot(), "sdk/launchpad/protocol/catalog/reviewed.json"))
+	reviewed, err := os.ReadFile(filepath.Join(repositoryRoot(), "sdk/launchpad/protocol/catalog/history/reviewed-a35ff7c6f532d2f9.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1076,6 +1076,26 @@ func (db *repair54MemoryDB) Exec(ctx context.Context, sql string, args ...any) (
 		db.table("delivery_partition_producers")[key] = append([]any(nil), args[3:]...)
 		return pgconn.NewCommandTag("UPDATE 1"), nil
 	}
+	if strings.HasPrefix(sql, `UPDATE indexer.pools p SET home_chain=c.chain FROM indexer.launched_chains c WHERE`) {
+		if len(args) != 1 {
+			return pgconn.CommandTag{}, store.ErrIntegrity
+		}
+		updated := int64(0)
+		for key, pool := range db.table("pools") {
+			if pool[0] != args[0] {
+				continue
+			}
+			for _, chain := range db.table("launched_chains") {
+				if strings.EqualFold(pool[0].(string), chain[2].(string)) && strings.EqualFold(pool[1].(string), chain[3].(string)) && (pool[9] == int64(0) || pool[9] == chain[0]) {
+					pool[9] = chain[0]
+					db.table("pools")[key] = pool
+					updated++
+					break
+				}
+			}
+		}
+		return pgconn.NewCommandTag(fmt.Sprintf("UPDATE %d", updated)), nil
+	}
 	match := repair54InsertTable.FindStringSubmatch(sql)
 	if len(match) != 2 {
 		return pgconn.CommandTag{}, fmt.Errorf("unsupported in-memory Exec: %s", sql)
@@ -1083,7 +1103,18 @@ func (db *repair54MemoryDB) Exec(ctx context.Context, sql string, args ...any) (
 	table := match[1]
 	key := repair54Key(args[0])
 	switch table {
-	case "pools", "swaps", "pool_state_snapshots", "fee_distributions", "fee_events", "fee_strategy_changes", "airdrop_claims", "optical_executions", "token_for_token_swaps", "config_updates", "indexer_canonical_creations", "indexer_accounting_fills", "delivery_outbox":
+	case "pools":
+		if len(args) != 9 {
+			return pgconn.CommandTag{}, store.ErrIntegrity
+		}
+		if prior, ok := db.table(table)[key]; ok {
+			if !reflect.DeepEqual(prior[:9], args) {
+				return pgconn.CommandTag{}, store.ErrIntegrity
+			}
+			return pgconn.NewCommandTag("INSERT 0 0"), nil
+		}
+		args = append(args, int64(0))
+	case "swaps", "pool_state_snapshots", "fee_distributions", "fee_events", "fee_strategy_changes", "airdrop_claims", "optical_executions", "token_for_token_swaps", "config_updates", "indexer_canonical_creations", "indexer_accounting_fills", "delivery_outbox":
 	case "indexer_token_transfers":
 		key = repair54Key(args[0], args[1])
 	case "delivery_partition_producers":
@@ -1102,6 +1133,54 @@ func (db *repair54MemoryDB) Exec(ctx context.Context, sql string, args ...any) (
 		db.state.deliveryCreated[key] = time.Now()
 	}
 	return tag, err
+}
+
+func TestRepair_54_PoolHomeChainFromLaunchedChain(t *testing.T) {
+	ctx := context.Background()
+	memory := repair54NewMemoryStore(t, 0, "home-chain")
+	pool := "0x0000000000000000000000000000000000000054"
+	token := "0x0000000000000000000000000000000000000055"
+	params := sqlcdb.InsertPoolParams{PoolAddress: pool, TokenAddress: token, Creator: pool, Optical: pool, PoolID: "pool-54", CreatedAt: 1, CreatedBlock: 1, TxHash: "0x54"}
+	insert := func() {
+		t.Helper()
+		if err := memory.Store.InsertPool(ctx, params); err != nil {
+			t.Fatal(err)
+		}
+	}
+	check := func(want int64) {
+		t.Helper()
+		row, err := sqlcdb.New(memory.db).GetPoolByAddress(ctx, pool)
+		if err != nil || row.HomeChain != want {
+			t.Fatalf("pool home chain=%d, want %d: %v", row.HomeChain, want, err)
+		}
+	}
+	insert()
+	check(0)
+	memory.db.table("launched_chains")["7"] = []any{int64(7), "125", "0x0000000000000000000000000000000000000056", token, pool, pool, int64(1), "0x54"}
+	insert()
+	check(0)
+	memory.db.table("launched_chains")["7"][2] = strings.ToUpper(pool)
+	memory.db.table("launched_chains")["7"][3] = "0x0000000000000000000000000000000000000056"
+	insert()
+	check(0)
+	memory.db.table("launched_chains")["7"][3] = strings.ToUpper(token)
+	insert()
+	check(7)
+	memory.db.table("launched_chains")["7"][0] = int64(8)
+	insert()
+	check(7)
+	other := params
+	other.PoolAddress = "0x0000000000000000000000000000000000000057"
+	other.PoolID = "pool-57"
+	if err := sqlcdb.New(memory.db).InsertPool(ctx, other); err != nil {
+		t.Fatal(err)
+	}
+	memory.db.table("launched_chains")["9"] = []any{int64(9), "125", other.PoolAddress, token, other.Creator, other.Creator, int64(1), "0x57"}
+	insert()
+	row, err := sqlcdb.New(memory.db).GetPoolByAddress(ctx, other.PoolAddress)
+	if err != nil || row.HomeChain != 0 {
+		t.Fatalf("other pool home chain=%d, want 0: %v", row.HomeChain, err)
+	}
 }
 
 type repair54MemoryRow struct {

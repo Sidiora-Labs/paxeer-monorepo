@@ -1,17 +1,12 @@
 # Paxeer X Network bridge
 
-The Paxeer X Network bridge locks assets in a foreign vault and mints their bridged denom on Paxeer through the layerxBridge precompile at `0x0000000000000000000000000000000000001016` against a threshold of attestor signatures. Burning that denom on Paxeer authorizes an attested release from the foreign vault. Each chain configuration includes its native coin; SID - Sidiora, the second official coin - also bridges between Paxeer X Network and Solana, its foreign home.
+This directory holds the EVM vault, Solana custody program and admin client, chain configurations, and attestation vectors for the Paxeer X Network bridge. Foreign vault deposits lock assets for minting their bridged denom on Paxeer through the `layerxBridge` precompile against a threshold of attestor signatures; burning that denom authorizes an attested foreign release. Each chain configuration includes its native coin, and SID (Sidiora) bridges between Paxeer and Solana, its foreign home.
 
-Paxeer is one BFT network running `paxd`, with the kernel participating in execution and block proposal. Its EVM chain id is `125` (`0x7d`); a receipt is final when its block is committed. For Paxeer EVM reads, use the public node JSON-RPC at the root URL, such as `https://api-mainnet-beta.paxeer.network` or `https://api1.mainnet-beta.paxeer.network`. The [public RPC reference](../../docs/site/docs/reference/public-rpc.md) lists the node endpoints. Set `PAXEER_BRIDGE_PAXEER_RPC_URL` to the selected root URL for the checklist. Foreign-chain finality depths remain separate configuration values for observing deposits.
-
-This page is the operator runbook: what to deploy, in what order, with which environment variables, how the Paxeer side is configured through governance, and what must read back before the bridge is opened. The Paxeer side is the `layerxbridge` module in `modules/layerxbridge` and its precompile in `precompiles/layerxbridge`. The source is [the Paxeer X Network repository](https://github.com/Sidiora-Labs/paxeer-monorepo).
-
----
-
-## What is here
+## Layout
 
 | Path | What it is |
 | --- | --- |
+| [README.md](README.md) | directory guide and bridge operator runbook |
 | [contracts/bridge/evm](evm) | the Foundry project of `PaxeerXVault`, one source deployed as identical bytecode to every EVM chain |
 | `contracts/bridge/evm/chains/<name>` | one `config.json` and one page per EVM chain |
 | [contracts/bridge/solana](solana) | the Solana custody program, a raw `solana-program` crate |
@@ -22,7 +17,86 @@ This page is the operator runbook: what to deploy, in what order, with which env
 | [contracts/bridge/ATTESTATION-SOLANA.md](ATTESTATION-SOLANA.md) | how Solana keys, mints and transactions enter the attestation digests |
 | [modules/layerxbridge/ATTESTATION.md](../../modules/layerxbridge/ATTESTATION.md) | the byte-exact specification of both preimages and the signature rules |
 
-## Interface contracts
+## Build and test
+
+Run these commands from the repository root. The EVM build uses [evm/foundry.toml](evm/foundry.toml), the Solana program and admin client use [solana/Cargo.toml](solana/Cargo.toml) and [solana/admin/Cargo.toml](solana/admin/Cargo.toml), and the Go vectors belong to the root [go.mod](../../go.mod).
+
+Build the EVM vault with the bootstrap and build commands used by [deploy-evm-chain.sh](../../services/bridge/deploy/deploy-evm-chain.sh):
+
+```sh
+bash contracts/bridge/evm/bootstrap-libs.sh
+forge build --root contracts/bridge/evm
+```
+
+The root [Makefile](../../Makefile) provides the EVM and Solana test targets. `bridge-test-evm` bootstraps the libraries and runs `forge test --root contracts/bridge/evm -vvv`; `bridge-test-solana` runs `cargo test --locked --manifest-path contracts/bridge/solana/Cargo.toml`.
+
+```sh
+make bridge-test-evm
+make bridge-test-solana
+```
+
+Build the Solana deployable program with the command from [the bridge workflow](../../.github/workflows/bridge-test.yml), using the Solana toolchain that supplies `cargo-build-sbf`:
+
+```sh
+cargo build-sbf --tools-version v1.56 --manifest-path contracts/bridge/solana/Cargo.toml
+```
+
+Build the admin client with the release profile of its Cargo manifest:
+
+```sh
+cargo build --locked --release --manifest-path contracts/bridge/solana/Cargo.toml -p paxeer-x-bridge-solana-admin
+```
+
+The bridge workflow tests the Go identity and digest vectors together with the deployment packages:
+
+```sh
+go test -count=1 ./contracts/bridge/vectors/... ./services/bridge/deploy/...
+```
+
+### Tools
+
+| Tool | Needed by |
+| --- | --- |
+| `git` | `contracts/bridge/evm/bootstrap-libs.sh` |
+| `jq`, `forge`, `cast` | `services/bridge/deploy/deploy-evm-chain.sh`, `services/bridge/deploy/verify-evm-chain.sh` |
+| `python3` | EVM deployment manifest validation and durable run journal |
+| `flock` | EVM deployment locking when broadcasting |
+| `jq`, `python3`, `cast`, `sha256sum` and the pinned Solana toolchain | `services/bridge/deploy/deploy-solana-program.sh` |
+| `go` | the proposal generator under `services/bridge/deploy/proposals` |
+| `cargo` | the Solana admin client under [contracts/bridge/solana/admin](solana/admin) |
+| `jq`, `curl`, `cast`, `go`, `base64`, `od` | `services/bridge/deploy/checklist.sh` |
+
+## Configuration
+
+Paxeer is one BFT network running `paxd`, with the kernel participating in execution and block proposal. Its EVM chain id is `125` (`0x7d`); a receipt is final when its block is committed. Paxeer EVM reads use the public node JSON-RPC at the root path. The [public RPC reference](../../docs/site/paxeer-docs/public/markdown/public-rpc.md) describes node access. `PAXEER_BRIDGE_PAXEER_RPC_URL` selects the Paxeer endpoint for the checklist. Foreign-chain finality depths remain separate configuration values for observing deposits.
+
+The operator runbook below covers deployment order, environment inputs, governance configuration and readbacks before opening the bridge. The Paxeer side is the [layerxbridge module](../../modules/layerxbridge) and its [precompile](../../precompiles/layerxbridge).
+
+### Configuration files and environment inputs
+
+The EVM chain files are `config.json` in each directory linked under [The chains](#the-chains); the Solana file is [solana/chains/solana/config.json](solana/chains/solana/config.json). They declare owners, assets, caps, attestors, finality policy and environment variable names. The deployment scripts also read [attestors.json](../../services/bridge/deploy/attestors.json), the deployment record named by `PAXEER_BRIDGE_DEPLOYMENT_RECORD`, and an optional overlay named by `BRIDGE_DEPLOY_OVERLAY`.
+
+The committed chain files name these environment variables:
+
+| Chain | Environment variables |
+| --- | --- |
+| `arbitrum` | `PAXEER_BRIDGE_ARBITRUM_RPC_URL`, `PAXEER_BRIDGE_ARBITRUM_DEPLOY_KEY`, `PAXEER_BRIDGE_ARBITRUM_EXPLORER_KEY` |
+| `avalanche` | `PAXEER_BRIDGE_AVALANCHE_RPC_URL`, `PAXEER_BRIDGE_AVALANCHE_DEPLOY_KEY`, `PAXEER_BRIDGE_AVALANCHE_EXPLORER_KEY` |
+| `base` | `PAXEER_BRIDGE_BASE_RPC_URL`, `PAXEER_BRIDGE_BASE_DEPLOY_KEY`, `PAXEER_BRIDGE_BASE_EXPLORER_KEY` |
+| `bnb` | `PAXEER_BRIDGE_BNB_RPC_URL`, `PAXEER_BRIDGE_BNB_DEPLOY_KEY`, `PAXEER_BRIDGE_BNB_EXPLORER_KEY` |
+| `ethereum` | `PAXEER_BRIDGE_ETHEREUM_RPC_URL`, `PAXEER_BRIDGE_ETHEREUM_DEPLOY_KEY`, `PAXEER_BRIDGE_ETHEREUM_EXPLORER_KEY` |
+| `hyperevm` | `PAXEER_BRIDGE_HYPEREVM_RPC_URL`, `PAXEER_BRIDGE_HYPEREVM_DEPLOY_KEY`, `PAXEER_BRIDGE_HYPEREVM_EXPLORER_KEY` |
+| `optimism` | `PAXEER_BRIDGE_OPTIMISM_RPC_URL`, `PAXEER_BRIDGE_OPTIMISM_DEPLOY_KEY`, `PAXEER_BRIDGE_OPTIMISM_EXPLORER_KEY` |
+| `polygon` | `PAXEER_BRIDGE_POLYGON_RPC_URL`, `PAXEER_BRIDGE_POLYGON_DEPLOY_KEY`, `PAXEER_BRIDGE_POLYGON_EXPLORER_KEY` |
+| `solana` | `PAXEER_BRIDGE_SOLANA_RPC_URL`, `PAXEER_BRIDGE_SOLANA_KEYPAIR_FILE`, `PAXEER_BRIDGE_SOLANA_TOOLCHAIN_BIN` |
+
+[DeployPaxeerXVault.s.sol](evm/script/DeployPaxeerXVault.s.sol) reads `PAXEER_BRIDGE_VAULT_OWNER`, `PAXEER_BRIDGE_VAULT_ATTESTORS`, `PAXEER_BRIDGE_VAULT_THRESHOLD`, `PAXEER_BRIDGE_VAULT_ASSETS`, `PAXEER_BRIDGE_VAULT_PER_TX_CAPS` and `PAXEER_BRIDGE_VAULT_TOTAL_CAPS`. The deployment script derives these constructor and cap inputs from the selected chain file and exports `ETH_RPC_URL` for Foundry.
+
+The Solana admin client selects its configuration through `--config`, `PAXEER_BRIDGE_SOLANA_CHAINS_ROOT`, or its committed chain file, in that order. It reads the RPC and deploy-key variable names from that file and reads `PAXEER_BRIDGE_SOLANA_OWNER_KEYPAIR_FILE` and `PAXEER_BRIDGE_SOLANA_RECIPIENT_KEYPAIR_FILE` for the respective signing operations.
+
+The scripts also use `PAXEER_BRIDGE_DEPLOYMENT_RECORD_DIR`, `PAXEER_BRIDGE_EVM_CHAINS_ROOT`, `PAXEER_BRIDGE_SOLANA_CHAINS_ROOT`, `PAXEER_BRIDGE_ATTESTOR_MANIFEST`, `PAXEER_BRIDGE_GOVERNANCE_AUTHORITY`, `PAXEER_BRIDGE_SOLANA_ADMIN_CLI` and `PAXEER_BRIDGE_SOLANA_PROGRAM_KEYPAIR_FILE`. The [bridge service variables](../../docs/release/variables/service-bridge.md) describe the inputs by operation. Supply signing inputs through the named environment variables or keypair files.
+
+### Interface contracts
 
 This maintained runbook is the bridge deployment contract. The
 [configuration](#fill-in-the-configuration), [order of operations](#order-of-operations)
@@ -44,7 +118,7 @@ and the readbacks required before opening admission. See also:
   for their respective consumers. Explorer responses do not authorize a
   release; the attestation, destination policy and nullifier checks do.
 
-## The chains
+### The chains
 
 | Chain | Chain id | Pair | Page |
 | --- | --- | --- | --- |
@@ -60,30 +134,19 @@ and the readbacks required before opening admission. See also:
 
 The native coin is the first asset of every configuration and must be registered before opening the bridge: `0x0000000000000000000000000000000000000000` with eighteen decimals on an EVM chain, deposited through `depositNative`, and the wrapped SOL mint `So11111111111111111111111111111111111111112` with nine decimals on Solana. The eight EVM chains use the same vault code with per-chain configuration; Solana uses the custody program.
 
-## Tools
+### Fill in the configuration
 
-| Tool | Needed by |
-| --- | --- |
-| `git` | `contracts/bridge/evm/bootstrap-libs.sh` |
-| `jq`, `forge`, `cast` | `services/bridge/deploy/deploy-evm-chain.sh`, `services/bridge/deploy/verify-evm-chain.sh` |
-| `jq`, `python3`, `cast`, `sha256sum` and the pinned Solana toolchain | `services/bridge/deploy/deploy-solana-program.sh` |
-| `go` | the proposal generator under `services/bridge/deploy/proposals` |
-| `cargo` | the Solana admin client under [contracts/bridge/solana/admin](solana/admin) |
-| `jq`, `curl`, `cast`, `go`, `base64`, `od` | `services/bridge/deploy/checklist.sh` |
-
-## Fill in the configuration
-
-The committed configurations contain placeholders. The `chainconfig.Load` loader accepts these for schema validation; `RequireDeployable` refuses them before deployment or canonical proposal generation. Supply real owners, attestors and program identities before opening a chain; schema validation alone does not establish a deployment.
+The committed configurations contain placeholders. The `chainconfig.Load` loader accepts these for schema validation; `RequireDeployable` refuses them before deployment or canonical proposal generation. Supply deployable owners and program identities and confirm the attestor set before opening a chain; schema validation alone does not establish a deployment.
 
 - `owner` is `PLACEHOLDER:owner` in every configuration: the vault owner address on an EVM chain, the program owner's base58 key on Solana.
-- `attestors` are `PLACEHOLDER:attestor-1` to `PLACEHOLDER:attestor-5` in every configuration, at a threshold of `3`. There is one attestor set for the whole bridge: fill in the same five secp256k1 addresses, strictly ascending, everywhere.
-- `services/bridge/deploy/attestors.json` is the attestor-set manifest, the one committed record of the attestor addresses and the threshold. It carries the repeated-byte addresses `0x1111111111111111111111111111111111111111` to `0x5555555555555555555555555555555555555555`, which the proposal generator refuses; it also refuses a configuration whose set or threshold differs from the manifest.
+- The committed configurations and `services/bridge/deploy/attestors.json` contain one secp256k1 attestor with threshold `1`. The attestor set and threshold must match the selected manifest on every chain; addresses must be strictly ascending.
+- `services/bridge/deploy/attestors.json` is the default attestor-set manifest. The proposal generator refuses a configuration whose set or threshold differs from the selected manifest.
 - `big_blocks.acknowledged` is `false` in `contracts/bridge/evm/chains/hyperevm/config.json`. The HyperEVM page says what to do before setting it to `true`.
 - `solana.program_id` is `PLACEHOLDER:program-id` until the first Solana deployment prints the real id.
 
-## Order of operations
+### Order of operations
 
-### 1. Bootstrap the libraries
+#### 1. Bootstrap the libraries
 
 ```sh
 bash contracts/bridge/evm/bootstrap-libs.sh
@@ -91,12 +154,12 @@ bash contracts/bridge/evm/bootstrap-libs.sh
 
 Clones `forge-std` `v1.9.6` and `openzeppelin-contracts` `v5.3.0` into the `lib` directory beside `contracts/bridge/evm/foundry.toml`, which is never committed. A second run with both libraries already at their tag and unmodified does nothing; an edited checkout is replaced. The deploy script runs this itself before it builds.
 
-### 2. Deploy each EVM chain
+#### 2. Deploy each EVM chain
 
 | Variable | Holds |
 | --- | --- |
-| the variable in `environment.rpc_url`, `PAXEER_BRIDGE_<CHAIN>_RPC_URL` | the chain's endpoint |
-| the variable in `environment.deploy_key`, `PAXEER_BRIDGE_<CHAIN>_DEPLOY_KEY` | the deployer key |
+| the variable in `environment.rpc_url` | the chain's endpoint |
+| the variable in `environment.deploy_key` | the deployer key |
 | `PAXEER_BRIDGE_DEPLOYMENT_RECORD` | the path the deployment record is written to; its directory must exist and be writable |
 | `PAXEER_BRIDGE_EVM_CHAINS_ROOT` | optional; a chains root in place of `contracts/bridge/evm/chains` |
 
@@ -113,11 +176,11 @@ The deploy key reaches `forge script` as a command argument, so run a deployment
 
 A vault starts unpaused and accepts deposits once the deploy script has set its caps. Until the Paxeer side reads back as registered for the chain, the owner can hold it with `pause()`.
 
-### 3. Verify the source
+#### 3. Verify the source
 
 | Variable | Holds |
 | --- | --- |
-| the variable in `environment.explorer_key`, `PAXEER_BRIDGE_<CHAIN>_EXPLORER_KEY` | the explorer verification key |
+| the variable in `environment.explorer_key` | the explorer verification key |
 | `PAXEER_BRIDGE_DEPLOYMENT_RECORD` | the record step 2 wrote |
 
 ```sh
@@ -127,7 +190,7 @@ bash services/bridge/deploy/verify-evm-chain.sh <chain>
 
 The vault address and the constructor arguments come from the deployment record, so a source cannot be claimed for a deployment that was never made. The script submits through `forge verify-contract` and reports the explorer's own answer; anything other than a verified or already-verified answer stops it.
 
-### 4. Deploy and initialise the Solana program
+#### 4. Deploy and initialise the Solana program
 
 ```sh
 bash services/bridge/deploy/deploy-solana-program.sh --preflight
@@ -142,7 +205,7 @@ cargo build --locked --release --manifest-path contracts/bridge/solana/Cargo.tom
 
 The script builds the program with `cargo-build-sbf` at the platform tools release it pins, deploys it, checks the upgrade authority, that the program becomes executable, that the deployed ELF hashes to the built one and that the deployment is rooted. While `solana.program_id` is still `PLACEHOLDER:program-id`, the run stops there: it writes a record naming the program id and the vault authority with its handle, keeps the generated program keypair beside the record, and names the id to write into the configuration. The next run, with `solana.program_id` filled in and `PAXEER_BRIDGE_SOLANA_PROGRAM_KEYPAIR_FILE` naming that keypair, deploys to the same id, initialises the program with the owner, the attestor set and the threshold, registers the wrapped SOL mint and then the Sidiora mint with their caps, and writes the full deployment record. The record's `vault_handle` is the handle of the program's `vault-authority` PDA, the vault Paxeer registers for Solana.
 
-### 5. Generate the proposals
+#### 5. Generate the proposals
 
 ```sh
 go run ./services/bridge/deploy/proposals/cmd/paxeer-bridge-proposals -manifest services/bridge/deploy/attestors.json -proposals <proposals directory> <proposal input> <output directory>
@@ -183,44 +246,42 @@ The generator also rejects duplicate asset ids, a missing or repeated native ass
 
 Output publication has three boundaries. `Bundle.Write` stages the bodies in a temporary sibling directory and renames it into the body output directory after all body files have been written. `Bundle.WriteProposals` separately stages and renames the proposal directory. Finally, if requested, `writeAtomically` stages and renames the read-back file; its parent directory must already exist. The body and proposal directories must each be empty or absent, and an existing read-back path is refused. Use separate, non-overlapping output locations and keep the read-back file outside the bodies directory, because the checklist counts every JSON body there.
 
-These publications are not one transaction: a proposal-directory write failure can leave published bodies, and a read-back write failure can leave both bodies and proposals. The command prints output paths only after all requested publications succeed, so no printed paths does not prove no files were written. A directory rename also does not promise crash durability; these writers do not fsync the files and directories.
-
-After a failed or interrupted run, preserve its inputs, diagnostics and any outputs for reconciliation. Do not submit a partial bundle or combine it with files from an earlier run. Inspect all requested output locations, correct the reported input or filesystem problem, and generate the complete set again into fresh, separate locations from the same approved configuration, manifest, authority and deployment record. Confirm a zero exit, every expected body and proposal, and the read-back file if requested; compare their chain, vault, asset bindings, attestors and caps with the approved inputs. Reconcile the foreign deployment and current Paxeer state before submission, then perform step 7 after governance execution. An unchanged retry into a populated directory is refused. If anything was already submitted, reconcile its governance status and committed state before submitting again.
+The bodies, proposals and read-back file are published separately. Use fresh, separate locations for each complete bundle. Compare the generated chain, vault, asset bindings, attestors and caps with the configuration, selected manifest and deployment record before submission. Reconcile governance status and committed state before submitting a bundle again.
 
 The proposal input of the first form is a JSON file in the generator's own schema, decoded with unknown fields refused: `name`, `chain_id`, `native_symbol`, `native_decimals`, `rpc_endpoint_env`, `explorer_key_env`, `governance_authority`, `owner`, `vault`, `attestors`, `threshold`, `finality_depth`, `program_id`, `commitment`, `big_blocks_required` and `assets`, each asset carrying `address`, `asset_id`, `decimals`, `max_per_tx` and `max_total`. It is not the chain configuration file: the generator refuses the configuration's own fields. Write it from three sources - the chain configuration for the chain, the attestors, the finality depth and the assets with their caps; the deployment record for `vault`; and the bridge authority for `governance_authority`. `services/bridge/deploy/proposals/testdata/ethereum.json` and `services/bridge/deploy/proposals/testdata/solana.json` show the shape.
 
 `governance_authority` is the bech32 account of the governance module, the authority a governance proposal executes with; the generator refuses any other account. The keeper applies each message only when its authority is that account.
 
-### 6. Submit the proposals
+#### 6. Submit the proposals
 
-The bodies reach the chain inside governance proposals. Submit `04-proposal-open-chain.json` as the content of one governance proposal; it carries `01-register-chain.json`, `02-set-attestors.json` and the `03-set-cap-*` bodies in their numbered order, Sidiora's excepted. For Solana, submit `05-proposal-sidiora-cap.json` as a second proposal once the first has passed: it carries `MsgRegisterSidioraPair` ahead of Sidiora's `MsgSetCap`, so the proposal itself registers the pair against `usid` before it caps it, as the Sidiora section below explains.
+The bodies reach the chain inside governance proposals. Submit `04-proposal-open-chain.json` as the content of one governance proposal; it carries `01-register-chain.json`, `02-set-attestors.json` and the `03-set-cap-*` bodies in their numbered order, except Sidiora's. For Solana, submit `05-proposal-sidiora-cap.json` as a second proposal once the first has passed: it carries `MsgRegisterSidioraPair` ahead of Sidiora's `MsgSetCap`, so the proposal itself registers the pair against `usid` before it caps it, as the Sidiora section below explains.
 
 When a proposal passes, the governance module account executes it through the application's `layerxbridge` proposal route: `NewProposalHandler` in `modules/layerxbridge/handler.go` runs every message it carries, in order, through the bridge module's message service and so through the keeper. It refuses a proposal carrying a message for any authority other than the governance module account, and if one message fails none of them changes the state.
 
 Submit each proposal with the node's governance submit command, `paxd tx gov submit-proposal`, through its bridge subcommand, `layerxbridge-proposal [proposal-file]`, with the generated file as its argument, the initial deposit in `--deposit` and the proposer as the signer `--from` names:
 
-```
+```sh
 paxd tx gov submit-proposal layerxbridge-proposal <proposals directory>/04-proposal-open-chain.json --deposit <coins> --from <key> --chain-id <chain id>
 paxd tx gov submit-proposal layerxbridge-proposal <proposals directory>/05-proposal-sidiora-cap.json --deposit <coins> --from <key> --chain-id <chain id>
 ```
 
 The subcommand, `BridgeProposalHandler` in `modules/layerxbridge/client/cli/tx.go`, reads the file exactly as the generator writes it and refuses a file with an unknown or a missing field, a proposal the route above would refuse, and a missing deposit.
 
-### 7. Read the deployment back
+#### 7. Read the deployment back
 
 The bridge is opened only when every value below reads back as the configuration and the generated bodies say, with the native coin checked first on every chain. A read changes nothing anywhere.
 
 `bash services/bridge/deploy/checklist.sh <chain>` performs this read-back for one chain: it reads the chain through the endpoint its configuration names and the Paxeer side through `PAXEER_BRIDGE_PAXEER_RPC_URL`, generates the bodies itself from the configuration, the vault in `PAXEER_BRIDGE_DEPLOYMENT_RECORD` and the authority in `PAXEER_BRIDGE_GOVERNANCE_AUTHORITY`, prints one line per check and exits 1 on the first mismatch. `PAXEER_BRIDGE_ATTESTOR_MANIFEST`, `PAXEER_BRIDGE_EVM_CHAINS_ROOT` and `PAXEER_BRIDGE_SOLANA_CHAINS_ROOT` are optional. The reads it makes are the ones below.
 
-On each EVM chain, against the vault address in the deployment record:
+On each EVM chain, set `FOREIGN_RPC_URL` to the endpoint named by that chain's `environment.rpc_url`, and `VAULT` and `ASSET` to the vault address and asset address from the deployment record:
 
 ```sh
-cast code <vault> --rpc-url "$PAXEER_BRIDGE_<CHAIN>_RPC_URL"
-cast call <vault> 'owner()(address)' --rpc-url "$PAXEER_BRIDGE_<CHAIN>_RPC_URL"
-cast call <vault> 'attestors()(address[])' --rpc-url "$PAXEER_BRIDGE_<CHAIN>_RPC_URL"
-cast call <vault> 'threshold()(uint256)' --rpc-url "$PAXEER_BRIDGE_<CHAIN>_RPC_URL"
-cast call <vault> 'caps(address)(uint256,uint256)' <asset> --rpc-url "$PAXEER_BRIDGE_<CHAIN>_RPC_URL"
-cast call <vault> 'paused()(bool)' --rpc-url "$PAXEER_BRIDGE_<CHAIN>_RPC_URL"
+cast code "$VAULT" --rpc-url "$FOREIGN_RPC_URL"
+cast call "$VAULT" 'owner()(address)' --rpc-url "$FOREIGN_RPC_URL"
+cast call "$VAULT" 'attestors()(address[])' --rpc-url "$FOREIGN_RPC_URL"
+cast call "$VAULT" 'threshold()(uint256)' --rpc-url "$FOREIGN_RPC_URL"
+cast call "$VAULT" 'caps(address)(uint256,uint256)' "$ASSET" --rpc-url "$FOREIGN_RPC_URL"
+cast call "$VAULT" 'paused()(bool)' --rpc-url "$FOREIGN_RPC_URL"
 ```
 
 `cast keccak` of the code must equal the record's `code_hash`; the owner must be the configured owner, not the deployer; the attestors and threshold must be the manifest's; every asset, the native coin first, must carry the configured per-transaction and total cap; and `paused` must be `false`.
@@ -230,17 +291,17 @@ On Solana, read the config account (seed `config`) and every asset account (seed
 On Paxeer X Network, through the layerxBridge precompile:
 
 ```sh
-cast call 0x0000000000000000000000000000000000001016 'getChain(uint64)(bool,address,uint64,bool)' <chain id> --rpc-url <Paxeer X Network EVM endpoint>
-cast call 0x0000000000000000000000000000000000001016 'getAttestors()(address[],uint256[],uint32)' --rpc-url <Paxeer X Network EVM endpoint>
-cast call 0x0000000000000000000000000000000000001016 'getCap(uint64,address)(string,uint256,uint256,uint256)' <chain id> <asset id> --rpc-url <Paxeer X Network EVM endpoint>
-cast call 0x0000000000000000000000000000000000001016 'isPaused()(bool)' --rpc-url <Paxeer X Network EVM endpoint>
+cast call 0x0000000000000000000000000000000000001016 'getChain(uint64)(bool,address,uint64,bool)' <chain id> --rpc-url "$PAXEER_BRIDGE_PAXEER_RPC_URL"
+cast call 0x0000000000000000000000000000000000001016 'getAttestors()(address[],uint256[],uint32)' --rpc-url "$PAXEER_BRIDGE_PAXEER_RPC_URL"
+cast call 0x0000000000000000000000000000000000001016 'getCap(uint64,address)(string,uint256,uint256,uint256)' <chain id> <asset id> --rpc-url "$PAXEER_BRIDGE_PAXEER_RPC_URL"
+cast call 0x0000000000000000000000000000000000001016 'isPaused()(bool)' --rpc-url "$PAXEER_BRIDGE_PAXEER_RPC_URL"
 ```
 
 `getChain` must report the chain registered and enabled with the vault - on Solana the vault handle - and the finality depth of `01-register-chain.json`. `getAttestors` must return the manifest's set and threshold. `getCap` must return a denom and the `max_in_flight` and `max_per_tx` of each cap body, the native coin first; an empty denom means the asset is not registered. `isPaused` must be `false`.
 
 Any disagreement, any placeholder still in place, an unregistered or uncapped native coin, a paused vault, program or precompile, or a chain the Paxeer side does not report as registered keeps the bridge closed.
 
-## Outbound admission and coordinated cap changes
+### Outbound admission and coordinated cap changes
 
 For each registered chain and asset, Paxeer's `max_per_tx` admission cap must be no greater than the active foreign release cap, in the same asset base units. `BridgeOut` checks that registered cap before debiting or burning, changing in-flight supply, issuing a nonce or emitting the burn. A missing or zero cap admits no positive burn. Deposits that individually fit the cap do not permit their combined balance to be burned above it; an amount exactly at the cap is admissible when the other checks pass. Reading and reconciling both caps is an owner/governance opening condition, not an automatic cross-chain update.
 
@@ -250,11 +311,11 @@ The cap-change contract is ordered:
 2. Governance lowers the Paxeer cap to the proposed value first. The foreign owner must not lower the release cap below any already-authorized, unresolved burn. Complete those releases under the old foreign cap and record their finalized release and consumed nullifier before lowering the foreign cap. If an obligation cannot be resolved, retain the old foreign cap and keep admission paused; a cap change never cancels it.
 3. After the foreign decrease finalizes, read both values back and confirm `Paxeer max_per_tx <= foreign release cap`. Governance may then unpause admission. For an increase, the foreign owner raises and finalizes the release cap first; governance raises the Paxeer cap only after readback confirms the same inequality. Pauses and cap updates retain the existing owner and governance authority checks.
 
-An existing burn blocked by a prematurely reduced cap needs an explicit operator-visible resolution record linked to the immutable journal item, not a replacement attestation. Record `cap-blocked` with the original amount, active foreign cap, failed transaction or observation, responsible owner and intended corrective cap action. Keep its resolution visible as `awaiting-owner-cap-restoration`, then `release-submitted`, and only `released` after finalized foreign evidence and the once-only nullifier confirm payment. These are required coordination-record states; they do not add or rename relayer journal variants. The journal already retains submitted, reverted/dropped or failed releases and completed releases in `services/interop/crates/layerx-bridge-relayer/src/journal.rs`; preserve those records across restart and link them to the resolution record. Never report a failed or merely submitted release as paid.
+The relayer journal retains submitted, reverted or dropped, failed, and completed releases in [`journal.rs`](../../services/interop/crates/layerx-bridge-relayer/src/journal.rs). Pending obligations retain their original amount, recipient and burn identity across restart. A release is complete only after finalized foreign evidence and the consumed nullifier confirm payment.
 
 The owner may restore enough release capacity to settle the original authorized amount, then repeat the coordinated decrease. Do not rewrite the amount, split one burn into multiple attestations, reset its nonce, discard its pending record, or bypass its nullifier. `contracts/bridge/evm/src/PaxeerXVault.sol::release` and `contracts/bridge/solana/src/release.rs` with `state.rs::Asset::withdraw` continue enforcing the release cap, available custody, fixed attested amount and once-only burn identity. A transport retry may carry the same attestation in a replacement transaction under the existing retry rules; it cannot change the economic obligation.
 
-## The Sidiora pair on Solana
+### The Sidiora pair on Solana
 
 An inbound SID deposit from Solana resolves to the `usid` denom only if the Paxeer side records the pair (`91600046870081`, `0x21f7b20a555199fa73A238B1a91FD0f549068fEe`) against `usid` before any cap is set for it.
 
@@ -266,24 +327,24 @@ The ordering rule is carried by the proposal itself. `05-proposal-sidiora-cap.js
 So, for Solana: submit `04-proposal-open-chain.json`, which registers the chain, installs the attestors and sets the wrapped SOL cap without Sidiora's. Once it has passed, submit `05-proposal-sidiora-cap.json`; submitted earlier, it fails because the chain is not registered yet, and changes nothing. Once it has passed, read the pair back:
 
 ```sh
-cast call 0x0000000000000000000000000000000000001016 'getCap(uint64,address)(string,uint256,uint256,uint256)' 91600046870081 0x21f7b20a555199fa73A238B1a91FD0f549068fEe --rpc-url <Paxeer X Network EVM endpoint>
+cast call 0x0000000000000000000000000000000000001016 'getCap(uint64,address)(string,uint256,uint256,uint256)' 91600046870081 0x21f7b20a555199fa73A238B1a91FD0f549068fEe --rpc-url "$PAXEER_BRIDGE_PAXEER_RPC_URL"
 ```
 
 The denom it returns must be `factory/pax1dzfx9mk4fl9kl2mysjmtvk2xp75ljumk6nynhf/usid`, the `usid` denom of the bridge module account, with the caps of the proposal. A denom ending in `lxb` followed by hex means a cap for the pair was set by something other than this proposal before it, and the proposal's registration of the pair is then refused.
 
-## Deposit recipients
+### Deposit recipients
 
 Paxeer X Network mints an inbound deposit only to a nonzero EVM address left-padded to 32 bytes, `bytes32(uint256(uint160(address)))`: `RecipientAddress` in `modules/layerxbridge/types/attestation.go` is the rule, `Keeper.BridgeIn` refuses any other `paxeerRecipient`, and the relayer refuses to attest one. `PaxeerXVault` applies the same rule in `deposit` and `depositNative` before anything moves: a recipient with a nonzero high twelve bytes, or with a zero low twenty bytes, reverts with `InvalidRecipient()`, so no balance, `outstanding`, `depositNonce` or `BridgeDeposit` changes. Every accepted recipient reaches `BridgeDeposit`, the inbound digest, the relayer and `Keeper.BridgeIn` byte for byte; the selectors, the event and both digest layouts are the ones `modules/layerxbridge/ATTESTATION.md` specifies.
 
-A vault deployed before this rule is not upgradeable and keeps accepting the other encodings. A deposit it accepted with a recipient Paxeer refuses is locked in that vault: it counts against the asset's total cap, the relayer journals it as refused and attests nothing, and the keeper mints nothing for it. No path of the vault returns it - `release` needs an attested Paxeer burn and `rescue` refuses every registered asset and the native coin. Every such deposit is reported, by chain, vault, transaction hash and log index, as requiring an explicit recovery disposition decided by the bridge authority. Neither the relayer, an attestor nor the keeper rewrites the signed recipient bytes to another address or credits anyone on Paxeer for it; a recovery happens only as that authorized disposition, never as a bridge mint.
+`release` requires an attested Paxeer burn, and `rescue` refuses registered assets and the native coin. The relayer and keeper preserve the signed recipient bytes when processing a deposit.
 
-## The relayer
+### The relayer
 
-`services/interop/crates/layerx-bridge-relayer` observes the vaults, has attestations signed through the remote signer and submits both directions. It runs as `layerx-bridge-relayer --config <path>` against one JSON file: `journal_path`, optional `cosign_directory`, `poll_interval_ms`, `max_submissions`, `signer`, `attestor`, `paxeer`, `chains` and optional `solana`. Unknown fields, including nested fields, are refused by the production `RelayerConfig` loader in `services/interop/crates/layerx-bridge-relayer/src/config.rs`. Each `chains` entry is an EVM chain carrying `chain_id`, `vault`, `finality_depth`, `start_block`, `max_block_range`, `rpc`, `submitter` and `gas`; the current validator requires at least one such entry. Omitting `solana` leaves only the EVM destinations configured. The file carries public keys, opaque signer handles and protected-file references, never private keys or bearer-token values.
+`services/interop/crates/layerx-bridge-relayer` observes the vaults, has attestations signed through the remote signer and submits both directions. It runs as `layerx-bridge-relayer --config <path>` against one JSON file: `journal_path`, optional `cosign_directory`, `poll_interval_ms`, `max_submissions`, `signer`, `attestor`, `paxeer`, `chains`, optional `solana`, optional `attestor_set`, optional `attestation_listen` and `attestation_allowed_origins` (default empty). Unknown fields, including nested fields, are refused by the production `RelayerConfig` loader in `services/interop/crates/layerx-bridge-relayer/src/config.rs`. Each `chains` entry is an EVM chain carrying `chain_id`, `vault`, `finality_depth`, `start_block`, `max_block_range`, `rpc`, `submitter` and `gas`; the current validator requires at least one such entry. Omitting `solana` leaves only the EVM destinations configured. The file carries public keys, opaque signer handles and protected-file references, never private keys or bearer-token values.
 
 `services/bridge/deploy/relayer-solana.example.json` is a complete, deliberately non-production configuration instance of this schema. Every `EXAMPLE_ONLY` handle/path/backend name, `.invalid` endpoint, EVM vault, public key, program identity and mint is a fixture value, not an approved deployment. Its program and vault handle are the existing public PDA test vector from `services/interop/crates/layerx-bridge-relayer/src/solana/release.rs`; its mint decodes to 32 bytes of `01`. The public signing keys are test vectors with no provisioned signer handles. Do not fund them or use them as operator identities. The example can pass offline configuration loading without any of those paths or services existing; that is not evidence of signer access, an RPC quorum, custody or outbound readiness.
 
-Replace `paxeer.endpoints[].url` (`https://paxeer.example.invalid/` in the example) with an approved Paxeer node origin using the root path `/`. The relayer passes this URL unchanged to its HTTP transport; do not append `/rpc`. Supply that node's approved DER trust anchor through `trust_anchor_der` and retain TLS verification. Foreign EVM and Solana endpoint paths belong to their respective providers; the Paxeer root-path rule does not change them. Domain 11 owns the relayer loader and transport in `services/interop/crates/layerx-bridge-relayer`.
+Replace `paxeer.endpoints[].url` with an approved Paxeer node origin using the root path `/`. The relayer passes this root URL unchanged to its HTTP transport. Supply that node's approved DER trust anchor through `trust_anchor_der` and retain TLS verification. Foreign EVM and Solana endpoint paths belong to their respective providers; the Paxeer root-path rule does not change them.
 
 The optional `solana` object has this contract:
 
@@ -317,10 +378,20 @@ timeout 10m cargo test --locked --manifest-path services/interop/Cargo.toml -p l
 
 This test performs no live chain calls, signer operations or deployments. Passing it says nothing about operator inputs or a live run.
 
-With a threshold above one, each approved attestor runs its own instance of the relayer app, and each instance runs the cosign share transport `layerx-bridge-cosign` beside the relayer. The transport is enabled by `LAYERX_BRIDGE_COSIGN_TRANSPORT_CONFIG`, which each of `services/interop/deploy/bridge-relayer/relayer-1.toml` through `relayer-5.toml` sets to `/run/secrets/bridge/cosign/transport.json`; the app mounts four cosign secrets: `BRIDGE_COSIGN_TRANSPORT_CONFIG` at `/run/secrets/bridge/cosign/transport.json`, `BRIDGE_COSIGN_TRUST_ANCHOR` at `/run/secrets/bridge/cosign/ca.pem`, `BRIDGE_COSIGN_CERTIFICATE` at `/run/secrets/bridge/cosign/certificate.pem` and `BRIDGE_COSIGN_PRIVATE_KEY` at `/run/secrets/bridge/cosign/private-key.pem`. The entrypoint hands them to the relayer user, owner-read-only, before dropping privileges, and refuses to start when the variable names a missing file. `transport.json` is decoded with unknown fields refused: `attestor` (this instance's attestor address), `listen`, `server_name`, `trust_anchor`, `certificate`, `private_key` (outside the shared directories, no group or other access), `cosign_directory` (`/data/cosign`, the relayer's `cosign_directory`), `delivery_directory` (`/data/cosign-delivery`), `peers` (one entry per other approved attestor with `attestor`, `address`, `server_name` and `spki_sha256`, the SHA-256 of that peer's certificate public key), `timeout_ms`, `sweep_interval_ms` and `max_connections`. Instances deliver their own shares to every peer over mutually authenticated, pinned TLS 1.3 and admit a peer's share only when it recovers to that authenticated peer; each instance keeps its own journal, cosign and delivery directories and its own fee-payer handles. Run one instance per attestor in the approved set in `services/bridge/deploy/attestors.json`, and only for that set: placeholder addresses, fixture keys or test certificates are not approval of an operator.
+When `attestor_set` is supplied, its `members` must be exactly five distinct nonzero attestor addresses and its `threshold` must be three. The configured attestor must belong to that set and `cosign_directory` is required. Omitting `attestor_set` selects single-attestor operation. `attestation_listen` optionally enables the attestation HTTP socket; port zero selects a free port. `attestation_allowed_origins` lists exact browser origins including scheme and port; an empty list grants no browser origin access.
+
+For the supported three-of-five configuration, each approved attestor runs its own instance of the relayer app, and each instance runs the cosign share transport `layerx-bridge-cosign` beside the relayer. The transport is enabled by `LAYERX_BRIDGE_COSIGN_TRANSPORT_CONFIG`, which each of `services/interop/deploy/bridge-relayer/relayer-1.toml` through `relayer-5.toml` sets to `/run/secrets/bridge/cosign/transport.json`; the app mounts four cosign secrets: `BRIDGE_COSIGN_TRANSPORT_CONFIG` at `/run/secrets/bridge/cosign/transport.json`, `BRIDGE_COSIGN_TRUST_ANCHOR` at `/run/secrets/bridge/cosign/ca.pem`, `BRIDGE_COSIGN_CERTIFICATE` at `/run/secrets/bridge/cosign/certificate.pem` and `BRIDGE_COSIGN_PRIVATE_KEY` at `/run/secrets/bridge/cosign/private-key.pem`. The entrypoint hands them to the relayer user, owner-read-only, before dropping privileges, and refuses to start when the variable names a missing file. `transport.json` is decoded with unknown fields refused: `attestor` (this instance's attestor address), `listen`, `server_name`, `trust_anchor`, `certificate`, `private_key` (outside the shared directories, no group or other access), `cosign_directory` (`/data/cosign`, the relayer's `cosign_directory`), `delivery_directory` (`/data/cosign-delivery`), `peers` (one entry per other approved attestor with `attestor`, `address`, `server_name` and `spki_sha256`, the SHA-256 of that peer's certificate public key), `timeout_ms`, `sweep_interval_ms` and `max_connections`. Instances deliver their own shares to every peer over mutually authenticated, pinned TLS 1.3 and admit a peer's share only when it recovers to that authenticated peer; each instance keeps its own journal, cosign and delivery directories and its own fee-payer handles. Run one instance per attestor in the approved set in `services/bridge/deploy/attestors.json`, and only for that set: placeholder addresses, fixture keys or test certificates are not approval of an operator.
 
 Before starting an operator, supply `BRIDGE_OPERATOR_INVENTORY` and `BRIDGE_APPROVED_MEMBERSHIP` for the existing deployment; each of `services/interop/deploy/bridge-relayer/relayer-1.toml` through `relayer-5.toml` mounts them at `/run/secrets/bridge/cosign/operators.json`, which `LAYERX_BRIDGE_OPERATOR_INVENTORY` names, and `/run/secrets/bridge/cosign/membership.json`. The entrypoint requires the inventory when share transport is enabled. The transport checks that inventory against its actual certificate, complete peer roster, relayer public-key handles, destination vaults and storage paths before listening. A missing inventory, example membership, duplicate operator/storage/TLS identity, shared fee-payer key or mismatched destination policy refuses startup. Each operator retains its own volume; no journal or key directory is synchronized. `CosignDirectory` verifies a share before publication, persists it without replacing an existing share, and fsyncs both the share directory and its parent before acknowledging it. Identical delivery is idempotent; conflicting delivery preserves the first bytes and remains visible as a conflict.
 
 The version-1 operator inventory is strict JSON with `version: 1`, `authority: "bridge"`, an owner-supplied nonempty `approval` reference, `membership` (the absolute path `/run/secrets/bridge/cosign/membership.json`), `operators`, and `destinations`. The membership file uses the existing `{ "attestors": [...], "threshold": ... }` format and must contain the actual approved bridge addresses. Every operator record supplies `instance`, `storage` (its independently owned durable-volume identifier), `attestor`, `signer_handle`, `signer_public_key`, `journal_path`, `cosign_directory`, `delivery_directory`, `spki_sha256`, and `fee_payers`. Each fee-payer entry names `chain_id`, `handle`, and `public_key`; keys are independent across operators and chains. Handles are scoped to the operator's signer. Each destination record supplies `chain_id`, `vault`, the same `attestors` and `threshold`, and the genuine policy observation's `observed_block_hash`. Include the Paxeer bridge precompile, every configured EVM vault and any configured Solana vault. These observations reconcile the supplied inventory; the relayer still reads the destination's current authority before assembling a transaction. Wallet and xweb membership confer no bridge authority.
 
 The `operator_cosign_contract` test, `services/interop/crates/layerx-bridge-relayer/tests/operator_cosign_contract.rs`, retains the real generated-signer cardinality exercise and separately requires `LAYERX_BRIDGE_OPERATOR_CONTRACT_INPUTS`, an absolute path to strict JSON containing `inventory` and `operators` (each with absolute `transport_config` and `relayer_config` paths). The supplied-input case opens current production configuration and authenticates real destination-policy reads with the configured RPC adapters. It never starts an operator, submits a transaction or signs using supplied operator handles. Without `LAYERX_BRIDGE_OPERATOR_CONTRACT_INPUTS` and the approved membership, storage ownership, independent handle mappings, TLS identities, public relayer configurations and policy observations it points to, the supplied-input case fails rather than passing on generated signers. The generated signer case demonstrates transport and journal behavior only; it does not approve those identities as deployed operators.
+
+## Documentation
+
+- [Bridge deployment guide](../bridge-deploy.md) and [bridge vector guide](../bridge-vectors.md).
+- [Solana attestation encodings](ATTESTATION-SOLANA.md), [EVM attestation encodings](evm/ATTESTATION.md), and [Paxeer attestation fields and signature rules](../../modules/layerxbridge/ATTESTATION.md).
+- [Bridge service variables](../../docs/release/variables/service-bridge.md) and [bridge application variables](../../docs/release/variables/app-bridge.md).
+- [Documentation site: bridging and balances](../../docs/site/paxeer-docs/public/markdown/bridge.md) and its [site page](../../docs/site/paxeer-docs/src/app/bridge/page.tsx).
+- [Relayer deployment guide](../../services/interop/deploy/bridge-relayer/README.md) and [deployment tooling](../../services/bridge/README.md).

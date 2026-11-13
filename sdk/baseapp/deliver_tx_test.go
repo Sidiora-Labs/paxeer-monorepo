@@ -282,7 +282,7 @@ func TestQuery(t *testing.T) {
 		bapp.Router().AddRoute(r)
 	}
 
-	app := setupBaseApp(t, anteOpt, routerOpt)
+	app := setupBaseAppWithVersionedState(t, anteOpt, routerOpt)
 
 	app.InitChain(context.Background(), &abci.RequestInitChain{})
 
@@ -319,8 +319,34 @@ func TestQuery(t *testing.T) {
 	// query returns correct value after Commit
 	app.SetDeliverStateToCommit()
 	app.Commit(context.Background())
+	requireVersionedTestValue(t, app, 1, capKey1, key, value)
 	res, _ = app.Query(context.Background(), &query)
 	require.Equal(t, value, res.Value)
+	require.Equal(t, abci.CodeTypeOK, res.Code, res)
+	require.Equal(t, int64(1), res.Height)
+
+	// A later commit must not change the state returned for height 1.
+	firstValue := value
+	value = []byte("second commit")
+	app.setDeliverState(tmproto.Header{Height: 2})
+	_, resTx, err = app.Deliver(aminoTxEncoder(), tx)
+	require.NoError(t, err)
+	require.NotNil(t, resTx)
+	app.SetDeliverStateToCommit()
+	_, err = app.Commit(context.Background())
+	require.NoError(t, err)
+	requireVersionedTestValue(t, app, 2, capKey1, key, value)
+
+	for _, tc := range []struct {
+		height int64
+		value  []byte
+	}{{1, firstValue}, {2, value}, {0, value}} {
+		query.Height = tc.height
+		res, err = app.Query(context.Background(), &query)
+		require.NoError(t, err)
+		require.Equal(t, abci.CodeTypeOK, res.Code, res)
+		require.Equal(t, tc.value, res.Value)
+	}
 }
 
 func TestGRPCQuery(t *testing.T) {
@@ -331,7 +357,7 @@ func TestGRPCQuery(t *testing.T) {
 		)
 	}
 
-	app := setupBaseApp(t, grpcQueryOpt)
+	app := setupBaseAppWithVersionedState(t, grpcQueryOpt)
 
 	app.InitChain(context.Background(), &abci.RequestInitChain{})
 	header := tmproto.Header{Height: app.LastBlockHeight() + 1}
@@ -356,6 +382,20 @@ func TestGRPCQuery(t *testing.T) {
 	err = res.Unmarshal(resQuery.Value)
 	require.NoError(t, err)
 	require.Equal(t, "Hello foo!", res.Greeting)
+
+	app.setDeliverState(tmproto.Header{Height: 2})
+	app.SetDeliverStateToCommit()
+	_, err = app.Commit(context.Background())
+	require.NoError(t, err)
+	for _, height := range []int64{1, 2} {
+		reqQuery.Height = height
+		resQuery, err = app.Query(context.Background(), &reqQuery)
+		require.NoError(t, err)
+		require.Equal(t, abci.CodeTypeOK, resQuery.Code, resQuery)
+		require.Equal(t, height, resQuery.Height)
+		require.NoError(t, res.Unmarshal(resQuery.Value))
+		require.Equal(t, "Hello foo!", res.Greeting)
+	}
 }
 
 // One call to DeliverTx should process all the messages, in order.
@@ -1181,9 +1221,12 @@ func TestInitChainer(t *testing.T) {
 	// keep the db and logger ourselves so
 	// we can reload the same  app later
 	db := dbm.NewMemDB()
+	homeDir := t.TempDir()
+	cmsOpt := func(app *BaseApp) { app.SetCMS(newVersionedTestStore(t, homeDir)) }
 
 	cc := codec.NewLegacyAmino()
-	app := NewBaseApp(name, db, testTxDecoder(cc), nil, &testutil.TestAppOpts{})
+	app := NewBaseApp(name, db, testTxDecoder(cc), nil, &testutil.TestAppOpts{}, cmsOpt)
+	t.Cleanup(func() { require.NoError(t, app.Close()) })
 	capKey := sdk.NewKVStoreKey("main")
 	capKey2 := sdk.NewKVStoreKey("key2")
 	app.MountStores(capKey, capKey2)
@@ -1233,13 +1276,15 @@ func TestInitChainer(t *testing.T) {
 	require.Equal(t, "test-chain-id", chainID, "ChainID in checkState not set correctly in InitChain")
 
 	app.Commit(context.Background())
+	requireVersionedTestValue(t, app, 1, capKey, key, value)
 	res, _ = app.Query(context.Background(), &query)
 	require.Equal(t, int64(1), app.LastBlockHeight())
 	require.Equal(t, value, res.Value)
 
 	// reload app
+	require.NoError(t, app.Close())
 	cc = codec.NewLegacyAmino()
-	app = NewBaseApp(name, db, testTxDecoder(cc), nil, &testutil.TestAppOpts{})
+	app = NewBaseApp(name, dbm.NewMemDB(), testTxDecoder(cc), nil, &testutil.TestAppOpts{}, cmsOpt)
 	app.SetInitChainer(initChainer)
 	app.MountStores(capKey, capKey2)
 	err = app.LoadLatestVersion() // needed to make stores non-nil

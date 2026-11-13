@@ -1,3 +1,5 @@
+#[path = "support/gateway_22_33_1546.rs"]
+mod gateway;
 #[path = "support/receipt_22_33_1546.rs"]
 mod producer_repair;
 
@@ -82,14 +84,15 @@ fn recorded_case(success: bool) -> Value {
 }
 
 fn fixture_bytes(value: &Value) -> Vec<u8> {
-    value
-        .as_str()
-        .expect("producer hex")
-        .trim_start_matches("0x")
-        .as_bytes()
-        .chunks_exact(2)
-        .map(|pair| must(u8::from_str_radix(must(std::str::from_utf8(pair)), 16)))
-        .collect()
+    (match value.as_str() {
+        Some(required_value) => required_value,
+        None => panic!("producer hex"),
+    })
+    .trim_start_matches("0x")
+    .as_bytes()
+    .chunks_exact(2)
+    .map(|pair| must(u8::from_str_radix(must(std::str::from_utf8(pair)), 16)))
+    .collect()
 }
 
 fn signed_receipt(
@@ -105,7 +108,7 @@ fn signed_receipt(
     let keys = must(layerx_client::sequencer::decode_receipt_keys(
         &json!({"keys":[case["pinnedKey"]]}),
     ));
-    (view, fixture_bytes(&case["signedReceipt"]), keys[0].clone())
+    (view, fixture_bytes(&case["signedReceipt"]), keys[0])
 }
 
 type Exchange = (&'static str, Value, Option<Value>);

@@ -1,0 +1,31 @@
+[repair.22.39.283]
+acceptance = "22998.1"
+decision = 3120
+gotcha = 3971
+base_revision = "62a87b90a3ba40f6612f11b07a7cbee7a15e6bca"
+lockfile = "services/agent/Cargo.lock"
+implementation = "Regenerate through the declared unlocked cargo metadata build gate, retaining its resolution of the existing manifests, and qualify with locked metadata and the outbox_recover build."
+scope = "Only the agent workspace lockfile and this record change; manifests, sources and tests retain their existing contents."
+
+[entries]
+added = ["layerx-mcp 0.1.0 dependencies: version-qualified sha2 0.10.9 reference"]
+removed = ["layerx-mcp 0.1.0 dependencies: unqualified sha2 reference"]
+replaced = ["layerx-mcp 0.1.0 dependencies: sha2 becomes sha2 0.10.9, matching its 0.10 manifest requirement while sha2 0.11.1 remains separately locked"]
+packages_added = []
+packages_removed = []
+packages_moved = []
+
+[qualification]
+build = "hf-build: cargo metadata --manifest-path services/agent/Cargo.toml --format-version 1 > /dev/null"
+verify = "hf-done: cg spec done 22.39.283 -f layerx-merge --root /work/paxeer-monorepo"
+verify_cmd = "test -s services/agent/repair_22_39_283.kvx && cargo metadata --locked --manifest-path services/agent/Cargo.toml --format-version 1 > /dev/null && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test outbox_recover"
+verified_revision = "The matching final build and verify revision in the private /out/run/gates.jsonl ledger; this record makes no gate-result claim before execution."
+evidence = "The private ledger retains the exact revision, command, exit code and log path for each gate; final qualification uses /out/logs/build-2.log and /out/logs/verify-1.log."
+
+[regeneration]
+revision = "250a3db4d04794715cc0352fbce504b022069695"
+command = "cargo metadata --manifest-path services/agent/Cargo.toml --format-version 1 > /dev/null"
+exit = 0
+log = "/out/logs/build-1.log"
+observed = "Cargo retained the version-qualified sha2 reference and removed the draft layerx-intents ed25519-dalek entry because its optional test-vectors feature is inactive in this workspace; only the sha2 reference differs from the base lockfile."
+repair = "Keep Cargo's regenerated lockfile and correct this record; rerun hf-build before hf-done to qualify the same final revision."

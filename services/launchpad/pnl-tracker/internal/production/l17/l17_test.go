@@ -98,7 +98,7 @@ func TestCursorPrivacy(t *testing.T) {
 		t.Fatal(e)
 	}
 }
-func TestPostgresSnapshotOutboxExport(t *testing.T) {
+func TestProductionSnapshotOutboxExport(t *testing.T) {
 	dsn := os.Getenv("L17_TEST_DSN")
 	if dsn == "" {
 		t.Fatal("L17_TEST_DSN required")
@@ -225,6 +225,9 @@ func TestPostgresSnapshotOutboxExport(t *testing.T) {
 		t.Fatal(e)
 	}
 	dir := t.TempDir()
+	if e = os.Chmod(dir, 0700); e != nil {
+		t.Fatal(e)
+	}
 	manifest, e := repo.ExportJSON(ctx, dir, wallet, wallet, s.SnapshotID, now)
 	if e != nil || manifest.Rows != 151 {
 		t.Fatal(manifest, e)
@@ -253,6 +256,9 @@ func TestPostgresSnapshotOutboxExport(t *testing.T) {
 		t.Fatal(e)
 	}
 	historyDir := t.TempDir()
+	if e = os.Chmod(historyDir, 0700); e != nil {
+		t.Fatal(e)
+	}
 	historyManifest, e := repo.ExportHistory(ctx, historyDir, wallet, wallet, s.SnapshotID, "jsonl", now)
 	if e != nil || historyManifest.Rows != 100001 {
 		t.Fatal(historyManifest, e)
@@ -279,6 +285,9 @@ func TestPostgresSnapshotOutboxExport(t *testing.T) {
 	historyCancel, historyCancelFn := context.WithCancel(ctx)
 	historyCancelFn()
 	canceledDir := t.TempDir()
+	if e = os.Chmod(canceledDir, 0700); e != nil {
+		t.Fatal(e)
+	}
 	if _, e = repo.ExportHistory(historyCancel, canceledDir, wallet, wallet, s.SnapshotID, "jsonl", now); !errors.Is(e, context.Canceled) {
 		t.Fatal(e)
 	}

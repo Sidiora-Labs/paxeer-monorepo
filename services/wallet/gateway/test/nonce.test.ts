@@ -79,7 +79,8 @@ function startRpc(): Promise<void> {
       else if (body.method === 'eth_sendRawTransaction') {
         result = keccak256(body.params[0] as `0x${string}`);
         knownHashes.add(result as string);
-      } else if (body.method === 'eth_blockNumber') result = '0x64';
+      } else if (body.method === 'eth_chainId') result = '0x7d';
+      else if (body.method === 'eth_blockNumber') result = '0x64';
       else if (body.method === 'eth_getTransactionByHash') {
         const hash = String(body.params[0]).toLowerCase();
         result = knownHashes.has(hash) ? { hash } : null;
@@ -260,7 +261,10 @@ describe('NonceStore', () => {
       'select next_nonce::text, needs_reconcile from nonce_allocations where address = $1',
       [ADDRESS.toLowerCase()]
     );
-    expect(rows[0]).toEqual({ next_nonce: String(7 + perWorker * 2), needs_reconcile: false });
+    expect(rows[0]).toEqual({
+      next_nonce: String(7 + perWorker * 2),
+      needs_reconcile: false,
+    });
   }, 120_000);
 
   it('gives two sends in one block consecutive nonces while latest has not moved', async () => {
@@ -527,11 +531,17 @@ describe('NonceStore', () => {
           JSON.stringify(
             body.method === 'eth_getTransactionByHash'
               ? { jsonrpc: '2.0', id: body.id, result: null }
-              : {
-                  jsonrpc: '2.0',
-                  id: body.id,
-                  error: { code: -32601, message: 'method not found' },
-                }
+              : body.method === 'eth_chainId' || body.method === 'eth_blockNumber'
+                ? {
+                    jsonrpc: '2.0',
+                    id: body.id,
+                    result: body.method === 'eth_chainId' ? '0x7d' : '0x64',
+                  }
+                : {
+                    jsonrpc: '2.0',
+                    id: body.id,
+                    error: { code: -32601, message: 'method not found' },
+                  }
           )
         );
       });
@@ -541,6 +551,7 @@ describe('NonceStore', () => {
     try {
       const both = new poolMod.RpcPool({
         urls: [rpcUrl, urlB],
+        sequencerUrl: rpcUrl,
         chainId: 125,
         lagThresholdBlocks: 20,
         timeoutMs: 5_000,
@@ -666,7 +677,10 @@ describe('NonceStore', () => {
         return nonce;
       });
     expect(await signOnly('0x02d0')).toBe(110);
-    expect(await lockedSend(store, address, '0x02d1')).toEqual({ nonce: 111, error: null });
+    expect(await lockedSend(store, address, '0x02d1')).toEqual({
+      nonce: 111,
+      error: null,
+    });
     const { rows } = await pool.query<{ tx_hash: string }>(
       'select tx_hash from nonce_outstanding where address = $1 and nonce = 110',
       [address]
@@ -707,11 +721,17 @@ describe('NonceStore', () => {
                     ? { hash: body.params[0] }
                     : null,
                 }
-              : {
-                  jsonrpc: '2.0',
-                  id: body.id,
-                  error: { code: -32601, message: 'method not found' },
-                }
+              : body.method === 'eth_chainId' || body.method === 'eth_blockNumber'
+                ? {
+                    jsonrpc: '2.0',
+                    id: body.id,
+                    result: body.method === 'eth_chainId' ? '0x7d' : '0x64',
+                  }
+                : {
+                    jsonrpc: '2.0',
+                    id: body.id,
+                    error: { code: -32601, message: 'method not found' },
+                  }
           )
         );
       });
@@ -721,6 +741,7 @@ describe('NonceStore', () => {
     try {
       const both = new poolMod.RpcPool({
         urls: [rpcUrl, urlB],
+        sequencerUrl: rpcUrl,
         chainId: 125,
         lagThresholdBlocks: 20,
         timeoutMs: 5_000,
@@ -735,7 +756,10 @@ describe('NonceStore', () => {
       });
       pendingCount = 120;
       sendError = null;
-      expect(await lockedSend(store, address, '0x02d2', both)).toEqual({ nonce: 120, error: null });
+      expect(await lockedSend(store, address, '0x02d2', both)).toEqual({
+        nonce: 120,
+        error: null,
+      });
       knownHashes.delete(keccak256('0x02d2'));
       knownOnB.add(keccak256('0x02d2'));
       await age(address);
@@ -819,14 +843,22 @@ describe('NonceStore', () => {
       });
       expect(JSON.stringify(refused)).not.toContain('127.0.0.1');
       knownHashes.add(keccak256(raw141));
-      expect(await lockedSend(store, address, raw141)).toEqual({ nonce: 141, error: null });
+      expect(await lockedSend(store, address, raw141)).toEqual({
+        nonce: 141,
+        error: null,
+      });
       pendingCount = 143;
       const consumed = await makeRpc()
         .sendRawTransactionVia(raw142)
         .catch((err: unknown) => err);
       expect(consumed).toBeInstanceOf(poolMod.NonceConflictError);
       expect(consumed).not.toBeInstanceOf(poolMod.BroadcastOutcomeUnknownError);
-      expect(consumed).toMatchObject({ consumed: true, nonce: 142, member: null, members: 1 });
+      expect(consumed).toMatchObject({
+        consumed: true,
+        nonce: 142,
+        member: null,
+        members: 1,
+      });
       expect(custodyRefusal(consumed)).toEqual({
         status: 409,
         body: {
@@ -934,7 +966,10 @@ describe('NonceStore', () => {
     const { BROADCAST_GRACE_MS } = await import('../src/chain.js');
     pendingCount = 170;
     sendError = null;
-    expect(await lockedSend(store, address, '0x02d8')).toEqual({ nonce: 170, error: null });
+    expect(await lockedSend(store, address, '0x02d8')).toEqual({
+      nonce: 170,
+      error: null,
+    });
     knownHashes.delete(keccak256('0x02d8'));
     await age(address);
     const blocked = await allocate(store, address).catch((err: unknown) => err);
@@ -1167,7 +1202,12 @@ describe('NonceStore', () => {
     expect(persisted.slice(2)).toEqual(['0x02f1', null]);
     sendError = null;
     const sent = await send('0x02f2');
-    expect(sent).toEqual({ kind: 'sent', raw: '0x02f2', hash: keccak256('0x02f2'), error: null });
+    expect(sent).toEqual({
+      kind: 'sent',
+      raw: '0x02f2',
+      hash: keccak256('0x02f2'),
+      error: null,
+    });
     const { rows } = await pool.query<{
       nonce: string;
       tx_hash: string | null;

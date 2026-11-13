@@ -1,5 +1,11 @@
-//! Repair record: src/repair_22_31_364.kvx maps findings to these real-path tests.
+//! Repair record: `src/repair_22_31_364.kvx` maps findings to these real-path tests.
 //! Gate revisions and private evidence locations are supplied by hf-build/hf-done.
+
+fn require_err<T: std::fmt::Debug, E>(result: Result<T, E>, message: &str) -> E {
+    result
+        .err()
+        .unwrap_or_else(|| panic!("{message}: expected an error"))
+}
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -291,6 +297,39 @@ fn operator_audit_payload_mixed_events_export_and_review_after_restart() {
             ProtectedMutation::ReplaceReceipt
         ))
     ));
+    finish_operator_audit_payload_mixed_events_export_and_review_after_restart_1_repair_22_31_364(
+        FinishOperatorAuditPayloadMixedEventsExportAndReviewAfterRestart1Repair2231364Context {
+            directory,
+            config,
+            ordinary,
+            path,
+            context,
+            operator,
+        },
+    );
+}
+
+struct FinishOperatorAuditPayloadMixedEventsExportAndReviewAfterRestart1Repair2231364Context {
+    directory: Directory,
+    config: Config,
+    ordinary: Entry,
+    path: PathBuf,
+    context: OperatorContext,
+    operator: OperatorSurface,
+}
+
+fn finish_operator_audit_payload_mixed_events_export_and_review_after_restart_1_repair_22_31_364(
+    context: FinishOperatorAuditPayloadMixedEventsExportAndReviewAfterRestart1Repair2231364Context,
+) {
+    let FinishOperatorAuditPayloadMixedEventsExportAndReviewAfterRestart1Repair2231364Context {
+        directory,
+        config,
+        ordinary,
+        path,
+        context,
+        operator,
+    } = context;
+
     assert_eq!(operator.audit_entries(), 3);
     drop(operator);
     let mut log = must(Log::open(&directory.0, &tenant()));
@@ -451,17 +490,60 @@ fn web_binding_schema_publishes_addresses_keys_and_recovers_session() {
         BindingMode::Full,
     ))
     .with_web(web);
+    let (identity, request, enrolment_result, original, store, mut sessions) =
+        verify_web_binding_schema_publishes_addresses_keys_and_recovers_session_1_repair_22_31_364(
+            &directory, &keys, payer, receiver, &publisher,
+        );
+    must(sessions.restore_tenant(&store, &tenant()));
+    must(publisher.validate_existing(&sessions, &identity, &request));
+    assert_eq!(must(fs::read(&enrolment_result.binding)), original);
+    let token = must(fs::read_to_string(&enrolment_result.session_token_file));
+    let credential = SessionCredential::new(
+        tenant(),
+        enrolment_result.session_id,
+        must(must(hex::decode(token.trim())).try_into()),
+        enrolment_result.session_generation,
+    );
+    let control = SessionControl::new(
+        Arc::new(Mutex::new(store)),
+        sessions,
+        Arc::new(PreparationLifecycle::default()),
+        Arc::new(must(BudgetLimiter::new(vec![limit()]))),
+    );
+    let permit =
+        must(control.authorize(&credential, Operation::ReadBalance, Surface::Mcp, 51, None));
+    must(permit.boundary(&control));
+    let requests = must(node.requests.lock());
+    assert!(requests
+        .iter()
+        .any(|request| request["method"] == "px_getReceiptKeys"));
+}
+
+fn verify_web_binding_schema_publishes_addresses_keys_and_recovers_session_1_repair_22_31_364(
+    directory: &Directory,
+    keys: &[ReceiptKeyEntry],
+    payer: [u8; 20],
+    receiver: [u8; 20],
+    publisher: &BindingPublisher,
+) -> (
+    identity::IdentityRecord,
+    EnrolmentRequest,
+    enrolment::PublishedBinding,
+    Vec<u8>,
+    Store,
+    SessionRegistry,
+) {
     let mut store = must(Store::open(directory.0.join("store")));
     let (identity, request) = enrolment_records(&mut store);
     let mut sessions = SessionRegistry::default();
-    let published = must(enrolment::enrol(
+    let enrolment_result = must(enrolment::enrol(
         &mut store,
         &mut sessions,
         &identity,
         request.clone(),
-        &publisher,
+        publisher,
     ));
-    let original = must(fs::read(&published.binding));
+    let original = must(fs::read(&enrolment_result.binding));
     let document: enrolment::binding_shape::BindingDocument =
         must(serde_json::from_slice(&original));
     let web = document
@@ -509,30 +591,15 @@ fn web_binding_schema_publishes_addresses_keys_and_recovers_session() {
     drop(sessions);
     drop(store);
     let store = must(Store::open(directory.0.join("store")));
-    let mut sessions = SessionRegistry::default();
-    must(sessions.restore_tenant(&store, &tenant()));
-    must(publisher.validate_existing(&sessions, &identity, &request));
-    assert_eq!(must(fs::read(&published.binding)), original);
-    let token = must(fs::read_to_string(&published.session_token_file));
-    let credential = SessionCredential::new(
-        tenant(),
-        published.session_id,
-        must(must(hex::decode(token.trim())).try_into()),
-        published.session_generation,
-    );
-    let control = SessionControl::new(
-        Arc::new(Mutex::new(store)),
+    let sessions = SessionRegistry::default();
+    (
+        identity,
+        request,
+        enrolment_result,
+        original,
+        store,
         sessions,
-        Arc::new(PreparationLifecycle::default()),
-        Arc::new(must(BudgetLimiter::new(vec![limit()]))),
-    );
-    let permit =
-        must(control.authorize(&credential, Operation::ReadBalance, Surface::Mcp, 51, None));
-    must(permit.boundary(&control));
-    let requests = must(node.requests.lock());
-    assert!(requests
-        .iter()
-        .any(|request| request["method"] == "px_getReceiptKeys"));
+    )
 }
 
 #[test]
@@ -656,7 +723,10 @@ fn receipt_legacy_evidence_roundtrip_reopens_and_explicitly_migrates() {
     let inventory = must(receipt::evidence_inventory(&store, &tenant()));
     assert_eq!(inventory.with_evidence, vec![persisted.clone()]);
     assert!(inventory.without_evidence.is_empty());
-    let refusal = receipt::serve_evidence(&store, tenant(), hash).unwrap_err();
+    let refusal = require_err(
+        receipt::serve_evidence(&store, tenant(), hash),
+        "required test value",
+    );
     assert_eq!(refusal.reason(), "receipt.evidence_version");
     let before = must(fs::read(directory.0.join("store.bin")));
     assert!(receipt::store_verified_if_absent(
@@ -773,64 +843,92 @@ fn receipt_v2_producer_not_wired_live_observation_serves_after_restart() {
             )),
             served
         );
-        for selector in [
-            ReceiptLookupKey::Activity(hash),
-            ReceiptLookupKey::Idempotency(hash),
-            ReceiptLookupKey::GlobalSequence(authenticated.global_sequence()),
-        ] {
-            assert_eq!(must(receipt::serve(&store, tenant(), selector)), served);
-        }
-        let transaction_key = must(TenantKey::new(
-            tenant(),
-            ObjectKind::Receipt,
-            [b"receipt:transaction:".as_slice(), &hash].concat(),
-        ));
-        let stored = store
-            .get(&transaction_key)
-            .unwrap_or_else(|| panic!("transaction index"));
-        assert_eq!(stored.class(), StorageClass::CoreProducedCache);
-        assert_eq!(stored.bytes(), authenticated.canonical_bytes());
-        let mut altered = authenticated.canonical_bytes().to_vec();
-        altered[0] ^= 1;
-        assert!(receipt::store_verified_if_absent(
-            &mut store,
-            tenant(),
-            hash,
-            &altered,
-            &authenticated
-        )
-        .is_err());
-        assert_eq!(
-            must(receipt::serve_evidence(&store, tenant(), hash)),
-            Some(evidence.clone())
-        );
-        drop(outbox);
-        drop(store);
-        let store = must(Store::open(&directory.0));
-        assert_eq!(
-            must(receipt::serve_evidence(&store, tenant(), hash)),
-            Some(evidence)
-        );
-        assert_eq!(
-            must(receipt::serve(
-                &store,
-                tenant(),
-                ReceiptLookupKey::Idempotency(hash)
-            )),
-            served
-        );
-        assert_eq!(
-            must(receipt::serve_evidence(&store, other_tenant(), hash)),
-            None
-        );
-        assert!(
-            must(node.requests.lock())
-                .iter()
-                .filter(|request| request["method"] == "pax_sequencerReceipt")
-                .count()
-                >= 2
-        );
+        finish_receipt_v2_producer_not_wired_live_observation_serves_after_restart_1_repair_22_31_364(FinishReceiptV2ProducerNotWiredLiveObservationServesAfterRestart1Repair2231364Context { directory, node, hash, store, outbox, authenticated, served, evidence });
     }
+}
+
+struct FinishReceiptV2ProducerNotWiredLiveObservationServesAfterRestart1Repair2231364Context {
+    directory: Directory,
+    node: NodeTranscript,
+    hash: [u8; 32],
+    store: Store,
+    outbox: Outbox,
+    authenticated: AuthenticatedReceipt,
+    served: receipt::ServedReceipt,
+    evidence: receipt::TransactionReceiptEvidence,
+}
+
+fn finish_receipt_v2_producer_not_wired_live_observation_serves_after_restart_1_repair_22_31_364(
+    context: FinishReceiptV2ProducerNotWiredLiveObservationServesAfterRestart1Repair2231364Context,
+) {
+    let FinishReceiptV2ProducerNotWiredLiveObservationServesAfterRestart1Repair2231364Context {
+        directory,
+        node,
+        hash,
+        mut store,
+        outbox,
+        authenticated,
+        served,
+        evidence,
+    } = context;
+
+    for selector in [
+        ReceiptLookupKey::Activity(hash),
+        ReceiptLookupKey::Idempotency(hash),
+        ReceiptLookupKey::GlobalSequence(authenticated.global_sequence()),
+    ] {
+        assert_eq!(must(receipt::serve(&store, tenant(), selector)), served);
+    }
+    let transaction_key = must(TenantKey::new(
+        tenant(),
+        ObjectKind::Receipt,
+        [b"receipt:transaction:".as_slice(), &hash].concat(),
+    ));
+    let stored = store
+        .get(&transaction_key)
+        .unwrap_or_else(|| panic!("transaction index"));
+    assert_eq!(stored.class(), StorageClass::CoreProducedCache);
+    assert_eq!(stored.bytes(), authenticated.canonical_bytes());
+    let mut altered = authenticated.canonical_bytes().to_vec();
+    altered[0] ^= 1;
+    assert!(receipt::store_verified_if_absent(
+        &mut store,
+        tenant(),
+        hash,
+        &altered,
+        &authenticated
+    )
+    .is_err());
+    assert_eq!(
+        must(receipt::serve_evidence(&store, tenant(), hash)),
+        Some(evidence.clone())
+    );
+    drop(outbox);
+    drop(store);
+    let store = must(Store::open(&directory.0));
+    assert_eq!(
+        must(receipt::serve_evidence(&store, tenant(), hash)),
+        Some(evidence)
+    );
+    assert_eq!(
+        must(receipt::serve(
+            &store,
+            tenant(),
+            ReceiptLookupKey::Idempotency(hash)
+        )),
+        served
+    );
+    assert_eq!(
+        must(receipt::serve_evidence(&store, other_tenant(), hash)),
+        None
+    );
+    assert!(
+        must(node.requests.lock())
+            .iter()
+            .filter(|request| request["method"] == "pax_sequencerReceipt")
+            .count()
+            >= 2
+    );
 }
 
 #[test]
@@ -842,14 +940,16 @@ fn receipt_v2_authenticated_write_rolls_back_all_indexes_on_io_failure() {
     let hash = authenticated.activity_id();
     let mut store = must(Store::open(&directory.0));
     must(fs::create_dir(directory.0.join("store.bin.tmp")));
-    let error = receipt::store_verified_if_absent(
-        &mut store,
-        tenant(),
-        hash,
-        authenticated.canonical_bytes(),
-        &authenticated,
-    )
-    .unwrap_err();
+    let error = require_err(
+        receipt::store_verified_if_absent(
+            &mut store,
+            tenant(),
+            hash,
+            authenticated.canonical_bytes(),
+            &authenticated,
+        ),
+        "required test value",
+    );
     assert!(matches!(error, ReceiptStoreError::Store(_)));
     assert!(store
         .list_object_ids(&tenant(), ObjectKind::Receipt)

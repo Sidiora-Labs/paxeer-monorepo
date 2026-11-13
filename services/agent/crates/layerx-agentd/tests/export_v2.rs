@@ -14,51 +14,7 @@ use std::sync::Mutex;
 
 #[test]
 fn offline_export_verifies_with_only_receipt_keys_and_validator_set() {
-    for success in [true, false] {
-        let fixture = Fixture::new(8, success);
-        let encoded = must(serialize_export(
-            &must(build(fixture.artifact.clone(), &fixture.trust)).artifact,
-        ));
-        let offline = must(deserialize_export(&encoded));
-        let receipt_keys = offline
-            .bundles
-            .iter()
-            .map(|bundle| bundle.receipt_key)
-            .collect();
-        let validators = must(decode_validators(
-            offline.bundles[0]
-                .validator_set
-                .as_ref()
-                .unwrap()
-                .as_bytes(),
-        ));
-        let trust = must(ExportTrustSource::new(receipt_keys, validators));
-        let verified = must(verify(&offline, &trust));
-        assert_eq!(verified.verified_receipts, 1);
-        assert_eq!(verified.verified_inclusions, 1);
-        assert_eq!(verified.height, 8);
-        assert_eq!(verified.block_hash, fixture.header.block_hash());
-        assert_eq!(verified.achieved_rung, Rung::Committed);
-        assert_eq!(offline, fixture.artifact);
-
-        let mut altered = offline.clone();
-        let mut bytes = altered.bundles[0].signed_receipt.as_bytes().to_vec();
-        let end = bytes.len() - 1;
-        bytes[end] ^= 1;
-        altered.bundles[0].signed_receipt = canonical(bytes);
-        assert!(verify(&altered, &trust).is_err());
-        let mut altered = offline.clone();
-        altered.bundles[0].raw_transaction = canonical(vec![2, 1]);
-        assert!(verify(&altered, &trust).is_err());
-        let mut keys = trust.receipt_keys().to_vec();
-        keys[0].first_height = 9;
-        let wrong_interval = must(ExportTrustSource::new(keys, trust.validator_set().to_vec()));
-        assert!(verify(&offline, &wrong_interval).is_err());
-        let mut changed = offline.clone();
-        changed.bundles[0].commit = None;
-        assert!(verify(&changed, &trust).is_err());
-    }
-
+    assert_offline_success_and_failure();
     let fixture = Fixture::new(8, true);
     let directory = std::env::temp_dir().join(format!("layerx-export-v2-{}", std::process::id()));
     let tenant = must(TenantId::new("export-owner"));
@@ -126,12 +82,15 @@ fn offline_export_verifies_with_only_receipt_keys_and_validator_set() {
         state
     );
     let later = Fixture::new(9, true);
-    must(retain_bundle(
-        &mut mutex.lock().unwrap(),
-        tenant.clone(),
-        later.artifact.clone(),
-        &later.trust,
-    ));
+    {
+        let mut store = assert_ok(mutex.lock(), "unexpected error");
+        must(retain_bundle(
+            &mut store,
+            tenant.clone(),
+            later.artifact.clone(),
+            &later.trust,
+        ));
+    }
     let facts = [
         fixture.artifact.facts[0].clone(),
         later.artifact.facts[0].clone(),
@@ -146,17 +105,6 @@ fn offline_export_verifies_with_only_receipt_keys_and_validator_set() {
 
 #[test]
 fn offline_export_names_no_settlement_domain() {
-    let fixture = Fixture::new(8, true);
-    let built = must(build(fixture.artifact.clone(), &fixture.trust));
-    let bytes = must(serialize_export(&built.artifact));
-    let value: serde_json::Value = must(serde_json::from_slice(&bytes));
-    let object = value.as_object().unwrap();
-    assert_eq!(object.len(), 3);
-    assert!(
-        object.contains_key("facts")
-            && object.contains_key("bundles")
-            && object.contains_key("height")
-    );
     fn check_names(value: &serde_json::Value) {
         match value {
             serde_json::Value::Object(fields) => {
@@ -177,6 +125,18 @@ fn offline_export_names_no_settlement_domain() {
             _ => {}
         }
     }
+
+    let fixture = Fixture::new(8, true);
+    let built = must(build(fixture.artifact.clone(), &fixture.trust));
+    let bytes = must(serialize_export(&built.artifact));
+    let value: serde_json::Value = must(serde_json::from_slice(&bytes));
+    let object = assert_some(value.as_object(), "expected Some value");
+    assert_eq!(object.len(), 3);
+    assert!(
+        object.contains_key("facts")
+            && object.contains_key("bundles")
+            && object.contains_key("height")
+    );
     check_names(&value);
     assert_eq!(value["bundles"][0]["verificationLevel"], "committed");
     assert!(value["bundles"][0]["receiptKey"].is_object());
@@ -205,4 +165,67 @@ fn offline_export_names_no_settlement_domain() {
         layerx_agentd::export::require_frame_within_bound(MAX_EXPORT_BYTES + 1),
         Err(ExportProduceError::Oversize)
     ));
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn assert_some<T>(value: Option<T>, message: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{message}"),
+    }
+}
+
+fn assert_offline_success_and_failure() {
+    for success in [true, false] {
+        let fixture = Fixture::new(8, success);
+        let encoded = must(serialize_export(
+            &must(build(fixture.artifact.clone(), &fixture.trust)).artifact,
+        ));
+        let offline = must(deserialize_export(&encoded));
+        let receipt_keys = offline
+            .bundles
+            .iter()
+            .map(|bundle| bundle.receipt_key)
+            .collect();
+        let validators = must(decode_validators(
+            assert_some(
+                offline.bundles[0].validator_set.as_ref(),
+                "expected Some value",
+            )
+            .as_bytes(),
+        ));
+        let trust = must(ExportTrustSource::new(receipt_keys, validators));
+        let verified = must(verify(&offline, &trust));
+        assert_eq!(verified.verified_receipts, 1);
+        assert_eq!(verified.verified_inclusions, 1);
+        assert_eq!(verified.height, 8);
+        assert_eq!(verified.block_hash, fixture.header.block_hash());
+        assert_eq!(verified.achieved_rung, Rung::Committed);
+        assert_eq!(offline, fixture.artifact);
+
+        let mut altered = offline.clone();
+        let mut bytes = altered.bundles[0].signed_receipt.as_bytes().to_vec();
+        let end = bytes.len() - 1;
+        bytes[end] ^= 1;
+        altered.bundles[0].signed_receipt = canonical(bytes);
+        assert!(verify(&altered, &trust).is_err());
+        let mut altered = offline.clone();
+        altered.bundles[0].raw_transaction = canonical(vec![2, 1]);
+        assert!(verify(&altered, &trust).is_err());
+        let mut keys = trust.receipt_keys().to_vec();
+        keys[0].first_height = 9;
+        let wrong_interval = must(ExportTrustSource::new(keys, trust.validator_set().to_vec()));
+        assert!(verify(&offline, &wrong_interval).is_err());
+        let mut changed = offline.clone();
+        changed.bundles[0].commit = None;
+        assert!(verify(&changed, &trust).is_err());
+    }
 }

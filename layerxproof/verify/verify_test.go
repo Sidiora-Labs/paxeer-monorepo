@@ -111,11 +111,27 @@ func TestReceiptSignatureMatchesRust(t *testing.T) {
 }
 
 func TestStateProofMatchesRust(t *testing.T) {
+	widthPositive, widthRefusal := false, false
 	for _, v := range load(t, "state") {
-		_, err := verify.StateProof(field(t, v, "witness"), array(t, v, "state_root"))
+		witness, err := verify.StateProof(field(t, v, "witness"), array(t, v, "state_root"))
 		if (err == nil) != v.Valid {
 			t.Fatalf("%s: Go verdict %v, Rust valid=%v", v.Name, err, v.Valid)
 		}
+		switch v.Name {
+		case "valid-module-tree-width-11":
+			if err != nil || witness.LeafCountB != 11 {
+				t.Fatalf("native width 11 must verify: %v", err)
+			}
+			widthPositive = true
+		case "module-tree-width":
+			if !errors.Is(err, codec.ErrStateModule) {
+				t.Fatalf("out-of-contract width: got %v, want ErrStateModule", err)
+			}
+			widthRefusal = true
+		}
+	}
+	if !widthPositive || !widthRefusal {
+		t.Fatal("fixture must retain both native width 11 inclusion and the module width refusal")
 	}
 }
 

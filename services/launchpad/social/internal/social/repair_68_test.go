@@ -18,6 +18,8 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/db/sqlcdb"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/fanout"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/interactions"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/safety"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/voice"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
@@ -25,6 +27,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	goredis "github.com/redis/go-redis/v9"
 )
@@ -344,8 +347,26 @@ func TestRepair_68_PrivateVoiceReadAndPromptShareAdmission(t *testing.T) {
 }
 
 func TestRepair_68_SocketRESTAndRestartUseDurableMessages(t *testing.T) {
-	db, reopen := repair68Database(t)
-	policyFor := repair68Policy
+	db := internaltest.NewPostgres(t)
+	cfg := db.Config().Copy()
+	cfg.ConnConfig.RuntimeParams["search_path"] = "chat,users,public"
+	db.Close()
+	db, err := pgxpool.NewWithConfig(context.Background(), cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	reopen := func() *pgxpool.Pool {
+		p, e := pgxpool.NewWithConfig(context.Background(), cfg.Copy())
+		if e != nil {
+			t.Fatal(e)
+		}
+		t.Cleanup(p.Close)
+		return p
+	}
+	policyFor := func(db *pgxpool.Pool) *interactions.PGPolicy {
+		return &interactions.PGPolicy{DB: db, Accounts: pgx.Identifier{"users", "account_state_v2"}, Pools: pgx.Identifier{"indexer", "indexer_canonical_creations_v1"}, Sessions: pgx.Identifier{"users", "identity_sessions_v2"}, IdentityAccounts: pgx.Identifier{"users", "identity_accounts_v2"}, WalletLinks: pgx.Identifier{"users", "identity_wallet_links_v2"}, SessionGuard: pgx.Identifier{"chat", "interaction_session_valid"}, AccountGuard: pgx.Identifier{"chat", "interaction_account_active"}, PoolGuard: pgx.Identifier{"chat", "interaction_pool_creator"}}
+	}
 	policy := policyFor(db)
 	const alice = "0x1111111111111111111111111111111111111111"
 	const bob = "0x2222222222222222222222222222222222222222"
@@ -364,8 +385,13 @@ func TestRepair_68_SocketRESTAndRestartUseDurableMessages(t *testing.T) {
 		repair68Exec(t, db, `INSERT INTO interaction_preferences(wallet,inbox) VALUES($1,'everyone')`, wallet)
 		sessions[wallet] = session
 	}
-	repair68Exec(t, db, `INSERT INTO pools VALUES($1,$3),($2,$3)`, poolID, otherPool, bob)
-	redisOptions := &goredis.Options{Addr: newRepair68Broker(t), Protocol: 2, DisableIdentity: true}
+	for logIndex, address := range []string{poolID, otherPool} {
+		repair68Exec(t, db, `INSERT INTO indexer.indexer_canonical_creations(token,pool,creator,factory,optical,nft_id,height,block_hash,transaction_hash,transaction_index,log_index,block_timestamp,provenance,payload) VALUES($1,$1,$2,$3,$4,1,100,$5,$6,0,$8,$7,'{}','{}')`, address, bob, alice, carol, "0x"+strings.Repeat("ab", 32), "0x"+strings.Repeat("cd", 32), time.Now().Unix(), logIndex)
+	}
+	redisOptions, err := goredis.ParseURL(internaltest.NewRedisURL(t))
+	if err != nil {
+		t.Fatal(err)
+	}
 	pub := goredis.NewClient(redisOptions)
 	defer pub.Close()
 	namespace := "repair68:" + uuid.NewString() + ":"

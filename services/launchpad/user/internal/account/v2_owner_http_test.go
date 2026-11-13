@@ -49,7 +49,7 @@ func v2OwnerFixture(t *testing.T) Store {
 
 func v2OwnerDeletionFixture(t *testing.T) Store {
 	t.Helper()
-	return connectedLegacyFixture(t)
+	return connectedLegacyFixture(t, true)
 }
 
 func requireV2OwnerResponse(t *testing.T, response *httptest.ResponseRecorder, status int, schema string) {
@@ -144,6 +144,22 @@ func TestPostgresHTTPV2OwnerPreferencesAndDevices(t *testing.T) {
 		core.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), identityContextKey{}, identity)))
 	})
 	path := "/v2/me/devices/" + device.String()
+	for _, tc := range []struct {
+		name, target, payload string
+		want                  int
+	}{
+		{"invalid device", "/v2/me/devices/invalid", string(body), http.StatusUnprocessableEntity},
+		{"invalid JSON", path, `{`, http.StatusUnprocessableEntity},
+		{"invalid provider", path, `{"platform":"web","provider":"apns","token":"value","deviceProof":"proof"}`, http.StatusUnprocessableEntity},
+		{"unbound proof", path, `{"platform":"web","provider":"webpush","token":"value","deviceProof":"proof"}`, http.StatusForbidden},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			response := httpRequest(handler, p, http.MethodPut, tc.target, tc.payload)
+			if response.Code != tc.want {
+				t.Fatalf("device input = %d %s, want %d", response.Code, response.Body.String(), tc.want)
+			}
+		})
+	}
 	registered := httpRequest(handler, p, http.MethodPut, path, string(body))
 	requireV2OwnerResponse(t, registered, http.StatusOK, "DeviceRegisterResponse")
 	var registration v2.DeviceRegisterResponse
@@ -215,7 +231,7 @@ func TestPostgresHTTPV2OwnerExportsAndDeletion(t *testing.T) {
 		reauthHash := sha256.Sum256([]byte(reauthProof))
 		_, err = s.DB.Exec(context.Background(), `INSERT INTO identity_reauth(proof_hash,account_id,session_id,action,issued_at,expires_at) VALUES($1,$2,$3,'account.delete',clock_timestamp(),clock_timestamp()+interval '5 minutes')`, reauthHash[:], accountID, session)
 		must(t, err)
-		_, err = s.DB.Exec(context.Background(), sharedauth.LedgerDDL)
+		_, err = s.DB.Exec(context.Background(), `SELECT actor,action,nonce,envelope_digest,body_digest,request_id,response,response_digest,created_at,retain_until FROM operation_ledger LIMIT 0`)
 		must(t, err)
 		ddl, err := delivery.SchemaDDL("public")
 		must(t, err)

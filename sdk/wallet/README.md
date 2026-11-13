@@ -1,24 +1,44 @@
 # `@paxeer/wallet`
 
-TypeScript SDK for Paxeer wallet applications: Supabase email and OAuth sign-in, an embedded wallet, an EIP-1193 provider, EIP-6963 discovery, EVM transaction review, authenticated receipts, and clients for hosted account reads and the human service.
+TypeScript SDK for Paxeer wallet applications: Supabase email and OAuth sign-in, an embedded wallet, an EIP-1193 provider, EIP-6963 discovery, EVM transaction review, authenticated receipts, and clients for node account reads, hosted operations, and the human service. Paxeer mainnet-beta is one BFT network with EVM chain ID `125` (`0x7d`). Its kernel participates in block proposal and execution. A transaction is final once its block is committed. Sub-chains are tenant domains in the database, not separate networks that a wallet must switch to.
 
-Paxeer mainnet-beta is one BFT network with EVM chain ID `125` (`0x7d`). Its kernel participates in block proposal and execution. A transaction is final once its block is committed. Sub-chains are tenant domains in the database, not separate networks that a wallet must switch to.
+## Layout
 
-## Install and build
+- `src/` — TypeScript SDK sources for authentication, embedded and injected wallets, EIP-1193 and EIP-6963 integration, node and hosted clients, receipt verification, kernel availability, human intents, agent signing, transfer tracking, and module calls.
+- `test/` — Vitest tests, support helpers, and JSON fixtures for wallet, provider, endpoint, receipt, module, and network behavior.
+- `.gitignore` — ignores generated package output and coverage files.
+- `package.json` — package metadata, public exports, dependencies, and build, test, typecheck, and development scripts.
+- `pnpm-lock.yaml` — pnpm dependency lockfile for the package workspace.
+- `tsconfig.json` — TypeScript compiler configuration for the `src/` tree.
+- `README.md` — this package page.
 
-The package is a member of the [`services/wallet` pnpm workspace](../../services/wallet/pnpm-workspace.yaml). Workspace consumers can depend on `"@paxeer/wallet": "workspace:*"`; [`apps/wallet`](../../apps/wallet/package.json) uses `link:../../sdk/wallet`. The entry points are `@paxeer/wallet`, `@paxeer/wallet/react` and `@paxeer/wallet/provider`. React is an optional peer dependency (version 18 or later).
+## Build and test
 
-From the repository root:
+The package is a member of the [`services/wallet` pnpm workspace](../../services/wallet/pnpm-workspace.yaml). Workspace consumers can depend on `"@paxeer/wallet": "workspace:*"`; [`apps/wallet`](../../apps/wallet/package.json) uses `link:../../sdk/wallet`. The entry points are `@paxeer/wallet`, `@paxeer/wallet/react`, `@paxeer/wallet/provider`, `@paxeer/wallet/receipt` and `@paxeer/wallet/types`. The last three expose TypeScript source and require a consumer that supports it. React is an optional peer dependency (version 18 or later).
+
+From the repository root, install the wallet workspace and run the package scripts declared in `package.json`:
 
 ```sh
 cd services/wallet
 pnpm install
-pnpm --filter @paxeer/wallet build       # builds services/agent/sdk/typescript first
-pnpm --filter @paxeer/wallet test        # vitest; also builds the agent SDK first
+pnpm --filter @paxeer/wallet build
+pnpm --filter @paxeer/wallet test
 pnpm --filter @paxeer/wallet typecheck
 ```
 
-## Usage (vanilla)
+`build` and `test` build the TypeScript agent SDK dependency before compiling or running Vitest. `typecheck` performs the same dependency build and runs `tsc --noEmit`.
+
+## Configuration
+
+The runtime SDK receives `apiUrl`, `supabaseUrl`, `supabaseAnonKey`, and optional `fetch` through `PaxeerWalletConfig`; `EndpointClient` receives `nodeUrl` or `url`, optional `hostedUrl`, `fetch`, `headers`, `timeoutMs`, and `maxResponseBytes`; `PaxeerProvider` receives `gatewayUrl`, `rpcUrl`, `token`, optional `chainId`, `confirm`, and `fetch`; `HumanClient` receives `url`, `kernel`, optional `fetch`, and `authorization`. The SDK source does not read runtime environment variables directly.
+
+The integration tests read `PG_BIN_DIR`, `PATH`, and `HOME` for subprocesses and `PX_NODE_CATALOGUE_URL` and `PX_NODE_CATALOGUE_METHODS` for the node route catalogue test.
+
+The application examples use `NEXT_PUBLIC_PAXEER_WALLET_API`, `NEXT_PUBLIC_SUPABASE_URL`, and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, as read by the [wallet demo](../../services/wallet/demo/src/lib/paxeer.ts). These are application configuration names.
+
+Build configuration is in [`package.json`](package.json), [`pnpm-lock.yaml`](pnpm-lock.yaml), and [`tsconfig.json`](tsconfig.json), which extends [`services/wallet/tsconfig.base.json`](../../services/wallet/tsconfig.base.json).
+
+### Usage (vanilla)
 
 The following example runs in a browser. `apiUrl` is the base URL of the deployed [wallet gateway](../../services/wallet/gateway/src/routes/), which serves authenticated `/v1/wallet/*` routes. It is separate from the node JSON-RPC URL. The environment variable names below are application configuration; the SDK receives the three explicit configuration fields.
 
@@ -33,7 +53,9 @@ const paxeer = new PaxeerWallet({
 });
 
 // Start sign-in; resume wallet operations after the magic link establishes a session.
-const { error } = await paxeer.signInWithEmail('alice@example.com');
+const email = document.querySelector<HTMLInputElement>('input[type="email"]')?.value;
+if (!email) throw new Error('Enter your email address');
+const { error } = await paxeer.signInWithEmail(email);
 if (error) throw error;
 ```
 
@@ -48,7 +70,7 @@ if (chain.id !== 125) throw new Error('Expected Paxeer chain 125');
 console.log(wallet.address);
 
 const sent = await paxeer.sendTransaction({
-  to: '0x1111111111111111111111111111111111111111', // replace with your recipient
+  to: wallet.address, // send to this wallet
   value: 1_000_000_000_000_000n, // 0.001 PAX, in wei
   chainId: 125,
 });
@@ -57,9 +79,9 @@ console.log(sent.tx_hash, sent.receipt?.rung);
 
 Use `getStandardSelf()` for a passive read: it returns `null` when the authenticated user has no wallet. Call `provisionStandardWallet()` after an explicit creation choice. `getWallet()` combines these operations; provision before calling the signing or sending methods. Signing happens on the API server; this client does not receive custody key material. Requests remain subject to authentication, signing policy and gateway refusals.
 
-## EVM review and approval
+### EVM review and approval
 
-Configure `evmReview.storage` with persistent `getItem` and `setItem` methods before using this flow. Browser `localStorage` satisfies that interface; other environments must supply their own storage. Reviews are retained under the authenticated user's ID and reused when the client is recreated with the same storage.
+Configure `evmReview.storage` with persistent `getItem` and `setItem` methods before using this flow. Browser `localStorage` satisfies that interface; other environments must supply their own storage. Reviews are retained under the gateway origin and authenticated user's ID, and reused when the client is recreated with the same origin, user and storage.
 
 The SDK accepts an unsigned EIP-1559 transaction with a destination and no signature fields. Supply the pending nonce, gas and fee limits for the intended transaction. It serializes the transaction and checks the returned destination, value, calldata, signing hash, chain and principal against the request before retaining the review.
 
@@ -85,9 +107,9 @@ async function reviewAndApprove(unsignedTransaction: TransactionSerializable) {
 
 Approval records consent and does not broadcast. The gateway has an [EVM signing route](../../services/wallet/gateway/src/routes/evmApprovals.ts) at `POST /v1/wallet/evm/sign`, but this SDK currently exposes no helper for that route. `signTransaction()` and `sendTransaction()` use their own routes and do not consume an EVM approval ID. Status can be `reviewed`, `approved`, `signing_unknown` or `signed`; an uncertain signing outcome must be reconciled through status rather than treated as a fresh approval.
 
-## Authenticated receipts
+### Authenticated receipts
 
-`sendTransaction()` returns `{ tx_hash, address, chain_id, receipt? }`. It validates the send response, authenticates any returned receipt, and otherwise queries `pax_sequencerReceipt` through the wallet's `chain.rpc_url`. A missing receipt is still pending evidence, not transaction failure. A receipt lookup or authentication error can occur after broadcast; retain the original transaction hash and reconcile before submitting again.
+`sendTransaction()` returns `{ tx_hash, address, chain_id, receipt? }`. It validates the send response and preserves a returned `submitted` answer as pending. It authenticates any execution receipt, and queries `pax_sequencerReceipt` through the wallet's `chain.rpc_url` when no receipt was returned. A missing receipt is still pending evidence, not transaction failure. A receipt lookup or authentication error can occur after broadcast; retain the original transaction hash and reconcile before submitting again.
 
 The wire API and exported types retain the names `pax_sequencerReceipt` and `SequencerReceiptAnswer`. These describe receipts from the merged network's kernel. The receipt stages are:
 
@@ -95,7 +117,7 @@ The wire API and exported types retain the names `pax_sequencerReceipt` and `Seq
 - `receipted`: signed execution evidence, including status, logs and fees.
 - `committed`: execution evidence plus block number and block hash.
 
-The [receipt helpers](src/receipt.ts) check transaction identity, signed receipt bytes, decoded execution fields, the Ed25519 signature, and the signing key's governed height range. They obtain key pins from the node's `px_getReceiptKeys` method. Authentication failure throws; it must not be displayed as successful execution. Execution status `0x0` means failure even when the transaction is committed.
+The [receipt helpers](src/receipt.ts) check transaction identity, signed receipt bytes, decoded execution fields, the Ed25519 signature, and the signing key's governed height range. They obtain key pins from the node's `px_getReceiptKeys` method and the signed transaction from `eth_getRawTransactionByHash`, then bind the receipt to that transaction on chain `125`. Authentication failure throws; it must not be displayed as successful execution. Execution status `0x0` means failure even when the transaction is committed.
 
 Continue the vanilla send example to wait for commitment with bounded polling:
 
@@ -121,9 +143,9 @@ try {
 }
 ```
 
-`readSequencerReceipt(rpc, hash)` performs one authenticated lookup and can return `null`. `authenticateSequencerReceipt(rpc, value, expectedHash)` authenticates an existing answer. `waitForSequencerReceipt` also accepts an `AbortSignal`; its polling limit bounds attempts, not the duration of each fetch. A timeout does not cancel or reverse the submitted transaction.
+`readSequencerReceipt(rpc, hash)` performs one lookup and can return `null` or a pending `submitted` answer. It authenticates `receipted` and `committed` answers. `authenticateSequencerReceipt(rpc, value, expectedHash)` authenticates an existing answer. `waitForSequencerReceipt` also accepts an `AbortSignal`; its polling limit bounds attempts, not the duration of each fetch. A timeout does not cancel or reverse the submitted transaction.
 
-## Usage (React)
+### Usage (React)
 
 Import hooks from `@paxeer/wallet/react`. Mount the wallet reader after authentication, and remount it when the user changes. `useWallet()` auto-provisions; `useStandardAccount()` provides passive reads and an explicit `refresh()` instead.
 
@@ -154,7 +176,7 @@ function WalletDetails({ paxeer }: { paxeer: PaxeerWallet }) {
 }
 ```
 
-## API surface
+### API surface
 
 The current [`PaxeerWallet`](src/index.ts) methods are:
 
@@ -163,22 +185,31 @@ The current [`PaxeerWallet`](src/index.ts) methods are:
 - Signing and sending: `signTransaction(tx)` returns `{ signed_tx, address, chain_id }`; `sendTransaction(tx)` returns the send response described above; `signMessage(message)` returns `{ signature, address }` for EIP-191 personal signing. Transaction amounts and fees accept bigint or decimal strings; `nonce` and `chainId` are numbers.
 - EVM consent: `reviewEvmTransaction(unsignedTransaction)`, `approveEvmTransaction(reviewId)`, `evmApprovalStatus(reviewId)`.
 
-Funded accounts are retired. `listFundedTiers()`, `getFundedSelf()`, `provisionFundedAccount()`, `signFundedTransaction()`, `sendFundedTransaction()` and `signFundedMessage()` remain compatibility methods that reject with `FundedUnsupportedError` (`FUNDED_UNSUPPORTED`, status `410`). The exported `useFundedTiers` and `useFundedAccount` hooks surface those errors; they do not enable funded accounts.
+The funded compatibility methods `listFundedTiers()`, `getFundedSelf()`, `provisionFundedAccount()`, `signFundedTransaction()`, `sendFundedTransaction()` and `signFundedMessage()` reject with `FundedUnsupportedError` (`FUNDED_UNSUPPORTED`, status `410`). The exported `useFundedTiers` and `useFundedAccount` hooks surface those errors; they do not enable funded accounts.
 
 Other exports include:
 
 - [`PaxeerProvider`](src/provider.ts) (EIP-1193), [`WalletInterface`](src/wallet.ts) for embedded or injected providers, and EIP-6963 [`announceProvider`, `discoverProviders` and `install`](src/eip6963.ts).
 - [`EndpointClient`](src/endpoint.ts), [`KernelClient` and `KernelAvailability`](src/kernel.ts), [`HumanClient`](src/human.ts), receipt and transfer-tracking helpers, [module clients](src/modules/), and [agent request and binding signing helpers](src/agent.ts).
-- React hooks: `usePaxeerWallet`, `useSession`, `useWallet` and `useStandardAccount`, plus the retired funded compatibility hooks above.
+- React hooks: `usePaxeerWallet`, `useSession`, `useWallet` and `useStandardAccount`, plus the funded compatibility hooks above.
 
 Wallet HTTP failures use `PaxeerWalletError` with `code`, `status` and `detail`; a missing session produces `NO_SESSION` (401). JSON-RPC callers use `JsonRpcError` or `JsonRpcTransportError`. EIP-1193 provider failures use the codes in [`errors.ts`](src/errors.ts).
 
-## Node reads and hosted operations
+### Node reads and hosted operations
 
-`EndpointClient` defaults to `https://api-mainnet-beta.paxeer.network` for node calls. Public node JSON-RPC uses the root URL of that alias or `api1` through `api14.mainnet-beta.paxeer.network`, with chain ID `125`. See [public RPC endpoints](../../docs/site/docs/reference/public-rpc.md).
+`EndpointClient` uses the public alias in `DEFAULT_ENDPOINT_URL` for node calls. Public node JSON-RPC uses the root URL, with chain ID `125`. See the [public RPC documentation site page](../../docs/site/paxeer-docs/src/app/public-rpc/page.tsx).
 
 Set `nodeUrl` (or the legacy `url` option) to choose a node. `px_` reads go to the node root; only `px_register` and `px_requestFunds` require `hostedUrl`. Account, asset, balance, network, capabilities and history reads use the node, as does `px_getReceiptKeys`. Configure `hostedUrl` separately for the hosted gateway's two operations; its contract is [OpenRPC](../../services/platform/hosted/gateway/openrpc.json).
 
-`EndpointClient.batch()` uses the same split: it sends `px_register` and `px_requestFunds` to the hosted gateway and all other methods, including `px_getReceiptKeys`, to the node, then returns results in the original call order. Without `hostedUrl`, a batch containing either hosted operation throws `JsonRpcTransportError`. The legacy error message refers to hosted reads, but read-only batches do not require `hostedUrl`.
+`EndpointClient.batch()` uses the same split: it sends `px_register` and `px_requestFunds` to the hosted gateway and all other methods, including `px_getReceiptKeys`, to the node, then returns results in the original call order. Without `hostedUrl`, a batch containing either hosted operation throws `JsonRpcTransportError`. Read-only batches do not require `hostedUrl`.
 
 `KernelClient` uses this endpoint and `KernelAvailability` to return either `{ available: true, result }` or a typed unavailable state. Availability depends on a consensus head that is not catching up. Recognized kernel-unavailable responses use JSON-RPC code `-32010` with `data.code = "kernel_unavailable"`; unrelated errors propagate. These clients access the same network and its hosted services.
+
+## Documentation
+
+- [SDK surface index](../../docs/system/sdk.md)
+- [Wallet app architecture](../../docs/wallet/app/architecture/README.md)
+- [Wallet app development](../../docs/wallet/app/development/README.md)
+- [SDK documentation site page](../../docs/site/paxeer-docs/src/app/sdk/page.tsx)
+- [SDK documentation site markdown](../../docs/site/paxeer-docs/public/markdown/sdk.md)
+- [Public RPC documentation site page](../../docs/site/paxeer-docs/src/app/public-rpc/page.tsx)

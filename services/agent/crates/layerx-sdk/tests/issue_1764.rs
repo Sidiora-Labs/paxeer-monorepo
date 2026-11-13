@@ -1,6 +1,6 @@
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_sdk::rpc::{Commitment, RpcClient, RpcError};
-use layerx_sdk::rpc_verification::{ReceiptPolicy, node_commit::NodeCommitAuthority};
+use layerx_sdk::rpc_verification::{node_commit::NodeCommitAuthority, ReceiptPolicy};
 use layerx_types::clock::{Clock, ClockError, ClockReading};
 use layerx_types::rung::Rung;
 use serde_json::Value;
@@ -35,40 +35,37 @@ fn fixed(value: &Value) -> [u8; 32] {
     hex::decode(
         value
             .as_str()
-            .expect("hex field")
+            .unwrap_or_else(|| panic!("hex field"))
             .strip_prefix("0x")
-            .expect("hex prefix"),
+            .unwrap_or_else(|| panic!("hex prefix")),
     )
-    .expect("hex bytes")
+    .unwrap_or_else(|error| panic!("hex bytes: {error:?}"))
     .try_into()
-    .expect("32 bytes")
+    .unwrap_or_else(|error| panic!("32 bytes: {error:?}"))
 }
 
 #[test]
 fn committed_wait_uses_unfiltered_batch_activity_ids() {
     let path = std::env::var("ISSUE_1764_CONFIG")
-        .expect("run through TestCommittedWaitUsesBatchActivityIDs with a live production node");
-    let config: Value = serde_json::from_slice(&std::fs::read(path).expect("independent pins"))
-        .expect("pin configuration");
-    let height = config["height"].as_u64().expect("height");
-    let validators = config["validators"]
-        .as_array()
-        .expect("genesis validator set")
-        .iter()
-        .map(|validator| {
-            (
-                fixed(&validator["key"]),
-                validator["power"].as_u64().expect("power"),
-            )
-        })
-        .collect::<Vec<_>>();
+        .unwrap_or_else(|error| panic!("run through TestCommittedWaitUsesBatchActivityIDs with a live production node: {error:?}"));
+    let config: Value = serde_json::from_slice(
+        &std::fs::read(path).unwrap_or_else(|error| panic!("independent pins: {error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("pin configuration: {error:?}"));
+    let height = config["height"]
+        .as_u64()
+        .unwrap_or_else(|| panic!("height"));
+    let validators = pinned_validators(&config);
     let authority = NodeCommitAuthority::new(
-        config["chainId"].as_str().expect("chain").into(),
+        config["chainId"]
+            .as_str()
+            .unwrap_or_else(|| panic!("chain"))
+            .into(),
         validators,
         height,
         height,
     )
-    .expect("independently pinned genesis authority");
+    .unwrap_or_else(|error| panic!("independently pinned genesis authority: {error:?}"));
     let policy = ReceiptPolicy {
         protocol_version: 2,
         network_id: 125,
@@ -81,10 +78,15 @@ fn committed_wait_uses_unfiltered_batch_activity_ids() {
         trusted_checkpoint_context_digest: None,
     };
     let activity = fixed(&config["activity"]);
-    let sequence = config["targetSequence"].as_u64().expect("sequence");
+    let sequence = config["targetSequence"]
+        .as_u64()
+        .unwrap_or_else(|| panic!("sequence"));
     assert_eq!(
         sequence,
-        config["fromSequence"].as_u64().expect("batch start") + 1
+        config["fromSequence"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("batch start"))
+            + 1
     );
     for mode in [
         "genuine",
@@ -96,13 +98,15 @@ fn committed_wait_uses_unfiltered_batch_activity_ids() {
         "malformed",
     ] {
         let rpc = RpcClient::connect_node(
-            config["endpoints"][mode].as_str().expect("live endpoint"),
+            config["endpoints"][mode]
+                .as_str()
+                .unwrap_or_else(|| panic!("live endpoint")),
             None,
         )
-        .expect("production SDK HTTP transport")
+        .unwrap_or_else(|error| panic!("production SDK HTTP transport: {error:?}"))
         .with_clock(Arc::new(SystemClock(Instant::now())))
         .with_node_commit_authority(authority.clone())
-        .expect("pinned authority");
+        .unwrap_or_else(|error| panic!("pinned authority: {error:?}"));
         let result = rpc.wait_for(
             activity,
             Commitment::Committed,
@@ -120,7 +124,7 @@ fn committed_wait_uses_unfiltered_batch_activity_ids() {
             let receipt = verified
                 .receipt()
                 .protocol()
-                .expect("production protocol receipt");
+                .unwrap_or_else(|| panic!("production protocol receipt"));
             assert_eq!(receipt.activity_id(), activity);
             assert_eq!(receipt.global_sequence(), sequence);
             println!("{mode}: verified Committed receipt at sequence {sequence}");
@@ -133,4 +137,20 @@ fn committed_wait_uses_unfiltered_batch_activity_ids() {
             println!("{mode}: refused by verification");
         }
     }
+}
+
+fn pinned_validators(config: &Value) -> Vec<([u8; 32], u64)> {
+    config["validators"]
+        .as_array()
+        .unwrap_or_else(|| panic!("genesis validator set"))
+        .iter()
+        .map(|validator| {
+            (
+                fixed(&validator["key"]),
+                validator["power"]
+                    .as_u64()
+                    .unwrap_or_else(|| panic!("power")),
+            )
+        })
+        .collect::<Vec<_>>()
 }

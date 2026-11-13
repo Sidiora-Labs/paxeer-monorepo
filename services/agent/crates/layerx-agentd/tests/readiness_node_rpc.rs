@@ -1,3 +1,11 @@
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 use layerx_agentd::boot::{readiness_gate, Gate, GateError, Status, WriteGateError};
 use layerx_agentd::compat::{
     matrix, verify, CompatibilityError, CONTRACT_VERSION, DAEMON_VERSION, SDK_VERSION,
@@ -359,7 +367,7 @@ fn readiness_recording(
                     length = Some(must(value.trim().parse::<usize>()));
                 }
             }
-            let length = length.expect("bounded content length");
+            let length = require_some(length, "bounded content length");
             assert!(length < 65536);
             let mut body = vec![0; length];
             must(reader.read_exact(&mut body));
@@ -427,13 +435,27 @@ fn readiness_refresh_closes_writes_and_preserves_generation() {
             Err(WriteGateError::NotReady)
         ));
     }
-    assert_eq!(must(gate.readiness_gate(&node)).generation, 2);
+    finish_readiness_refresh_closes_writes_and_preserves_generation_1_readiness_node_rpc(
+        key, keys, gate, server, &node,
+    );
+}
+
+fn finish_readiness_refresh_closes_writes_and_preserves_generation_1_readiness_node_rpc(
+    key: [u8; 32],
+    keys: impl Fn([u8; 32], u64, u64) -> Value,
+    mut gate: Gate,
+    server: JoinHandle<()>,
+    node: &NodeRpc,
+) {
+    use serde_json::json;
+
+    assert_eq!(must(gate.readiness_gate(node)).generation, 2);
     gate.disconnected();
     assert_eq!(gate.guard_write(|| 1), Err(WriteGateError::NotReady));
-    assert_eq!(must(gate.readiness_gate(&node)).generation, 3);
+    assert_eq!(must(gate.readiness_gate(node)).generation, 3);
     must(server.join());
     // A transport refusal after readiness closes both writes and evidence access.
-    assert!(gate.readiness_gate(&node).is_err());
+    assert!(gate.readiness_gate(node).is_err());
     assert_eq!(gate.guard_write(|| 1), Err(WriteGateError::NotReady));
     assert!(matches!(
         gate.evidence_authority(),
@@ -475,9 +497,11 @@ fn readiness_refresh_closes_writes_and_preserves_generation() {
     )
     .is_err());
     assert_eq!(
-        verify(DAEMON_VERSION, "paxd/v1.0.0", contract.major, SDK_VERSION)
-            .unwrap()
-            .contract_version,
+        require_ok(
+            verify(DAEMON_VERSION, "paxd/v1.0.0", contract.major, SDK_VERSION),
+            "required test value"
+        )
+        .contract_version,
         contract.major
     );
     assert_eq!(

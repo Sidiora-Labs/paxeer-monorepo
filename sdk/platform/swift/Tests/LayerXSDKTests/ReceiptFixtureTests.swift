@@ -23,6 +23,26 @@ final class ReceiptFixtureTests: XCTestCase {
     }
   }
 
+  func testNativeDestinationAuthorizationVectors() throws {
+    let raw = try Data(
+      contentsOf: fixtureURL(
+        "../../../../programs/fixtures/pay5/destination-authorization-vectors.json"))
+    let vectors = try XCTUnwrap(JSONSerialization.jsonObject(with: raw) as? [[String: Any]])
+    XCTAssertEqual(vectors.count, 1271)
+    for vector in vectors {
+      let name = try XCTUnwrap(vector["name"] as? String)
+      let encoded = try hexField(vector, "encoded")
+      let root = try hexField(vector, "root")
+      if try XCTUnwrap(vector["accept"] as? Bool) {
+        XCTAssertEqual(try ProgramsWireTestSupport.authorizationRoot(encoded), root, name)
+      } else {
+        let actual: Data
+        do { actual = try ProgramsWireTestSupport.authorizationRoot(encoded) } catch { continue }
+        XCTAssertNotEqual(actual, root, name)
+      }
+    }
+  }
+
   func testNativeLifecycleCFixtures() throws {
     for name in [
       "deploy", "upgrade", "wind-down-route", "wind-down-deprecate", "wind-down-tombstone",

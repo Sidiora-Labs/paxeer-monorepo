@@ -79,7 +79,7 @@ mod tests {
     fn constant(code: &mut Vec<u8>, mut value: i32) {
         code.push(OP_I32_CONST);
         loop {
-            let byte = (value & 0x7f) as u8;
+            let byte = value.to_le_bytes()[0] & 0x7f;
             value >>= 7;
             if (value == 0 && byte & 0x40 == 0) || (value == -1 && byte & 0x40 != 0) {
                 code.push(byte);
@@ -96,6 +96,8 @@ mod tests {
 
     #[test]
     fn actual_guest_without_authenticated_context_refuses_every_field() {
+        use crate::test_support::AssertSuccess as _;
+
         let mut exports = unsigned_leb(3);
         for (name, kind, index) in [
             ("layerx_reserve", 0_u8, 1_u8),
@@ -143,8 +145,8 @@ mod tests {
             .unwrap_or_else(|error| panic!("engine: {error}"))
             .validate_candidate_v2(&bytes)
             .unwrap_or_else(|error| panic!("guest: {error}"));
-        let program = ProgramId::new([0x31; 32]).expect("nonzero program");
-        let principal = PrincipalId::new([0x32; 32]).expect("nonzero principal");
+        let program = ProgramId::new([0x31; 32]).assert_success("nonzero program");
+        let principal = PrincipalId::new([0x32; 32]).assert_success("nonzero principal");
         let record = Executor::declared()
             .execute_authorized_v2(
                 &mut Storage::default(),
@@ -166,41 +168,52 @@ mod tests {
         ));
         assert!(record
             .effects()
-            .expect("successful effects")
+            .assert_success("successful effects")
             .transfers
             .is_empty());
     }
 
     #[test]
     fn actual_graph_boundary_preserves_context_and_refuses_edge_sixty_five() {
+        use crate::test_support::AssertSuccess as _;
+
         use crate::calls::{CallGraph, CompositionRefusal, CompositionRules};
-        let root = ProgramId::new([1; 32]).expect("root");
-        let principal = PrincipalId::new([2; 32]).expect("principal");
+        let root = ProgramId::new([1; 32]).assert_success("root");
+        let principal = PrincipalId::new([2; 32]).assert_success("principal");
         let mut graph = CallGraph::root(CompositionRules::declared(), root, principal);
         assert_eq!(graph.immediate_caller(), None);
         for branch in 0_u8..8 {
-            let parent = ProgramId::new([10 + branch; 32]).expect("parent");
-            graph.enter(parent).expect("branch admitted");
-            assert_eq!(graph.current().expect("parent frame").program(), parent);
+            let parent = ProgramId::new([10 + branch; 32]).assert_success("parent");
+            graph.enter(parent).assert_success("branch admitted");
             assert_eq!(
-                graph.current().expect("parent frame").principal(),
+                graph.current().assert_success("parent frame").program(),
+                parent
+            );
+            assert_eq!(
+                graph.current().assert_success("parent frame").principal(),
                 principal
             );
             assert_eq!(graph.immediate_caller(), Some(root));
             for child in 0_u8..7 {
-                let leaf = ProgramId::new([30 + child; 32]).expect("leaf");
-                graph.enter(leaf).expect("leaf admitted");
-                assert_eq!(graph.current().expect("leaf frame").program(), leaf);
-                assert_eq!(graph.current().expect("leaf frame").principal(), principal);
+                let leaf = ProgramId::new([30 + child; 32]).assert_success("leaf");
+                graph.enter(leaf).assert_success("leaf admitted");
+                assert_eq!(graph.current().assert_success("leaf frame").program(), leaf);
+                assert_eq!(
+                    graph.current().assert_success("leaf frame").principal(),
+                    principal
+                );
                 assert_eq!(graph.immediate_caller(), Some(parent));
                 graph.leave();
-                assert_eq!(graph.current().expect("restored parent").program(), parent);
+                assert_eq!(
+                    graph.current().assert_success("restored parent").program(),
+                    parent
+                );
                 assert_eq!(graph.immediate_caller(), Some(root));
             }
             if branch == 7 {
                 assert_eq!(graph.edges().len(), 64);
                 let before = graph.clone();
-                let extra = ProgramId::new([99; 32]).expect("extra leaf");
+                let extra = ProgramId::new([99; 32]).assert_success("extra leaf");
                 assert_eq!(
                     graph.enter(extra),
                     Err(CompositionRefusal::EdgesExceeded {
@@ -210,11 +223,17 @@ mod tests {
                 );
                 assert_eq!(graph, before);
                 assert_eq!(graph.visits(extra), 0);
-                assert_eq!(graph.current().expect("unchanged parent").program(), parent);
+                assert_eq!(
+                    graph.current().assert_success("unchanged parent").program(),
+                    parent
+                );
                 assert_eq!(graph.immediate_caller(), Some(root));
             }
             graph.leave();
-            assert_eq!(graph.current().expect("restored root").program(), root);
+            assert_eq!(
+                graph.current().assert_success("restored root").program(),
+                root
+            );
             assert_eq!(graph.immediate_caller(), None);
         }
         assert_eq!(graph.edges().len(), 64);

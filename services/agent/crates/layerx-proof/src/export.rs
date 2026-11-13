@@ -86,7 +86,7 @@ pub enum ExportVerificationError {
 }
 
 /// Re-runs every proof using only the export object and `layerx-proof`.
-/// Receipt and inclusion verification requires no settlement-domain argument.
+/// Receipt and inclusion verification uses the authority carried by each fact.
 /// For per-fact [`Rung`] results and independent authority, use [`verify_complete`].
 ///
 /// # Errors

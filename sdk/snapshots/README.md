@@ -33,12 +33,10 @@ Tendermint calls `OfferSnapshot` to offer a discovered remote snapshot to the
 local application and `ApplySnapshotChunk` to apply a binary snapshot chunk to
 the local application.
 
-The snapshot code does not do any incremental verification of snapshots
-during restoration, i.e. only after the entire snapshot has been restored will
-Tendermint compare the app hash against the trusted hash from the chain.
-Snapshots and chunks do contain hashes as checksums to guard against IO
-corruption and non-determinism, but these are not tied to the chain state and
-can be trivially forged by an adversary.
+During restoration, the SDK checks each chunk against its SHA-256 checksum.
+After the entire snapshot is restored, Tendermint compares the application's resulting
+hash against the trusted hash from the chain. The checksums detect data
+corruption; the final app-hash comparison authenticates the restored state.
 
 ## Snapshot Metadata
 
@@ -77,11 +75,9 @@ message Metadata {
 The `format` is currently `1`, defined in `snapshots/types.CurrentFormat`. This
 must be increased whenever the binary snapshot format changes.
 
-The `hash` is a SHA-256 hash of the entire binary snapshot, used to guard
-against IO corruption and non-determinism across nodes. Note that this is not
-tied to the chain state, and can be trivially forged (but Tendermint will always
-compare the final app hash against the chain app hash). Similarly, the
-`chunk_hashes` are SHA-256 checksums of each binary chunk.
+The `hash` is a SHA-256 checksum of the entire binary snapshot. The
+`chunk_hashes` are SHA-256 checksums of each binary chunk. State authentication
+uses the final app-hash comparison described above.
 
 The `metadata` field is Protobuf-serialized before it is placed into the ABCI
 snapshot.
@@ -90,8 +86,8 @@ snapshot.
 
 The current version `1` snapshot format is a zlib-compressed (level 7),
 length-prefixed Protobuf stream of `cosmos.base.snapshots.v1beta1.SnapshotItem`
-messages, split into chunks at exact 10 MB (10,000,000 byte) boundaries. The
-messages are defined in
+messages, split into chunks at 10 MB (10,000,000 byte) boundaries, with a
+possibly shorter final chunk. The messages are defined in
 [`snapshot.proto`](../proto/cosmos/base/snapshots/v1beta1/snapshot.proto).
 
 ```protobuf

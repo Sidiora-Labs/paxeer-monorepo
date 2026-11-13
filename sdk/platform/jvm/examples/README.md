@@ -1,18 +1,17 @@
 # Runnable JVM examples
 
 These sources use the APIs and configuration boundaries described in the
-[JVM README](../README.md#network-and-api-configuration). The repair JUnit gate
-compiles every Java source and the Kotlin journey in process before executing
-them. It replays committed producer evidence over loopback HTTP and needs no
-live service, issued credential, environment variable or subprocess compiler.
+[JVM README](../README.md#network-and-api-configuration). Java examples are
+standalone sources; the Kotlin journey uses the SDK package and its Kotlin
+extensions.
 
 ## Origins and credentials
 
-`LAYERX_NODE_RPC` is root EVM JSON-RPC, for example
-`https://api1.mainnet-beta.paxeer.network`. The payment checks `eth_chainId`
-equals `0x7d` before signing. It sends no service bearer or owner session to the
-node. Origins must have no path, credentials, query or fragment; plaintext HTTP
-is accepted only for loopback qualification.
+`LAYERX_NODE_RPC` is the root EVM JSON-RPC origin from the
+[public RPC reference](../../../../docs/site/docs/reference/public-rpc.md).
+The payment checks `eth_chainId` equals `0x7d` before signing. It sends no service bearer or owner session to the
+node. Origins must have no path beyond `/`, credentials, query or fragment; plaintext HTTP
+is accepted only for local loopback connections.
 
 `LAYERX_HUMAN_ORIGIN` and `LAYERX_AGENT_ORIGIN` are independently configured
 authenticated service origins obtained from your deployment. A public node
@@ -24,16 +23,13 @@ owner session from that deployment and configure `LAYERX_TENANT`,
 `LAYERX_SESSION_GENERATION`. Session and token IDs are 64 lowercase hex
 characters; generation is a canonical unsigned decimal string. Never log them.
 
-The current daemon and committed Agent golden transcripts use envelope v1;
-the JVM SDK requires v2. A deployment must align this contract before the
-Kotlin journey can complete. The bounded test exercises the real typed request
-and the decoder's refusal of the unmodified daemon transcript. It does not
-claim a successful live budget mutation. See [the wiring record](repair-22.33.1392.kvx).
+Agent operations use the v2 service envelope selected by
+`HttpProductionTransport`; configure the Agent service for that contract.
 
 ## FirstPaymentExample
 
 This example sends **native PAX**, in integer base units, directly through EVM
-RPC. It does not use the stale generated Agent `prepare` contract. Configure:
+RPC. Configure:
 
 | Variable | Value |
 | --- | --- |
@@ -59,8 +55,6 @@ After `eth_sendRawTransaction`, it asks for `pax_sequencerReceipt`, verifies the
 signed receipt and RPC view against the retained transaction and independent
 key pins, requires success, and matches the signed native asset, sender,
 recipient and amount. A `receipted` signature is not a proof of block commitment.
-The gate reproduces the exact transaction in the RPC producer's PAX-transfer
-vector and verifies its original signed receipt.
 
 Pending receipts and mismatched broadcast hashes raise `unknown-outcome`.
 Transport failures also leave the journal intact. Reconcile the retained hash
@@ -97,10 +91,6 @@ that height needs an empty list. The verifier also authenticates the successor
 header proving execution results. Missing trust, altered signatures, changed
 transactions, reverts and mismatched evidence are errors.
 
-The gate verifies both published V5 portable bundles unchanged at their
-respective receipted and committed levels, and proves tampered evidence and
-transaction substitution are refused. Fixture trust is for qualification only.
-
 ## ServiceLifecycleExample (Kotlin)
 
 In addition to the service origins, bearer and owner session above, configure
@@ -111,13 +101,5 @@ generates a canonical random idempotency key. It retains credentials until the
 asynchronous call finishes and then clears their owned secret bytes. Retain the
 printed key for reconciliation; do not retry an unknown mutation with a new key.
 
-It creates a `DaemonLimit`. Such a limit applies only through the daemon;
-bypassing the daemon bypasses the limit. It provides no protocol-enforced budget
-or state proof. A `ProtocolBudget` requires signed owner authorisation not
-represented by the generated request used here; that schema wiring belongs to
-the owning domain. Service refusals propagate as typed SDK exceptions.
-
-Normal inclusion of these sources in the SDK's main build requires the
-out-of-scope POM wiring recorded alongside the repair. The declared JUnit gate
-already compiles and exercises them in process using the compiler libraries
-resolved by the POM's existing Kotlin plugin.
+It creates a service-side `DaemonLimit` through the Agent API. Service refusals
+propagate as typed SDK exceptions.

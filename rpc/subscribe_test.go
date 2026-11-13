@@ -218,6 +218,10 @@ type autobahnCommittedTestNode struct {
 	commits   map[int64]common.Hash
 }
 
+func newAutobahnSubscriptionEnvironment[T any](_ *T) *T {
+	return new(T)
+}
+
 func newAutobahnCommittedTestNode(t *testing.T) *autobahnCommittedTestNode {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
@@ -335,9 +339,15 @@ func newAutobahnCommittedTestNode(t *testing.T) *autobahnCommittedTestNode {
 	require.NoError(t, err)
 	// Use the persisted headers for these subscriptions without changing the
 	// running Autobahn node's own RPC environment or consensus router.
-	storedEnv := *tmClient.Environment
+	storedEnv := newAutobahnSubscriptionEnvironment(tmClient.Environment)
 	storedEnv.Router = nil
-	tmClient.Environment = &storedEnv
+	storedEnv.BlockStore = env.BlockStore
+	storedEnv.StateStore = env.StateStore
+	tmClient.Environment = storedEnv
+	require.NotSame(t, env, tmClient.Environment)
+	require.Same(t, env, n.RPCEnvironment())
+	require.NotNil(t, n.RPCEnvironment().Router)
+	require.Nil(t, tmClient.Environment.Router)
 	require.NoError(t, n.Start(ctx))
 	t.Cleanup(func() { n.Stop(); n.Wait() })
 	require.Eventually(t, func() bool {

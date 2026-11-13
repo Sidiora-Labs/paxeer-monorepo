@@ -31,6 +31,7 @@ import {
   type SigningWallet,
 } from '../db/wallets.js';
 import { getPool, withTransaction } from '../db/pool.js';
+import { bindHumanSignatureReservation } from '../db/signatureAccounting.js';
 import { evaluate, reserveHumanDailyValue } from '../policy/index.js';
 import { env } from '../env.js';
 import {
@@ -468,12 +469,20 @@ export async function signRoutes(
         ...accountSigner,
         async signTransaction(tx) {
           if (dailyReservationId !== null) {
-            // Bind the existing policy charge to the custody accounting operation.
-            // The signer then completes this row instead of charging the payment twice.
-            await client.query(
-              `insert into wallet_signature_reservations(wallet_id,kind,request_hash,operation_hash,signature_id)
-               values($1,'transaction',$2,$3,$4)`,
-              [sw!.row.id, ctx.requestHash, keccak256(serializeTransaction(tx)), dailyReservationId]
+            dailyReservationId = await bindHumanSignatureReservation(
+              {
+                user_id: ctx.subject,
+                wallet_id: sw!.row.id,
+                address: sw!.row.address,
+                kind: 'transaction',
+                request_hash: ctx.requestHash,
+                to_address: tx.to ?? null,
+                value_wei: tx.value ?? 0n,
+                chain_id: tx.chainId ?? sw!.row.chain_id,
+              },
+              keccak256(serializeTransaction(tx)),
+              dailyReservationId,
+              client
             );
           }
           const signed = await accountSigner.signTransaction(tx);

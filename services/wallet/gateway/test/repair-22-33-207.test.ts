@@ -14,13 +14,17 @@ import {
   recoverPublicKey,
   toHex,
   type Abi,
-  type Hex,
+  type Hex
 } from 'viem';
 import { privateKeyToAccount, publicKeyToAddress } from 'viem/accounts';
-import { PGlite, pgcrypto, PGLiteSocketServer } from '../src/db/testDatabase.js';
+import { startPostgresEngine, type RestartablePostgres } from './support/postgres.js';
 import { verifySequencerReceipt } from '../../../agent/sdk/typescript/src/verifier.js';
 import { encodeSequencerReceipt } from '../../../agent/sdk/typescript/src/sequencer-receipt-codec.js';
-import { newAgentKey, startIdentityProvider, type IdentityProvider } from './support/identity.js';
+import {
+  newAgentKey,
+  startIdentityProvider,
+  type IdentityProvider
+} from './support/identity.js';
 import './migrations-evm.test.js';
 
 export const repair2233207Record = {
@@ -34,7 +38,7 @@ export const repair2233207Record = {
     'migration-tail-assumption':
       'evmApprovalsTableAppliesAfter016/currentEvmApprovalsMigrationChain',
     'read-pool-write-retry': 'ambiguousWriteRecoversWithoutReadPoolBroadcastOrReplacement',
-    'station-empty-receipt': 'stationReplayPreservesCanonicalNodeExecutionEvidence',
+    'station-empty-receipt': 'stationReplayPreservesCanonicalNodeExecutionEvidence'
   },
   baseline:
     'No pre-change gate was run: the explicit gate-only order forbids running verify_cmd by hand or before implementation.',
@@ -43,13 +47,13 @@ export const repair2233207Record = {
     previousGates:
       'Attempt 1 gate ledger: verify run 1 failed with transient gas_station_unavailable and a closed database connection; verify run 2 passed eight cases and failed the Buffer/Uint8Array receipt comparison (gotcha 3164).',
     gates:
-      'Attempt 2 build and verify revision, command, exit and private logs are recorded by hf-build/hf-done in /out/run/gates.jsonl; the final hf-done entry qualifies this unchanged candidate.',
+      'Attempt 2 build and verify revision, command, exit and private logs are recorded by hf-build/hf-done in /out/run/gates.jsonl; the final hf-done entry qualifies this unchanged candidate.'
   },
   wiring: [
     'Wallet domain 12: services/wallet/attestor/internal/server/authority.go must expose recorded owner/key/epoch admission and refusal transcripts to the TypeScript-only gate; the real-daemon cases remain in attestor.test.ts.',
     'Wallet domain 12: services/wallet/gateway/test/e2e/attestors.ts generate must publish generated public key and epoch before its refresh; backfill-command.test.ts now drives the admitted transitions directly.',
-    'Interop domain 9 / node domain 6: services/interop/crates/layerx-gas-station/tests and node/sequencer must publish a canonical sponsored addr-bind execution/replay/recovery transcript; the current committed station capture proves delegated execution and authenticated receipts but contains no addr bind.',
-  ],
+    'Interop domain 9 / node domain 6: services/interop/crates/layerx-gas-station/tests and node/sequencer must publish a canonical sponsored addr-bind execution/replay/recovery transcript; the current committed station capture proves delegated execution and authenticated receipts but contains no addr bind.'
+  ]
 } as const;
 
 interface ReceiptVector {
@@ -84,14 +88,13 @@ const pins = (entry: ReceiptVector) => [
     keyId: bytes(entry.pinnedKey.keyId),
     publicKey: bytes(entry.pinnedKey.publicKey),
     first_height: BigInt(entry.pinnedKey.firstHeight),
-    last_height: BigInt(entry.pinnedKey.lastHeight),
-  },
+    last_height: BigInt(entry.pinnedKey.lastHeight)
+  }
 ];
 const inventorySigner = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
 let inventorySequence = 0;
 let directory: string;
-let db: PGlite;
-let socket: PGLiteSocketServer;
+let postgres: RestartablePostgres;
 let server: Server;
 let app: FastifyInstance;
 let configuration: typeof import('../src/env.js');
@@ -116,22 +119,19 @@ const teeAbi = JSON.parse(
 ) as Abi;
 
 async function openDatabase(): Promise<void> {
-  db = await PGlite.create({ dataDir: join(directory, 'database'), extensions: { pgcrypto } });
-  socket = new PGLiteSocketServer({ db, host: '127.0.0.1', port: 0, maxConnections: 10 });
-  await socket.start();
-  process.env.DATABASE_URL = `postgres://postgres:postgres@${socket.getServerConn()}/postgres`;
+  postgres = await startPostgresEngine();
+  process.env.DATABASE_URL = postgres.url;
   if (configuration) configuration.env.DATABASE_URL = process.env.DATABASE_URL;
 }
 
 async function closeDatabase(): Promise<void> {
   await database?.closePool();
-  await socket?.stop();
-  await db?.close();
+  await postgres?.stop();
 }
 
 async function restartDatabase(): Promise<void> {
-  await closeDatabase();
-  await openDatabase();
+  await database.closePool();
+  await postgres.restart();
   await (await import('../src/db/migrate.js')).runMigrations();
 }
 
@@ -156,9 +156,17 @@ beforeAll(async () => {
         else {
           const decoded = decodeFunctionData({ abi: teeAbi, data: call.data });
           if (decoded.functionName === 'rootCount')
-            result = encodeFunctionResult({ abi: teeAbi, functionName: 'rootCount', result: 0n });
+            result = encodeFunctionResult({
+              abi: teeAbi,
+              functionName: 'rootCount',
+              result: 0n
+            });
           else if (decoded.functionName === 'rootOf')
-            result = encodeFunctionResult({ abi: teeAbi, functionName: 'rootOf', result: '0x' });
+            result = encodeFunctionResult({
+              abi: teeAbi,
+              functionName: 'rootOf',
+              result: '0x'
+            });
           else rpcError = 'LXP_AGENT_TEE_INVALID_QUOTE';
         }
       } else if (body.method === 'eth_sendRawTransaction' && req.url === '/write') {
@@ -181,7 +189,7 @@ beforeAll(async () => {
         JSON.stringify({
           jsonrpc: '2.0',
           id: body.id,
-          ...(rpcError ? { error: { code: -32000, message: rpcError } } : { result }),
+          ...(rpcError ? { error: { code: -32000, message: rpcError } } : { result })
         })
       );
     } catch (error) {
@@ -215,7 +223,7 @@ beforeAll(async () => {
     did: agent.did,
     publicKey: agent.publicKeyHex,
     label: 'repair',
-    keyFingerprint: agent.publicKeyHex.slice(0, 16),
+    keyFingerprint: agent.publicKeyHex.slice(0, 16)
   });
   token = (
     await (
@@ -224,7 +232,9 @@ beforeAll(async () => {
   ).token;
   app = Fastify();
   await app.register((await import('../src/routes/agentActions.js')).agentActionRoutes);
-  await app.register((await import('../src/routes/agentPrecompiles.js')).agentPrecompileRoutes);
+  await app.register(
+    (await import('../src/routes/agentPrecompiles.js')).agentPrecompileRoutes
+  );
   await app.ready();
 }, 30_000);
 
@@ -240,7 +250,9 @@ afterAll(async () => {
   expect(errors).toEqual([]);
 });
 
-function approveInventory(keys: import('../src/agent/authority.js').WalletInventoryKey[]): void {
+function approveInventory(
+  keys: import('../src/agent/authority.js').WalletInventoryKey[]
+): void {
   const now = Math.floor(Date.now() / 1000);
   const header = Buffer.from(
     JSON.stringify({ alg: 'ES256', typ: 'wallet-custody-inventory+jwt' })
@@ -258,15 +270,15 @@ function approveInventory(keys: import('../src/agent/authority.js').WalletInvent
       threshold: 3,
       members: Array.from({ length: 5 }, (_, i) => ({
         id: `node-${i + 1}`,
-        spki_sha256: createHash('sha256').update(`member-${i}`).digest('hex'),
+        spki_sha256: createHash('sha256').update(`member-${i}`).digest('hex')
       })),
-      keys,
+      keys
     })
   ).toString('base64url');
   const input = `${header}.${payload}`;
   const signature = sign('sha256', Buffer.from(input), {
     key: inventorySigner.privateKey,
-    dsaEncoding: 'ieee-p1363',
+    dsaEncoding: 'ieee-p1363'
   });
   writeFileSync(
     configuration.env.WALLET_CUSTODY_INVENTORY_FILE!,
@@ -281,8 +293,11 @@ async function teeSelectorOrderDistinguishesAvailabilityProbe(): Promise<void> {
     {
       path: '/tee',
       method: 'eth_call',
-      params: [{ to: precompiles.PRECOMPILE_ADDRESSES.teeAttestor, data: '0xffffffff' }, 'latest'],
-    },
+      params: [
+        { to: precompiles.PRECOMPILE_ADDRESSES.teeAttestor, data: '0xffffffff' },
+        'latest'
+      ]
+    }
   ]);
   await precompiles.ensureServed('teeAttestor');
   expect(exchanges.slice(start)).toHaveLength(1);
@@ -293,36 +308,36 @@ async function teeSelectorOrderDistinguishesAvailabilityProbe(): Promise<void> {
       payload: { family: 'intel_tdx', quote: '0x0102' },
       name: 'verify',
       args: [0, '0x0102'],
-      status: 422,
+      status: 422
     },
     {
       path: 'verify',
       payload: { family: 1, quote: '0x0102', expected_report_data: report },
       name: 'verifyAndExpect',
       args: [1, '0x0102', report],
-      status: 422,
+      status: 422
     },
     {
       path: 'root-count',
       payload: { family: 'nvidia_h100' },
       name: 'rootCount',
       args: [2],
-      status: 200,
+      status: 200
     },
     {
       path: 'root-of',
       payload: { family: 'intel_sgx', index: (1n << 255n).toString() },
       name: 'rootOf',
       args: [3, 1n << 255n],
-      status: 200,
-    },
+      status: 200
+    }
   ]) {
     const offset = exchanges.length;
     const response = await app.inject({
       method: 'POST',
       url: `/v1/agent/precompiles/tee/${example.path}`,
       headers: { authorization: `Bearer ${token}` },
-      payload: example.payload,
+      payload: example.payload
     });
     expect(response.statusCode, response.body).toBe(example.status);
     const calls = exchanges.slice(offset).filter((call) => call.method === 'eth_call');
@@ -330,7 +345,7 @@ async function teeSelectorOrderDistinguishesAvailabilityProbe(): Promise<void> {
     const call = calls[0]!.params[0] as { to: string; data: Hex };
     expect(decodeFunctionData({ abi: teeAbi, data: call.data })).toEqual({
       functionName: example.name,
-      args: example.args,
+      args: example.args
     });
   }
 }
@@ -341,7 +356,7 @@ async function retainedActionRejectsTokenWhileRetiredActionIsAbsent(): Promise<v
     method: 'POST',
     url: ALLOWANCE_AND_CALL_ROUTE,
     headers: { authorization: `Bearer ${token}` },
-    payload: { idempotency_key: 'token-write' },
+    payload: { idempotency_key: 'token-write' }
   });
   expect(response.statusCode).toBe(403);
   expect(response.json()).toMatchObject({ error: 'agent_token_read_only' });
@@ -354,25 +369,25 @@ async function retainedActionRejectsTokenWhileRetiredActionIsAbsent(): Promise<v
     keyId: agent.did,
     nonce,
     expiry,
-    body: Buffer.from(payload),
+    body: Buffer.from(payload)
   });
   const signed = {
     'x-agent-key': agent.did,
     'x-agent-nonce': nonce.toString('hex'),
     'x-agent-expires': expiry.toString(),
-    'x-agent-signature': agent.sign(digest),
+    'x-agent-signature': agent.sign(digest)
   };
   for (const headers of [{}, { authorization: `Bearer ${token}` }, signed, signed]) {
     const retired = await app.inject({
       method: 'POST',
       url,
       payload,
-      headers: { 'content-type': 'application/json', ...headers },
+      headers: { 'content-type': 'application/json', ...headers }
     });
     expect(retired.statusCode).toBe(404);
   }
   expect((await database.query('select count(*)::int as n from agent_actions')).rows).toEqual([
-    { n: 0 },
+    { n: 0 }
   ]);
 }
 
@@ -383,7 +398,7 @@ async function recordedSigningIdentityMatchesInventoryOwnerAndKey(): Promise<voi
   const wallet = fixture<{ key_id: string; address: Hex }>('./fixtures/attestor/wallet.json');
   const publicKey = await recoverPublicKey({
     hash: `0x${recorded.signed_bytes}`,
-    signature: `0x${recorded.signature}`,
+    signature: `0x${recorded.signature}`
   });
   expect(publicKeyToAddress(publicKey)).toBe(wallet.address);
   const owner = randomUUID();
@@ -393,7 +408,7 @@ async function recordedSigningIdentityMatchesInventoryOwnerAndKey(): Promise<voi
     curve: 'secp256k1' as const,
     epoch: 1,
     public_key: publicKey.slice(2).toLowerCase(),
-    operations: ['sign' as const],
+    operations: ['sign' as const]
   };
   approveInventory([entry]);
   expect(authority.requireInventoryKey(wallet.key_id, 'sign', owner)).toEqual(entry);
@@ -409,7 +424,7 @@ async function recordedSigningIdentityMatchesInventoryOwnerAndKey(): Promise<voi
     chainId: 125,
     timeoutMs: 500,
     lagThresholdBlocks: 20,
-    healthIntervalMs: 60_000,
+    healthIntervalMs: 60_000
   });
   try {
     const walletId = randomUUID();
@@ -427,7 +442,7 @@ async function recordedSigningIdentityMatchesInventoryOwnerAndKey(): Promise<voi
       public_key: entry.public_key,
       epoch: entry.epoch,
       chain_id: 125,
-      session_id: sessionId,
+      session_id: sessionId
     };
     await database.query(
       `insert into wallet_evm_approvals(id,wallet_id,principal,session_id,state,artifact,review_evidence,expires_at)
@@ -453,7 +468,7 @@ async function recordedSigningIdentityMatchesInventoryOwnerAndKey(): Promise<voi
     expect(wrongOwner.statusCode, wrongOwner.body).toBe(503);
     expect(wrongOwner.json()).toEqual({ error: 'custody_authority_unavailable' });
     approveInventory([
-      { ...entry, public_key: privateKeyToAccount(`0x${'29'.repeat(32)}`).publicKey.slice(2) },
+      { ...entry, public_key: privateKeyToAccount(`0x${'29'.repeat(32)}`).publicKey.slice(2) }
     ]);
     const wrongKey = await read();
     expect(wrongKey.statusCode, wrongKey.body).toBe(403);
@@ -488,7 +503,7 @@ async function generationAdmissionAdvancesToExactHeldKeyAndEpoch(): Promise<void
     curve: 'secp256k1' as const,
     epoch: 0,
     public_key: '',
-    operations: ['generate' as const],
+    operations: ['generate' as const]
   };
   approveInventory([admission]);
   expect(authority.requireInventoryKey(keyId, 'generate', owner)).toEqual(admission);
@@ -501,7 +516,7 @@ async function generationAdmissionAdvancesToExactHeldKeyAndEpoch(): Promise<void
   const generated = {
     ...admission,
     public_key: account.publicKey.slice(2),
-    operations: ['sign' as const, 'refresh' as const],
+    operations: ['sign' as const, 'refresh' as const]
   };
   approveInventory([generated]);
   expect(authority.requireInventoryKey(keyId, 'refresh', owner)).toEqual(generated);
@@ -524,7 +539,7 @@ async function canonicalEvmEvidenceSurvivesDatabaseRestart(): Promise<void> {
     chainId: 125,
     timeoutMs: 500,
     lagThresholdBlocks: 20,
-    healthIntervalMs: 60_000,
+    healthIntervalMs: 60_000
   });
   try {
     const answer = await rpc.sequencerReceipt(vector.receiptJson.txHash);
@@ -550,7 +565,11 @@ async function canonicalEvmEvidenceSurvivesDatabaseRestart(): Promise<void> {
       'insert into wallets(id,user_id,address,attestor_key_id) values($1,$2,$3,$4)',
       [walletId, principal, vector.receiptJson.from, `receipt:${principal}`]
     );
-    const evidence = { tx_hash: vector.receiptJson.txHash, rung: 'receipted', receipt: answer };
+    const evidence = {
+      tx_hash: vector.receiptJson.txHash,
+      rung: 'receipted',
+      receipt: answer
+    };
     await database.query(
       `insert into wallet_evm_approvals(id,wallet_id,principal,session_id,state,artifact,
       review_evidence,approval,evidence,expires_at,approved_at,attempted_at,completed_at)
@@ -579,12 +598,12 @@ async function canonicalEvmEvidenceSurvivesDatabaseRestart(): Promise<void> {
     ).rejects.toThrow();
     await expect(
       verifySequencerReceipt(bytes(recovered.receipt.receipt), bytes(vector.rawTransaction), [
-        { ...pins(vector)[0]!, publicKey: Buffer.alloc(32, 1) },
+        { ...pins(vector)[0]!, publicKey: Buffer.alloc(32, 1) }
       ])
     ).rejects.toThrow();
     await expect(
       verifySequencerReceipt(bytes(recovered.receipt.receipt), bytes(vector.rawTransaction), [
-        { ...pins(vector)[0]!, first_height: BigInt(vector.receiptJson.height) + 1n },
+        { ...pins(vector)[0]!, first_height: BigInt(vector.receiptJson.height) + 1n }
       ])
     ).rejects.toThrow();
   } finally {
@@ -599,7 +618,7 @@ async function ambiguousWriteRecoversWithoutReadPoolBroadcastOrReplacement(): Pr
     chainId: 125,
     timeoutMs: 100,
     lagThresholdBlocks: 20,
-    healthIntervalMs: 60_000,
+    healthIntervalMs: 60_000
   });
   const account = privateKeyToAccount(`0x${'31'.repeat(32)}`);
   const raw = await account.signTransaction({
@@ -610,14 +629,14 @@ async function ambiguousWriteRecoversWithoutReadPoolBroadcastOrReplacement(): Pr
     value: 1n,
     gas: 21000n,
     maxFeePerGas: 2n,
-    maxPriorityFeePerGas: 1n,
+    maxPriorityFeePerGas: 1n
   });
   const store = () =>
     new nonceModule.NonceStore({
       pool: database.getPool(),
       chainId: 125,
       pendingCount: (address) => rpc.getTransactionCount(address, 'latest'),
-      lookupTransaction: (hash, member) => rpc.lookupTransaction(hash, member),
+      lookupTransaction: (hash, member) => rpc.lookupTransaction(hash, member)
     });
   const offset = exchanges.length;
   loseWriteResponse = true;
@@ -632,9 +651,10 @@ async function ambiguousWriteRecoversWithoutReadPoolBroadcastOrReplacement(): Pr
     expect(sent.hash).toBeNull();
     expect(sent.error).toBeInstanceOf(rpcModule.BroadcastOutcomeUnknownError);
     const before = (
-      await database.query('select nonce::text,tx_hash from nonce_outstanding where address=$1', [
-        account.address.toLowerCase(),
-      ])
+      await database.query(
+        'select nonce::text,tx_hash from nonce_outstanding where address=$1',
+        [account.address.toLowerCase()]
+      )
     ).rows;
     expect(before).toEqual([{ nonce: '0', tx_hash: keccak256(raw) }]);
     await database.query(
@@ -650,15 +670,18 @@ async function ambiguousWriteRecoversWithoutReadPoolBroadcastOrReplacement(): Pr
     });
     expect(
       (
-        await database.query('select nonce::text,tx_hash from nonce_outstanding where address=$1', [
-          account.address.toLowerCase(),
-        ])
+        await database.query(
+          'select nonce::text,tx_hash from nonce_outstanding where address=$1',
+          [account.address.toLowerCase()]
+        )
       ).rows
     ).toEqual(before);
     const writes = exchanges
       .slice(offset)
       .filter((call) => call.method === 'eth_sendRawTransaction');
-    expect(writes).toEqual([{ path: '/write', method: 'eth_sendRawTransaction', params: [raw] }]);
+    expect(writes).toEqual([
+      { path: '/write', method: 'eth_sendRawTransaction', params: [raw] }
+    ]);
     expect(acceptedRaw).toBe(raw);
   } finally {
     loseWriteResponse = false;
@@ -699,7 +722,7 @@ async function stationReplayPreservesCanonicalNodeExecutionEvidence(): Promise<v
     keyId: Buffer.from(key.keyId, 'base64'),
     publicKey: Buffer.from(key.publicKey, 'base64'),
     first_height: BigInt(key.firstHeight),
-    last_height: BigInt(key.lastHeight),
+    last_height: BigInt(key.lastHeight)
   }));
   expect(raw.slice(0, 4)).toBe('0x04');
   expect(keccak256(raw)).toBe(delegated.receipt.txHash);
@@ -738,8 +761,8 @@ async function stationReplayPreservesCanonicalNodeExecutionEvidence(): Promise<v
                     keyId: toHex(Buffer.from(key.keyId, 'base64')),
                     publicKey: toHex(Buffer.from(key.publicKey, 'base64')),
                     firstHeight: key.firstHeight,
-                    lastHeight: key.lastHeight,
-                  })),
+                    lastHeight: key.lastHeight
+                  }))
                 }
               : null;
       res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result }));
@@ -760,12 +783,12 @@ async function stationReplayPreservesCanonicalNodeExecutionEvidence(): Promise<v
     chainId: 713714,
     timeoutMs: 500,
     lagThresholdBlocks: 20,
-    healthIntervalMs: 60_000,
+    healthIntervalMs: 60_000
   });
   try {
     const client = new GasStationClient(url);
     await expect(client.submit(delegated.submission)).rejects.toMatchObject({
-      code: 'gas_station_unavailable',
+      code: 'gas_station_unavailable'
     });
     const result = await client.submit(delegated.submission);
     expect(result).toEqual(response);
@@ -786,9 +809,11 @@ async function stationReplayPreservesCanonicalNodeExecutionEvidence(): Promise<v
     expect(delegated.status.completion).toMatchObject({
       transactionHash: delegated.receipt.txHash,
       outcome: 'reverted',
-      rung: 'receipted',
+      rung: 'receipted'
     });
-    await expect(verifySequencerReceipt(bytes('0x'), bytes(raw), governedKeys)).rejects.toThrow();
+    await expect(
+      verifySequencerReceipt(bytes('0x'), bytes(raw), governedKeys)
+    ).rejects.toThrow();
     await expect(
       verifySequencerReceipt(bytes(delegated.receipt.receipt), bytes(raw), [])
     ).rejects.toThrow();

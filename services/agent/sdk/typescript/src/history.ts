@@ -54,6 +54,7 @@ export interface HistoryRow {
   readonly amount: bigint;
   readonly txHash: string;
   readonly ordinal: bigint;
+  /** Indexer block-commit observation; transaction inclusion is verified separately. */
   readonly final: boolean;
   readonly decoded: unknown;
   readonly assetMetadata: HistoryAssetMetadata | null;

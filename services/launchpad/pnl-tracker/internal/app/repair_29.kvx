@@ -2,11 +2,11 @@
 finding = "reward-request-schema"
 proof = "TestRepair_29_RewardRequestSchemaRecovery; TestRepair_29_RewardSchemaReadiness"
 implementation = "Admit the reward ledger and report readiness only with the deployed request/audit columns, types, primary keys and SELECT/INSERT privileges; never create tables at runtime or rewrite persisted identities."
-migration = "Reuse launchpad/spec/production-system/integration/migrations/180000.sql and 180001.sql, already checked in and registered; the proof no longer creates replacement reward tables."
+migration = "Reuse migrations/180000.sql and 180001.sql, already checked in and registered; the proof no longer creates replacement reward tables."
 recovery = "Production Solidity constructors and transactions in go-ethereum, signed HTTP requests, runtime ledger, deployed SQL in isolated PGlite WASM storage and the real interface decoder; stop and reopen the database and service, asserting identical bytes and complete request/audit/outbox rows with no duplicate or conflicting replay effects."
 baseline = "Not run: task order and allowed gates require implementation first and forbid running verify_cmd by hand; no pre-change failure is claimed."
 evidence = "The runner binds the candidate revision, exact command, exit code and private log path in hf-build/hf-done evidence; this source record does not claim an unexecuted gate."
-wiring_request = "Domain 4 launchpad with the L07 storage deployment owner: qualify owner approval for launchpad/spec/production-system/integration/migrations/180001.sql via registry.json, include it in readiness.json and the deployed EXPECTED_SCHEMA attestation with grants.json privileges before reward routes become ready; retain existing request/audit identities."
+wiring_request = "Domain 4 launchpad with the L07 storage deployment owner: qualify owner approval for migrations/180001.sql via registry.json, include it in readiness.json and the deployed EXPECTED_SCHEMA attestation with grants.json privileges before reward routes become ready; retain existing request/audit identities."
 gotcha = "The audit's missing-table observation predates an existing registered 180001.sql; do not introduce duplicate DDL or replace its UUID request keys with the proof's former text keys."
 
 [qualification.environment]

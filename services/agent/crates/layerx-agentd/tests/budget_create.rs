@@ -10,7 +10,7 @@ use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_
 use layerxpay::{identity, registry, request, signed_call};
 
 fn receipt(signed: &[u8]) -> SequencerReceipt {
-    let (call, signature) = decode_signed(signed).expect("signed EVM call");
+    let (call, signature) = assert_ok(decode_signed(signed), "signed EVM call");
     let mut data = identity().asset.to_vec();
     data.extend_from_slice(&[0; 16]);
     data.extend_from_slice(&identity().initial_amount.to_be_bytes());
@@ -40,7 +40,7 @@ fn receipt(signed: &[u8]) -> SequencerReceipt {
             payment_denom: "upax".into(),
             fee_amount: [0; 32],
             sponsor: [0; 20],
-            from: recover_sender(&call, &signature).expect("sender"),
+            from: assert_ok(recover_sender(&call, &signature), "sender"),
             to: call.to,
             contract_address: [0; 20],
             vm_error: String::new(),
@@ -68,8 +68,10 @@ fn executed(receipt: &mut SequencerReceipt) -> &mut ExecutedReceipt {
 fn budget_identity_is_read_from_the_create_receipt_log() {
     let signed = signed_call(&request(), &identity());
     let receipt = receipt(&signed);
-    let confirmed = budget_create_identity(&(signed.as_slice(), &receipt), &registry())
-        .expect("receipt identity");
+    let confirmed = assert_ok(
+        budget_create_identity(&(signed.as_slice(), &receipt), &registry()),
+        "receipt identity",
+    );
     assert_eq!(confirmed.budget_id, identity().budget_id);
     assert_eq!(confirmed.asset, request().asset);
     assert_eq!(confirmed.initial_amount, identity().initial_amount);
@@ -97,12 +99,14 @@ fn confirmed_creation_requires_exact_log_identity_and_height() {
 #[test]
 fn committed_get_budget_retains_the_creation_identity() {
     let result = layerxpay::budget_result();
-    let state = layerx_agentd::budget::ProtocolBudgetState::decode_get_budget(
-        identity().budget_id,
-        42,
-        &result,
-    )
-    .expect("getBudget");
+    let state = assert_ok(
+        layerx_agentd::budget::ProtocolBudgetState::decode_get_budget(
+            identity().budget_id,
+            42,
+            &result,
+        ),
+        "getBudget",
+    );
     assert_eq!(state.record().budget_id, identity().budget_id);
     assert_eq!(state.record().asset_id, request().asset);
     assert_eq!(state.record().budget_account, identity().budget_account);
@@ -140,9 +144,9 @@ fn receipt_asset_or_funding_substitution_fails_closed() {
 #[test]
 fn activity_that_is_not_a_budget_call_is_refused() {
     let signed = signed_call(&request(), &identity());
-    let (mut call, _) = decode_signed(&signed).expect("call");
+    let (mut call, _) = assert_ok(decode_signed(&signed), "call");
     call.to = PrecompileTarget::Ledger.address();
-    let signed = call.sign(&[0xa5; 32]).expect("sign");
+    let signed = assert_ok(call.sign(&[0xa5; 32]), "sign");
     assert_eq!(
         budget_create_identity(signed.as_slice(), &registry()),
         Err(BudgetCreationError::NotBudgetCreation)
@@ -151,7 +155,7 @@ fn activity_that_is_not_a_budget_call_is_refused() {
     call.data[..4].copy_from_slice(&[0; 4]);
     assert_eq!(
         budget_create_identity(
-            call.sign(&[0xa5; 32]).expect("sign").as_slice(),
+            assert_ok(call.sign(&[0xa5; 32]), "sign").as_slice(),
             &registry()
         ),
         Err(BudgetCreationError::NotBudgetCreation)
@@ -178,11 +182,11 @@ fn unverified_or_substituted_canonical_activity_is_refused() {
         );
     }
     let signed = signed_call(&request(), &identity());
-    let (mut call, _) = decode_signed(&signed).expect("call");
+    let (mut call, _) = assert_ok(decode_signed(&signed), "call");
     call.data[4 + 4 * 32] = 1;
     assert_eq!(
         budget_create_identity(
-            call.sign(&[0xa5; 32]).expect("sign").as_slice(),
+            assert_ok(call.sign(&[0xa5; 32]), "sign").as_slice(),
             &registry()
         ),
         Err(BudgetCreationError::NotBudgetCreation)
@@ -233,9 +237,11 @@ fn rejected_or_wrong_sender_receipt_is_refused() {
         budget_create_identity(&(signed.as_slice(), &receipt), &registry()),
         Err(BudgetCreationError::IdentityMismatch)
     );
-    executed(&mut receipt).from = budget_create_identity(signed.as_slice(), &registry())
-        .expect("sender")
-        .sender;
+    executed(&mut receipt).from = assert_ok(
+        budget_create_identity(signed.as_slice(), &registry()),
+        "sender",
+    )
+    .sender;
     executed(&mut receipt).vm_error = "reverted".into();
     assert_eq!(
         budget_create_identity(&(signed.as_slice(), &receipt), &registry()),
@@ -280,10 +286,13 @@ fn signed_create_calldata_is_the_exact_deployed_abi() {
         identity.source_account = [5; 32];
         identity.source_sequence = 40;
         let signed = signed_call(&request(), &identity);
-        let (call, _) = decode_signed(&signed).expect("signed call");
+        let (call, _) = assert_ok(decode_signed(&signed), "signed call");
         assert_eq!(call.data.len(), 4 + count * 32);
         assert_eq!(call.to, PrecompileTarget::Pay.address());
-        let decoded = budget_create_identity(signed.as_slice(), &registry()).expect("ABI identity");
+        let decoded = assert_ok(
+            budget_create_identity(signed.as_slice(), &registry()),
+            "ABI identity",
+        );
         assert_eq!(decoded.encoding_version, version);
         assert_eq!(decoded.budget_id, identity.budget_id);
         assert_eq!(decoded.initial_amount, identity.initial_amount);
@@ -295,10 +304,18 @@ fn signed_create_calldata_is_the_exact_deployed_abi() {
         truncated.data.pop();
         assert_eq!(
             budget_create_identity(
-                truncated.sign(&[0xa5; 32]).expect("sign").as_slice(),
+                assert_ok(truncated.sign(&[0xa5; 32]), "sign").as_slice(),
                 &registry()
             ),
             Err(BudgetCreationError::NotBudgetCreation)
         );
+    }
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
     }
 }

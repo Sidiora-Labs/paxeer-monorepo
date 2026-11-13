@@ -153,7 +153,7 @@ fn human_history_pages_px_get_history_without_frame_transport() {
     )));
     let recorded = &recordings[0]["body"];
     let account = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
-    let rows = recorded["items"].as_array().expect("producer rows")[..2].to_vec();
+    let rows = assert_some(recorded["items"].as_array(), "producer rows")[..2].to_vec();
     let cursor = Cursor {
         block_height: 11,
         tx_index: 0,
@@ -196,7 +196,10 @@ fn human_history_pages_px_get_history_without_frame_transport() {
     assert_eq!(page.items[1]["final"], false);
     assert_eq!(page.next_cursor, Some(cursor.to_hex()));
     assert_eq!(
-        must(Cursor::from_hex(page.next_cursor.as_deref().unwrap())),
+        must(Cursor::from_hex(assert_some(
+            page.next_cursor.as_deref(),
+            "expected Some value"
+        ))),
         cursor
     );
     let last = must(layerx_client::rpc::history::history(
@@ -243,5 +246,13 @@ fn receipt_keys_refuse_arrays_string_heights_and_zero_heights() {
         }));
         assert!(node.receipt_keys().is_err());
         assert_eq!(must(server.join()).len(), 2);
+    }
+}
+
+#[track_caller]
+fn assert_some<T>(value: Option<T>, message: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{message}"),
     }
 }

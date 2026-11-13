@@ -1,16 +1,11 @@
-#[path = "support/clock.rs"]
-mod test_clock;
+use layerx_mcp_test_support::option_assertion;
+use layerx_mcp_test_support::result_assertion;
 
-#[allow(dead_code)]
-#[path = "../../../../interop/crates/x-websearch/src/config.rs"]
-mod config;
-#[path = "support/node_recording.rs"]
-mod node_recording;
-#[allow(dead_code)]
-#[path = "../../../../interop/crates/x-websearch/src/server.rs"]
-mod seller_server;
-#[path = "support/web_hold.rs"]
-mod web_hold;
+use layerx_mcp_test_support::test_clock;
+
+use layerx_mcp_test_support::node_recording;
+use layerx_mcp_test_support::seller_server;
+use layerx_mcp_test_support::web_hold;
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 use std::io::{BufRead as _, BufReader, Read as _, Write as _};
@@ -128,7 +123,7 @@ struct Script {
     /// A paid body served for a target through the recorded paid fetch.
     served: Vec<(String, Vec<u8>)>,
     tamper_payer: bool,
-    /// The purposeHash a settlement repeats instead: a text, or null to
+    /// The `purposeHash` a settlement repeats instead: a text, or null to
     /// leave it out.
     repeated_purpose: Option<Value>,
     /// Challenge the content path with the recorded fetch offers.
@@ -157,13 +152,14 @@ struct Replay {
 }
 
 impl Replay {
-    fn start(script: Script) -> Self {
+    fn start(script: &Script) -> Self {
         let signatures = Arc::new(AtomicU32::new(0));
         let requests = Arc::new(AtomicU32::new(0));
-        let exchange = fixture("client-exchange.json")["exchange"]
-            .as_array()
-            .expect("recorded exchange")
-            .clone();
+        let exchange = option_assertion::required(
+            fixture("client-exchange.json")["exchange"].as_array(),
+            "recorded exchange",
+        )
+        .clone();
         let mut routes = seller_server::RouteTable::new();
         for route in [
             seller_server::Route::Search,
@@ -174,8 +170,8 @@ impl Replay {
             let script = script.clone();
             let counter = Arc::clone(&signatures);
             let request_counter = Arc::clone(&requests);
-            routes
-                .set(route, move |request| {
+            result_assertion::required(
+                routes.set(route, move |request| {
                     request_counter.fetch_add(1, Ordering::SeqCst);
                     assert_eq!(
                         request.method, "GET",
@@ -192,20 +188,25 @@ impl Replay {
                                 .map_or(String::new(), |q| format!("?{q}"))
                         ),
                         headers: request.headers.clone(),
-                        body: Vec::new(),
                     };
                     answer(&incoming, &exchange, &script, &counter)
-                })
-                .expect("real seller route");
+                }),
+                "real seller route",
+            );
         }
-        let server = seller_server::Server::bind(
-            "127.0.0.1:0".parse().expect("loopback"),
-            seller_server::Limits::default(),
-            routes,
-        )
-        .expect("real seller router");
-        let address = server.local_addr().expect("seller address");
-        let running = Some(server.spawn().expect("start real seller"));
+        let server = result_assertion::required(
+            seller_server::Server::bind(
+                result_assertion::required("127.0.0.1:0".parse(), "loopback"),
+                seller_server::Limits::default(),
+                routes,
+            ),
+            "real seller router",
+        );
+        let address = result_assertion::required(server.local_addr(), "seller address");
+        let running = Some(result_assertion::required(
+            server.spawn(),
+            "start real seller",
+        ));
         Self {
             address,
             signatures,
@@ -231,7 +232,6 @@ struct Incoming {
     method: String,
     target: String,
     headers: Vec<(String, String)>,
-    body: Vec<u8>,
 }
 
 fn read_request(stream: &TcpStream) -> Option<Incoming> {
@@ -262,7 +262,6 @@ fn read_request(stream: &TcpStream) -> Option<Incoming> {
         method,
         target,
         headers,
-        body,
     })
 }
 
@@ -345,7 +344,7 @@ fn answer(
             .unwrap_or_else(|| panic!("recorded challenge"));
         let required = served_resource(
             challenge["response"]["headers"]["PAYMENT-REQUIRED"].clone(),
-            &incoming,
+            incoming,
         );
         let headers = [("PAYMENT-REQUIRED".to_owned(), encode(&required))];
         let body = json!({ "error": "payment_required", "paymentRequired": required });
@@ -375,10 +374,10 @@ fn answer(
     } else {
         incoming.target.clone()
     };
-    let Some(entry) = recorded(exchange, &incoming, &target) else {
+    let Some(entry) = recorded(exchange, incoming, &target) else {
         return seller_response(400, &[], br#"{"error":"unrecorded_request"}"#);
     };
-    if header(&incoming, "PAYMENT-SIGNATURE").is_some() {
+    if header(incoming, "PAYMENT-SIGNATURE").is_some() {
         let count = signatures.fetch_add(1, Ordering::SeqCst) + 1;
         if script.settlement == Settlement::PendingFirst && count == 1 {
             let retry = [("Retry-After".to_owned(), "1".to_owned())];
@@ -393,7 +392,7 @@ fn answer(
     for (name, value) in response["headers"].as_object().into_iter().flatten() {
         let mut value = value.clone();
         if name == "PAYMENT-REQUIRED" {
-            value = served_resource(value, &incoming);
+            value = served_resource(value, incoming);
         }
         if name == "PAYMENT-RESPONSE" && script.tamper_payer {
             value["payer"] = json!(TAMPERED_PAYER);
@@ -464,11 +463,10 @@ fn seller_response(
 }
 impl Drop for Replay {
     fn drop(&mut self) {
-        self.running
-            .take()
-            .expect("running seller")
-            .shutdown()
-            .expect("stop seller");
+        result_assertion::required(
+            option_assertion::required(self.running.take(), "running seller").shutdown(),
+            "stop seller",
+        );
     }
 }
 
@@ -523,9 +521,10 @@ impl RecordedPayer {
     }
 
     fn with_grant(grant: Vec<u8>) -> Self {
-        let Payment::IssueGrant(grant_to_issue) =
-            Payment::decode(ModuleId::Asset, 7, &grant, b"").expect("recorded issued grant")
-        else {
+        let Payment::IssueGrant(grant_to_issue) = result_assertion::required(
+            Payment::decode(ModuleId::Asset, 7, &grant, b""),
+            "recorded issued grant",
+        ) else {
             panic!("fixture must be an issued grant");
         };
         Self {
@@ -709,8 +708,10 @@ fn recorded_payment(payload: &Value) -> ExactPayment {
                 call["method"] == "pax_sequencerReceipt" && call["params"] == json!([tx_hash])
             })
         })
-        .map(|call| &call["result"])
-        .unwrap_or_else(|| panic!("recorded receipt for {tx_hash}"));
+        .map_or_else(
+            || panic!("recorded receipt for {tx_hash}"),
+            |call| &call["result"],
+        );
     assert_eq!(text(result, "/txHash"), tx_hash);
     let payment = recorded_receipt(result);
     let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&payment.receipt)
@@ -1010,7 +1011,7 @@ fn canonical_content_matches_the_sidecar_vectors() {
 
 #[test]
 fn paid_metered_search_settles_and_releases_untrusted_results() {
-    let replay = Replay::start(Script::default());
+    let replay = Replay::start(&Script::default());
     let registry = ApprovalRegistry::default();
     let mut payer = RecordedPayer::new();
     let outcome = web_tool(
@@ -1083,7 +1084,7 @@ fn paid_metered_search_settles_and_releases_untrusted_results() {
 #[test]
 fn a_metered_settlement_that_does_not_repeat_the_purpose_is_refused() {
     for repeated in [Value::Null, json!(OTHER_PURPOSE)] {
-        let replay = Replay::start(Script {
+        let replay = Replay::start(&Script {
             repeated_purpose: Some(repeated.clone()),
             ..Script::default()
         });
@@ -1105,7 +1106,7 @@ fn a_metered_settlement_that_does_not_repeat_the_purpose_is_refused() {
 #[test]
 fn paid_exact_fetch_settles_and_checks_the_content_digest() {
     let (_, digest) = fetch_body(false);
-    let replay = Replay::start(Script::default());
+    let replay = Replay::start(&Script::default());
     let registry = ApprovalRegistry::default();
     let mut payer = RecordedPayer::new();
     let outcome = web_tool(
@@ -1146,7 +1147,7 @@ fn recorded_exact_fetches_settle_in_each_currency() {
         (3, Currency::Usdl, "USDL", 1000),
     ] {
         let vector = &vectors()[position];
-        let replay = Replay::start(Script::default());
+        let replay = Replay::start(&Script::default());
         let registry = ApprovalRegistry::default();
         let mut payer = RecordedPayer::with_payment(recorded_payment(&buyer["exact"][code]));
         let call = WebCall {
@@ -1209,7 +1210,7 @@ fn unpaid_content_by_digest_releases_only_matching_bytes() {
     let digest = unhex32(text(&vector, "/digest"));
     let call = content_call(digest);
     assert_eq!(call.operation.target(), target);
-    let replay = Replay::start(Script::default());
+    let replay = Replay::start(&Script::default());
     let registry = ApprovalRegistry::default();
     let mut payer = RecordedPayer::new();
     let outcome = web_tool(
@@ -1255,7 +1256,7 @@ fn unpaid_content_by_digest_releases_only_matching_bytes() {
     if let Some(last) = altered.last_mut() {
         *last ^= 1;
     }
-    let tampered = Replay::start(Script {
+    let tampered = Replay::start(&Script {
         content: Some((target, altered)),
         ..Script::default()
     });
@@ -1271,7 +1272,7 @@ fn unpaid_content_by_digest_releases_only_matching_bytes() {
     );
 
     let other = unhex32(text(&vectors()[2], "/digest"));
-    let answered = Replay::start(Script {
+    let answered = Replay::start(&Script {
         content: Some((
             format!("/content/{}", hex(&other)),
             reference_canonical(
@@ -1298,7 +1299,7 @@ fn unpaid_content_by_digest_releases_only_matching_bytes() {
 #[test]
 fn a_payment_challenge_on_the_content_path_is_never_paid() {
     let (_, vector) = recorded_content();
-    let replay = Replay::start(Script {
+    let replay = Replay::start(&Script {
         challenge_content: true,
         ..Script::default()
     });
@@ -1324,7 +1325,7 @@ fn a_payment_challenge_on_the_content_path_is_never_paid() {
 #[test]
 fn fetch_with_a_mismatched_digest_is_refused() {
     let (body, _) = fetch_body(true);
-    let replay = Replay::start(Script {
+    let replay = Replay::start(&Script {
         fetch_body: Some(body),
         ..Script::default()
     });
@@ -1344,7 +1345,7 @@ fn fetch_with_a_mismatched_digest_is_refused() {
 
 #[test]
 fn an_unapproved_spend_is_held_and_never_paid() {
-    let replay = Replay::start(Script::default());
+    let replay = Replay::start(&Script::default());
     let registry = ApprovalRegistry::default();
     let config = config(&replay, sequencer_key());
     let held = approval(&registry, 0);
@@ -1377,7 +1378,7 @@ fn an_unapproved_spend_is_held_and_never_paid() {
 
 #[test]
 fn a_rejected_spend_is_refused_without_payment() {
-    let replay = Replay::start(Script::default());
+    let replay = Replay::start(&Script::default());
     let registry = ApprovalRegistry::default();
     let config = config(&replay, sequencer_key());
     let held = approval(&registry, 0);
@@ -1411,7 +1412,7 @@ fn a_rejected_spend_is_refused_without_payment() {
 
 #[test]
 fn a_refused_settlement_releases_nothing() {
-    let replay = Replay::start(Script {
+    let replay = Replay::start(&Script {
         settlement: Settlement::Refused,
         ..Script::default()
     });
@@ -1431,7 +1432,7 @@ fn a_refused_settlement_releases_nothing() {
 
 #[test]
 fn a_settlement_under_another_sequencer_key_is_refused() {
-    let replay = Replay::start(Script::default());
+    let replay = Replay::start(&Script::default());
     let registry = ApprovalRegistry::default();
     let refused = web_tool(
         &config(&replay, [7; 32]),
@@ -1449,7 +1450,7 @@ fn a_settlement_under_another_sequencer_key_is_refused() {
 
 #[test]
 fn a_settlement_naming_another_payer_is_refused() {
-    let replay = Replay::start(Script {
+    let replay = Replay::start(&Script {
         tamper_payer: true,
         ..Script::default()
     });
@@ -1468,7 +1469,7 @@ fn a_settlement_naming_another_payer_is_refused() {
 
 #[test]
 fn a_pending_settlement_is_retried_with_the_same_signature() {
-    let replay = Replay::start(Script {
+    let replay = Replay::start(&Script {
         settlement: Settlement::PendingFirst,
         ..Script::default()
     });
@@ -1489,7 +1490,7 @@ fn a_pending_settlement_is_retried_with_the_same_signature() {
 #[test]
 fn payer_artifacts_that_do_not_bind_the_offer_are_never_sent() {
     let buyer = fixture("gateway/buyer.json");
-    let replay = Replay::start(Script::default());
+    let replay = Replay::start(&Script::default());
     let registry = ApprovalRegistry::default();
     let config = config(&replay, sequencer_key());
     let other = unhex(text(&buyer, "/refusedGrants/otherRecipient"));
@@ -1621,8 +1622,7 @@ fn web_tools_are_listed_as_untrusted_output() {
     assert!(!catalogue::untrusted_output("wallet.send"));
 }
 
-#[test]
-fn configuration_fails_closed_naming_the_field() {
+fn assert_configuration_endpoint_and_identity_fields() {
     let key = sequencer_key();
     let (sequencer_id, first_batch_number, last_batch_number) = sequencer_authorization();
     let did = payer_did();
@@ -1695,6 +1695,17 @@ fn configuration_fails_closed_naming_the_field() {
         )),
         "network"
     );
+}
+
+fn assert_configuration_key_and_bounds_fields() {
+    let key = sequencer_key();
+    let (sequencer_id, first_batch_number, last_batch_number) = sequencer_authorization();
+    let did = payer_did();
+    let second = Duration::from_secs(1);
+    let refused = |result: Result<WebConfig, WebToolError>| match result {
+        Err(WebToolError::Configuration(field)) => field,
+        other => panic!("expected a configuration refusal, got {other:?}"),
+    };
     assert_eq!(
         refused(WebConfig::new(
             "http://127.0.0.1:1",
@@ -1743,6 +1754,12 @@ fn configuration_fails_closed_naming_the_field() {
         )),
         "pending_attempts"
     );
+}
+
+#[test]
+fn configuration_fails_closed_naming_the_field() {
+    assert_configuration_endpoint_and_identity_fields();
+    assert_configuration_key_and_bounds_fields();
 }
 
 struct BoundaryIdentity(CoreIdentity);
@@ -2113,7 +2130,7 @@ fn assert_unpaid_refusals<B: ToolBoundary>(session: &mut Session<B>, replay: &Re
             "params": {"name": "wallet.send", "arguments": {}},
         }),
     );
-    assert_eq!(unserved["error"]["code"], -32602);
+    assert_eq!(unserved["error"]["code"], -32_602);
     let local = call(
         session,
         "web.fetch",
@@ -2132,7 +2149,7 @@ fn assert_unpaid_refusals<B: ToolBoundary>(session: &mut Session<B>, replay: &Re
 /// A replaying sidecar that also serves the routed fetch target.
 fn routed_replay() -> Replay {
     let (fetch, _) = fetch_answer(ROUTED_FETCH_URL, false);
-    Replay::start(Script {
+    Replay::start(&Script {
         served: vec![(
             "/fetch?url=https%3A%2F%2Fpaxeer.app%2Findex.html".to_owned(),
             fetch,
@@ -2142,7 +2159,7 @@ fn routed_replay() -> Replay {
 }
 
 /// Lists the web tools, refuses unpaid shapes, then pays search and fetch
-/// and reads content by digest through tools/call.
+/// and reads content by digest through `tools/call.`
 fn assert_routed_tools<B: ToolBoundary>(
     session: &mut Session<B>,
     replay: &Replay,
@@ -2254,28 +2271,38 @@ fn approve_held(
     current_sequence: u64,
 ) {
     let tenant = context().tenant;
-    let prepared = resources
-        .preparation(&tenant, hold_id)
-        .expect("retained preparation")
-        .expect("held spend");
+    let prepared = option_assertion::required(
+        result_assertion::required(
+            resources.preparation(&tenant, hold_id),
+            "retained preparation",
+        ),
+        "held spend",
+    );
     let queue = ApprovalSubmissionQueue::default();
-    let decision = ApprovalService::new(registry, &resources.limiter, &resources.expiry)
-        .approve(
+    let decision = result_assertion::required(
+        ApprovalService::new(registry, &resources.limiter, &resources.expiry).approve(
             DecisionRequest {
                 tenant: &tenant,
                 approval_id: hold_id,
-                idempotency_key: &DecisionKey::new("approve-web").expect("decision key"),
-                approver: ApproverId::new("operator").expect("approver"),
+                idempotency_key: &result_assertion::required(
+                    DecisionKey::new("approve-web"),
+                    "decision key",
+                ),
+                approver: result_assertion::required(ApproverId::new("operator"), "approver"),
                 current_sequence,
                 current_time: layerx_agent_api::TimestampSeconds(11),
             },
             &prepared,
             &queue,
-        )
-        .expect("durable approval service");
+        ),
+        "durable approval service",
+    );
     assert_eq!(decision.outcome, ApprovalOutcome::Granted);
     assert_eq!(
-        queue.prepared(decision.submission_ref.expect("released reference")),
+        queue.prepared(option_assertion::required(
+            decision.submission_ref,
+            "released reference"
+        )),
         Some(prepared)
     );
 }
@@ -2334,7 +2361,7 @@ fn assert_held_until_approved<B: ToolBoundary>(
 
 #[test]
 fn a_held_web_spend_through_tools_call_is_never_paid_until_approved() {
-    let replay = Replay::start(Script::default());
+    let replay = Replay::start(&Script::default());
     let approvals = Arc::new(ApprovalRegistry::default());
     let root = directory("held");
     let (mut session, resources) = web_session(&replay, &approvals, 0, &root);
@@ -2344,7 +2371,7 @@ fn a_held_web_spend_through_tools_call_is_never_paid_until_approved() {
 
 #[test]
 fn a_held_spend_in_a_session_opened_from_its_binding_is_reported_as_held() {
-    let replay = Replay::start(Script::default());
+    let replay = Replay::start(&Script::default());
     let approvals = Arc::new(ApprovalRegistry::default());
     let root = protected_directory("opened-held");
     let (mut session, resources) = opened_session(&replay, &approvals, 0, &root);

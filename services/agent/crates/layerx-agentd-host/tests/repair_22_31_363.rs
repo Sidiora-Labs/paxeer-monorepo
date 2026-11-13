@@ -1,12 +1,11 @@
-//! Task 22.31.363 closes payer_payment_asset with
-//! payer_payment_asset_accepts_node_payment and payer_payment_asset_refuses_node_revert;
-//! payer_payment_asset_retains_independent_bindings proves denomination and fee checks.
+//! Task 22.31.363 closes `payer_payment_asset` with
+//! `payer_payment_asset_accepts_node_payment` and `payer_payment_asset_refuses_node_revert`;
+//! `payer_payment_asset_retains_independent_bindings` proves denomination and fee checks.
 //! Baseline verification was not run: the ordered gate instructions forbid testing
 //! before implementation or invoking the verify command outside hf-done.
 //! Out-of-path wiring requests: none.
 
-#[path = "../src/payer.rs"]
-mod payer;
+use layerx_agentd_host::payer;
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;

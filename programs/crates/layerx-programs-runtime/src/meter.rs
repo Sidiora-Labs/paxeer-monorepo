@@ -1083,6 +1083,7 @@ impl Meter {
         self.prices
     }
 
+    #[must_use]
     pub const fn cpu_budget(&self) -> u64 {
         self.budget.cpu_fuel
     }
@@ -1959,7 +1960,7 @@ impl Meter {
                         out.extend_from_slice(&attempted.to_be_bytes());
                     }
                     MeterRefusal::CounterOverflow { resource } => {
-                        out.extend_from_slice(&[1, replay_resource_code(resource)])
+                        out.extend_from_slice(&[1, replay_resource_code(resource)]);
                     }
                     MeterRefusal::FeeOverflow => out.push(2),
                 }
@@ -1977,7 +1978,7 @@ impl Meter {
                         out.extend_from_slice(&attempted.to_be_bytes());
                     }
                     BudgetMeterRefusal::CounterOverflow { resource } => {
-                        out.extend_from_slice(&[1, replay_budget_resource_code(resource)])
+                        out.extend_from_slice(&[1, replay_budget_resource_code(resource)]);
                     }
                 }
             }
@@ -2086,7 +2087,7 @@ mod replay_meter_tests {
     use super::*;
     #[test]
     fn exact_replay_codec_preserves_real_usage_and_exhaustion() {
-        let budget = ResourceBudget::new_complete(100, 131072, 100, 100, 8, 100, 2);
+        let budget = ResourceBudget::new_complete(100, 131_072, 100, 100, 8, 100, 2);
         let mut legacy = Meter::new(budget, FeeSchedule::declared());
         legacy
             .charge_cpu(9)
@@ -2101,7 +2102,7 @@ mod replay_meter_tests {
             .charge_storage_write(13)
             .unwrap_or_else(|error| panic!("write: {error}"));
         legacy
-            .memory_growing(0, 65536, Some(131072))
+            .memory_growing(0, 65_536, Some(131_072))
             .unwrap_or_else(|error| panic!("memory: {error}"));
         let mut activity = Meter::new_activity(budget, FeeSchedule::declared());
         assert!(activity.table_growing(0, 3, Some(4)).is_err());
@@ -2159,7 +2160,7 @@ mod occupancy_class_tests {
             }
         }
         assert_eq!(budget_resource(ResourceKind::StorageOccupancy), None);
-        let budget = ResourceBudget::new_complete(100, 131072, 100, 100, 8, 100, 2);
+        let budget = ResourceBudget::new_complete(100, 131_072, 100, 100, 8, 100, 2);
         let mut usages = Vec::new();
         for price in [1, 7, u64::MAX] {
             let schedule = FeeSchedule::declared().with_occupancy_byte_batch_price(price);

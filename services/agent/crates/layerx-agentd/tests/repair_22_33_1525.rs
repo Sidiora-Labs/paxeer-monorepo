@@ -1,24 +1,32 @@
 //! Task 22.33.1525 repair record (scope forbids editing the spec task record).
-//! offline-export-unwired -> offline_export_producer_rpc_consumer_and_mismatched_fact_refusal.
-//! human-socket-restart -> human_socket_stop_crash_restart_and_foreign_live_symlink_refusal.
-//! human-total-deadline -> human_whole_frame_deadline_preserves_another_admitted_peer.
-//! human-limits-config-unapplied -> human_configured_limits_refuse_and_release_capacity.
-//! retired-environment-registry -> startup_environment_accepts_height_node_and_refuses_retired_controls.
-//! managed-evidence-lifetime-cap -> managed_recent_evidence_is_bounded_and_complete_index_survives_reopen.
-//! managed-effect-binding -> managed_limit_binds_owner_agent_amount_budget_and_committed_effect_after_reopen.
+//! offline-export-unwired -> `offline_export_producer_rpc_consumer_and_mismatched_fact_refusal`.
+//! human-socket-restart -> `human_socket_stop_crash_restart_and_foreign_live_symlink_refusal`.
+//! human-total-deadline -> `human_whole_frame_deadline_preserves_another_admitted_peer`.
+//! human-limits-config-unapplied -> `human_configured_limits_refuse_and_release_capacity`.
+//! retired-environment-registry -> `startup_environment_accepts_height_node_and_refuses_retired_controls`.
+//! managed-evidence-lifetime-cap -> `managed_recent_evidence_is_bounded_and_complete_index_survives_reopen`.
+//! managed-effect-binding -> `managed_limit_binds_owner_agent_amount_budget_and_committed_effect_after_reopen`.
 //! Wiring request: Domain 17 owns spec/layerx-merge/interfaces.kvx and generated
 //! contracts/agent-config.md; retire sequence/reconnect/export-set rows and publish
-//! MCP_CORE_HEIGHT, MCP_EXPIRY_HEIGHT, NODE_RPC_URL and NODE_CHAIN_ID with their real readers.
+//! `MCP_CORE_HEIGHT`, `MCP_EXPIRY_HEIGHT`, `NODE_RPC_URL` and `NODE_CHAIN_ID` with their real readers.
 //! Baseline: no gate ran on the unchanged tree; the target did not exist. The explicit
 //! implementation-first and hf-done-only gate order precludes the contradictory baseline step.
 //! No pre-change test failure or gate success is claimed.
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_agent_api::{error::RequestId, export::FactRef, read::ReadRequest};
 use layerx_agentd::{
     agent_rpc, agent_rpc_adapters,
     human::{
-        self, HumanFinalizationEvidence, HumanListenerConfig, HumanOperationError, HumanPeer,
-        HumanRequest, HumanResponse, HumanUnixServer, HumanWireResponse,
+        self, HumanFinalizationEvidence, HumanListenerConfig, HumanOperationError, HumanRequest,
+        HumanUnixServer, HumanWireResponse,
     },
     identity::{self, ProtocolAuthority},
     managed_agent::{self, ManagedAgent},
@@ -69,7 +77,12 @@ fn rpc_hex(bytes: &[u8]) -> String {
     format!("0x{}", hex::encode(bytes))
 }
 fn decode_hex(v: &Value) -> Vec<u8> {
-    must(hex::decode(v.as_str().unwrap().strip_prefix("0x").unwrap()))
+    must(hex::decode(require_some(
+        v.as_str()
+            .unwrap_or_else(|| panic!("{}", "required test value"))
+            .strip_prefix("0x"),
+        "required test value",
+    )))
 }
 struct Directory(PathBuf);
 impl Directory {
@@ -103,7 +116,7 @@ fn owner_word() -> [u8; 32] {
         nonce: 1,
         max_priority_fee_per_gas: 1,
         max_fee_per_gas: 2,
-        gas_limit: 100000,
+        gas_limit: 100_000,
         to: [0; 20],
         data: vec![],
     };
@@ -124,17 +137,26 @@ fn seed() -> human::HumanAgentLifecycleSeed {
         created_at: 1,
         updated_at: 1,
         verified_evidence: vec![[1; 32]],
-        actor: String::from_utf8(actor().as_bytes().to_vec()).unwrap(),
+        actor: require_ok(
+            String::from_utf8(actor().as_bytes().to_vec()),
+            "required test value",
+        ),
         primary_authority: hex::encode(owner_word()),
         custody_key: "owner".into(),
         custody_public_key: [3; 32],
         owner_account: format!(
             "agent:{}:main",
-            std::str::from_utf8(actor().as_bytes()).unwrap()
+            require_ok(
+                std::str::from_utf8(actor().as_bytes()),
+                "required test value"
+            )
         ),
         budget_account: format!(
             "agent:{}:budget:managed",
-            std::str::from_utf8(actor().as_bytes()).unwrap()
+            require_ok(
+                std::str::from_utf8(actor().as_bytes()),
+                "required test value"
+            )
         ),
         budget_asset: [4; 32],
         purpose_hash: [5; 32],
@@ -239,10 +261,10 @@ fn committed(
 }
 fn protobuf_varint(mut value: u64, bytes: &mut Vec<u8>) {
     while value >= 128 {
-        bytes.push(value as u8 | 128);
+        bytes.push(value.to_le_bytes()[0] | 128);
         value >>= 7;
     }
-    bytes.push(value as u8);
+    bytes.push(value.to_le_bytes()[0]);
 }
 fn protobuf_bytes(number: u64, value: &[u8], bytes: &mut Vec<u8>) {
     protobuf_varint(number << 3 | 2, bytes);
@@ -260,37 +282,55 @@ fn protobuf_integer(number: u64, value: u64, bytes: &mut Vec<u8>) {
 // encoded by the peer rather than using NativeResultSource's result encoder.
 fn abci_response(receipt: &Value) -> Vec<u8> {
     let q = |name: &str| {
-        u64::from_str_radix(receipt[name].as_str().unwrap().trim_start_matches("0x"), 16).unwrap()
+        require_ok(
+            u64::from_str_radix(
+                require_some(receipt[name].as_str(), "required test value")
+                    .trim_start_matches("0x"),
+                16,
+            ),
+            "required test value",
+        )
     };
     let mut response = Vec::new();
     protobuf_integer(1, q("gasUsed"), &mut response);
     if receipt["vmError"] != "" {
         protobuf_bytes(
             2,
-            receipt["vmError"].as_str().unwrap().as_bytes(),
+            require_some(receipt["vmError"].as_str(), "required test value").as_bytes(),
             &mut response,
         );
     }
     protobuf_bytes(3, &decode_hex(&receipt["returnData"]), &mut response);
     protobuf_bytes(
         4,
-        receipt["txHash"].as_str().unwrap().as_bytes(),
+        require_some(receipt["txHash"].as_str(), "required test value").as_bytes(),
         &mut response,
     );
-    for log in receipt["logs"].as_array().unwrap() {
+    for log in require_some(receipt["logs"].as_array(), "required test value") {
         let mut bytes = Vec::new();
-        protobuf_bytes(1, log["address"].as_str().unwrap().as_bytes(), &mut bytes);
-        for topic in log["topics"].as_array().unwrap() {
-            protobuf_bytes(2, topic.as_str().unwrap().as_bytes(), &mut bytes);
+        protobuf_bytes(
+            1,
+            require_some(log["address"].as_str(), "required test value").as_bytes(),
+            &mut bytes,
+        );
+        for topic in require_some(log["topics"].as_array(), "required test value") {
+            protobuf_bytes(
+                2,
+                require_some(topic.as_str(), "required test value").as_bytes(),
+                &mut bytes,
+            );
         }
         protobuf_bytes(3, &decode_hex(&log["data"]), &mut bytes);
         protobuf_integer(
             4,
-            u64::from_str_radix(
-                log["logIndex"].as_str().unwrap().trim_start_matches("0x"),
-                16,
-            )
-            .unwrap(),
+            require_ok(
+                u64::from_str_radix(
+                    require_some(log["logIndex"].as_str(), "required test value")
+                        .trim_start_matches("0x"),
+                    16,
+                ),
+                "required test value",
+            ),
             &mut bytes,
         );
         protobuf_bytes(5, &bytes, &mut response);
@@ -305,6 +345,8 @@ fn abci_response(receipt: &Value) -> Vec<u8> {
 
 // Committed peer fixtures reuse the repository's native portable-export producer transcript.
 mod portable_fixture {
+    use super::{require_ok, require_some};
+
     use ed25519_dalek::{Signer as _, SigningKey};
     use layerx_agent_api::export::{FactRef, OfflineExport};
     use layerx_agent_api::prepare::CanonicalBytes;
@@ -339,11 +381,15 @@ mod portable_fixture {
         }
         let prefix = if list { 0xc0 } else { 0x80 };
         let mut out = if payload.len() < 56 {
-            vec![prefix + payload.len() as u8]
+            vec![prefix + require_ok(u8::try_from(payload.len()), "test value fits u8")]
         } else {
             let length = payload.len().to_be_bytes();
             let length = &length[length.iter().position(|byte| *byte != 0).unwrap_or(0)..];
-            [&[prefix + 55 + length.len() as u8][..], length].concat()
+            [
+                &[prefix + 55 + require_ok(u8::try_from(length.len()), "test value fits u8")][..],
+                length,
+            ]
+            .concat()
         };
         out.extend_from_slice(payload);
         out
@@ -353,11 +399,6 @@ mod portable_fixture {
         pub artifact: OfflineExport,
         pub trust: ExportTrustSource,
         pub header: CheckpointHeader,
-        pub commit: BlockCommit,
-        pub validators: Vec<CommitValidator>,
-        pub receipt_key: ReceiptKeyEntry,
-        pub evm_receipt: Vec<u8>,
-        pub receipt_path: Vec<Vec<u8>>,
         pub account_id: [u8; 32],
         pub account_proof: Vec<u8>,
     }
@@ -478,186 +519,15 @@ mod portable_fixture {
                 ),
             ]
             .concat();
-            let leaf = rlp(
-                &[rlp(&[0x30], false), rlp(&evm_receipt, false)].concat(),
-                true,
-            );
-            let leaf_hash = transaction_hash(&leaf);
-            let mut children = Vec::new();
-            for index in 0..17 {
-                children.extend(rlp(if index == 8 { &leaf_hash } else { &[] }, false));
-            }
-            let branch = rlp(&children, true);
-            let receipts_root = transaction_hash(&branch);
-            let receipt_path = vec![branch, leaf];
-            let inclusion = rlp(
-                &[
-                    rlp(&evm_receipt, false),
-                    rlp(
-                        &receipt_path
-                            .iter()
-                            .flat_map(|node| rlp(node, false))
-                            .collect::<Vec<_>>(),
-                        true,
-                    ),
-                ]
-                .concat(),
-                true,
-            );
-            let signing_keys: Vec<_> = (1..=3)
-                .map(|value| SigningKey::from_bytes(&[value; 32]))
-                .collect();
-            let validators: Vec<_> = signing_keys
-                .iter()
-                .map(|key| {
-                    let public_key = key.verifying_key().to_bytes();
-                    CommitValidator {
-                        address: CommitValidator::address_for_key(&public_key),
-                        public_key,
-                        voting_power: 3,
-                    }
-                })
-                .collect();
-            let vectors: serde_json::Value = must(serde_json::from_str(include_str!(
-                "../../../../../programs/tests/vectors/ics23-evm-storage-app-hash.json"
-            )));
-            let vector = &vectors["entries"][0];
-            let account: [u8; 20] = must(
-                must(hex::decode(
-                    vector["address"].as_str().expect("storage address"),
-                ))
-                .try_into(),
-            );
-            let slot: [u8; 32] =
-                must(must(hex::decode(vector["slot"].as_str().expect("storage slot"))).try_into());
-            let state_root: [u8; 32] = must(
-                must(hex::decode(
-                    vector["app_hash"].as_str().expect("storage app hash"),
-                ))
-                .try_into(),
-            );
-            let mut account_id = [0; 32];
-            account_id[12..].copy_from_slice(&account);
-            let listener = must(std::net::TcpListener::bind("127.0.0.1:0"));
-            let endpoint = must(SequencerEndpoint::new(
-                &format!("http://{}/rpc", must(listener.local_addr())),
-                &[],
-            ));
-            let response = vector["response"].clone();
-            let worker = std::thread::spawn(move || {
-                use std::io::{BufReader, Write};
-                let (stream, _) = must(listener.accept());
-                must(stream.set_read_timeout(Some(std::time::Duration::from_secs(5))));
-                let mut reader = BufReader::new(stream);
-                let request: serde_json::Value =
-                    must(serde_json::from_slice(&super::read_http(&mut reader)));
-                assert_eq!(request["method"], "eth_getProof");
-                assert_eq!(
-                    request["params"],
-                    serde_json::json!([
-                        format!("0x{}", hex::encode(account)),
-                        [format!("0x{}", hex::encode(slot))],
-                        format!("{height:#x}")
-                    ])
-                );
-                let body = serde_json::json!({
-                    "jsonrpc":"2.0", "id":request["id"], "result":response
-                })
-                .to_string();
-                let mut stream = reader.into_inner();
-                must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()));
-                must(stream.flush());
-            });
-            let witnesses = must(endpoint.storage_witness(&account, &[slot], height));
-            must(worker.join());
-            for witness in &witnesses {
-                must(layerx_client::storage_witness::verify_storage_witness(
-                    witness, state_root,
-                ));
-            }
-            let account_proof = must(encode_storage_witnesses(&witnesses))
-                .as_bytes()
-                .to_vec();
-            let header = CheckpointHeader {
-                version_block: 11,
-                version_app: 1,
-                chain_id: "paxeer-test".to_owned(),
+            finish_new_3_repair_22_33_1525(FinishNew3Repair22331525Context {
                 height,
-                time: CommitTimestamp {
-                    seconds: 1_700_000_000,
-                    nanos: 0,
-                },
-                last_block_id: None,
-                last_commit_hash: None,
-                data_hash: Some([1; 32]),
-                validators_hash: validator_set_hash(&validators),
-                next_validators_hash: validator_set_hash(&validators),
-                consensus_hash: [2; 32],
-                app_hash: state_root,
-                last_results_hash: Some(receipts_root),
-                evidence_hash: None,
-                proposer_address: validators[0].address,
-            };
-            let mut commit = BlockCommit {
-                height,
-                round: 0,
-                block_id: BlockId {
-                    hash: header.block_hash(),
-                    part_set_total: 1,
-                    part_set_hash: [4; 32],
-                },
-                votes: Vec::new(),
-            };
-            let timestamp = CommitTimestamp {
-                seconds: 1_700_000_001,
-                nanos: 0,
-            };
-            for (key, validator) in signing_keys.iter().zip(&validators) {
-                commit.votes.push(CommitVote {
-                    validator_address: validator.address,
-                    voting_power: validator.voting_power,
-                    timestamp,
-                    signature: key
-                        .sign(&commit.vote_sign_bytes(&header.chain_id, timestamp))
-                        .to_bytes(),
-                });
-            }
-            let trust = must(ExportTrustSource::new(
-                vec![receipt_key],
-                validators.clone(),
-            ));
-            let artifact = OfflineExport {
-                facts: vec![must(FactRef::new(format!(
-                    "receipt:{}",
-                    hex::encode(activity)
-                )))],
-                height,
-                bundles: vec![ProofBundle {
-                    format: "layerx-receipt-proof-v2".to_owned(),
-                    verification_level: Rung::Committed,
-                    raw_transaction: canonical(raw),
-                    signed_receipt: canonical(signed_receipt),
-                    receipt_digest: digest,
-                    receipt_key,
-                    block_header: Some(canonical(encode_header(&header))),
-                    receipt_inclusion: Some(canonical(inclusion)),
-                    commit: Some(canonical(encode_commit(&commit, &validators))),
-                    validator_set: Some(canonical(encode_validators(&validators))),
-                    account_proof: None,
-                }],
-            };
-            Self {
-                artifact,
-                trust,
-                header,
-                commit,
-                validators,
+                raw,
+                activity,
                 receipt_key,
+                signed_receipt,
+                digest,
                 evm_receipt,
-                receipt_path,
-                account_id,
-                account_proof,
-            }
+            })
         }
 
         pub fn state_artifact(&self) -> OfflineExport {
@@ -671,6 +541,321 @@ mod portable_fixture {
             )));
             artifact.bundles[0].account_proof = Some(canonical(self.account_proof.clone()));
             artifact
+        }
+    }
+
+    struct FinishNew3Repair22331525Context {
+        height: u64,
+        raw: Vec<u8>,
+        activity: [u8; 32],
+        receipt_key: ReceiptKeyEntry,
+        signed_receipt: Vec<u8>,
+        digest: [u8; 32],
+        evm_receipt: Vec<u8>,
+    }
+
+    fn finish_new_3_repair_22_33_1525(context: FinishNew3Repair22331525Context) -> Fixture {
+        let FinishNew3Repair22331525Context {
+            height,
+            raw,
+            activity,
+            receipt_key,
+            signed_receipt,
+            digest,
+            evm_receipt,
+        } = context;
+
+        let leaf = rlp(
+            &[rlp(&[0x30], false), rlp(&evm_receipt, false)].concat(),
+            true,
+        );
+        let leaf_hash = transaction_hash(&leaf);
+        let mut children = Vec::new();
+        for index in 0..17 {
+            children.extend(rlp(if index == 8 { &leaf_hash } else { &[] }, false));
+        }
+        let branch = rlp(&children, true);
+        let receipts_root = transaction_hash(&branch);
+        let receipt_path = [branch, leaf];
+        let inclusion = rlp(
+            &[
+                rlp(&evm_receipt, false),
+                rlp(
+                    &receipt_path
+                        .iter()
+                        .flat_map(|node| rlp(node, false))
+                        .collect::<Vec<_>>(),
+                    true,
+                ),
+            ]
+            .concat(),
+            true,
+        );
+        let signing_keys: Vec<_> = (1..=3)
+            .map(|value| SigningKey::from_bytes(&[value; 32]))
+            .collect();
+        let validators: Vec<_> = signing_keys
+            .iter()
+            .map(|key| {
+                let public_key = key.verifying_key().to_bytes();
+                CommitValidator {
+                    address: CommitValidator::address_for_key(&public_key),
+                    public_key,
+                    voting_power: 3,
+                }
+            })
+            .collect();
+        let vectors: serde_json::Value = must(serde_json::from_str(include_str!(
+            "../../../../../programs/tests/vectors/ics23-evm-storage-app-hash.json"
+        )));
+        let vector = &vectors["entries"][0];
+        let account: [u8; 20] = must(
+            must(hex::decode(require_some(
+                vector["address"].as_str(),
+                "storage address",
+            )))
+            .try_into(),
+        );
+        let slot: [u8; 32] = must(
+            must(hex::decode(require_some(
+                vector["slot"].as_str(),
+                "storage slot",
+            )))
+            .try_into(),
+        );
+        let state_root: [u8; 32] = must(
+            must(hex::decode(require_some(
+                vector["app_hash"].as_str(),
+                "storage app hash",
+            )))
+            .try_into(),
+        );
+        finish_new_2_repair_22_33_1525(FinishNew2Repair22331525Context {
+            height,
+            raw,
+            activity,
+            receipt_key,
+            signed_receipt,
+            digest,
+
+            receipts_root,
+
+            inclusion,
+            signing_keys,
+            validators,
+            vector,
+            account,
+            slot,
+            state_root,
+        })
+    }
+
+    struct FinishNew2Repair22331525Context<'a> {
+        height: u64,
+        raw: Vec<u8>,
+        activity: [u8; 32],
+        receipt_key: ReceiptKeyEntry,
+        signed_receipt: Vec<u8>,
+        digest: [u8; 32],
+
+        receipts_root: [u8; 32],
+
+        inclusion: Vec<u8>,
+        signing_keys: Vec<SigningKey>,
+        validators: Vec<CommitValidator>,
+        vector: &'a serde_json::Value,
+        account: [u8; 20],
+        slot: [u8; 32],
+        state_root: [u8; 32],
+    }
+
+    fn finish_new_2_repair_22_33_1525(context: FinishNew2Repair22331525Context<'_>) -> Fixture {
+        let FinishNew2Repair22331525Context {
+            height,
+            raw,
+            activity,
+            receipt_key,
+            signed_receipt,
+            digest,
+
+            receipts_root,
+
+            inclusion,
+            signing_keys,
+            validators,
+            vector,
+            account,
+            slot,
+            state_root,
+        } = context;
+
+        let mut account_id = [0; 32];
+        account_id[12..].copy_from_slice(&account);
+        let listener = must(std::net::TcpListener::bind("127.0.0.1:0"));
+        let endpoint = must(SequencerEndpoint::new(
+            &format!("http://{}/rpc", must(listener.local_addr())),
+            &[],
+        ));
+        let response = vector["response"].clone();
+        let worker = std::thread::spawn(move || {
+            use std::io::{BufReader, Write};
+            let (stream, _) = must(listener.accept());
+            must(stream.set_read_timeout(Some(std::time::Duration::from_secs(5))));
+            let mut reader = BufReader::new(stream);
+            let request: serde_json::Value =
+                must(serde_json::from_slice(&super::read_http(&mut reader)));
+            assert_eq!(request["method"], "eth_getProof");
+            assert_eq!(
+                request["params"],
+                serde_json::json!([
+                    format!("0x{}", hex::encode(account)),
+                    [format!("0x{}", hex::encode(slot))],
+                    format!("{height:#x}")
+                ])
+            );
+            let body = serde_json::json!({
+                "jsonrpc":"2.0", "id":request["id"], "result":response
+            })
+            .to_string();
+            let mut stream = reader.into_inner();
+            must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()));
+            must(stream.flush());
+        });
+        let witnesses = must(endpoint.storage_witness(&account, &[slot], height));
+        must(worker.join());
+        for witness in &witnesses {
+            must(layerx_client::storage_witness::verify_storage_witness(
+                witness, state_root,
+            ));
+        }
+        let account_proof = must(encode_storage_witnesses(&witnesses))
+            .as_bytes()
+            .to_vec();
+        let header = CheckpointHeader {
+            version_block: 11,
+            version_app: 1,
+            chain_id: "paxeer-test".to_owned(),
+            height,
+            time: CommitTimestamp {
+                seconds: 1_700_000_000,
+                nanos: 0,
+            },
+            last_block_id: None,
+            last_commit_hash: None,
+            data_hash: Some([1; 32]),
+            validators_hash: validator_set_hash(&validators),
+            next_validators_hash: validator_set_hash(&validators),
+            consensus_hash: [2; 32],
+            app_hash: state_root,
+            last_results_hash: Some(receipts_root),
+            evidence_hash: None,
+            proposer_address: validators[0].address,
+        };
+        finish_new_1_repair_22_33_1525(FinishNew1Repair22331525Context {
+            height,
+            raw,
+            activity,
+            receipt_key,
+            signed_receipt,
+            digest,
+
+            inclusion,
+            signing_keys,
+            validators,
+            account_id,
+            account_proof,
+            header,
+        })
+    }
+
+    struct FinishNew1Repair22331525Context {
+        height: u64,
+        raw: Vec<u8>,
+        activity: [u8; 32],
+        receipt_key: ReceiptKeyEntry,
+        signed_receipt: Vec<u8>,
+        digest: [u8; 32],
+
+        inclusion: Vec<u8>,
+        signing_keys: Vec<SigningKey>,
+        validators: Vec<CommitValidator>,
+        account_id: [u8; 32],
+        account_proof: Vec<u8>,
+        header: CheckpointHeader,
+    }
+
+    fn finish_new_1_repair_22_33_1525(context: FinishNew1Repair22331525Context) -> Fixture {
+        let FinishNew1Repair22331525Context {
+            height,
+            raw,
+            activity,
+            receipt_key,
+            signed_receipt,
+            digest,
+
+            inclusion,
+            signing_keys,
+            validators,
+            account_id,
+            account_proof,
+            header,
+        } = context;
+
+        let mut commit = BlockCommit {
+            height,
+            round: 0,
+            block_id: BlockId {
+                hash: header.block_hash(),
+                part_set_total: 1,
+                part_set_hash: [4; 32],
+            },
+            votes: Vec::new(),
+        };
+        let timestamp = CommitTimestamp {
+            seconds: 1_700_000_001,
+            nanos: 0,
+        };
+        for (key, validator) in signing_keys.iter().zip(&validators) {
+            commit.votes.push(CommitVote {
+                validator_address: validator.address,
+                voting_power: validator.voting_power,
+                timestamp,
+                signature: key
+                    .sign(&commit.vote_sign_bytes(&header.chain_id, timestamp))
+                    .to_bytes(),
+            });
+        }
+        let trust = must(ExportTrustSource::new(
+            vec![receipt_key],
+            validators.clone(),
+        ));
+        let artifact = OfflineExport {
+            facts: vec![must(FactRef::new(format!(
+                "receipt:{}",
+                hex::encode(activity)
+            )))],
+            height,
+            bundles: vec![ProofBundle {
+                format: "layerx-receipt-proof-v2".to_owned(),
+                verification_level: Rung::Committed,
+                raw_transaction: canonical(raw),
+                signed_receipt: canonical(signed_receipt),
+                receipt_digest: digest,
+                receipt_key,
+                block_header: Some(canonical(encode_header(&header))),
+                receipt_inclusion: Some(canonical(inclusion)),
+                commit: Some(canonical(encode_commit(&commit, &validators))),
+                validator_set: Some(canonical(encode_validators(&validators))),
+                account_proof: None,
+            }],
+        };
+        Fixture {
+            artifact,
+            trust,
+            header,
+
+            account_id,
+            account_proof,
         }
     }
 }
@@ -738,7 +923,7 @@ fn install(
 fn owner() -> (Directory, TenantId, ManagedAgent) {
     let directory = Directory::new();
     let tenant = must(TenantId::new("repair1525"));
-    let mut store = must(Store::open(&directory.0.join("store")));
+    let mut store = must(Store::open(directory.0.join("store")));
     let agent = install(&mut store, &tenant, seed(), 10);
     (directory, tenant, agent)
 }
@@ -770,8 +955,8 @@ fn budget_call(agent: &ManagedAgent, id: [u8; 32], amount: u128, nonce: u64) -> 
         word(0),
         word(0),
         word(u128::from(agent.context.budget_period_seconds) * 1000),
-        word(NOW as u128),
-        word((NOW + 100_000_000) as u128),
+        word(u128::from(NOW)),
+        word(u128::from(NOW + 100_000_000)),
         word(1),
         word(1),
     ];
@@ -823,7 +1008,7 @@ fn protocol_receipt(
     must(summary.fixed(&[0; 20]));
     must(summary.fixed(&hash(b"")));
     must(summary.u32(0));
-    must(summary.u32(logs.len() as u32));
+    must(summary.u32(require_ok(u32::try_from(logs.len()), "test value fits u32")));
     must(summary.u8(4));
     must(summary.fixed(b"upax"));
     let mut e = Encoder::new(16384);
@@ -848,7 +1033,10 @@ fn protocol_receipt(
     for (index, body) in std::iter::once(summary.finish())
         .chain(logs.iter().map(|log| {
             let mut body = log.address().to_vec();
-            body.push(log.topics().len() as u8);
+            body.push(require_ok(
+                u8::try_from(log.topics().len()),
+                "test value fits u8",
+            ));
             for topic in log.topics() {
                 body.extend_from_slice(topic);
             }
@@ -858,7 +1046,7 @@ fn protocol_receipt(
         .enumerate()
     {
         must(e.u16(12));
-        must(e.u16(index as u16));
+        must(e.u16(require_ok(u16::try_from(index), "test value fits u16")));
         must(e.u16(0));
         must(e.tag(if index == 0 { 1 } else { 3 }, 3));
         must(e.u8(0));
@@ -895,16 +1083,16 @@ fn protocol_receipt(
 fn retain_receipt(
     store: &mut Store,
     tenant: &TenantId,
-    call: Eip1559Call,
+    call: &Eip1559Call,
     action: [u8; 32],
-    logs: Vec<layerx_proof::sequencer_logs::SequencerLog>,
+    logs: &[layerx_proof::sequencer_logs::SequencerLog],
 ) -> HumanFinalizationEvidence {
     let height = HEIGHT + call.nonce;
     let raw = must(call.sign(&[1; 32]));
     let tx = must(Outbox::default().enqueue(store, tenant.clone(), raw.clone()));
     let signer = SigningKey::from_bytes(&[31; 32]);
-    let digest = must(receipt_digest(&protocol_receipt(&raw, &logs, None)));
-    let canonical = protocol_receipt(&raw, &logs, Some(signer.sign(&digest).to_bytes()));
+    let digest = must(receipt_digest(&protocol_receipt(&raw, logs, None)));
+    let canonical = protocol_receipt(&raw, logs, Some(signer.sign(&digest).to_bytes()));
     // Both signed log effects and their committed ABCI result are emitted by the peer transcript.
     let peer = json!({"gasUsed":"0x1","vmError":"","returnData":"0x","txHash":rpc_hex(&tx),"logs":logs.iter().map(|log|
         json!({"address":rpc_hex(&log.address()),"topics":log.topics().iter().map(|t|rpc_hex(t)).collect::<Vec<_>>(),
@@ -912,7 +1100,13 @@ fn retain_receipt(
     let results = json!([{"data":openssl::base64::encode_block(&abci_response(&peer)),"gas_wanted":"1","gas_used":"1"}]);
     let inclusion = must(NativeResultSource::from_results(&results, 0));
     let root = layerx_programs::chain_proof::merkle::hash_from_byte_slices(&[&inclusion.result]);
-    let checkpoint = committed(height + 1, NOW as i64 / 1000, [1; 32], root, 4);
+    let checkpoint = committed(
+        height + 1,
+        require_ok(i64::try_from(NOW), "test value fits i64") / 1000,
+        [1; 32],
+        root,
+        4,
+    );
     let key = ReceiptKeyEntry {
         key_id: [11; 32],
         public_key: signer.verifying_key().to_bytes(),
@@ -957,7 +1151,7 @@ fn limit_request(
         budget,
         data,
     );
-    let evidence = retain_receipt(store, tenant, call, action, vec![log]);
+    let evidence = retain_receipt(store, tenant, &call, action, &[log]);
     HumanRequest::AgentLimit {
         agent_id: agent.agent_id.clone(),
         monthly_limit: amount,
@@ -975,30 +1169,48 @@ fn response_bytes(response: HumanWireResponse) -> Vec<u8> {
 fn limit_values(bytes: &[u8]) -> (u8, u128, usize) {
     let mut offset = 0;
     for _ in 0..3 {
-        let n = u32::from_be_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
+        let n = u32::from_be_bytes(require_ok(
+            bytes[offset..offset + 4].try_into(),
+            "required test value",
+        )) as usize;
         offset += 4 + n;
     }
     let state = bytes[offset];
     offset += 1;
-    let amount = u128::from_be_bytes(bytes[offset..offset + 16].try_into().unwrap());
+    let amount = u128::from_be_bytes(require_ok(
+        bytes[offset..offset + 16].try_into(),
+        "required test value",
+    ));
     offset += 16;
-    let n = u32::from_be_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
+    let n = u32::from_be_bytes(require_ok(
+        bytes[offset..offset + 4].try_into(),
+        "required test value",
+    )) as usize;
     offset += 4 + n;
     offset += 1; // threshold state
     for _ in 0..2 {
-        let n = u32::from_be_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
+        let n = u32::from_be_bytes(require_ok(
+            bytes[offset..offset + 4].try_into(),
+            "required test value",
+        )) as usize;
         offset += 4 + n;
     }
     offset += 16 + 16 + 1; // spent, remaining, authority
     for _ in 0..2 {
-        let n = u32::from_be_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
+        let n = u32::from_be_bytes(require_ok(
+            bytes[offset..offset + 4].try_into(),
+            "required test value",
+        )) as usize;
         offset += 4 + n;
     }
     (state, amount, bytes[offset] as usize)
 }
 
 fn listener_config(path: PathBuf, tenant: &str) -> HumanListenerConfig {
-    let metadata = must(std::fs::metadata(path.parent().unwrap()));
+    let metadata = must(std::fs::metadata(require_some(
+        path.parent(),
+        "required test value",
+    )));
     HumanListenerConfig {
         endpoint: path,
         owner_uid: metadata.uid(),
@@ -1020,7 +1232,7 @@ struct Server {
 impl Server {
     fn start(directory: &Directory, config: HumanListenerConfig) -> Self {
         let path = config.endpoint.clone();
-        let store = must(Store::open(&directory.0.join("store")));
+        let store = must(Store::open(directory.0.join("store")));
         let server = must(HumanUnixServer::bind(config, store));
         let stop = Arc::new(AtomicBool::new(false));
         let running = Arc::clone(&stop);
@@ -1065,14 +1277,18 @@ fn ready_request(
     tenant: &TenantId,
     agent: &ManagedAgent,
 ) -> (HumanRequest, Vec<u8>) {
-    let mut store = must(Store::open(&directory.0.join("store")));
+    let mut store = must(Store::open(directory.0.join("store")));
     let request = limit_request(&mut store, tenant, agent, 1, 200);
     let bytes = must(human::encode_lifecycle_request(&request));
     (request, bytes)
 }
 fn partial_peer(server: &Server, frame: &[u8]) -> UnixStream {
     let mut peer = must(UnixStream::connect(&server.path));
-    must(peer.write_all(&(frame.len() as u32).to_be_bytes()));
+    must(
+        peer.write_all(
+            &(require_ok(u32::try_from(frame.len()), "test value fits u32")).to_be_bytes(),
+        ),
+    );
     must(peer.write_all(&frame[..1]));
     thread::sleep(Duration::from_millis(40));
     peer
@@ -1140,7 +1356,7 @@ fn human_socket_stop_crash_restart_and_foreign_live_symlink_refusal() {
         std::fs::Permissions::from_mode(0o600),
     ));
     let mut config = listener_config(path.clone(), tenant.as_str());
-    config.owner_uid = config.owner_uid.checked_add(1).unwrap();
+    config.owner_uid = require_some(config.owner_uid.checked_add(1), "required test value");
     assert!(HumanUnixServer::bind(config, ()).is_err());
     assert!(path.exists());
     must(std::fs::remove_file(&path));
@@ -1257,12 +1473,15 @@ fn human_configured_limits_refuse_and_release_capacity() {
 #[test]
 fn managed_limit_binds_owner_agent_amount_budget_and_committed_effect_after_reopen() {
     let (directory, tenant, agent) = owner();
-    let mut store = must(Store::open(&directory.0.join("store")));
+    let mut store = must(Store::open(directory.0.join("store")));
     let mut other_seed = seed();
     other_seed.agent_id = format!("agt_{}", hex::encode([9; 32]));
     other_seed.budget_account = format!(
         "agent:{}:budget:other",
-        std::str::from_utf8(actor().as_bytes()).unwrap()
+        require_ok(
+            std::str::from_utf8(actor().as_bytes()),
+            "required test value"
+        )
     );
     let other = install(&mut store, &tenant, other_seed, 20);
     let request = limit_request(&mut store, &tenant, &agent, 1, 200);
@@ -1309,7 +1528,7 @@ fn managed_limit_binds_owner_agent_amount_budget_and_committed_effect_after_reop
         100
     );
     drop(store);
-    let mut store = must(Store::open(&directory.0.join("store")));
+    let mut store = must(Store::open(directory.0.join("store")));
     for attack in &attacks {
         assert!(
             managed_agent::apply_lifecycle_request(&mut store, &tenant, copy_request(attack))
@@ -1323,6 +1542,28 @@ fn managed_limit_binds_owner_agent_amount_budget_and_committed_effect_after_reop
     ))
     .bytes()
     .to_vec();
+    finish_managed_limit_binds_owner_agent_amount_budget_and_committed_effect_after_reopen_1_repair_22_33_1525(FinishManagedLimitBindsOwnerAgentAmountBudgetAndCommittedEffectAfterReopen1Repair22331525Context { directory, tenant, agent, other, request, evidence, replacement_budget_id, attacks, store, expected });
+}
+
+struct FinishManagedLimitBindsOwnerAgentAmountBudgetAndCommittedEffectAfterReopen1Repair22331525Context
+{
+    directory: Directory,
+    tenant: TenantId,
+    agent: ManagedAgent,
+    other: ManagedAgent,
+    request: HumanRequest,
+    evidence: HumanFinalizationEvidence,
+    replacement_budget_id: [u8; 32],
+    attacks: Vec<HumanRequest>,
+    store: Store,
+    expected: Vec<u8>,
+}
+
+fn finish_managed_limit_binds_owner_agent_amount_budget_and_committed_effect_after_reopen_1_repair_22_33_1525(
+    context: FinishManagedLimitBindsOwnerAgentAmountBudgetAndCommittedEffectAfterReopen1Repair22331525Context,
+) {
+    let FinishManagedLimitBindsOwnerAgentAmountBudgetAndCommittedEffectAfterReopen1Repair22331525Context { directory, tenant, agent, other, request, evidence, replacement_budget_id, attacks, mut store, expected } = context;
+
     assert_eq!(limit_values(&expected).1, 200);
     for attack in &attacks {
         assert!(
@@ -1331,7 +1572,7 @@ fn managed_limit_binds_owner_agent_amount_budget_and_committed_effect_after_reop
         );
     }
     drop(store);
-    let mut store = must(Store::open(&directory.0.join("store")));
+    let mut store = must(Store::open(directory.0.join("store")));
     assert_eq!(
         must(managed_agent::apply_lifecycle_request(
             &mut store,
@@ -1376,7 +1617,7 @@ fn managed_limit_binds_owner_agent_amount_budget_and_committed_effect_after_reop
     let mut current = agent.clone();
     current.active_budget_id = replacement_budget_id;
     let call = budget_call(&current, budget, 300, 2);
-    let unbound = retain_receipt(&mut store, &tenant, call, action, vec![]);
+    let unbound = retain_receipt(&mut store, &tenant, &call, action, &[]);
     assert!(managed_agent::finalize_limit(
         &mut store,
         &tenant,
@@ -1398,7 +1639,7 @@ fn copy_request(request: &HumanRequest) -> HumanRequest {
 #[test]
 fn managed_recent_evidence_is_bounded_and_complete_index_survives_reopen() {
     let (directory, tenant, mut agent) = owner();
-    let mut store = must(Store::open(&directory.0.join("store")));
+    let mut store = must(Store::open(directory.0.join("store")));
     let mut history = Vec::new();
     for nonce in 1..=70 {
         let request = limit_request(&mut store, &tenant, &agent, nonce, 200 + u128::from(nonce));
@@ -1421,12 +1662,22 @@ fn managed_recent_evidence_is_bounded_and_complete_index_survives_reopen() {
         agent.active_budget_id = replacement_budget_id;
         history.push((request, result.bytes().to_vec(), evidence));
     }
+    finish_managed_recent_evidence_is_bounded_and_complete_index_survives_reopen_2_repair_22_33_1525(directory, tenant, agent, store, history);
+}
+
+fn finish_managed_recent_evidence_is_bounded_and_complete_index_survives_reopen_2_repair_22_33_1525(
+    directory: Directory,
+    tenant: TenantId,
+    agent: ManagedAgent,
+    store: Store,
+    history: Vec<(HumanRequest, Vec<u8>, HumanFinalizationEvidence)>,
+) {
     assert_eq!(
         limit_values(must(managed_agent::get(&store, &tenant, &agent.agent_id)).bytes()),
         (1, 270, 64)
     );
     drop(store);
-    let mut store = must(Store::open(&directory.0.join("store")));
+    let mut store = must(Store::open(directory.0.join("store")));
     let final_projection = must(managed_agent::get(&store, &tenant, &agent.agent_id))
         .bytes()
         .to_vec();
@@ -1478,7 +1729,35 @@ fn managed_recent_evidence_is_bounded_and_complete_index_survives_reopen() {
     let observation = must(managed_agent::SessionObservationV1::decode(
         observation.bytes(),
     ));
+
+    finish_managed_recent_evidence_is_bounded_and_complete_index_survives_reopen_1_repair_22_33_1525(FinishManagedRecentEvidenceIsBoundedAndCompleteIndexSurvivesReopen1Repair22331525Context { directory, tenant, agent, history, store, action, observation });
+}
+
+struct FinishManagedRecentEvidenceIsBoundedAndCompleteIndexSurvivesReopen1Repair22331525Context {
+    directory: Directory,
+    tenant: TenantId,
+    agent: ManagedAgent,
+    history: Vec<(HumanRequest, Vec<u8>, HumanFinalizationEvidence)>,
+    store: Store,
+    action: [u8; 32],
+    observation: managed_agent::SessionObservationV1,
+}
+
+fn finish_managed_recent_evidence_is_bounded_and_complete_index_survives_reopen_1_repair_22_33_1525(
+    context: FinishManagedRecentEvidenceIsBoundedAndCompleteIndexSurvivesReopen1Repair22331525Context,
+) {
     use layerx_agentd::prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget};
+
+    let FinishManagedRecentEvidenceIsBoundedAndCompleteIndexSurvivesReopen1Repair22331525Context {
+        directory,
+        tenant,
+        agent,
+        history,
+        mut store,
+        action,
+        observation,
+    } = context;
+
     let sequence = HEIGHT + 71;
     let revoke = PrecompileCall {
         target: PrecompileTarget::Auth,
@@ -1488,7 +1767,7 @@ fn managed_recent_evidence_is_bounded_and_complete_index_survives_reopen() {
         arguments: vec![
             AbiArgument::Word(agent.protocol_grant_id),
             AbiArgument::Word(word(1)),
-            AbiArgument::Word(word(sequence as u128)),
+            AbiArgument::Word(word(u128::from(sequence))),
         ],
     };
     let call = Eip1559Call {
@@ -1496,7 +1775,7 @@ fn managed_recent_evidence_is_bounded_and_complete_index_survives_reopen() {
         nonce: 71,
         max_priority_fee_per_gas: 1,
         max_fee_per_gas: 2,
-        gas_limit: 100000,
+        gas_limit: 100_000,
         to: revoke.target.address(),
         data: must(revoke.encode()),
     };
@@ -1521,9 +1800,9 @@ fn managed_recent_evidence_is_bounded_and_complete_index_survives_reopen() {
         agent.protocol_grant_id,
         data,
     );
-    let evidence = retain_receipt(&mut store, &tenant, call, action, vec![log]);
+    let evidence = retain_receipt(&mut store, &tenant, &call, action, &[log]);
     drop(store);
-    let mut store = must(Store::open(&directory.0.join("store")));
+    let mut store = must(Store::open(directory.0.join("store")));
     let response = must(managed_agent::finalize_control(
         &mut store,
         &tenant,
@@ -1559,11 +1838,14 @@ fn read_http(reader: &mut BufReader<TcpStream>) -> Vec<u8> {
         }
         if let Some((name, value)) = line.split_once(':') {
             if name.eq_ignore_ascii_case("content-length") {
-                length = Some(value.trim().parse::<usize>().unwrap());
+                length = Some(require_ok(
+                    value.trim().parse::<usize>(),
+                    "required test value",
+                ));
             }
         }
     }
-    let length = length.unwrap();
+    let length = require_some(length, "required test value");
     assert!(length <= 1_048_576);
     let mut body = vec![0; length];
     must(reader.read_exact(&mut body));
@@ -1572,13 +1854,12 @@ fn read_http(reader: &mut BufReader<TcpStream>) -> Vec<u8> {
 
 #[test]
 fn offline_export_producer_rpc_consumer_and_mismatched_fact_refusal() {
-    use layerx_agent_api::verify::VerificationStatus;
-    use layerx_agentd::export::{self, ExportTrustSource};
-    use layerx_sdk::agent_envelope::{decode_response, encode_envelope, EnvelopeCredential};
+    use layerx_agentd::export::{self};
+    use layerx_sdk::agent_envelope::{encode_envelope, EnvelopeCredential};
     let fixture = portable_fixture::Fixture::new(8, true);
     let directory = Directory::new();
     let tenant = must(TenantId::new("rpc-export"));
-    let mut store = must(Store::open(&directory.0.join("store")));
+    let mut store = must(Store::open(directory.0.join("store")));
     must(export::retain_bundle(
         &mut store,
         tenant.clone(),
@@ -1622,7 +1903,10 @@ fn offline_export_producer_rpc_consumer_and_mismatched_fact_refusal() {
             envelope.operation,
             layerx_agentd::tenant::Operation::ExportOffline
         );
-        assert_eq!(envelope.credential.as_ref().unwrap().tenant(), &tenant);
+        assert_eq!(
+            require_some(envelope.credential.as_ref(), "required test value").tenant(),
+            &tenant
+        );
         let dispatched = must(agent_rpc_adapters::export_offline_with_owner(
             envelope.request_id,
             &envelope.request,
@@ -1649,14 +1933,33 @@ fn offline_export_producer_rpc_consumer_and_mismatched_fact_refusal() {
         must(write!(socket,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",response.body.len()));
         must(socket.write_all(&response.body));
     });
+    finish_offline_export_producer_rpc_consumer_and_mismatched_fact_refusal_1_repair_22_33_1525(
+        &fixture, &request, &body, address, worker,
+    );
+}
+
+fn finish_offline_export_producer_rpc_consumer_and_mismatched_fact_refusal_1_repair_22_33_1525(
+    fixture: &portable_fixture::Fixture,
+    request: &ReadRequest<Vec<FactRef>>,
+    body: &[u8],
+    address: std::net::SocketAddr,
+    worker: thread::JoinHandle<()>,
+) {
+    use layerx_agent_api::verify::VerificationStatus;
+    use layerx_agentd::export::{self, ExportTrustSource};
+    use layerx_sdk::agent_envelope::decode_response;
+
     let mut client = must(TcpStream::connect(address));
     must(client.set_read_timeout(Some(Duration::from_secs(3))));
     must(write!(client,"POST /rpc HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",body.len()));
-    must(client.write_all(&body));
+    must(client.write_all(body));
     let response = read_http(&mut BufReader::new(client));
     must(worker.join());
     let document: Value = must(serde_json::from_slice(&response));
-    let success = must(decode_response(200, &document).unwrap());
+    let success = must(require_some(
+        decode_response(200, &document),
+        "required test value",
+    ));
     assert_eq!(
         success.verification_status,
         VerificationStatus::Achieved(Rung::Committed)
@@ -1695,12 +1998,12 @@ fn offline_export_producer_rpc_consumer_and_mismatched_fact_refusal() {
     let mut mismatch = produced.clone();
     mismatch.value.bundles.pop();
     assert!(
-        agent_rpc_adapters::offline_export_operation(RequestId(8), &request, &mismatch).is_err()
+        agent_rpc_adapters::offline_export_operation(RequestId(8), request, &mismatch).is_err()
     );
     let mut mismatch = produced.clone();
     mismatch.value.height = 9;
     assert!(
-        agent_rpc_adapters::offline_export_operation(RequestId(8), &request, &mismatch).is_err()
+        agent_rpc_adapters::offline_export_operation(RequestId(8), request, &mismatch).is_err()
     );
 }
 
@@ -1724,7 +2027,7 @@ fn startup_environment_accepts_height_node_and_refuses_retired_controls() {
         |name| {
             supported
                 .get(name)
-                .map(|value| value.to_string())
+                .map(std::string::ToString::to_string)
                 .ok_or_else(|| format!("{name} is required"))
         },
     ));

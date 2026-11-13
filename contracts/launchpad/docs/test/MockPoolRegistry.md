@@ -1,11 +1,10 @@
 # Solidity API
 
+Source: [MockPoolRegistry.sol](../../contracts/test/MockPoolRegistry.sol).
+
 ## MockPoolRegistry
 
-Minimal stand-in for IPoolRegistry used by EventEmitter v2
-        auth-mesh tests. Allows the test to mark arbitrary addresses
-        as "registered pools" without spinning up the full Launchpad
-        deployment graph (Factory → NFT → PoolRegistry).
+Test helper with configurable pool registration returned by `isRegisteredPool(address)`.
 
 ### setRegistered
 
@@ -18,4 +17,3 @@ function setRegistered(address pool, bool registered) external
 ```solidity
 function isRegisteredPool(address pool) external view returns (bool)
 ```
-

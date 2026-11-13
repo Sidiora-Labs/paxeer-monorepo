@@ -1,7 +1,4 @@
-//! Repair 22.33.1444: real producer codecs, native proofs, loopback transports and durable stores.
-//! Finding/test mappings, baseline constraints and out-of-scope wiring requests are recorded
-//! in src/repair_22_33_1444.kvx. No baseline test ran: the task's mandatory gate order permits
-//! verification only after implementation, through hf-done.
+//! Native proofs, loopback transports, and durable store cases.
 use layerx_indexer::abi::{keccak, AbiType, LoadedAbi};
 use layerx_indexer::ai_market::{
     CursorKeyring, PageRequest, ProjectionState, QueryLimiter, RateConfig, Viewer,
@@ -366,7 +363,8 @@ fn authority() -> FinalityAuthority {
 
 fn signed(header: &Header, signers: &[(u8, bool)]) -> Commit {
     let mut commit = Commit {
-        height: header.height as u64,
+        height: u64::try_from(header.height)
+            .unwrap_or_else(|_| panic!("u64 fixture value out of range")),
         round: 0,
         block_id: BlockId {
             hash: header.hash().to_vec(),
@@ -403,7 +401,12 @@ fn signed(header: &Header, signers: &[(u8, bool)]) -> Commit {
         encode_length_delimited(2, &parts, &mut block);
         encode_length_delimited(4, &block, &mut vote);
         let mut time = Vec::new();
-        encode_varint_field(1, timestamp.seconds as u64, &mut time);
+        encode_varint_field(
+            1,
+            u64::try_from(timestamp.seconds)
+                .unwrap_or_else(|_| panic!("u64 fixture value out of range")),
+            &mut time,
+        );
         encode_varint_field(2, u64::from(timestamp.nanos), &mut time);
         encode_length_delimited(5, &time, &mut vote);
         encode_length_delimited(6, header.chain_id.as_bytes(), &mut vote);
@@ -427,7 +430,7 @@ fn signed(header: &Header, signers: &[(u8, bool)]) -> Commit {
 fn header(height: u64, root: Digest32) -> Header {
     Header {
         chain_id: CHAIN_ID.to_owned(),
-        height: height as i64,
+        height: i64::try_from(height).unwrap_or_else(|_| panic!("i64 fixture value out of range")),
         app_hash: root.bytes().to_vec(),
         version: ConsensusVersion { block: 11, app: 1 },
         time: Timestamp {
@@ -483,10 +486,16 @@ fn native_membership(state: &[u8], program: [u8; 32], cell: &[u8]) -> (Vec<u8>, 
     }
     let mut manifest = vec![0, 1];
     manifest.extend(1u32.to_be_bytes());
-    manifest.extend((cell.len() as u16).to_be_bytes());
+    manifest.extend(
+        (u16::try_from(cell.len()).unwrap_or_else(|_| panic!("u16 fixture value out of range")))
+            .to_be_bytes(),
+    );
     manifest.extend(cell);
     manifest.extend(Sha256::digest(state));
-    manifest.extend((state.len() as u32).to_be_bytes());
+    manifest.extend(
+        (u32::try_from(state.len()).unwrap_or_else(|_| panic!("u32 fixture value out of range")))
+            .to_be_bytes(),
+    );
     let mut head = vec![0, 1];
     head.extend(1u32.to_be_bytes());
     head.extend(Sha256::digest(&manifest));
@@ -497,7 +506,7 @@ fn native_membership(state: &[u8], program: [u8; 32], cell: &[u8]) -> (Vec<u8>, 
     let (outer, app_hash) = leaf(b"lxphost", &store_root, &[0]);
     let mut multistore = Vec::new();
     encode_length_delimited(1, &outer, &mut multistore);
-    (serde_json::to_vec(&json!({"membership": {"proof": proof, "multistore": multistore}, "manifest": manifest})).expect("fixture JSON"), app_hash)
+    (serde_json::to_vec(&json!({"membership": {"proof": proof, "multistore": multistore}, "manifest": manifest})).unwrap_or_else(|error| panic!("{}: {error:?}", "fixture JSON")), app_hash)
 }
 
 fn certify_at(state: &[u8], height: u64) -> Checked<Material> {
@@ -530,10 +539,12 @@ fn capture_state(
                 .app_hash
                 .as_slice()
                 .try_into()
-                .expect("root"),
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "root")),
         )?,
-        observed_sequence: material.header.height as u64,
-        execution_height: material.header.height as u64,
+        observed_sequence: u64::try_from(material.header.height)
+            .unwrap_or_else(|_| panic!("u64 fixture value out of range")),
+        execution_height: u64::try_from(material.header.height)
+            .unwrap_or_else(|_| panic!("u64 fixture value out of range")),
         block_hash: Digest32::new(material.header.hash())?,
     };
     let chunks = read_all(state)?;
@@ -556,7 +567,8 @@ impl Scratch {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
-        fs::create_dir(&path).expect("create scratch directory");
+        fs::create_dir(&path)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "create scratch directory"));
         Self(path)
     }
     fn db(&self) -> PathBuf {
@@ -565,7 +577,8 @@ impl Scratch {
 }
 impl Drop for Scratch {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).expect("remove scratch directory");
+        fs::remove_dir_all(&self.0)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "remove scratch directory"));
     }
 }
 
@@ -651,7 +664,7 @@ fn abi_bytes24_function_topics_and_nested_arrays() -> Checked {
         let topic = keccak(format!("Value({kind})").as_bytes());
         let (_, decoded) = registry
             .decode_log([1; 20], &[topic, word], &[])?
-            .expect("canonical topic decoded");
+            .unwrap_or_else(|| panic!("canonical topic decoded"));
         assert_eq!(decoded.args["value"], hex0x(&[0x42; 24]));
         let mut body = vec![0u8; 64];
         body[31] = 32;
@@ -664,7 +677,7 @@ fn abi_bytes24_function_topics_and_nested_arrays() -> Checked {
                 &[keccak(format!("Nested({kind}[2][])").as_bytes())],
                 &body,
             )?
-            .expect("nested producer event");
+            .unwrap_or_else(|| panic!("nested producer event"));
         assert_eq!(
             decoded.args["values"],
             json!([[hex0x(&[0x42; 24]), hex0x(&[0x42; 24])]])
@@ -809,7 +822,7 @@ fn snapshot_archive_recovers_without_caller_bytes_after_reopen() -> Checked {
     assert_eq!(
         store
             .snapshot(&first.snapshot_id)?
-            .expect("saved header")
+            .unwrap_or_else(|| panic!("saved header"))
             .projection,
         ProjectionState::Archived
     );
@@ -832,7 +845,7 @@ fn snapshot_archive_recovers_without_caller_bytes_after_reopen() -> Checked {
     assert_eq!(
         reopened
             .stream(&market()?)?
-            .expect("stream")
+            .unwrap_or_else(|| panic!("stream"))
             .finalized_snapshot,
         Some(next.snapshot_id)
     );
@@ -858,7 +871,7 @@ fn automatic_snapshot_eviction_persists_archive_and_recovers() -> Checked {
     assert_eq!(
         store
             .snapshot(&first.snapshot_id)?
-            .expect("evicted header")
+            .unwrap_or_else(|| panic!("evicted header"))
             .projection,
         ProjectionState::Archived
     );
@@ -887,7 +900,7 @@ fn automatic_snapshot_eviction_persists_archive_and_recovers() -> Checked {
     assert_eq!(
         reopened
             .snapshot(&first.snapshot_id)?
-            .expect("restored")
+            .unwrap_or_else(|| panic!("restored"))
             .projection,
         ProjectionState::FinalizedPublishable
     );
@@ -932,7 +945,7 @@ fn pre_archive_discarded_snapshot_is_explicitly_pruned_on_upgrade() -> Checked {
     assert_eq!(
         upgraded
             .snapshot(&first.snapshot_id)?
-            .expect("legacy header")
+            .unwrap_or_else(|| panic!("legacy header"))
             .projection,
         ProjectionState::Pruned
     );
@@ -997,8 +1010,11 @@ struct Server {
 }
 impl Server {
     fn new(handler: impl Fn(&str, &[u8]) -> (u16, Vec<u8>) + Send + 'static) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind loopback peer");
-        let address = listener.local_addr().expect("peer address");
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "bind loopback peer"));
+        let address = listener
+            .local_addr()
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "peer address"));
         let stopped = Arc::new(AtomicBool::new(false));
         let stop = Arc::clone(&stopped);
         let thread = thread::spawn(move || {
@@ -1006,14 +1022,17 @@ impl Server {
                 if stop.load(Ordering::Acquire) {
                     break;
                 }
-                let mut stream = stream.expect("accept peer request");
+                let mut stream =
+                    stream.unwrap_or_else(|error| panic!("{}: {error:?}", "accept peer request"));
                 stream
                     .set_read_timeout(Some(Duration::from_secs(5)))
-                    .expect("peer timeout");
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "peer timeout"));
                 let (head, body) = read_http_request(&mut stream);
                 let (status, response) = handler(&head, &body);
-                write!(stream,"HTTP/1.1 {status} Response\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",response.len()).expect("response head");
-                stream.write_all(&response).expect("response body");
+                write!(stream,"HTTP/1.1 {status} Response\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",response.len()).unwrap_or_else(|error| panic!("{}: {error:?}", "response head"));
+                stream
+                    .write_all(&response)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "response body"));
             }
         });
         Self {
@@ -1038,31 +1057,39 @@ impl Drop for Server {
         let _ = TcpStream::connect(self.url.trim_start_matches("http://"));
         self.thread
             .take()
-            .expect("peer worker")
+            .unwrap_or_else(|| panic!("peer worker"))
             .join()
-            .expect("peer served real requests");
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "peer served real requests"));
     }
 }
 fn read_http_request(stream: &mut TcpStream) -> (String, Vec<u8>) {
     let mut bytes = Vec::new();
     let mut chunk = [0u8; 4096];
     let end = loop {
-        let n = stream.read(&mut chunk).expect("read request");
+        let n = stream
+            .read(&mut chunk)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "read request"));
         assert!(n > 0, "request ended before headers");
         bytes.extend_from_slice(&chunk[..n]);
         if let Some(end) = bytes.windows(4).position(|w| w == b"\r\n\r\n") {
             break end + 4;
         }
     };
-    let head = String::from_utf8(bytes[..end].to_vec()).expect("HTTP request head");
+    let head = String::from_utf8(bytes[..end].to_vec())
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "HTTP request head"));
     let length = head
         .lines()
         .filter_map(|l| l.split_once(':'))
         .find(|(k, _)| k.eq_ignore_ascii_case("content-length"))
-        .map(|(_, v)| v.trim().parse::<usize>().expect("content length"))
-        .unwrap_or(0);
+        .map_or(0, |(_, v)| {
+            v.trim()
+                .parse::<usize>()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "content length"))
+        });
     while bytes.len() < end + length {
-        let n = stream.read(&mut chunk).expect("request body");
+        let n = stream
+            .read(&mut chunk)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "request body"));
         assert!(n > 0, "request ended before body");
         bytes.extend_from_slice(&chunk[..n]);
     }
@@ -1079,24 +1106,30 @@ fn node_peer(
     requests: Arc<std::sync::Mutex<Vec<String>>>,
 ) -> Server {
     let mut fixture: Value = serde_json::from_str(include_str!("../fixtures/paxeer_blocks.json"))
-        .expect("recorded EVM transcript");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "recorded EVM transcript"));
     if tenant {
         for block in fixture["canonical"]["blocks"]
             .as_object_mut()
-            .expect("blocks")
+            .unwrap_or_else(|| panic!("blocks"))
             .values_mut()
         {
-            for transaction in block["transactions"].as_array_mut().expect("transactions") {
+            for transaction in block["transactions"]
+                .as_array_mut()
+                .unwrap_or_else(|| panic!("transactions"))
+            {
                 transaction["chainId"] = json!(format!("0x{:x}", 125_000_001u64));
             }
         }
     }
     Server::new(move |_, body| {
-        let request: Value = serde_json::from_slice(body).expect("JSON-RPC request");
-        let method = request["method"].as_str().expect("method");
+        let request: Value = serde_json::from_slice(body)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "JSON-RPC request"));
+        let method = request["method"]
+            .as_str()
+            .unwrap_or_else(|| panic!("method"));
         requests
             .lock()
-            .expect("request ledger")
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "request ledger"))
             .push(method.to_owned());
         let params = &request["params"];
         let result = match method {
@@ -1107,23 +1140,29 @@ fn node_peer(
                     200,
                     serde_json::to_vec(&json!({"jsonrpc":"2.0","id":request["id"],
                 "error":{"code":-32603,"data":layerx_indexer::paxeer::TX_INDEX_DISABLED}}))
-                    .expect("disabled index transcript"),
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "disabled index transcript")),
                 )
             }
             "eth_chainId" => fixture["chain_id"].clone(),
             "eth_blockNumber" => fixture["canonical"]["head"].clone(),
             "eth_getBlockByNumber" => {
                 let height = u64::from_str_radix(
-                    params[0].as_str().expect("height").trim_start_matches("0x"),
+                    params[0]
+                        .as_str()
+                        .unwrap_or_else(|| panic!("height"))
+                        .trim_start_matches("0x"),
                     16,
                 )
-                .expect("height quantity");
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "height quantity"));
                 let mut block = fixture["canonical"]["blocks"][height.to_string()].clone();
                 if omit_block_domain {
-                    for transaction in block["transactions"].as_array_mut().expect("transactions") {
+                    for transaction in block["transactions"]
+                        .as_array_mut()
+                        .unwrap_or_else(|| panic!("transactions"))
+                    {
                         transaction
                             .as_object_mut()
-                            .expect("transaction object")
+                            .unwrap_or_else(|| panic!("transaction object"))
                             .remove("chainId");
                     }
                 }
@@ -1133,33 +1172,37 @@ fn node_peer(
                 let mut found = None;
                 for block in fixture["canonical"]["blocks"]
                     .as_object()
-                    .expect("blocks")
+                    .unwrap_or_else(|| panic!("blocks"))
                     .values()
                 {
-                    for tx in block["transactions"].as_array().expect("transactions") {
+                    for tx in block["transactions"]
+                        .as_array()
+                        .unwrap_or_else(|| panic!("transactions"))
+                    {
                         if tx["hash"] == params[0] {
                             found = Some(tx.clone());
                         }
                     }
                 }
-                let mut transaction = found.expect("recorded transaction lookup");
+                let mut transaction =
+                    found.unwrap_or_else(|| panic!("recorded transaction lookup"));
                 if unresolved {
                     transaction
                         .as_object_mut()
-                        .expect("transaction")
+                        .unwrap_or_else(|| panic!("transaction"))
                         .remove("chainId");
                 }
                 transaction
             }
             "eth_getTransactionReceipt" => {
-                fixture["receipts"][params[0].as_str().expect("hash")].clone()
+                fixture["receipts"][params[0].as_str().unwrap_or_else(|| panic!("hash"))].clone()
             }
             other => panic!("unexpected node request {other}"),
         };
         (
             200,
             serde_json::to_vec(&json!({"jsonrpc":"2.0","id":request["id"],"result":result}))
-                .expect("RPC transcript"),
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "RPC transcript")),
         )
     })
 }
@@ -1190,7 +1233,7 @@ fn tenant(store: &Store) -> Checked {
         chain_id: 125_000_001,
         created_height: 0,
         bond: "100000000000000000000".into(),
-        gas_allowance: 500000,
+        gas_allowance: 500_000,
         byte_allowance: 65536,
         fee_share_bps: 100,
     })?;
@@ -1212,11 +1255,17 @@ fn daemon_callback_reaches_evm_fallback_and_keeps_comet_unready() -> Checked {
             position: 3
         }
     );
-    assert_eq!(store.cursor("paxeer")?.expect("EVM progress").position, 3);
+    assert_eq!(
+        store
+            .cursor("paxeer")?
+            .unwrap_or_else(|| panic!("EVM progress"))
+            .position,
+        3
+    );
     assert!(!store.transfers("paxeer")?.is_empty());
     let comet = store
         .source_observation("comet")?
-        .expect("Comet observation");
+        .unwrap_or_else(|| panic!("Comet observation"));
     assert_eq!(comet.source_head, Some(3));
     assert_eq!(comet.last_error.as_deref(), Some("tx_index_disabled"));
     assert!(comet.last_success_at.is_none());
@@ -1229,7 +1278,9 @@ fn daemon_callback_reaches_evm_fallback_and_keeps_comet_unready() -> Checked {
     let document = layerx_indexer::api::readiness_document(&store, &readiness)?;
     assert_eq!(document.status, "unavailable");
     assert_ne!(document.sources[0].state, "ready");
-    let calls = calls.lock().expect("callback order");
+    let calls = calls
+        .lock()
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "callback order"));
     assert_eq!(
         &calls[..4],
         ["status", "eth_chainId", "eth_blockNumber", "tx_search"]
@@ -1285,7 +1336,7 @@ fn tenant_query_authenticates_database_domains_and_falls_back_to_node() -> Check
     assert!(
         calls
             .lock()
-            .expect("lookup requests")
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "lookup requests"))
             .iter()
             .filter(|m| m.as_str() == "eth_getTransactionByHash")
             .count()
@@ -1347,11 +1398,13 @@ fn legacy_settlement_upgrade_preserves_history_without_retired_authority() -> Ch
     )?;
     let document=json!({"level":"settled","source":"retired-checkpoint","checkpoint_id":"retired-authority"}).to_string();
     sql.execute("INSERT INTO settlement_evidence(chain,activity_id,sequence,document,last_attempt) VALUES(?1,?2,?3,?4,?5)",
-        rusqlite::params!["paxeer",expected[0]["tx_id"].as_str().expect("transaction"),expected[0]["height_or_seq"].as_str().expect("height").parse::<i64>().expect("position"),document,7])?;
+        rusqlite::params!["paxeer",expected[0]["tx_id"].as_str().unwrap_or_else(|| panic!("transaction")),expected[0]["height_or_seq"].as_str().unwrap_or_else(|| panic!("height")).parse::<i64>().unwrap_or_else(|error| panic!("{}: {error:?}", "position")),document,7])?;
     drop(sql);
     let upgraded = Store::open(&dir.db())?;
     assert_eq!(upgraded.transfers("paxeer")?, expected);
-    let account = expected[0]["account"].as_str().expect("history account");
+    let account = expected[0]["account"]
+        .as_str()
+        .unwrap_or_else(|| panic!("history account"));
     let history = upgraded.history(account, None, 100, None)?;
     assert!(!history.items.is_empty());
     for row in &history.items {
@@ -1420,8 +1473,15 @@ fn authenticated_fixture_principal(
     Ok(hex(&Sha256::digest(key.as_bytes())))
 }
 
-#[test]
-fn ai_runtime_authenticated_publication_and_reads_survive_restart() -> Checked {
+struct RuntimeFixture {
+    participant: WorkerId,
+    original: ReputationCurrent,
+    encoded: Vec<u8>,
+    calls: Arc<std::sync::Mutex<Vec<String>>>,
+    server: Server,
+}
+
+fn runtime_fixture() -> Checked<RuntimeFixture> {
     let participant = worker(1)?;
     let original = observed(participant, 1, 950)?;
     let (section, _) = frame(vec![original], &[completion(1, 950)?])?;
@@ -1440,11 +1500,13 @@ fn ai_runtime_authenticated_publication_and_reads_survive_restart() -> Checked {
         let path = head
             .lines()
             .next()
-            .expect("GET request")
+            .unwrap_or_else(|| panic!("GET request"))
             .split_whitespace()
             .nth(1)
-            .expect("target");
-        seen.lock().expect("source requests").push(path.to_owned());
+            .unwrap_or_else(|| panic!("target"));
+        seen.lock()
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "source requests"))
+            .push(path.to_owned());
         if path == format!("/v1/ai/programs/{program_hex}/committed-read?after=0") {
             (200, body.clone())
         } else {
@@ -1455,6 +1517,123 @@ fn ai_runtime_authenticated_publication_and_reads_survive_restart() -> Checked {
             (204, Vec::new())
         }
     });
+    Ok(RuntimeFixture {
+        participant,
+        original,
+        encoded,
+        calls,
+        server,
+    })
+}
+
+fn assert_authenticated_views(
+    views: &AiViews,
+    accepted: &layerx_indexer::ai_market::SnapshotRecord,
+    key: &SigningKey,
+    credential: &ed25519_dalek::Signature,
+    bad: &ed25519_dalek::Signature,
+) -> Checked<(Value, Value, String)> {
+    assert!(views
+        .authenticated_query(
+            || authenticated_fixture_principal(&key.verifying_key(), bad),
+            "snapshot",
+            &hex(market()?.as_bytes()),
+            None,
+            Some(1000),
+            6000
+        )
+        .is_err());
+    assert_eq!(
+        views.limiter.retained_principals()?,
+        0,
+        "failed authentication precedes all query admission"
+    );
+    let snapshot = views.authenticated_query(
+        || authenticated_fixture_principal(&key.verifying_key(), credential),
+        "snapshot",
+        &hex(market()?.as_bytes()),
+        None,
+        Some(1000),
+        6000,
+    )??;
+    assert_eq!(snapshot["committed"], true);
+    assert_eq!(
+        snapshot["snapshot_id"],
+        hex0x(accepted.snapshot_id.as_bytes())
+    );
+    assert_eq!(snapshot["components"]["F07"], "available");
+    assert_eq!(snapshot["freshness"]["label"], "current");
+    let page = views.authenticated_query(
+        || authenticated_fixture_principal(&key.verifying_key(), credential),
+        "participants",
+        &hex(market()?.as_bytes()),
+        Some("limit=1"),
+        Some(1000),
+        6001,
+    )??;
+    assert_eq!(
+        page["rows"]
+            .as_array()
+            .unwrap_or_else(|| panic!("participant rows"))
+            .len(),
+        1
+    );
+    let cursor = page["cursor"]
+        .as_str()
+        .unwrap_or_else(|| panic!("next page"))
+        .to_owned();
+    Ok((snapshot, page, cursor))
+}
+
+fn assert_recovered_credential_refusal(
+    views: &AiViews,
+    key: &SigningKey,
+    bad: &ed25519_dalek::Signature,
+    cursor: &str,
+) -> Checked {
+    // Credential revocation/failure on a later request still blocks a recovered cursor.
+    let principals = views.limiter.retained_principals()?;
+    assert!(views
+        .authenticated_query(
+            || authenticated_fixture_principal(&key.verifying_key(), bad),
+            "participants",
+            &hex(market()?.as_bytes()),
+            Some(&format!("limit=1&cursor={cursor}")),
+            Some(1000),
+            7002
+        )
+        .is_err());
+    assert_eq!(views.limiter.retained_principals()?, principals);
+    Ok(())
+}
+
+fn assert_recovered_snapshot(
+    views: &AiViews,
+    key: &SigningKey,
+    credential: &ed25519_dalek::Signature,
+    snapshot: &Value,
+) -> Checked {
+    let recovered = views.authenticated_query(
+        || authenticated_fixture_principal(&key.verifying_key(), credential),
+        "snapshot",
+        &hex(market()?.as_bytes()),
+        None,
+        Some(1000),
+        7000,
+    )??;
+    assert_eq!(&recovered, snapshot);
+    Ok(())
+}
+
+#[test]
+fn ai_runtime_authenticated_publication_and_reads_survive_restart() -> Checked {
+    let RuntimeFixture {
+        participant,
+        original,
+        encoded,
+        calls,
+        server,
+    } = runtime_fixture()?;
     let dir = Scratch::new("ai-runtime");
     let config = runtime_settings(&dir, &server)?;
     let (mut runtime, endpoint) = RuntimeConfig::read(&config)?.open(&dir.db())?;
@@ -1463,7 +1642,7 @@ fn ai_runtime_authenticated_publication_and_reads_survive_restart() -> Checked {
     assert!(runtime.projections.stream(&market()?)?.is_none());
     let accepted = runtime
         .daemon_poll(&observations, &endpoint, PUBLICATION_TIME_MS)?
-        .expect("committed program read");
+        .unwrap_or_else(|| panic!("committed program read"));
     assert_eq!(accepted.projection, ProjectionState::FinalizedPublishable);
     assert_eq!(accepted.rank, FINALIZED_RANK);
     let readiness = layerx_indexer::api::Readiness {
@@ -1488,55 +1667,14 @@ fn ai_runtime_authenticated_publication_and_reads_survive_restart() -> Checked {
     let key = SigningKey::from_bytes(&[77; 32]);
     let credential = key.sign(b"AI view request fixture");
     let bad = key.sign(b"wrong request");
-    assert!(views
-        .authenticated_query(
-            || authenticated_fixture_principal(&key.verifying_key(), &bad),
-            "snapshot",
-            &hex(market()?.as_bytes()),
-            None,
-            Some(1000),
-            6000
-        )
-        .is_err());
-    assert_eq!(
-        views.limiter.retained_principals()?,
-        0,
-        "failed authentication precedes all query admission"
-    );
-    let snapshot = views.authenticated_query(
-        || authenticated_fixture_principal(&key.verifying_key(), &credential),
-        "snapshot",
-        &hex(market()?.as_bytes()),
-        None,
-        Some(1000),
-        6000,
-    )??;
-    assert_eq!(snapshot["committed"], true);
-    assert_eq!(
-        snapshot["snapshot_id"],
-        hex0x(accepted.snapshot_id.as_bytes())
-    );
-    assert_eq!(snapshot["components"]["F07"], "available");
-    assert_eq!(snapshot["freshness"]["label"], "current");
-    let page = views.authenticated_query(
-        || authenticated_fixture_principal(&key.verifying_key(), &credential),
-        "participants",
-        &hex(market()?.as_bytes()),
-        Some("limit=1"),
-        Some(1000),
-        6001,
-    )??;
-    assert_eq!(page["rows"].as_array().expect("participant rows").len(), 1);
-    let cursor = page["cursor"].as_str().expect("next page").to_owned();
+    let (snapshot, page, cursor) =
+        assert_authenticated_views(&views, &accepted, &key, &credential, &bad)?;
     let events = runtime.projections.pending_events(&market()?, 10)?;
     assert_eq!(events.len(), 1);
     assert!(events[0].rank >= FINALIZED_RANK);
     drop(views);
     drop(runtime);
     drop(observations);
-    drop(state);
-    drop(material);
-    drop(chunks);
     let (mut reopened, endpoint) = RuntimeConfig::read(&config)?.open(&dir.db())?;
     let observations = Store::open(&dir.db())?;
     observations.start_source("ai")?;
@@ -1559,15 +1697,7 @@ fn ai_runtime_authenticated_publication_and_reads_survive_restart() -> Checked {
         "producer replay cannot duplicate publication"
     );
     let views = AiViews::open(&dir.db(), 1, [42; 32])?;
-    let recovered = views.authenticated_query(
-        || authenticated_fixture_principal(&key.verifying_key(), &credential),
-        "snapshot",
-        &hex(market()?.as_bytes()),
-        None,
-        Some(1000),
-        7000,
-    )??;
-    assert_eq!(recovered, snapshot);
+    assert_recovered_snapshot(&views, &key, &credential, &snapshot)?;
     let next = views.authenticated_query(
         || authenticated_fixture_principal(&key.verifying_key(), &credential),
         "participants",
@@ -1584,20 +1714,14 @@ fn ai_runtime_authenticated_publication_and_reads_survive_restart() -> Checked {
         .ingest(&serde_json::to_vec(&forged)?, 7002)
         .is_err());
     assert_eq!(reopened.projections.pending_events(&market()?, 10)?, events);
-    // Credential revocation/failure on a later request still blocks a recovered cursor.
-    let principals = views.limiter.retained_principals()?;
-    assert!(views
-        .authenticated_query(
-            || authenticated_fixture_principal(&key.verifying_key(), &bad),
-            "participants",
-            &hex(market()?.as_bytes()),
-            Some(&format!("limit=1&cursor={cursor}")),
-            Some(1000),
-            7002
-        )
-        .is_err());
-    assert_eq!(views.limiter.retained_principals()?, principals);
-    assert_eq!(calls.lock().expect("polls").len(), 2);
+    assert_recovered_credential_refusal(&views, &key, &bad, &cursor)?;
+    assert_eq!(
+        calls
+            .lock()
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "polls"))
+            .len(),
+        2
+    );
     Ok(())
 }
 
@@ -1664,11 +1788,15 @@ fn archive_recovery_refuses_corruption_without_losing_locator() -> Checked {
     );
     let header = reopened
         .snapshot(&first.snapshot_id)?
-        .expect("archive binding");
+        .unwrap_or_else(|| panic!("archive binding"));
     assert_eq!(header.projection, ProjectionState::Archived);
     assert!(!header.retained);
     assert_eq!(
-        reopened.alerts()?.last().expect("integrity alert").category,
+        reopened
+            .alerts()?
+            .last()
+            .unwrap_or_else(|| panic!("integrity alert"))
+            .category,
         "integrity-failure"
     );
     let sql = rusqlite::Connection::open(dir.db())?;

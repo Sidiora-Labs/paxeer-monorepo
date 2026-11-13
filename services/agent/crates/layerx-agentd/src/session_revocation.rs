@@ -26,12 +26,12 @@ const SESSION_GRANTED: [u8; 32] = [
     0x81, 0x7c, 0x9e, 0x19, 0xd9, 0x85, 0x0e, 0xe6, 0x1b, 0xda, 0x34, 0x42, 0xaa, 0x0e, 0x3b, 0x9a,
 ];
 
-fn event_bytes<'a>(
-    receipt: &'a TransactionReceipt,
+fn event_bytes(
+    receipt: &TransactionReceipt,
     topic: [u8; 32],
     grant_id: [u8; 32],
     length: usize,
-) -> Result<&'a [u8], SessionError> {
+) -> Result<&[u8], SessionError> {
     if !receipt.status || grant_id == [0; 32] {
         return Err(SessionError::AuthorityMissing);
     }
@@ -145,7 +145,7 @@ impl SessionRegistry {
     /// HTTP adapters can forward the machine-readable refusal unchanged.
     ///
     /// # Errors
-    /// Returns session.grant_missing without mutating state when grant evidence is absent.
+    /// Returns `session.grant_missing` without mutating state when grant evidence is absent.
     pub fn session_refresh(
         &mut self,
         store: &mut Store,

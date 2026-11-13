@@ -1,0 +1,32 @@
+[repair.22.39.349]
+base_revision = "a61b1b58f6493189bfb383cd953820d52e35fa2e"
+decision = "3215"
+gotcha = "4137"
+defect = "repair_22_33_259 included src/ffi_interface.rs unconditionally; host-ffi also exports its three unmangled functions from the runtime library, producing duplicate definitions at link time."
+change = "Include the production interface module only without host-ffi. With host-ffi, declare the same scalar C functions and resolve them to the runtime library, preserving the activity byte source and every existing case and assertion."
+without_feature = "All seven original tests plus retain_host_ffi_exports execute; descriptor validation uses the locally compiled production module."
+with_feature = "The same eight tests remain registered and execute when this target is run with host-ffi; descriptor validation and ABI admission call the runtime library's exports. The declared feature gate builds and links every package test target but does not execute feature-enabled tests."
+symbol_test = "retain_host_ffi_exports asserts admitted and refused ABI transitions and account-profile-2 versions, then proves descriptor binding and real pre-entry event execution."
+
+[qualification.build]
+command = "make -C . build/liblayerx.a && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --tests"
+revision = "b80fd4967a508c920bc2290476a5396d2cd6c4ea"
+exit = 0
+log = "/out/logs/build-1.log"
+result = "The C archive and all feature-disabled runtime test targets built successfully at the recorded revision; this later evidence-only update was not rebuilt."
+
+[qualification.verify]
+command = "test -s programs/crates/layerx-programs-runtime/tests/repair_22_39_349.kvx && cargo test --locked --manifest-path programs/crates/layerx-programs-runtime/Cargo.toml --test repair_22_33_259 && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --features host-ffi --tests"
+revision = "b80fd4967a508c920bc2290476a5396d2cd6c4ea"
+runner_command = "cg spec done 22.39.349 -f layerx-merge --root /work/paxeer-monorepo"
+runner_exit = 7
+log = "/out/logs/dependents-1.log"
+result = "hf-done refused before cg spec done and verify_cmd because its automatic dependency precheck exited 101 in unrelated agent-service tests. Neither the focused test execution nor the host-ffi package build ran. No verified revision or completion is claimed."
+
+[finding.external_dependency_precheck]
+task = "22.39.349"
+file = "services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs:379,1312,1387,1421; services/agent/crates/layerx-agentd/src/human_runtime.rs:22171"
+symbol = "FeeOnlyLifecycle::decode; add_actual; policy_history_refusal"
+observed = "At revision b80fd4967a508c920bc2290476a5396d2cd6c4ea, cargo check --locked --manifest-path /work/paxeer-monorepo/services/agent/Cargo.toml --all-targets -p layerx-agent-api -p layerx-agentd -p layerx-agentd-host -p layerx-client -p layerx-crypto -p layerx-identity-binding -p layerx-mcp -p layerx-mcp-test-support -p layerx-proof -p layerx-sdk -p layerx-types -p layerx-wire exited 101 (/out/logs/dependents-1.log): E0261 undeclared lifetime 'a at program_lifecycle_settlement.rs:379:39; E0308 expected &ProgramExecutedDebit, found ProgramExecutedDebit at :1312:76, :1387:75, :1421:80; E0308 expected &HistoryReadError, found HistoryReadError at human_runtime.rs:22171:36."
+assumption = "These unrelated compiler errors are outside the test-directory scope, so the runner's stop instruction is followed without repairs or reruns; spec and root gotcha edits are expressly prohibited."
+severity = "blocker"

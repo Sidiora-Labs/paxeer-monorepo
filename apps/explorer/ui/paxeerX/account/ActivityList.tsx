@@ -53,10 +53,9 @@ const ActivityList = ({ items, isLoading, page, total, hasNextPage, canGoBackwar
       title={ title }
       note="Native network activity, newest first"
       pagination={ paginationNode }
-
     >
       { items.length === 0 ? (
-        <Text color="text.secondary" px={ 4 } py={ 6 }>
+        <Text role="status" color="text.secondary" px={ 4 } py={ 6 }>
           { page === 1 && total === 0 ? 'There is no Paxeer X activity for this account yet.' : 'There are no activity entries on this page.' }
         </Text>
       ) : (

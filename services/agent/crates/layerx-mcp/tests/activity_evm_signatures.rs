@@ -1,3 +1,6 @@
+use layerx_mcp_test_support::option_assertion;
+use layerx_mcp_test_support::result_assertion;
+
 use layerx_mcp::binding::external_signature_request;
 use layerx_mcp::boundary::BoundaryRefusal;
 use layerx_mcp::catalogue::{input_schema, validate, ArgumentError};
@@ -20,7 +23,10 @@ fn activity_sign_refuses_a_64_byte_signature() {
     );
 
     arguments["signature"] = json!("22".repeat(65));
-    let request = external_signature_request(&arguments).expect("65-byte external signature");
+    let request = result_assertion::required(
+        external_signature_request(&arguments),
+        "65-byte external signature",
+    );
     assert_eq!(request.get("variant"), None);
     assert_eq!(request["signature"], arguments["signature"]);
     assert_eq!(request["preparation_ref"], arguments["preparation_ref"]);
@@ -43,30 +49,35 @@ fn activity_sign_refuses_a_64_byte_signature() {
 
 #[test]
 fn activity_submit_schema_declares_signer_address() {
-    let schema = input_schema("activity.submit").expect("activity.submit schema");
-    let variants = schema["oneOf"].as_array().expect("submit variants");
+    let schema =
+        option_assertion::required(input_schema("activity.submit"), "activity.submit schema");
+    let variants = option_assertion::required(schema["oneOf"].as_array(), "submit variants");
     assert_eq!(variants.len(), 2);
-    let evm = variants
-        .iter()
-        .find_map(|branch| branch["oneOf"].as_array())
-        .expect("EVM submission variants");
+    let evm = option_assertion::required(
+        variants
+            .iter()
+            .find_map(|branch| branch["oneOf"].as_array()),
+        "EVM submission variants",
+    );
     assert_eq!(evm.len(), 2);
-    let native = evm
-        .iter()
-        .find(|branch| {
+    let native = option_assertion::required(
+        evm.iter().find(|branch| {
             branch.pointer("/properties/variant/enum/0") == Some(&json!("native_send_submit_v1"))
-        })
-        .expect("native submit schema");
+        }),
+        "native submit schema",
+    );
     assert_eq!(native["type"], json!("object"));
     assert_eq!(native["additionalProperties"], json!(false));
-    let properties = native["properties"].as_object().expect("submit properties");
+    let properties =
+        option_assertion::required(native["properties"].as_object(), "submit properties");
     assert!(!properties.contains_key("signer_public_key"));
-    let required = native["required"].as_array().expect("required fields");
+    let required = option_assertion::required(native["required"].as_array(), "required fields");
     assert_eq!(
         required,
-        json!(["variant", "preparation_ref", "signature", "signer_address"])
-            .as_array()
-            .expect("native required fields")
+        option_assertion::required(
+            json!(["variant", "preparation_ref", "signature", "signer_address"]).as_array(),
+            "native required fields"
+        )
     );
     assert!(required.contains(&json!("signature")));
     assert!(required.contains(&json!("signer_address")));
@@ -82,14 +93,18 @@ fn activity_submit_schema_declares_signer_address() {
         );
     }
 
-    let raw = evm
-        .iter()
-        .find(|branch| branch.pointer("/properties/raw_transaction").is_some())
-        .expect("raw EIP-1559 submission schema");
+    let raw = option_assertion::required(
+        evm.iter()
+            .find(|branch| branch.pointer("/properties/raw_transaction").is_some()),
+        "raw EIP-1559 submission schema",
+    );
     assert_eq!(raw["type"], json!("object"));
     assert_eq!(raw["additionalProperties"], json!(false));
     assert_eq!(raw["required"], json!(["raw_transaction"]));
-    assert_eq!(raw["properties"].as_object().unwrap().len(), 1);
+    assert_eq!(
+        option_assertion::required(raw["properties"].as_object(), "required success").len(),
+        1
+    );
     assert_eq!(
         raw["properties"]["raw_transaction"]["type"],
         json!("string")

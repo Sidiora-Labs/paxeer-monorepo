@@ -1,5 +1,10 @@
+#[allow(dead_code)]
 #[path = "support/chain.rs"]
 mod chain;
+
+#[path = "support/assertions.rs"]
+mod assertions;
+use assertions::TestResultExt;
 
 use chain::ChainFixture;
 use layerx_programs::{
@@ -15,18 +20,28 @@ fn chain_trust_root_builds_verifier() {
         &[[1; 32], [2; 32], [3; 32]],
         vec![(programs_state_key(b"program"), b"state".to_vec())],
     )
-    .expect("real signed chain fixture");
+    .or_panic("real signed chain fixture");
     let validators = fixture.verifier.validators.validators().to_vec();
     let head = fixture
         .verifier
         .verify_head(&fixture.header, &fixture.commit)
-        .expect("fixture commit verifies with the trusted validators");
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "fixture commit verifies with the trusted validators"
+            )
+        });
     assert_eq!(head.chain_id(), chain_id);
 
     for max_age_ms in [1, 1_000, u64::MAX] {
         let verifier: ProtocolDeploymentVerifier =
             ProtocolDeploymentVerifier::from_chain_trust(chain_id, validators.clone(), max_age_ms)
-                .expect("nonempty chain trust and positive maximum age");
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "{}: {error:?}",
+                        "nonempty chain trust and positive maximum age"
+                    )
+                });
         assert_eq!(verifier.staleness_limit_ms(), max_age_ms);
     }
 

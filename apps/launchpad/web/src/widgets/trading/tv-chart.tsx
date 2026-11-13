@@ -292,7 +292,19 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
         chartReadyRef.current = true;
         const chart = widget.activeChart();
         const viewport = viewportRef.current;
-        if (viewport?.pool === poolAddress) void chart.setVisibleRange({ from: viewport.from, to: viewport.to }).catch((reason: unknown) => { if (active) setFreshness(value => ({ ...value, lagReason: reportUserFacingError(reason, 'Chart zoom was reset', 'chart viewport') })); });
+        if (viewport?.pool === poolAddress) chart.dataReady(() => {
+          const restore = (remaining: number, rightOffset = 0) => {
+            if (!active || widgetRef.current !== widget) return;
+            void chart.setVisibleRange({ from: viewport.from, to: viewport.to + rightOffset }, { applyDefaultRightMargin: false }).then(() => {
+              requestAnimationFrame(() => {
+                if (!active || widgetRef.current !== widget) return;
+                const range = chart.getVisibleRange();
+                if (remaining > 0 && (Math.abs(range.from - viewport.from) > 1 || Math.abs(range.to - viewport.to) > 1)) restore(remaining - 1, rightOffset + viewport.to - range.to);
+              });
+            }).catch((reason: unknown) => { if (active) setFreshness(value => ({ ...value, lagReason: reportUserFacingError(reason, 'Chart zoom was reset', 'chart viewport') })); });
+          };
+          requestAnimationFrame(() => restore(2));
+        });
         chart.onIntervalChanged().subscribe(null, next => {
           if (!active) return;
           const resolution = String(next);

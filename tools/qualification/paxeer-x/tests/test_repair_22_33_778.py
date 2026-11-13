@@ -7,14 +7,12 @@ it never replaces the clients, the EVM codec or the pinned receipt verifier.
 from copy import deepcopy
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import importlib.util
-import io
 import json
 import os
 from pathlib import Path
 import signal
 import subprocess
 import sys
-import tarfile
 import threading
 import time
 from types import SimpleNamespace
@@ -41,7 +39,6 @@ HTTP = load('agent_http_bounds')
 READINESS = load('agent_tenant_readiness')
 WRITES = load('mcp_served_writes')
 PAYER = load('mcp_web_payer')
-KMS = load('human-movement-kms-assembly')
 WINDDOWN = load('programs_accounts_winddown')
 SOURCE = load('programs_source_abi')
 CHAIN = WINDDOWN.CHAIN
@@ -602,71 +599,6 @@ def test_mcp_payer_claimed_offer_must_also_match_signed_transaction(peers, field
     offer[field] = payment[field] = '9' if field == 'amount' else '09' * 32
     with pytest.raises(ValueError, match='transaction differs'):
         PAYER.committed_settlement(fixture, payment, offer)
-
-
-def source_tree(tmp_path):
-    revision = KMS.git('rev-parse', 'HEAD')
-    archive = subprocess.check_output(['git', '-C', str(ROOT), 'archive', '--format=tar', revision, '--', *KMS.SOURCES])
-    with tarfile.open(fileobj=io.BytesIO(archive)) as sources:
-        sources.extractall(tmp_path, filter='data')
-    return {'revision': revision, 'sources': KMS.source_snapshot(tmp_path, revision)}
-
-
-def test_kms_provenance_paths_exist_in_repository():
-    revision = KMS.git('rev-parse', 'HEAD')
-    assert 'platform/crates' not in KMS.SOURCES
-    assert 'services/platform/crates' not in KMS.SOURCES
-    for name in KMS.SOURCES:
-        assert (ROOT / name).exists(), name
-        assert not (ROOT / name).is_symlink(), name
-    snapshot = KMS.source_snapshot(ROOT, revision)
-    assert snapshot['revision'] == revision
-    for name in ('services/human/crates/layerx-human-kms/src/main.rs',
-                 'services/agent/crates/layerx-crypto/src/lib.rs',
-                 'services/platform/hosted/runtime-clock/Cargo.toml',
-                 'services/platform/hosted/runtime-clock/src/main.rs',
-                 'services/platform/hosted/runtime-clock/src/server.rs'):
-        assert snapshot['files'][name] == KMS.digest(ROOT / name)
-    KMS.verify_provenance({'revision': revision, 'sources': snapshot}, revision, ROOT)
-
-
-def test_kms_provenance_binds_real_moved_tree_and_artifact_revision(tmp_path):
-    document = source_tree(tmp_path)
-    assert document['revision'] == KMS.git('rev-parse', 'HEAD')
-    assert document['sources'] == KMS.source_snapshot(ROOT, document['revision'])
-    for name in ('services/human/crates/layerx-human-kms/src/main.rs',
-                 'services/agent/crates/layerx-crypto/src/lib.rs',
-                 'services/platform/hosted/runtime-clock/src/main.rs'):
-        assert document['sources']['files'][name] == KMS.digest(ROOT / name)
-        assert (tmp_path / name).read_bytes() == (ROOT / name).read_bytes()
-    assert not (tmp_path / 'platform/crates').exists()
-    assert not (tmp_path / 'services/platform/crates').exists()
-    unchanged = deepcopy(document)
-    KMS.verify_provenance(document, document['revision'], tmp_path)
-    assert document == unchanged
-    source = tmp_path / 'services/platform/hosted/runtime-clock/src/main.rs'
-    original = source.read_bytes()
-    source.write_bytes(original + b'\n// altered provenance source\n')
-    with pytest.raises(RuntimeError, match='paths differ'):
-        KMS.verify_provenance(document, document['revision'], tmp_path)
-    assert document == unchanged
-    source.write_bytes(original)
-    KMS.verify_provenance(document, document['revision'], tmp_path)
-    with pytest.raises(RuntimeError, match='revision differs'):
-        KMS.verify_provenance(document, '0' * 40, tmp_path)
-
-
-@pytest.mark.parametrize('name', KMS.SOURCES)
-def test_kms_every_missing_provenance_path_refuses_before_producers(tmp_path, name):
-    document = source_tree(tmp_path)
-    path = tmp_path / name
-    if path.is_dir():
-        import shutil
-        shutil.rmtree(path)
-    else:
-        path.unlink()
-    with pytest.raises(RuntimeError, match='missing provenance path'):
-        KMS.verify_provenance(document, document['revision'], tmp_path)
 
 
 def arguments_for_call(record):

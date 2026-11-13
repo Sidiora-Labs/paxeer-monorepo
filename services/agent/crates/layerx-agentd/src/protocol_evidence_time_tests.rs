@@ -1,5 +1,5 @@
-//! Current node ledger-payment time evidence, replayed by repair_22_33_1533.rs.
-//! The node recording is rpc/sequencer_receipt_vectors_test.go's payExact case;
+//! Current node ledger-payment time evidence, replayed by `repair_22_33_1533.rs`.
+//! The node recording is `rpc/sequencer_receipt_vectors_test.go`'s `payExact` case;
 //! Comet headers, votes and ABCI results are committed deterministic peer fixtures.
 //! Custody-credit fixtures retained elsewhere are migration-only decode coverage,
 //! and are never a current time-window producer or funding path.
@@ -40,7 +40,12 @@ fn quantity(v: u64) -> String {
     format!("{v:#x}")
 }
 fn decode_hex(v: &Value) -> Vec<u8> {
-    must(hex::decode(v.as_str().unwrap().strip_prefix("0x").unwrap()))
+    must(hex::decode(
+        v.as_str()
+            .unwrap_or_else(|| panic!("{}", "required test value"))
+            .strip_prefix("0x")
+            .unwrap_or_else(|| panic!("{}", "required test value")),
+    ))
 }
 fn actor() -> Did {
     must(Did::new(
@@ -130,29 +135,29 @@ fn committed(
 }
 fn signed_header(c: &ServedCheckpoint) -> Value {
     let h = &c.header;
-    let time = if h.time.seconds == NOW as i64 / 1000 - 1 {
+    let time = if h.time.seconds == must(i64::try_from(NOW)) / 1000 - 1 {
         "2025-06-15T15:13:19Z"
     } else {
         "2025-06-15T15:13:20.400Z"
     };
     let id = |b: BlockId| json!({"hash":hex::encode(b.hash),"parts":{"total":b.part_set_total,"hash":hex::encode(b.part_set_hash)}});
     json!({"header":{"version":{"block":"11","app":"1"},"chain_id":"125","height":h.height.to_string(),"time":time,
-        "last_block_id":id(h.last_block_id.unwrap()),"last_commit_hash":hex::encode(h.last_commit_hash.unwrap()),"data_hash":hex::encode(h.data_hash.unwrap()),"validators_hash":hex::encode(h.validators_hash),"next_validators_hash":hex::encode(h.next_validators_hash),"consensus_hash":hex::encode(h.consensus_hash),"app_hash":hex::encode(h.app_hash),"last_results_hash":hex::encode(h.last_results_hash.unwrap()),"evidence_hash":hex::encode(h.evidence_hash.unwrap()),"proposer_address":hex::encode(h.proposer_address)},
+        "last_block_id":id(h.last_block_id.unwrap_or_else(|| panic!("required header value"))),"last_commit_hash":hex::encode(h.last_commit_hash.unwrap_or_else(|| panic!("required header value"))),"data_hash":hex::encode(h.data_hash.unwrap_or_else(|| panic!("required header value"))),"validators_hash":hex::encode(h.validators_hash),"next_validators_hash":hex::encode(h.next_validators_hash),"consensus_hash":hex::encode(h.consensus_hash),"app_hash":hex::encode(h.app_hash),"last_results_hash":hex::encode(h.last_results_hash.unwrap_or_else(|| panic!("required header value"))),"evidence_hash":hex::encode(h.evidence_hash.unwrap_or_else(|| panic!("required header value"))),"proposer_address":hex::encode(h.proposer_address)},
         "commit":{"height":c.height.to_string(),"round":c.commit.round,"block_id":id(c.commit.block_id),"signatures":c.commit.votes.iter().map(|v|json!({"block_id_flag":2,"validator_address":hex::encode(v.validator_address),"timestamp":time,"signature":openssl::base64::encode_block(&v.signature)})).collect::<Vec<_>>()}})
 }
 fn block_json(c: &ServedCheckpoint) -> Value {
-    json!({"number":quantity(c.height),"hash":rpc_hex(&c.block_hash),"parentHash":rpc_hex(&c.header.last_block_id.unwrap().hash),"timestamp":quantity(c.header.time.seconds as u64),"transactionsRoot":rpc_hex(&c.header.data_hash.unwrap()),"receiptsRoot":rpc_hex(&[9;32]),"stateRoot":rpc_hex(&c.app_hash),"transactions":[]})
+    json!({"number":quantity(c.height),"hash":rpc_hex(&c.block_hash),"parentHash":rpc_hex(&c.header.last_block_id.unwrap_or_else(|| panic!("required header value")).hash),"timestamp":quantity(must(u64::try_from(c.header.time.seconds))),"transactionsRoot":rpc_hex(&c.header.data_hash.unwrap_or_else(|| panic!("required header value"))),"receiptsRoot":rpc_hex(&[9;32]),"stateRoot":rpc_hex(&c.app_hash),"transactions":[]})
 }
 fn protobuf_varint(mut value: u64, bytes: &mut Vec<u8>) {
     while value >= 128 {
-        bytes.push(value as u8 | 128);
+        bytes.push(must(u8::try_from(value & 0x7f)) | 128);
         value >>= 7;
     }
-    bytes.push(value as u8);
+    bytes.push(must(u8::try_from(value)));
 }
 fn protobuf_bytes(number: u64, value: &[u8], bytes: &mut Vec<u8>) {
     protobuf_varint(number << 3 | 2, bytes);
-    protobuf_varint(value.len() as u64, bytes);
+    protobuf_varint(must(u64::try_from(value.len())), bytes);
     bytes.extend_from_slice(value);
 }
 fn protobuf_integer(number: u64, value: u64, bytes: &mut Vec<u8>) {
@@ -166,37 +171,73 @@ fn protobuf_integer(number: u64, value: u64, bytes: &mut Vec<u8>) {
 // encoded by the peer rather than using NativeResultSource's result encoder.
 fn abci_response(receipt: &Value) -> Vec<u8> {
     let q = |name: &str| {
-        u64::from_str_radix(receipt[name].as_str().unwrap().trim_start_matches("0x"), 16).unwrap()
+        u64::from_str_radix(
+            receipt[name]
+                .as_str()
+                .unwrap_or_else(|| panic!("{}", "required test value"))
+                .trim_start_matches("0x"),
+            16,
+        )
+        .unwrap_or_else(|error| panic!("required test value: {error:?}"))
     };
     let mut response = Vec::new();
     protobuf_integer(1, q("gasUsed"), &mut response);
     if receipt["vmError"] != "" {
         protobuf_bytes(
             2,
-            receipt["vmError"].as_str().unwrap().as_bytes(),
+            receipt["vmError"]
+                .as_str()
+                .unwrap_or_else(|| panic!("{}", "required test value"))
+                .as_bytes(),
             &mut response,
         );
     }
     protobuf_bytes(3, &decode_hex(&receipt["returnData"]), &mut response);
     protobuf_bytes(
         4,
-        receipt["txHash"].as_str().unwrap().as_bytes(),
+        receipt["txHash"]
+            .as_str()
+            .unwrap_or_else(|| panic!("{}", "required test value"))
+            .as_bytes(),
         &mut response,
     );
-    for log in receipt["logs"].as_array().unwrap() {
+    for log in receipt["logs"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{}", "required test value"))
+    {
         let mut bytes = Vec::new();
-        protobuf_bytes(1, log["address"].as_str().unwrap().as_bytes(), &mut bytes);
-        for topic in log["topics"].as_array().unwrap() {
-            protobuf_bytes(2, topic.as_str().unwrap().as_bytes(), &mut bytes);
+        protobuf_bytes(
+            1,
+            log["address"]
+                .as_str()
+                .unwrap_or_else(|| panic!("{}", "required test value"))
+                .as_bytes(),
+            &mut bytes,
+        );
+        for topic in log["topics"]
+            .as_array()
+            .unwrap_or_else(|| panic!("{}", "required test value"))
+        {
+            protobuf_bytes(
+                2,
+                topic
+                    .as_str()
+                    .unwrap_or_else(|| panic!("{}", "required test value"))
+                    .as_bytes(),
+                &mut bytes,
+            );
         }
         protobuf_bytes(3, &decode_hex(&log["data"]), &mut bytes);
         protobuf_integer(
             4,
             u64::from_str_radix(
-                log["logIndex"].as_str().unwrap().trim_start_matches("0x"),
+                log["logIndex"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("{}", "required test value"))
+                    .trim_start_matches("0x"),
                 16,
             )
-            .unwrap(),
+            .unwrap_or_else(|error| panic!("required test value: {error:?}")),
             &mut bytes,
         );
         protobuf_bytes(5, &bytes, &mut response);
@@ -251,10 +292,10 @@ impl Fixture {
         );
         let case = recording["cases"]
             .as_array()
-            .unwrap()
+            .unwrap_or_else(|| panic!("{}", "required test value"))
             .iter()
             .find(|case| case["id"] == "V1-layerxledger-pay-exact")
-            .unwrap();
+            .unwrap_or_else(|| panic!("{}", "required test value"));
         let raw = decode_hex(&case["rawTransaction"]);
         let (transaction, signature) = must(layerx_crypto::evm_transaction::decode_signed(&raw));
         must(layerx_crypto::evm_transaction::recover_sender(
@@ -276,8 +317,12 @@ impl Fixture {
         )));
         let pinned = &case["pinnedKey"];
         let key = ReceiptKeyEntry {
-            key_id: decode_hex(&pinned["keyId"]).try_into().unwrap(),
-            public_key: decode_hex(&pinned["publicKey"]).try_into().unwrap(),
+            key_id: decode_hex(&pinned["keyId"])
+                .try_into()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value")),
+            public_key: decode_hex(&pinned["publicKey"])
+                .try_into()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value")),
             first_height: 1000,
             last_height: 1999,
         };
@@ -286,17 +331,23 @@ impl Fixture {
             .map(|i| must(NativeResultSource::from_results(&results, i)).result)
             .collect::<Vec<_>>();
         let empty = layerx_programs::chain_proof::merkle::hash_from_byte_slices(&[]);
-        let older = committed(HEIGHT - 1, NOW as i64 / 1000 - 1, [1; 32], empty, 4);
+        let older = committed(
+            HEIGHT - 1,
+            must(i64::try_from(NOW)) / 1000 - 1,
+            [1; 32],
+            empty,
+            4,
+        );
         let current = committed(
             HEIGHT,
-            NOW as i64 / 1000 - if attack == Attack::Timestamp { 1 } else { 0 },
+            must(i64::try_from(NOW)) / 1000 - i64::from(attack == Attack::Timestamp),
             older.block_hash,
             empty,
             if attack == Attack::Quorum { 2 } else { 4 },
         );
         let next = committed(
             HEIGHT + 1,
-            NOW as i64 / 1000,
+            must(i64::try_from(NOW)) / 1000,
             current.block_hash,
             layerx_programs::chain_proof::merkle::hash_from_byte_slices(
                 &leaves.iter().map(Vec::as_slice).collect::<Vec<_>>(),
@@ -314,11 +365,19 @@ impl Fixture {
         }
     }
     fn answer(&mut self, request: &Value) -> Value {
-        let method = request["method"].as_str().unwrap();
+        let method = request["method"]
+            .as_str()
+            .unwrap_or_else(|| panic!("{}", "required test value"));
         self.calls.push(method.into());
         let params = &request["params"];
         let block = &self.blocks[&HEIGHT];
-        let height = || params["height"].as_str().unwrap().parse::<u64>().unwrap();
+        let height = || {
+            params["height"]
+                .as_str()
+                .unwrap_or_else(|| panic!("{}", "required test value"))
+                .parse::<u64>()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value"))
+        };
         match method {
             "eth_chainId" => json!(if self.attack == Attack::Chain {
                 "0x7e"
@@ -328,15 +387,23 @@ impl Fixture {
             "eth_blockNumber" => json!(quantity(HEIGHT)),
             "eth_getBlockByNumber" => {
                 let h = u64::from_str_radix(
-                    params[0].as_str().unwrap().strip_prefix("0x").unwrap(),
+                    params[0]
+                        .as_str()
+                        .unwrap_or_else(|| panic!("{}", "required test value"))
+                        .strip_prefix("0x")
+                        .unwrap_or_else(|| panic!("{}", "required test value")),
                     16,
                 )
-                .unwrap();
+                .unwrap_or_else(|error| panic!("required test value: {error:?}"));
                 block_json(&self.blocks[&h])
             }
             "px_getStateRoot" => json!(rpc_hex(&block.app_hash)),
             "px_getCommit" => {
-                let h = params[0].as_str().unwrap().parse::<u64>().unwrap();
+                let h = params[0]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("{}", "required test value"))
+                    .parse::<u64>()
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value"));
                 let mut signed = signed_header(&self.blocks[&h]);
                 if self.attack == Attack::HeaderTamper {
                     signed["header"]["app_hash"] = json!(hex::encode([99; 32]));
@@ -367,7 +434,7 @@ impl Fixture {
                     .receipts
                     .iter()
                     .find(|r| r["txHash"] == params[0])
-                    .unwrap()
+                    .unwrap_or_else(|| panic!("{}", "required test value"))
                     .clone();
                 if self.attack == Attack::ReceiptTamper {
                     receipt["timestamp"] = json!(quantity(NOW + 1));
@@ -387,69 +454,72 @@ impl Fixture {
                     .receipts
                     .iter()
                     .find(|r| r["txHash"] == params[0])
-                    .unwrap();
+                    .unwrap_or_else(|| panic!("{}", "required test value"));
                 json!({"transactionHash":r["txHash"],"status":"0x1","blockNumber":quantity(HEIGHT),"blockHash":rpc_hex(&if self.attack==Attack::ForeignBlock {[0x55;32]}else{block.block_hash}),"transactionIndex":if self.attack==Attack::LandingIndex {json!("0x0")}else{r["index"].clone()},"gasUsed":r["gasUsed"],"logs":r["logs"]})
             }
-            "px_getHistory" => {
-                let mut rows=self.receipts.iter().enumerate().map(|(i,r)|json!({"blockHeight":HEIGHT,"txIndex":i+1,"logIndex":0,"tx_hash":r["txHash"]})).collect::<Vec<_>>();
-                if let Some(cursor) = params[1].as_str() {
-                    let cursor = must(read::Cursor::from_hex(cursor));
-                    rows.retain(|row| {
-                        read::Cursor {
-                            block_height: row["blockHeight"].as_u64().unwrap(),
-                            tx_index: row["txIndex"].as_u64().unwrap().try_into().unwrap(),
-                            log_index: row["logIndex"].as_u64().unwrap().try_into().unwrap(),
-                        } > cursor
-                    });
-                }
-                match self.attack {
-                    Attack::Duplicate if !rows.is_empty() => {
-                        // Several business rows at one position legitimately share a receipt.
-                        // Reusing it at a different transaction position must be refused.
-                        let mut duplicate = rows[0].clone();
-                        duplicate["txIndex"] = json!(2);
-                        rows.push(duplicate);
-                    }
-                    Attack::Omitted | Attack::PrematureEnd => {
-                        rows.pop();
-                    }
-                    Attack::EmptyPage => rows.clear(),
-                    Attack::EmptyNextPage => {
-                        if params[1].is_null()
-                            || read::Cursor::from_hex(params[1].as_str().unwrap())
-                                .unwrap()
-                                .block_height
-                                < HEIGHT
-                        {
-                            rows.clear();
-                        } else {
-                            rows.clear();
-                        }
-                    }
-                    _ => {}
-                }
-                let next = if self.attack == Attack::EmptyNextPage
-                    && (params[1].is_null()
-                        || read::Cursor::from_hex(params[1].as_str().unwrap())
-                            .unwrap()
-                            .block_height
-                            < HEIGHT)
-                {
-                    Some(
-                        read::Cursor {
-                            block_height: HEIGHT,
-                            tx_index: 1,
-                            log_index: 0,
-                        }
-                        .to_hex(),
-                    )
-                } else {
-                    None
-                };
-                json!({"account":params[0],"items":rows,"next_cursor":next,"indexedHeight":if self.attack==Attack::StaleIndex {HEIGHT-1}else{HEIGHT},"chainHeight":HEIGHT,"freshness":self.freshness})
-            }
+            "px_getHistory" => self.history(params),
             other => panic!("unexpected direct node method {other}: {params}"),
         }
+    }
+    fn history(&self, params: &Value) -> Value {
+        let mut rows=self.receipts.iter().enumerate().map(|(i,r)|json!({"blockHeight":HEIGHT,"txIndex":i+1,"logIndex":0,"tx_hash":r["txHash"]})).collect::<Vec<_>>();
+        if let Some(cursor) = params[1].as_str() {
+            let cursor = must(read::Cursor::from_hex(cursor));
+            rows.retain(|row| {
+                read::Cursor {
+                    block_height: row["blockHeight"]
+                        .as_u64()
+                        .unwrap_or_else(|| panic!("{}", "required test value")),
+                    tx_index: row["txIndex"]
+                        .as_u64()
+                        .unwrap_or_else(|| panic!("{}", "required test value"))
+                        .try_into()
+                        .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value")),
+                    log_index: row["logIndex"]
+                        .as_u64()
+                        .unwrap_or_else(|| panic!("{}", "required test value"))
+                        .try_into()
+                        .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value")),
+                } > cursor
+            });
+        }
+        match self.attack {
+            Attack::Duplicate if !rows.is_empty() => {
+                // Several business rows at one position legitimately share a receipt.
+                // Reusing it at a different transaction position must be refused.
+                let mut duplicate = rows[0].clone();
+                duplicate["txIndex"] = json!(2);
+                rows.push(duplicate);
+            }
+            Attack::Omitted | Attack::PrematureEnd => {
+                rows.pop();
+            }
+            Attack::EmptyPage | Attack::EmptyNextPage => rows.clear(),
+            _ => {}
+        }
+        let next = if self.attack == Attack::EmptyNextPage
+            && (params[1].is_null()
+                || read::Cursor::from_hex(
+                    params[1]
+                        .as_str()
+                        .unwrap_or_else(|| panic!("{}", "required test value")),
+                )
+                .unwrap_or_else(|error| panic!("required test value: {error:?}"))
+                .block_height
+                    < HEIGHT)
+        {
+            Some(
+                read::Cursor {
+                    block_height: HEIGHT,
+                    tx_index: 1,
+                    log_index: 0,
+                }
+                .to_hex(),
+            )
+        } else {
+            None
+        };
+        json!({"account":params[0],"items":rows,"next_cursor":next,"indexedHeight":if self.attack==Attack::StaleIndex {HEIGHT-1}else{HEIGHT},"chainHeight":HEIGHT,"freshness":self.freshness})
     }
 }
 struct Node {
@@ -527,7 +597,12 @@ impl Node {
 impl Drop for Node {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::SeqCst);
-        must(self.worker.take().unwrap().join());
+        must(
+            self.worker
+                .take()
+                .unwrap_or_else(|| panic!("{}", "required test value"))
+                .join(),
+        );
     }
 }
 
@@ -568,7 +643,9 @@ fn actual_native_batch_proves_time_count_and_exact_receipt_denomination() {
         assert_eq!(facts.observed_batch_id(), state.blocks[&HEIGHT].block_hash);
         let canonical = decode_hex(&state.receipts[0]["receipt"]);
         let decoded = must(layerx_wire::receipt::decode(&canonical));
-        let receipt = decoded.protocol().unwrap();
+        let receipt = decoded
+            .protocol()
+            .unwrap_or_else(|| panic!("{}", "required test value"));
         assert_eq!(receipt.timestamp(), NOW);
         assert_eq!(facts.activity_ids(), &[receipt.activity_id()]);
         assert_eq!(facts.receipt_amounts().len(), 1);
@@ -583,10 +660,7 @@ fn actual_native_batch_proves_time_count_and_exact_receipt_denomination() {
         assert_eq!(facts.receipt_amounts()[0].amount(), 0);
         assert_eq!(facts.receipt_amounts()[0].amount(), receipt.amount());
         let log = decode_hex(&state.receipts[0]["logs"][0]["data"]);
-        assert_eq!(
-            u128::from_be_bytes(log[48..64].try_into().unwrap()),
-            1_000_000
-        );
+        assert_eq!(u128::from_be_bytes(must(log[48..64].try_into())), 1_000_000);
         if let Some(prior) = previous {
             assert_eq!(facts, prior);
         }

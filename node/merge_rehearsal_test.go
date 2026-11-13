@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"math"
@@ -17,6 +18,7 @@ import (
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/privval"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
@@ -109,6 +111,8 @@ func TestMergeRehearsalFirstSequencedBlock(t *testing.T) {
 	require.Equal(t, plan, scheduled)
 	require.Zero(t, a.UpgradeKeeper.GetDoneHeight(before, app.MergeUpgrade))
 	require.False(t, a.Sequenced(before, firstSequenced))
+	sequenceBeforeMerge, err := lxphost.NextSequence(before, a.GetKey(app.LayerXHostStoreKey))
+	require.NoError(t, err)
 
 	response, err := a.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
 		Header: header(mergeAt, genesisTime.Add(time.Second)),
@@ -125,6 +129,13 @@ func TestMergeRehearsalFirstSequencedBlock(t *testing.T) {
 	require.Contains(t, a.UpgradeKeeper.GetModuleVersionMap(merged), seqtypes.ModuleName)
 	require.False(t, a.Sequenced(merged, mergeAt))
 	require.True(t, a.Sequenced(merged, firstSequenced))
+	sequenceAfterMerge, err := lxphost.NextSequence(merged, a.GetKey(app.LayerXHostStoreKey))
+	require.NoError(t, err)
+	require.Equal(t, sequenceBeforeMerge+1, sequenceAfterMerge)
+	fee := merged.KVStore(a.GetKey(app.LayerXHostStoreKey)).Get(append([]byte{1, 0, 9}, []byte("progfee/active/v1")...))
+	require.Len(t, fee, 217)
+	require.Equal(t, uint64(mergeAt), binary.BigEndian.Uint64(fee[145:153]))
+	require.Equal(t, uint64(mergeAt), binary.BigEndian.Uint64(fee[153:161]))
 	state, err := a.SequencerKeeper.ExportGenesis(merged)
 	require.NoError(t, err)
 	require.Equal(t, [][32]byte{leader}, state.Leaders)

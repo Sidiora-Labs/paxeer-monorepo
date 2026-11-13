@@ -1,0 +1,171 @@
+[repair.22.39.259]
+acceptance = "22998.1"
+baseline_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+baseline_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path services/human/crates/layerx-human-service"
+baseline_exit = 1
+baseline_findings = 13
+evidence = "The hf-build and hf-done receipts identify the exact candidate revision, command, exit and private evidence log; no gate result is claimed before it runs."
+
+[finding.1]
+path = "services/human/crates/layerx-human-service/src/audit/event.rs"
+line = 96
+component = "human-two-domain"
+symbol = "EvmPayoutBinding"
+disposition = "allowed_reference"
+reason = "Stable signing audit variant with wire tag 4; retained audit decoding and the current custody operation still use it."
+
+[finding.2]
+path = "services/human/crates/layerx-human-service/src/audit/event.rs"
+line = 120
+component = "human-two-domain"
+symbol = "EvmPayoutBinding"
+disposition = "allowed_reference"
+reason = "The stable tag-4 encoder preserves existing signing-audit bytes and hash-chain links."
+
+[finding.3]
+path = "services/human/crates/layerx-human-service/src/audit/event.rs"
+line = 144
+component = "human-two-domain"
+symbol = "EvmPayoutBinding"
+disposition = "allowed_reference"
+reason = "The tag-4 decoder is required to verify retained signing-audit records."
+
+[finding.4]
+path = "services/human/crates/layerx-human-service/src/custody/provider.rs"
+line = 14
+component = "envelope-signing"
+symbol = "sign_disclosed"
+disposition = "allowed_reference"
+reason = "The import is sign_disclosed_call, the live secp256k1 EIP-1559 signer, rather than the retired Ed25519 activity-envelope helper."
+
+[finding.5]
+path = "services/human/crates/layerx-human-service/src/custody/provider.rs"
+line = 1755
+component = "envelope-signing"
+symbol = "sign_disclosed"
+disposition = "allowed_reference"
+reason = "The development custody provider signs a validated EIP-1559 call through sign_disclosed_call and recovers its sender."
+
+[finding.6]
+path = "services/human/crates/layerx-human-service/src/custody/signer.rs"
+line = 878
+component = "human-two-domain"
+symbol = "EvmPayoutBinding"
+disposition = "allowed_reference"
+reason = "The live wallet-rebinding authorization category maps to the stable tag-4 signing-audit variant; custody.rs asserts this audit mapping."
+
+[finding.7]
+path = "services/human/crates/layerx-human-service/src/frame.rs"
+line = 36
+component = "layerxctl-port"
+symbol = "LNI"
+disposition = "repaired"
+reason = "Replace the obsolete transport description with Unix-socket and mutual-TLS frame connections; no transport implementation changes."
+
+[finding.8]
+path = "services/human/crates/layerx-human-service/src/frame.rs"
+line = 36
+component = "lni"
+symbol = "LNI"
+disposition = "repaired"
+reason = "The same transport documentation correction removes this second component match."
+
+[finding.9]
+path = "services/human/crates/layerx-human-service/src/server/production_components.rs"
+line = 23
+component = "envelope-signing"
+symbol = "sign_disclosed"
+disposition = "allowed_reference"
+reason = "The import is the live disclosure-checked EIP-1559 signing helper sign_disclosed_call."
+
+[finding.10]
+path = "services/human/crates/layerx-human-service/src/server/production_components.rs"
+line = 7631
+component = "envelope-signing"
+symbol = "sign_disclosed"
+disposition = "allowed_reference"
+reason = "The production bank-send path signs an EIP-1559 transaction through the attestor Signer and verifies its recovered wallet."
+
+[finding.11]
+path = "services/human/crates/layerx-human-service/src/server/stream_journal.rs"
+line = 57
+component = "settlement-domain"
+symbol = "settlement_domain"
+disposition = "allowed_reference"
+reason = "The live decoder removes the retired top-level field from retained events before projecting them."
+
+[finding.12]
+path = "services/human/crates/layerx-human-service/src/server/stream_journal.rs"
+line = 63
+component = "settlement-domain"
+symbol = "settlement_domain"
+disposition = "allowed_reference"
+reason = "The migration helper identifies retained rows to rewrite atomically while preserving timestamps, sequences and cursors."
+
+[finding.13]
+path = "services/human/crates/layerx-human-service/src/server/stream_journal.rs"
+line = 66
+component = "settlement-domain"
+symbol = "settlement_domain"
+disposition = "allowed_reference"
+reason = "The historical JSON key must remain exact so old retained rows can be migrated; stream_journal_domain.rs checks its removal."
+
+[scope.catalogue]
+path = "tools/paxeer-x/retired_callers.json"
+resolution = "Decision 3125 admits the catalogue; three directory allowances now cover every retained reference without renaming live symbols or changing audit bytes or migration behavior."
+
+[allowed_reference.1]
+path = "services/human/crates/layerx-human-service/src/audit"
+symbols = ["EvmPayoutBinding"]
+citation = "Task 22.39.259, decision 3125: the signing-audit variant and its stable wire tag 4 remain live to encode and decode retained journal records."
+
+[allowed_reference.2]
+path = "services/human/crates/layerx-human-service/src/custody"
+symbols = ["EvmPayoutBinding", "sign_disclosed"]
+citation = "Task 22.39.259, decision 3125: wallet rebinding retains its tag-4 audit mapping, and sign_disclosed_call is the live disclosure-checked secp256k1 EIP-1559 signer carrying the retired helper name as a prefix."
+
+[allowed_reference.3]
+path = "services/human/crates/layerx-human-service/src/server"
+symbols = ["settlement_domain", "sign_disclosed"]
+citation = "Task 22.39.259, decision 3125: settlement_domain strips the retired field from older journal records, and sign_disclosed_call remains the live disclosure-checked EIP-1559 attestor transaction signer."
+
+[qualification]
+base_revision = "8742bd00eb3acc490f28e5d26038636590216955"
+build_gate = "hf-build"
+verify_gate = "hf-done"
+verified_revision = "The revision in the final hf-done receipt identifies the candidate containing this record and every repair; its exact command, exit and private log location are reported together."
+
+[qualification.finding.1]
+task = "22.39.259"
+file = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs"
+symbol = "cloned_subject_handle_binds_every_coordinate_without_changing_original_head_frame"
+observed = "At revision 39a61f13b85218865aa8a57aba8e9209cfdee932, cg spec done 22.39.259 -f layerx-merge --root /work/paxeer-monorepo exited 1 (cargo test exited 101), with a typed runtime initialization panic at line 4716; evidence: /out/logs/verify-1.log."
+assumption = "This runtime initialization failure is unrelated to the catalogue allowances and source comments; the failing implementation and test are outside task scope."
+severity = "blocker"
+
+[qualification.finding.2]
+task = "22.39.259"
+file = "services/human/crates/layerx-human-service/src/event_producer_tls.rs"
+symbol = "human_journey_and_approval_cross_tls_and_recover_after_sink_loss"
+observed = "At revision 39a61f13b85218865aa8a57aba8e9209cfdee932, cg spec done 22.39.259 -f layerx-merge --root /work/paxeer-monorepo exited 1 (cargo test exited 101), with clock authority: Unavailable at line 89; evidence: /out/logs/verify-1.log."
+assumption = "This clock authority failure is unrelated to the catalogue allowances and source comments; the failing implementation and test are outside task scope."
+severity = "blocker"
+
+[qualification.result]
+status = "implemented_not_qualified"
+attempted_revision = "39a61f13b85218865aa8a57aba8e9209cfdee932"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+verify_exit = 1
+verify_log = "/out/logs/verify-1.log"
+tests_passed = 81
+tests_failed = 2
+scan_status = "Not run: the preceding cargo test failed in the chained verify_cmd."
+record_status = "Failure findings appended after the gate; this record update has not been rebuilt or verified."
+
+[qualification.continuation.3]
+decision = "3156"
+gotcha = "4074"
+task = "22.39.311"
+cases = ["event_producer::tls_tests::human_journey_and_approval_cross_tls_and_recover_after_sink_loss", "server::agent_runtime::subject_tests::cloned_subject_handle_binds_every_coordinate_without_changing_original_head_frame"]
+note = "Task 22.39.311 makes these two lib cases self-contained for the runtime clock socket and fixed subject socket path; decision 3156 excludes them from this task's declared verification while preserving the attempt-2 implementation and record."

@@ -1,0 +1,608 @@
+[meta]
+task = "22.39.269"
+requirement = "22998.1"
+status = "implemented-awaiting-qualification"
+baseline_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+verified_revision = "UNQUALIFIED; the final hf-done receipt names the exact candidate revision and private evidence log."
+baseline_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/web --path docker/gas-station"
+baseline_exit = 1
+baseline_findings = 62
+
+[repair.attempt-3-consent]
+path = "apps/web/e2e/gas-station.test.ts"
+symbol = "quoteFixture"
+repair = "Generate the quote with the real SDK digest and sign it with the declared sponsor using viem, matching the producer's 65-byte relayer signature contract so valid consent reaches all existing assertions."
+
+[repair.attempt-3-sdk-import]
+path = "apps/web/e2e/gas-station.test.ts"
+symbol = "PaxeerProvider; constructionDigest; toWireConstruction"
+repair = "Import the actual wallet provider source outside node_modules through the suite's TypeScript loader, preserving the exact construction and consent assertions."
+
+[repair.attempt-3-catalogue-merge]
+path = "tools/paxeer-x/retired_callers.json"
+repair = "Keep the current main Makefile and launchpad allowances and integrate the three seed allowances for the live ramp response, generated compatibility declarations and explorer refusal identity beside them."
+
+[qualification.attempt-3]
+base_revision = "6d3b4c37bdbfc9fa167a41fc812e460da9b9c3d7"
+status = "Awaiting hf-build and hf-done at the final candidate; no successful gate is claimed."
+verified_revision = "The hf-done receipt and /out/run/gates.jsonl identify the exact candidate revision, command, exit and private evidence location without a post-gate tree edit."
+
+[scope]
+constraint = "Attempt 2 authorizes the eleven listed paths, including both RPC cases and tools/paxeer-x/retired_callers.json; generator sources, schemas and spec files remain outside scope."
+live_rpc = "The catalogue already retains px_getNetwork, px_listAssets and px_getUnifiedHistory; gateway.ts, activity-feed.tsx and gas-station/init.sh have no baseline finding and require no replacement."
+retained_paths = "Per decisions 3125 and 3131, keep production routing unchanged, retain live history and network methods, and allow generated compatibility declarations without hand-editing generated code."
+
+[source.generated-client]
+file = "services/human/tools/api-gen/src/lib.rs"
+symbol = "collect_declarations"
+observed = "The generator filters retired operations in plan_operations but collect_declarations emits every enum and record, and collect_record emits every optional field, including schema declarations marked retired."
+disposition = "Decision 3125 allows the generated retirement-marked schema compatibility declarations under apps/web/src/api/generated; no generator change or hand edit is required."
+
+[source.ramp]
+file = "services/platform/ramps/reference/src/main.rs"
+symbol = "rebalance_presentation"
+observed = "The live rebalance producer still emits settlement_domain=paxeer and proof_ramp_reference_http_routes.rs requires decode_ramp_response to reject a changed domain."
+disposition = "Allow settlement_domain under apps/web/e2e with the live producer citation; retain the exact response validation."
+
+[source.anchor-refusal]
+file = "apps/web/src/explorer/links.ts"
+symbol = "EXPLORER_ANCHOR_PATH"
+observed = "The exported path is a refusal identity, never a navigation target; explorer.spec.ts and explorer-admission.test.ts import it and proof_explorer.test.ts asserts its exact value."
+disposition = "Allow paxeer-x/anchors under apps/web/src/explorer as the explicit admission refusal identity."
+
+[finding.1]
+path = "apps/web/e2e/prepare-production.py"
+line = 61
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow settlement_domain under apps/web/e2e for the live reference ramp rebalance response; preserve exact validation."
+
+[finding.2]
+path = "apps/web/src/api/generated/index.ts"
+line = 591
+component = "settlement-domain"
+symbol = "SettlementDomain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.3]
+path = "apps/web/src/api/generated/index.ts"
+line = 593
+component = "settlement-domain"
+symbol = "SettlementDomain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.4]
+path = "apps/web/src/api/generated/index.ts"
+line = 595
+component = "settlement-domain"
+symbol = "SettlementDomain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.5]
+path = "apps/web/src/api/generated/index.ts"
+line = 602
+component = "settlement-domain"
+symbol = "SettlementDomain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.6]
+path = "apps/web/src/api/generated/index.ts"
+line = 1911
+component = "settlement-domain"
+symbol = "SettlementDomain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.7]
+path = "apps/web/src/api/generated/index.ts"
+line = 1911
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.8]
+path = "apps/web/src/api/generated/index.ts"
+line = 1919
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.9]
+path = "apps/web/src/api/generated/index.ts"
+line = 1920
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.10]
+path = "apps/web/src/api/generated/index.ts"
+line = 1929
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.11]
+path = "apps/web/src/api/generated/index.ts"
+line = 1930
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.12]
+path = "apps/web/src/api/generated/index.ts"
+line = 1937
+component = "settlement-domain"
+symbol = "SettlementDomain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.13]
+path = "apps/web/src/api/generated/index.ts"
+line = 1937
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.14]
+path = "apps/web/src/api/generated/index.ts"
+line = 1945
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.15]
+path = "apps/web/src/api/generated/index.ts"
+line = 1946
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.16]
+path = "apps/web/src/api/generated/index.ts"
+line = 1955
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.17]
+path = "apps/web/src/api/generated/index.ts"
+line = 1956
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.18]
+path = "apps/web/src/api/generated/index.ts"
+line = 2003
+component = "settlement-domain"
+symbol = "SettlementDomain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.19]
+path = "apps/web/src/api/generated/index.ts"
+line = 2003
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.20]
+path = "apps/web/src/api/generated/index.ts"
+line = 2017
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.21]
+path = "apps/web/src/api/generated/index.ts"
+line = 2018
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.22]
+path = "apps/web/src/api/generated/index.ts"
+line = 2037
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.23]
+path = "apps/web/src/api/generated/index.ts"
+line = 2038
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.24]
+path = "apps/web/src/api/generated/index.ts"
+line = 2053
+component = "settlement-domain"
+symbol = "SettlementDomain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.25]
+path = "apps/web/src/api/generated/index.ts"
+line = 2053
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.26]
+path = "apps/web/src/api/generated/index.ts"
+line = 2063
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.27]
+path = "apps/web/src/api/generated/index.ts"
+line = 2064
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.28]
+path = "apps/web/src/api/generated/index.ts"
+line = 2075
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.29]
+path = "apps/web/src/api/generated/index.ts"
+line = 2076
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.30]
+path = "apps/web/src/api/generated/index.ts"
+line = 2085
+component = "settlement-domain"
+symbol = "SettlementDomain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.31]
+path = "apps/web/src/api/generated/index.ts"
+line = 2085
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.32]
+path = "apps/web/src/api/generated/index.ts"
+line = 2097
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.33]
+path = "apps/web/src/api/generated/index.ts"
+line = 2098
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.34]
+path = "apps/web/src/api/generated/index.ts"
+line = 2111
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.35]
+path = "apps/web/src/api/generated/index.ts"
+line = 2112
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.36]
+path = "apps/web/src/api/generated/index.ts"
+line = 2119
+component = "settlement-domain"
+symbol = "SettlementDomain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.37]
+path = "apps/web/src/api/generated/index.ts"
+line = 2119
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.38]
+path = "apps/web/src/api/generated/index.ts"
+line = 2127
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.39]
+path = "apps/web/src/api/generated/index.ts"
+line = 2128
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.40]
+path = "apps/web/src/api/generated/index.ts"
+line = 2137
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.41]
+path = "apps/web/src/api/generated/index.ts"
+line = 2138
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.42]
+path = "apps/web/src/api/generated/index.ts"
+line = 5441
+component = "settlement-domain"
+symbol = "SettlementDomain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.43]
+path = "apps/web/src/api/generated/index.ts"
+line = 5441
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.44]
+path = "apps/web/src/api/generated/index.ts"
+line = 5456
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.45]
+path = "apps/web/src/api/generated/index.ts"
+line = 5457
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.46]
+path = "apps/web/src/api/generated/index.ts"
+line = 5481
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.47]
+path = "apps/web/src/api/generated/index.ts"
+line = 5482
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.48]
+path = "apps/web/src/api/generated/index.ts"
+line = 5501
+component = "settlement-domain"
+symbol = "SettlementDomain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.49]
+path = "apps/web/src/api/generated/index.ts"
+line = 5501
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.50]
+path = "apps/web/src/api/generated/index.ts"
+line = 5509
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.51]
+path = "apps/web/src/api/generated/index.ts"
+line = 5510
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.52]
+path = "apps/web/src/api/generated/index.ts"
+line = 5519
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.53]
+path = "apps/web/src/api/generated/index.ts"
+line = 5520
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.54]
+path = "apps/web/src/api/generated/index.ts"
+line = 5528
+component = "settlement-domain"
+symbol = "SettlementDomain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.55]
+path = "apps/web/src/api/generated/index.ts"
+line = 5528
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.56]
+path = "apps/web/src/api/generated/index.ts"
+line = 5537
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.57]
+path = "apps/web/src/api/generated/index.ts"
+line = 5538
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.58]
+path = "apps/web/src/api/generated/index.ts"
+line = 5548
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.59]
+path = "apps/web/src/api/generated/index.ts"
+line = 5549
+component = "settlement-domain"
+symbol = "settlement_domain"
+status = "allowed-reference"
+repair = "Allow SettlementDomain and settlement_domain under apps/web/src/api/generated as generated retirement-marked schema compatibility declarations per decision 3125."
+
+[finding.60]
+path = "apps/web/src/explorer/links.ts"
+line = 20
+component = "explorer-kernel-views"
+symbol = "paxeer-x/anchors"
+status = "allowed-reference"
+repair = "Allow paxeer-x/anchors under apps/web/src/explorer as the explicit retired-route admission refusal identity per decision 3125."
+
+[finding.61]
+path = "apps/web/src/explorer/links.ts"
+line = 39
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+status = "implemented"
+repair = "Route frozen historical identities through historicalReceiptLinkPath to the explicit /api/v2/paxeer-x/archive/receipts endpoint, retaining identifier validation and frozen=true."
+
+[finding.62]
+path = "apps/web/src/explorer/native-model.ts"
+line = 211
+component = "checkpoint-evidence"
+symbol = "settlement_anchored"
+status = "implemented"
+repair = "Remove the retired verification level from both archive verification and verification_status acceptance; checkpoint_finalised remains the highest declared level."
+
+[qualification]
+build = "Run only hf-build for the declared install and typecheck."
+verify = "Run only hf-done for the declared tests, syntax checks, scoped scan and graph qualification."
+evidence = "The gate runner records exact revision, command, exit and private log; no successful qualification is claimed before a passing receipt."
+
+[gotcha.scope]
+observed = "Attempt 1 excluded the catalogue and RPC test owners; attempt 2 explicitly adds those paths and permits the live and compatibility allowances under decisions 3125 and 3131."
+
+[gotcha.historical-test]
+observed = "The out-of-scope repair-22-33-338.test.ts asserts the obsolete historical UI path; the declared package test command does not select that file, and this task does not alter its assertion."
+
+[qualification.attempt-1-bounded-result]
+revision = "ffeb04cc7c2fd9f7621deec651d3a6c4deec7040"
+build_command = "pnpm --dir apps/web install --frozen-lockfile --ignore-scripts && pnpm --dir apps/web run typecheck"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+command = "cg spec done 22.39.269 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The package suite reported 161 tests, 138 passed, 23 failed, zero skipped and zero todo; verify_cmd stopped at pnpm test, before Python compilation, shell syntax and the final scoped scan. No passing verification or graph qualification is claimed."
+record_update = "This evidence-only update follows the bounded gate; no gate is rerun to chase the unrelated failures and the receipt identifies the candidate actually tested."
+
+[finding.qualification-unrelated]
+task = "22.39.269"
+file = "apps/web/e2e/activity.spec.ts; apps/web/e2e/api-client.test.ts; apps/web/e2e/explorer-account.test.ts; apps/web/e2e/gas-station.test.ts; apps/web/e2e/gateway-history.test.ts; apps/web/e2e/launchpad-reads.test.ts"
+symbol = "explorerPath; generated-operation vectors and service-boundary audit; account projection; sponsored quotes; history RPC; launchpad reads"
+observed = "At revision ffeb04cc7c2fd9f7621deec651d3a6c4deec7040, cg spec done 22.39.269 -f layerx-merge --root /work/paxeer-monorepo exited 1 with 23 package test failures in unchanged contracts and code paths, including retired golden-operation data, unsupported wallet dependency type stripping, unavailable history RPC methods and absent launchpad Markets tables; private evidence is /out/logs/verify-1.log."
+assumption = "Repairing the inherited failures requires separate source and contract ownership; preserve the tests and do not rerun or investigate these recorded failures in this task."
+severity = "blocker"
+
+[repair.attempt-2-history]
+path = "apps/web/e2e/gateway-history.test.ts"
+symbol = "serving; native_history_uses_distinct_root_node_and_hosted_gateway"
+repair = "Serve px_getHistory and px_getUnifiedHistory from the native node at LAYERX_NODE_ENDPOINT; serve the existing hosted eth operations at LAYERX_GATEWAY_URL without changing production routing, assert distinct roots and no NODE_METHODS request at the hosted server, and restore both endpoint settings."
+
+[repair.attempt-2-sponsorship]
+path = "apps/web/e2e/gas-station.test.ts"
+symbol = "launchpad_sponsored_fee_sends_the_approve_then_the_write"
+repair = "Serve px_resolveAccount from a separate root node endpoint, keep the hosted receipt lookup at the gateway, assert both account resolutions use the node and no NODE_METHODS request reaches the gateway, and restore both endpoint settings and close all servers."
+
+[qualification.attempt-2]
+status = "Awaiting the single bounded hf-build and hf-done at the final candidate; no pass is claimed."
+evidence = "The final receipt and /out/run/gates.jsonl record the exact candidate revision, command, exit code and private log without a post-gate tree edit."
+previous_result = "The attempt-1 receipt above is historical; this attempt repairs only the two RPC cases and catalogue dispositions explicitly authorized by the continuation ruling."
+
+[qualification.attempt-2-first-pass]
+revision = "8302c2da4b408c2d47de097d6388bbc4cc58b08d"
+command = "cg spec done 22.39.269 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed; verification reported 161 tests, 144 passed, 17 failed, zero skipped and zero todo, and stopped at pnpm test before syntax checks and the final scoped scan."
+repair = "The sponsorship case also needs node-served governed receipt keys and raw transaction bytes for authentication; route injected node reads to the node server and use the existing committed producer recording with its matching key pin and raw transaction."
+
+[finding.attempt-2-unrelated]
+task = "22.39.269"
+file = "apps/web/e2e/activity.spec.ts; apps/web/e2e/api-client.test.ts; apps/web/e2e/explorer-account.test.ts; apps/web/e2e/gas-station.test.ts; apps/web/e2e/launchpad-reads.test.ts"
+symbol = "explorerPath; generated-operation vectors and service-boundary audit; account projection; quote consent fixtures and dependency loading; launchpad reads"
+observed = "At revision 8302c2da4b408c2d47de097d6388bbc4cc58b08d, cg spec done 22.39.269 -f layerx-merge --root /work/paxeer-monorepo exited 1 with inherited assertion failures already recorded in attempt 1, including invalid consent fixtures, unsupported dependency type stripping and missing Markets tables; private evidence is /out/logs/verify-1.log."
+assumption = "Preserve these unrelated assertions and source contracts while repairing the explicitly authorized node-method routing failure."
+severity = "blocker"

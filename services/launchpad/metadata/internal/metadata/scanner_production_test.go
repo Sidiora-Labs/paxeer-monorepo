@@ -108,6 +108,12 @@ func TestProductionScannerSnapshot(t *testing.T) {
 }
 
 func TestProductionActualScannerMidstreamDisconnect(t *testing.T) {
+	for _, name := range []string{"CLAMAV_HOST"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	actual, e := sharedhttp.ScannerVersion(ctx, sharedhttp.ScanOptions{})

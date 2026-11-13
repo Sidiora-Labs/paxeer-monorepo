@@ -61,6 +61,7 @@ func swapBody(blockTS int64) []byte {
 		"events": []map[string]interface{}{{
 			"eventName":      "Swap",
 			"blockNumber":    100,
+			"position":       engine.ChainOrder{Height: 100},
 			"blockTimestamp": blockTS,
 			"txHash":         "0xfeed",
 			"logIndex":       0,
@@ -96,6 +97,36 @@ func TestWebhookValidSwap(t *testing.T) {
 	got, err := st.GetCandle(context.Background(), whPool, "1m", 1704067260)
 	if err != nil || got == nil || got.VolumeUsdl != "100" {
 		t.Fatalf("candle not folded: %+v err %v", got, err)
+	}
+}
+
+func TestWebhookRequiresConsistentSourcePosition(t *testing.T) {
+	r, st := webhookRouter(t)
+	for name, change := range map[string]func(*WebhookEvent){
+		"missing":         func(event *WebhookEvent) { event.Position = nil },
+		"height":          func(event *WebhookEvent) { event.Position.Height++ },
+		"log":             func(event *WebhookEvent) { event.Position.LogIndex++ },
+		"negative height": func(event *WebhookEvent) { event.BlockNumber = -1 },
+	} {
+		t.Run(name, func(t *testing.T) {
+			var body WebhookBody
+			if err := json.Unmarshal(swapBody(1704067260), &body); err != nil {
+				t.Fatal(err)
+			}
+			change(&body.Events[0])
+			raw, err := json.Marshal(body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rec := httptest.NewRecorder()
+			r.ServeHTTP(rec, signedRequest(raw))
+			if rec.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("inconsistent position accepted: %d %s", rec.Code, rec.Body.String())
+			}
+			if got, err := st.GetCandle(context.Background(), whPool, "1m", 1704067260); err != nil || got != nil {
+				t.Fatalf("rejected position changed candles: %+v %v", got, err)
+			}
+		})
 	}
 }
 

@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/config"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
 	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 )
@@ -52,37 +53,14 @@ func newDevHarness(t *testing.T) *devHarness {
 	t.Helper()
 	ctx := context.Background()
 	adminDSN := fixtureEnv("SOCIAL_FIXTURE_POSTGRES_DSN", "postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable")
-	admin, err := pgx.Connect(ctx, adminDSN)
-	if err != nil {
-		t.Fatalf("fixture postgres: %v", err)
-	}
-	name := "social_fleet2_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:10]
-	if _, err = admin.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize()); err != nil {
-		t.Fatal(err)
-	}
-	cfg, err := pgx.ParseConfig(adminDSN)
-	if err != nil {
-		t.Fatal(err)
-	}
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable", cfg.User, cfg.Password, cfg.Host, cfg.Port, name)
+	dsn := internaltest.DevelopmentPostgresDSN(t, adminDSN)
 	db, err := pgx.Connect(ctx, dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := &devHarness{t: t, admin: admin, dbConn: db, pool: addr(0x9001), token: addr(0x7001), creator: addr(0xc0ffee)}
-	t.Cleanup(func() {
-		_ = db.Close(context.Background())
-		if _, err := admin.Exec(context.Background(), "DROP DATABASE IF EXISTS "+pgx.Identifier{name}.Sanitize()+" WITH (FORCE)"); err != nil {
-			t.Error(err)
-		}
-		_ = admin.Close(context.Background())
-	})
-	// indexer.pools is owned by core/indexer (its migrations/00001_init.sql).
-	if _, err = db.Exec(ctx, `CREATE SCHEMA indexer;
-CREATE TABLE "indexer"."pools" ("pool_address" varchar(42) PRIMARY KEY NOT NULL,"token_address" varchar(42) NOT NULL,"creator" varchar(42) NOT NULL,"optical" varchar(42) NOT NULL,"pool_id" varchar(66) NOT NULL,"nft_id" bigint,"created_at" bigint NOT NULL,"created_block" bigint NOT NULL,"tx_hash" varchar(66) NOT NULL)`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = db.Exec(ctx, `INSERT INTO indexer.pools VALUES($1,$2,$3,$4,$5,1,$6,100,$7)`, h.pool, h.token, h.creator, addr(0x0b7), "0x"+strings.Repeat("ab", 32), time.Now().Unix(), "0x"+strings.Repeat("cd", 32)); err != nil {
+	h := &devHarness{t: t, dbConn: db, pool: addr(0x9001), token: addr(0x7001), creator: addr(0xc0ffee)}
+	t.Cleanup(func() { _ = db.Close(context.Background()) })
+	if _, err = db.Exec(ctx, `INSERT INTO indexer.pools(pool_address,token_address,creator,optical,pool_id,nft_id,created_at,created_block,tx_hash) VALUES($1,$2,$3,$4,$5,1,$6,100,$7)`, h.pool, h.token, h.creator, addr(0xb7), "0x"+strings.Repeat("ab", 32), time.Now().Unix(), "0x"+strings.Repeat("cd", 32)); err != nil {
 		t.Fatal(err)
 	}
 	app, err := New(ctx, config.Config{

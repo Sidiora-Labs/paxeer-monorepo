@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"io"
 	"math/big"
+	"net"
 	"net/http"
 	"os"
 	"sort"
@@ -91,6 +92,20 @@ func TestIdentityOwnerRealChain125ProofKinds(t *testing.T) {
 	interruptedProof.Kind = "erc1271"
 	interruptedProof.Wallet = wallet
 	rpc.Close()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	unavailableEndpoint := "http://" + listener.Addr().String()
+	if err = listener.Close(); err != nil {
+		t.Fatal(err)
+	}
+	disconnected, err := ethclient.DialContext(ctx, unavailableEndpoint)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer disconnected.Close()
+	f.s.verifier = Chain125ProofVerifier{Backend: sharedauth.NewReportedHashBackend(disconnected.Client())}
 	status, body, _ = f.request(t, "POST", "/v2/auth/sessions", "", "", LoginRequest{interrupted.ChallengeID, interruptedProof, "RPC interrupted"})
 	if status != 503 {
 		t.Fatalf("contract RPC interruption did not fail closed: %d %s", status, body)

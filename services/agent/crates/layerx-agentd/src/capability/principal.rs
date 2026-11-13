@@ -17,6 +17,9 @@ pub struct VerifiedLedgerPrincipal {
 }
 
 impl VerifiedLedgerPrincipal {
+    /// # Errors
+    /// Returns an error if the disclosure does not describe a supported native operation or its
+    /// effects cannot be resolved without overflow.
     pub fn resolve(
         prepared: &EvmPrepared,
         reads: &CommittedReads<'_>,
@@ -94,12 +97,15 @@ impl VerifiedLedgerPrincipal {
         })
     }
 
+    #[must_use]
     pub const fn issuer(&self) -> [u8; 32] {
         self.issuer
     }
+    #[must_use]
     pub const fn fee_account(&self) -> [u8; 32] {
         self.fee_account
     }
+    #[must_use]
     pub const fn sender(&self) -> [u8; 20] {
         self.sender
     }

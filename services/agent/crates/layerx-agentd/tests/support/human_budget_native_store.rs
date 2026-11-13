@@ -10,17 +10,17 @@ fn hash(bytes: &[u8]) -> [u8; 32] {
 fn varint(mut value: u64) -> Vec<u8> {
     let mut bytes = Vec::new();
     while value >= 128 {
-        bytes.push((value as u8 & 127) | 128);
+        bytes.push(assert_ok(u8::try_from(value & 127), "seven-bit varint byte") | 128);
         value >>= 7;
     }
-    bytes.push(value as u8);
+    bytes.push(assert_ok(u8::try_from(value), "terminal varint byte"));
     bytes
 }
 
 fn field(number: u8, value: &[u8]) -> Vec<u8> {
     [
         vec![(number << 3) | 2],
-        varint(value.len() as u64),
+        varint(assert_ok(u64::try_from(value.len()), "field length")),
         value.to_vec(),
     ]
     .concat()
@@ -30,7 +30,7 @@ fn leaf_hash(prefix: &[u8], key: &[u8], value: &[u8]) -> [u8; 32] {
     hash(
         &[
             prefix.to_vec(),
-            varint(key.len() as u64),
+            varint(assert_ok(u64::try_from(key.len()), "key length")),
             key.to_vec(),
             vec![32],
             hash(value).to_vec(),
@@ -49,11 +49,14 @@ fn leaf_proof(key: &[u8], value: &[u8], prefix: &[u8], path: &[(Vec<u8>, Vec<u8>
     field(1, &existence)
 }
 
+type MembershipPath = Vec<(Vec<u8>, Vec<u8>)>;
+type StoreRow = (Vec<u8>, Vec<u8>, MembershipPath);
+
 struct StoreNode {
     root: [u8; 32],
     height: u64,
     size: u64,
-    rows: Vec<(Vec<u8>, Vec<u8>, Vec<(Vec<u8>, Vec<u8>)>)>,
+    rows: Vec<StoreRow>,
 }
 
 impl StoreNode {
@@ -132,15 +135,21 @@ fn encode_base64(bytes: &[u8]) -> String {
         let word = (u32::from(chunk[0]) << 16)
             | (u32::from(*chunk.get(1).unwrap_or(&0)) << 8)
             | u32::from(*chunk.get(2).unwrap_or(&0));
-        encoded.push(ALPHABET[(word >> 18) as usize] as char);
-        encoded.push(ALPHABET[((word >> 12) & 63) as usize] as char);
+        encoded.push(char::from(
+            ALPHABET[assert_ok(usize::try_from(word >> 18), "six-bit base64 index")],
+        ));
+        encoded.push(char::from(
+            ALPHABET[assert_ok(usize::try_from((word >> 12) & 63), "six-bit base64 index")],
+        ));
         encoded.push(if chunk.len() > 1 {
-            ALPHABET[((word >> 6) & 63) as usize] as char
+            char::from(
+                ALPHABET[assert_ok(usize::try_from((word >> 6) & 63), "six-bit base64 index")],
+            )
         } else {
             '='
         });
         encoded.push(if chunk.len() > 2 {
-            ALPHABET[(word & 63) as usize] as char
+            char::from(ALPHABET[assert_ok(usize::try_from(word & 63), "six-bit base64 index")])
         } else {
             '='
         });
@@ -166,19 +175,20 @@ pub(super) fn prepare_authority(fixture: &mut RecordedAuthority) {
 impl NativeStore {
     pub fn for_authority(fixture: &RecordedAuthority) -> Self {
         use layerx_wire::encode::Encoder;
-        let sequence = u64::from_str_radix(
-            fixture.block["number"]
-                .as_str()
-                .unwrap()
-                .trim_start_matches("0x"),
-            16,
-        )
-        .unwrap();
+        let sequence = assert_ok(
+            u64::from_str_radix(
+                assert_some(fixture.block["number"].as_str(), "expected Some value")
+                    .trim_start_matches("0x"),
+                16,
+            ),
+            "unexpected error",
+        );
         let mut rows = vec![(vec![2], sequence.to_be_bytes().to_vec())];
         let word = |index: usize| -> [u8; 32] {
-            fixture.budget_call[index * 32..(index + 1) * 32]
-                .try_into()
-                .unwrap()
+            assert_ok(
+                fixture.budget_call[index * 32..(index + 1) * 32].try_into(),
+                "unexpected error",
+            )
         };
         let owner = word(1);
         let budget = word(2);
@@ -216,5 +226,21 @@ impl NativeStore {
             rows.push((key, writer.finish()));
         }
         Self::commit(rows)
+    }
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn assert_some<T>(value: Option<T>, message: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{message}"),
     }
 }

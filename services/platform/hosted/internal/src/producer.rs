@@ -299,6 +299,16 @@ impl QueueState {
     /// # Errors
     /// Refuses corrupt entries, identities and non-contiguous counters.
     pub fn validate(&self) -> Result<(), String> {
+        self.validate_scheduling()?;
+        self.validate_retention_bounds()?;
+        self.validate_replay_boundary()?;
+        let mut sequences = self.validate_retained_observations()?;
+        self.validate_resource_counters(&mut sequences)?;
+        self.validate_pending_entries()?;
+        Ok(())
+    }
+
+    fn validate_scheduling(&self) -> Result<(), String> {
         if self.delivery.attempts > MAX_DELIVERY_ATTEMPTS
             || self.delivery.redelivery_required
                 != (self.delivery.attempts == MAX_DELIVERY_ATTEMPTS)
@@ -315,6 +325,10 @@ impl QueueState {
         {
             return Err("invalid producer scheduling state".to_owned());
         }
+        Ok(())
+    }
+
+    fn validate_retention_bounds(&self) -> Result<(), String> {
         if self.entries.len() > MAX_PENDING
             || self.retained.len() > MAX_RETAINED_OBSERVATIONS
             || self.counters.len() > MAX_TRACKED_RESOURCES
@@ -322,6 +336,10 @@ impl QueueState {
         {
             return Err("producer retention exceeds bound".to_owned());
         }
+        Ok(())
+    }
+
+    fn validate_replay_boundary(&self) -> Result<(), String> {
         if self
             .closed_through
             .as_ref()
@@ -329,6 +347,10 @@ impl QueueState {
         {
             return Err("invalid producer replay boundary".to_owned());
         }
+        Ok(())
+    }
+
+    fn validate_retained_observations(&self) -> Result<BTreeMap<String, Vec<u64>>, String> {
         let mut sequences = BTreeMap::<String, Vec<u64>>::new();
         for (transition, observation) in &self.retained {
             observation.validate()?;
@@ -340,6 +362,13 @@ impl QueueState {
                 .or_default()
                 .push(observation.sequence);
         }
+        Ok(sequences)
+    }
+
+    fn validate_resource_counters(
+        &self,
+        sequences: &mut BTreeMap<String, Vec<u64>>,
+    ) -> Result<(), String> {
         for (resource, counter) in &self.counters {
             if !valid_stream_key(resource)
                 || *counter == 0
@@ -381,6 +410,10 @@ impl QueueState {
         {
             return Err("producer counter mismatch".to_owned());
         }
+        Ok(())
+    }
+
+    fn validate_pending_entries(&self) -> Result<(), String> {
         let mut ids = std::collections::BTreeSet::new();
         let mut pending_sequences = BTreeMap::new();
         for pending in &self.entries {

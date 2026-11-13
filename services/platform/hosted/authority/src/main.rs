@@ -1,9 +1,9 @@
 use layerx_platform_authority::{
     chain_receipt, committed, json, loopback_http, protected, refusal, Response,
 };
-#[path = "../../registry/src/committed_head_route.rs"]
+#[path = "committed_head_route.rs"]
 mod committed_head_route;
-mod human;
+pub mod human;
 mod trust;
 
 use chain_receipt::{ChainReceipts, ReceiptSource};
@@ -75,7 +75,7 @@ Environment:
   LAYERX_AUTHORITY_LAST_BATCH                last authorised batch number
 ";
 
-struct Config {
+pub struct Config {
     listen: SocketAddr,
     tls: Arc<ServerConfig>,
     tokens: Vec<Zeroizing<String>>,
@@ -153,9 +153,11 @@ fn read_evidence_read_token(
     let Some(path) = env::var_os("LAYERX_AUTHORITY_EVIDENCE_READ_TOKEN_FILE") else {
         return Ok(None);
     };
-    let token = Zeroizing::new(protected::read(&PathBuf::from(path), 4096).map_err(|()| {
-        "LAYERX_AUTHORITY_EVIDENCE_READ_TOKEN_FILE is unavailable or unprotected".to_owned()
-    })?);
+    let token = Zeroizing::new(protected::read(&PathBuf::from(path), 4096).map_err(
+        |layerx_platform_authority::AuthorityError| {
+            "LAYERX_AUTHORITY_EVIDENCE_READ_TOKEN_FILE is unavailable or unprotected".to_owned()
+        },
+    )?);
     if token.len() < 32 || !token.iter().all(|byte| (0x21..=0x7e).contains(byte)) {
         return Err("LAYERX_AUTHORITY_EVIDENCE_READ_TOKEN_FILE must contain 32..4096 printable bytes without whitespace".to_owned());
     }
@@ -582,9 +584,6 @@ enum DependencyReason {
     Unavailable,
     Timeout,
     IdentityMismatch,
-    KeyMismatch,
-    ProtocolIncompatible,
-    CapabilityMissing,
     ConnectionLimit,
 }
 
@@ -667,7 +666,10 @@ fn by_activity(config: &Config, requested: &str, wait_publication: bool) -> Resp
         ReceiptSource::Found(receipt) => receipt,
         ReceiptSource::Unknown => return refusal(404, "unknown_activity", None),
         ReceiptSource::KeyMismatch => {
-            eprintln!("layerx-receipt-authority: chain receipt key differs from the pinned keys");
+            eprintln!(
+                "layerx-receipt-authority: chain receipt key differs from the pinned keys ({})",
+                hex::encode(&config.sequencer_public_key)
+            );
             return refusal(502, "sequencer_key_mismatch", None);
         }
         ReceiptSource::Unavailable(reason) => {
@@ -1101,8 +1103,8 @@ fn main() {
 #[cfg(test)]
 mod chain_readiness_tests {
     use super::*;
-    use std::io::{BufRead as _, BufReader};
-    use std::os::unix::fs::PermissionsExt as _;
+    use layerx_platform_authority::assertion::Must;
+    use std::io::BufReader;
     use std::path::Path;
     use std::sync::Mutex;
 
@@ -1114,7 +1116,7 @@ mod chain_readiness_tests {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"))
             .ancestors()
             .nth(4)
-            .unwrap();
+            .must();
         must(serde_json::from_slice(&must(fs::read(root.join(
             "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
         )))))
@@ -1123,17 +1125,15 @@ mod chain_readiness_tests {
     pub(super) fn vector(document: &serde_json::Value, id: &str) -> serde_json::Value {
         document["cases"]
             .as_array()
-            .unwrap()
+            .must()
             .iter()
             .find(|case| case["id"] == id)
-            .unwrap()
+            .must()
             .clone()
     }
 
     pub(super) fn hex_bytes(value: &serde_json::Value) -> Vec<u8> {
-        must(hex::decode(
-            value.as_str().unwrap().strip_prefix("0x").unwrap(),
-        ))
+        must(hex::decode(value.as_str().must().strip_prefix("0x").must()))
     }
 
     pub(super) fn base64(bytes: &[u8]) -> String {
@@ -1179,6 +1179,87 @@ mod chain_readiness_tests {
             Self::start_with_chain_id(cases, pinned, 125)
         }
 
+        fn serve_chain(
+            listener: &TcpListener,
+            stop: &AtomicBool,
+            seen: &Mutex<Vec<serde_json::Value>>,
+            recorded: &BTreeMap<String, serde_json::Value>,
+            chain_id: u64,
+        ) {
+            while !stop.load(Ordering::Acquire) {
+                let (stream, _) = match listener.accept() {
+                    Ok(connection) => connection,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        thread::sleep(Duration::from_millis(2));
+                        continue;
+                    }
+                    Err(error) => panic!("recorded chain listener: {error}"),
+                };
+                must(stream.set_read_timeout(Some(Duration::from_secs(2))));
+                let mut reader = BufReader::new(stream);
+                let mut line = String::new();
+                must(std::io::BufRead::read_line(&mut reader, &mut line));
+                let replica_probe = line.starts_with("GET /v1/batches/");
+                if !replica_probe {
+                    assert!(matches!(
+                        line.as_str(),
+                        "POST /evm HTTP/1.0\r\n" | "POST /evm HTTP/1.1\r\n"
+                    ));
+                }
+                let mut length = None;
+                loop {
+                    line.clear();
+                    assert_ne!(must(std::io::BufRead::read_line(&mut reader, &mut line)), 0);
+                    if line == "\r\n" {
+                        break;
+                    }
+                    if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                        length = Some(must(value.trim().parse::<usize>()));
+                    }
+                }
+                if replica_probe {
+                    let mut stream = reader.into_inner();
+                    must(write!(
+                        stream,
+                        "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                    ));
+                    continue;
+                }
+                let length = length.must();
+                assert!(length <= 1024);
+                let mut bytes = vec![0; length];
+                must(reader.read_exact(&mut bytes));
+                let request: serde_json::Value = must(serde_json::from_slice(&bytes));
+                assert_eq!(request["jsonrpc"], "2.0");
+                let result = match request["method"].as_str().must() {
+                    "eth_chainId" => {
+                        assert_eq!(request["params"], serde_json::json!([]));
+                        serde_json::json!(format!("0x{chain_id:x}"))
+                    }
+                    "pax_sequencerReceipt" => {
+                        assert_eq!(request["params"].as_array().must().len(), 1);
+                        let hash = request["params"][0].as_str().must();
+                        recorded
+                            .get(hash)
+                            .cloned()
+                            .unwrap_or(serde_json::Value::Null)
+                    }
+                    method => panic!("unexpected chain method: {method}"),
+                };
+                let answer =
+                    serde_json::json!({"jsonrpc": "2.0", "id": request["id"], "result": result})
+                        .to_string();
+                must(seen.lock()).push(request);
+                let mut stream = reader.into_inner();
+                must(write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                answer.len(),
+                answer
+            ));
+            }
+        }
+
         pub(super) fn start_with_chain_id(
             cases: &[serde_json::Value],
             pinned: &[serde_json::Value],
@@ -1191,7 +1272,7 @@ mod chain_readiness_tests {
             must(fs::create_dir(&directory));
             must(fs::set_permissions(
                 &directory,
-                fs::Permissions::from_mode(0o700),
+                <fs::Permissions as std::os::unix::fs::PermissionsExt>::from_mode(0o700),
             ));
             let keys_file = directory.join("receipt-keys.json");
             let pin = &pinned[0]["pinnedKey"];
@@ -1210,7 +1291,7 @@ mod chain_readiness_tests {
             must(fs::write(&keys_file, keys.to_string()));
             must(fs::set_permissions(
                 &keys_file,
-                fs::Permissions::from_mode(0o600),
+                <fs::Permissions as std::os::unix::fs::PermissionsExt>::from_mode(0o600),
             ));
 
             let listener = must(TcpListener::bind("127.0.0.1:0"));
@@ -1220,97 +1301,24 @@ mod chain_readiness_tests {
             for case in cases {
                 let mut result = case["receiptJson"].clone();
                 result["signingKey"] = case["pinnedKey"]["publicKey"].clone();
-                recorded.insert(result["txHash"].as_str().unwrap().to_owned(), result);
+                recorded.insert(result["txHash"].as_str().must().to_owned(), result);
             }
             let calls = Arc::new(Mutex::new(Vec::new()));
             let seen = Arc::clone(&calls);
             let stopped = Arc::new(AtomicBool::new(false));
             let stop = Arc::clone(&stopped);
             let server = thread::spawn(move || {
-                while !stop.load(Ordering::Acquire) {
-                    let (stream, _) = match listener.accept() {
-                        Ok(connection) => connection,
-                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                            thread::sleep(Duration::from_millis(2));
-                            continue;
-                        }
-                        Err(error) => panic!("recorded chain listener: {error}"),
-                    };
-                    must(stream.set_read_timeout(Some(Duration::from_secs(2))));
-                    let mut reader = BufReader::new(stream);
-                    let mut line = String::new();
-                    must(reader.read_line(&mut line));
-                    let replica_probe = line.starts_with("GET /v1/batches/");
-                    if !replica_probe {
-                        assert!(matches!(
-                            line.as_str(),
-                            "POST /evm HTTP/1.0\r\n" | "POST /evm HTTP/1.1\r\n"
-                        ));
-                    }
-                    let mut length = None;
-                    loop {
-                        line.clear();
-                        assert_ne!(must(reader.read_line(&mut line)), 0);
-                        if line == "\r\n" {
-                            break;
-                        }
-                        if let Some(value) =
-                            line.to_ascii_lowercase().strip_prefix("content-length:")
-                        {
-                            length = Some(must(value.trim().parse::<usize>()));
-                        }
-                    }
-                    if replica_probe {
-                        let mut stream = reader.into_inner();
-                        must(write!(
-                            stream,
-                            "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
-                        ));
-                        continue;
-                    }
-                    let length = length.unwrap();
-                    assert!(length <= 1024);
-                    let mut bytes = vec![0; length];
-                    must(reader.read_exact(&mut bytes));
-                    let request: serde_json::Value = must(serde_json::from_slice(&bytes));
-                    assert_eq!(request["jsonrpc"], "2.0");
-                    let result = match request["method"].as_str().unwrap() {
-                        "eth_chainId" => {
-                            assert_eq!(request["params"], serde_json::json!([]));
-                            serde_json::json!(format!("0x{chain_id:x}"))
-                        }
-                        "pax_sequencerReceipt" => {
-                            assert_eq!(request["params"].as_array().unwrap().len(), 1);
-                            let hash = request["params"][0].as_str().unwrap();
-                            recorded
-                                .get(hash)
-                                .cloned()
-                                .unwrap_or(serde_json::Value::Null)
-                        }
-                        method => panic!("unexpected chain method: {method}"),
-                    };
-                    let answer =
-                        serde_json::json!({"jsonrpc": "2.0", "id": request["id"], "result": result})
-                            .to_string();
-                    must(seen.lock()).push(request);
-                    let mut stream = reader.into_inner();
-                    must(write!(
-                        stream,
-                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-                        answer.len(),
-                        answer
-                    ));
-                }
+                Self::serve_chain(&listener, &stop, &seen, &recorded, chain_id);
             });
 
-            let key_file = directory.join("tls-key.der");
+            let tls_key_file = directory.join("tls-key.der");
             let cert_file = directory.join("tls-cert.der");
             must(fs::write(
                 &cert_file,
                 include_bytes!("human/fixtures/server.der"),
             ));
             must(fs::write(
-                &key_file,
+                &tls_key_file,
                 include_bytes!("human/fixtures/server-key.der"),
             ));
             let _ = rustls::crypto::ring::default_provider().install_default();
@@ -1319,12 +1327,12 @@ mod chain_readiness_tests {
                     .with_no_client_auth()
                     .with_single_cert(
                         vec![CertificateDer::from(must(fs::read(cert_file)))],
-                        must(PrivateKeyDer::try_from(must(fs::read(key_file)))),
+                        must(PrivateKeyDer::try_from(must(fs::read(tls_key_file)))),
                     ),
             );
-            let public_key: [u8; 32] = hex_bytes(&pin["publicKey"]).try_into().unwrap();
+            let public_key: [u8; 32] = hex_bytes(&pin["publicKey"]).try_into().must();
             let config = Config {
-                listen: "127.0.0.1:0".parse().unwrap(),
+                listen: "127.0.0.1:0".parse().must(),
                 tls: Arc::new(tls),
                 tokens: vec![Zeroizing::new("chain-receipts-test-token".to_owned())],
                 human: None,
@@ -1342,10 +1350,10 @@ mod chain_readiness_tests {
                 network_id: "chain-receipts-test".to_owned(),
                 wire_version: PROTOCOL_VERSION.to_string(),
                 authorization: SequencerAuthorization::new(
-                    hex_bytes(&pin["keyId"]).try_into().unwrap(),
+                    hex_bytes(&pin["keyId"]).try_into().must(),
                     public_key,
-                    pin["firstHeight"].as_u64().unwrap(),
-                    pin["lastHeight"].as_u64().unwrap(),
+                    pin["firstHeight"].as_u64().must(),
+                    pin["lastHeight"].as_u64().must(),
                 ),
                 sequencer_public_key: public_key,
             };
@@ -1361,16 +1369,8 @@ mod chain_readiness_tests {
         pub(super) fn stop_chain(&mut self) {
             self.stopped.store(true, Ordering::Release);
             if let Some(server) = self.server.take() {
-                server.join().unwrap();
+                server.join().must();
             }
-        }
-
-        pub(super) fn files(&self) -> Vec<PathBuf> {
-            let mut files: Vec<_> = must(fs::read_dir(&self.directory))
-                .map(|entry| must(entry).path())
-                .collect();
-            files.sort();
-            files
         }
     }
 
@@ -1385,12 +1385,17 @@ mod chain_readiness_tests {
     pub(super) fn actual_node_info_refuses_incompatible_receipt_admission() {
         let document = receipt_vectors();
         let case = vector(&document, "V1-pax-transfer");
-        let harness = ReceiptHarness::start(&[case.clone()], &case);
+        let harness = ReceiptHarness::start(std::slice::from_ref(&case), &case);
         assert_eq!(
             chain_answers(&harness.config, Instant::now() + READINESS_TIMEOUT),
             Ok(DependencyReason::Ready)
         );
-        let incompatible = ReceiptHarness::start_with_chain_id(&[case.clone()], &[case], 126);
+        assert!(!must(harness.calls.lock()).is_empty());
+        let incompatible = ReceiptHarness::start_with_chain_id(
+            std::slice::from_ref(&case),
+            std::slice::from_ref(&case),
+            126,
+        );
         assert_eq!(
             chain_answers(&incompatible.config, Instant::now() + READINESS_TIMEOUT),
             Err(DependencyReason::IdentityMismatch)

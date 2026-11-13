@@ -1,0 +1,56 @@
+[meta]
+task = "22.39.330"
+acceptance = "22998.1"
+decision = "3180"
+gotcha = "4102"
+base_revision = "d5614dd88e548d183376cb26eefb979a56b77018"
+revision = "refs/heads/task/22.39.330"
+revision_resolution = "hf-done installs the immutable candidate at HEAD before verification; the exact verified revision is the final kind=verify row in /out/run/gates.jsonl, valid only with exit zero and a matching passing build revision."
+evidence = "/out/run/gates.jsonl; /out/logs/build-1.log; /out/logs/verify-1.log"
+build_command = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pytest -q --collect-only tools/qualification/audit_repairs/test_repair_22_33_372.py tools/qualification/audit_repairs/test_repair_22_33_849.py > /dev/null"
+verify_command = "test -s tools/qualification/audit_repairs/repair_22_39_330.kvx && python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_372.py tools/qualification/audit_repairs/test_repair_22_33_849.py && python3 -m pytest -q tests/ci/test_copied_artifacts_in_sync.py -k test_explorer_openapi_matches_backend_swagger"
+
+[baseline]
+revision = "d5614dd88e548d183376cb26eefb979a56b77018"
+command = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_372.py tools/qualification/audit_repairs/test_repair_22_33_849.py"
+exit = 1
+log = "/out/logs/baseline-22.39.330.log"
+result = "2 failed, 60 passed, 3 skipped; the three pre-existing distribution-dependent skips are unchanged."
+
+[baseline.provenance]
+file = "tools/qualification/audit_repairs/test_repair_22_33_372.py:101"
+case = "test_registry_contract_pages_missing_bridge_and_explorer_sources"
+first_error = "AssertionError: http.startswith('# Generated through services/explorer/swagger.yaml; stored here for frontend container packaging.\\n') is False."
+
+[baseline.committed_vectors]
+file = "tools/qualification/audit_repairs/test_repair_22_33_849.py:212"
+case = "test_f064_retains_nonempty_native_and_explorer_acceptance_corpora"
+first_error = "AssertionError: 'SequencerReceipt.verify(tx_hash' is absent from committed_vectors_test.exs."
+
+[repair.provenance]
+file = "apps/explorer/public/openapi.yaml"
+cause = "a4ab550e6a removed the provenance comment while replacing retired explorer surfaces."
+change = "Restore the exact 98-byte first line without rewriting any YAML content; services/explorer/swagger.yaml remains the symlink to the sole stored public document."
+asset_bytes_before = 631889
+asset_bytes_after = 631987
+asset_budget = "Tighten the stale 642254-byte allowance to the exact 631987-byte document including its provenance."
+case = "test_registry_contract_pages_missing_bridge_and_explorer_sources"
+assertions = "Keep the provenance, OpenAPI version, alias, document endpoint and Phoenix WebSocket checks; additionally require all three current archive GET operations, their controller actions and JSON success responses, with a4ab550e6a named in a comment."
+sync_case = "tests/ci/test_copied_artifacts_in_sync.py::test_explorer_openapi_matches_backend_swagger"
+
+[repair.committed_vectors]
+file = "tools/qualification/audit_repairs/test_repair_22_33_849.py"
+cause = "20d1e29d9d changed the verifier call to multiple lines and introduced governed fixture configuration and complete committed options."
+authority = "services/explorer/backend/repair_22_39_308.kvx; services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/committed_vectors_test.exs"
+case = "test_f064_retains_nonempty_native_and_explorer_acceptance_corpora"
+change = "Require the governed fixture import, restore/configure setup, decoded committed-vector cases, iteration through committed_vectors_drive_verify/1, raw transaction hashing, decoded pinned keys and the full SequencerReceipt.verify/4 call with committed_opts(test_case)."
+outcomes = "Retain the source requirement for committed at height 10, R7 for earlier landing and R8 for an unrelated commit; preserve the test name and every native acceptance assertion."
+constraint = "The explorer test, fixture producer, signed vectors and production verifier are unchanged."
+
+[finding.generator_scope]
+task = "22.39.330"
+file = "services/explorer/deploy/tools/gen-swagger.py"
+symbol = "main"
+observed = "At d5614dd88e548d183376cb26eefb979a56b77018, source inspection shows main writes yaml.dump without a provenance prefix; this generator is outside the task's five allowed paths."
+assumption = "The stored document can be repaired within scope, while persisting its comment through future generator runs requires a separately authorized generator change."
+severity = "suspect"

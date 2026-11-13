@@ -55,7 +55,7 @@ impl ListenerError {
 
 /// Owns one bound socket. The socket is removed when the listener is dropped.
 pub struct Listener {
-    listener: UnixListener,
+    socket: UnixListener,
     config: ListenerConfig,
     identity: (u64, u64),
 }
@@ -119,7 +119,7 @@ impl Listener {
         let metadata =
             fs::symlink_metadata(&config.endpoint).map_err(|_| ListenerError::Permissions)?;
         let bound = Self {
-            listener,
+            socket: listener,
             identity: (metadata.dev(), metadata.ino()),
             config,
         };
@@ -151,6 +151,8 @@ impl Listener {
         self.serve_protocol(|reader, writer| session.serve(reader, writer))
     }
 
+    /// # Errors
+    /// Returns an accept failure; refused peers and failed connections are closed without stopping the listener.
     pub fn serve_daemon_client(
         &self,
         session: &mut DaemonClientSession,
@@ -163,7 +165,7 @@ impl Listener {
         mut serve: impl FnMut(&mut BufReader<Connection>, &mut Connection) -> Result<(), String>,
     ) -> Result<(), ListenerError> {
         loop {
-            let (stream, _) = self.listener.accept().map_err(|_| ListenerError::Accept)?;
+            let (stream, _) = self.socket.accept().map_err(|_| ListenerError::Accept)?;
             let Ok(credentials) = rustix::net::sockopt::socket_peercred(&stream) else {
                 continue;
             };

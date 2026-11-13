@@ -80,11 +80,6 @@ const UNSUPPORTED_METHODS = new Set([
   'eth_signTypedData_v3',
   'eth_signTransaction',
   'wallet_addEthereumChain',
-  'paxeer_prepareCustody',
-  'paxeer_custodyStatus',
-  'paxeer_restoreCustody',
-  'paxeer_recoverCustody',
-  'paxeer_signCustody',
 ]);
 
 const SIGNING_METHODS = new Set([
@@ -259,6 +254,7 @@ export class PaxeerProvider implements Eip1193Provider {
       case 'eth_sign':
         return this.ethSign(params, context!);
       default:
+        if (method.startsWith('paxeer_')) throw new UnsupportedMethodError(method);
         return this.proxy(method, args.params);
     }
   }

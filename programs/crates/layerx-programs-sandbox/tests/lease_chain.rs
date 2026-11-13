@@ -1,5 +1,10 @@
-#[path = "../../layerx-programs-registry/tests/support/chain.rs"]
-mod chain;
+#[allow(dead_code)]
+mod chain {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../layerx-programs-registry/tests/support/chain.rs"
+    ));
+}
 
 use chain::{ChainFixture, STATE_HEIGHT};
 use layerx_programs::chain_proof::state::verify_state;

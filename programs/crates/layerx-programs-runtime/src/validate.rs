@@ -17,6 +17,9 @@ use crate::host::{self, RuntimeState};
 use crate::meter::inject::{FuelSchedule, InjectionRefusal, MeterInjection};
 use crate::meter::Meter;
 
+pub(crate) type RetainedReplayInstance =
+    Result<ProgramInstance, Box<(ExecutionFault, wasmi::Store<RuntimeState>)>>;
+
 /// Explicitly selected ABI surface used to validate and instantiate a module.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AbiRevision {
@@ -404,10 +407,7 @@ impl ValidatedModule {
         capacity: usize,
         context: Option<crate::abi::context::ExecutionContext>,
         replay_profile: Option<crate::replay_record::ProgramReplayProfile>,
-    ) -> Result<
-        Result<ProgramInstance, Box<(ExecutionFault, wasmi::Store<RuntimeState>)>>,
-        crate::abi::response::ResponseRefusal,
-    > {
+    ) -> Result<RetainedReplayInstance, crate::abi::response::ResponseRefusal> {
         let mut state = RuntimeState::composed_with_response(meter, abi, composition, capacity)?;
         if let Some(context) = context {
             state.authenticate_protocol_context(context);
@@ -574,94 +574,25 @@ fn validate_original_module(
             limit: limits.max_module_bytes(),
         });
     }
-    let mut function_count: u32 = 0;
-    let mut function_types = Vec::new();
-    let mut imports = BTreeSet::new();
-    let mut imported_function_masks = Vec::new();
-    let mut all_imported_capability_mask = 0_u16;
-    let mut exported_functions = BTreeMap::new();
-    let mut exported_globals = BTreeMap::<u32, Vec<String>>::new();
-    let mut mutable_globals = Vec::new();
-    let mut unsupported_continuation_state = false;
-    let mut function_calls: Vec<(Vec<u32>, bool)> = Vec::new();
-    let mut start_function = None;
+    let mut scan = OriginalModuleScan::default();
     for payload in Parser::new(0).parse_all(wasm) {
         let payload = payload.map_err(|error| ValidationRefusal::MalformedModule {
             reason: error.to_string(),
         })?;
-        match payload {
-            Payload::TypeSection(reader) => {
-                validate_function_types(reader, &mut function_types)?;
-            }
-            Payload::ImportSection(reader) => {
-                for entry in reader {
-                    let entry = entry.map_err(|error| ValidationRefusal::MalformedModule {
-                        reason: error.to_string(),
-                    })?;
-                    refuse_import(&entry, &function_types, revision)?;
-                    if matches!(entry.ty, TypeRef::Func(_)) {
-                        let mask = interface_capability_for_import(entry.name);
-                        imported_function_masks.push(mask);
-                        all_imported_capability_mask |= mask;
-                    }
-                    if !imports.insert((entry.module.to_string(), entry.name.to_string())) {
-                        return Err(ValidationRefusal::DuplicateImport {
-                            import_module: entry.module.to_string(),
-                            import_name: entry.name.to_string(),
-                        });
-                    }
-                }
-            }
-            Payload::FunctionSection(reader) => {
-                function_count = reader.count();
-                if function_count > limits.max_functions() {
-                    return Err(ValidationRefusal::TooManyFunctions {
-                        function_count,
-                        limit: limits.max_functions(),
-                    });
-                }
-            }
-            Payload::ExportSection(reader) => {
-                collect_exports(reader, &mut exported_functions, &mut exported_globals)?;
-            }
-            Payload::GlobalSection(reader) => {
-                for entry in reader {
-                    let entry = entry.map_err(|error| ValidationRefusal::MalformedModule {
-                        reason: error.to_string(),
-                    })?;
-                    refuse_value_type(entry.ty.content_type)?;
-                    mutable_globals.push(entry.ty.mutable);
-                }
-            }
-            Payload::TableSection(reader) => {
-                unsupported_continuation_state |= reader.count() != 0;
-            }
-            Payload::DataSection(reader) => {
-                for segment in reader {
-                    let segment = segment.map_err(|error| ValidationRefusal::MalformedModule {
-                        reason: error.to_string(),
-                    })?;
-                    unsupported_continuation_state |=
-                        matches!(segment.kind, wasmparser_nostd::DataKind::Passive);
-                }
-            }
-            Payload::ElementSection(reader) => {
-                for segment in reader {
-                    let segment = segment.map_err(|error| ValidationRefusal::MalformedModule {
-                        reason: error.to_string(),
-                    })?;
-                    unsupported_continuation_state |=
-                        matches!(segment.kind, wasmparser_nostd::ElementKind::Passive);
-                }
-            }
-            Payload::CodeSectionEntry(body) => {
-                refuse_float_code(&body)?;
-                function_calls.push(interface_calls(&body)?);
-            }
-            Payload::StartSection { func, .. } => start_function = Some(func),
-            _ => {}
-        }
+        scan.visit(payload, limits, revision)?;
     }
+    let OriginalModuleScan {
+        function_count,
+        imported_function_masks,
+        exported_functions,
+        exported_globals,
+        mutable_globals,
+        unsupported_continuation_state,
+        function_calls,
+        start_function,
+        all_imported_capability_mask,
+        ..
+    } = scan;
     // Only after the original guest has passed the public ABI and deterministic
     // subset checks may the runtime-private import be introduced.
     let module =
@@ -693,6 +624,109 @@ fn validate_original_module(
         interface_entry_capability_masks,
         resumable_globals,
     })
+}
+#[derive(Default)]
+struct OriginalModuleScan {
+    function_count: u32,
+    function_types: Vec<FuncType>,
+    imports: BTreeSet<(String, String)>,
+    imported_function_masks: Vec<u16>,
+    all_imported_capability_mask: u16,
+    exported_functions: BTreeMap<String, u32>,
+    exported_globals: BTreeMap<u32, Vec<String>>,
+    mutable_globals: Vec<bool>,
+    unsupported_continuation_state: bool,
+    function_calls: Vec<(Vec<u32>, bool)>,
+    start_function: Option<u32>,
+}
+impl OriginalModuleScan {
+    fn visit(
+        &mut self,
+        payload: Payload<'_>,
+        limits: crate::ValidationLimits,
+        revision: AbiRevision,
+    ) -> Result<(), ValidationRefusal> {
+        match payload {
+            Payload::TypeSection(reader) => {
+                validate_function_types(reader, &mut self.function_types)?;
+            }
+            Payload::ImportSection(reader) => {
+                for entry in reader {
+                    let entry = entry.map_err(|error| ValidationRefusal::MalformedModule {
+                        reason: error.to_string(),
+                    })?;
+                    refuse_import(&entry, &self.function_types, revision)?;
+                    if matches!(entry.ty, TypeRef::Func(_)) {
+                        let mask = interface_capability_for_import(entry.name);
+                        self.imported_function_masks.push(mask);
+                        self.all_imported_capability_mask |= mask;
+                    }
+                    if !self
+                        .imports
+                        .insert((entry.module.to_string(), entry.name.to_string()))
+                    {
+                        return Err(ValidationRefusal::DuplicateImport {
+                            import_module: entry.module.to_string(),
+                            import_name: entry.name.to_string(),
+                        });
+                    }
+                }
+            }
+            Payload::FunctionSection(reader) => {
+                self.function_count = reader.count();
+                if self.function_count > limits.max_functions() {
+                    return Err(ValidationRefusal::TooManyFunctions {
+                        function_count: self.function_count,
+                        limit: limits.max_functions(),
+                    });
+                }
+            }
+            Payload::ExportSection(reader) => {
+                collect_exports(
+                    reader,
+                    &mut self.exported_functions,
+                    &mut self.exported_globals,
+                )?;
+            }
+            Payload::GlobalSection(reader) => {
+                for entry in reader {
+                    let entry = entry.map_err(|error| ValidationRefusal::MalformedModule {
+                        reason: error.to_string(),
+                    })?;
+                    refuse_value_type(entry.ty.content_type)?;
+                    self.mutable_globals.push(entry.ty.mutable);
+                }
+            }
+            Payload::TableSection(reader) => {
+                self.unsupported_continuation_state |= reader.count() != 0;
+            }
+            Payload::DataSection(reader) => {
+                for segment in reader {
+                    let segment = segment.map_err(|error| ValidationRefusal::MalformedModule {
+                        reason: error.to_string(),
+                    })?;
+                    self.unsupported_continuation_state |=
+                        matches!(segment.kind, wasmparser_nostd::DataKind::Passive);
+                }
+            }
+            Payload::ElementSection(reader) => {
+                for segment in reader {
+                    let segment = segment.map_err(|error| ValidationRefusal::MalformedModule {
+                        reason: error.to_string(),
+                    })?;
+                    self.unsupported_continuation_state |=
+                        matches!(segment.kind, wasmparser_nostd::ElementKind::Passive);
+                }
+            }
+            Payload::CodeSectionEntry(body) => {
+                refuse_float_code(&body)?;
+                self.function_calls.push(interface_calls(&body)?);
+            }
+            Payload::StartSection { func, .. } => self.start_function = Some(func),
+            _ => {}
+        }
+        Ok(())
+    }
 }
 
 fn validate_function_types(

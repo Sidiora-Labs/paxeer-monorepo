@@ -84,7 +84,9 @@ fn bytes(value: ProtoValue<'_>) -> Result<&[u8], ChainProofError> {
 
 fn enum_value(value: ProtoValue<'_>) -> Result<u32, ChainProofError> {
     match value {
-        ProtoValue::Varint(value) if value <= i32::MAX as u64 => Ok(value as u32),
+        ProtoValue::Varint(value) if i32::try_from(value).is_ok() => {
+            u32::try_from(value).map_err(|_| ChainProofError::NonCanonical)
+        }
         _ => Err(ChainProofError::NonCanonical),
     }
 }
@@ -99,6 +101,10 @@ fn once(seen: &mut u8, field: u32) -> Result<(), ChainProofError> {
 }
 
 impl LeafOp {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn decode(input: &[u8]) -> Result<Self, ChainProofError> {
         let mut reader = ProtoReader::new(input);
         let mut op = Self::default();
@@ -123,6 +129,10 @@ impl LeafOp {
 }
 
 impl InnerOp {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn decode(input: &[u8]) -> Result<Self, ChainProofError> {
         let mut reader = ProtoReader::new(input);
         let mut op = Self::default();
@@ -145,11 +155,19 @@ impl InnerOp {
 }
 
 impl ExistenceProof {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn decode(input: &[u8]) -> Result<Self, ChainProofError> {
         decode_existence(input)
     }
 }
 
+///
+/// # Errors
+///
+/// Returns an error when the supplied chain evidence cannot be decoded or verified.
 pub fn decode_existence(input: &[u8]) -> Result<ExistenceProof, ChainProofError> {
     if input.len() > MAX_PROOF_BYTES {
         return Err(ChainProofError::NonCanonical);
@@ -216,12 +234,16 @@ fn metadata(input: &mut &[u8]) -> Result<u64, ChainProofError> {
 
 fn hash_length(hash: &mut Sha256, mut length: usize) {
     while length >= 128 {
-        hash.update([(length as u8 & 0x7f) | 0x80]);
+        hash.update([(length.to_le_bytes()[0] & 0x7f) | 0x80]);
         length >>= 7;
     }
-    hash.update([length as u8]);
+    hash.update([length.to_le_bytes()[0]]);
 }
 
+///
+/// # Errors
+///
+/// Returns an error when the supplied chain evidence cannot be decoded or verified.
 pub fn verify_existence(
     proof: &ExistenceProof,
     spec: &ProofSpec,

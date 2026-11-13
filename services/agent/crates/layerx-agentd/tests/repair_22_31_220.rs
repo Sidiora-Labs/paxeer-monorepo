@@ -1,3 +1,17 @@
+fn require_err<T: std::fmt::Debug, E>(result: Result<T, E>, message: &str) -> E {
+    result
+        .err()
+        .unwrap_or_else(|| panic!("{message}: expected an error"))
+}
+
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::PathBuf;
@@ -54,19 +68,22 @@ impl Directory {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
-        std::fs::create_dir_all(&path).unwrap();
+        require_ok(std::fs::create_dir_all(&path), "required test value");
         Self(path)
     }
 }
 
 impl Drop for Directory {
     fn drop(&mut self) {
-        std::fs::remove_dir_all(&self.0).unwrap();
+        require_ok(std::fs::remove_dir_all(&self.0), "required test value");
     }
 }
 
 fn bytes(value: &Value) -> Vec<u8> {
-    hex::decode(value.as_str().unwrap().trim_start_matches("0x")).unwrap()
+    require_ok(
+        hex::decode(require_some(value.as_str(), "required test value").trim_start_matches("0x")),
+        "required test value",
+    )
 }
 
 fn accept(listener: &TcpListener) -> TcpStream {
@@ -74,12 +91,14 @@ fn accept(listener: &TcpListener) -> TcpStream {
     loop {
         match listener.accept() {
             Ok((stream, _)) => {
-                stream
-                    .set_read_timeout(Some(Duration::from_secs(5)))
-                    .unwrap();
-                stream
-                    .set_write_timeout(Some(Duration::from_secs(5)))
-                    .unwrap();
+                require_ok(
+                    stream.set_read_timeout(Some(Duration::from_secs(5))),
+                    "required test value",
+                );
+                require_ok(
+                    stream.set_write_timeout(Some(Duration::from_secs(5))),
+                    "required test value",
+                );
                 return stream;
             }
             Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
@@ -94,31 +113,40 @@ fn accept(listener: &TcpListener) -> TcpStream {
 fn read_request<S: Read>(stream: &mut S) -> (String, Value) {
     let mut reader = BufReader::new(stream);
     let mut route = String::new();
-    reader.read_line(&mut route).unwrap();
+    require_ok(reader.read_line(&mut route), "required test value");
     let mut length = None;
     loop {
         let mut line = String::new();
-        assert_ne!(reader.read_line(&mut line).unwrap(), 0);
+        assert_ne!(
+            require_ok(reader.read_line(&mut line), "required test value"),
+            0
+        );
         if line == "\r\n" {
             break;
         }
         if let Some((name, value)) = line.split_once(':') {
             if name.eq_ignore_ascii_case("content-length") {
-                length = Some(value.trim().parse::<usize>().unwrap());
+                length = Some(require_ok(
+                    value.trim().parse::<usize>(),
+                    "required test value",
+                ));
             }
         }
     }
-    let length = length.unwrap();
+    let length = require_some(length, "required test value");
     assert!(length <= 1_048_576);
     let mut body = vec![0; length];
-    reader.read_exact(&mut body).unwrap();
-    (route, serde_json::from_slice(&body).unwrap())
+    require_ok(reader.read_exact(&mut body), "required test value");
+    (
+        route,
+        require_ok(serde_json::from_slice(&body), "required test value"),
+    )
 }
 
 fn respond(stream: &mut impl Write, status: u16, body: &[u8]) {
-    write!(stream, "HTTP/1.1 {status} Response\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).unwrap();
-    stream.write_all(body).unwrap();
-    stream.flush().unwrap();
+    require_ok(write!(stream, "HTTP/1.1 {status} Response\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()), "required test value");
+    require_ok(stream.write_all(body), "required test value");
+    require_ok(stream.flush(), "required test value");
 }
 
 struct Recording {
@@ -131,19 +159,33 @@ struct Recording {
 
 impl Recording {
     fn new() -> Self {
-        let recording: Value = serde_json::from_str(include_str!(
-            "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
-        ))
-        .unwrap();
+        let recording: Value = require_ok(
+            serde_json::from_str(include_str!(
+                "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+            )),
+            "required test value",
+        );
         let case = recording["cases"][1].clone();
         let raw = bytes(&case["rawTransaction"]);
         let hash = transaction_hash(&raw);
         assert_eq!(hash.as_slice(), bytes(&case["receiptJson"]["txHash"]));
         let key = ReceiptKeyEntry {
-            key_id: bytes(&case["pinnedKey"]["keyId"]).try_into().unwrap(),
-            public_key: bytes(&case["pinnedKey"]["publicKey"]).try_into().unwrap(),
-            first_height: case["pinnedKey"]["firstHeight"].as_u64().unwrap(),
-            last_height: case["pinnedKey"]["lastHeight"].as_u64().unwrap(),
+            key_id: require_ok(
+                bytes(&case["pinnedKey"]["keyId"]).try_into(),
+                "required test value",
+            ),
+            public_key: require_ok(
+                bytes(&case["pinnedKey"]["publicKey"]).try_into(),
+                "required test value",
+            ),
+            first_height: require_some(
+                case["pinnedKey"]["firstHeight"].as_u64(),
+                "required test value",
+            ),
+            last_height: require_some(
+                case["pinnedKey"]["lastHeight"].as_u64(),
+                "required test value",
+            ),
         };
         let canonical = bytes(&case["signedReceipt"]);
         Self {
@@ -156,9 +198,12 @@ impl Recording {
     }
 
     fn owner_lookup(&self, outbox: &Outbox, response: Value) -> Lookup {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        listener.set_nonblocking(true).unwrap();
-        let url = format!("http://{}/", listener.local_addr().unwrap());
+        let listener = require_ok(TcpListener::bind("127.0.0.1:0"), "required test value");
+        require_ok(listener.set_nonblocking(true), "required test value");
+        let url = format!(
+            "http://{}/",
+            require_ok(listener.local_addr(), "required test value")
+        );
         let key = self.key;
         let found = response.get("receipt").is_some();
         let mut exchanges = vec![
@@ -194,17 +239,21 @@ impl Recording {
                 respond(&mut stream, 200, body.to_string().as_bytes());
             }
         });
-        let node = NodeRpc::connect(&NodeRpcConfig {
-            url: url.clone(),
-            chain_id: 125,
-            deadline: Duration::from_secs(3),
-        })
-        .unwrap();
-        let endpoint = SequencerEndpoint::new(&url, &[]).unwrap();
-        let (lookup, keys) =
-            lookup_human_receipt_by_outbox_hash(&node, &endpoint, outbox, hash, hash).unwrap();
+        let node = require_ok(
+            NodeRpc::connect(&NodeRpcConfig {
+                url: url.clone(),
+                chain_id: 125,
+                deadline: Duration::from_secs(3),
+            }),
+            "required test value",
+        );
+        let endpoint = require_ok(SequencerEndpoint::new(&url, &[]), "required test value");
+        let (lookup, keys) = require_ok(
+            lookup_human_receipt_by_outbox_hash(&node, &endpoint, outbox, hash, hash),
+            "required test value",
+        );
         assert_eq!(keys, vec![self.key]);
-        server.join().unwrap();
+        require_ok(server.join(), "required test value");
         lookup
     }
 
@@ -255,41 +304,55 @@ impl Recording {
             part_set_hash: [19; 32],
             signatures: vec![],
         };
-        let vote = commit.vote_sign_bytes("receipt-rpc", 1000, 0).unwrap();
+        let vote = require_ok(
+            commit.vote_sign_bytes("receipt-rpc", 1000, 0),
+            "required test value",
+        );
         commit.signatures.push(CommitSignature {
             validator_address: validator_address(&public_key),
             timestamp_seconds: 1000,
             timestamp_nanos: 0,
             signature: signer.sign(&vote).to_bytes(),
         });
-        VerifiedBlock::verify_with_header(
-            &block,
-            &commit,
-            &header,
-            "receipt-rpc",
-            &[Validator {
-                public_key,
-                voting_power: 1,
-            }],
+        require_ok(
+            VerifiedBlock::verify_with_header(
+                &block,
+                &commit,
+                &header,
+                "receipt-rpc",
+                &[Validator {
+                    public_key,
+                    voting_power: 1,
+                }],
+            ),
+            "required test value",
         )
-        .unwrap()
     }
 
     fn answer(&self, store: &mut Store, tenant: &TenantId, committed: bool) -> Vec<u8> {
-        let served = receipt::serve(
-            store,
-            tenant.clone(),
-            ReceiptLookupKey::Idempotency(self.hash),
-        )
-        .unwrap();
+        let served = require_ok(
+            receipt::serve(
+                store,
+                tenant.clone(),
+                ReceiptLookupKey::Idempotency(self.hash),
+            ),
+            "required test value",
+        );
         assert_eq!(served.canonical_bytes, self.canonical);
-        let verified =
-            VerifiedReceipt::verify(self.hash, &served.canonical_bytes, &[self.key]).unwrap();
+        let verified = require_ok(
+            VerifiedReceipt::verify(self.hash, &served.canonical_bytes, &[self.key]),
+            "required test value",
+        );
         let block = committed.then(|| self.block());
-        let evidence =
-            augment_verified(store, tenant.clone(), self.hash, &verified, block.as_ref()).unwrap();
-        let decoded = layerx_wire::receipt::decode(&served.canonical_bytes).unwrap();
-        let protocol = decoded.protocol().unwrap();
+        let evidence = require_ok(
+            augment_verified(store, tenant.clone(), self.hash, &verified, block.as_ref()),
+            "required test value",
+        );
+        let decoded = require_ok(
+            layerx_wire::receipt::decode(&served.canonical_bytes),
+            "required test value",
+        );
+        let protocol = require_some(decoded.protocol(), "required test value");
         let authority = AuthorizedBatch::new(
             protocol.batch_id(),
             protocol.asset(),
@@ -297,61 +360,136 @@ impl Recording {
             protocol.resulting_state_root(),
             self.key.public_key,
         );
-        receipt_lookup_found_bytes(&served, &evidence, authority, &[self.key]).unwrap()
+        require_ok(
+            receipt_lookup_found_bytes(&served, &evidence, authority, &[self.key]),
+            "required test value",
+        )
     }
 }
 
 fn tls(directory: &Directory) -> (native_tls::TlsAcceptor, PathBuf) {
-    let key = PKey::from_rsa(Rsa::generate(2048).unwrap()).unwrap();
-    let mut name = X509NameBuilder::new().unwrap();
-    name.append_entry_by_text("CN", "Receipt RPC test CA")
-        .unwrap();
+    let key = require_ok(
+        PKey::from_rsa(require_ok(Rsa::generate(2048), "required test value")),
+        "required test value",
+    );
+    let mut name = require_ok(X509NameBuilder::new(), "required test value");
+    require_ok(
+        name.append_entry_by_text("CN", "Receipt RPC test CA"),
+        "required test value",
+    );
     let name = name.build();
-    let mut builder = X509::builder().unwrap();
-    builder.set_version(2).unwrap();
-    builder.set_subject_name(&name).unwrap();
-    builder.set_issuer_name(&name).unwrap();
-    builder.set_pubkey(&key).unwrap();
-    builder
-        .set_not_before(&Asn1Time::days_from_now(0).unwrap())
-        .unwrap();
-    builder
-        .set_not_after(&Asn1Time::days_from_now(1).unwrap())
-        .unwrap();
-    builder
-        .append_extension(BasicConstraints::new().critical().ca().build().unwrap())
-        .unwrap();
-    builder.sign(&key, MessageDigest::sha256()).unwrap();
+    let mut builder = require_ok(X509::builder(), "required test value");
+    require_ok(builder.set_version(2), "required test value");
+    require_ok(builder.set_subject_name(&name), "required test value");
+    require_ok(builder.set_issuer_name(&name), "required test value");
+    require_ok(builder.set_pubkey(&key), "required test value");
+    require_ok(
+        builder.set_not_before(
+            &Asn1Time::days_from_now(0)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value")),
+        ),
+        "required test value",
+    );
+    require_ok(
+        builder.set_not_after(
+            &Asn1Time::days_from_now(1)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value")),
+        ),
+        "required test value",
+    );
+    require_ok(
+        builder.append_extension(require_ok(
+            BasicConstraints::new().critical().ca().build(),
+            "required test value",
+        )),
+        "required test value",
+    );
+    require_ok(
+        builder.sign(&key, MessageDigest::sha256()),
+        "required test value",
+    );
     let ca = builder.build();
-    let pem = ca.to_pem().unwrap();
+    let pem = require_ok(ca.to_pem(), "required test value");
     let path = directory.0.join("ca.pem");
-    std::fs::write(&path, &pem).unwrap();
-    let mut name = X509NameBuilder::new().unwrap();
-    name.append_entry_by_text("CN", "localhost").unwrap();
-    let mut leaf = X509::builder().unwrap();
-    leaf.set_version(2).unwrap();
-    leaf.set_subject_name(&name.build()).unwrap();
-    leaf.set_issuer_name(ca.subject_name()).unwrap();
-    leaf.set_pubkey(&key).unwrap();
-    leaf.set_not_before(&Asn1Time::days_from_now(0).unwrap())
-        .unwrap();
-    leaf.set_not_after(&Asn1Time::days_from_now(1).unwrap())
-        .unwrap();
-    leaf.append_extension(BasicConstraints::new().critical().build().unwrap())
-        .unwrap();
-    leaf.append_extension(ExtendedKeyUsage::new().server_auth().build().unwrap())
-        .unwrap();
-    let san = SubjectAlternativeName::new()
-        .dns("localhost")
-        .build(&leaf.x509v3_context(Some(&ca), None))
-        .unwrap();
-    leaf.append_extension(san).unwrap();
-    leaf.sign(&key, MessageDigest::sha256()).unwrap();
-    let mut chain = leaf.build().to_pem().unwrap();
-    chain.extend_from_slice(&pem);
-    let identity =
-        native_tls::Identity::from_pkcs8(&chain, &key.private_key_to_pem_pkcs8().unwrap()).unwrap();
-    (native_tls::TlsAcceptor::new(identity).unwrap(), path)
+    require_ok(std::fs::write(&path, &pem), "required test value");
+    let mut name = require_ok(X509NameBuilder::new(), "required test value");
+    require_ok(
+        name.append_entry_by_text("CN", "localhost"),
+        "required test value",
+    );
+    let mut leaf = require_ok(X509::builder(), "required test value");
+    require_ok(leaf.set_version(2), "required test value");
+    require_ok(leaf.set_subject_name(&name.build()), "required test value");
+    require_ok(
+        leaf.set_issuer_name(ca.subject_name()),
+        "required test value",
+    );
+    complete_tls_1_repair_22_31_220(&key, &ca, &pem, path, leaf)
+}
+
+fn complete_tls_1_repair_22_31_220(
+    key: &PKey<openssl::pkey::Private>,
+    ca: &X509,
+    pem: &[u8],
+    path: PathBuf,
+    mut leaf: openssl::x509::X509Builder,
+) -> (native_tls::TlsAcceptor, PathBuf) {
+    require_ok(leaf.set_pubkey(key), "required test value");
+    require_ok(
+        leaf.set_not_before(
+            &Asn1Time::days_from_now(0)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value")),
+        ),
+        "required test value",
+    );
+    require_ok(
+        leaf.set_not_after(
+            &Asn1Time::days_from_now(1)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value")),
+        ),
+        "required test value",
+    );
+    require_ok(
+        leaf.append_extension(require_ok(
+            BasicConstraints::new().critical().build(),
+            "required test value",
+        )),
+        "required test value",
+    );
+    require_ok(
+        leaf.append_extension(require_ok(
+            ExtendedKeyUsage::new().server_auth().build(),
+            "required test value",
+        )),
+        "required test value",
+    );
+    let san = require_ok(
+        SubjectAlternativeName::new()
+            .dns("localhost")
+            .build(&leaf.x509v3_context(Some(ca), None)),
+        "required test value",
+    );
+    require_ok(leaf.append_extension(san), "required test value");
+    require_ok(
+        leaf.sign(key, MessageDigest::sha256()),
+        "required test value",
+    );
+    let mut chain = require_ok(leaf.build().to_pem(), "required test value");
+    chain.extend_from_slice(pem);
+    let identity = require_ok(
+        native_tls::Identity::from_pkcs8(
+            &chain,
+            &require_ok(key.private_key_to_pem_pkcs8(), "required test value"),
+        ),
+        "required test value",
+    );
+    (
+        require_ok(
+            native_tls::TlsAcceptor::new(identity),
+            "required test value",
+        ),
+        path,
+    )
 }
 
 fn rpc_peer(
@@ -359,28 +497,42 @@ fn rpc_peer(
     answers: Vec<Vec<u8>>,
 ) -> (AgentEnvelopeTransport, JoinHandle<()>) {
     let (tls, ca) = tls(directory);
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    listener.set_nonblocking(true).unwrap();
+    let listener = require_ok(TcpListener::bind("127.0.0.1:0"), "required test value");
+    require_ok(listener.set_nonblocking(true), "required test value");
     let url = format!(
         "https://localhost:{}",
-        listener.local_addr().unwrap().port()
+        require_ok(listener.local_addr(), "required test value").port()
     );
     let server = thread::spawn(move || {
         for answer in answers {
-            let mut stream = tls.accept(accept(&listener)).unwrap();
+            let mut stream = require_ok(tls.accept(accept(&listener)), "required test value");
             let (route, body) = read_request(&mut stream);
             assert_eq!(route, "POST /v1/agent/rpc HTTP/1.1\r\n");
-            let envelope = agent_rpc::decode(&serde_json::to_vec(&body).unwrap()).unwrap();
+            let envelope = require_ok(
+                agent_rpc::decode(&require_ok(
+                    serde_json::to_vec(&body),
+                    "required test value",
+                )),
+                "required test value",
+            );
             assert_eq!(envelope.operation, Operation::ProgramReceipt);
-            let requested =
-                Rung::from_name(envelope.request["requested_rung"].as_str().unwrap()).unwrap();
+            let requested = require_some(
+                Rung::from_name(require_some(
+                    envelope.request["requested_rung"].as_str(),
+                    "required test value",
+                )),
+                "required test value",
+            );
             let result = dispatch_program_receipt(
                 &envelope.request,
                 envelope.request_id,
                 |key, activity| {
                     assert_ne!(key, [0; 32]);
                     assert_ne!(activity, [0; 32]);
-                    Ok(HumanResponse::new(answer).unwrap())
+                    Ok(require_ok(
+                        HumanResponse::new(answer),
+                        "required test value",
+                    ))
                 },
             );
             let response = match result.and_then(|answer| {
@@ -396,7 +548,10 @@ fn rpc_peer(
         }
     });
     (
-        AgentEnvelopeTransport::connect(&url, None, Some(&ca)).unwrap(),
+        require_ok(
+            AgentEnvelopeTransport::connect(&url, None, Some(&ca)),
+            "required test value",
+        ),
         server,
     )
 }
@@ -406,7 +561,10 @@ fn query(
     hash: [u8; 32],
     requested: Rung,
 ) -> Result<layerx_agent_api::verify::ApiSuccess<Value>, EnvelopeError> {
-    let credential = EnvelopeCredential::new("receipt-rpc", [1; 32], [2; 32], 1).unwrap();
+    let credential = require_ok(
+        EnvelopeCredential::new("receipt-rpc", [1; 32], [2; 32], 1),
+        "required test value",
+    );
     transport.send_operation(Operation::ProgramReceipt, RequestId(220), &json!({
         "idempotency_key":hex::encode(hash),"expected_activity_id":hex::encode(hash),"requested_rung":requested.name(),
     }), Some(&credential), None)
@@ -417,13 +575,17 @@ fn receipt_rpc_roundtrip_preserves_bindings_and_explicit_rung_after_store_reopen
     let recording = Recording::new();
     for committed in [false, true] {
         let directory = Directory::new();
-        let tenant = TenantId::new("receipt-rpc").unwrap();
-        let mut store = Store::open(directory.0.join("store")).unwrap();
+        let tenant = require_ok(TenantId::new("receipt-rpc"), "required test value");
+        let mut store = require_ok(
+            Store::open(directory.0.join("store")),
+            "required test value",
+        );
         let mut outbox = Outbox::default();
         assert_eq!(
-            outbox
-                .enqueue(&mut store, tenant.clone(), recording.raw.clone())
-                .unwrap(),
+            require_ok(
+                outbox.enqueue(&mut store, tenant.clone(), recording.raw.clone()),
+                "required test value"
+            ),
             recording.hash
         );
         let Lookup::Verified(receipt) =
@@ -431,37 +593,54 @@ fn receipt_rpc_roundtrip_preserves_bindings_and_explicit_rung_after_store_reopen
         else {
             panic!("verified recording required")
         };
-        receipt::store_verified_if_absent(
-            &mut store,
-            tenant.clone(),
-            recording.hash,
-            receipt.canonical_bytes(),
-            &receipt,
-        )
-        .unwrap();
+        require_ok(
+            receipt::store_verified_if_absent(
+                &mut store,
+                tenant.clone(),
+                recording.hash,
+                receipt.canonical_bytes(),
+                &receipt,
+            ),
+            "required test value",
+        );
         let before = recording.answer(&mut store, &tenant, committed);
-        let finality_key = TenantKey::new(
-            tenant.clone(),
-            ObjectKind::Configuration,
-            [b"finality:".as_slice(), &recording.hash].concat(),
-        )
-        .unwrap();
-        let retained = store.get(&finality_key).unwrap().bytes().to_vec();
+        let finality_key = require_ok(
+            TenantKey::new(
+                tenant.clone(),
+                ObjectKind::Configuration,
+                [b"finality:".as_slice(), &recording.hash].concat(),
+            ),
+            "required test value",
+        );
+        let retained = require_some(store.get(&finality_key), "required test value")
+            .bytes()
+            .to_vec();
         drop(outbox);
         drop(store);
-        let mut store = Store::open(directory.0.join("store")).unwrap();
+        let mut store = require_ok(
+            Store::open(directory.0.join("store")),
+            "required test value",
+        );
         let mut outbox = Outbox::default();
-        outbox
-            .restore(&store, tenant.clone(), recording.hash)
-            .unwrap();
+        require_ok(
+            outbox.restore(&store, tenant.clone(), recording.hash),
+            "required test value",
+        );
         assert_eq!(
-            outbox.exact_signed_bytes(recording.hash).unwrap(),
+            require_ok(
+                outbox.exact_signed_bytes(recording.hash),
+                "required test value"
+            ),
             recording.raw
         );
-        assert_eq!(store.get(&finality_key).unwrap().bytes(), retained);
+        assert_eq!(
+            require_some(store.get(&finality_key), "required test value").bytes(),
+            retained
+        );
         let after = recording.answer(&mut store, &tenant, committed);
         assert_eq!(before, after);
-        let ReceiptLookupAnswer::Found(frame) = ReceiptLookupAnswer::decode(&before).unwrap()
+        let ReceiptLookupAnswer::Found(frame) =
+            require_ok(ReceiptLookupAnswer::decode(&before), "required test value")
         else {
             panic!("found frame")
         };
@@ -474,86 +653,112 @@ fn receipt_rpc_roundtrip_preserves_bindings_and_explicit_rung_after_store_reopen
         } else {
             Rung::Receipted
         };
-        assert_eq!(frame.rung, expected_rung);
-        let (transport, server) = rpc_peer(
-            &directory,
-            vec![before.clone(), before, after.clone(), after],
-        );
-        for _ in 0..2 {
-            for requested in [Rung::Receipted, Rung::Committed] {
-                let response = query(&transport, recording.hash, requested).unwrap();
-                assert_eq!(response.value["found"], true);
-                let value = &response.value["receipt"];
-                assert_eq!(value["canonical_bytes"], hex::encode(&recording.canonical));
-                assert_eq!(value["signed_receipt"], hex::encode(&recording.canonical));
-                assert_eq!(value["tx_hash"], hex::encode(recording.hash));
+        finish_receipt_rpc_roundtrip_preserves_bindings_and_explicit_rung_after_store_reopen_1_repair_22_31_220(FinishReceiptRpcRoundtripPreservesBindingsAndExplicitRungAfterStoreReopen1Repair2231220Context { recording: &recording, directory, before, after, frame, expected_rung });
+    }
+}
+
+struct FinishReceiptRpcRoundtripPreservesBindingsAndExplicitRungAfterStoreReopen1Repair2231220Context<
+    'a,
+> {
+    recording: &'a Recording,
+    directory: Directory,
+    before: Vec<u8>,
+    after: Vec<u8>,
+    frame: ReceiptLookupFrame,
+    expected_rung: layerx_sdk::Rung,
+}
+
+fn finish_receipt_rpc_roundtrip_preserves_bindings_and_explicit_rung_after_store_reopen_1_repair_22_31_220(
+    context: FinishReceiptRpcRoundtripPreservesBindingsAndExplicitRungAfterStoreReopen1Repair2231220Context<'_>,
+) {
+    let FinishReceiptRpcRoundtripPreservesBindingsAndExplicitRungAfterStoreReopen1Repair2231220Context { recording, directory, before, after, frame, expected_rung } = context;
+
+    assert_eq!(frame.rung, expected_rung);
+    let (transport, server) = rpc_peer(
+        &directory,
+        vec![before.clone(), before, after.clone(), after],
+    );
+    for _ in 0..2 {
+        for requested in [Rung::Receipted, Rung::Committed] {
+            let response = require_ok(
+                query(&transport, recording.hash, requested),
+                "required test value",
+            );
+            assert_eq!(response.value["found"], true);
+            let value = &response.value["receipt"];
+            assert_eq!(value["canonical_bytes"], hex::encode(&recording.canonical));
+            assert_eq!(value["signed_receipt"], hex::encode(&recording.canonical));
+            assert_eq!(value["tx_hash"], hex::encode(recording.hash));
+            assert_eq!(
+                value["receipt_hash"],
+                hex::encode(Sha256::digest(&recording.canonical))
+            );
+            assert_eq!(value["receipt_key_id"], hex::encode(recording.key.key_id));
+            assert_eq!(value["public_key"], hex::encode(recording.key.public_key));
+            assert_eq!(
+                value["first_height"],
+                recording.key.first_height.to_string()
+            );
+            assert_eq!(value["last_height"], recording.key.last_height.to_string());
+            assert_eq!(value["block_height"], "1000");
+            assert_eq!(value["inclusion_height"], "1000");
+            assert_eq!(value["verification_level"], "1");
+            assert_eq!(value["rung"], expected_rung.name());
+            for (name, expected) in [
+                ("batch_id", frame.authorised_batch.batch_id()),
+                ("asset", frame.authorised_batch.asset()),
+                (
+                    "previous_state_root",
+                    frame.authorised_batch.previous_state_root(),
+                ),
+                (
+                    "resulting_state_root",
+                    frame.authorised_batch.resulting_state_root(),
+                ),
+                (
+                    "sequencer_public_key",
+                    frame.authorised_batch.sequencer_public_key(),
+                ),
+            ] {
+                assert_eq!(value["authorised_batch"][name], hex::encode(expected));
+            }
+            if requested <= expected_rung {
                 assert_eq!(
-                    value["receipt_hash"],
-                    hex::encode(Sha256::digest(&recording.canonical))
+                    response.verification_status,
+                    VerificationStatus::Achieved(expected_rung)
                 );
-                assert_eq!(value["receipt_key_id"], hex::encode(recording.key.key_id));
-                assert_eq!(value["public_key"], hex::encode(recording.key.public_key));
-                assert_eq!(
-                    value["first_height"],
-                    recording.key.first_height.to_string()
-                );
-                assert_eq!(value["last_height"], recording.key.last_height.to_string());
-                assert_eq!(value["block_height"], "1000");
-                assert_eq!(value["inclusion_height"], "1000");
-                assert_eq!(value["verification_level"], "1");
-                assert_eq!(value["rung"], expected_rung.name());
-                for (name, expected) in [
-                    ("batch_id", frame.authorised_batch.batch_id()),
-                    ("asset", frame.authorised_batch.asset()),
-                    (
-                        "previous_state_root",
-                        frame.authorised_batch.previous_state_root(),
-                    ),
-                    (
-                        "resulting_state_root",
-                        frame.authorised_batch.resulting_state_root(),
-                    ),
-                    (
-                        "sequencer_public_key",
-                        frame.authorised_batch.sequencer_public_key(),
-                    ),
-                ] {
-                    assert_eq!(value["authorised_batch"][name], hex::encode(expected));
-                }
-                if requested <= expected_rung {
-                    assert_eq!(
-                        response.verification_status,
-                        VerificationStatus::Achieved(expected_rung)
-                    );
-                } else {
-                    assert!(matches!(
-                        response.verification_status,
-                        VerificationStatus::Below {
-                            requested: Rung::Committed,
-                            achieved: Rung::Receipted,
-                            ..
-                        }
-                    ));
-                }
+            } else {
+                assert!(matches!(
+                    response.verification_status,
+                    VerificationStatus::Below {
+                        requested: Rung::Committed,
+                        achieved: Rung::Receipted,
+                        ..
+                    }
+                ));
             }
         }
-        server.join().unwrap();
     }
+    require_ok(server.join(), "required test value");
 }
 
 #[test]
 fn receipt_rpc_roundtrip_retains_absent_and_submitted_answers() {
     let directory = Directory::new();
     let recording = Recording::new();
-    let mut store = Store::open(directory.0.join("store")).unwrap();
+    let mut store = require_ok(
+        Store::open(directory.0.join("store")),
+        "required test value",
+    );
     let mut outbox = Outbox::default();
-    outbox
-        .enqueue(
+    require_ok(
+        outbox.enqueue(
             &mut store,
-            TenantId::new("receipt-rpc").unwrap(),
+            require_ok(TenantId::new("receipt-rpc"), "required test value"),
             recording.raw.clone(),
-        )
-        .unwrap();
+        ),
+        "required test value",
+    );
     let absent = recording.owner_lookup(&outbox, Value::Null);
     assert_eq!(absent, Lookup::Absent);
     let submitted = recording.owner_lookup(&outbox, json!({"rung":"submitted","txHash":format!("0x{}",hex::encode(recording.hash)),"nonce":"0x1"}));
@@ -567,11 +772,20 @@ fn receipt_rpc_roundtrip_retains_absent_and_submitted_answers() {
     let (transport, server) = rpc_peer(
         &directory,
         vec![
-            receipt_lookup_not_ready_bytes(&absent).unwrap(),
-            receipt_lookup_not_ready_bytes(&submitted).unwrap(),
+            require_some(
+                receipt_lookup_not_ready_bytes(&absent),
+                "required test value",
+            ),
+            require_some(
+                receipt_lookup_not_ready_bytes(&submitted),
+                "required test value",
+            ),
         ],
     );
-    let credential = EnvelopeCredential::new("receipt-rpc", [1; 32], [2; 32], 1).unwrap();
+    let credential = require_ok(
+        EnvelopeCredential::new("receipt-rpc", [1; 32], [2; 32], 1),
+        "required test value",
+    );
     for (value, status, expected_status) in [
         (
             json!({"found":false}),
@@ -609,7 +823,7 @@ fn receipt_rpc_roundtrip_retains_absent_and_submitted_answers() {
                 status: expected_status.clone(),
             })
         );
-        let (http_status, document) = received.unwrap();
+        let (http_status, document) = require_some(received, "required test value");
         assert_eq!(
             decode_response_status(http_status, &document),
             Some(Ok(EnvelopeOutcome::NotReady {
@@ -619,42 +833,98 @@ fn receipt_rpc_roundtrip_retains_absent_and_submitted_answers() {
             }))
         );
     }
-    server.join().unwrap();
+    require_ok(server.join(), "required test value");
 }
 
 #[test]
 fn receipt_rpc_roundtrip_refuses_malformed_frames_and_changed_bindings() {
     let directory = Directory::new();
     let recording = Recording::new();
-    let tenant = TenantId::new("receipt-rpc").unwrap();
-    let mut store = Store::open(directory.0.join("store")).unwrap();
+    let tenant = require_ok(TenantId::new("receipt-rpc"), "required test value");
+    let mut store = require_ok(
+        Store::open(directory.0.join("store")),
+        "required test value",
+    );
     let mut outbox = Outbox::default();
-    outbox
-        .enqueue(&mut store, tenant.clone(), recording.raw.clone())
-        .unwrap();
+    require_ok(
+        outbox.enqueue(&mut store, tenant.clone(), recording.raw.clone()),
+        "required test value",
+    );
     let Lookup::Verified(receipt) =
         recording.owner_lookup(&outbox, recording.case["receiptJson"].clone())
     else {
         panic!("verified receipt")
     };
-    receipt::store_verified_if_absent(
-        &mut store,
-        tenant.clone(),
-        recording.hash,
-        receipt.canonical_bytes(),
-        &receipt,
-    )
-    .unwrap();
+    require_ok(
+        receipt::store_verified_if_absent(
+            &mut store,
+            tenant.clone(),
+            recording.hash,
+            receipt.canonical_bytes(),
+            &receipt,
+        ),
+        "required test value",
+    );
     let original = recording.answer(&mut store, &tenant, false);
-    let ReceiptLookupAnswer::Found(frame) = ReceiptLookupAnswer::decode(&original).unwrap() else {
+    let ReceiptLookupAnswer::Found(frame) = require_ok(
+        ReceiptLookupAnswer::decode(&original),
+        "required test value",
+    ) else {
         panic!("found frame")
     };
+    let malformed = malformed_receipt_frames(&original, &frame);
+    finish_receipt_rpc_roundtrip_refuses_malformed_frames_and_changed_bindings_1_repair_22_31_220(
+        &directory, &recording, original, &frame, malformed,
+    );
+}
+
+fn finish_receipt_rpc_roundtrip_refuses_malformed_frames_and_changed_bindings_1_repair_22_31_220(
+    directory: &Directory,
+    recording: &Recording,
+    original: Vec<u8>,
+    frame: &ReceiptLookupFrame,
+    mut malformed: Vec<Vec<u8>>,
+) {
+    let verification_offset = 1 + 4 + frame.canonical_bytes.len() + 5 * 32;
+    malformed.push(original[..=verification_offset].to_vec());
+    for code in [0, 6, 255] {
+        let mut changed = original.clone();
+        changed[verification_offset] = code;
+        malformed.push(changed);
+    }
+    let mut changed = original.clone();
+    changed[verification_offset + 1 + 32 + 32 + 8] = 3;
+    malformed.push(changed);
+    let count = malformed.len();
+    malformed.push(original);
+    let (transport, server) = rpc_peer(directory, malformed);
+    for _ in 0..count {
+        let error = require_err(
+            query(&transport, recording.hash, Rung::Receipted),
+            "required test value",
+        );
+        assert!(
+            matches!(error, EnvelopeError::Refused(ref error) if error.reason.as_str() == "owner.response_malformed"),
+            "{error:?}"
+        );
+    }
+    let error = require_err(
+        query(&transport, [0x99; 32], Rung::Receipted),
+        "required test value",
+    );
+    assert!(
+        matches!(error, EnvelopeError::Refused(ref error) if error.reason.as_str() == "owner.response_malformed")
+    );
+    require_ok(server.join(), "required test value");
+}
+
+fn malformed_receipt_frames(original: &[u8], frame: &ReceiptLookupFrame) -> Vec<Vec<u8>> {
     let mut malformed = vec![
         vec![3],
         original[..1].to_vec(),
         original[..5].to_vec(),
         original[..original.len() - 1].to_vec(),
-        [original.as_slice(), &[0]].concat(),
+        [original, &[0]].concat(),
         vec![0, 0],
         vec![2],
         vec![2; 42],
@@ -686,7 +956,7 @@ fn receipt_rpc_roundtrip_refuses_malformed_frames_and_changed_bindings() {
                 f.authorised_batch.previous_state_root(),
                 f.authorised_batch.resulting_state_root(),
                 f.public_key,
-            )
+            );
         },
         |f: &mut ReceiptLookupFrame| {
             f.authorised_batch = AuthorizedBatch::new(
@@ -695,7 +965,7 @@ fn receipt_rpc_roundtrip_refuses_malformed_frames_and_changed_bindings() {
                 f.authorised_batch.previous_state_root(),
                 f.authorised_batch.resulting_state_root(),
                 f.public_key,
-            )
+            );
         },
         |f: &mut ReceiptLookupFrame| {
             f.authorised_batch = AuthorizedBatch::new(
@@ -704,7 +974,7 @@ fn receipt_rpc_roundtrip_refuses_malformed_frames_and_changed_bindings() {
                 [9; 32],
                 f.authorised_batch.resulting_state_root(),
                 f.public_key,
-            )
+            );
         },
         |f: &mut ReceiptLookupFrame| {
             f.authorised_batch = AuthorizedBatch::new(
@@ -713,7 +983,7 @@ fn receipt_rpc_roundtrip_refuses_malformed_frames_and_changed_bindings() {
                 f.authorised_batch.previous_state_root(),
                 [9; 32],
                 f.public_key,
-            )
+            );
         },
         |f: &mut ReceiptLookupFrame| {
             f.authorised_batch = AuthorizedBatch::new(
@@ -722,36 +992,15 @@ fn receipt_rpc_roundtrip_refuses_malformed_frames_and_changed_bindings() {
                 f.authorised_batch.previous_state_root(),
                 f.authorised_batch.resulting_state_root(),
                 [9; 32],
-            )
+            );
         },
     ] {
         let mut changed = frame.clone();
         change(&mut changed);
-        malformed.push(ReceiptLookupAnswer::Found(changed).encode().unwrap());
+        malformed.push(require_ok(
+            ReceiptLookupAnswer::Found(changed).encode(),
+            "required test value",
+        ));
     }
-    let verification_offset = 1 + 4 + frame.canonical_bytes.len() + 5 * 32;
-    malformed.push(original[..verification_offset + 1].to_vec());
-    for code in [0, 6, 255] {
-        let mut changed = original.clone();
-        changed[verification_offset] = code;
-        malformed.push(changed);
-    }
-    let mut changed = original.clone();
-    changed[verification_offset + 1 + 32 + 32 + 8] = 3;
-    malformed.push(changed);
-    let count = malformed.len();
-    malformed.push(original);
-    let (transport, server) = rpc_peer(&directory, malformed);
-    for _ in 0..count {
-        let error = query(&transport, recording.hash, Rung::Receipted).unwrap_err();
-        assert!(
-            matches!(error, EnvelopeError::Refused(ref error) if error.reason.as_str() == "owner.response_malformed"),
-            "{error:?}"
-        );
-    }
-    let error = query(&transport, [0x99; 32], Rung::Receipted).unwrap_err();
-    assert!(
-        matches!(error, EnvelopeError::Refused(ref error) if error.reason.as_str() == "owner.response_malformed")
-    );
-    server.join().unwrap();
+    malformed
 }

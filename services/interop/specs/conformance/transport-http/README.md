@@ -30,14 +30,13 @@ This binding carries base64 of the JSON document in the `PAYMENT-REQUIRED`, `PAY
 
 ## Conformance
 
-`services/interop/crates/layerx-x402/tests/transports.rs` reads these files with
-`include_str!` and runs every record through the production x402 model types
-and the production encoder and decoder for this transport, so the suite the
-deployment pins is the suite the tests exercise.
+`services/interop/crates/layerx-x402/tests/transports.rs` reads the top-level role
+records with `include_str!` and exercises the production x402 model types and
+this transport's encoder and decoder. The nested `semantic_cases` describe
+model, payment and ingress expectations separately from those codec round trips.
 
-The fault-injected settlement cases in that file are not vectors and are not
-counted: they drive a live sequencer signer and a canonical receipt encoder
-rather than a transport representation.
+Additional settlement cases in that file use a local receipt signer and
+canonical receipt encoder. They are outside the JSON vector count.
 
 `services/interop/deploy/gateway/render.py` derives the vector count and the SHA-256
 the gateway configuration declares from these files.
@@ -47,16 +46,14 @@ the gateway configuration declares from these files.
 The current production `LAYERX_NETWORK` is `eip155:125`.
 `PaymentRequirements::validate` requires `extra.layerx.account` and
 `extra.layerx.currency` on that network, and binds `payTo` to an account id
-derived from the account reference. Unlike the older audit observation, the
-current production transport encoders and decoders call semantic validation.
+derived from the account reference. The production transport encoders and
+decoders call semantic validation.
 The profile-free `eip155:125` cases therefore explicitly expect `ProfileMissing`;
 a LayerX profile on the foreign `eip155:1` network expects `ProfileMismatch`.
-Accepting profile-free offers requires a production change outside this suite.
 
-The original role documents remain transport compatibility fixtures. Their opaque
-`authorization` payloads have explicit payment refusal expectations:
-`typed_intent_required`. They must never be presented as successful payments.
-The additional `recorded_native_*` cases carry matching offers and unchanged
+Role documents with opaque `authorization` payloads describe transport
+representations. Their payment refusal expectation is `typed_intent_required`.
+The nested `recorded_native_*` cases carry matching offers and unchanged
 signed payer bytes from `V1-layerxledger-pay-exact` in
 `sdk/platform/conformance/fixtures/sequencer-receipt-v1.json`. Their payee account,
 asset, amount and idempotency reference match that transaction and its recorded
@@ -70,12 +67,3 @@ payment-required 402 signal; refused profiles return HTTP 400. Settlement needs
 authenticated `/v1/http/x402/settle` ingress, the recorded
 `layerxIdempotencyKey`, and a relay. Replay uses the fixture's
 `recorded_payer.observed_at_ms`, before expiry, rather than the wall clock.
-
-`tools/qualification/audit_repairs/test_repair_22_33_96.py` parses these records,
-checks recorded transaction and ABI bytes against the committed producer corpus,
-and asserts the production codec, validator, router and settlement call sites.
-Those are source proofs. Rust execution, signature recovery, mounted ingress and
-relay settlement are **review-only** in this Python qualification environment.
-The existing Rust role readers consume the original top-level records; consuming
-`semantic_cases` and running the mounted cases is a pending domain 11 wiring
-request recorded in `tools/qualification/audit_repairs/repair_22_33_96.kvx`.

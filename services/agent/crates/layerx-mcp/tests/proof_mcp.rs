@@ -1,17 +1,17 @@
-//! Proves: FAUCET_REQUEST, ExactTerms, GrantTerms, request_funds -> ToolDefinition, PrecompileCall, WebPayer -> CLI descriptors, host payer preparation, web payment validation.
+//! Proves: `FAUCET_REQUEST`, `ExactTerms`, `GrantTerms`, `request_funds` -> `ToolDefinition`, `PrecompileCall`, `WebPayer` -> CLI descriptors, host payer preparation, web payment validation.
 //!
 //! The Rust items are the crossing layer: these are the same descriptor,
 //! unsigned-grant builder, sequence decoder and payment validators called by
-//! tools/platform/cli/src/toolset.rs, layerx-agentd-host/src/payer.rs and WebPlane.
+//! `tools/platform/cli/src/toolset.rs`, layerx-agentd-`host/src/payer.rs` and `WebPlane`.
 //! Real signing and payment codecs produce the grant bytes; no payer or transport
 //! is replaced. These interfaces own no persistent state. Each is consumed twice,
 //! with changed input between observations to expose an accidental cached result.
 //!
-//! Repairs tools/faucet.rs::request_funds accepting overflowing and noncanonical
+//! Repairs `tools/faucet.rs::request_funds` accepting overflowing and noncanonical
 //! funded amounts by sharing the SDK's strict decoder with the CLI consumer.
-//! Repairs WebPayer::draw accepting a zero grant or purpose, which the production
-//! host already refused; both now use GrantTerms::draw_from_sequence_result.
-//! request_funds currently refuses HTTPS endpoints (tools/faucet.rs::post); this
+//! Repairs `WebPayer::draw` accepting a zero grant or purpose, which the production
+//! host already refused; both now use `GrantTerms::draw_from_sequence_result.`
+//! `request_funds` currently refuses HTTPS endpoints (`tools/faucet.rs::post`); this
 //! proof preserves that explicit refusal rather than inventing a funding service.
 
 use std::time::Duration;

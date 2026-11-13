@@ -1,0 +1,3753 @@
+[repair.22.39.235]
+decision = "3053"
+gotcha = "3772"
+baseline_revision = "ab70c667c76cc8c73a12aab4ad20e6c53ae65d5e"
+baseline_command = "cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --no-deps --all-targets -- -D warnings"
+baseline_exit = 101
+baseline_log = "/out/logs/lint-inventory.log"
+baseline_unique_diagnostics = 313
+baseline_coverage = "Library and library-test diagnostics; dependent integration targets could not be checked until the library compiles cleanly."
+qualification = "The runner-owned /out/run/gates.jsonl binds both hf-build and hf-done to the unchanged candidate revision, commands, exit codes, and private evidence logs. The final response copies its last verify row."
+required_final_lint_count = 0
+final_lint_count = "Reference: the final verify row of /out/run/gates.jsonl and its private log; an exit-zero all-targets Clippy gate establishes zero remaining lints, otherwise the recorded diagnostics remain unqualified."
+final_count_evidence = "This count is qualified only by an exit-zero hf-done row for the same revision as hf-build; until that gate passes it is a required postcondition, not a measured result."
+verified_revision = "Reference: revision of the matching successful build and verify rows in the current runner-owned /out/run/gates.jsonl; the final response copies the exact verification evidence."
+build_evidence = "Reference: matching-revision build row in /out/run/gates.jsonl, with command, exit, and private log."
+verify_evidence = "Reference: final verify row in /out/run/gates.jsonl; /out/logs/verify-N.log includes the all-targets Clippy command and graph qualification."
+assertion_preservation = "Every original test function and assertion is retained; success extraction uses a matching assertion, and long tests delegate unchanged assertion stages to named helpers."
+
+[gotcha.scope]
+observed = "The baseline Clippy run cannot compile integration targets while the library and library-test targets fail, so the initial 313 distinct diagnostics are the reported inventory rather than proof of full target coverage."
+repair = "Repair all reported sources and existing integration success assertions before the bounded all-targets gates; use the final denied-warning gate as authoritative coverage."
+
+[gotcha.evidence]
+observed = "Embedding a candidate hash in its own repair file would change that candidate hash."
+repair = "Name the verified revision and both gate records by reference to the runner-owned immutable ledger; copy exact final evidence in the response."
+
+[lint.1]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2543
+column = 13
+name = "similar_names"
+repair = "Rename the Wasm caller binding to calling_wasm to distinguish it from calldata."
+
+[lint.2]
+file = "programs/crates/layerx-programs-runtime/src/meter.rs"
+line = 2089
+column = 56
+name = "unreadable_literal"
+repair = "Add digit separators without changing the literal value."
+
+[lint.3]
+file = "programs/crates/layerx-programs-runtime/src/meter.rs"
+line = 2104
+column = 44
+name = "unreadable_literal"
+repair = "Add digit separators without changing the literal value."
+
+[lint.4]
+file = "programs/crates/layerx-programs-runtime/src/meter.rs"
+line = 2162
+column = 56
+name = "unreadable_literal"
+repair = "Add digit separators without changing the literal value."
+
+[lint.5]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 3846
+column = 19
+name = "dead_code"
+repair = "Gate host-FFI-only helpers with the existing host-ffi feature so the default runtime has no unreachable helpers."
+
+[lint.6]
+file = "programs/crates/layerx-programs-runtime/src/native_result.rs"
+line = 12
+column = 15
+name = "dead_code"
+repair = "Gate host-FFI-only helpers with the existing host-ffi feature so the default runtime has no unreachable helpers."
+
+[lint.7]
+file = "programs/crates/layerx-programs-runtime/src/native_result.rs"
+line = 16
+column = 15
+name = "dead_code"
+repair = "Gate host-FFI-only helpers with the existing host-ffi feature so the default runtime has no unreachable helpers."
+
+[lint.8]
+file = "programs/crates/layerx-programs-runtime/src/abi/capability.rs"
+line = 163
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.9]
+file = "programs/crates/layerx-programs-runtime/src/abi/capability.rs"
+line = 584
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.10]
+file = "programs/crates/layerx-programs-runtime/src/abi/host_state.rs"
+line = 564
+column = 5
+name = "too_many_lines"
+repair = "Extract named helpers for the independent decoding, capture, or verification stages."
+
+[lint.11]
+file = "programs/crates/layerx-programs-runtime/src/abi/host_state.rs"
+line = 772
+column = 9
+name = "single_match_else"
+repair = "Use an if-let for the optional graph or value while retaining both original branches."
+
+[lint.12]
+file = "programs/crates/layerx-programs-runtime/src/abi/host_state.rs"
+line = 788
+column = 9
+name = "single_match_else"
+repair = "Use an if-let for the optional graph or value while retaining both original branches."
+
+[lint.13]
+file = "programs/crates/layerx-programs-runtime/src/abi/host_state.rs"
+line = 866
+column = 5
+name = "too_many_lines"
+repair = "Extract named helpers for the independent decoding, capture, or verification stages."
+
+[lint.14]
+file = "programs/crates/layerx-programs-runtime/src/abi/mod.rs"
+line = 603
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.15]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 455
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.16]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 535
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.17]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 544
+column = 9
+name = "items_after_statements"
+repair = "Move local declarations before executable statements or into named module helpers."
+
+[lint.18]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 548
+column = 9
+name = "items_after_statements"
+repair = "Move local declarations before executable statements or into named module helpers."
+
+[lint.19]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 552
+column = 9
+name = "items_after_statements"
+repair = "Move local declarations before executable statements or into named module helpers."
+
+[lint.20]
+file = "programs/crates/layerx-programs-runtime/src/commit.rs"
+line = 555
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.21]
+file = "programs/crates/layerx-programs-runtime/src/dispute_artifacts.rs"
+line = 22
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.22]
+file = "programs/crates/layerx-programs-runtime/src/dispute_artifacts.rs"
+line = 65
+column = 12
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.23]
+file = "programs/crates/layerx-programs-runtime/src/dispute_artifacts.rs"
+line = 75
+column = 12
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.24]
+file = "programs/crates/layerx-programs-runtime/src/dispute_artifacts.rs"
+line = 80
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.25]
+file = "programs/crates/layerx-programs-runtime/src/dispute_artifacts.rs"
+line = 126
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.26]
+file = "programs/crates/layerx-programs-runtime/src/engine.rs"
+line = 252
+column = 36
+name = "needless_pass_by_value"
+repair = "Borrow private inputs, consume the owned memory buffer, or derive Copy for the reference-only request while preserving public signatures."
+
+[lint.27]
+file = "programs/crates/layerx-programs-runtime/src/abi/event_tests.rs"
+line = 133
+column = 9
+name = "unused_mut"
+repair = "Remove mutability from the binding that is never reassigned."
+
+[lint.28]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 237
+column = 12
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.29]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 240
+column = 12
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.30]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 243
+column = 12
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.31]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 246
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.32]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1131
+column = 5
+name = "too_many_lines"
+repair = "Extract named helpers for the independent decoding, capture, or verification stages."
+
+[lint.33]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1142
+column = 17
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.34]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1206
+column = 21
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.35]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1224
+column = 17
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.36]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1241
+column = 21
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.37]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1242
+column = 27
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.38]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1243
+column = 27
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.39]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1244
+column = 21
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.40]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1252
+column = 17
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.41]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1253
+column = 17
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.42]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1291
+column = 17
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.43]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1300
+column = 17
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.44]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1389
+column = 11
+name = "needless_pass_by_value"
+repair = "Borrow private inputs, consume the owned memory buffer, or derive Copy for the reference-only request while preserving public signatures."
+
+[lint.45]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1424
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.46]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1424
+column = 5
+name = "too_many_lines"
+repair = "Extract named helpers for the independent decoding, capture, or verification stages."
+
+[lint.47]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1552
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.48]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1561
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.49]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1570
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.50]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1579
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.51]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1769
+column = 5
+name = "too_many_lines"
+repair = "Extract named helpers for the independent decoding, capture, or verification stages."
+
+[lint.52]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1839
+column = 21
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.53]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1839
+column = 48
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.54]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1840
+column = 21
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.55]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1964
+column = 82
+name = "cast_possible_truncation"
+repair = "Use TryFrom with the existing refusal type or an immediate fixture success assertion; preserve deliberate Wasm bit patterns with byte conversion."
+
+[lint.56]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1965
+column = 82
+name = "cast_possible_wrap"
+repair = "Reinterpret Wasm integer bits with little-endian byte conversions rather than narrowing signed casts."
+
+[lint.57]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 4611
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.58]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 4856
+column = 5
+name = "too_many_arguments"
+repair = "Repair at the reported expression or declaration while retaining semantics and public signatures."
+
+[lint.59]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 5039
+column = 9
+name = "collapsible_if"
+repair = "Combine the nested guard without changing its failure path."
+
+[lint.60]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 5801
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.61]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 5833
+column = 1
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.62]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 5833
+column = 1
+name = "too_many_lines"
+repair = "Extract named helpers for the independent decoding, capture, or verification stages."
+
+[lint.63]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 5979
+column = 12
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.64]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 5984
+column = 1
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.65]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 6011
+column = 1
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.66]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 6069
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.67]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 6076
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.68]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 6076
+column = 5
+name = "too_many_lines"
+repair = "Extract named helpers for the independent decoding, capture, or verification stages."
+
+[lint.69]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 6078
+column = 18
+name = "needless_pass_by_value"
+repair = "Borrow private inputs, consume the owned memory buffer, or derive Copy for the reference-only request while preserving public signatures."
+
+[lint.70]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 6220
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.71]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 6229
+column = 1
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.72]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 6229
+column = 1
+name = "too_many_lines"
+repair = "Extract named helpers for the independent decoding, capture, or verification stages."
+
+[lint.73]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 6357
+column = 1
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.74]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 6466
+column = 1
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.75]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 6485
+column = 19
+name = "cast_possible_truncation"
+repair = "Use TryFrom with the existing refusal type or an immediate fixture success assertion; preserve deliberate Wasm bit patterns with byte conversion."
+
+[lint.76]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 6545
+column = 6
+name = "type_complexity"
+repair = "Name the result components with a type alias."
+
+[lint.77]
+file = "programs/crates/layerx-programs-runtime/src/host/mod.rs"
+line = 353
+column = 21
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.78]
+file = "programs/crates/layerx-programs-runtime/src/host/mod.rs"
+line = 751
+column = 5
+name = "too_many_lines"
+repair = "Extract named helpers for the independent decoding, capture, or verification stages."
+
+[lint.79]
+file = "programs/crates/layerx-programs-runtime/src/host/mod.rs"
+line = 1459
+column = 9
+name = "match_same_arms"
+repair = "Merge identical outcome arms and retain both patterns."
+
+[lint.80]
+file = "programs/crates/layerx-programs-runtime/src/host/mod.rs"
+line = 1739
+column = 5
+name = "too_many_lines"
+repair = "Extract named helpers for the independent decoding, capture, or verification stages."
+
+[lint.81]
+file = "programs/crates/layerx-programs-runtime/src/meter/inject.rs"
+line = 861
+column = 63
+name = "cast_possible_truncation"
+repair = "Use TryFrom with the existing refusal type or an immediate fixture success assertion; preserve deliberate Wasm bit patterns with byte conversion."
+
+[lint.82]
+file = "programs/crates/layerx-programs-runtime/src/meter/inject.rs"
+line = 913
+column = 35
+name = "cast_possible_truncation"
+repair = "Use TryFrom with the existing refusal type or an immediate fixture success assertion; preserve deliberate Wasm bit patterns with byte conversion."
+
+[lint.83]
+file = "programs/crates/layerx-programs-runtime/src/meter.rs"
+line = 1086
+column = 18
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.84]
+file = "programs/crates/layerx-programs-runtime/src/meter.rs"
+line = 1962
+column = 25
+name = "semicolon_if_nothing_returned"
+repair = "Terminate the unit-valued statement with a semicolon."
+
+[lint.85]
+file = "programs/crates/layerx-programs-runtime/src/meter.rs"
+line = 1980
+column = 25
+name = "semicolon_if_nothing_returned"
+repair = "Terminate the unit-valued statement with a semicolon."
+
+[lint.86]
+file = "programs/crates/layerx-programs-runtime/src/native_contract.rs"
+line = 18
+column = 8
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.87]
+file = "programs/crates/layerx-programs-runtime/src/native_contract.rs"
+line = 78
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.88]
+file = "programs/crates/layerx-programs-runtime/src/native_contract.rs"
+line = 157
+column = 8
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.89]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 304
+column = 1
+name = "ref_option"
+repair = "Pass the private Copy option directly instead of a reference to the option."
+
+[lint.90]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 304
+column = 30
+name = "trivially_copy_pass_by_ref"
+repair = "Pass the private Copy value directly and update its call site."
+
+[lint.91]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 325
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.92]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 332
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.93]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 348
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.94]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 348
+column = 5
+name = "too_many_lines"
+repair = "Extract named helpers for the independent decoding, capture, or verification stages."
+
+[lint.95]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 515
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.96]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 521
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.97]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 521
+column = 50
+name = "needless_pass_by_value"
+repair = "Borrow private inputs, consume the owned memory buffer, or derive Copy for the reference-only request while preserving public signatures."
+
+[lint.98]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 527
+column = 9
+name = "assigning_clones"
+repair = "Use clone_from for an existing owned buffer."
+
+[lint.99]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 529
+column = 9
+name = "assigning_clones"
+repair = "Use clone_from for an existing owned buffer."
+
+[lint.100]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 544
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.101]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 582
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.102]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 610
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.103]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 646
+column = 1
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.104]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 662
+column = 8
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.105]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 670
+column = 1
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.106]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 33
+column = 1
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.107]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 46
+column = 21
+name = "cast_possible_truncation"
+repair = "Use TryFrom with the existing refusal type or an immediate fixture success assertion; preserve deliberate Wasm bit patterns with byte conversion."
+
+[lint.108]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 64
+column = 17
+name = "cast_possible_truncation"
+repair = "Use TryFrom with the existing refusal type or an immediate fixture success assertion; preserve deliberate Wasm bit patterns with byte conversion."
+
+[lint.109]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 72
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.110]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 86
+column = 28
+name = "cast_possible_truncation"
+repair = "Use TryFrom with the existing refusal type or an immediate fixture success assertion; preserve deliberate Wasm bit patterns with byte conversion."
+
+[lint.111]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 92
+column = 21
+name = "cast_possible_truncation"
+repair = "Use TryFrom with the existing refusal type or an immediate fixture success assertion; preserve deliberate Wasm bit patterns with byte conversion."
+
+[lint.112]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 98
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.113]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 161
+column = 1
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.114]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 418
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.115]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 441
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.116]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 474
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.117]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 477
+column = 12
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.118]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 480
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.119]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 540
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.120]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 798
+column = 9
+name = "single_match_else"
+repair = "Use an if-let for the optional graph or value while retaining both original branches."
+
+[lint.121]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 851
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.122]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 864
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.123]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 902
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.124]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 924
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.125]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 927
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.126]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 1249
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.127]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 1263
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.128]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 1269
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.129]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 1317
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.130]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 1378
+column = 12
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.131]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 1398
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.132]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 1433
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.133]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 1485
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.134]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 1507
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.135]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 1882
+column = 1
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.136]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 1896
+column = 1
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.137]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 2251
+column = 6
+name = "type_complexity"
+repair = "Name the result components with a type alias."
+
+[lint.138]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 2534
+column = 1
+name = "too_many_lines"
+repair = "Extract named helpers for the independent decoding, capture, or verification stages."
+
+[lint.139]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 63
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.140]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 66
+column = 16
+name = "manual_range_contains"
+repair = "Express the same inclusive integer range with contains."
+
+[lint.141]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 64
+column = 12
+name = "manual_range_contains"
+repair = "Express the same inclusive integer range with contains."
+
+[lint.142]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 79
+column = 18
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.143]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 82
+column = 18
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.144]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 85
+column = 18
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.145]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 101
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.146]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 155
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.147]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 219
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.148]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 269
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.149]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 275
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.150]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 287
+column = 27
+name = "cast_possible_truncation"
+repair = "Use TryFrom with the existing refusal type or an immediate fixture success assertion; preserve deliberate Wasm bit patterns with byte conversion."
+
+[lint.151]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 314
+column = 5
+name = "too_many_lines"
+repair = "Extract named helpers for the independent decoding, capture, or verification stages."
+
+[lint.152]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 323
+column = 17
+name = "needless_pass_by_value"
+repair = "Borrow private inputs, consume the owned memory buffer, or derive Copy for the reference-only request while preserving public signatures."
+
+[lint.153]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 353
+column = 17
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.154]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 363
+column = 17
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.155]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 373
+column = 17
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.156]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 408
+column = 17
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.157]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 419
+column = 21
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.158]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 459
+column = 21
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.159]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 460
+column = 27
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.160]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 461
+column = 27
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.161]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 462
+column = 21
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.162]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 475
+column = 21
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.163]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 475
+column = 39
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.164]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 476
+column = 21
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.165]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 477
+column = 27
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.166]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 488
+column = 25
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.167]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 488
+column = 47
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.168]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 488
+column = 65
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.169]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 489
+column = 25
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.170]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 495
+column = 25
+name = "cast_possible_truncation"
+repair = "Use TryFrom with the existing refusal type or an immediate fixture success assertion; preserve deliberate Wasm bit patterns with byte conversion."
+
+[lint.171]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 508
+column = 25
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.172]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 543
+column = 14
+name = "cast_possible_truncation"
+repair = "Use TryFrom with the existing refusal type or an immediate fixture success assertion; preserve deliberate Wasm bit patterns with byte conversion."
+
+[lint.173]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 605
+column = 25
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.174]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 638
+column = 12
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.175]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 641
+column = 18
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.176]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 644
+column = 18
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.177]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 647
+column = 18
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.178]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 650
+column = 18
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.179]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 653
+column = 18
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.180]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 656
+column = 18
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.181]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 659
+column = 18
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.182]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 662
+column = 18
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.183]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 665
+column = 18
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.184]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 668
+column = 18
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.185]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 671
+column = 18
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.186]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 676
+column = 18
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.187]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 679
+column = 12
+name = "must_use_candidate"
+repair = "Mark the returned value must_use."
+
+[lint.188]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 710
+column = 1
+name = "too_many_lines"
+repair = "Extract named helpers for the independent decoding, capture, or verification stages."
+
+[lint.189]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 726
+column = 24
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.190]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 813
+column = 20
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.191]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 830
+column = 28
+name = "cast_lossless"
+repair = "Use the infallible From conversion."
+
+[lint.192]
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+line = 904
+column = 5
+name = "items_after_statements"
+repair = "Move local declarations before executable statements or into named module helpers."
+
+[lint.193]
+file = "programs/crates/layerx-programs-runtime/src/storage/mod.rs"
+line = 802
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.194]
+file = "programs/crates/layerx-programs-runtime/src/storage/mod.rs"
+line = 827
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.195]
+file = "programs/crates/layerx-programs-runtime/src/storage/mod.rs"
+line = 865
+column = 85
+name = "type_complexity"
+repair = "Name the result components with a type alias."
+
+[lint.196]
+file = "programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs"
+line = 19
+column = 30
+name = "unused_self"
+repair = "Retain the existing public result_code signature with a method-only allowance explaining the signature constraint."
+
+[lint.197]
+file = "programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs"
+line = 86
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.198]
+file = "programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs"
+line = 149
+column = 5
+name = "missing_errors_doc"
+repair = "Document the concrete refusal conditions in an Errors section."
+
+[lint.199]
+file = "programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs"
+line = 170
+column = 5
+name = "too_many_lines"
+repair = "Extract named helpers for the independent decoding, capture, or verification stages."
+
+[lint.200]
+file = "programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs"
+line = 300
+column = 79
+name = "doc_markdown"
+repair = "Mark the native NON_CANONICAL result name as code in the documentation."
+
+[lint.201]
+file = "programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs"
+line = 334
+column = 34
+name = "cast_possible_truncation"
+repair = "Use TryFrom with the existing refusal type or an immediate fixture success assertion; preserve deliberate Wasm bit patterns with byte conversion."
+
+[lint.202]
+file = "programs/crates/layerx-programs-runtime/src/terminal.rs"
+line = 225
+column = 1
+name = "too_many_lines"
+repair = "Extract named helpers for the independent decoding, capture, or verification stages."
+
+[lint.203]
+file = "programs/crates/layerx-programs-runtime/src/terminal.rs"
+line = 376
+column = 6
+name = "type_complexity"
+repair = "Name the result components with a type alias."
+
+[lint.204]
+file = "programs/crates/layerx-programs-runtime/src/validate.rs"
+line = 407
+column = 10
+name = "type_complexity"
+repair = "Name the result components with a type alias."
+
+[lint.205]
+file = "programs/crates/layerx-programs-runtime/src/validate.rs"
+line = 564
+column = 1
+name = "too_many_lines"
+repair = "Extract named helpers for the independent decoding, capture, or verification stages."
+
+[lint.206]
+file = "programs/crates/layerx-programs-runtime/src/abi/codec.rs"
+line = 849
+column = 9
+name = "assertions_on_constants"
+repair = "Retain the assertion as an evaluated const block."
+
+[lint.207]
+file = "programs/crates/layerx-programs-runtime/src/abi/context.rs"
+line = 158
+column = 1
+name = "items_after_test_module"
+repair = "Place the test module after production declarations."
+
+[lint.208]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 342
+column = 16
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.209]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 353
+column = 22
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.210]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 366
+column = 26
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.211]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 375
+column = 27
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.212]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 393
+column = 26
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.213]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 447
+column = 24
+name = "cast_sign_loss"
+repair = "Use checked conversions for bounded fixture indices and byte conversions for the intentional Wasm integer bit pattern."
+
+[lint.214]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 493
+column = 17
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.215]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 526
+column = 39
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.216]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 529
+column = 22
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.217]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 553
+column = 29
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.218]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 590
+column = 22
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.219]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 596
+column = 17
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.220]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 602
+column = 20
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.221]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 608
+column = 18
+name = "default_trait_access"
+repair = "Name Storage explicitly when constructing the default fixture."
+
+[lint.222]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 611
+column = 26
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.223]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 613
+column = 21
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.224]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 614
+column = 21
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.225]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 626
+column = 29
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.226]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 634
+column = 21
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.227]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 635
+column = 22
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.228]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 636
+column = 20
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.229]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 663
+column = 24
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.230]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 665
+column = 13
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.231]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 666
+column = 24
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.232]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 679
+column = 18
+name = "redundant_closure_for_method_calls"
+repair = "Pass the method reference directly."
+
+[lint.233]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 697
+column = 22
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.234]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 709
+column = 22
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.235]
+file = "programs/crates/layerx-programs-runtime/src/abi/response.rs"
+line = 710
+column = 24
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.236]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 1973
+column = 23
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.237]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 1975
+column = 9
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.238]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 1986
+column = 19
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.239]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 1990
+column = 17
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.240]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2023
+column = 5
+name = "too_many_lines"
+repair = "Extract named helpers for the independent decoding, capture, or verification stages."
+
+[lint.241]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2026
+column = 23
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.242]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2029
+column = 9
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.243]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2038
+column = 28
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.244]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2046
+column = 19
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.245]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2049
+column = 39
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.246]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2181
+column = 5
+name = "too_many_lines"
+repair = "Extract named helpers for the independent decoding, capture, or verification stages."
+
+[lint.247]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2184
+column = 23
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.248]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2185
+column = 25
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.249]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2187
+column = 22
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.250]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2188
+column = 20
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.251]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2189
+column = 28
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.252]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2243
+column = 19
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.253]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2375
+column = 24
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.254]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2376
+column = 42
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.255]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2454
+column = 25
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.256]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2458
+column = 23
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.257]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2459
+column = 25
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.258]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2460
+column = 19
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.259]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2475
+column = 13
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.260]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2494
+column = 22
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.261]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2505
+column = 13
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.262]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2564
+column = 13
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.263]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2589
+column = 24
+name = "cast_sign_loss"
+repair = "Use checked conversions for bounded fixture indices and byte conversions for the intentional Wasm integer bit pattern."
+
+[lint.264]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2602
+column = 24
+name = "cast_sign_loss"
+repair = "Use checked conversions for bounded fixture indices and byte conversions for the intentional Wasm integer bit pattern."
+
+[lint.265]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2634
+column = 39
+name = "cast_possible_truncation"
+repair = "Use TryFrom with the existing refusal type or an immediate fixture success assertion; preserve deliberate Wasm bit patterns with byte conversion."
+
+[lint.266]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2634
+column = 39
+name = "cast_possible_wrap"
+repair = "Reinterpret Wasm integer bits with little-endian byte conversions rather than narrowing signed casts."
+
+[lint.267]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2636
+column = 52
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.268]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2675
+column = 42
+name = "cast_possible_truncation"
+repair = "Use TryFrom with the existing refusal type or an immediate fixture success assertion; preserve deliberate Wasm bit patterns with byte conversion."
+
+[lint.269]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2675
+column = 42
+name = "cast_possible_wrap"
+repair = "Reinterpret Wasm integer bits with little-endian byte conversions rather than narrowing signed casts."
+
+[lint.270]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2686
+column = 38
+name = "cast_sign_loss"
+repair = "Use checked conversions for bounded fixture indices and byte conversions for the intentional Wasm integer bit pattern."
+
+[lint.271]
+file = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 2687
+column = 20
+name = "cast_sign_loss"
+repair = "Use checked conversions for bounded fixture indices and byte conversions for the intentional Wasm integer bit pattern."
+
+[lint.272]
+file = "programs/crates/layerx-programs-runtime/src/../tests/support/compiled_guest.rs"
+line = 4
+column = 16
+name = "single_match_else"
+repair = "Use an if-let for the optional graph or value while retaining both original branches."
+
+[lint.273]
+file = "programs/crates/layerx-programs-runtime/src/market_tests.rs"
+line = 496
+column = 23
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.274]
+file = "programs/crates/layerx-programs-runtime/src/market_tests.rs"
+line = 500
+column = 17
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.275]
+file = "programs/crates/layerx-programs-runtime/src/market_tests.rs"
+line = 502
+column = 22
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.276]
+file = "programs/crates/layerx-programs-runtime/src/market_tests.rs"
+line = 504
+column = 22
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.277]
+file = "programs/crates/layerx-programs-runtime/src/market_tests.rs"
+line = 511
+column = 26
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.278]
+file = "programs/crates/layerx-programs-runtime/src/market_tests.rs"
+line = 515
+column = 17
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.279]
+file = "programs/crates/layerx-programs-runtime/src/market_tests.rs"
+line = 517
+column = 22
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.280]
+file = "programs/crates/layerx-programs-runtime/src/market_tests.rs"
+line = 520
+column = 24
+name = "unwrap_used"
+repair = "Assert the same Result success or Option presence through an explicit matching assertion that panics immediately on failure."
+
+[lint.281]
+file = "programs/crates/layerx-programs-runtime/src/market_tests.rs"
+line = 1273
+column = 1
+name = "too_many_lines"
+repair = "Extract named helpers for the independent decoding, capture, or verification stages."
+
+[lint.282]
+file = "programs/crates/layerx-programs-runtime/src/host/context.rs"
+line = 82
+column = 24
+name = "cast_sign_loss"
+repair = "Use checked conversions for bounded fixture indices and byte conversions for the intentional Wasm integer bit pattern."
+
+[lint.283]
+file = "programs/crates/layerx-programs-runtime/src/host/context.rs"
+line = 146
+column = 23
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.284]
+file = "programs/crates/layerx-programs-runtime/src/host/context.rs"
+line = 147
+column = 25
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.285]
+file = "programs/crates/layerx-programs-runtime/src/host/context.rs"
+line = 167
+column = 17
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.286]
+file = "programs/crates/layerx-programs-runtime/src/host/context.rs"
+line = 177
+column = 20
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.287]
+file = "programs/crates/layerx-programs-runtime/src/host/context.rs"
+line = 178
+column = 25
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.288]
+file = "programs/crates/layerx-programs-runtime/src/host/context.rs"
+line = 182
+column = 26
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.289]
+file = "programs/crates/layerx-programs-runtime/src/host/context.rs"
+line = 183
+column = 13
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.290]
+file = "programs/crates/layerx-programs-runtime/src/host/context.rs"
+line = 184
+column = 24
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.291]
+file = "programs/crates/layerx-programs-runtime/src/host/context.rs"
+line = 186
+column = 17
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.292]
+file = "programs/crates/layerx-programs-runtime/src/host/context.rs"
+line = 191
+column = 28
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.293]
+file = "programs/crates/layerx-programs-runtime/src/host/context.rs"
+line = 192
+column = 17
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.294]
+file = "programs/crates/layerx-programs-runtime/src/host/context.rs"
+line = 193
+column = 28
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.295]
+file = "programs/crates/layerx-programs-runtime/src/host/context.rs"
+line = 194
+column = 28
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.296]
+file = "programs/crates/layerx-programs-runtime/src/host/context.rs"
+line = 197
+column = 28
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.297]
+file = "programs/crates/layerx-programs-runtime/src/host/context.rs"
+line = 203
+column = 29
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.298]
+file = "programs/crates/layerx-programs-runtime/src/host/context.rs"
+line = 213
+column = 28
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.299]
+file = "programs/crates/layerx-programs-runtime/src/host/context.rs"
+line = 217
+column = 24
+name = "expect_used"
+repair = "Assert the same success condition through explicit matching while preserving the original diagnostic message; remove production expects at their source."
+
+[lint.300]
+file = "programs/crates/layerx-programs-runtime/src/meter/inject.rs"
+line = 629
+column = 1
+name = "items_after_test_module"
+repair = "Place the test module after production declarations."
+
+[lint.301]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 655
+column = 23
+name = "cast_possible_truncation"
+repair = "Use TryFrom with the existing refusal type or an immediate fixture success assertion; preserve deliberate Wasm bit patterns with byte conversion."
+
+[lint.302]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 744
+column = 23
+name = "cast_possible_truncation"
+repair = "Use TryFrom with the existing refusal type or an immediate fixture success assertion; preserve deliberate Wasm bit patterns with byte conversion."
+
+[lint.303]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 959
+column = 5
+name = "too_many_lines"
+repair = "Extract named helpers for the independent decoding, capture, or verification stages."
+
+[lint.304]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 960
+column = 23
+name = "cast_possible_truncation"
+repair = "Use TryFrom with the existing refusal type or an immediate fixture success assertion; preserve deliberate Wasm bit patterns with byte conversion."
+
+[lint.305]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 1017
+column = 13
+name = "semicolon_if_nothing_returned"
+repair = "Terminate the unit-valued statement with a semicolon."
+
+[lint.306]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 1075
+column = 52
+name = "cast_possible_truncation"
+repair = "Use TryFrom with the existing refusal type or an immediate fixture success assertion; preserve deliberate Wasm bit patterns with byte conversion."
+
+[lint.307]
+file = "programs/crates/layerx-programs-runtime/src/storage/mod.rs"
+line = 900
+column = 23
+name = "cast_possible_truncation"
+repair = "Use TryFrom with the existing refusal type or an immediate fixture success assertion; preserve deliberate Wasm bit patterns with byte conversion."
+
+[lint.308]
+file = "programs/crates/layerx-programs-runtime/src/storage/mod.rs"
+line = 924
+column = 23
+name = "cast_possible_truncation"
+repair = "Use TryFrom with the existing refusal type or an immediate fixture success assertion; preserve deliberate Wasm bit patterns with byte conversion."
+
+[lint.309]
+file = "programs/crates/layerx-programs-runtime/src/storage/mod.rs"
+line = 951
+column = 62
+name = "cast_possible_truncation"
+repair = "Use TryFrom with the existing refusal type or an immediate fixture success assertion; preserve deliberate Wasm bit patterns with byte conversion."
+
+[lint.310]
+file = "programs/crates/layerx-programs-runtime/src/transfer.rs"
+line = 2735
+column = 5
+name = "too_many_lines"
+repair = "Extract named helpers for the independent decoding, capture, or verification stages."
+
+[lint.311]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 630
+column = 13
+name = "unused_must_use"
+repair = "Explicitly discard the declared return value when the operation alone is intended."
+
+[lint.312]
+file = "programs/crates/layerx-programs-runtime/src/replay.rs"
+line = 1671
+column = 9
+name = "unused_must_use"
+repair = "Explicitly discard the declared return value when the operation alone is intended."
+
+[lint.313]
+file = "programs/crates/layerx-programs-runtime/src/storage/mod.rs"
+line = 766
+column = 9
+name = "unused_must_use"
+repair = "Explicitly discard the declared return value when the operation alone is intended."
+
+[qualification.build_attempt.1]
+revision = "414e0a01da162e40ef19d504c2e6ca8e12d58213"
+command = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "Two internal test callers in lxt20_tests.rs and market_tests.rs retained the old private seven-argument call."
+repair = "Construct AuthorizedV2Budget at both test call sites with the exact original values; no assertion or public signature changes."
+
+[gotcha.private_callers]
+observed = "Private method callers in path-attributed test modules must be updated together with the implementation's parameter struct."
+repair = "Check all execute_authorized_v2_with_budget references, including the lxt20 and market test modules."
+
+[qualification.build_attempt.2]
+revision = "583e70856cb29a9510ee154a57f961819b6d5ff3"
+command = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets"
+exit = 101
+log = "/out/logs/build-2.log"
+observed = "The pinned dispute helper imported MarketStepProof from the SDK instead of the runtime; activity_response.rs also reported four unnecessary-parentheses warnings."
+repair = "Use the runtime proof type, remove whole-argument parentheses from checked conversions, and correct the fixture enum, usize, and const conversions found in the same source review."
+
+[gotcha.fixture_conversions]
+observed = "Integer conversion repairs must distinguish repr enums, usize, and const evaluation; blanket rewrites can introduce unavailable trait implementations."
+repair = "Keep repr-enum casts and const lossless casts, use checked usize conversion, and preserve the original encoded values."
+
+[qualification.attempt_1_final]
+outcome = "implemented_not_qualified"
+revision = "178ff9ad446217e8389a4f861a5c9b36952f37b2"
+command = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets"
+exit = 101
+log = "/out/logs/build-3.log"
+repair_cycles_used = 2
+verification = "Not run: hf-build did not pass within the bounded repair budget."
+remaining_lint_count = "Unknown by file: Clippy verification could not run; the baseline inventory remains the only measured lint count."
+remaining_compilation_error_count = 9
+remaining_compilation_error_file = "programs/crates/layerx-programs-runtime/tests/activity_failure.rs"
+remaining_compilation_error_lines = [83, 172, 630, 656, 676, 711, 1254, 1255, 1283]
+remaining_compilation_error = "E0277: i32 does not implement From<u32>; RefusalClass::code returns u32."
+next_repair = "Replace the nine infallible conversions with checked i32::try_from conversions and explicit fixture success assertions in a separately authorized attempt."
+evidence_scope = "The revision names the exact source tree used by the last gate; this appended failure record is bookkeeping after that bounded result and has not been requalified."
+
+[gotcha.refusal_class_code]
+observed = "RefusalClass::code returns u32, so i32::from is unavailable even though every declared class identifier fits i32."
+repair = "A future repair must inspect the declared return type and use a checked conversion while preserving every original expected class value."
+
+[continuation.22.39.235]
+source_revision = "7be3886a3b62910e21e83ee8c9e00916c2923b4e"
+merged_base_revision = "c7ddad4b64f149376f959880efa1ee0a1bf9bdf6"
+call_site_correction = "Preserve the three-argument execute_authorized_v2_with_budget calls in lxt20_tests.rs and market_tests.rs: storage, AuthorizedExecutionRequest, AuthorizedV2Budget; retain the private parameter struct and every original budget, binding, context and access value. Public signatures are unchanged."
+proof_import_correction = "repair_22_31_259.rs and repair_22_31_577.rs import MarketStepProof from rt::execute. The SDK arbiter imports name only symbols declared by that module, including the MARKET_STEP constants; the remaining glob in repair_22_31_577.rs is replaced by its explicit used SDK declarations."
+conversion_correction = "Replace the nine invalid i32::from(u32) calls for RefusalClass::code in activity_failure.rs with checked i32::try_from and immediate fixture failure; all expected class codes and assertions are unchanged."
+merge_resolution = "Resolve all thirteen current/seed conflicts in repair_22_33_227.rs by preserving the landed current side, including contextual panic diagnostics, then integrate the seed checked index conversion and keep all allocation, fuel, digest and storage assertions."
+build_evidence = "Reference: final build row of /out/run/gates.jsonl: revision, exact cargo build command, exit, private /out/logs/build-N.log."
+verify_evidence = "Reference: final verify row of /out/run/gates.jsonl: same revision, cg spec done command, exit, private /out/logs/verify-N.log containing the declared all-targets Clippy invocation."
+final_count = "The required measured count is zero; it is established solely by a matching-revision exit-zero hf-done record. A nonzero exit is implemented_not_qualified and its diagnostic count is recorded before a permitted repair or at the bounded stop."
+
+[gotcha.continuation_imports]
+observed = "An explicit SDK import list must be derived from both declarations and existing local imports: adjudicate_market_step in these tests is the runtime function, not the identically named SDK wrapper."
+repair = "Keep rt::execute::adjudicate_market_step and MarketStepProof, importing only the SDK types and constants that the fixture uses."
+
+[qualification.continuation_build.1]
+revision = "9897d149a1254b8d2c48777e1b1523bc8ddcdefc"
+command = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "E0277 at tests/repair_22_33_226.rs:104 and :105: u64::from cannot accept the usize page count; the source-included codec also has three unused legacy error variants."
+repair = "Check the page-count conversion with u64::try_from and assert immediate success; exercise legacy integer, array and union error diagnostics in the codec tests, preserving every original case."
+
+[lint.continuation_codec_dead_code]
+file = "programs/crates/layerx-programs-runtime/src/abi/codec.rs"
+line = 62
+name = "dead_code"
+repair = "Assert the stable diagnostic strings of InvalidInteger, InvalidArray and InvalidUnion through the production Display implementation in the codec test module included by repair_22_33_229."
+
+[qualification.continuation_build.2]
+revision = "5d19f63a0df689a7367f3b02e95db760575f2a02"
+command = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets"
+exit = 0
+log = "/out/logs/build-2.log"
+
+[qualification.continuation_external_blocker]
+task = "22.39.235"
+file = "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs"
+symbol = "repair_22_33_1535"
+observed = "Revision 5d19f63a0df689a7367f3b02e95db760575f2a02, command cargo check --locked --manifest-path /work/paxeer-monorepo/services/agent/Cargo.toml --all-targets -p layerx-agent-api -p layerx-agentd -p layerx-agentd-host -p layerx-client -p layerx-crypto -p layerx-identity-binding -p layerx-mcp -p layerx-proof -p layerx-sdk -p layerx-types -p layerx-wire, exit 101, log /out/logs/dependents-1.log: E0425 at 303:24 and 469:24 for super::canonical_receipt_reference; E0433 at 308:39 for crate::finality, 311:39 for crate::human_runtime, and 315:24 for crate::agent_rpc_dispatch."
+assumption = "The source-included agent test module has unrelated resolution errors outside the runtime scope, so the gate-mandated stop applies without editing or re-investigating it."
+severity = "blocker"
+
+[qualification.continuation_final]
+outcome = "implemented_not_qualified"
+revision = "5d19f63a0df689a7367f3b02e95db760575f2a02"
+command = "hf-done"
+exit = 7
+log = "/out/logs/dependents-1.log"
+dependent_check_exit = 101
+verification = "Not run: hf-done refused after its dependent-crate compilation check and explicitly required stopping on the out-of-scope errors. No zero-lint or completed-task claim is made."
+remaining_lint_count = "Unmeasured by file because Clippy did not run; the baseline 313-diagnostic inventory is historical, not the current count."
+remaining_build_warnings = "tests/repair_22_31_261.rs:320 unused_must_use for transaction.commit(); tests/program_replay.rs:94 dead_code for captured_functions."
+repair_cycles_used = 1
+stop_reason = "The runner refused on an unrelated dependent-crate failure and directed: Those files are outside this task's scope: do not edit them, stop and report the exact error list as the result."
+evidence_scope = "The recorded revision is the source candidate used by both the passing build and failed dependent check; this final failure bookkeeping was appended after the bounded stop and is not a newly qualified candidate."
+
+[gotcha.continuation_dependency_gate]
+observed = "hf-done checks dependent service test targets before running the declared Clippy verification; out-of-scope source-included test modules can prevent the verify command from running after the runtime build succeeds."
+repair = "Record the runner's exact dependent-check evidence and stop at its explicit refusal; do not bypass the gate or edit the dependent crate."
+
+[continuation.attempt_3]
+decision = "3089"
+gotcha = "3880"
+source_revision = "5e1a4256cbf6f16f4c2c7668681135073b466e6f"
+implementation = "Retain the attempt-2 runtime lint repairs, corrected private call sites and imports, and checked usize conversions; task 22.39.238 is done, and this task changes no agent service files."
+build_evidence = "Reference: final build row in /out/run/gates.jsonl, including candidate revision, exact command, exit code, and private log path."
+verify_evidence = "Reference: final verify row in /out/run/gates.jsonl at the same candidate revision, including cg spec done command, exit code, and private log with all-targets Clippy and graph checks."
+final_count_evidence = "Zero only upon an exit-zero final verify row; no completion or zero-lint claim applies to a failed or unrun gate."
+
+[qualification.attempt_3_verify.1]
+revision = "0ef7f53ca92ee23089e67c9a212f1a73c9d170bb"
+command = "cg spec done 22.39.235 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+remaining_library_lint_count = 17
+integration_coverage = "Clippy stopped at library compilation; integration target diagnostics are not yet measured."
+dependents_evidence = "/out/logs/dependents-1.log: exit 0 for 62 crates at the same revision."
+
+[lint.attempt_3_verify_1.1]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1356
+column = 17
+name = "redundant_field_names"
+repair = "Use field shorthand with the identical value in the existing parameter structs."
+
+[lint.attempt_3_verify_1.2]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 4842
+column = 17
+name = "redundant_field_names"
+repair = "Use field shorthand with the identical value in the existing parameter structs."
+
+[lint.attempt_3_verify_1.3]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 4843
+column = 17
+name = "redundant_field_names"
+repair = "Use field shorthand with the identical value in the existing parameter structs."
+
+[lint.attempt_3_verify_1.4]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 4900
+column = 17
+name = "redundant_field_names"
+repair = "Use field shorthand with the identical value in the existing parameter structs."
+
+[lint.attempt_3_verify_1.5]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 4957
+column = 17
+name = "redundant_field_names"
+repair = "Use field shorthand with the identical value in the existing parameter structs."
+
+[lint.attempt_3_verify_1.6]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 787
+column = 13
+name = "redundant_field_names"
+repair = "Use field shorthand with the identical value in the existing parameter structs."
+
+[lint.attempt_3_verify_1.7]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 788
+column = 13
+name = "redundant_field_names"
+repair = "Use field shorthand with the identical value in the existing parameter structs."
+
+[lint.attempt_3_verify_1.8]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 789
+column = 13
+name = "redundant_field_names"
+repair = "Use field shorthand with the identical value in the existing parameter structs."
+
+[lint.attempt_3_verify_1.9]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 790
+column = 13
+name = "redundant_field_names"
+repair = "Use field shorthand with the identical value in the existing parameter structs."
+
+[lint.attempt_3_verify_1.10]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 791
+column = 13
+name = "redundant_field_names"
+repair = "Use field shorthand with the identical value in the existing parameter structs."
+
+[lint.attempt_3_verify_1.11]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 792
+column = 13
+name = "redundant_field_names"
+repair = "Use field shorthand with the identical value in the existing parameter structs."
+
+[lint.attempt_3_verify_1.12]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 793
+column = 13
+name = "redundant_field_names"
+repair = "Use field shorthand with the identical value in the existing parameter structs."
+
+[lint.attempt_3_verify_1.13]
+file = "programs/crates/layerx-programs-runtime/src/portable_replay.rs"
+line = 794
+column = 13
+name = "redundant_field_names"
+repair = "Use field shorthand with the identical value in the existing parameter structs."
+
+[lint.attempt_3_verify_1.14]
+file = "programs/crates/layerx-programs-runtime/src/execute.rs"
+line = 1246
+column = 17
+name = "needless_pass_by_value"
+repair = "Borrow the replay header in the private retain_boundary helper and its caller; no public signature changes."
+
+[lint.attempt_3_verify_1.15]
+file = "programs/crates/layerx-programs-runtime/src/host/mod.rs"
+line = 522
+column = 21
+name = "format_push_string"
+repair = "Format the complete observer diagnostic once, preserving the exact diagnostic text without appending a separately allocated temporary string."
+
+[lint.attempt_3_verify_1.16]
+file = "programs/crates/layerx-programs-runtime/src/meter/inject.rs"
+line = 629
+column = 1
+name = "items_after_test_module"
+repair = "Move the complete golden_vectors test module after all production declarations; retain every test and assertion."
+
+[lint.attempt_3_verify_1.17]
+file = "programs/crates/layerx-programs-runtime/src/storage/mod.rs"
+line = 1123
+column = 13
+name = "semicolon_if_nothing_returned"
+repair = "Terminate the unit-valued push statement with a semicolon."
+
+[lint.attempt_3_build_1.commit]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_261.rs"
+line = 320
+name = "unused_must_use"
+repair = "Explicitly discard the already-committed transaction's returned change list; retain the write and all storage assertions."
+
+[lint.attempt_3_build_1.capture]
+file = "programs/crates/layerx-programs-runtime/tests/program_replay.rs"
+line = 94
+name = "dead_code"
+repair = "Invoke captured_functions for every real replay leaf already decoded by actual_leaves, executing its header and engine-state assertions without removing or altering any assertion."
+
+[gotcha.attempt_3_library_first]
+observed = "All-targets Clippy does not reveal integration target lints until the library compiles; the passing build still reports denied-warning sites for unused results and helpers."
+repair = "Repair all measured library sites and both build warnings before the next bounded build and verification; preserve every test and assertion."
+
+[continuation.attempt_4]
+decision = "3089"
+gotcha = "3934"
+source_revision = "f3d4852c64d5dcbf442dd6523bed72b847007bd5"
+merged_base_revision = "637c7baca85b4b8cd4708593c7f3646c4c71b4cb"
+implementation = "Preserve all carried library and test-target lint repairs and repair the twenty remaining measured sites without changing public signatures, lint levels, test cases or assertions."
+inventory_clarification = "Four unwrap_err calls are in repair_22_31_488.rs; the fifth is the initial stack exhaustion assertion in step_conformance.rs. The needless borrow is the linker constructor in replay_trap_in_engine."
+remaining_measured_sites_before_repair = 20
+remaining_count_evidence = "Reference: the final matching-revision exit-zero hf-done row in /out/run/gates.jsonl and its private verification log establishes zero remaining lints; until that row exists, zero is an unqualified postcondition."
+build_evidence = "Reference: final build row in /out/run/gates.jsonl, with exact candidate revision, command, exit and private log."
+verify_evidence = "Reference: final verify row in /out/run/gates.jsonl at the same candidate revision, with exact cg spec done command, exit and private log containing the all-targets Clippy and graph checks."
+
+[gotcha.attempt_4_error_extraction]
+observed = "The continuation ruling groups five unwrap_err calls under repair_22_31_488.rs, but its fifth call is in step_conformance.rs; expect_err is also denied by the crate's unchanged lint policy."
+repair = "Use explicit Result matches at all five sites, preserving each asserted error and failing immediately on unexpected success."
+
+[gotcha.attempt_4_doc_scope]
+observed = "A documented test name also occurs in its function declaration, so documentation markup must be limited to the comment header."
+repair = "Wrap code items only in the existing module documentation, leaving all declared test symbols intact."
+
+[lint.attempt_4.1]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_261.rs"
+line = 2
+name = "doc_markdown"
+repair = "Wrap finding_1_single_field_complete_message_ceiling in backticks in the existing documentation."
+
+[lint.attempt_4.2]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_261.rs"
+line = 3
+name = "doc_markdown"
+repair = "Wrap finding_1_accumulated_fields_share_the_transport_ceiling in backticks in the existing documentation."
+
+[lint.attempt_4.3]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_261.rs"
+line = 4
+name = "doc_markdown"
+repair = "Wrap finding_2_all_frozen_refusals_round_trip in backticks in the existing documentation."
+
+[lint.attempt_4.4]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_261.rs"
+line = 5
+name = "doc_markdown"
+repair = "Wrap finding_2_unknown_and_malformed_refusals_still_reject in backticks in the existing documentation."
+
+[lint.attempt_4.5]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_261.rs"
+line = 6
+name = "doc_markdown"
+repair = "Wrap finding_2_authorized_cached_refusal_survives_capture_and_restore in backticks in the existing documentation."
+
+[lint.attempt_4.6]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_261.rs"
+line = 8
+name = "doc_markdown"
+repair = "Wrap verify_cmd in backticks in the existing documentation."
+
+[lint.attempt_4.7]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_258.rs"
+line = 2
+name = "doc_markdown"
+repair = "Wrap scan_copying_cost_maximum_page in backticks in the existing documentation."
+
+[lint.attempt_4.8]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_258.rs"
+line = 2
+name = "doc_markdown"
+repair = "Wrap scan_copying_cost_rejected_values in backticks in the existing documentation."
+
+[lint.attempt_4.9]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_258.rs"
+line = 4
+name = "doc_markdown"
+repair = "Wrap scan_copying_cost_cursor_overhead in backticks in the existing documentation."
+
+[lint.attempt_4.10]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_258.rs"
+line = 4
+name = "doc_markdown"
+repair = "Wrap scan_copying_cost_host_wire in backticks in the existing documentation."
+
+[lint.attempt_4.11]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_258.rs"
+line = 8
+name = "doc_markdown"
+repair = "Wrap src/abi/storage_ops.rs in backticks in the existing documentation."
+
+[lint.attempt_4.12]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_258.rs"
+line = 9
+name = "doc_markdown"
+repair = "Wrap programs/crates/layerx-programs-runtime in backticks in the existing documentation."
+
+[lint.attempt_4.13]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_258.rs"
+line = 13
+name = "doc_markdown"
+repair = "Wrap ScanCeilingExceeded in backticks in the existing documentation."
+
+[lint.attempt_4.14]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_488.rs"
+line = 152
+name = "unwrap_used"
+repair = "Match the Result explicitly, return its original error, and panic on unexpected success; preserve every refusal and mutation assertion."
+
+[lint.attempt_4.15]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_488.rs"
+line = 167
+name = "unwrap_used"
+repair = "Match the Result explicitly, return its original error, and panic on unexpected success; preserve every refusal and mutation assertion."
+
+[lint.attempt_4.16]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_488.rs"
+line = 183
+name = "unwrap_used"
+repair = "Match the Result explicitly, return its original error, and panic on unexpected success; preserve every refusal and mutation assertion."
+
+[lint.attempt_4.17]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_488.rs"
+line = 202
+name = "unwrap_used"
+repair = "Match the Result explicitly, return its original error, and panic on unexpected success; preserve every refusal and mutation assertion."
+
+[lint.attempt_4.18]
+file = "programs/crates/layerx-programs-runtime/tests/step_conformance.rs"
+line = 34
+name = "needless_borrow"
+repair = "Pass the existing Engine reference directly to the linker in replay_trap_in_engine."
+
+[lint.attempt_4.19]
+file = "programs/crates/layerx-programs-runtime/tests/step_conformance.rs"
+line = 50
+name = "redundant_closure_for_method_calls"
+repair = "Pass the same Trap::trap_code method as the function path."
+
+[lint.attempt_4.20]
+file = "programs/crates/layerx-programs-runtime/tests/step_conformance.rs"
+line = 181
+name = "unwrap_used"
+repair = "Match the Result explicitly and retain the original stack-overflow assertion and error value."
+
+[qualification.attempt_4_build]
+revision = "770b648a90236d44580fab6c4d8915e6f5c0dd1c"
+command = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.attempt_4_external_blocker]
+task = "22.39.235"
+file = "services/platform/hosted/gateway/tests/repair_22_33_1336.rs"
+symbol = "Config"
+observed = "Revision 770b648a90236d44580fab6c4d8915e6f5c0dd1c, command cargo check --locked --manifest-path /work/paxeer-monorepo/services/platform/Cargo.toml --all-targets -p layerx-paxai-worker -p layerx-platform-agent-boundary -p layerx-platform-authority -p layerx-platform-core -p layerx-platform-dashboard -p layerx-platform-gateway -p layerx-platform-paxeer-boundary -p layerx-platform-registry -p layerx-platform-webhooks -p layerx-ramp-toolkit -p layerx-reference-ramp -p layerx-runtime-clock, exit 101, log /out/logs/dependents-1.log: E0063 at 28:9, missing field read_windows in initializer of Config."
+assumption = "The platform gateway test initializer is unrelated to the runtime lint repairs and outside this task scope, so it is recorded without editing or re-investigating that source."
+severity = "blocker"
+
+[qualification.attempt_4_final]
+outcome = "implemented_not_qualified"
+revision = "770b648a90236d44580fab6c4d8915e6f5c0dd1c"
+command = "hf-done"
+exit = 7
+log = "/out/logs/dependents-1.log"
+dependent_check_exit = 101
+verification = "Not run: hf-done refused before cg spec done and Clippy because the dependent platform gateway test failed compilation."
+remaining_lint_count = "Unmeasured by file because Clippy did not execute; the twenty previously measured sites were repaired, and zero remaining lints is not claimed."
+repair_cycles_used = 0
+stop_reason = "hf-done explicitly instructed stopping on the out-of-scope dependent compilation failure; no unrelated repair, repeated dependent check, commit or push was performed."
+evidence_scope = "The revision identifies the candidate used by the passing build and failed dependent check. This appended failure bookkeeping is after the gate refusal and has not been built or qualified. The final response uses the last hf-build JSON evidence because declared verification never ran."
+
+[gotcha.attempt_4_platform_dependency]
+observed = "hf-done checks all dependent workspaces before the declared runtime Clippy gate; a missing field in an unrelated gateway test can prevent verification after a successful runtime build."
+repair = "Record the exact dependent command, revision, E0063 diagnostic and private log in the in-scope repair record, then obey the gate refusal without changing services/platform or rerunning the failed check."
+
+
+[continuation.attempt_5]
+decision = "3111"
+gotcha = "3952"
+source_revision = "717742d6533d"
+merged_base_revision = "635750bbb6622522c054df6b669774a7dffd92ab"
+implementation = "Preserve the attempt-4 lint repairs, consume the runner-merged task 22.39.279 prerequisite, and repair all ten newly reported test-target lint sites within scope."
+build_evidence = "Reference: final build row in the current /out/run/gates.jsonl, including exact revision, command, exit and private log."
+verify_evidence = "Reference: final verify row in the current /out/run/gates.jsonl at the same revision, including exact command, exit and private log; exit zero establishes zero remaining all-targets lints."
+
+[qualification.attempt_5_verify.1]
+revision = "345815be4d68db8472f4a570b4c97ab418f5c50e"
+command = "cg spec done 22.39.235 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+remaining_reported_lint_sites = 10
+dependents_evidence = "Matching-revision dependents row in /out/run/gates.jsonl: exit 0, 51 selected crates, /out/logs/dependents-1.log."
+
+[lint.attempt_5.1]
+file = "programs/crates/layerx-programs-runtime/tests/abi_linker.rs"
+line = 1
+name = "duplicate_mod"
+repair = "Move the unchanged supported ABI enumeration to the existing runtime test_support module and import that compiled module in abi_linker, lifecycle and monetary_law; retain the former support path as a re-export and retain every test and assertion."
+
+[lint.attempt_5.2]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_226.rs"
+line = 2
+name = "doc_markdown"
+repair = "Wrap receipt_trace_real_producer_round_trips in backticks in its documentation."
+
+[lint.attempt_5.3]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_226.rs"
+line = 3
+name = "doc_markdown"
+repair = "Wrap receipt_trace_maximum_malformed_is_not_copied in backticks in its documentation."
+
+[lint.attempt_5.4]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_226.rs"
+line = 4
+name = "doc_markdown"
+repair = "Wrap receipt_trace_one_past_limit_is_rejected_before_verification in backticks in its documentation."
+
+[lint.attempt_5.5]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_226.rs"
+line = 5
+name = "doc_markdown"
+repair = "Wrap receipt_trace_truncated_length_is_rejected in backticks in its documentation."
+
+[lint.attempt_5.6]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_226.rs"
+line = 6
+name = "doc_markdown"
+repair = "Wrap receipt_response_keeps_its_own_bound in backticks in its documentation."
+
+[lint.attempt_5.7]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_226.rs"
+line = 6
+name = "doc_markdown"
+repair = "Wrap receipt_graph_keeps_its_own_bound in backticks in its documentation."
+
+[lint.attempt_5.8]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_226.rs"
+line = 10
+name = "doc_markdown"
+repair = "Wrap verify_cmd in backticks in its documentation."
+
+[lint.attempt_5.9]
+file = "programs/crates/layerx-programs-runtime/tests/calldata_golden_vectors.rs"
+line = 424
+name = "unwrap_used"
+repair = "Match catch_unwind explicitly, retain its panic payload and all message assertions, and panic immediately if invalid generator syntax succeeds."
+
+[lint.attempt_5.10]
+file = "programs/crates/layerx-programs-runtime/tests/monetary_law.rs"
+line = 955
+name = "needless_pass_by_value"
+repair = "Borrow the authorized execution record in the private assertion helper and its three callers; preserve all authority refusal assertions."
+
+[gotcha.attempt_5_combined_test_target]
+observed = "The repair_22_33_230 target includes standalone test files as modules, causing three path declarations to load the same ABI support module within one crate and trigger duplicate_mod."
+repair = "Import the existing runtime test_support module from each test, with the original admission enumeration centralized there and the former support function path preserved by re-export."
+
+
+[qualification.attempt_5_final]
+outcome = "implemented_not_qualified"
+revision = "e17378a994362727afa1f9e711adea14f6671461"
+command = "cg spec done 22.39.235 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+verify_cmd_exit = 101
+build_evidence = "Matching-revision build row in /out/run/gates.jsonl: cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets, exit 0, /out/logs/build-2.log."
+dependents_evidence = "Matching-revision dependents row in /out/run/gates.jsonl: exit 0 for 51 selected crates, /out/logs/dependents-2.log."
+remaining_reported_lint_sites = 20
+repair_budget_consumed = 2
+stop_reason = "The runner counts each additional build and verify run as a repair slot; build-2 and verify-2 exhaust both slots, so no third gate run or further source repair is authorized."
+evidence_scope = "The exact revision names the candidate used by build-2 and verify-2. This appended final diagnostic inventory is post-gate bookkeeping and has not been built or qualified; zero remaining lints and completion are not claimed."
+
+[remaining.attempt_5.file_1]
+file = "programs/crates/layerx-programs-runtime/src/ffi_interface.rs"
+count = 1
+
+[remaining.attempt_5.file_2]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_259.rs"
+count = 1
+
+[remaining.attempt_5.file_3]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+count = 8
+
+[remaining.attempt_5.file_4]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_577.rs"
+count = 1
+
+[remaining.attempt_5.file_5]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+count = 9
+
+[remaining.attempt_5.lint_1]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+line = 2
+column = 32
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_5.lint_2]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+line = 3
+column = 5
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_5.lint_3]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+line = 6
+column = 30
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_5.lint_4]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+line = 7
+column = 5
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_5.lint_5]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+line = 7
+column = 40
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_5.lint_6]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+line = 9
+column = 5
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_5.lint_7]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+line = 12
+column = 74
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_5.lint_8]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+line = 13
+column = 80
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_5.lint_9]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_259.rs"
+line = 61
+column = 13
+name = "items_after_statements"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_5.lint_10]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_577.rs"
+line = 616
+column = 9
+name = "assigning_clones"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_5.lint_11]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+line = 2
+column = 29
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_5.lint_12]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+line = 2
+column = 52
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_5.lint_13]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+line = 3
+column = 5
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_5.lint_14]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+line = 3
+column = 30
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_5.lint_15]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+line = 4
+column = 5
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_5.lint_16]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+line = 6
+column = 30
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_5.lint_17]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+line = 13
+column = 28
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_5.lint_18]
+file = "programs/crates/layerx-programs-runtime/src/ffi_interface.rs"
+line = 292
+column = 9
+name = "match_same_arms"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_5.lint_19]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+line = 336
+column = 21
+name = "unwrap_used"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_5.lint_20]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+line = 481
+column = 60
+name = "needless_pass_by_value"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[gotcha.attempt_5_gate_budget]
+observed = "The gate runner computes repair usage as extra build runs plus extra verify runs; one required build-and-verify repair rerun pair consumes both available slots."
+repair = "Stop after the second verification result, preserve the exact gate evidence and record every remaining reported lint without attempting another gate or unqualified source repair."
+
+[continuation.attempt_6]
+starting_revision = "b8e4850b4acc6c52347c71187c8d48f8a64391b6"
+base_revision = "62a87b90a3ba40f6612f11b07a7cbee7a15e6bca"
+gotcha = "3969"
+reported_sites_repaired = 27
+scope = "Retain all carried runtime repairs and assertions; repair the twenty remaining diagnostics from attempt 5 without changing public signatures or lint levels."
+final_lint_count = "Reference: zero only when the final hf-done verify row in /out/run/gates.jsonl exits zero for the matching successful hf-build revision; otherwise its diagnostic log is authoritative."
+verified_revision = "Reference: revision of the final matching successful hf-build and hf-done rows in /out/run/gates.jsonl."
+build_evidence = "Reference: final matching-revision build row of /out/run/gates.jsonl, including command, exit and private log."
+verify_evidence = "Reference: final verify row of /out/run/gates.jsonl, including command, exit and private log."
+
+[continuation.attempt_6.lint_1]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+line = 2
+column = 32
+name = "doc_markdown"
+repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
+
+[continuation.attempt_6.lint_2]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+line = 3
+column = 5
+name = "doc_markdown"
+repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
+
+[continuation.attempt_6.lint_3]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+line = 6
+column = 30
+name = "doc_markdown"
+repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
+
+[continuation.attempt_6.lint_4]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+line = 7
+column = 5
+name = "doc_markdown"
+repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
+
+[continuation.attempt_6.lint_5]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+line = 7
+column = 40
+name = "doc_markdown"
+repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
+
+[continuation.attempt_6.lint_6]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+line = 9
+column = 5
+name = "doc_markdown"
+repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
+
+[continuation.attempt_6.lint_7]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+line = 12
+column = 74
+name = "doc_markdown"
+repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
+
+[continuation.attempt_6.lint_8]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+line = 13
+column = 80
+name = "doc_markdown"
+repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
+
+[continuation.attempt_6.lint_9]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_259.rs"
+line = 61
+column = 13
+name = "items_after_statements"
+repair = "Move the std::io::Write import before executable statements in DurableFile::save."
+
+[continuation.attempt_6.lint_10]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_577.rs"
+line = 616
+column = 9
+name = "assigning_clones"
+repair = "Use clone_from on the legacy linear-memory buffer, retaining the original memory for the later breakdown."
+
+[continuation.attempt_6.lint_11]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+line = 2
+column = 29
+name = "doc_markdown"
+repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
+
+[continuation.attempt_6.lint_12]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+line = 2
+column = 52
+name = "doc_markdown"
+repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
+
+[continuation.attempt_6.lint_13]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+line = 3
+column = 5
+name = "doc_markdown"
+repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
+
+[continuation.attempt_6.lint_14]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+line = 3
+column = 30
+name = "doc_markdown"
+repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
+
+[continuation.attempt_6.lint_15]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+line = 4
+column = 5
+name = "doc_markdown"
+repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
+
+[continuation.attempt_6.lint_16]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+line = 6
+column = 30
+name = "doc_markdown"
+repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
+
+[continuation.attempt_6.lint_17]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+line = 13
+column = 28
+name = "doc_markdown"
+repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
+
+[continuation.attempt_6.lint_18]
+file = "programs/crates/layerx-programs-runtime/src/ffi_interface.rs"
+line = 292
+column = 9
+name = "match_same_arms"
+repair = "Combine ABI 1 and non-dynamic ABI 2 into one DOMAIN arm after the dynamic ABI 2 guard; preserve every accepted domain and refusal."
+
+[continuation.attempt_6.lint_19]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+line = 336
+column = 21
+name = "unwrap_used"
+repair = "Match the execution Result explicitly, preserving failure on unexpected success and returning the same error to the unchanged refusal assertions."
+
+[continuation.attempt_6.lint_20]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+line = 481
+column = 60
+name = "needless_pass_by_value"
+repair = "Borrow the capability set in private composition_frame and its caller; retain the same canonical encoding and composition assertions."
+
+[qualification.attempt_6_initial]
+revision = "4f4c34d1acc26128d11025fa3c52b7d5d9ba0a02"
+command = "cg spec done 22.39.235 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+verify_cmd_exit = 101
+remaining_reported_lint_sites = 7
+repair = "Repair the seven reported runtime test-target sites, then run hf-build and hf-done on the same updated candidate."
+
+[gotcha.attempt_6_refusal_patterns]
+observed = "Replacing unwrap_err with a value-producing match whose success arm panics triggers manual_let_else in the all-targets Clippy gate."
+repair = "Use let Err(refusal) = operation else { panic!(...) }; to preserve unexpected-success failures and every exact refusal assertion."
+
+[continuation.attempt_6.lint_21]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_488.rs"
+line = 3
+name = "doc_markdown"
+repair = "Wrap host_ffi::publish_settlement in backticks in the documentation comment."
+
+[continuation.attempt_6.lint_22]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_488.rs"
+line = 150
+name = "manual_let_else"
+repair = "Use a refutable let-else error pattern; preserve the panic on unexpected success and all existing refusal and rollback assertions."
+
+[continuation.attempt_6.lint_23]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_488.rs"
+line = 168
+name = "manual_let_else"
+repair = "Use a refutable let-else error pattern; preserve the panic on unexpected success and all existing refusal and rollback assertions."
+
+[continuation.attempt_6.lint_24]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_488.rs"
+line = 184
+name = "manual_let_else"
+repair = "Use a refutable let-else error pattern; preserve the panic on unexpected success and all existing refusal and rollback assertions."
+
+[continuation.attempt_6.lint_25]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_488.rs"
+line = 208
+name = "manual_let_else"
+repair = "Use a refutable let-else error pattern; preserve the panic on unexpected success and all existing refusal and rollback assertions."
+
+[continuation.attempt_6.lint_26]
+file = "programs/crates/layerx-programs-runtime/tests/fee_governance.rs"
+line = 133
+name = "redundant_closure_for_method_calls"
+repair = "Pass DemandPriceAdjustment::resulting_schedule directly to Result::map; retain the complete Result equality assertion."
+
+[continuation.attempt_6.lint_27]
+file = "programs/crates/layerx-programs-runtime/tests/fee_governance.rs"
+line = 265
+name = "redundant_closure_for_method_calls"
+repair = "Pass DemandPriceAdjustment::resulting_schedule directly to Result::map; retain the complete Result equality assertion."
+
+[qualification.attempt_6_final]
+outcome = "implemented_not_qualified"
+revision = "18ff56120d1bb0fdf4e750b4d253a444ea1eddc4"
+command = "cg spec done 22.39.235 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+verify_cmd_exit = 101
+build_evidence = "Matching-revision build row in /out/run/gates.jsonl: cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets, exit 0, /out/logs/build-2.log."
+dependents_evidence = "Matching-revision dependents row in /out/run/gates.jsonl: exit 0 for all 51 selected crates, /out/logs/dependents-2.log."
+remaining_reported_lint_sites = 21
+repair_budget_consumed = 2
+stop_reason = "The runner counts the additional build and verify runs as the two repair slots; both are consumed, so stop without further source repairs or gate runs."
+evidence_scope = "The revision identifies the candidate built and verified by the final gates; this appended remaining-diagnostic inventory is post-gate bookkeeping and is not itself qualified."
+
+[remaining.attempt_6.file_1]
+file = "programs/crates/layerx-programs-runtime/tests/determinism.rs"
+count = 2
+
+[remaining.attempt_6.file_2]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+count = 3
+
+[remaining.attempt_6.file_3]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+count = 16
+
+[remaining.attempt_6.lint_1]
+file = "programs/crates/layerx-programs-runtime/tests/determinism.rs"
+line = 15
+column = 11
+name = "needless_pass_by_value"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_6.lint_2]
+file = "programs/crates/layerx-programs-runtime/tests/determinism.rs"
+line = 20
+column = 20
+name = "format_collect"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_6.lint_3]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+line = 443
+column = 17
+name = "unwrap_used"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_6.lint_4]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+line = 499
+column = 13
+name = "unwrap_used"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_6.lint_5]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 2
+column = 16
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_6.lint_6]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 3
+column = 5
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_6.lint_7]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 4
+column = 5
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_6.lint_8]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 5
+column = 5
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_6.lint_9]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 6
+column = 16
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_6.lint_10]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 7
+column = 5
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_6.lint_11]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 8
+column = 5
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_6.lint_12]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 9
+column = 5
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_6.lint_13]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 10
+column = 5
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_6.lint_14]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 11
+column = 5
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_6.lint_15]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 16
+column = 48
+name = "doc_markdown"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_6.lint_16]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+line = 627
+column = 23
+name = "unwrap_used"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_6.lint_17]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 70
+column = 9
+name = "unwrap_used"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_6.lint_18]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 78
+column = 9
+name = "unwrap_used"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_6.lint_19]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 122
+column = 17
+name = "unwrap_used"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_6.lint_20]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 152
+column = 21
+name = "unwrap_used"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_6.lint_21]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 165
+column = 5
+name = "assertions_on_constants"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[continuation.attempt_7]
+source_revision = "24dd6e16c37b179854048b54aaedba0176cd8d66"
+base_revision = "2860cad02046d39225295bf26281b61e9b59c124"
+gotcha = "3993"
+reported_lint_sites = 21
+repaired_lint_sites = 21
+scope = "Preserve the inherited repairs and repair only the 21 recorded sites in determinism.rs, repair_22_33_218.rs and repair_22_33_229.rs."
+qualification = "Reference: the matching candidate revision in the build and verify rows of /out/run/gates.jsonl; only a successful hf-done establishes zero remaining lints."
+
+[gotcha.attempt_7]
+observed = "The earlier all-targets Clippy gate reported 21 further test-target sites after the inherited library and integration repairs."
+repair = "Repair the recorded sites at source without changing public signatures, weakening assertions or lint levels, and qualify through hf-build followed by hf-done at the same candidate revision."
+
+[lint.attempt_7.site_1]
+file = "programs/crates/layerx-programs-runtime/tests/determinism.rs"
+line = 15
+column = 11
+name = "needless_pass_by_value"
+repair = "Borrow the case name as &str and borrow generated property names at their call sites; JSON case values are unchanged."
+
+[lint.attempt_7.site_2]
+file = "programs/crates/layerx-programs-runtime/tests/determinism.rs"
+line = 20
+column = 20
+name = "format_collect"
+repair = "Collect the high and low hexadecimal digit characters directly for every evidence byte, preserving two lowercase digits per byte without per-byte formatting."
+
+[lint.attempt_7.site_3]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+line = 443
+column = 17
+name = "unwrap_used"
+repair = "Match Err explicitly and panic on Ok while retaining the original error equality or substring assertion."
+
+[lint.attempt_7.site_4]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+line = 499
+column = 13
+name = "unwrap_used"
+repair = "Match Err explicitly and panic on Ok while retaining the original error equality or substring assertion."
+
+[lint.attempt_7.site_5]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 2
+column = 16
+name = "doc_markdown"
+repair = "Enclose the documented Rust identifier in code marks without changing its meaning."
+
+[lint.attempt_7.site_6]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 3
+column = 5
+name = "doc_markdown"
+repair = "Enclose the documented Rust identifier in code marks without changing its meaning."
+
+[lint.attempt_7.site_7]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 4
+column = 5
+name = "doc_markdown"
+repair = "Enclose the documented Rust identifier in code marks without changing its meaning."
+
+[lint.attempt_7.site_8]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 5
+column = 5
+name = "doc_markdown"
+repair = "Enclose the documented Rust identifier in code marks without changing its meaning."
+
+[lint.attempt_7.site_9]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 6
+column = 16
+name = "doc_markdown"
+repair = "Enclose the documented Rust identifier in code marks without changing its meaning."
+
+[lint.attempt_7.site_10]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 7
+column = 5
+name = "doc_markdown"
+repair = "Enclose the documented Rust identifier in code marks without changing its meaning."
+
+[lint.attempt_7.site_11]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 8
+column = 5
+name = "doc_markdown"
+repair = "Enclose the documented Rust identifier in code marks without changing its meaning."
+
+[lint.attempt_7.site_12]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 9
+column = 5
+name = "doc_markdown"
+repair = "Enclose the documented Rust identifier in code marks without changing its meaning."
+
+[lint.attempt_7.site_13]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 10
+column = 5
+name = "doc_markdown"
+repair = "Enclose the documented Rust identifier in code marks without changing its meaning."
+
+[lint.attempt_7.site_14]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 11
+column = 5
+name = "doc_markdown"
+repair = "Enclose the documented Rust identifier in code marks without changing its meaning."
+
+[lint.attempt_7.site_15]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 16
+column = 48
+name = "doc_markdown"
+repair = "Enclose the documented Rust identifier in code marks without changing its meaning."
+
+[lint.attempt_7.site_16]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+line = 627
+column = 23
+name = "unwrap_used"
+repair = "Match Err explicitly and panic on Ok while retaining the original error equality or substring assertion."
+
+[lint.attempt_7.site_17]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 70
+column = 9
+name = "unwrap_used"
+repair = "Match Err explicitly and panic on Ok while retaining the original error equality or substring assertion."
+
+[lint.attempt_7.site_18]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 78
+column = 9
+name = "unwrap_used"
+repair = "Match Err explicitly and panic on Ok while retaining the original error equality or substring assertion."
+
+[lint.attempt_7.site_19]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 122
+column = 17
+name = "unwrap_used"
+repair = "Match Err explicitly and panic on Ok while retaining the original error equality or substring assertion."
+
+[lint.attempt_7.site_20]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 152
+column = 21
+name = "unwrap_used"
+repair = "Match Err explicitly and panic on Ok while retaining the original error equality or substring assertion."
+
+[lint.attempt_7.site_21]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+line = 165
+column = 5
+name = "assertions_on_constants"
+repair = "Assert the same payload ceiling against the computed transport length after asserting that length equals MAX_CALLDATA_BYTES; retain the strict decoded-size bound."
+
+[qualification.attempt_7.initial]
+revision = "e0294a537a7e1c5cc8a7759590fdf2f6f9980350"
+build_command = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+verify_command = "cg spec done 22.39.235 -f layerx-merge --root /work/paxeer-monorepo"
+verify_exit = 1
+verify_log = "/out/logs/verify-1.log"
+remaining_unique_lint_sites = 10
+remaining_by_file = ["tests/repair_22_31_573.rs: 3", "tests/calldata_golden_vectors.rs: 1 (also compiled by tests/repair_22_33_230.rs)", "tests/repair_22_33_227.rs: 6"]
+repair = "Repair the additional crate-local Clippy diagnostics during the permitted qualification repair cycle; repeat hf-build and hf-done on the final candidate."
+
+[gotcha.attempt_7.qualification]
+observed = "The first hf-done exposed ten more crate-local lint sites, including one production-source include compiled by two integration targets."
+repair = "Repair each reported site at its source and record the shared include without weakening or deleting either target."
+
+[lint.attempt_7.qualification_1]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_573.rs"
+line = 292
+column = 5
+name = "items_after_statements"
+repair = "Move the std::io::Write import to the start of the existing function; retain its output and assertions."
+
+[lint.attempt_7.qualification_2]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_573.rs"
+line = 251
+column = 17
+name = "unwrap_used"
+repair = "Extract Err with let-else and panic on Ok; retain the exact witness-bound refusal assertions and storage check."
+
+[lint.attempt_7.qualification_3]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_573.rs"
+line = 360
+column = 5
+name = "items_after_statements"
+repair = "Move the std::io::Write import to the start of the existing function; retain its output and assertions."
+
+[lint.attempt_7.qualification_4]
+file = "programs/crates/layerx-programs-runtime/tests/calldata_golden_vectors.rs"
+line = 424
+column = 9
+name = "manual_let_else"
+repair = "Use let-else to extract the caught panic with the same failure message and both original panic-message assertions; this also repairs the included source in repair_22_33_230.rs."
+
+[lint.attempt_7.qualification_5]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs"
+line = 2
+column = 21
+name = "doc_markdown"
+repair = "Enclose the documented test identifier in code marks without changing its meaning."
+
+[lint.attempt_7.qualification_6]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs"
+line = 3
+column = 5
+name = "doc_markdown"
+repair = "Enclose the documented test identifier in code marks without changing its meaning."
+
+[lint.attempt_7.qualification_7]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs"
+line = 3
+column = 53
+name = "doc_markdown"
+repair = "Enclose the documented test identifier in code marks without changing its meaning."
+
+[lint.attempt_7.qualification_8]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs"
+line = 4
+column = 9
+name = "doc_markdown"
+repair = "Enclose the documented test identifier in code marks without changing its meaning."
+
+[lint.attempt_7.qualification_9]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs"
+line = 5
+column = 28
+name = "doc_markdown"
+repair = "Enclose the documented test identifier in code marks without changing its meaning."
+
+[lint.attempt_7.qualification_10]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs"
+line = 6
+column = 5
+name = "doc_markdown"
+repair = "Enclose the documented test identifier in code marks without changing its meaning."
+
+[qualification.attempt_7.final]
+status = "implemented_not_qualified"
+revision = "38648ef9461a2418175b352a7f4bf4a75dc2cd5d"
+build_command = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets"
+build_exit = 0
+build_log = "/out/logs/build-2.log"
+verify_command = "cg spec done 22.39.235 -f layerx-merge --root /work/paxeer-monorepo"
+verify_exit = 1
+verify_cmd_exit = 101
+verify_log = "/out/logs/verify-2.log"
+reported_remaining_lint_sites = 3
+remaining_by_file = ["programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs: 3 manual_let_else"]
+stop_reason = "Runner counts the second build and second verification as the two permitted repair reruns; no further gate run is allowed."
+record_scope = "This final diagnostic record was appended after the bounded gate result; no source was repaired after that result and the recorded revision identifies the exact checked candidate."
+
+[gotcha.attempt_7.bounded_stop]
+observed = "Explicit two-arm error matches added for three unwrap_err repairs trigger manual_let_else once Clippy reaches this integration target."
+repair = "A future authorized continuation should extract Err with let-else at the three reported sites while retaining all refusal assertions; the spent gate budget prohibits further repairs or qualification in this attempt."
+
+[remaining.attempt_7.lint_1]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+line = 443
+column = 9
+name = "manual_let_else"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_7.lint_2]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+line = 501
+column = 5
+name = "manual_let_else"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_7.lint_3]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+line = 631
+column = 9
+name = "manual_let_else"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[repair.attempt_8]
+decision = "3139"
+gotcha = "4028"
+starting_revision = "56fc622cfe8553b2ccf38c961c45e97f64d04530"
+scope = "Preserve the attempt-7 tree and rewrite only the three reported refusal bindings as let-else, retaining each existing panic message and assertion."
+build_evidence = "Reference: the attempt-8 build row in /out/run/gates.jsonl records the candidate revision, command, exit code and private log."
+verify_evidence = "Reference: the matching-revision attempt-8 verify row in /out/run/gates.jsonl records cg spec done, its exit code and private log; exit zero qualifies zero remaining crate lints."
+
+[lint.attempt_8.site_1]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+line = 443
+column = 9
+name = "manual_let_else"
+repair = "Bind Err(refusal) with let-else around programs_trace_runner_artifact; panic with the existing oversized provenance message on Ok and retain the bound assertion."
+
+[lint.attempt_8.site_2]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+line = 501
+column = 5
+name = "manual_let_else"
+repair = "Bind Err(refusal) with let-else around TraceRunnerArtifact::from_canonical_bytes; panic with the existing oversized evidence message on Ok and retain the evidence-bound assertion."
+
+[lint.attempt_8.site_3]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+line = 631
+column = 9
+name = "manual_let_else"
+repair = "Bind Err(refusal) with let-else around invoke_composed_for_qualification; panic with the existing composition revision message on Ok and retain the storage and refusal assertions."
+
+[qualification.attempt_8.initial]
+revision = "883f6ea98f86003cd02912e0f61f16657ed065b1"
+build_command = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+verify_command = "cg spec done 22.39.235 -f layerx-merge --root /work/paxeer-monorepo"
+verify_exit = 1
+verify_cmd_exit = 101
+verify_log = "/out/logs/verify-1.log"
+remaining_unique_lint_sites = 2
+remaining_by_file = ["programs/crates/layerx-programs-runtime/tests/proof_runtime_crate.rs: 2 doc_markdown"]
+repair = "Add backticks around the two code paths reported in the first doc-comment line; repeat hf-build and hf-done on the final candidate."
+
+[gotcha.attempt_8.qualification]
+observed = "After the three refusal bindings compile cleanly, all-targets Clippy reports two doc_markdown errors in the proof_runtime_crate integration target."
+repair = "Mark both reported code paths as inline code without changing executable code or assertions."
+
+[lint.attempt_8.qualification_1]
+file = "programs/crates/layerx-programs-runtime/tests/proof_runtime_crate.rs"
+line = 1
+column = 36
+name = "doc_markdown"
+repair = "Enclose AbiEffects::canonical_program_event_envelope/AbiEffects::program_event_logs in backticks."
+
+[lint.attempt_8.qualification_2]
+file = "programs/crates/layerx-programs-runtime/tests/proof_runtime_crate.rs"
+line = 1
+column = 115
+name = "doc_markdown"
+repair = "Enclose transfer::parse_event_envelope/ProgramEventLog::write_encoded in backticks."
+
+[qualification.attempt_8.final]
+status = "implemented_not_qualified"
+revision = "5d606807b0c98271b1ef2aed9e7a4f9726bf9ea8"
+build_command = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets"
+build_exit = 0
+build_log = "/out/logs/build-2.log"
+verify_command = "cg spec done 22.39.235 -f layerx-merge --root /work/paxeer-monorepo"
+verify_exit = 1
+verify_cmd_exit = 101
+verify_log = "/out/logs/verify-2.log"
+reported_remaining_lint_sites = 1
+remaining_by_file = ["programs/crates/layerx-programs-runtime/tests/program_replay.rs: 1 range_plus_one"]
+stop_reason = "The runner counts the second build and second verification as its two permitted repair reruns; no further source repair or gate run is allowed."
+record_scope = "This diagnostic record is appended after the bounded gate result; the named revision identifies the checked candidate, and no source is repaired after that result."
+
+[remaining.attempt_8.lint_1]
+file = "programs/crates/layerx-programs-runtime/tests/program_replay.rs"
+line = 256
+column = 28
+name = "range_plus_one"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+observed = "changed.splice(offset..offset + 1, replacement) is refused; Clippy suggests the equivalent inclusive range offset..=offset."
+
+[gotcha.attempt_8.bounded_stop]
+observed = "After repairing the proof target's doc-markdown sites, all-targets Clippy reaches one more range_plus_one site in program_replay.rs."
+repair = "A future authorized continuation can replace the reported range with its inclusive equivalent while preserving assertions; the spent budget prohibits that repair and further qualification in this attempt."
+
+[repair.attempt_9]
+gotcha = "4038"
+starting_revision = "a746cb12c7d8"
+scope = "Preserve prior repairs, use the equivalent inclusive splice range, and repair the two web_read test-target lints exposed by qualification without changing assertions."
+build_evidence = "Reference: the final attempt-9 build row in /out/run/gates.jsonl records revision, command, exit and private log."
+verify_evidence = "Reference: the matching-revision final attempt-9 verify row in /out/run/gates.jsonl records cg spec done, exit and private log."
+remaining_count_evidence = "A passing final verify row qualifies zero remaining crate and test-target lints under -D warnings."
+
+[lint.attempt_9.site_1]
+file = "programs/crates/layerx-programs-runtime/tests/program_replay.rs"
+line = 256
+name = "range_plus_one"
+repair = "Use offset..=offset to replace exactly the same single byte."
+
+[qualification.attempt_9.initial]
+revision = "3428ba1f5c03ebf993e34a6b1550e13c0badc4f5"
+build_command = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+verify_command = "cg spec done 22.39.235 -f layerx-merge --root /work/paxeer-monorepo"
+verify_exit = 1
+verify_cmd_exit = 101
+verify_log = "/out/logs/verify-1.log"
+reported_remaining_lint_sites = 2
+remaining_by_file = ["programs/crates/layerx-programs-runtime/tests/web_read.rs: 1 format_push_string, 1 format_collect"]
+
+[lint.attempt_9.site_2]
+file = "programs/crates/layerx-programs-runtime/tests/web_read.rs"
+line = 370
+name = "format_push_string"
+repair = "Encode the complete byte vector with hex::encode, preserving lowercase two-digit hexadecimal and the trailing newline."
+
+[lint.attempt_9.site_3]
+file = "programs/crates/layerx-programs-runtime/tests/web_read.rs"
+line = 389
+name = "format_collect"
+repair = "Encode the SHA-256 digest with hex::encode, preserving the frozen checksum assertion and lowercase two-digit hexadecimal."
+
+[gotcha.attempt_9.qualification]
+observed = "After the inclusive-range repair, all-targets Clippy exposes format_push_string and format_collect in the web_read integration target."
+repair = "Use the existing hex dependency to encode identical bytes without per-byte format allocations."
+
+[qualification.attempt_9.final]
+status = "implemented_not_qualified"
+revision = "141950edd770c412e29eb795cf0300b3d0145897"
+build_command = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets"
+build_exit = 0
+build_log = "/out/logs/build-2.log"
+verify_command = "cg spec done 22.39.235 -f layerx-merge --root /work/paxeer-monorepo"
+verify_exit = 1
+verify_cmd_exit = 101
+verify_log = "/out/logs/verify-2.log"
+reported_remaining_lint_sites = 2
+remaining_by_file = ["programs/crates/layerx-programs-runtime/tests/repair_22_31_566.rs: 2 unwrap_used"]
+stop_reason = "The second build and second verification consume the two permitted repair reruns; no further source repair or gate run is allowed."
+record_scope = "This diagnostic record is appended after the bounded gate result; the named revision identifies the checked candidate, and no executable source is changed after that result."
+
+[remaining.attempt_9.lint_1]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_566.rs"
+line = 128
+column = 9
+name = "unwrap_used"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[remaining.attempt_9.lint_2]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_566.rs"
+line = 160
+column = 9
+name = "unwrap_used"
+status = "Unrepaired at bounded stop; runner repair budget exhausted."
+
+[gotcha.attempt_9.bounded_stop]
+observed = "After the web_read hexadecimal repairs, all-targets Clippy reports two unwrap_err calls in repair_22_31_566.rs."
+repair = "A future authorized continuation must preserve the asserted error variants while removing the two unwrap_err calls; this attempt stops with its repair budget exhausted."
+
+[repair.attempt_10]
+gotcha = "4058"
+starting_revision = "693a252c2d98df3ec9184165406ca464b0d6d8fd"
+scope = "Replace only the two reported unwrap_err calls with borrowed Err let-else bindings that panic with the unexpected Ok value; preserve every assertion and prior repair."
+build_evidence = "Reference: the attempt-10 build row in /out/run/gates.jsonl records the candidate revision, exact command, exit code and private log."
+verify_evidence = "Reference: the matching-revision attempt-10 verify row in /out/run/gates.jsonl records cg spec done, exit code and private log."
+remaining_count_evidence = "The final exit-zero all-targets Clippy verification qualifies zero remaining crate and test-target lints; a failing gate leaves that count unqualified."
+
+[lint.attempt_10.site_1]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_566.rs"
+line = 128
+name = "unwrap_used"
+repair = "Bind the borrowed Err variant with let-else, panic with the unexpected Ok value, and assert the same replay-bound error and captured status."
+
+[lint.attempt_10.site_2]
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_566.rs"
+line = 160
+name = "unwrap_used"
+repair = "Bind the borrowed Err variant with let-else, panic with the unexpected Ok value, and assert the same trace-policy error and captured status."

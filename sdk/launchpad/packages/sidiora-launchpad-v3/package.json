@@ -6,8 +6,14 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./abis": "./src/abis.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./abis": {
+      "types": "./src/abis.ts",
+      "default": "./src/abis.ts"
+    }
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

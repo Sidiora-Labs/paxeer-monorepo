@@ -48,7 +48,7 @@ impl PreparedPayment {
     }
 }
 
-impl<'Wallet> Wallet<'Wallet> {
+impl Wallet<'_> {
     #[must_use]
     pub const fn token(&self) -> &Self {
         self
@@ -221,6 +221,9 @@ impl<'Wallet> Wallet<'Wallet> {
         Ok(receipt)
     }
 
+    /// # Errors
+    ///
+    /// Preserves receipt lookup, timeout and verification errors from the RPC client when the receipt or supplied commit evidence cannot be authenticated.
     pub fn wait_for_with_commit(
         &self,
         activity: [u8; 32],
@@ -369,14 +372,15 @@ impl<'Wallet> Wallet<'Wallet> {
     pub async fn execute(
         &self,
         prepared: PreparedPayment,
-        _options: &PaymentOptions,
+        options: &PaymentOptions,
     ) -> Result<[u8; 32], RpcError> {
-        self.execute_signed(prepared, _options)
+        self.execute_signed(prepared, options)
             .await
             .map(|(hash, _)| hash)
     }
 
-    /// Submits once and retains the exact signed transaction for receipt binding.
+    /// Signs the disclosed EIP-1559 call with the signer's secp256k1 key,
+    /// submits once and retains the exact signed transaction for receipt binding.
     async fn execute_signed(
         &self,
         prepared: PreparedPayment,

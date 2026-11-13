@@ -15,45 +15,59 @@ The node URL names the node root, with an explicitly checked chain ID.
 Keep the host signing key and node credentials in the existing private key
 configuration; room pages and browser configuration must not contain them.
 
-The inference-market profile reads the settings below.
-They are loaded by [InferenceConfig](../../../services/agent/crates/layerx-agentd/src/config.rs).
+The inference-market profile reads the settings below through
+[InferenceConfig](../../../services/agent/crates/layerx-agentd/src/config.rs) and
+the [daemon boot path](../../../services/agent/crates/layerx-agentd/src/main.rs).
 
 | Variable | Meaning |
 | --- | --- |
 | `LAYERX_AGENT_MODE` | `inference-market` |
-| `LAYERX_AGENT_INFERENCE_SIGNAL_LISTEN` | WebSocket signalling bind, default `127.0.0.1:8790` |
-| `LAYERX_AGENT_INFERENCE_SERVE_LISTEN` | Completion bind, default `127.0.0.1:8791` |
+| `LAYERX_AGENT_INFERENCE_SIGNAL_LISTEN` | WebSocket signalling socket address, default loopback port `8790` |
+| `LAYERX_AGENT_INFERENCE_SERVE_LISTEN` | Completion socket address, default loopback port `8791` |
 | `LAYERX_AGENT_INFERENCE_MODEL_DIGEST` | Digest of the model served by this room |
 | `LAYERX_AGENT_INFERENCE_RUNTIME_DIGEST` | Digest of the exact inference runtime |
-| `LAYERX_AGENT_INFERENCE_ROOM_PROFILE` | Path to the implementation's room profile file |
+| `LAYERX_AGENT_INFERENCE_ROOM_PROFILE` | Path to the JSON `RoomOffer` read at startup |
+| `LAYERX_AGENT_INFERENCE_DRAFT_RUNTIME_KIND` | Optional manifest runtime kind marking draft-capable peers: `0`, `1` or `2`. Unset disables speculative slots; other values reject startup. |
 
-With the required digests, profile file and existing daemon settings already
+With the required digests, room-offer file and existing daemon settings already
 configured, start the profile with:
 
 ```sh
 LAYERX_AGENT_MODE=inference-market layerx-agentd
 ```
 
-Use the release's profile schema for minimum bond, lap size, canary ratio,
-challenge/slash policy, payout shares, settlement account and serving limits.
-There is no supported sample profile schema yet. Configuration rejects missing,
-zero or malformed digests; each must be a nonzero 32-byte hexadecimal value.
-Boot checks node readiness, program authority and F11 availability before
-starting either listener. A successful generic agent compatibility check does
-not establish F11 support.
+The file named by `LAYERX_AGENT_INFERENCE_ROOM_PROFILE` is decoded as
+[`RoomOffer`](../../../services/agent/crates/layerx-agentd/src/inference_market/signal.rs):
+`room_id`, `model_digest`, `runtime_digest`, `layer_plan` and `price`.
+The IDs and digests are 32-byte JSON arrays. Each layer assignment has
+`peer_key`, `first_layer` and exclusive `end_layer`; `price` is a canonical
+unsigned decimal string. The file is nonempty and at most 65536 bytes.
+The on-chain `RoomProfile` is a separate binary policy containing bond,
+settlement and serving limits; see the [protocol guide](protocol.md).
+
+Configuration rejects missing, zero or malformed digest environment values;
+each must encode a nonzero 32-byte hexadecimal value. Boot checks node
+readiness, program authority and F11 availability before starting listeners.
+A generic agent compatibility check alone does not establish F11 support.
 
 ## Enrol the host and peers
 
-The host builds a v2 capability manifest from measured memory, bandwidth,
-configured region, attestation family and daemon runtime kind, then submits
-enrolment through the ai-market client and waits for acceptance finality.
+Optional host self-enrolment reads a signed document from
+`LAYERX_AGENT_INFERENCE_ENROLMENT`. It measures the v2 capability manifest
+using `LAYERX_AGENT_INFERENCE_REGION`,
+`LAYERX_AGENT_INFERENCE_ATTESTATION_FAMILY` and
+`LAYERX_AGENT_INFERENCE_BANDWIDTH_PROBE`, submits through the ai-market client
+and waits for finality. The enrolment service persists its journal at
+`LAYERX_AGENT_INFERENCE_ENROLMENT_JOURNAL`.
 LockBond must succeed before PostBid at the configured price quote. A peer's
 bid capability digest must match its enrolled manifest.
 
-The planned native peer command interface provides `join <host> <room>`,
-`serve` and `status`. The peer signs its own enrolment, even when the host
-relays it through `enrol_peer(manifest, quote)`; it does not give its private
-key to the host. Join may provide an attestation envelope file. Only the
+The [native peer CLI](../../../apps/inference-peer/README.md) provides `join <host> <room>`,
+`serve` and `status`. With `--enrolment <signed-json-file>`, join sends the peer's
+signed enrolment document to `POST /enrol_peer` on the signalling listener.
+The host relays the signed document when its enrolment service is configured;
+the peer retains its private key. `--attestation <file>` checks a binding
+envelope locally before enrolment or hello. Only the
 development envelope is accepted; see the [threat statement](threats.md).
 
 Peers connect to the signalling listener with a hello carrying a peer key,
@@ -61,7 +75,7 @@ signature over room ID and nonce, and v2 manifest. The host checks enrolment,
 signature and manifest digest and returns the chain-anchored room offer with
 model/runtime digests, layer plan and price. Verify that offer against the
 chain before accepting it. Signalling relays WebRTC descriptions and ICE
-candidates; model computation travels over peer data channels. Planned limits
+candidates; model computation travels over peer data channels. The limits
 are 64 connections and 65536 bytes per signalling frame.
 
 ## Open a room and admit work
@@ -77,6 +91,18 @@ RecordDeal binds the ask, ordered bids, price, layer plan and current roster
 digest. Wait for chain finality and every peer's signed acknowledgement before
 generation. A missing acknowledgement requires a new plan; a stale roster or
 unfunded ask refuses the record.
+
+Completion requests queue separately for each room at its profile's
+positive `queue_depth`; it has no implicit default. The host rotates fairly between
+asks, preserves arrival order within each ask, and runs at most one request
+per ask at a time. Each room has one generation slot and up to four additional
+speculative slots. A speculative request requires a peer in its live deal whose
+enrolled manifest advertises the configured draft runtime kind; the host checks
+that binding again before serving. Runtime kinds are numeric values without a
+protocol-defined draft designation, so set the optional variable only to the
+kind used for draft models by your peers. Without it, rooms use only the single
+generation slot. A full waiting queue returns HTTP 429 with `Retry-After: 1`
+on both completion routes.
 
 ## Fund, settle and claim
 
@@ -95,8 +121,10 @@ signatures and reveal evidence through the challenge window.
 Apply SplitPayout to eligible settlement with no open challenge. Read the reward
 ledger for the credited epoch and connected peer; submit CLAIM (`0x0602`)
 through the existing signed write path and verify its result. An estimated
-earning or a submitted claim is not a paid claim. Close remaining deals before
-CloseRoom; RefundBond waits for the challenge window and returns only the
+earning or a submitted claim is not a paid claim. In the active room's bond
+settlement path, CloseRoom requires every deal's payout to be complete and
+all challenges resolved, then marks its deals settled. RefundBond waits for
+room closure and the applicable challenge windows, and returns only the
 unslashed remainder. See [protocol accounting](protocol.md#payout-split-and-bonds).
 
 ## Recovery and service limits

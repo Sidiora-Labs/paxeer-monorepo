@@ -1,0 +1,30 @@
+[repair.22.39.354]
+base = "82bcc6da120fdf8cec06dc8fb1b79bd74c7f2870"
+continued_tree = "da0a2a0815a67ac82a4dee8bb8fbcac4b1fa7695"
+mode = "BUILD"
+status = "implementation-complete; current qualification is recorded by the bounded gates in the private evidence ledger"
+sdk_version = "10.0.403"
+target_framework = "net10.0"
+baseline = "Gotcha 4161 records SYSLIB0057 at AgentOperationEnvelopeTests.cs:82 under SDK 10.0.403; no baseline build was repeated because the task requires complete implementation before its bounded gates."
+evidence = "The private hf-build/hf-done ledger at /out/run/gates.jsonl names the exact candidate revision, command, exit code and log for each gate; no unexecuted gate is claimed."
+
+[site.certificate-loader]
+file = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/AgentOperationEnvelopeTests.cs"
+line = 82
+symbol = "AgentOperationEnvelopeTests.Load"
+diagnostic = "SYSLIB0057"
+change = "Replace new X509Certificate2(byte[]) with X509CertificateLoader.LoadCertificate over the same File.ReadAllBytes(AbsoluteFile(root, ca_der)) bytes."
+preserved = "The ca_pem branch, absolute-file validation, certificate ownership and disposal, every existing test and assertion, net10.0 and TreatWarningsAsErrors are unchanged."
+
+[qualification]
+build_command = "dotnet build sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj"
+verify_command = "test -s sdk/platform/dotnet/repair_22_39_354.kvx && dotnet test sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --filter 'FullyQualifiedName~DirectDaemonSurfaceRefusesPlaintextAndMissingClientCertificateBeforeSending'"
+previous_attempt_tested_revision = "71fb7b5b4736210e9c944b0df1fd8736c40fa1af"
+previous_attempt_build_result = "PASS under SDK 10.0.403: exit 0, zero warnings and zero errors; /out/logs/build-1.log. No further target-framework diagnostics were reported."
+done_command = "cg spec done 22.39.354 -f layerx-merge --root /work/paxeer-monorepo"
+current_evidence = "The final hf-build and hf-done entries in /out/run/gates.jsonl name the verified candidate revision, exact commands, exit codes and private logs; this record is finalized before those gates so both qualify the same candidate."
+probe_cases = "Per decision 3238, the five case-file-dependent envelope probe cases belong to the envelope programme and are outside this task verification; their test source and assertions remain unchanged."
+
+[case.DirectDaemonSurfaceRefusesPlaintextAndMissingClientCertificateBeforeSending]
+previous_attempt_result = "PASS; plaintext, missing-client-certificate and redirecting-handler refusals retain all existing assertions."
+current_result = "Selected by the declared verify_command; the current result and verified revision are recorded by hf-done in /out/run/gates.jsonl and its private verification log."

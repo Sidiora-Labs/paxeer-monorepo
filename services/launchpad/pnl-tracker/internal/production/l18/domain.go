@@ -17,7 +17,7 @@ var (
 )
 
 const RuleVersion = "l18-v1"
-const ManifestDigest = "a35ff7c6f532d2f92e4ca59e4ef2cf0a105d551ae9ac3eba68b95f79a355df4a"
+const ManifestDigest = "6ec466f0cade69ad3da3ea55485afe6d13ec47722bba46864df156ea0900ee6b"
 const ChainID = 125
 const USDL = "0x85fcd13735f4309833a503ee804ea32395851479"
 const FeesRouter = "0x05681da6f611c2dffd3e92611f6de2d247647927"
@@ -115,7 +115,7 @@ type Capability struct {
 }
 
 func StrategyCapability(strategy uint8, snapshotSupported bool) Capability {
-	names := []string{"CLAIM", "BURN", "AIRDROP", "LP_REWARDS"}
+	names := []string{eventClaim, "BURN", "AIRDROP", "LP_REWARDS"}
 	c := Capability{DeploymentVersion: ManifestDigest}
 	if int(strategy) >= len(names) {
 		c.Strategy = "UNSUPPORTED"

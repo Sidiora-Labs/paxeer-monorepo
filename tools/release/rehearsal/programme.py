@@ -580,6 +580,7 @@ ABI_PATHS = {
     "share": "precompiles/spot/abi/share.json",
 }
 LAUNCHPAD_ABI_ROLES = (
+    "ChainLaunch",
     "FeeAccumulator",
     "FeesRouter",
     "PoolRegistry",
@@ -1538,10 +1539,15 @@ def buy_pool_token(net, wallet, pool, usdl_in):
 
 
 def check_launchpad_interface(net):
-    """1.1: every function of every generation 2 role answers at HR+1 as the contract answered at HR."""
+    """1.1: every launchpad role answers at HR+1 as it answered at HR."""
     pool = first_gen2_pool(net)
     token = net.one(pool, abi("SidioraPool").fn("tokenAddress"), block=net.halt)
-    targets = dict(LAUNCHPAD_ROLES, SidioraPool=pool, SidioraERC20=token)
+    targets = dict(
+        LAUNCHPAD_ROLES,
+        SidioraPool=pool,
+        SidioraERC20=token,
+        ChainLaunch=LAUNCHPAD,
+    )
     golden = {(role, sig): ident for role, sig, ident in launchpad_golden()}
     golden_topics = launchpad_golden_topics()
     differences, compared = [], 0
@@ -3082,6 +3088,10 @@ def check_plan_and_version(net):
                 raise CheckFailed("retired custody depositCount succeeded after merge")
             endpoint = urllib.parse.urlsplit(node.evm_url)
             root_url = urllib.parse.urlunsplit(endpoint._replace(path="/", query="", fragment=""))
+            require(
+                rpc(root_url, "eth_chainId", []) == "0x7d",
+                f"node {node.index} public JSON-RPC root requires chain id 0x7d",
+            )
             network = rpc(root_url, "px_getNetwork", [])
             require(
                 isinstance(network, dict) and bool(network.get("network_id"))

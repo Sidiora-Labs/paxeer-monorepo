@@ -3,6 +3,7 @@ package keeper
 import (
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
@@ -131,6 +132,28 @@ func (k *Keeper) FeeRightOwnerOf(ctx sdk.Context, collection common.Address, id 
 		return common.Address{}, err
 	}
 	return common.HexToAddress(right.Owner), nil
+}
+
+// launchedChainFeeRightOwner reads the current owner of a launch market's fee right.
+func (k *Keeper) launchedChainFeeRightOwner(ctx sdk.Context, record types.LaunchedChain) (common.Address, error) {
+	pool := common.HexToAddress(record.Pool)
+	surface, found, err := k.GetSurface(ctx, pool)
+	if err != nil {
+		return common.Address{}, err
+	}
+	if !found || surface.Role != types.RolePool {
+		return common.Address{}, types.ErrNotLaunchedChain
+	}
+	market, found := k.GetMarket(ctx, surface.Market)
+	if !found || common.HexToAddress(market.PoolAddress) != pool || market.FeeRightID != record.FeeRightID ||
+		!common.IsHexAddress(market.FeeRightCollection) {
+		return common.Address{}, types.ErrNotLaunchedChain
+	}
+	owner, err := k.FeeRightOwnerOf(ctx, common.HexToAddress(market.FeeRightCollection), market.FeeRightID)
+	if errors.Is(err, types.ErrTokenNotFound) {
+		return common.Address{}, types.ErrNotFeeRightHolder
+	}
+	return owner, err
 }
 
 // FeeRightBalanceOf is balanceOf(address).

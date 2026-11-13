@@ -1,7 +1,7 @@
-// Package testvectors loads the cross-implementation fixture emitted by
-// services/agent/crates/layerx-client/examples/go_verifier_vectors.rs. Every verdict in
-// the fixture is the answer of the Rust verifier, never of this repository's
-// Go code.
+// Package testvectors loads the cross-implementation fixture emitted by the
+// historical go_verifier_vectors.rs recorder, with state verdicts refreshed by
+// layerxproof/testdata/record_state_vectors.py from the production Rust verifier.
+// Every verdict is the answer of Rust verification, never of Go verification.
 package testvectors
 
 import (

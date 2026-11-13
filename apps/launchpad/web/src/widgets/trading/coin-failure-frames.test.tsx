@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * The coin page when the snapshot fails (not a 404): the URL already names the pool, so the header
  * frame, chart card, trade panel, coin tabs and the mobile trade CTA must all render, with only the
@@ -7,7 +8,6 @@
  */
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { createRequire } from 'node:module';
 import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
 import { afterAll, describe, expect, it, vi } from 'vitest';
@@ -20,21 +20,9 @@ vi.mock('next/image', async importOriginal => {
   return { ...mod, default: cjs && typeof cjs === 'object' && 'default' in cjs ? cjs.default : mod.default };
 });
 
-interface BrowserDom { window: Window & typeof globalThis }
-type JsdomModule = { JSDOM: new (html: string, options: { url: string; pretendToBeVisual: boolean }) => BrowserDom };
-const { JSDOM } = createRequire(import.meta.url)('jsdom') as JsdomModule;
-const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', { url: 'http://localhost:3000', pretendToBeVisual: true });
-const browserGlobals = globalThis as unknown as Record<string, unknown>;
-for (const key of Object.getOwnPropertyNames(dom.window)) {
-  if (key in globalThis || key.startsWith('_')) continue;
-  const value = (dom.window as unknown as Record<string, unknown>)[key];
-  browserGlobals[key] = typeof value === 'function' && !/^[A-Z]/.test(key) ? value.bind(dom.window) : value;
-}
-browserGlobals.Event = dom.window.Event;
-browserGlobals.CustomEvent = dom.window.CustomEvent;
-browserGlobals.window = dom.window;
-browserGlobals.document = dom.window.document;
-browserGlobals.IS_REACT_ACT_ENVIRONMENT = true;
+// Next selects its client-only loader when its module initializes. Let Vitest
+// install the browser environment before imports, as it does in the browser.
+(globalThis as unknown as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
 
 const pool = '0xce20da50f92d21d8bee497910c782e9aa25b6263';
 const outage = { code: 'DEPENDENCY_UNAVAILABLE', message: 'no backing service', requestId: '0f0e2a8e-5b3c-4d8a-9a1e-2c6d7b8f9a01', retryable: false, retryAfterMs: null, fieldErrors: [], details: null };
@@ -61,6 +49,9 @@ const { SdkClient } = await import('@kindle/sdk');
 const AppProviders = (await import('@/ui/providers/app-providers')).default;
 const { MarketClientProvider } = await import('@/page-modules/token/market-session-context');
 const { default: TokenMarketLayout } = await import('./token-market-layout');
+// Load the real deferred panel before measuring the outage render. Transforming
+// its wallet dependencies is setup work, not a backend response to wait for.
+await import('./trade-panel');
 
 const BORDER = /\b(border(?!-0\b|-none\b)(-[a-z0-9/\[\]-]+)?|divide-[a-z]|ring-(?!offset)[a-z0-9]|outline-(?!none|focus|2|offset)[a-z]+)\b/;
 
@@ -68,7 +59,7 @@ async function settle(ms: number) { await act(async () => { await new Promise(re
 async function waitFor(check: () => boolean, timeoutMs = 10_000) {
   const deadline = Date.now() + timeoutMs;
   while (!check()) {
-    if (Date.now() > deadline) throw new Error(`Condition not met in time: ${document.body.textContent?.slice(0, 400)}`);
+    if (Date.now() > deadline) throw new Error(`Condition not met in time: ${document.body.innerHTML}`);
     await settle(25);
   }
 }
@@ -86,7 +77,10 @@ describe('coin page when the snapshot fails', () => {
     act(() => { root!.render(<AppProviders><MarketClientProvider client={client}><TokenMarketLayout poolAddress={pool} /></MarketClientProvider></AppProviders>); });
 
     await waitFor(() => container.querySelector('[data-market-snapshot="failed"]') !== null);
-    await waitFor(() => container.querySelector('form[aria-label="Trade"]') !== null && container.querySelector('section[aria-label="Coin details"]') !== null);
+    await waitFor(() => container.querySelector('form[aria-label="Trade"]') !== null
+      && container.querySelector('section[aria-label="Coin details"]') !== null
+      && container.querySelector('section[aria-label="Price chart"]') !== null
+      && container.querySelector('[data-mobile-trade-cta="sign-in"]') !== null);
 
     const page = container.querySelector('[data-market-pool]') as HTMLElement;
     expect(page.getAttribute('data-coin-state')).toBeNull();

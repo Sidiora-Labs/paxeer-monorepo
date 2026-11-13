@@ -1,0 +1,3 @@
+[authority_contract]
+member = "layerx-platform-authority"
+consumer = "PAY2 qualification links the authority member for committed proof checks."

@@ -1,0 +1,23 @@
+[repair.22.39.357]
+requirement = "22998.1"
+decision = "3236"
+gotcha = "4163"
+base_revision = "7210fa174996a581aaf51c130229702d635f59d6"
+cause = "DevelopmentCandlePage derived a window snapshot but returned stored Candle payloads with per-candle snapshot identifiers; the web consumer requires every item's snapshotId to match the page."
+change = "Copy each stored payload into a map of raw JSON members, replace only snapshotId with the unchanged page identifier, marshal and validate the resulting Candle before serving it; retain original payload validation and series consistency checks. No stored or topic payload, cursor, snapshot derivation or changed-snapshot refusal is modified."
+comparison = "The existing route/topic case asserts the route item's snapshotId equals the page snapshot, then normalizes that one member for its complete Candle comparison; every other assertion is unchanged."
+test = "TestRepair_22_39_357_candle_page_items_carry_the_page_snapshot drives the real chart producer, Postgres, Redis, chain RPC and app router with two swaps in distinct minute buckets in one window. It requires schema-valid HTTP 200 pages, both items scoped to the page, and identical snapshots and complete candles through the cursor."
+
+[gotcha.local_context]
+observed = "The shared interface module is under sdk/launchpad/shared, and the trading-charts development package reexports its internal producer. Neither a root go.work nor the initially queried geth module-cache path exists in this sandbox."
+action = "Use the API module's existing imports and fixture helpers; keep this record inside the authorized task paths."
+
+[qualification]
+revision = "The verified revision is recorded in the matching build and verify rows of /out/run/gates.jsonl."
+build = "hf-build: cd services/launchpad/api && go build ./... && go vet ./internal/app/ ./internal/store/ ./internal/rest/"
+verify = "hf-done: cg spec done 22.39.357 -f layerx-merge --root /work/paxeer-monorepo"
+verify_cmd = "test -s services/launchpad/api/repair_22_39_357.kvx && cd services/launchpad/api && go test -count=1 -timeout 20m ./internal/app/ -run 'TestRepair_22_39_314|TestRepair_22_39_357|DevStream'"
+ledger = "/out/run/gates.jsonl"
+build_log = "/out/logs/build-1.log"
+verify_log = "/out/logs/verify-1.log"
+result = "Exact candidate revision, command, exit and private evidence location are recorded by the bounded gates in the private ledger; qualification is claimed only if hf-done passes on the built revision."

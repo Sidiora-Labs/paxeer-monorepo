@@ -1,4 +1,4 @@
-//! Audit 22.30.104 regressions using durable stores, genuine WebAuthn signatures,
+//! Audit 22.30.104 regressions using durable stores, genuine `WebAuthn` signatures,
 //! the production session consumer, Unix framing and strict API response validation.
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine as _;
@@ -66,7 +66,13 @@ fn auth_config() -> AuthConfig {
 // Independent fixed-date expectations for this test's bounded clock window.
 fn stamp(seconds: u64) -> String {
     assert!((NOW - 60..=NOW + 600).contains(&seconds));
-    let within_hour = 800i64 + (seconds as i64 - NOW as i64);
+    let delta = i64::try_from(seconds.abs_diff(NOW))
+        .unwrap_or_else(|_| panic!("bounded timestamp delta fits i64"));
+    let within_hour = if seconds >= NOW {
+        800 + delta
+    } else {
+        800 - delta
+    };
     format!(
         "2023-11-14T22:{:02}:{:02}Z",
         within_hour / 60,
@@ -74,9 +80,14 @@ fn stamp(seconds: u64) -> String {
     )
 }
 fn validate(operation: &str, value: &Value) {
-    let schema = ApiSchema::v1().expect("schema");
+    let schema = ApiSchema::v1().or_fail("schema");
     schema
-        .encode_response(schema.operation(operation).expect(operation), value)
+        .encode_response(
+            schema
+                .operation(operation)
+                .unwrap_or_else(|| panic!("{}", operation)),
+            value,
+        )
         .unwrap_or_else(|e| panic!("{operation}: {e:?}: {value}"));
 }
 struct Durable {
@@ -101,22 +112,22 @@ impl Durable {
     fn scope(&mut self) -> PrincipalScope<'_> {
         self.store
             .as_mut()
-            .expect("store")
+            .or_fail("store")
             .principal(&support::principal(ACCOUNT_ID))
-            .expect("scope")
+            .or_fail("scope")
     }
     fn reopen(&mut self) {
         drop(self.store.take());
         self.store = Some(
             PrincipalStore::open(&self.root, support::retention_uniform(86400), self.digest)
-                .expect("reopen store"),
+                .or_fail("reopen store"),
         );
     }
 }
 impl Drop for Durable {
     fn drop(&mut self) {
         drop(self.store.take());
-        fs::remove_dir_all(&self.root).expect("remove store");
+        fs::remove_dir_all(&self.root).or_fail("remove store");
     }
 }
 struct SoftwareAuthenticator {
@@ -276,40 +287,86 @@ fn register(
     let challenge = passkeys
         .begin_registration(
             scope,
-            &AccountIdentity::new("mara@example.com", "Mara").expect("account"),
+            &AccountIdentity::new("mara@example.com", "Mara").or_fail("account"),
             "Primary",
             NOW,
         )
-        .expect("begin registration");
+        .or_fail("begin registration");
     validate(
         "passkey.register.begin",
         &IdentityProjector::checked_registration_challenge(&challenge)
-            .expect("project registration"),
+            .or_fail("project registration"),
     );
     let credential = authenticator.register(&challenge.ceremony);
     let passkey = passkeys
         .finish_registration(scope, &challenge.registration_id, &credential, NOW)
-        .expect("registration signature");
+        .or_fail("registration signature");
     validate(
         "passkey.register.finish",
-        &IdentityProjector::checked_passkey(&passkey).expect("project passkey"),
+        &IdentityProjector::checked_passkey(&passkey).or_fail("project passkey"),
     );
     assert!(passkeys
         .finish_registration(scope, &challenge.registration_id, &credential, NOW)
         .is_err());
 }
 
+fn assert_session_expiry_and_revocation(
+    durable: &mut Durable,
+    passkeys: &Passkeys,
+    authenticator: &mut SoftwareAuthenticator,
+    grant: &layerx_human_service::auth::SessionGrant,
+    opened: &Value,
+) {
+    let expired = passkeys
+        .begin_assertion(&mut durable.scope(), NOW + 5)
+        .or_fail("expiring assertion");
+    let credential = authenticator.assert(&expired.ceremony);
+    durable.reopen();
+    assert!(passkeys
+        .finish_assertion(
+            &mut durable.scope(),
+            &expired.assertion_id,
+            &credential,
+            NOW + 306
+        )
+        .is_err());
+    let listed = Passkeys::list_sessions_authorized(&durable.scope(), grant.session_id())
+        .or_fail("sessions");
+    let listed = listed
+        .iter()
+        .map(IdentityProjector::checked_session)
+        .collect::<Result<Vec<_>, _>>()
+        .or_fail("project sessions");
+    validate("session.list", &json!({"sessions":listed}));
+    assert_eq!(listed[0]["opened_at"], opened["opened_at"]);
+    let revoked =
+        Passkeys::revoke_session_authorized(&mut durable.scope(), grant.session_id(), NOW + 6)
+            .or_fail("revoke");
+    validate(
+        "session.revoke",
+        &IdentityProjector::checked_revocation(&revoked).or_fail("revocation"),
+    );
+    durable.reopen();
+    assert!(Passkeys::reserve_refresh(
+        &durable.scope(),
+        grant.refresh_token().expose(),
+        grant.csrf_token().expose(),
+        NOW + 7
+    )
+    .is_err());
+}
+
 #[test]
 fn passkey_and_stepup_timestamps_survive_reopen_and_keep_confirmation_binding() {
     let mut durable = Durable::new("repair-passkeys");
-    let passkeys = Passkeys::new(auth_config()).expect("passkeys");
+    let passkeys = Passkeys::new(auth_config()).or_fail("passkeys");
     let mut authenticator = SoftwareAuthenticator::new();
     register(&mut durable.scope(), &passkeys, &mut authenticator);
     let challenge = passkeys
         .begin_assertion(&mut durable.scope(), NOW)
-        .expect("begin assertion");
+        .or_fail("begin assertion");
     let projected =
-        IdentityProjector::checked_assertion_challenge(&challenge).expect("project assertion");
+        IdentityProjector::checked_assertion_challenge(&challenge).or_fail("project assertion");
     validate("passkey.assert.begin", &projected);
     assert_eq!(projected["expires_at"], stamp(NOW + 300));
     let credential = authenticator.assert(&challenge.ceremony);
@@ -321,10 +378,10 @@ fn passkey_and_stepup_timestamps_survive_reopen_and_keep_confirmation_binding() 
             &credential,
             NOW + 1,
         )
-        .expect("finish reopened assertion");
+        .or_fail("finish reopened assertion");
     validate(
         "passkey.assert.finish",
-        &IdentityProjector::checked_assertion(&proof).expect("proof"),
+        &IdentityProjector::checked_assertion(&proof).or_fail("proof"),
     );
     assert_eq!(proof.completed_at, NOW + 1);
     assert!(passkeys
@@ -339,17 +396,17 @@ fn passkey_and_stepup_timestamps_survive_reopen_and_keep_confirmation_binding() 
         .open_session(
             &mut durable.scope(),
             &proof.assertion_id,
-            Device::mint("Browser", "web").expect("device"),
+            Device::mint("Browser", "web").or_fail("device"),
             NOW + 1,
         )
-        .expect("session");
-    let opened = IdentityProjector::checked_session(&grant.session()).expect("session projection");
+        .or_fail("session");
+    let opened = IdentityProjector::checked_session(&grant.session()).or_fail("session projection");
     validate("session.open", &opened);
     let confirms = OperationDigest::new(Sha256::digest(b"disclosed security mutation").into());
     let challenge = passkeys
         .begin_step_up_authorized(&mut durable.scope(), confirms, NOW + 2)
-        .expect("stepup");
-    let projected = IdentityProjector::checked_step_up_challenge(&challenge).expect("challenge");
+        .or_fail("stepup");
+    let projected = IdentityProjector::checked_step_up_challenge(&challenge).or_fail("challenge");
     validate("stepup.begin", &projected);
     assert_eq!(projected["confirms"], confirms.to_schema());
     let credential = authenticator.assert(&challenge.ceremony);
@@ -361,14 +418,14 @@ fn passkey_and_stepup_timestamps_survive_reopen_and_keep_confirmation_binding() 
             &credential,
             NOW + 3,
         )
-        .expect("finish reopened stepup");
-    let projected = IdentityProjector::checked_step_up(&evidence).expect("stepup proof");
+        .or_fail("finish reopened stepup");
+    let projected = IdentityProjector::checked_step_up(&evidence).or_fail("stepup proof");
     validate("stepup.finish", &projected);
     assert_eq!(projected["confirms"], confirms.to_schema());
     assert_eq!(projected["completed_at"], stamp(NOW + 3));
     passkeys
         .revalidate_step_up(&mut durable.scope(), &evidence, confirms, NOW + 4)
-        .expect("same mutation");
+        .or_fail("same mutation");
     assert!(passkeys
         .revalidate_step_up(
             &mut durable.scope(),
@@ -380,43 +437,13 @@ fn passkey_and_stepup_timestamps_survive_reopen_and_keep_confirmation_binding() 
     assert!(passkeys
         .revalidate_step_up(&mut durable.scope(), &evidence, confirms, NOW + 400)
         .is_err());
-    let expired = passkeys
-        .begin_assertion(&mut durable.scope(), NOW + 5)
-        .expect("expiring assertion");
-    let credential = authenticator.assert(&expired.ceremony);
-    durable.reopen();
-    assert!(passkeys
-        .finish_assertion(
-            &mut durable.scope(),
-            &expired.assertion_id,
-            &credential,
-            NOW + 306
-        )
-        .is_err());
-    let listed =
-        Passkeys::list_sessions_authorized(&durable.scope(), grant.session_id()).expect("sessions");
-    let listed = listed
-        .iter()
-        .map(IdentityProjector::checked_session)
-        .collect::<Result<Vec<_>, _>>()
-        .expect("project sessions");
-    validate("session.list", &json!({"sessions":listed}));
-    assert_eq!(listed[0]["opened_at"], opened["opened_at"]);
-    let revoked =
-        Passkeys::revoke_session_authorized(&mut durable.scope(), grant.session_id(), NOW + 6)
-            .expect("revoke");
-    validate(
-        "session.revoke",
-        &IdentityProjector::checked_revocation(&revoked).expect("revocation"),
+    assert_session_expiry_and_revocation(
+        &mut durable,
+        &passkeys,
+        &mut authenticator,
+        &grant,
+        &opened,
     );
-    durable.reopen();
-    assert!(Passkeys::reserve_refresh(
-        &durable.scope(),
-        grant.refresh_token().expose(),
-        grant.csrf_token().expose(),
-        NOW + 7
-    )
-    .is_err());
 }
 
 // This composition uses the real durable authorization index and production refresh
@@ -555,44 +582,44 @@ fn http(
     cookies: &str,
     csrf: &str,
 ) -> (String, Value) {
-    let (mut client, mut server) = UnixStream::pair().expect("HTTP pair");
+    let (mut client, mut server) = UnixStream::pair().or_fail("HTTP pair");
     client
         .set_read_timeout(Some(Duration::from_secs(10)))
-        .expect("deadline");
+        .or_fail("deadline");
     let worker = thread::spawn(move || {
         router
             .serve_one(&mut server, "repair-session")
-            .expect("serve HTTP")
+            .or_fail("serve HTTP");
     });
     let body = if method == "POST" { "{}" } else { "" };
-    write!(client,"{method} {path} HTTP/1.1\r\nHost: paxportwallet.com\r\nOrigin: {ORIGIN}\r\nCookie: {cookies}\r\nX-LayerX-CSRF: {csrf}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",body.len()).expect("request");
+    write!(client,"{method} {path} HTTP/1.1\r\nHost: paxportwallet.com\r\nOrigin: {ORIGIN}\r\nCookie: {cookies}\r\nX-LayerX-CSRF: {csrf}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",body.len()).or_fail("request");
     let mut response = String::new();
-    client.read_to_string(&mut response).expect("HTTP response");
-    worker.join().expect("HTTP thread");
-    let (head, body) = response.split_once("\r\n\r\n").expect("HTTP body");
+    client
+        .read_to_string(&mut response)
+        .or_fail("HTTP response");
+    worker.join().or_fail("HTTP thread");
+    let (head, body) = response.split_once("\r\n\r\n").or_fail("HTTP body");
     (
         head.to_owned(),
-        serde_json::from_str(body).expect("JSON response"),
+        serde_json::from_str(body).or_fail("JSON response"),
     )
 }
 fn cookie(head: &str, name: &str) -> String {
     head.lines()
         .find_map(|line| {
             line.strip_prefix(&format!("Set-Cookie: {name}="))
-                .map(|value| value.split(';').next().expect("cookie").to_owned())
+                .map(|value| value.split(';').next().or_fail("cookie").to_owned())
         })
-        .expect("returned cookie")
+        .or_fail("returned cookie")
 }
 
-#[test]
-fn refresh_context_crosses_http_unix_and_production_consumer_after_restart() {
-    let mut durable = Durable::new("repair-refresh");
-    let passkeys = Passkeys::new(auth_config()).expect("passkeys");
+fn browser_grant(durable: &mut Durable) -> (Passkeys, layerx_human_service::auth::SessionGrant) {
+    let passkeys = Passkeys::new(auth_config()).or_fail("passkeys");
     let mut authenticator = SoftwareAuthenticator::new();
     register(&mut durable.scope(), &passkeys, &mut authenticator);
     let challenge = passkeys
         .begin_assertion(&mut durable.scope(), NOW)
-        .expect("assertion");
+        .or_fail("assertion");
     let credential = authenticator.assert(&challenge.ceremony);
     let proof = passkeys
         .finish_assertion(
@@ -601,43 +628,56 @@ fn refresh_context_crosses_http_unix_and_production_consumer_after_restart() {
             &credential,
             NOW,
         )
-        .expect("proof");
+        .or_fail("proof");
     let grant = passkeys
         .open_session(
             &mut durable.scope(),
             &proof.assertion_id,
-            Device::mint("Browser", "web").expect("device"),
+            Device::mint("Browser", "web").or_fail("device"),
             NOW,
         )
-        .expect("grant");
+        .or_fail("grant");
+    (passkeys, grant)
+}
+
+fn bind_refresh_index(grant: &layerx_human_service::auth::SessionGrant) -> std::path::PathBuf {
     let index_root = support::directory("repair-index");
-    fs::create_dir_all(&index_root).expect("index dir");
-    fs::set_permissions(&index_root, fs::Permissions::from_mode(0o700)).expect("index permissions");
+    fs::create_dir_all(&index_root).or_fail("index dir");
+    fs::set_permissions(&index_root, fs::Permissions::from_mode(0o700))
+        .or_fail("index permissions");
     let index = AuthDiscoveryIndex::open(
         &index_root,
-        IndexAuthenticationKey::new([0x27; 32]).expect("index key"),
+        IndexAuthenticationKey::new([0x27; 32]).or_fail("index key"),
     )
-    .expect("index");
+    .or_fail("index");
     index
-        .bind_session(&grant, &support::principal(ACCOUNT_ID))
-        .expect("bind session");
+        .bind_session(grant, &support::principal(ACCOUNT_ID))
+        .or_fail("bind session");
     drop(index);
+    index_root
+}
+
+#[test]
+fn refresh_context_crosses_http_unix_and_production_consumer_after_restart() {
+    let mut durable = Durable::new("repair-refresh");
+    let (passkeys, grant) = browser_grant(&mut durable);
+    let index_root = bind_refresh_index(&grant);
     durable.reopen();
     let socket_root = support::directory("repair-socket");
-    fs::create_dir_all(&socket_root).expect("socket dir");
+    fs::create_dir_all(&socket_root).or_fail("socket dir");
     fs::set_permissions(&socket_root, fs::Permissions::from_mode(0o700))
-        .expect("socket permissions");
+        .or_fail("socket permissions");
     let mut refresh = grant.refresh_token().expose().to_owned();
     let mut csrf = grant.csrf_token().expose().to_owned();
     let mut access = grant.access_token().expose().to_owned();
     for restart in 0..2 {
         let index = AuthDiscoveryIndex::open(
             &index_root,
-            IndexAuthenticationKey::new([0x27; 32]).expect("key"),
+            IndexAuthenticationKey::new([0x27; 32]).or_fail("key"),
         )
-        .expect("reopened index");
+        .or_fail("reopened index");
         let components = BrowserSessions {
-            store: Mutex::new(durable.store.take().expect("store")),
+            store: Mutex::new(durable.store.take().or_fail("store")),
             index,
             passkeys: passkeys.clone(),
         };
@@ -651,25 +691,27 @@ fn refresh_context_crosses_http_unix_and_production_consumer_after_restart() {
                 queue_capacity: 8,
                 limits: default_component_limits(),
             })
-            .expect("bind actual server");
+            .or_fail("bind actual server");
         let shutdown = bound.shutdown();
-        let worker = thread::spawn(move || bound.run().expect("component server"));
+        let worker = thread::spawn(move || {
+            bound.run().or_fail("component server");
+        });
         let backend =
             UnixComponents::new_with_clock(&socket, default_component_limits(), clock.clone())
-                .expect("Unix components");
+                .or_fail("Unix components");
         let router = Arc::new(
             Router::new(
                 Arc::new(backend),
-                PrincipalLimits::new(100, 60, 100).expect("limits"),
+                PrincipalLimits::new(100, 60, 100).or_fail("limits"),
                 HttpConfig {
                     maximum_header_bytes: 32768,
-                    maximum_body_bytes: 1048576,
+                    maximum_body_bytes: 1_048_576,
                     allowed_origin: ORIGIN.into(),
                     service_version: "repair".into(),
                 },
                 clock,
             )
-            .expect("router"),
+            .or_fail("router"),
         );
         let cookies=format!("__Host-layerx_access={access}; __Host-layerx_refresh={refresh}; __Host-layerx_csrf={csrf}");
         let (head, result) = http(
@@ -706,25 +748,25 @@ fn refresh_context_crosses_http_unix_and_production_consumer_after_restart() {
         );
         drop(router);
         shutdown.request();
-        worker.join().expect("server thread");
+        worker.join().or_fail("server thread");
         durable.reopen();
         refresh = next_refresh;
         csrf = next_csrf;
         access = next_access;
     }
-    fs::remove_dir_all(index_root).expect("remove index");
-    fs::remove_dir_all(socket_root).expect("remove sockets");
+    fs::remove_dir_all(index_root).or_fail("remove index");
+    fs::remove_dir_all(socket_root).or_fail("remove sockets");
 }
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|v| format!("{v:02x}")).collect()
+    layerx_human_service::hex::lower(bytes)
 }
 fn evidence(scope: &PrincipalScope<'_>, id: &str) -> Value {
-    let schema = ApiSchema::v1().expect("schema");
+    let schema = ApiSchema::v1().or_fail("schema");
     let response = ProductionComponents::evidence_get(
         scope,
         &ScopedRequest {
-            operation: schema.operation("evidence.get").expect("evidence.get"),
+            operation: schema.operation("evidence.get").or_fail("evidence.get"),
             principal: None,
             path_parameters: BTreeMap::from([("evidence_id".into(), id.into())]),
             body: json!({}),
@@ -732,7 +774,7 @@ fn evidence(scope: &PrincipalScope<'_>, id: &str) -> Value {
             trace: "trc_00112233445566778899aabbccddeeff".into(),
         },
     )
-    .expect("real evidence consumer");
+    .or_fail("real evidence consumer");
     validate("evidence.get", &response.result);
     response.result
 }
@@ -764,13 +806,13 @@ fn balance_material_preserves_optional_rung_through_cache_and_reopen() {
             proof_material: serde_json::to_vec(
                 &json!({"achieved_verification_level":rung.map(Rung::name)}),
             )
-            .expect("source material"),
+            .or_fail("source material"),
         })
-        .expect("balance producer");
-        let material = balance.evidence_material().expect("production material");
+        .or_fail("balance producer");
+        let material = balance.evidence_material().or_fail("production material");
         assert_eq!(&material[..5], b"LXHB2");
         assert_eq!(
-            AccountBalance::material_rung(&material).expect("material decoder"),
+            AccountBalance::material_rung(&material).or_fail("material decoder"),
             rung
         );
         let mut legacy = b"LXHB1".to_vec();
@@ -779,7 +821,7 @@ fn balance_material_preserves_optional_rung_through_cache_and_reopen() {
         }
         legacy.extend_from_slice(&material[if rung.is_some() { 7 } else { 6 }..]);
         assert_eq!(
-            AccountBalance::material_rung(&legacy).expect("legacy producer decoder"),
+            AccountBalance::material_rung(&legacy).or_fail("legacy producer decoder"),
             rung
         );
         for bytes in [material, legacy] {
@@ -793,7 +835,7 @@ fn balance_material_preserves_optional_rung_through_cache_and_reopen() {
                     NOW,
                     bytes.clone(),
                 )
-                .expect("cache material");
+                .or_fail("cache material");
             let projected = balance.project(digest, 60);
             validate("account.balance", &projected);
             for _ in 0..2 {
@@ -801,14 +843,14 @@ fn balance_material_preserves_optional_rung_through_cache_and_reopen() {
                 assert_eq!(result["verification"], projected["verification"]);
                 assert_eq!(
                     STANDARD
-                        .decode(result["bytes_base64"].as_str().expect("material"))
-                        .expect("decode material"),
+                        .decode(result["bytes_base64"].as_str().or_fail("material"))
+                        .or_fail("decode material"),
                     bytes
                 );
                 durable.reopen();
             }
         }
-        let mut invalid = balance.evidence_material().expect("material");
+        let mut invalid = balance.evidence_material().or_fail("material");
         invalid[5] = 9;
         assert!(AccountBalance::material_rung(&invalid).is_err());
     }
@@ -822,30 +864,30 @@ fn onboarding_projects_persisted_identity_and_local_progress_after_restart() {
     use layerx_types::intent::{ApprovalThreshold, RecoveryRoot};
     let mut durable = Durable::new("repair-onboarding");
     let root = support::directory("repair-custody");
-    fs::create_dir_all(&root).expect("custody root");
+    fs::create_dir_all(&root).or_fail("custody root");
     let secret = root.join("kms-root");
-    fs::write(&secret, [0x51u8; 64]).expect("KMS root");
+    fs::write(&secret, [0x51u8; 64]).or_fail("KMS root");
     let keystore = Keystore::open_development(
         root.join("keys"),
         77,
-        EnvelopeKms::new("kms://repair", secret).expect("KMS"),
+        EnvelopeKms::new("kms://repair", secret).or_fail("KMS"),
     )
-    .expect("keystore");
+    .or_fail("keystore");
     let start = OnboardingStart::new(
         [8; 32],
-        Did::new(b"did:layerx:mara").expect("did"),
+        Did::new(b"did:layerx:mara").or_fail("did"),
         RecoveryPolicy::new(
             RecoveryRoot::new([9; 32]),
-            ApprovalThreshold::new(2).expect("threshold"),
+            ApprovalThreshold::new(2).or_fail("threshold"),
             86400,
         )
-        .expect("recovery"),
+        .or_fail("recovery"),
     )
-    .expect("start");
+    .or_fail("start");
     let mut journey = OnboardingJourney::start(&mut durable.scope(), &start, NOW)
-        .expect("start persisted journey");
+        .or_fail("start persisted journey");
     let queued =
-        IdentityProjector::onboarding(&durable.scope(), &journey.status()).expect("projection");
+        IdentityProjector::onboarding(&durable.scope(), &journey.status()).or_fail("projection");
     validate("onboarding.status", &queued);
     validate(
         "account.create",
@@ -855,66 +897,67 @@ fn onboarding_projects_persisted_identity_and_local_progress_after_restart() {
     assert_ne!(queued["state"], "done");
     let status = journey
         .resume_local(&mut durable.scope(), &keystore, NOW + 1)
-        .expect("real custody resume");
+        .or_fail("real custody resume");
     let before =
-        IdentityProjector::onboarding(&durable.scope(), &status).expect("local projection");
+        IdentityProjector::onboarding(&durable.scope(), &status).or_fail("local projection");
     validate("onboarding.resume", &before);
     assert_eq!(before["journey_id"], queued["journey_id"]);
     assert_ne!(before["state"], "done");
     assert!(before["stages"]
         .as_array()
-        .expect("stages")
+        .or_fail("stages")
         .iter()
         .all(|stage| stage["state"] != "local-complete"));
-    for item in before["evidence"].as_array().expect("evidence") {
+    for item in before["evidence"].as_array().or_fail("evidence") {
         assert_eq!(item["verification"], "unverified");
         let result = evidence(
             &durable.scope(),
-            item["evidence_id"].as_str().expect("reference"),
+            item["evidence_id"].as_str().or_fail("reference"),
         );
         assert_eq!(result["class"], item["class"]);
     }
     durable.reopen();
     let mut reopened = OnboardingJourney::load(&durable.scope())
-        .expect("load journey")
-        .expect("retained");
+        .or_fail("load journey")
+        .or_fail("retained");
     let after = IdentityProjector::onboarding(&durable.scope(), &reopened.status())
-        .expect("recovered projection");
+        .or_fail("recovered projection");
     assert_eq!(before, after);
     let status = reopened
         .resume_local(&mut durable.scope(), &keystore, NOW + 2)
-        .expect("idempotent custody resume");
+        .or_fail("idempotent custody resume");
     let resumed =
-        IdentityProjector::onboarding(&durable.scope(), &status).expect("resume projection");
+        IdentityProjector::onboarding(&durable.scope(), &status).or_fail("resume projection");
     validate("onboarding.resume", &resumed);
     assert_eq!(resumed["journey_id"], before["journey_id"]);
     assert_ne!(resumed["state"], "done");
-    fs::remove_dir_all(root).expect("remove custody");
+    fs::remove_dir_all(root).or_fail("remove custody");
 }
 
-#[test]
-fn activity_dates_pages_and_statement_time_follow_persisted_feed() {
-    use layerx_human_service::activity::{EvidenceExport, Feed, PageRequest};
-    use layerx_human_service::audit::{AuditChain, AuditEvent, SecurityChangeKind, StepUpEvidence};
-    use layerx_human_service::trace::TraceId;
-    let mut durable = Durable::new("repair-activity");
-    let feed = Feed::new(60).expect("feed");
+fn assert_empty_activity_page(feed: layerx_human_service::activity::Feed, durable: &mut Durable) {
+    use layerx_human_service::activity::PageRequest;
     let empty = feed
         .page(
             &durable.scope(),
-            PageRequest::new(2, activity_filters(&json!({})).expect("filters")),
+            PageRequest::new(2, activity_filters(&json!({})).or_fail("filters")),
             NOW,
             0,
         )
-        .expect("empty page");
-    let empty = activity_page_json(&empty, "LXP").expect("project page");
+        .or_fail("empty page");
+    let empty = activity_page_json(&empty, "LXP").or_fail("project page");
     validate("activity.query", &empty);
     assert_eq!(empty["filter"], json!({}));
     assert_eq!(empty["groups"], json!([]));
     assert_eq!(empty["next_cursor"], "cur_end");
+}
+
+fn record_security_events(durable: &mut Durable) {
+    use layerx_human_service::activity::Feed;
+    use layerx_human_service::audit::{AuditChain, AuditEvent, SecurityChangeKind, StepUpEvidence};
+    use layerx_human_service::trace::TraceId;
     for time in [NOW - 20, NOW - 10, NOW, NOW + 10, NOW + 20] {
         let mut scope = durable.scope();
-        let mut chain = AuditChain::open(&scope).expect("audit chain");
+        let mut chain = AuditChain::open(&scope).or_fail("audit chain");
         chain
             .append(
                 &mut scope,
@@ -926,14 +969,56 @@ fn activity_dates_pages_and_statement_time_follow_persisted_feed() {
                 },
                 &[],
             )
-            .expect("real audit producer");
-        let entries = chain.entries(&scope).expect("audit entries");
-        Feed::record_security(&mut scope, entries.last().expect("audit entry"), time)
-            .expect("feed projection");
+            .or_fail("real audit producer");
+        let entries = chain.entries(&scope).or_fail("audit entries");
+        Feed::record_security(&mut scope, entries.last().or_fail("audit entry"), time)
+            .or_fail("feed projection");
     }
+}
+
+fn assert_cached_activity_exports(
+    durable: &mut Durable,
+    id: &str,
+    bytes: &[u8],
+    bundle_bytes: &[u8],
+    bundle: &layerx_human_service::activity::EvidenceBundle,
+) {
+    durable.reopen();
+    let download = evidence(&durable.scope(), id);
+    assert_eq!(
+        STANDARD
+            .decode(download["bytes_base64"].as_str().or_fail("download bytes"))
+            .or_fail("base64"),
+        bytes
+    );
+    let key = format!("activity-evidence-{}", hex(&Sha256::digest(bundle_bytes)));
+    assert_eq!(
+        durable
+            .scope()
+            .get(Table::Cache, &support::row_key(&key))
+            .or_fail("reopened bundle")
+            .bytes(),
+        bundle_bytes
+    );
+    bundle
+        .verify(
+            Sha256::digest(bundle_bytes).into(),
+            &support::principal(ACCOUNT_ID),
+            &[],
+        )
+        .or_fail("independent local bundle verification");
+}
+
+#[test]
+fn activity_dates_pages_and_statement_time_follow_persisted_feed() {
+    use layerx_human_service::activity::{EvidenceExport, Feed, PageRequest};
+    let mut durable = Durable::new("repair-activity");
+    let feed = Feed::new(60).or_fail("feed");
+    assert_empty_activity_page(feed, &mut durable);
+    record_security_events(&mut durable);
     let filter_json = json!({"from":stamp(NOW-10),"to":stamp(NOW+10)});
-    let filters = activity_filters(&json!({"filter":filter_json})).expect("timestamp filter");
-    assert_eq!(activity_filter_json(&filters).expect("echo"), filter_json);
+    let filters = activity_filters(&json!({"filter":filter_json})).or_fail("timestamp filter");
+    assert_eq!(activity_filter_json(&filters).or_fail("echo"), filter_json);
     assert!(activity_filters(&json!({"filter":{"from":"not-a-time"}})).is_err());
     assert!(activity_filters(&json!({"filter":{"from":stamp(NOW+1),"to":stamp(NOW)}})).is_err());
     let first = feed
@@ -943,13 +1028,13 @@ fn activity_dates_pages_and_statement_time_follow_persisted_feed() {
             NOW + 21,
             0,
         )
-        .expect("first page");
+        .or_fail("first page");
     assert_eq!(first.entries().len(), 2);
     assert_eq!(first.entries()[0].occurred_at(), NOW + 10);
-    let page = activity_page_json(&first, "LXP").expect("page");
+    let page = activity_page_json(&first, "LXP").or_fail("page");
     validate("activity.query", &page);
     assert_eq!(page["filter"], filter_json);
-    let cursor = first.next().expect("continuation").clone();
+    let cursor = first.next().or_fail("continuation").clone();
     durable.reopen();
     let second = feed
         .page(
@@ -958,18 +1043,18 @@ fn activity_dates_pages_and_statement_time_follow_persisted_feed() {
             NOW + 22,
             0,
         )
-        .expect("reopened continuation");
+        .or_fail("reopened continuation");
     assert_eq!(second.entries().len(), 1);
     assert_eq!(second.entries()[0].occurred_at(), NOW - 10);
     assert!(second.next().is_none());
     validate(
         "activity.query",
-        &activity_page_json(&second, "LXP").expect("second projection"),
+        &activity_page_json(&second, "LXP").or_fail("second projection"),
     );
-    let exporter = EvidenceExport::new(feed, 1048576).expect("exporter");
+    let exporter = EvidenceExport::new(feed, 1_048_576).or_fail("exporter");
     let statement = exporter
         .statement(&durable.scope(), &filters, NOW + 22, 0)
-        .expect("statement");
+        .or_fail("statement");
     assert_eq!(statement.entries(), 3);
     let bytes = statement.content().to_vec();
     let result = cache_activity_export(
@@ -979,14 +1064,14 @@ fn activity_dates_pages_and_statement_time_follow_persisted_feed() {
         Vec::new(),
         NOW + 22,
     )
-    .expect("statement cache");
+    .or_fail("statement cache");
     validate("activity.export.statement", &result);
     assert_eq!(result["created_at"], stamp(NOW + 22));
     let id = result["download_path"]
         .as_str()
-        .expect("download")
+        .or_fail("download")
         .strip_prefix("/v1/evidence/")
-        .expect("evidence path")
+        .or_fail("evidence path")
         .to_owned();
     let (bundle, _) = exporter
         .evidence(
@@ -998,8 +1083,8 @@ fn activity_dates_pages_and_statement_time_follow_persisted_feed() {
             NOW + 22,
             0,
         )
-        .expect("security-only bundle");
-    let bundle_bytes = bundle.encode().expect("bundle encoding");
+        .or_fail("security-only bundle");
+    let bundle_bytes = bundle.encode().or_fail("bundle encoding");
     let bundle_result = cache_activity_export(
         &mut durable.scope(),
         bundle_bytes.clone(),
@@ -1007,33 +1092,10 @@ fn activity_dates_pages_and_statement_time_follow_persisted_feed() {
         Vec::new(),
         NOW + 22,
     )
-    .expect("evidence export cache");
+    .or_fail("evidence export cache");
     validate("activity.export.evidence", &bundle_result);
     assert_eq!(bundle_result["created_at"], result["created_at"]);
-    durable.reopen();
-    let download = evidence(&durable.scope(), &id);
-    assert_eq!(
-        STANDARD
-            .decode(download["bytes_base64"].as_str().expect("download bytes"))
-            .expect("base64"),
-        bytes
-    );
-    let key = format!("activity-evidence-{}", hex(&Sha256::digest(&bundle_bytes)));
-    assert_eq!(
-        durable
-            .scope()
-            .get(Table::Cache, &support::row_key(&key))
-            .expect("reopened bundle")
-            .bytes(),
-        bundle_bytes
-    );
-    bundle
-        .verify(
-            Sha256::digest(&bundle_bytes).into(),
-            &support::principal(ACCOUNT_ID),
-            &[],
-        )
-        .expect("independent local bundle verification");
+    assert_cached_activity_exports(&mut durable, &id, &bytes, &bundle_bytes, &bundle);
 }
 
 #[test]
@@ -1044,44 +1106,46 @@ fn node_receipt_material_has_exact_schema_and_independently_verifiable_portable_
     use layerx_proof::receipt::{verify_sequencer_signature, AuthorizedBatch, ReceiptKeys};
     use layerx_types::json::{parse, JsonValue};
     fn bytes(value: &JsonValue, path: &str) -> Vec<u8> {
-        value.hex_at(path).expect("fixture hex")
+        value.hex_at(path).or_fail("fixture hex")
     }
     fn hash(value: &JsonValue, path: &str) -> [u8; 32] {
-        bytes(value, path).try_into().expect("hash width")
+        bytes(value, path).try_into().or_fail("hash width")
     }
     let document = parse(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
     )))
-    .expect("node-produced receipt fixtures");
+    .or_fail("node-produced receipt fixtures");
     let mut checked = 0;
-    for case in document.array_at("cases").expect("cases") {
-        if case.str_at("vector").expect("vector") != "V1" {
+    for case in document.array_at("cases").or_fail("cases") {
+        if case.str_at("vector").or_fail("vector") != "V1" {
             continue;
         }
         let signed = bytes(case, "signedReceipt");
         let pins = [SequencerAuthorization::new(
             hash(case, "pinnedKey.keyId"),
             hash(case, "pinnedKey.publicKey"),
-            case.u64_at("pinnedKey.firstHeight").expect("first height"),
-            case.u64_at("pinnedKey.lastHeight").expect("last height"),
+            case.u64_at("pinnedKey.firstHeight").or_fail("first height"),
+            case.u64_at("pinnedKey.lastHeight").or_fail("last height"),
         )];
         let receipt = verify_sequencer_signature(&signed, ReceiptKeys::HeightRanges(&pins))
-            .expect("independent node signature verification");
-        let protocol = receipt.protocol().expect("protocol receipt");
+            .unwrap_or_else(|error| {
+                panic!("{}: {error:?}", "independent node signature verification")
+            });
+        let protocol = receipt.protocol().or_fail("protocol receipt");
         assert_eq!(protocol.module_id(), 12);
         assert_eq!(protocol.operation(), 2);
         let height = u64::from_str_radix(
             case.str_at("receiptJson.height")
-                .expect("height")
+                .or_fail("height")
                 .strip_prefix("0x")
-                .expect("hex height"),
+                .or_fail("hex height"),
             16,
         )
-        .expect("height value");
+        .or_fail("height value");
         let digest = Sha256::digest(&signed).into();
-        let rung =
-            Rung::from_name(case.str_at("receiptJson.rung").expect("producer rung")).expect("rung");
+        let rung = Rung::from_name(case.str_at("receiptJson.rung").or_fail("producer rung"))
+            .or_fail("rung");
         assert_eq!(rung, Rung::Receipted);
         let batch = AuthorizedBatch::from_receipt_keys(
             &signed,
@@ -1090,7 +1154,7 @@ fn node_receipt_material_has_exact_schema_and_independently_verifiable_portable_
             protocol.previous_state_root(),
             protocol.resulting_state_root(),
         )
-        .expect("authorized batch");
+        .or_fail("authorized batch");
         let evidence = VerifiedLegEvidence {
             action_key: hash(case, "receiptJson.txHash"),
             activity_id: protocol.activity_id(),
@@ -1104,14 +1168,14 @@ fn node_receipt_material_has_exact_schema_and_independently_verifiable_portable_
             receipt_key: ReceiptKeyEntry {
                 key_id: hash(case, "pinnedKey.keyId"),
                 public_key: hash(case, "pinnedKey.publicKey"),
-                first_height: case.u64_at("pinnedKey.firstHeight").expect("first height"),
-                last_height: case.u64_at("pinnedKey.lastHeight").expect("last height"),
+                first_height: case.u64_at("pinnedKey.firstHeight").or_fail("first height"),
+                last_height: case.u64_at("pinnedKey.lastHeight").or_fail("last height"),
             },
             inclusion_height: height,
         };
         let id = format!("evd_{}", hex(&digest));
         let material = ProductionComponents::managed_receipt_material(&id, &evidence)
-            .expect("production material");
+            .or_fail("production material");
         validate("evidence.get", &material);
         assert_eq!(material["verification"], "receipt-verified");
         assert_eq!(material["rung"], "receipted");
@@ -1119,12 +1183,12 @@ fn node_receipt_material_has_exact_schema_and_independently_verifiable_portable_
             assert!(material.get(extra).is_none());
         }
         let portable = STANDARD
-            .decode(material["bytes_base64"].as_str().expect("portable bytes"))
-            .expect("base64 portable");
+            .decode(material["bytes_base64"].as_str().or_fail("portable bytes"))
+            .or_fail("base64 portable");
         PortableReceiptV2::from_json(&portable)
-            .expect("portable payload")
+            .or_fail("portable payload")
             .verify_v2(&pins)
-            .expect("independent portable verification");
+            .or_fail("independent portable verification");
         assert!(ProductionComponents::managed_receipt_material(
             &format!("evd_{}", hex(&[0; 32])),
             &evidence
@@ -1142,37 +1206,37 @@ fn security_key_export_projects_real_custody_mutation_and_refuses_retry_after_re
     use layerx_human_service::trace::TraceId;
     let mut durable = Durable::new("repair-export-key");
     let root = support::directory("repair-export-custody");
-    fs::create_dir_all(&root).expect("custody root");
+    fs::create_dir_all(&root).or_fail("custody root");
     let secret = root.join("kms-root");
-    fs::write(&secret, [0x61u8; 64]).expect("KMS root");
-    let key = KeyId::new("primary").expect("key id");
+    fs::write(&secret, [0x61u8; 64]).or_fail("KMS root");
+    let key = KeyId::new("primary").or_fail("key id");
     let keystore = Keystore::open_development(
         root.join("keys"),
         77,
-        EnvelopeKms::new("kms://repair-export", secret.clone()).expect("KMS"),
+        EnvelopeKms::new("kms://repair-export", secret.clone()).or_fail("KMS"),
     )
-    .expect("keystore");
+    .or_fail("keystore");
     keystore
         .create(
             &support::principal(ACCOUNT_ID),
             &key,
             KeyClass::HumanPrimary,
         )
-        .expect("create real primary key");
-    let ceremony = KeyExportCeremony::new(key.clone(), 300).expect("key export");
+        .or_fail("create real primary key");
+    let ceremony = KeyExportCeremony::new(key.clone(), 300).or_fail("key export");
     let challenge = ceremony
         .begin(&keystore, &support::principal(ACCOUNT_ID), NOW)
-        .expect("begin key export");
+        .or_fail("begin key export");
     validate(
         "security.key-export.begin",
-        &IdentityProjector::key_export_challenge(&challenge).expect("challenge projection"),
+        &IdentityProjector::key_export_challenge(&challenge).or_fail("challenge projection"),
     );
-    let passkeys = Passkeys::new(auth_config()).expect("passkeys");
+    let passkeys = Passkeys::new(auth_config()).or_fail("passkeys");
     let mut authenticator = SoftwareAuthenticator::new();
     register(&mut durable.scope(), &passkeys, &mut authenticator);
     let stepup = passkeys
         .begin_step_up_authorized(&mut durable.scope(), challenge.confirms, NOW)
-        .expect("key export stepup");
+        .or_fail("key export stepup");
     let credential = authenticator.assert(&stepup.ceremony);
     let proof = passkeys
         .finish_step_up(
@@ -1181,7 +1245,7 @@ fn security_key_export_projects_real_custody_mutation_and_refuses_retry_after_re
             &credential,
             NOW + 1,
         )
-        .expect("verified stepup");
+        .or_fail("verified stepup");
     let exported = ceremony
         .finish(
             &keystore,
@@ -1191,22 +1255,22 @@ fn security_key_export_projects_real_custody_mutation_and_refuses_retry_after_re
             &TraceId::mint([0x32; 16]),
             NOW + 2,
         )
-        .expect("export primary once");
-    let result = IdentityProjector::exported_key(&exported).expect("export projection");
+        .or_fail("export primary once");
+    let result = IdentityProjector::exported_key(&exported).or_fail("export projection");
     validate("security.key-export.finish", &result);
     assert_eq!(result["self_custodied_at"], stamp(NOW + 2));
     assert_eq!(result["secret"]["remask_at"], stamp(NOW + 302));
     assert!(keystore
         .self_custodied(&support::principal(ACCOUNT_ID), &key)
-        .expect("self custody"));
+        .or_fail("self custody"));
     drop(keystore);
     durable.reopen();
     let keystore = Keystore::open_development(
         root.join("keys"),
         77,
-        EnvelopeKms::new("kms://repair-export", secret).expect("reopened KMS"),
+        EnvelopeKms::new("kms://repair-export", secret).or_fail("reopened KMS"),
     )
-    .expect("reopened keystore");
+    .or_fail("reopened keystore");
     assert!(ceremony
         .begin(&keystore, &support::principal(ACCOUNT_ID), NOW + 3)
         .is_err());
@@ -1220,5 +1284,11 @@ fn security_key_export_projects_real_custody_mutation_and_refuses_retry_after_re
             NOW + 3
         )
         .is_err());
-    fs::remove_dir_all(root).expect("remove custody");
+    fs::remove_dir_all(root).or_fail("remove custody");
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

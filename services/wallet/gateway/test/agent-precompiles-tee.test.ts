@@ -1,3 +1,4 @@
+import { startPrecompileRpc } from './support/precompile-rpc.js';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
@@ -48,6 +49,7 @@ interface RpcRequest {
 
 let app: FastifyInstance;
 let proxy: Server;
+let localRpc: Awaited<ReturnType<typeof startPrecompileRpc>>;
 let postgres: EphemeralPostgres;
 let pool: typeof import('../src/db/pool.js');
 let precompiles: typeof import('../src/precompiles.js');
@@ -84,6 +86,7 @@ function registeredNodeAbi(): Abi {
 }
 
 beforeAll(async () => {
+  localRpc = await startPrecompileRpc('teeattestor');
   proxy = createServer(async (req, res) => {
     try {
       const chunks: Buffer[] = [];
@@ -91,7 +94,7 @@ beforeAll(async () => {
       const body = Buffer.concat(chunks).toString('utf8');
       const rpc = JSON.parse(body) as RpcRequest;
       requests.push(rpc);
-      const upstream = await fetch(originalRpcUrl, {
+      const upstream = await fetch(localRpc.url, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body,
@@ -158,6 +161,7 @@ afterAll(async () => {
       proxy.close((err) => (err ? reject(err) : resolve()))
     );
   }
+  await localRpc?.stop();
   process.env.HYPERPAXEER_RPC_URL = originalRpcUrl;
   if (originalJwtSecret === undefined) delete process.env.AGENT_JWT_SECRET;
   else process.env.AGENT_JWT_SECRET = originalJwtSecret;
@@ -219,9 +223,13 @@ async function teeRoutesEncodeNodeAbiSelectors() {
   const abi = registeredNodeAbi();
   const methods = abi.filter((item) => item.type === 'function');
   expect(methods.map((method) => method.name).sort()).toEqual(
-    cases.map((example) => example.method).sort()
+    [...cases.map((example) => example.method), 'bindPeer', 'peerBinding'].sort()
   );
-  const selectors = new Set(methods.map((method) => toFunctionSelector(method)));
+  const routeMethods = methods.filter((method) =>
+    cases.some((example) => example.method === method.name)
+  );
+  expect(routeMethods).toHaveLength(cases.length);
+  const selectors = new Set(routeMethods.map((method) => toFunctionSelector(method)));
   const observed = new Set<string>();
   for (const example of cases) {
     const { response, outgoing } = await driveRoute(example);

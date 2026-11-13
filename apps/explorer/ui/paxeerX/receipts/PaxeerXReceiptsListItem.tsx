@@ -25,9 +25,13 @@ const PaxeerXReceiptsListItem = ({ item, isLoading }: Props) => {
       <ListItemMobileGrid.Value>
         <Flex overflow="hidden" whiteSpace="nowrap" alignItems="center" w="100%" justifyContent="start">
           <Skeleton loading={ isLoading } fontWeight={ 600 } color="text.primary">
-            <Link href={ route({ pathname: '/paxeer-x/receipts/[id]', query: { id: item.id } }) }>
+            { item.transaction_hash === null ? (
               <HashStringShorten hash={ item.id } type="long"/>
-            </Link>
+            ) : (
+              <Link href={ route({ pathname: '/tx/[hash]', query: { hash: item.transaction_hash } }) }>
+                <HashStringShorten hash={ item.id } type="long"/>
+              </Link>
+            ) }
           </Skeleton>
           <CopyToClipboard text={ item.id } isLoading={ isLoading }/>
         </Flex>

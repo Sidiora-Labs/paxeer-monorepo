@@ -1,11 +1,13 @@
 # Solidity API
 
+Source: [MockERC721Base.sol](../../contracts/test/MockERC721Base.sol).
+
 ## MockERC721Base
 
 ### constructor
 
 ```solidity
-constructor() public
+constructor()
 ```
 
 ### mint
@@ -31,7 +33,7 @@ function exists(uint256 tokenId) external view returns (bool)
 ### onERC721Received
 
 ```solidity
-function onERC721Received(address, address, uint256, bytes) external pure returns (bytes4)
+function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4)
 ```
 
 ## MockBadERC721Receiver
@@ -39,6 +41,5 @@ function onERC721Received(address, address, uint256, bytes) external pure return
 ### onERC721Received
 
 ```solidity
-function onERC721Received(address, address, uint256, bytes) external pure returns (bytes4)
+function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4)
 ```
-

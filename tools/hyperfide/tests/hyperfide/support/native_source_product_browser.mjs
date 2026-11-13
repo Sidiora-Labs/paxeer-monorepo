@@ -9,10 +9,30 @@ import { build as buildStyles } from "../../../apps/web/node_modules/vite/dist/n
 import tailwindcss from "../../../apps/web/node_modules/@tailwindcss/vite/dist/index.mjs";
 import { executeSourceAction } from "../../../plugins/hyperfide-source-control/runtime.ts";
 import sourceHost from "../../../plugins/environment-slices/host.ts";
-import { requestSchema } from "../../../plugins/hyperfide-source-control/contract.ts";
+import sourcePlugin from "../../../plugins/hyperfide-source-control/server.ts";
+import slicesPlugin from "../../../plugins/environment-slices/server.ts";
+import {
+  slicesHostContract,
+  slicesRpcContract,
+} from "../../../plugins/environment-slices/contract.ts";
+import {
+  sourceContract,
+  sourceHostCheckpointMatches,
+  requestSchema,
+} from "../../../plugins/hyperfide-source-control/contract.ts";
 
 const root = path.resolve(import.meta.dirname, "../../..");
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+export async function runHostCheckpointSubmissionAndReopen(
+  f,
+  binding,
+  hostCheckpoint,
+) {
+  return runSourceProductBrowser(f, binding, {
+    hostCheckpoint,
+    outputDirectory: "build/source-control/host-checkpoint",
+  });
+}
 export async function runSourceProductBrowser(f, binding, inspection) {
   const temp = await fs.mkdtemp(path.join(os.tmpdir(), "hf-source-browser-"));
   const output = path.join(
@@ -22,6 +42,16 @@ export async function runSourceProductBrowser(f, binding, inspection) {
   await fs.mkdir(output, { recursive: true });
   let server, chrome, socket, cdp;
   let loseCheckpoint = true;
+  const focused = inspection?.hostCheckpoint;
+  let productHandlers, productContract, attachment, hostReceipt;
+  let loseHostResponse = false,
+    loseApiResponse = false;
+  const checkpointOperations = new Set();
+  const retained = new Map();
+  const projectId = f.scope.repository_id;
+  const evidenceKey = focused
+    ? `source-checkpoint:${projectId}:${focused.assignment.workspace_id}`
+    : "";
   const diffRequests = [];
   const widths = [
     { name: "desktop", width: 1440, height: 1000 },
@@ -102,6 +132,109 @@ export async function runSourceProductBrowser(f, binding, inspection) {
       "Browser qualification requires the compiled application stylesheet",
     );
     const css = stylesheetAsset.source;
+    if (focused) {
+      const hostContext = {
+        experimental_paths: { dataDir: path.join(temp, "host") },
+      };
+      const kv = {
+        async get(key) {
+          return retained.has(key) ? structuredClone(retained.get(key)) : null;
+        },
+        async set(key, value) {
+          retained.set(key, structuredClone(value));
+        },
+        async delete(key) {
+          retained.delete(key);
+        },
+      };
+      let environmentHandlers;
+      const callEnvironment = async (method, input) => {
+        const contract = slicesRpcContract[method];
+        return contract.output.parse(
+          await environmentHandlers[method](contract.input.parse(input), {
+            experimental_caller: {
+              kind: "plugin",
+              pluginId: "hyperfide-source-control",
+            },
+          }),
+        );
+      };
+      slicesPlugin({
+        storage: { kv },
+        experimental_environments: { register() {} },
+        events: { on() {} },
+        hosts: {
+          experimental_client: () => ({
+            async call(method, input) {
+              const contract = slicesHostContract[method];
+              return contract.output.parse(
+                await sourceHost.handlers[method](
+                  contract.input.parse(input),
+                  hostContext,
+                ),
+              );
+            },
+          }),
+        },
+        rpc: {
+          register(_contract, handlers) {
+            environmentHandlers = handlers;
+          },
+        },
+      });
+      await sourcePlugin({
+        storage: { kv },
+        settings: {
+          define: () => ({
+            async get() {
+              return {
+                projects: JSON.stringify([
+                  {
+                    projectId,
+                    configFile: focused.configFile,
+                    hostId: "fixture-host",
+                    hostConfigFile: focused.configFile,
+                    revisions: [
+                      { id: base.revision_id, label: "Assigned baseline" },
+                    ],
+                    assignments: [
+                      {
+                        id: focused.assignment.assignment_id,
+                        label: "Checkpoint regression",
+                      },
+                    ],
+                  },
+                ]),
+              };
+            },
+            onChange() {},
+          }),
+        },
+        sdk: {
+          projects: {
+            async list() {
+              return [{ id: projectId, name: "Browser source project" }];
+            },
+          },
+          hosts: {
+            async list() {
+              return [{ id: "fixture-host", name: "Source fixture host" }];
+            },
+          },
+          plugins: {
+            async callRpc({ method, input, outputSchema }) {
+              return outputSchema.parse(await callEnvironment(method, input));
+            },
+          },
+        },
+        rpc: {
+          register(contract, handlers) {
+            productContract = contract;
+            productHandlers = handlers;
+          },
+        },
+      });
+    }
     server = createServer(async (req, res) => {
       try {
         if (req.url === "/") {
@@ -130,7 +263,41 @@ export async function runSourceProductBrowser(f, binding, inspection) {
         }
         const input = JSON.parse(Buffer.concat(parts).toString() || "{}");
         let result;
-        if (req.url === "/rpc/projects")
+        if (focused) {
+          const method = req.url.slice("/rpc/".length),
+            contract = productContract[method];
+          assert(
+            contract,
+            "Only registered Source Control RPC methods may be invoked",
+          );
+          const parsed = contract.input.parse(input);
+          result = contract.output.parse(await productHandlers[method](parsed));
+          if (method === "attach") attachment = result;
+          if (method === "checkpointHost") {
+            hostReceipt = result;
+            if (result.checkpoint)
+              checkpointOperations.add(result.checkpoint.operationId);
+            if (loseHostResponse) {
+              loseHostResponse = false;
+              res.statusCode = 502;
+              res.end("Acknowledgment unavailable");
+              return;
+            }
+          }
+          if (
+            method === "execute" &&
+            parsed.action.kind === "checkpoint" &&
+            result.ok
+          ) {
+            checkpointOperations.add(parsed.operationId);
+            if (loseApiResponse) {
+              loseApiResponse = false;
+              res.statusCode = 502;
+              res.end("Acknowledgment unavailable");
+              return;
+            }
+          }
+        } else if (req.url === "/rpc/projects")
           result = [
             {
               id: f.scope.repository_id,
@@ -287,10 +454,29 @@ export async function runSourceProductBrowser(f, binding, inspection) {
       );
     };
     const click = async (text) => {
-      await until(
-        `!![...document.querySelectorAll('button')].find(button=>button.textContent===${JSON.stringify(text)}&&!button.disabled)`,
-        "button " + text,
-      );
+      try {
+        await until(
+          `!![...document.querySelectorAll('button')].find(button=>button.textContent===${JSON.stringify(text)}&&!button.disabled)`,
+          "button " + text,
+        );
+      } catch (error) {
+        const state = await evaluate(`(()=>{
+          const button=[...document.querySelectorAll('button')].find(button=>button.textContent===${JSON.stringify(text)});
+          const state={exists:!!button,disabled:button?.disabled??null};
+          if(${JSON.stringify(text)}==='Inspect assignment'){
+            const field=[...document.querySelectorAll('label')].find(label=>label.firstChild?.textContent?.trim()==='Assignment')?.querySelector('input');
+            const project=[...document.querySelectorAll('label')].find(label=>label.firstChild?.textContent?.trim()==='Project')?.querySelector('select');
+            const refresh=[...document.querySelectorAll('button')].find(button=>button.textContent==='Refresh workspace');
+            state.assignment=field?.value??null;
+            state.pending=!!project?.disabled||!!refresh?.disabled||document.body.innerText.includes('Unresolved checkpoint operation')||document.body.innerText.includes('Request in progress:');
+            state.workspaceState=document.querySelector('[data-source-workspace-state]')?.getAttribute('data-source-workspace-state')??null;
+          }
+          return state;
+        })()`);
+        throw new Error(
+          error.message + "\nButton state: " + JSON.stringify(state),
+        );
+      }
       await evaluate(
         `[...document.querySelectorAll('button')].find(button=>button.textContent===${JSON.stringify(text)}&&!button.disabled).click()`,
       );
@@ -339,6 +525,227 @@ export async function runSourceProductBrowser(f, binding, inspection) {
       `document.body.innerText.includes("Virtual filesystem:")`,
       "host capability response",
     );
+    if (focused) {
+      const workspaceId = focused.assignment.workspace_id;
+      assert(
+        ["SPARSE", "MATERIALIZED"].includes(focused.assignment.workspace.mode),
+        "The assigned host checkpoint workspace explicitly uses a supported file-backed mode",
+      );
+      await fill("Workspace mode", focused.assignment.workspace.mode);
+      const submitDisabled = `(()=>{const b=[...document.querySelectorAll('button')].find(b=>b.textContent==='Submit durable revision');return !b||b.disabled;})()`;
+      const submitEnabled = `(()=>{const b=[...document.querySelectorAll('button')].find(b=>b.textContent==='Submit durable revision');return !!b&&!b.disabled;})()`;
+      const reopen = async () => {
+        await command("Page.reload", { ignoreCache: true });
+        await until(
+          `!!document.querySelector('select option[value="${focused.assignment.assignment_id}"]')`,
+          "assigned workspace option",
+        );
+        await fill("Workspace mode", focused.assignment.workspace.mode);
+        await fill("Assigned workspace", focused.assignment.assignment_id);
+        await until(
+          `!!document.querySelector('[role="alert"]') || document.body.innerText.includes('Generation:')`,
+          "assigned workspace loaded or refused",
+        );
+      };
+      await fill("Assigned workspace", focused.assignment.assignment_id);
+      await until(
+        `document.body.innerText.includes('Generation: 1')`,
+        "assigned workspace loaded",
+      );
+      assert(
+        await evaluate(submitDisabled),
+        "Uncheckpointed assigned workspace cannot submit",
+      );
+      await click("Attach workspace files");
+      await until(
+        `document.body.innerText.includes('Host path:')`,
+        "real host attachment",
+      );
+      await click("Checkpoint host edits");
+      await until(
+        `!![...document.querySelectorAll('button')].find(b=>b.textContent==='Checkpoint host edits'&&!b.disabled)`,
+        "no-change host finish",
+      );
+      assert.equal(
+        hostReceipt.checkpoint,
+        null,
+        "A slice summary cannot invent an acknowledgment",
+      );
+      assert(await evaluate(submitDisabled));
+      await fs.writeFile(
+        path.join(attachment.path, "main.txt"),
+        "candidate: host checkpoint edit\n",
+      );
+      await click("Checkpoint host edits");
+      await until(submitEnabled, "real host checkpoint enables submission");
+      assert(
+        sourceHostCheckpointMatches(
+          hostReceipt.checkpoint,
+          hostReceipt.checkpoint.result.workspace,
+        ),
+      );
+      const original = structuredClone(hostReceipt.checkpoint),
+        saved = structuredClone(retained.get(evidenceKey));
+      assert.equal(original.result.receipt.operation_id, original.operationId);
+      await reopen();
+      await until(
+        submitEnabled,
+        "panel restart restores acknowledged host checkpoint",
+      );
+      assert.equal(
+        retained.get(evidenceKey).checkpoint.operationId,
+        original.operationId,
+      );
+      assert.equal(
+        checkpointOperations.size,
+        1,
+        "Reopening must not checkpoint again",
+      );
+      await click("Attach workspace files");
+      await click("Checkpoint host edits");
+      await until(
+        submitEnabled,
+        "no-change finish retains the original acknowledgment",
+      );
+      assert.equal(hostReceipt.checkpoint.operationId, original.operationId);
+      assert.equal(checkpointOperations.size, 1);
+      retained.delete(evidenceKey);
+      await reopen();
+      await until(
+        submitDisabled,
+        "a workspace revision without acknowledgment cannot submit",
+      );
+      for (const corrupt of [
+        (value) => {
+          value.projectId = "another-project";
+        },
+        (value) => {
+          value.checkpoint.workspaceId = "00000000-0000-4000-8000-000000000001";
+        },
+        (value) => {
+          value.checkpoint.operationId = "00000000-0000-4000-8000-000000000002";
+        },
+        (value) => {
+          value.checkpoint.result.revision_id = base.revision_id;
+        },
+        (value) => {
+          value.checkpoint.scopeGeneration = "999";
+        },
+        (value) => {
+          value.checkpoint.workspaceGeneration = "999";
+        },
+        (value) => {
+          value.checkpoint.overlayGeneration = "999";
+        },
+        (value) => {
+          value.checkpoint.result.receipt.scope.repository_id =
+            "00000000-0000-4000-8000-000000000003";
+        },
+      ]) {
+        const stale = structuredClone(saved);
+        corrupt(stale);
+        retained.set(evidenceKey, stale);
+        await reopen();
+        await until(
+          `!!document.querySelector('[role="alert"]')`,
+          "stale evidence refused by authoritative read",
+        );
+        assert(
+          await evaluate(submitDisabled),
+          "Stale evidence must never enable submission",
+        );
+      }
+      retained.set(evidenceKey, saved);
+      await reopen();
+      await until(submitEnabled, "valid evidence restored");
+      await fill("File path", "main.txt");
+      await fill("File content", "candidate: API checkpoint edit\n");
+      await until(submitDisabled, "dirty local edits block submission");
+      loseApiResponse = true;
+      await click("Save durable checkpoint");
+      await until(
+        `document.body.innerText.includes('Unresolved checkpoint operation')`,
+        "API acknowledgment lost",
+      );
+      assert(
+        await evaluate(submitDisabled),
+        "An unresolved checkpoint blocks submission on the assigned workspace",
+      );
+      const pendingId = await evaluate(
+        `JSON.parse(sessionStorage.getItem('hyperfide.source.pending.v1')).operationId`,
+      );
+      await command("Page.reload", { ignoreCache: true });
+      await until(
+        `document.querySelector('[data-source-workspace-state="UPLOADING"]') !== null`,
+        "unresolved checkpoint retained after reload",
+      );
+      assert.equal(
+        await evaluate(
+          `JSON.parse(sessionStorage.getItem('hyperfide.source.pending.v1')).operationId`,
+        ),
+        pendingId,
+      );
+      await until(
+        submitDisabled,
+        "unresolved checkpoint blocks submission despite recovered workspace evidence",
+      );
+      await click("Read operation status");
+      await until(
+        `sessionStorage.getItem('hyperfide.source.pending.v1')===null`,
+        "original checkpoint resolved",
+      );
+      await until(
+        `(()=>{const project=[...document.querySelectorAll('label')].find(label=>label.firstChild?.textContent?.trim()==='Project')?.querySelector('select');const refresh=[...document.querySelectorAll('button')].find(button=>button.textContent==='Refresh workspace');return !!project&&!project.disabled&&!!refresh&&!refresh.disabled&&!document.body.innerText.includes('Unresolved checkpoint operation')&&!document.body.innerText.includes('Request in progress:');})()`,
+        "checkpoint recovery has no pending operation",
+      );
+      await fill("Assignment", focused.assignment.assignment_id);
+      await click("Inspect assignment");
+      await until(submitEnabled, "resolved API checkpoint enables submission");
+      const apiSaved = structuredClone(retained.get(evidenceKey));
+      assert.equal(apiSaved.checkpoint.operationId, pendingId);
+      await reopen();
+      await until(
+        submitEnabled,
+        "API checkpoint evidence recovered after restart",
+      );
+      assert.equal(retained.get(evidenceKey).checkpoint.operationId, pendingId);
+      assert.equal(
+        checkpointOperations.size,
+        2,
+        "Recovery must not repeat either checkpoint mutation",
+      );
+      const operation = await binding.client.call(
+        "source.operations.read",
+        { operation_id: pendingId },
+        { authority: binding.authority },
+      );
+      assert.equal(
+        operation.result.revision_id,
+        apiSaved.checkpoint.result.revision_id,
+      );
+      await click("Submit durable revision");
+      await until(
+        `document.body.innerText.includes('Revision submitted')`,
+        "real acknowledged revision submitted",
+      );
+      const receipt = {
+        status: "PASS",
+        hostOperationId: original.operationId,
+        apiOperationId: pendingId,
+        checkpoints: checkpointOperations.size,
+        revisionId: apiSaved.checkpoint.result.revision_id,
+        checks: [
+          "real host producer through both RPC schemas enables assigned submission",
+          "host and API checkpoint evidence survives panel restart without duplicate mutation",
+          "summary, missing, mismatched, stale, dirty and unresolved evidence cannot submit",
+        ],
+      };
+      await fs.writeFile(
+        path.join(output, "receipt.json"),
+        JSON.stringify(receipt, null, 2) + "\n",
+      );
+      return receipt;
+    }
     if (inspection) {
       const screenshots = [...(inspection.resume?.screenshots ?? [])];
       const capture = async (name) => {

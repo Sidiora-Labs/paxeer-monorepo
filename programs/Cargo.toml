@@ -61,6 +61,7 @@ strip = true
 
 [profile.release.package.layerx-programs-ai-market]
 # Keep the guest and its deployment header within the protocol payload limit.
+# F11 operations use this deployment profile.
 opt-level = "z"
 strip = true
 

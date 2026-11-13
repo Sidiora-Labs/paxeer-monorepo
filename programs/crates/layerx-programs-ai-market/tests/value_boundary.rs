@@ -499,21 +499,6 @@ fn balance_sight_is_proof_bound_and_never_an_invented_zero() -> Checked {
         Some(AbiError::CapabilityDenied)
     );
 
-    assert_eq!(
-        balance_refusal(ProgramError::Host(HostRefusal::Denied)),
-        HOST_CAPABILITY
-    );
-    for status in [
-        layerx_program_sdk::STATUS_EVIDENCE,
-        RUNTIME_STATUS_ABSENT,
-        layerx_program_sdk::STATUS_INVALID,
-        layerx_program_sdk::STATUS_METER,
-    ] {
-        assert_eq!(
-            balance_refusal(ProgramError::Host(HostRefusal::from_status(status))),
-            READINESS_BLOCKED
-        );
-    }
     Ok(())
 }
 

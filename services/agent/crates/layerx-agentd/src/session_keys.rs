@@ -32,10 +32,12 @@ pub struct PreparedSessionSeed {
 }
 
 impl PreparedSessionSeed {
+    #[must_use]
     pub fn secret(&self) -> &[u8; 32] {
         &self.secret
     }
 
+    #[must_use]
     pub const fn evm_address(&self) -> [u8; 20] {
         self.address
     }
@@ -66,6 +68,9 @@ impl std::fmt::Debug for ProvisionedEvmSessionKey {
 }
 
 impl ProvisionedEvmSessionKey {
+    /// # Errors
+    /// Returns an error if the signing key, preparation or retained signing binding is invalid or
+    /// cannot be persisted.
     pub fn from_seed(
         seed: &[u8; 32],
         issued: IssuedSessionKey,
@@ -73,6 +78,9 @@ impl ProvisionedEvmSessionKey {
         Self::new(*seed, issued)
     }
 
+    /// # Errors
+    /// Returns an error if the signing key, preparation or retained signing binding is invalid or
+    /// cannot be persisted.
     pub fn new(
         seed: [u8; 32],
         issued: IssuedSessionKey,
@@ -94,10 +102,13 @@ impl ProvisionedEvmSessionKey {
         })
     }
 
+    #[must_use]
     pub const fn evm_address(&self) -> [u8; 20] {
         self.key.evm_address()
     }
 
+    /// # Errors
+    /// Returns an error if the session key cannot be decrypted or the supplied operation fails.
     pub fn with_secret<R>(
         &self,
         operation: impl FnOnce(&[u8; 32]) -> R,
@@ -360,6 +371,10 @@ impl SessionKeyRegistry {
     /// # Errors
     ///
     /// Returns an error if key material, protected files, or registry state cannot be validated or accessed.
+    #[allow(
+        clippy::needless_pass_by_value,
+        reason = "Preserve the public API signature used by daemon consumers."
+    )]
     pub fn load(
         &self,
         grant_id: [u8; 32],

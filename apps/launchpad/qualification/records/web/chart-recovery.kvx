@@ -1,0 +1,19 @@
+[chart_recovery]
+readiness = "The prepared chart environment answers candle snapshots, daily candle history, confirmed trades, and browser candle history before chart cases run."
+worker_count = "One web test worker shares the prepared services."
+
+[case.replay]
+name = "replays three missed actual commits, rejects a genuinely signed expired cursor and converges to authoritative history"
+waits_for = "Initial candle history, each transaction in the latest daily candle with revisions increasing within its bucket, final authoritative revision, and completed replay with the final displayed candle."
+
+[case.history]
+name = "cancels delayed history on pool replacement and preserves values through realtime then HTTP failure"
+waits_for = "The delayed history request, its cancellation, restored replay, offline state, and daily and weekly history requests."
+
+[case.annotations]
+name = "retains revision five when an older genuine snapshot arrives after newer history and reconciles markers"
+waits_for = "Initial candle history, five increasing revisions in one daily candle with each transaction visible in history, the disconnected trade read, confirmed marker trades, and a trade list without pending or failed transactions."
+
+[case.browser]
+name = "keyboard and touch inspect exact canonical values while the vendor script is unavailable"
+waits_for = "Touch controls to become actionable and the browser candle response to include canonical rows before comparing the accessible table."

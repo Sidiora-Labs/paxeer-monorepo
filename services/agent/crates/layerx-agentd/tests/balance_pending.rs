@@ -31,7 +31,8 @@ fn pending_balance_reports_value_height_and_chain_head() {
     assert_eq!(at_height.achieved_rung, None);
 
     let accounts = node.rpc("eth_accounts", json!([]));
-    node.rpc(
+    // rpc checks success; the reads below verify the resulting state.
+    let _mutation_response = node.rpc(
         "eth_sendTransaction",
         json!([{
             "from": accounts[0],
@@ -57,18 +58,25 @@ fn pending_balance_reports_value_height_and_chain_head() {
 #[test]
 fn balance_at_a_height_ahead_of_head_is_refused() {
     let node = Node::funded();
-    let error = balance(&node.config, [0x11; 20], Some(45))
-        .expect_err("a height beyond the captured chain head must not return an amount");
+    let error = assert_err(
+        balance(&node.config, [0x11; 20], Some(45)),
+        "a height beyond the captured chain head must not return an amount",
+    );
     assert_eq!(error.reason.as_str(), "read.height_ahead");
     assert_eq!(node.rpc("eth_blockNumber", json!([])), "0x28");
-    let error = balance(&node.config, [0x11; 20], Some(41))
-        .expect_err("the pending height is also ahead when requested explicitly");
+    let error = assert_err(
+        balance(&node.config, [0x11; 20], Some(41)),
+        "the pending height is also ahead when requested explicitly",
+    );
     assert_eq!(error.reason.as_str(), "read.height_ahead");
 
     let pruned = Node::with_options(&["--prune-history", "1"]);
-    pruned.rpc("anvil_mine", json!(["0x28"]));
-    let error = balance(&pruned.config, [0x11; 20], Some(1))
-        .expect_err("pruned historical state must not return a balance");
+    // rpc checks success; the reads below verify the resulting state.
+    let _mutation_response = pruned.rpc("anvil_mine", json!(["0x28"]));
+    let error = assert_err(
+        balance(&pruned.config, [0x11; 20], Some(1)),
+        "pruned historical state must not return a balance",
+    );
     assert_eq!(error.reason.as_str(), "read.height_pruned");
 }
 
@@ -123,7 +131,7 @@ impl RecordingNode {
                         }
                     }
                 }
-                let mut body = vec![0; length.expect("JSON RPC content length")];
+                let mut body = vec![0; assert_some(length, "JSON RPC content length")];
                 must(reader.read_exact(&mut body));
                 let request: serde_json::Value = must(serde_json::from_slice(&body));
                 must(recorded.lock()).push(request.clone());
@@ -150,7 +158,7 @@ impl Drop for RecordingNode {
     fn drop(&mut self) {
         let _ = self.stop.send(());
         if let Some(worker) = self.worker.take() {
-            worker.join().expect("recording node worker");
+            assert_ok(worker.join(), "recording node worker");
         }
     }
 }
@@ -167,13 +175,7 @@ fn ledger_balance_reads_the_requested_asset_through_the_ledger_precompile() {
     let other_account = [0x44; 32];
     let overflow_asset = [0x55; 32];
     let served = u128::MAX - 17;
-    let selector = layerx_crypto::evm_transaction::transaction_hash(b"balanceOf(bytes32,bytes32)");
-    let selector = hex::encode(&selector[..4]);
-    assert_eq!(selector, "b1ffc03e");
-    let getter = format!(
-        "0x36604414600a575f5ffd5b5f3560e01c63{selector}14601c575f5ffd5b604060045f3760405f20545f5260205ff3"
-    );
-    node.rpc("anvil_setCode", json!([ledger, getter]));
+    let selector = install_ledger_getter(&node, ledger);
     for (owner, token, word) in [
         (account, asset, format!("{served:064x}")),
         (account, other_asset, format!("{:064x}", 1234)),
@@ -181,7 +183,8 @@ fn ledger_balance_reads_the_requested_asset_through_the_ledger_precompile() {
         (account, overflow_asset, format!("{:032x}{:032x}", 1, 0)),
     ] {
         let key = layerx_crypto::evm_transaction::transaction_hash(&[owner, token].concat());
-        node.rpc(
+        // rpc checks success; the reads below verify the resulting state.
+        let _mutation_response = node.rpc(
             "anvil_setStorageAt",
             json!([
                 ledger,
@@ -190,11 +193,13 @@ fn ledger_balance_reads_the_requested_asset_through_the_ledger_precompile() {
             ]),
         );
     }
-    node.rpc(
+    // rpc checks success; the reads below verify the resulting state.
+    let _mutation_response = node.rpc(
         "anvil_setBalance",
         json!([format!("0x{}", "11".repeat(20)), "0x384"]),
     );
-    node.rpc("anvil_mine", json!(["0x28"]));
+    // rpc checks success; the reads below verify the resulting state.
+    let _mutation_response = node.rpc("anvil_mine", json!(["0x28"]));
     let recorded = RecordingNode::start(&node);
 
     for (owner, token, height, expected) in [
@@ -227,11 +232,15 @@ fn ledger_balance_reads_the_requested_asset_through_the_ledger_precompile() {
         assert_eq!(response["value"]["asset"], hex::encode(token));
         assert_eq!(response["value"]["amount"], expected.to_string());
     }
-    let error = ledger_balance(&recorded.config, account, overflow_asset, None)
-        .expect_err("a uint256 exceeding Amount must be refused");
+    let error = assert_err(
+        ledger_balance(&recorded.config, account, overflow_asset, None),
+        "a uint256 exceeding Amount must be refused",
+    );
     assert_eq!(error.reason.as_str(), "read.amount_overflow");
-    let error = ledger_balance(&recorded.config, account, asset, Some(45))
-        .expect_err("a ledger balance ahead of the captured head must be refused");
+    let error = assert_err(
+        ledger_balance(&recorded.config, account, asset, Some(45)),
+        "a ledger balance ahead of the captured head must be refused",
+    );
     assert_eq!(error.reason.as_str(), "read.height_ahead");
 
     let requests = must(recorded.requests.lock());
@@ -258,5 +267,41 @@ fn ledger_balance_reads_the_requested_asset_through_the_ledger_precompile() {
             "data": format!("0x{selector}{}{}", hex::encode(owner), hex::encode(token)),
         }, tag])
         );
+    }
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn assert_some<T>(value: Option<T>, message: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{message}"),
+    }
+}
+
+fn install_ledger_getter(node: &Node, ledger: &str) -> String {
+    let selector = layerx_crypto::evm_transaction::transaction_hash(b"balanceOf(bytes32,bytes32)");
+    let selector = hex::encode(&selector[..4]);
+    assert_eq!(selector, "b1ffc03e");
+    let getter = format!(
+        "0x36604414600a575f5ffd5b5f3560e01c63{selector}14601c575f5ffd5b604060045f3760405f20545f5260205ff3"
+    );
+    // rpc checks success; the reads below verify the resulting state.
+    let _mutation_response = node.rpc("anvil_setCode", json!([ledger, getter]));
+    selector
+}
+
+#[track_caller]
+fn assert_err<T: std::fmt::Debug, E>(result: Result<T, E>, message: &str) -> E {
+    match result {
+        Err(error) => error,
+        Ok(value) => panic!("{message}: {value:?}"),
     }
 }

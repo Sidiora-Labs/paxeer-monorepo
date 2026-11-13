@@ -1,3 +1,4 @@
+#[cfg(test)]
 mod artifacts;
 mod chain_receipt;
 mod deployment;
@@ -5,13 +6,11 @@ mod deployment;
 mod lifecycle_tests;
 
 use crate::chain_receipt::ChainReceipts;
-use layerx_proof::receipt::verify_sequencer_signature;
-use layerx_types::result::{ResultCode, Retriability};
+#[cfg(test)]
 use layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION as PROTOCOL_VERSION;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::server::WebPkiClientVerifier;
 use rustls::{RootCertStore, ServerConfig, ServerConnection, StreamOwned};
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::env;
@@ -49,76 +48,6 @@ enum Plane {
     Gateway,
     Registry,
     Webhook,
-}
-
-#[derive(Clone, Copy, Eq, PartialEq)]
-enum Route {
-    Activities,
-    ProgramCall,
-    ProgramDeploy,
-    ProgramUpgrade,
-    ProgramWindDown,
-}
-
-impl Route {
-    const fn name(self) -> &'static str {
-        match self {
-            Self::Activities => "activities",
-            Self::ProgramCall => "programs_call",
-            Self::ProgramDeploy => "programs_deploy",
-            Self::ProgramUpgrade => "programs_upgrade",
-            Self::ProgramWindDown => "programs_wind_down",
-        }
-    }
-
-    const fn success_state(self) -> &'static str {
-        match self {
-            Self::Activities => "completed",
-            Self::ProgramCall
-            | Self::ProgramDeploy
-            | Self::ProgramUpgrade
-            | Self::ProgramWindDown => "executed",
-        }
-    }
-
-    const fn program_ordinal(self) -> Option<u16> {
-        match self {
-            Self::Activities => None,
-            Self::ProgramDeploy => Some(1),
-            Self::ProgramUpgrade => Some(2),
-            Self::ProgramCall => Some(3),
-            Self::ProgramWindDown => Some(7),
-        }
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
-struct Refusal {
-    status: u16,
-    code: String,
-    retry_after: Option<u64>,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct JournalRecord {
-    idempotency_key: String,
-    route: String,
-    request_digest: String,
-    activity_id: String,
-    program_id: Option<String>,
-    signed_activity: String,
-    state: String,
-    attempts: u32,
-    refusal: Option<Refusal>,
-    receipt: Option<String>,
-    result_code: Option<i32>,
-    #[serde(default)]
-    program_execution: Option<artifacts::StoredExecution>,
-    #[serde(default)]
-    lifecycle_sequencer_key: Option<String>,
-    #[serde(default)]
-    receipt_sequencer_key: Option<String>,
 }
 
 struct Request {
@@ -178,31 +107,12 @@ fn parse_hex32(text: &str) -> Option<[u8; 32]> {
     bytes.try_into().ok()
 }
 
-fn sha256_hex(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
-}
-
 fn valid_identifier(value: &str, max: usize) -> bool {
     !value.is_empty()
         && value.len() <= max
         && value
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b':'))
-}
-
-fn snake_case(name: &str) -> String {
-    let mut text = String::with_capacity(name.len() + 8);
-    for (index, character) in name.chars().enumerate() {
-        if character.is_ascii_uppercase() {
-            if index != 0 {
-                text.push('_');
-            }
-            text.push(character.to_ascii_lowercase());
-        } else {
-            text.push(character);
-        }
-    }
-    text
 }
 
 fn read_secret(path_variable: &str) -> Result<Zeroizing<String>, String> {
@@ -297,173 +207,6 @@ fn config() -> Result<Config, String> {
             ),
         )?,
         network_name,
-    })
-}
-
-fn result_refusal(result: ResultCode) -> Refusal {
-    let code = result.known().map_or_else(
-        || format!("protocol_result_{}", result.raw().unsigned_abs()),
-        |known| snake_case(&format!("{known:?}")),
-    );
-    match result.retriability() {
-        Retriability::Retriable => Refusal {
-            status: 409,
-            code,
-            retry_after: Some(5),
-        },
-        Retriability::Terminal => Refusal {
-            status: 422,
-            code,
-            retry_after: None,
-        },
-    }
-}
-
-fn terminal(status: u16, code: &str) -> Refusal {
-    Refusal {
-        status,
-        code: code.to_owned(),
-        retry_after: None,
-    }
-}
-
-struct ReceiptMetadata {
-    result_code: i32,
-    state_version: u64,
-    state_root: [u8; 32],
-}
-
-fn verified_receipt_metadata(record: &JournalRecord) -> Result<ReceiptMetadata, String> {
-    let key = record
-        .receipt_sequencer_key
-        .as_deref()
-        .or(record.lifecycle_sequencer_key.as_deref())
-        .or_else(|| {
-            record
-                .program_execution
-                .as_ref()
-                .map(|execution| execution.sequencer_public_key.as_str())
-        })
-        .and_then(parse_hex32)
-        .ok_or_else(|| "missing receipt sequencer key".to_owned())?;
-    let receipt = artifacts::canonical_hex(
-        record.receipt.as_deref().unwrap_or_default(),
-        MAX_ACTIVITY_BYTES,
-    )?;
-    let verified =
-        verify_sequencer_signature(&receipt, key).map_err(|error| format!("{error:?}"))?;
-    let protocol = verified
-        .protocol()
-        .ok_or_else(|| "missing protocol receipt".to_owned())?;
-    if hex(&protocol.activity_id()) != record.activity_id
-        || Some(protocol.result_code()) != record.result_code
-        || protocol.protocol_version() != PROTOCOL_VERSION
-    {
-        return Err("receipt journal binding mismatch".to_owned());
-    }
-    Ok(ReceiptMetadata {
-        result_code: protocol.result_code(),
-        state_version: protocol.global_sequence(),
-        state_root: protocol.resulting_state_root(),
-    })
-}
-
-fn outcome_response(record: &JournalRecord) -> Response {
-    let metadata = match verified_receipt_metadata(record) {
-        Ok(metadata) => metadata,
-        Err(detail) => {
-            eprintln!("{SERVICE}: {detail}");
-            return refusal(503, "receipt_invalid", Some(5));
-        }
-    };
-    let receipt = record.receipt.clone().unwrap_or_default();
-    let (terminal_payload, call_graph) =
-        record
-            .program_execution
-            .as_ref()
-            .map_or(("", ""), |execution| {
-                (
-                    execution.terminal_payload.as_str(),
-                    execution.call_graph.as_str(),
-                )
-            });
-    let route = match record.route.as_str() {
-        "programs_call" => Route::ProgramCall,
-        "programs_deploy" => Route::ProgramDeploy,
-        "programs_upgrade" => Route::ProgramUpgrade,
-        "programs_wind_down" => Route::ProgramWindDown,
-        _ => Route::Activities,
-    };
-    let state = if record.result_code == Some(0) {
-        route.success_state()
-    } else {
-        "refused"
-    };
-    ok(serde_json::json!({
-        "result": {
-            "state": state,
-            "activity_id": record.activity_id,
-            "receipt": receipt,
-            "terminal_payload": terminal_payload,
-            "call_graph": call_graph,
-            "result_code": metadata.result_code,
-            "state_version": metadata.state_version.to_string(),
-            "state_root": hex(&metadata.state_root),
-        }
-    })
-    .to_string())
-}
-
-fn refusal_response(stored: &Refusal) -> Response {
-    refusal(stored.status, &stored.code, stored.retry_after)
-}
-
-fn unknown_response(activity: &str) -> Response {
-    Response {
-        status: 202,
-        body: format!(
-            "{{\"state\":\"unknown\",\"activity_id\":\"{activity}\",\"retry\":\"after\",\"retry_after_seconds\":2}}"
-        ),
-        retry_after: Some(2),
-    }
-}
-
-struct ProgramReadFreshness {
-    minimum_sequence: u64,
-    expected_state_root: Option<[u8; 32]>,
-}
-
-fn program_read_freshness(request: &Request) -> Result<ProgramReadFreshness, Response> {
-    let minimum_sequence =
-        request
-            .headers
-            .get("layerx-minimum-sequence")
-            .map_or(Ok(0), |value| {
-                if value.is_empty()
-                    || (value.len() > 1 && value.starts_with('0'))
-                    || !value.bytes().all(|byte| byte.is_ascii_digit())
-                {
-                    return Err(refusal(400, "invalid_minimum_sequence", None));
-                }
-                value
-                    .parse::<u64>()
-                    .map_err(|_| refusal(400, "invalid_minimum_sequence", None))
-            })?;
-    let expected_state_root = request
-        .headers
-        .get("layerx-expected-state-root")
-        .map(|value| {
-            if value.bytes().any(|byte| byte.is_ascii_uppercase()) {
-                return Err(refusal(400, "invalid_expected_state_root", None));
-            }
-            parse_hex32(value)
-                .filter(|root| *root != [0; 32])
-                .ok_or_else(|| refusal(400, "invalid_expected_state_root", None))
-        })
-        .transpose()?;
-    Ok(ProgramReadFreshness {
-        minimum_sequence,
-        expected_state_root,
     })
 }
 

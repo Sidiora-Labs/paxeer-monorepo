@@ -1,22 +1,22 @@
-//! Proves: SendDebit::sign / Wallet::prepare_payload -> layerx-wallet-rpc stdin/stdout subprocess -> RpcClient / BalancesSnapshot / Rung (sdk/platform/pipeline.kvx).
+//! Proves: `SendDebit::sign` / `Wallet::prepare_payload` -> layerx-wallet-rpc stdin/stdout subprocess -> `RpcClient` / `BalancesSnapshot` / `Rung` (sdk/platform/pipeline.kvx).
 //!
 //! Repairs `layerx-wallet-rpc.rs::submit`: legacy commitments and requests for a
 //! stronger submission rung were silently ignored before preparing/signing a
 //! transaction. `action` now refuses them before opening the key or using RPC.
 //!
 //! Native and token balance success and version-2 summary receipt recovery are
-//! also qualified in-process by bridge_native_token_balances_and_verified_summary_survive_reopen.
-//! Finding outside touches: `services/agent/sdk/typescript/src/wallet.ts::
-//! WalletRpc.waitFor` still sends activity_id/commitment, whereas the binary
-//! requires txHash/rung. All three retired commitments must currently refuse.
+//! also qualified in-process by `bridge_native_token_balances_and_verified_summary_survive_reopen`.
+//! Finding outside touches: `services/agent/sdk/typescript/src/wallet.ts::WalletRpc.waitFor`
+//! still sends `activity_id/commitment`, whereas the binary
+//! requires `txHash/rung`. All three retired commitments must currently refuse.
 //!
 //! Decision 2295: the proof owns the loopback JSON-RPC producer and its private
-//! runtime-clock socket. SendDebit::sign and Wallet::prepare_payload produce the
+//! runtime-clock socket. `SendDebit::sign` and `Wallet::prepare_payload` produce the
 //! native authorization and signed EIP-1559 transaction; the listener decodes
 //! and validates them with the repository's crypto/disclosure code. Receipts
-//! use layerx_wire::encode::Encoder, receipt::{decode,encode,encode_unsigned}
-//! and hash::receipt_digest, with a real Ed25519 sequencer signature. The real
-//! RpcClient HTTP transport, runtime-clock peer checks and binary receipt
+//! use `layerx_wire::encode::Encoder`, `receipt::{decode,encode,encode_unsigned}`
+//! and `hash::receipt_digest`, with a real `Ed25519` sequencer signature. The real
+//! `RpcClient` HTTP transport, runtime-clock peer checks and binary receipt
 //! verifier run unchanged. No endpoint, seed or clock path comes from the
 //! environment, and no response substitutes for an unstarted producer.
 //! The listener persists the actual signed transaction and canonical receipt,
@@ -66,7 +66,7 @@ const NOW_SECONDS: u64 = 1_000;
 const SEQUENCER_SEED: [u8; 32] = [0x61; 32];
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    ::hex::encode(bytes)
 }
 
 fn unhex(value: &str) -> Result<Vec<u8>, Box<dyn Error>> {
@@ -86,7 +86,7 @@ fn field<'a>(value: &'a Value, name: &str) -> Result<&'a str, Box<dyn Error>> {
         .ok_or_else(|| format!("missing string field {name}").into())
 }
 
-fn rpc_error(error: RpcError) -> Box<dyn Error> {
+fn rpc_error(error: &RpcError) -> Box<dyn Error> {
     format!("real RPC operation refused: {error:?}").into()
 }
 
@@ -180,7 +180,7 @@ fn call(value: &Value, clock: Option<&ClockProducer>) -> Result<(bool, Value), B
     request(&serde_json::to_vec(value)?, clock)
 }
 
-fn refused(outcome: (bool, Value)) {
+fn refused(outcome: &(bool, Value)) {
     assert!(!outcome.0);
     assert_eq!(
         outcome.1,
@@ -208,15 +208,15 @@ fn malformed_and_retired_requests_are_refused_before_transport() -> Outcome {
         .encode(b"did:layerx:alice")
         .map_err(|e| format!("{e:?}"))?;
     for input in [b"{".as_slice(), b"{}", b"[]", b"{} {}", b"null"] {
-        refused(request(input, None)?);
+        refused(&request(input, None)?);
     }
-    refused(call(
+    refused(&call(
         &json!({"action":"unknown", "configuration":config}),
         None,
     )?);
     for action in ["wait", "submit"] {
         for commitment in ["executed", "batched", "finalised"] {
-            refused(call(
+            refused(&call(
                 &json!({"action":action, "configuration":config,
                 "commitment":commitment, "activity_id":"01".repeat(32),
                 "txHash":format!("0x{}", "01".repeat(32)), "rung":"submitted",
@@ -233,7 +233,7 @@ fn malformed_and_retired_requests_are_refused_before_transport() -> Outcome {
         Value::Null,
         json!(1),
     ] {
-        refused(call(
+        refused(&call(
             &json!({"action":"submit", "configuration":config, "rung":rung,
             "actor":"did:layerx:alice", "ordinal":"4", "payload":hex(&payload),
             "idempotency_key":"04".repeat(32), "fee_limit":"10000000",
@@ -242,7 +242,7 @@ fn malformed_and_retired_requests_are_refused_before_transport() -> Outcome {
         )?);
     }
     for action in ["accounts", "balance"] {
-        refused(call(
+        refused(&call(
             &json!({"action":action, "configuration":config,
             "did":"did:layerx:alice", "asset":"03".repeat(32)}),
             None,
@@ -252,7 +252,8 @@ fn malformed_and_retired_requests_are_refused_before_transport() -> Outcome {
     assert_eq!(
         listener
             .accept()
-            .expect_err("refused requests must not contact RPC")
+            .err()
+            .unwrap_or_else(|| panic!("refused requests must not contact RPC"))
             .kind(),
         std::io::ErrorKind::WouldBlock
     );
@@ -285,7 +286,7 @@ fn manifest_and_existing_balance_consumer_preserve_the_contract() -> Outcome {
     assert!(proof.contains("producer = \"test-owned loopback JSON-RPC listener"));
     assert!(proof.contains("clock = \"test-owned private runtime-clock protocol listener\""));
     assert!(!proof.contains("configuration_env"));
-    let rpc = RpcClient::connect("http://127.0.0.1:1", None).map_err(rpc_error)?;
+    let rpc = RpcClient::connect("http://127.0.0.1:1", None).map_err(|error| rpc_error(&error))?;
     audit::root_wallet_request_and_method_response();
     assert!(matches!(
         rpc.wallet([3; 32]).balance("did:layerx:alice", [3; 32]),
@@ -316,9 +317,10 @@ fn submitted_acknowledgement_survives_signer_and_process_restart() -> Outcome {
         let seed = Zeroizing::new(fs::read(&key)?);
         let account = derive_from_seed(&seed, 0)?;
         let signer = LocalSigner::from_derived_account(&account);
-        let from = wallet_account(&account.did(), [3; 32], [3; 32]).map_err(rpc_error)?;
+        let from =
+            wallet_account(&account.did(), [3; 32], [3; 32]).map_err(|error| rpc_error(&error))?;
         let to = wallet_account(&derive_from_seed(&seed, 1)?.did(), [3; 32], [3; 32])
-            .map_err(rpc_error)?;
+            .map_err(|error| rpc_error(&error))?;
         let debit = SendDebit {
             from,
             to,
@@ -383,7 +385,8 @@ fn submitted_acknowledgement_survives_signer_and_process_restart() -> Outcome {
     assert_eq!(
         listener
             .accept()
-            .expect_err("submitted is a local acknowledgement, not a receipt query")
+            .err()
+            .unwrap_or_else(|| panic!("submitted is a local acknowledgement, not a receipt query"))
             .kind(),
         std::io::ErrorKind::WouldBlock
     );
@@ -413,14 +416,35 @@ fn real_client(config: &Value, clock: &ClockProducer) -> Result<RpcClient, Box<d
         RpcClient::connect_node(field(config, "endpoint")?, credential)
     };
     Ok(client
-        .map_err(rpc_error)?
+        .map_err(|error| rpc_error(&error))?
         .with_clock(RuntimeClock::connect(clock.binding.clone())?))
 }
 
 fn sequence(rpc: &RpcClient, account: &[u8; 32]) -> Result<u64, Box<dyn Error>> {
-    let value = rpc.get_account(&hex(account)).map_err(rpc_error)?;
+    let value = rpc
+        .get_account(&hex(account))
+        .map_err(|error| rpc_error(&error))?;
     assert_eq!(value["account_id"], hex(account));
     Ok(field(&value, "next_sequence")?.parse()?)
+}
+
+fn assert_submitted(success: bool, submitted: &Value) -> Result<&str, Box<dyn Error>> {
+    assert!(success, "real signed submission must succeed: {submitted}");
+    assert_eq!(submitted["result"]["rung"], Rung::Submitted.name());
+    let hash = field(&submitted["result"], "txHash")?;
+    assert_eq!(
+        unhex(hash.strip_prefix("0x").ok_or("transaction hash prefix")?)?.len(),
+        32
+    );
+    Ok(hash)
+}
+
+fn submission_key(from: &[u8; 32], before: u64) -> [u8; 32] {
+    let mut digest = Sha256::new();
+    digest.update(b"proof-layerx-wallet-rpc");
+    digest.update(from);
+    digest.update(before.to_be_bytes());
+    digest.finalize().into()
 }
 
 #[test]
@@ -433,14 +457,10 @@ fn action() -> Outcome {
     let recipient = derive_from_seed(&seed, 1)?;
     let did = account.did();
     let asset = [3; 32];
-    let from = wallet_account(&did, asset, asset).map_err(rpc_error)?;
-    let to = wallet_account(&recipient.did(), asset, asset).map_err(rpc_error)?;
+    let from = wallet_account(&did, asset, asset).map_err(|error| rpc_error(&error))?;
+    let to = wallet_account(&recipient.did(), asset, asset).map_err(|error| rpc_error(&error))?;
     let before: u64 = 0;
-    let mut digest = Sha256::new();
-    digest.update(b"proof-layerx-wallet-rpc");
-    digest.update(from);
-    digest.update(before.to_be_bytes());
-    let idempotency_key: [u8; 32] = digest.finalize().into();
+    let idempotency_key = submission_key(&from, before);
     let debit = SendDebit {
         from,
         to,
@@ -484,17 +504,11 @@ fn action() -> Outcome {
     for commitment in ["executed", "batched", "finalised"] {
         let mut invalid = submit.clone();
         invalid["commitment"] = json!(commitment);
-        refused(call(&invalid, Some(&clock))?);
+        refused(&call(&invalid, Some(&clock))?);
     }
     assert_eq!(sequence(&real_client(&config, &clock)?, &from)?, before);
     let (success, submitted) = request(&input, Some(&clock))?;
-    assert!(success, "real signed submission must succeed: {submitted}");
-    assert_eq!(submitted["result"]["rung"], Rung::Submitted.name());
-    let hash = field(&submitted["result"], "txHash")?;
-    assert_eq!(
-        unhex(hash.strip_prefix("0x").ok_or("transaction hash prefix")?)?.len(),
-        32
-    );
+    let hash = assert_submitted(success, &submitted)?;
     let submitted_path = state.persist("submitted.json", &serde_json::to_vec(&submitted)?)?;
 
     let (listener, observed) = node.stop()?;
@@ -511,12 +525,55 @@ fn action() -> Outcome {
     let node = NodeProducer::start(listener, state.0.clone(), debit, payload, sender)?;
     assert_eq!(node.endpoint, field(&config, "endpoint")?);
     let rpc = real_client(&config, &clock)?;
+    let case = Submission {
+        state: &state,
+        clock: &clock,
+        config: &config,
+        did: &did,
+        asset,
+        from,
+        to,
+        before,
+        producer: &producer,
+    };
+    let accounts = assert_balances(&case, &rpc)?;
+    assert_recovery(&case, rpc, &accounts, &submitted_path, hash, &raw)?;
+    let (_, observed) = node.stop()?;
+    assert!(
+        !observed
+            .iter()
+            .any(|request| request["method"] == "eth_sendRawTransaction"),
+        "reopened state must refuse duplicate before signing/submission"
+    );
+    clock.stop()?;
+    Ok(())
+}
+
+struct Submission<'a> {
+    state: &'a PrivateState,
+    clock: &'a ClockProducer,
+    config: &'a Value,
+    did: &'a str,
+    asset: [u8; 32],
+    from: [u8; 32],
+    to: [u8; 32],
+    before: u64,
+    producer: &'a Path,
+}
+
+fn assert_balances(case: &Submission<'_>, rpc: &RpcClient) -> Result<Value, Box<dyn Error>> {
+    let config = case.config;
+    let clock = case.clock;
+    let did = case.did;
+    let asset = case.asset;
+    let from = case.from;
     let (success, accounts) = call(
         &json!({"action":"accounts", "configuration":config, "did":did}),
-        Some(&clock),
+        Some(clock),
     )?;
     assert!(success, "real account enumeration must succeed");
-    let snapshot = BalancesSnapshot::try_from(accounts["result"].clone()).map_err(rpc_error)?;
+    let snapshot = BalancesSnapshot::try_from(accounts["result"].clone())
+        .map_err(|error| rpc_error(&error))?;
     assert!(snapshot
         .unverified_fields()
         .get("balances")
@@ -526,19 +583,21 @@ fn action() -> Outcome {
     assert_eq!(snapshot.into_value(), accounts["result"]);
     assert_eq!(
         rpc.wallet(asset)
-            .accounts(&did)
-            .map_err(rpc_error)?
+            .accounts(did)
+            .map_err(|error| rpc_error(&error))?
             .into_value(),
         accounts["result"]
     );
     assert_eq!(
-        rpc.wallet(asset).balance(&did, asset).map_err(rpc_error)?,
+        rpc.wallet(asset)
+            .balance(did, asset)
+            .map_err(|error| rpc_error(&error))?,
         json!("0x63")
     );
     let (success, balance) = call(
         &json!({"action":"balance", "configuration":config, "did":did,
         "asset":hex(&asset)}),
-        Some(&clock),
+        Some(clock),
     )?;
     assert!(success, "reopened balance must succeed: {balance}");
     assert_eq!(
@@ -546,10 +605,30 @@ fn action() -> Outcome {
         json!({"account_id":hex(&from),"asset_id":hex(&asset),"balance":"99"})
     );
 
+    Ok(accounts)
+}
+
+fn assert_recovery(
+    case: &Submission<'_>,
+    rpc: RpcClient,
+    accounts: &Value,
+    submitted_path: &Path,
+    hash: &str,
+    raw: &[u8],
+) -> Outcome {
+    let config = case.config;
+    let clock = case.clock;
+    let did = case.did;
+    let asset = case.asset;
+    let from = case.from;
+    let state = case.state;
+    let to = case.to;
+    let before = case.before;
+    let producer = case.producer;
     let recovered_submission: Value = serde_json::from_slice(&fs::read(submitted_path)?)?;
     let wait = json!({"action":"wait", "configuration":config,
         "txHash":recovered_submission["result"]["txHash"], "rung":"receipted", "timeout_ms":"5000"});
-    let (success, receipt) = call(&wait, Some(&clock))?;
+    let (success, receipt) = call(&wait, Some(clock))?;
     assert!(
         success,
         "real sequencer receipt must be verified: {receipt}"
@@ -563,7 +642,7 @@ fn action() -> Outcome {
     assert_eq!(canonical, fs::read(state.0.join("node-receipt"))?);
     let decoded = checked(decode(&canonical));
     let protocol = decoded.protocol().ok_or("missing protocol receipt")?;
-    assert_eq!(protocol.activity_id(), transaction_hash(&raw));
+    assert_eq!(protocol.activity_id(), transaction_hash(raw));
     assert_eq!(protocol.from(), from);
     assert_eq!(protocol.to(), to);
     assert_eq!(protocol.amount(), 1);
@@ -577,11 +656,11 @@ fn action() -> Outcome {
     drop(rpc);
 
     // The first CLI and client are gone. Recover precisely the same evidence.
-    let (success, recovered) = call(&wait, Some(&clock))?;
+    let (success, recovered) = call(&wait, Some(clock))?;
     assert!(success);
     assert_eq!(recovered, receipt);
-    refused(request(&fs::read(producer)?, Some(&clock))?);
-    let rpc = real_client(&config, &clock)?;
+    refused(&request(&fs::read(producer)?, Some(clock))?);
+    let rpc = real_client(config, clock)?;
     assert_eq!(
         sequence(&rpc, &from)?,
         before + 1,
@@ -590,35 +669,27 @@ fn action() -> Outcome {
     for commitment in ["executed", "batched", "finalised"] {
         let mut retired = wait.clone();
         retired["commitment"] = json!(commitment);
-        refused(call(&retired, Some(&clock))?);
+        refused(&call(&retired, Some(clock))?);
     }
     let mut unknown = wait.clone();
     unknown["txHash"] = json!(format!("0x{}", "ff".repeat(32)));
-    let (success, refusal) = call(&unknown, Some(&clock))?;
+    let (success, refusal) = call(&unknown, Some(clock))?;
     assert!(!success);
-    assert_eq!(refusal["error"]["code"], -32001);
+    assert_eq!(refusal["error"]["code"], -32_001);
     assert_eq!(refusal["error"]["message"], "Unknown transaction");
     let mut wrong_key = wait.clone();
     wrong_key["configuration"]["sequencer_key"] = json!(hex(&SigningKey::from_bytes(&[0x62; 32])
         .verifying_key()
         .to_bytes()));
-    refused(call(&wrong_key, Some(&clock))?);
+    refused(&call(&wrong_key, Some(clock))?);
     assert_eq!(
         rpc.wallet(asset)
-            .accounts(&did)
-            .map_err(rpc_error)?
+            .accounts(did)
+            .map_err(|error| rpc_error(&error))?
             .into_value(),
         accounts["result"],
         "duplicate must preserve the recovered balance"
     );
-    let (_, observed) = node.stop()?;
-    assert!(
-        !observed
-            .iter()
-            .any(|request| request["method"] == "eth_sendRawTransaction"),
-        "reopened state must refuse duplicate before signing/submission"
-    );
-    clock.stop()?;
     Ok(())
 }
 
@@ -682,31 +753,34 @@ impl ClockProducer {
                     Ok((mut stream, _)) => {
                         stream
                             .set_read_timeout(Some(Duration::from_secs(3)))
-                            .expect("clock read bound");
+                            .unwrap_or_else(|error| panic!("clock read bound: {error:?}"));
                         stream
                             .set_write_timeout(Some(Duration::from_secs(3)))
-                            .expect("clock write bound");
+                            .unwrap_or_else(|error| panic!("clock write bound: {error:?}"));
                         let mut bytes = [0; clock_protocol::REQUEST_BYTES];
                         stream
                             .read_exact(&mut bytes)
-                            .expect("runtime clock request");
+                            .unwrap_or_else(|error| panic!("runtime clock request: {error:?}"));
                         let request = clock_protocol::Request::decode(&bytes)
-                            .expect("canonical clock request");
+                            .unwrap_or_else(|error| panic!("canonical clock request: {error:?}"));
                         thread::sleep(Duration::from_nanos(request.wait_nanoseconds));
                         let reading = ClockReading {
                             generation: [0x71; 16],
                             unix_milliseconds: NOW_SECONDS * 1_000
-                                + u64::try_from(start.elapsed().as_millis())
-                                    .expect("clock milliseconds"),
+                                + u64::try_from(start.elapsed().as_millis()).unwrap_or_else(
+                                    |error| panic!("clock milliseconds: {error:?}"),
+                                ),
                             monotonic_nanoseconds: u64::try_from(start.elapsed().as_nanos())
-                                .expect("clock nanoseconds"),
+                                .unwrap_or_else(|error| panic!("clock nanoseconds: {error:?}")),
                         };
                         stream
                             .write_all(&clock_protocol::response(request.counter, Ok(reading)))
-                            .expect("canonical runtime clock response");
+                            .unwrap_or_else(|error| {
+                                panic!("canonical runtime clock response: {error:?}")
+                            });
                     }
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                        thread::sleep(Duration::from_millis(1))
+                        thread::sleep(Duration::from_millis(1));
                     }
                     Err(error) => panic!("proof_layerx_wallet_rpc.rs: clock listener: {error}"),
                 }
@@ -751,7 +825,13 @@ fn produce_receipt(raw: &[u8], debit: &SendDebit) -> Vec<u8> {
     checked(e.u128(debit.amount));
     checked(e.bytes(&debit.from, 32));
     checked(e.u128(100));
-    checked(e.u128(100_u128.checked_sub(debit.amount).expect("funded debit")));
+    checked(
+        e.u128(
+            100_u128
+                .checked_sub(debit.amount)
+                .unwrap_or_else(|| panic!("funded debit")),
+        ),
+    );
     checked(e.u64(debit.source_sequence));
     checked(e.bytes(&debit.to, 32));
     checked(e.u128(0));
@@ -774,6 +854,234 @@ fn produce_receipt(raw: &[u8], debit: &SendDebit) -> Vec<u8> {
     checked(encode(&receipt))
 }
 
+type StoredNode = Option<(Vec<u8>, Vec<u8>)>;
+
+fn reopen_node(directory: &Path, debit: &SendDebit) -> Result<StoredNode, Box<dyn Error>> {
+    let raw_path = directory.join("node-transaction");
+    let receipt_path = directory.join("node-receipt");
+    Ok(match (raw_path.exists(), receipt_path.exists()) {
+        (false, false) => None,
+        (true, true) => {
+            let raw = fs::read(&raw_path)?;
+            let canonical = fs::read(&receipt_path)?;
+            let receipt = checked(decode(&canonical));
+            assert_eq!(checked(encode(&receipt)), canonical);
+            assert_eq!(
+                receipt
+                    .protocol()
+                    .unwrap_or_else(|| panic!("protocol receipt"))
+                    .activity_id(),
+                transaction_hash(&raw)
+            );
+            assert_eq!(
+                produce_receipt(&raw, debit),
+                canonical,
+                "reopened producer state must preserve signed evidence"
+            );
+            Some((raw, canonical))
+        }
+        _ => panic!("proof_layerx_wallet_rpc.rs: incomplete persisted node producer"),
+    })
+}
+
+fn node_request(stream: &mut std::net::TcpStream) -> Value {
+    let mut header = Vec::new();
+    while !header.ends_with(b"\r\n\r\n") {
+        assert!(header.len() < 8192, "RPC header bound");
+        let mut byte = [0];
+        checked(stream.read_exact(&mut byte));
+        header.push(byte[0]);
+    }
+    let header = checked(std::str::from_utf8(&header));
+    assert!(header.starts_with("POST / HTTP/1.1\r\n"));
+    let length = header
+        .lines()
+        .find_map(|line| {
+            let (key, value) = line.split_once(':')?;
+            key.eq_ignore_ascii_case("content-length")
+                .then(|| checked(value.trim().parse::<usize>()))
+        })
+        .unwrap_or_else(|| panic!("RPC content length"));
+    assert!(length <= 1_048_576 + 4096, "RPC body bound");
+    let mut bytes = vec![0; length];
+    checked(stream.read_exact(&mut bytes));
+    checked(serde_json::from_slice(&bytes))
+}
+
+struct NodeState {
+    directory: PathBuf,
+    debit: SendDebit,
+    payload: Vec<u8>,
+    sender: [u8; 20],
+    stored: StoredNode,
+}
+impl NodeState {
+    fn respond(&mut self, request: &Value) -> Value {
+        assert_eq!(request["jsonrpc"], "2.0");
+        let method = request["method"]
+            .as_str()
+            .unwrap_or_else(|| panic!("RPC method"));
+        let params = &request["params"];
+        let sequence = self.debit.source_sequence + u64::from(self.stored.is_some());
+        match method {
+            "eth_getTransactionCount" => {
+                assert_eq!(
+                    params,
+                    &json!([format!("0x{}", hex(&self.sender)), "pending"])
+                );
+                json!(format!("0x{sequence:x}"))
+            }
+            "eth_blockNumber" | "eth_maxPriorityFeePerGas" => {
+                assert_eq!(params, &json!([]));
+                json!("0x1")
+            }
+            "eth_getBalance" => {
+                assert_eq!(
+                    params,
+                    &json!([format!("0x{}", hex(&self.sender)), "pending"])
+                );
+                json!(format!(
+                    "0x{:x}",
+                    if self.stored.is_some() { 99 } else { 100 }
+                ))
+            }
+            "eth_call" => self.read_call(params),
+            "eth_chainId" => {
+                assert_eq!(params, &json!([]));
+                json!("0x7d")
+            }
+            "eth_gasPrice" => {
+                assert_eq!(params, &json!([]));
+                json!("0x2")
+            }
+            "eth_estimateGas" => {
+                assert_eq!(params[1], "pending");
+                assert_eq!(params[0]["from"], format!("0x{}", hex(&self.sender)));
+                json!("0x186a0")
+            }
+            "px_getAccount" => {
+                assert_eq!(params, &json!([hex(&self.debit.from)]));
+                json!({"account_id":hex(&self.debit.from), "next_sequence":sequence.to_string()})
+            }
+            "px_getBalances" => {
+                let did = derive_from_seed(&[0x42; 64], 0)
+                    .unwrap_or_else(|error| panic!("producer account: {error:?}"))
+                    .did();
+                assert_eq!(params, &json!([did]));
+                let balance = match &self.stored {
+                    Some((_, canonical)) => checked(decode(canonical))
+                        .protocol()
+                        .unwrap_or_else(|| panic!("protocol receipt"))
+                        .debit_balance_after(),
+                    None => 100,
+                };
+                json!({"balances":[{"account_id":hex(&self.debit.from), "asset_id":hex(&self.debit.asset), "balance":balance.to_string()}]})
+            }
+            "eth_sendRawTransaction" => self.submit(params, sequence),
+            "pax_sequencerReceipt" => {
+                if let Some((raw, canonical)) = &self.stored {
+                    let hash = format!("0x{}", hex(&transaction_hash(raw)));
+                    if params == &json!([hash]) {
+                        json!({"txHash":hash, "rung":Rung::Receipted.name(), "receipt":format!("0x{}",hex(canonical))})
+                    } else {
+                        Value::Null
+                    }
+                } else {
+                    Value::Null
+                }
+            }
+            other => {
+                panic!("proof_layerx_wallet_rpc.rs: unimplemented producer method {other}")
+            }
+        }
+    }
+    fn read_call(&self, params: &Value) -> Value {
+        let data = checked(unhex(
+            params[0]["data"]
+                .as_str()
+                .unwrap_or_else(|| panic!("calldata"))
+                .strip_prefix("0x")
+                .unwrap_or_else(|| panic!("prefix")),
+        ));
+        let mut result = [0; 32];
+        if data[..4] == layerx_client::sequencer::GET_EVM_ADDR_BY_LAYERX {
+            assert_eq!(
+                &data[4..],
+                &derive_from_seed(&[0x42; 64], 0)
+                    .unwrap_or_else(|error| panic!("owner: {error:?}"))
+                    .layerx_public_key()
+            );
+            assert_eq!(params[1], "pending");
+            result[12..].copy_from_slice(&self.sender);
+        } else {
+            assert_eq!(
+                &data[..4],
+                &layerx_crypto::disclosure::call::ledger_selector("balanceOf(bytes32,bytes32)")
+            );
+            assert_eq!(&data[4..36], &self.debit.from);
+            assert_eq!(&data[36..68], &self.debit.asset);
+            assert_eq!(params[1], "0x1");
+            result[16..].copy_from_slice(
+                &(if self.stored.is_some() { 99_u128 } else { 100 }).to_be_bytes(),
+            );
+        }
+        json!(format!("0x{}", hex(&result)))
+    }
+    fn submit(&mut self, params: &Value, sequence: u64) -> Value {
+        assert!(
+            self.stored.is_none(),
+            "duplicate must be refused by source sequence before transport"
+        );
+        let raw = checked(unhex(
+            params[0]
+                .as_str()
+                .unwrap_or_else(|| panic!("raw transaction"))
+                .strip_prefix("0x")
+                .unwrap_or_else(|| panic!("raw prefix")),
+        ));
+        let (call, signature) = checked(decode_signed(&raw));
+        assert_eq!(checked(recover_sender(&call, &signature)), self.sender);
+        assert_eq!(call.nonce, sequence);
+        assert_eq!(call.chain_id, u64::from(self.debit.network_id));
+        let expected = checked(ledger_payment_call(
+            &self.payload,
+            &CallOptions {
+                from: self.sender,
+                chain_id: 125,
+                nonce: sequence,
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 5,
+                gas_limit: 100_000,
+            },
+        ));
+        assert_eq!(
+            call, expected.call,
+            "signed call must preserve the actual native producer bytes"
+        );
+        let disclosure = checked(bind_call(&call, self.sender));
+        assert_eq!(
+            checked(disclosure.payload_sequence()),
+            Some(self.debit.source_sequence)
+        );
+        assert_eq!(disclosure.counterparties[0].account, self.debit.from);
+        assert_eq!(disclosure.counterparties[1].account, self.debit.to);
+        let canonical = produce_receipt(&raw, &self.debit);
+        checked(PrivateState::persist_at(
+            &self.directory,
+            "node-transaction",
+            &raw,
+        ));
+        checked(PrivateState::persist_at(
+            &self.directory,
+            "node-receipt",
+            &canonical,
+        ));
+        let hash = transaction_hash(&raw);
+        self.stored = Some((raw, canonical));
+        json!(format!("0x{}", hex(&hash)))
+    }
+}
+
 type NodeRun = (TcpListener, Vec<Value>);
 struct NodeProducer {
     endpoint: String,
@@ -793,30 +1101,15 @@ impl NodeProducer {
         );
         let endpoint = format!("http://{}", listener.local_addr()?);
         listener.set_nonblocking(true)?;
-        let raw_path = directory.join("node-transaction");
-        let receipt_path = directory.join("node-receipt");
-        let stored = match (raw_path.exists(), receipt_path.exists()) {
-            (false, false) => None,
-            (true, true) => {
-                let raw = fs::read(&raw_path)?;
-                let canonical = fs::read(&receipt_path)?;
-                let receipt = checked(decode(&canonical));
-                assert_eq!(checked(encode(&receipt)), canonical);
-                assert_eq!(
-                    receipt.protocol().expect("protocol receipt").activity_id(),
-                    transaction_hash(&raw)
-                );
-                assert_eq!(
-                    produce_receipt(&raw, &debit),
-                    canonical,
-                    "reopened producer state must preserve signed evidence"
-                );
-                Some((raw, canonical))
-            }
-            _ => panic!("proof_layerx_wallet_rpc.rs: incomplete persisted node producer"),
-        };
+        let stored = reopen_node(&directory, &debit)?;
         let worker = Producer::spawn(move |stop| {
-            let mut stored = stored;
+            let mut state = NodeState {
+                directory,
+                debit,
+                payload,
+                sender,
+                stored,
+            };
             let mut observed = Vec::new();
             while !stop.load(Ordering::Acquire) {
                 let mut stream = match listener.accept() {
@@ -829,184 +1122,10 @@ impl NodeProducer {
                 };
                 checked(stream.set_read_timeout(Some(Duration::from_secs(3))));
                 checked(stream.set_write_timeout(Some(Duration::from_secs(3))));
-                let mut header = Vec::new();
-                while !header.ends_with(b"\r\n\r\n") {
-                    assert!(header.len() < 8192, "RPC header bound");
-                    let mut byte = [0];
-                    checked(stream.read_exact(&mut byte));
-                    header.push(byte[0]);
-                }
-                let header = checked(std::str::from_utf8(&header));
-                assert!(header.starts_with("POST / HTTP/1.1\r\n"));
-                let length = header
-                    .lines()
-                    .find_map(|line| {
-                        let (key, value) = line.split_once(':')?;
-                        key.eq_ignore_ascii_case("content-length")
-                            .then(|| checked(value.trim().parse::<usize>()))
-                    })
-                    .expect("RPC content length");
-                assert!(length <= 1_048_576 + 4096, "RPC body bound");
-                let mut bytes = vec![0; length];
-                checked(stream.read_exact(&mut bytes));
-                let request: Value = checked(serde_json::from_slice(&bytes));
-                assert_eq!(request["jsonrpc"], "2.0");
-                let method = request["method"].as_str().expect("RPC method");
-                let params = &request["params"];
-                let sequence = debit.source_sequence + u64::from(stored.is_some());
-                let result = match method {
-                    "eth_getTransactionCount" => {
-                        assert_eq!(params, &json!([format!("0x{}", hex(&sender)), "pending"]));
-                        json!(format!("0x{sequence:x}"))
-                    }
-                    "eth_blockNumber" => {
-                        assert_eq!(params, &json!([]));
-                        json!("0x1")
-                    }
-                    "eth_getBalance" => {
-                        assert_eq!(params, &json!([format!("0x{}", hex(&sender)), "pending"]));
-                        json!(format!("0x{:x}", if stored.is_some() { 99 } else { 100 }))
-                    }
-                    "eth_call" => {
-                        let data = checked(unhex(
-                            params[0]["data"]
-                                .as_str()
-                                .expect("calldata")
-                                .strip_prefix("0x")
-                                .expect("prefix"),
-                        ));
-                        let mut result = [0; 32];
-                        if data[..4] == layerx_client::sequencer::GET_EVM_ADDR_BY_LAYERX {
-                            assert_eq!(
-                                &data[4..],
-                                &derive_from_seed(&[0x42; 64], 0)
-                                    .expect("owner")
-                                    .layerx_public_key()
-                            );
-                            assert_eq!(params[1], "pending");
-                            result[12..].copy_from_slice(&sender);
-                        } else {
-                            assert_eq!(
-                                &data[..4],
-                                &layerx_crypto::disclosure::call::ledger_selector(
-                                    "balanceOf(bytes32,bytes32)"
-                                )
-                            );
-                            assert_eq!(&data[4..36], &debit.from);
-                            assert_eq!(&data[36..68], &debit.asset);
-                            assert_eq!(params[1], "0x1");
-                            result[16..].copy_from_slice(
-                                &(if stored.is_some() { 99_u128 } else { 100 }).to_be_bytes(),
-                            );
-                        }
-                        json!(format!("0x{}", hex(&result)))
-                    }
-                    "eth_chainId" => {
-                        assert_eq!(params, &json!([]));
-                        json!("0x7d")
-                    }
-                    "eth_gasPrice" => {
-                        assert_eq!(params, &json!([]));
-                        json!("0x2")
-                    }
-                    "eth_maxPriorityFeePerGas" => {
-                        assert_eq!(params, &json!([]));
-                        json!("0x1")
-                    }
-                    "eth_estimateGas" => {
-                        assert_eq!(params[1], "pending");
-                        assert_eq!(params[0]["from"], format!("0x{}", hex(&sender)));
-                        json!("0x186a0")
-                    }
-                    "px_getAccount" => {
-                        assert_eq!(params, &json!([hex(&debit.from)]));
-                        json!({"account_id":hex(&debit.from), "next_sequence":sequence.to_string()})
-                    }
-                    "px_getBalances" => {
-                        let did = derive_from_seed(&[0x42; 64], 0)
-                            .expect("producer account")
-                            .did();
-                        assert_eq!(params, &json!([did]));
-                        let balance = match &stored {
-                            Some((_, canonical)) => checked(decode(canonical))
-                                .protocol()
-                                .expect("protocol receipt")
-                                .debit_balance_after(),
-                            None => 100,
-                        };
-                        json!({"balances":[{"account_id":hex(&debit.from), "asset_id":hex(&debit.asset), "balance":balance.to_string()}]})
-                    }
-                    "eth_sendRawTransaction" => {
-                        assert!(
-                            stored.is_none(),
-                            "duplicate must be refused by source sequence before transport"
-                        );
-                        let raw = checked(unhex(
-                            params[0]
-                                .as_str()
-                                .expect("raw transaction")
-                                .strip_prefix("0x")
-                                .expect("raw prefix"),
-                        ));
-                        let (call, signature) = checked(decode_signed(&raw));
-                        assert_eq!(checked(recover_sender(&call, &signature)), sender);
-                        assert_eq!(call.nonce, sequence);
-                        assert_eq!(call.chain_id, u64::from(debit.network_id));
-                        let expected = checked(ledger_payment_call(
-                            &payload,
-                            &CallOptions {
-                                from: sender,
-                                chain_id: 125,
-                                nonce: sequence,
-                                max_priority_fee_per_gas: 1,
-                                max_fee_per_gas: 5,
-                                gas_limit: 100_000,
-                            },
-                        ));
-                        assert_eq!(
-                            call, expected.call,
-                            "signed call must preserve the actual native producer bytes"
-                        );
-                        let disclosure = checked(bind_call(&call, sender));
-                        assert_eq!(
-                            checked(disclosure.payload_sequence()),
-                            Some(debit.source_sequence)
-                        );
-                        assert_eq!(disclosure.counterparties[0].account, debit.from);
-                        assert_eq!(disclosure.counterparties[1].account, debit.to);
-                        let canonical = produce_receipt(&raw, &debit);
-                        checked(PrivateState::persist_at(
-                            &directory,
-                            "node-transaction",
-                            &raw,
-                        ));
-                        checked(PrivateState::persist_at(
-                            &directory,
-                            "node-receipt",
-                            &canonical,
-                        ));
-                        let hash = transaction_hash(&raw);
-                        stored = Some((raw, canonical));
-                        json!(format!("0x{}", hex(&hash)))
-                    }
-                    "pax_sequencerReceipt" => {
-                        if let Some((raw, canonical)) = &stored {
-                            let hash = format!("0x{}", hex(&transaction_hash(raw)));
-                            if params == &json!([hash]) {
-                                json!({"txHash":hash, "rung":Rung::Receipted.name(), "receipt":format!("0x{}",hex(canonical))})
-                            } else {
-                                Value::Null
-                            }
-                        } else {
-                            Value::Null
-                        }
-                    }
-                    other => {
-                        panic!("proof_layerx_wallet_rpc.rs: unimplemented producer method {other}")
-                    }
-                };
+                let request = node_request(&mut stream);
+                let result = state.respond(&request);
                 let response = if result.is_null() {
-                    json!({"jsonrpc":"2.0", "id":request["id"], "error":{"code":-32001, "message":"Unknown transaction"}})
+                    json!({"jsonrpc":"2.0", "id":request["id"], "error":{"code":-32_001, "message":"Unknown transaction"}})
                 } else {
                     json!({"jsonrpc":"2.0", "id":request["id"], "result":result})
                 };
