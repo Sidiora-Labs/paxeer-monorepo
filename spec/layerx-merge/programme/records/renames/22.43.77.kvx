@@ -1,0 +1,24 @@
+[manifest]
+task = "22.43.77"
+records_moved = 1
+files_renamed = 1
+
+[file.1]
+from = "precompiles/ibc/repair_m1265.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/ibc/repair_m1265.kvx"
+
+[file.2]
+from = "precompiles/ibc/repair_m1265_test.go"
+to = "precompiles/ibc/transfer_lifecycle_test.go"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1265_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1265_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "repair_m1265_test.go"
