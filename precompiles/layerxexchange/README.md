@@ -12,8 +12,8 @@ This directory holds the `layerxExchange` EVM precompile implementation, exchang
 - [versions](versions): Version list used by precompile setup generation.
 - [layerxexchange_test.go](layerxexchange_test.go): Tests of deposits, intents, events, state witnesses, gas, and time-in-force capabilities.
 - [errors_test.go](errors_test.go): Tests of error-code mapping and ABI revert encoding.
-- [repair_459_test.go](repair_459_test.go): Tests of account-bound order overloads, ownership checks, and TypeScript calldata.
-- [testdata/](testdata/): TypeScript calldata fixture and its generator, `repair_459_generate.mjs`.
+- [account_order_test.go](account_order_test.go): Tests of account-bound order overloads, ownership checks, and TypeScript calldata.
+- [testdata/](testdata/): TypeScript calldata fixture and its generator, `generate_account_order_calldata.mjs`.
 
 ## Build and test
 
@@ -35,7 +35,7 @@ The tests read these environment variables:
 - `PAXEER_X_TIF_NATIVE_GENESIS_FILE`: Path to native genesis input for the time-in-force capability test.
 - `PAXEER_X_TIF_INGRESS_FILE`: Indicates that the cross-language test requires the native genesis input file.
 
-Tests also read `testdata/repair_459_typescript.json` and the kernel result declarations in [lxp_result.h](../../include/layerx/lxp_result.h).
+Tests also read `testdata/account_order_typescript_calldata.json` and the kernel result declarations in [lxp_result.h](../../include/layerx/lxp_result.h).
 
 ## Documentation
 
