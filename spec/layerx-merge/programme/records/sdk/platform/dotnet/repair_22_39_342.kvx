@@ -26,7 +26,7 @@ behavior = "Run every native-produced vector through DecodeAuthorizationRoot wit
 [qualification]
 status = "See the bounded gate ledger for the qualification result of attempt 2."
 build_command = "dotnet build sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj"
-verify_command = "test -s sdk/platform/dotnet/repair_22_39_342.kvx && dotnet test sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --filter 'FullyQualifiedName~ReceiptFixtureTests'"
+verify_command = "test -s spec/layerx-merge/programme/records/sdk/platform/dotnet/repair_22_39_342.kvx && dotnet test sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --filter 'FullyQualifiedName~ReceiptFixtureTests'"
 build_log = "/out/logs/build-1.log"
 verify_log = "/out/logs/verify-1.log"
 verification_state = "Attempt 2 preserves the implementation and existing assertions; hf-build and hf-done qualify the same final candidate without a handwritten SDK install."

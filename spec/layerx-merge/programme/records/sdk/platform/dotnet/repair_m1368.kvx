@@ -3,7 +3,7 @@ audit = "22.30.75"
 base = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
 status = "implemented-awaiting-source-qualification"
 evidence = "The runner hf-build/hf-done ledger records the exact built and verified candidate revision, command, exit code and private log location. This source record is finalized before those gates and claims no unexecuted C# gate."
-baseline = "Attempt 1 at ff9566ba9c9fc38263a120f5d1f0184884fe7122 failed cg spec done 22.33.1368 -f layerx-merge --root /work/paxeer-monorepo with exit 1: the Go package reported no tests to run because repair_m1368_test.go was missing. No unchanged-tree rerun was made; the explicit continuation gate order prohibits running verify_cmd by hand."
+baseline = "Attempt 1 at ff9566ba9c9fc38263a120f5d1f0184884fe7122 failed cg spec done 22.33.1368 -f layerx-merge --root /work/paxeer-monorepo with exit 1: the Go package reported no tests to run because sdk_contract_source_test.go was missing. No unchanged-tree rerun was made; the explicit continuation gate order prohibits running verify_cmd by hand."
 qualification-kind = "The attempt-2 ruling authorizes in-process Go source checks of production members, behavior assertions and project references; they require no subprocess, toolchain, credentials or live service. C# runtime execution is not claimed."
 program-deployment-limit = "RepairM1368Tests.CompleteLifecyclePayloadIsBoundedBeforeNativePreparation checks deploy and upgrade at limit minus one, exact limit and limit plus one, including optional and cleared interfaces and migration hooks, then drives the real codec and native JSON-RPC transaction preparation. Host admission qualification remains the wiring request below."
 programs-legacy-constructor = "RepairM1368Tests.SupportedProgramsConstructorsUseTheNativeBackend checks the retired constructor's immediate typed refusal and both supported constructors through real Programs HTTP transport and native discovery decoding. ProgramsContractTests now uses native RPC for pending receipts and discovery."
@@ -20,7 +20,7 @@ gotcha-gates = "go build only compiles the Go qualification package, not the C# 
 gotcha-format = "No C# formatter is configured in the repository and dotnet is absent in this Go sandbox; C# edits follow existing source style."
 gotcha-json = "JsonValue.ObjectValue holds dictionaries whose record equality is reference equality; golden response tests compare JSON structures rather than dictionary object identity."
 gotcha-recovery = "StreamCursor needs an explicit JsonConstructor so durable replay snapshots restore the validated cursor rather than the struct default."
-gotcha-continuation = "A successful Go run with no tests does not qualify this repair: declare the actual TestRepairM_1368_ functions in repair_m1368_test.go and retain the verify command's positive PASS check."
+gotcha-continuation = "A successful Go run with no tests does not qualify this repair: declare the actual TestRepairM_1368_ functions in sdk_contract_source_test.go and retain the verify command's positive PASS check."
 
 [proof.program-deployment-limit]
 test = "TestRepairM_1368_program_deployment_limit"

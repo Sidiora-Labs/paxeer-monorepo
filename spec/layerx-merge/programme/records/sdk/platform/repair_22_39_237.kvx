@@ -22,7 +22,7 @@ reason = "Gotcha 3836: the existing consent carrier was added without its handwr
 
 [qualification]
 build_command = "cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen && make platform-sdk-generate"
-verify_command = "test -s sdk/platform/repair_22_39_237.kvx && cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test drift"
+verify_command = "test -s spec/layerx-merge/programme/records/sdk/platform/repair_22_39_237.kvx && cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test drift"
 build_result = "Authoritative result is the exit field of the final kind=build row in evidence_ledger at the verification revision; no pass is claimed before that row exists."
 drift_result = "Authoritative result is the final kind=verify row in evidence_ledger and its private log, including the drift test summary and cg spec done result; qualification requires exit 0 at the build revision."
 evidence_ledger = "/out/run/gates.jsonl"
@@ -41,7 +41,7 @@ revision = "340dd64bcd63f4a0eee42207ef9404ddecf066da"
 command = "cg spec done 22.39.237 -f layerx-merge --root /work/paxeer-monorepo"
 exit = 1
 log = "/out/logs/verify-1.log"
-drift_command = "test -s sdk/platform/repair_22_39_237.kvx && cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test drift"
+drift_command = "test -s spec/layerx-merge/programme/records/sdk/platform/repair_22_39_237.kvx && cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test drift"
 drift_exit = 101
 passed = 26
 failed = 3
@@ -51,7 +51,7 @@ ignored = 0
 task = "22.39.237"
 file = "sdk/platform/generators/tests/drift.rs"
 symbol = "declared_handwritten_file_passes_and_survives_regeneration, retired_lifecycle_output_is_unclassified, undeclared_file_in_an_explicit_output_root_fails_the_gate"
-observed = "At 340dd64bcd63f4a0eee42207ef9404ddecf066da, test -s sdk/platform/repair_22_39_237.kvx && cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test drift exited 101 with three untracked file versus unclassified file diagnostic mismatches; hf-done exited 1 and the private log is /out/logs/verify-1.log."
+observed = "At 340dd64bcd63f4a0eee42207ef9404ddecf066da, test -s spec/layerx-merge/programme/records/sdk/platform/repair_22_39_237.kvx && cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test drift exited 101 with three untracked file versus unclassified file diagnostic mismatches; hf-done exited 1 and the private log is /out/logs/verify-1.log."
 assumption = "Superseded by attempt 3, gotcha 3872 and decision 3077: align the three named test diagnostics with the unchanged checker and retain all negative-case failures."
 severity = "note"
 
@@ -82,10 +82,10 @@ origin = "repair_22_39_221.kvx was added with native_send.rs by task 22.39.221 a
 files = ["fixtures/fiat-receipts-v1.json", "fixtures/generate_kernel_receipt_fixture.mjs", "fixtures/kernel-receipt-v1.json", "fixtures/native-program-binding-v4.json", "fixtures/refresh_native_program_binding.py", "fixtures/refresh_receipt_vectors.py", "fixtures/ucp-checkout-receipt-v1.json", "fixtures/vector-v6-sponsored-bind.json", "fixtures/vector-v7-named-payee.json"]
 
 [repair.remaining_inventory_declarations.platform-dotnet]
-files = ["repair_138.go", "repair_138.kvx", "repair_138_test.go", "repair_m1368.kvx", "repair_m1368_test.go", "repair_m1369.kvx", "repair_m1369_test.go", "tests/LayerX.Sdk.Tests/Fixtures/repair-m1369-discovery-abi.json", "tests/LayerX.Sdk.Tests/Fixtures/repair-m1369-recorded-call.json", "tests/LayerX.Sdk.Tests/RepairM1368Tests.cs", "tests/LayerX.Sdk.Tests/RepairM1369Native.cs", "tests/Repair138/Program.cs", "tests/Repair138/Repair138.csproj", "tests/Repair138Producer/Cargo.toml", "tests/Repair138Producer/main.rs"]
+files = ["doc.go", "repair_138.kvx", "agent_transport_conformance_test.go", "repair_m1368.kvx", "sdk_contract_source_test.go", "repair_m1369.kvx", "native_program_conformance_test.go", "tests/LayerX.Sdk.Tests/Fixtures/native-program-discovery-abi.json", "tests/LayerX.Sdk.Tests/Fixtures/native-program-recorded-call.json", "tests/LayerX.Sdk.Tests/NativeLifecycleAndStreamTests.cs", "tests/LayerX.Sdk.Tests/NativeProgramTestVectors.cs", "tests/Repair138/Program.cs", "tests/Repair138/AgentTransportConformance.csproj", "tests/Repair138Producer/Cargo.toml", "tests/Repair138Producer/main.rs"]
 
 [repair.remaining_inventory_declarations.platform-go]
-files = ["cmd/conformance/repair_22_39_176.kvx", "repair_141.kvx", "repair_141_test.go", "repair_m1384.kvx", "repair_m1384_test.go", "repair_m1385.kvx", "repair_m1385_test.go", "testdata/repair141/mirror-transcript.json", "testdata/repair141/native-deprecate.json", "testdata/repair_m1384/checkpoint.json", "testdata/repair_m1384/domain-rpc.json"]
+files = ["cmd/conformance/repair_22_39_176.kvx", "repair_141.kvx", "receipt_transport_conformance_test.go", "repair_m1384.kvx", "sdk_contract_conformance_test.go", "repair_m1385.kvx", "secret_stream_conformance_test.go", "testdata/repair141/mirror-transcript.json", "testdata/repair141/native-deprecate.json", "testdata/repair_m1384/checkpoint.json", "testdata/repair_m1384/domain-rpc.json"]
 
 [repair.remaining_inventory_declarations.platform-jvm]
 files = ["examples/Eip1559Payment.java", "examples/ExampleConfiguration.java", "examples/README.md", "examples/repair-22.33.1392.kvx", "repair-22.33.1394.kvx", "src/conformance/java/com/sidiora/layerx/sdk/repair-22.33.1393.kvx", "src/main/java/com/sidiora/layerx/sdk/BoundedHttpResponse.java", "src/main/java/com/sidiora/layerx/sdk/NativeProgramPayload.java", "src/main/java/com/sidiora/layerx/sdk/Repair22331389.kvx", "src/main/java/com/sidiora/layerx/sdk/Repair22331390.kvx", "src/main/java/com/sidiora/layerx/sdk/SubmissionJournal.java", "src/main/java/com/sidiora/layerx/sdk/repair-22.31.344.kvx", "src/main/java/com/sidiora/layerx/sdk/verify/ConsensusTrust.java", "src/main/java/com/sidiora/layerx/sdk/verify/repair-22.31.343.kvx", "src/test/java/com/sidiora/layerx/sdk/Repair2231343Test.java", "src/test/java/com/sidiora/layerx/sdk/Repair2231344Test.java", "src/test/java/com/sidiora/layerx/sdk/Repair22331389Test.java", "src/test/java/com/sidiora/layerx/sdk/Repair22331390Test.java", "src/test/java/com/sidiora/layerx/sdk/Repair22331391Test.java", "src/test/java/com/sidiora/layerx/sdk/Repair22331392Test.java", "src/test/java/com/sidiora/layerx/sdk/Repair22331393Test.java", "src/test/java/com/sidiora/layerx/sdk/fixtures/sequencer-receipt-fee-token-node-v1.json", "src/test/java/com/sidiora/layerx/sdk/repair-22.33.1391.kvx", "test_repair_22_33_1394.py"]

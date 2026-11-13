@@ -8,13 +8,13 @@ using Xunit;
 
 namespace LayerX.Sdk.Tests;
 
-internal sealed class RepairM1368Http : IAsyncDisposable
+internal sealed class JsonRpcTestServer : IAsyncDisposable
 {
     private readonly TcpListener listener = new(IPAddress.Loopback, 0);
     private readonly CancellationTokenSource timeout = new(TimeSpan.FromSeconds(15));
     internal Uri Endpoint { get; }
 
-    internal RepairM1368Http()
+    internal JsonRpcTestServer()
     {
         listener.Start();
         Endpoint = new Uri($"http://127.0.0.1:{((IPEndPoint)listener.LocalEndpoint).Port}/");
@@ -56,7 +56,7 @@ internal sealed class RepairM1368Http : IAsyncDisposable
     }
 }
 
-public sealed class RepairM1368Tests
+public sealed class NativeLifecycleAndStreamTests
 {
     private const string Sender = "0x2222222222222222222222222222222222222222";
     private static readonly byte[] ProgramId = Enumerable.Repeat((byte)0x11, 32).ToArray();
@@ -102,7 +102,7 @@ public sealed class RepairM1368Tests
                     INativeProgramLifecycle decoded = upgrade ? NativeProgramUpgrade.Decode(payload) : NativeProgramDeploy.Decode(payload);
                     Assert.Equal(payload, decoded.Encode());
                     var request = new NativeProgramLifecycleRequest(decoded);
-                    await using var server = new RepairM1368Http();
+                    await using var server = new JsonRpcTestServer();
                     using var rpc = new Programs(server.Endpoint);
                     var client = new ProgramsClient(rpc);
                     var preparation = upgrade
@@ -144,7 +144,7 @@ public sealed class RepairM1368Tests
         Assert.Equal(RetryClass.Never, retired.Retry);
         for (var migration = 0; migration < 2; migration++)
         {
-            await using var server = new RepairM1368Http();
+            await using var server = new JsonRpcTestServer();
             using var rpc = new Programs(server.Endpoint);
             var client = migration == 0 ? new ProgramsClient(rpc)
                 : new ProgramsClient(platform, rpc, Enumerable.Repeat((byte)1, 32).ToArray());

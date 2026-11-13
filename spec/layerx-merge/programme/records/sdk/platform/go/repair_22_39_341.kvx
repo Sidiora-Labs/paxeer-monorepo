@@ -31,7 +31,7 @@ repair = "Decode and assert every producer vector against its recorded root; req
 [qualification]
 build = "hf-build: go -C sdk/platform/go build ./..."
 verify = "hf-done: cg spec done 22.39.341 -f layerx-merge --root \"$TASK_ROOT\""
-verify_cmd = "test -s sdk/platform/go/repair_22_39_341.kvx && go -C sdk/platform/go test -count=1 -run '^(TestProgramTransferAuthorizationRecomputesCanonicalRoot|TestProgramDestinationAuthorizationVectors)$' ."
+verify_cmd = "test -s spec/layerx-merge/programme/records/sdk/platform/go/repair_22_39_341.kvx && go -C sdk/platform/go test -count=1 -run '^(TestProgramTransferAuthorizationRecomputesCanonicalRoot|TestProgramDestinationAuthorizationVectors)$' ."
 revision = "The terminating hf-done JSON and private /out/run/gates.jsonl name the verified candidate revision containing this record; no source edits follow qualification."
 evidence = "Exact revision, command, exit and private log location are emitted by hf-build/hf-done and retained in /out/run/gates.jsonl. No gate result is claimed in advance."
 

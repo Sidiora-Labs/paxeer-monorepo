@@ -19,14 +19,14 @@ import (
 	"time"
 )
 
-func TestRepairM_1385_program_corpus_third_shape(t *testing.T) {
+func TestSecretStreamConformanceProgramCorpus(t *testing.T) {
 	t.Run("public-native-rpc-corpus", TestProgramTerminalV5NativeCorpus)
 	t.Run("terminal-codec", TestCanonicalProgramTerminalBindsResponseUsageAndGraph)
 	t.Run("terminal-wrapper-refusal", TestProgramTerminalWrapperOrderAndUniquenessAreClosed)
 	t.Run("outcome-codec", TestProgramOutcomeV3Vector)
 }
 
-func TestRepairM_1385_secret_callback_deadlock(t *testing.T) {
+func TestSecretStreamConformanceReentrantSecretCallback(t *testing.T) {
 	input := []byte("retained-secret-material")
 	secret, err := NewSecretBytes(input)
 	if err != nil {
@@ -120,7 +120,7 @@ func TestRepairM_1385_secret_callback_deadlock(t *testing.T) {
 	})
 }
 
-func TestRepairM_1385_secret_concurrent_cleanup(t *testing.T) {
+func TestSecretStreamConformanceConcurrentSecretCleanup(t *testing.T) {
 	const borrowers = 32
 	input := []byte("parallel-secret-material")
 	secret, err := NewSecretBytes(input)
@@ -197,7 +197,7 @@ func TestRepairM_1385_secret_concurrent_cleanup(t *testing.T) {
 	}
 }
 
-func TestRepairM_1385_stream_unbounded_history(t *testing.T) {
+func TestSecretStreamConformanceBoundedStreamHistory(t *testing.T) {
 	if maximumStreamReplayCursors != 256 {
 		t.Fatal("acknowledged replay window must remain bounded to 256 cursors")
 	}
@@ -338,10 +338,10 @@ func TestRepairM_1385_stream_unbounded_history(t *testing.T) {
 			}
 		})
 	}
-	t.Run("checkpoint-recovery", TestRepair_141_stream_checkpoint_before_consumption)
+	t.Run("checkpoint-recovery", TestReceiptTransportStreamCheckpointAfterConsumption)
 }
 
-func TestRepairM_1385_exported_kernel_lifecycle_verifier(t *testing.T) {
+func TestSecretStreamConformanceRetiredKernelLifecycleVerifier(t *testing.T) {
 	// The control is an unchanged, correctly signed deploy receipt from layerxd.
 	data, err := os.ReadFile("../../../services/platform/hosted/authority/tests/fixtures/real-program-deploy-receipt.json")
 	if err != nil {

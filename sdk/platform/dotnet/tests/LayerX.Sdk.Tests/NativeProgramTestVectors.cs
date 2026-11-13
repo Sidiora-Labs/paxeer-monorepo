@@ -12,7 +12,7 @@ using BcInteger = Org.BouncyCastle.Math.BigInteger;
 
 namespace LayerX.Sdk.Tests;
 
-internal static class RepairM1369Native
+internal static class NativeProgramTestVectors
 {
     // Public test key: secp256k1 scalar one. This signer produces genuine low-S
     // EIP-1559 signatures, including recovery parity, rather than RLP placeholders.
@@ -36,7 +36,7 @@ internal static class RepairM1369Native
     internal static (NativeProgramCall Call, ProtocolAmount Fee) RecordedCall([CallerFilePath] string source = "")
     {
         using var document = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(Path.GetDirectoryName(source)!,
-            "Fixtures/repair-m1369-recorded-call.json")));
+            "Fixtures/native-program-recorded-call.json")));
         var value = document.RootElement;
         byte[] Bytes(string field) => Convert.FromHexString(value.GetProperty(field).GetString()!);
         var call = new NativeProgramCall(Bytes("program_id_hex"), value.GetProperty("guest_abi").GetUInt16(),

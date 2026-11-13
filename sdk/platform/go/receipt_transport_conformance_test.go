@@ -20,7 +20,7 @@ import (
 	"time"
 )
 
-type repair141Recorded struct {
+type receiptTransportRecorded struct {
 	Authorization struct {
 		PublicKey        [32]byte
 		FirstBatchNumber uint64
@@ -56,7 +56,7 @@ type repair141Recorded struct {
 	} `json:"settlement"`
 }
 
-func repair141LoadRecorded(t *testing.T) (json.RawMessage, []byte, ReceiptKeys, PortableCommittedEvidence, CommittedTrust) {
+func receiptTransportLoadRecorded(t *testing.T) (json.RawMessage, []byte, ReceiptKeys, PortableCommittedEvidence, CommittedTrust) {
 	t.Helper()
 	data, err := os.ReadFile("../../../daemon/committed-fixture/vectors/vector-v4-committed.json")
 	if err != nil {
@@ -65,7 +65,7 @@ func repair141LoadRecorded(t *testing.T) (json.RawMessage, []byte, ReceiptKeys, 
 	if digest := sha256.Sum256(data); hex.EncodeToString(digest[:]) != committedRecordingSHA256 {
 		t.Fatal("committed producer recording changed")
 	}
-	var vector repair141Recorded
+	var vector receiptTransportRecorded
 	if err := json.Unmarshal(data, &vector); err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func repair141LoadRecorded(t *testing.T) (json.RawMessage, []byte, ReceiptKeys, 
 	return s.Receipt, sequencerFixtureBytes(t, s.RawTransaction), keys, evidence, trust
 }
 
-func repair141Programs(t *testing.T, handler http.Handler, keys ReceiptKeys) *Programs {
+func receiptTransportPrograms(t *testing.T, handler http.Handler, keys ReceiptKeys) *Programs {
 	t.Helper()
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
@@ -112,8 +112,8 @@ func repair141Programs(t *testing.T, handler http.Handler, keys ReceiptKeys) *Pr
 	return programs
 }
 
-func TestRepair_141_committed_rpc_rung(t *testing.T) {
-	receipt, raw, keys, evidence, trust := repair141LoadRecorded(t)
+func TestReceiptTransportCommittedRpcRung(t *testing.T) {
+	receipt, raw, keys, evidence, trust := receiptTransportLoadRecorded(t)
 	hash := receiptKeccak256(raw)
 	var view sequencerReceiptJSON
 	if err := json.Unmarshal(receipt, &view); err != nil {
@@ -123,7 +123,7 @@ func TestRepair_141_committed_rpc_rung(t *testing.T) {
 		t.Fatal("producer recording lacks committed transport view")
 	}
 	var methods []string
-	programs := repair141Programs(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	programs := receiptTransportPrograms(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var request programRPCRecord
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Error(err)
@@ -211,7 +211,7 @@ func TestRepair_141_committed_rpc_rung(t *testing.T) {
 	}
 }
 
-func TestRepair_141_portable_unanchored_finality(t *testing.T) {
+func TestReceiptTransportPortableFinalityRequiresAnchor(t *testing.T) {
 	c := sequencerReceiptCases(t)[0]
 	keys := sequencerFixtureKeys(t, c)
 	f := newCommittedFixture(t, c.ID, [4]int64{1, 1, 1, 1}, 0)
@@ -261,7 +261,7 @@ func TestRepair_141_portable_unanchored_finality(t *testing.T) {
 	}
 }
 
-func TestRepair_141_validator_evolution(t *testing.T) {
+func TestReceiptTransportValidatorEvolution(t *testing.T) {
 	c := sequencerReceiptCases(t)[0]
 	f := newCommittedFixture(t, c.ID, [4]int64{1, 1, 1, 1}, 0)
 	var previousKeys []ed25519.PrivateKey
@@ -315,7 +315,7 @@ func TestRepair_141_validator_evolution(t *testing.T) {
 	}
 }
 
-func TestRepair_141_stream_checkpoint_before_consumption(t *testing.T) {
+func TestReceiptTransportStreamCheckpointAfterConsumption(t *testing.T) {
 	golden, err := os.ReadFile("../../../services/human/schema/human-api/golden/stream.next.response.json")
 	if err != nil {
 		t.Fatal(err)
@@ -429,7 +429,7 @@ func TestRepair_141_stream_checkpoint_before_consumption(t *testing.T) {
 	}
 }
 
-func TestRepair_141_wind_down_native_route(t *testing.T) {
+func TestReceiptTransportWindDownNativeRoute(t *testing.T) {
 	var last struct {
 		From            string
 		Calldata        string
@@ -442,7 +442,7 @@ func TestRepair_141_wind_down_native_route(t *testing.T) {
 		Register        string
 		WindDown        string
 	}
-	fixture, err := os.ReadFile("testdata/repair141/native-deprecate.json")
+	fixture, err := os.ReadFile("testdata/receipt_transport/native-deprecate.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -512,7 +512,7 @@ func TestRepair_141_wind_down_native_route(t *testing.T) {
 	if last.TransactionHash != portableHex(expectedHash[:]) || signed[0] != 2 {
 		t.Fatal("signed native deprecation identity differs")
 	}
-	broadcaster := repair141Programs(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	broadcaster := receiptTransportPrograms(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var request programRPCRecord
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Error(err)
@@ -554,7 +554,7 @@ func TestRepair_141_wind_down_native_route(t *testing.T) {
 	if err != nil || discovery.Lifecycle != "deprecated" || discovery.Verification != "pending-state-read" {
 		t.Fatalf("native lifecycle state response was lost: %+v %v", discovery, err)
 	}
-	authorization := repair141Programs(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	authorization := receiptTransportPrograms(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var request programRPCRecord
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Error(err)
@@ -580,31 +580,31 @@ func TestRepair_141_wind_down_native_route(t *testing.T) {
 	}
 }
 
-type repair141MirrorExchange struct {
+type receiptTransportMirrorExchange struct {
 	Request  json.RawMessage `json:"request"`
 	Response json.RawMessage `json:"response"`
 }
 
-type repair141MirrorFixture struct {
+type receiptTransportMirrorFixture struct {
 	verifier   *MirrorVerifier
 	coordinate CommittedCoordinate
 	policy     MirrorPolicy
 	receipts   []json.RawMessage
 	callsMu    sync.Mutex
 	calls      map[string]int
-	exchanges  []repair141MirrorExchange
+	exchanges  []receiptTransportMirrorExchange
 }
 
-func repair141OpenMirror(t *testing.T) *repair141MirrorFixture {
+func receiptTransportOpenMirror(t *testing.T) *receiptTransportMirrorFixture {
 	t.Helper()
-	data, err := os.ReadFile("testdata/repair141/mirror-transcript.json")
+	data, err := os.ReadFile("testdata/receipt_transport/mirror-transcript.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var transcript struct {
-		Coordinate CommittedCoordinate       `json:"coordinate"`
-		Commitment string                    `json:"commitment"`
-		Exchanges  []repair141MirrorExchange `json:"exchanges"`
+		Coordinate CommittedCoordinate              `json:"coordinate"`
+		Commitment string                           `json:"commitment"`
+		Exchanges  []receiptTransportMirrorExchange `json:"exchanges"`
 	}
 	if err := json.Unmarshal(data, &transcript); err != nil {
 		t.Fatal(err)
@@ -613,7 +613,7 @@ func repair141OpenMirror(t *testing.T) *repair141MirrorFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	state := &repair141MirrorFixture{coordinate: transcript.Coordinate, policy: MirrorPolicy{Kind: MirrorExact, Candidates: []MirrorCandidate{{Source: 0, Commitment: commitment}}}, calls: map[string]int{}, exchanges: transcript.Exchanges}
+	state := &receiptTransportMirrorFixture{coordinate: transcript.Coordinate, policy: MirrorPolicy{Kind: MirrorExact, Candidates: []MirrorCandidate{{Source: 0, Commitment: commitment}}}, calls: map[string]int{}, exchanges: transcript.Exchanges}
 	data, err = os.ReadFile("../../../services/interop/crates/layerx-mirror/tests/fixtures/committed_blocks.json")
 	if err != nil {
 		t.Fatal(err)
@@ -664,8 +664,8 @@ func repair141OpenMirror(t *testing.T) *repair141MirrorFixture {
 	return state
 }
 
-func TestRepair_141_mirror_request_shape(t *testing.T) {
-	fixture := repair141OpenMirror(t)
+func TestReceiptTransportMirrorRequestShape(t *testing.T) {
+	fixture := receiptTransportOpenMirror(t)
 	for n, receiptJSON := range fixture.receipts {
 		verified, err := fixture.verifier.VerifyReceipt(context.Background(), fixture.coordinate, fixture.policy, uint32(n))
 		if err != nil {
@@ -705,8 +705,8 @@ func TestRepair_141_mirror_request_shape(t *testing.T) {
 	}
 }
 
-func TestRepair_141_mirror_response_shape(t *testing.T) {
-	fixture := repair141OpenMirror(t)
+func TestReceiptTransportMirrorResponseShape(t *testing.T) {
+	fixture := receiptTransportOpenMirror(t)
 	committed, err := fixture.verifier.VerifyCommitted(context.Background(), fixture.coordinate, fixture.policy)
 	if err != nil {
 		t.Fatal(err)
@@ -742,8 +742,8 @@ func TestRepair_141_mirror_response_shape(t *testing.T) {
 	}
 }
 
-func TestRepair_141_mirror_http_bounds(t *testing.T) {
-	fixture := repair141OpenMirror(t)
+func TestReceiptTransportMirrorHttpBounds(t *testing.T) {
+	fixture := receiptTransportOpenMirror(t)
 	for _, endpoint := range []string{"http://example.com/verify", "https://user:pass@example.com/verify", "file:///verify", "https://example.com/#fragment"} {
 		if _, err := NewMirrorHTTPVerifier(endpoint, nil, time.Second); err == nil {
 			t.Fatalf("unprotected or malformed mirror endpoint accepted: %s", endpoint)
