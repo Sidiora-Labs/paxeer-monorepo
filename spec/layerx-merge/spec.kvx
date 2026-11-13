@@ -373925,7 +373925,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.43.293]
 title = "Lead the documentation index, the applications page and the citation abstract with the kernel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.43.292"]
@@ -373988,7 +373988,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.291]
 title = "Let the gate scripts and the make fragments of tools/paxeer-x take their default locations from the checkout"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374208,7 +374208,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.284]
 title = "Bring the Python tests 50 to 70 of tests/ci to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374400,7 +374400,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.278]
 title = "Bring the Python tests 221 to 230 of tools/qualification/audit_repairs to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374432,7 +374432,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.277]
 title = "Bring the Python tests 209 to 220 of tools/qualification/audit_repairs to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374560,7 +374560,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.273]
 title = "Bring the Python tests 163 to 172 of tools/qualification/audit_repairs to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374688,7 +374688,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.269]
 title = "Bring the Python tests 119 to 132 of tools/qualification/audit_repairs to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374720,7 +374720,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.268]
 title = "Bring the Python tests 87 to 118 of tools/qualification/audit_repairs to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374816,7 +374816,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.265]
 title = "Bring the Python tests 31 to 45 of tools/qualification/audit_repairs to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
