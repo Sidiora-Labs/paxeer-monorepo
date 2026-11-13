@@ -1,8 +1,4 @@
-//! Task 22.33.53, audit 22.30.106 finding 15: proved by
-//! `finding_15_retired_fixtures_pass_the_real_fuzz_oracle`, with malformed and
-//! live-path regression cases below. No out-of-path wiring is required.
-//! Baseline: this test target did not exist; no pre-change gate was run because
-//! the ordered qualification contract requires implementation before gates.
+//! Retired and malformed intent envelopes are rejected by the fuzz oracle; live payloads retain their disclosure checks.
 
 #[path = "../fuzz_targets/intent_harness.rs"]
 mod intent_harness;
@@ -31,7 +27,7 @@ fn assert_rejection(input: &[u8], reason: RejectReason) {
 }
 
 #[test]
-fn finding_15_retired_fixtures_pass_the_real_fuzz_oracle() {
+fn retired_fixtures_pass_the_real_fuzz_oracle() {
     let fixtures: [(u16, u16, &[u8]); 8] = [
         (
             1,
@@ -90,7 +86,7 @@ fn finding_15_retired_fixtures_pass_the_real_fuzz_oracle() {
 }
 
 #[test]
-fn finding_15_malformed_version_and_kind_checks_remain_strict() {
+fn malformed_version_and_kind_checks_remain_strict() {
     for version in [1_u16, 2] {
         let mut encoder = Encoder::new(4);
         encoder.u16(version).expect("encode version");
@@ -127,7 +123,7 @@ fn finding_15_malformed_version_and_kind_checks_remain_strict() {
 }
 
 #[test]
-fn finding_15_live_headers_and_compilation_reach_the_real_consumer() {
+fn live_headers_and_compilation_reach_the_real_consumer() {
     for kind in [
         IntentKindTag::DidRegistration,
         IntentKindTag::KeyRotation,

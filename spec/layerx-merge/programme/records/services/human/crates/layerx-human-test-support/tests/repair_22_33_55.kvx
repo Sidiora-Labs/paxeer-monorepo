@@ -1,8 +1,8 @@
 [repair.22.33.55]
 audit = "22.30.106"
 finding = "18"
-proof = "repair_22_33_55.rs::finding18_documented_http_admission_stays_submitted_after_journal_recovery"
-committed_proof = "repair_22_33_55.rs::finding18_documented_committed_proof_uses_separate_real_node_recording"
+proof = "admission_journal_recovery.rs::documented_http_admission_stays_submitted_after_journal_recovery"
+committed_proof = "admission_journal_recovery.rs::documented_committed_proof_uses_separate_real_node_recording"
 change = "README names the HTTP JSON-RPC admission fixture, Submitted-only receipt replies, journal recovery and the separate recorded-paxd consensus proof required for Committed evidence."
 producer_transport_consumer = "Eip1559Call::sign -> EvidenceNode over loopback HTTP JSON-RPC -> NodeRpc -> Submitted receipt; stopped server reopens AdmissionJournal, truncates torn tail, recovers the first admission and persists the second without duplicating retries."
 committed_path = "The committed-evidence helper replays the crate-owned fresh paxd recording through NodeRpc and the production human consensus verifier, reopens PrincipalStore and rejects malformed and foreign evidence."

@@ -1,19 +1,4 @@
-//! Task 22.33.32; audit 22.30.102; acceptance 22998.1.
-//! human-layout-doc is proved by documented_layout_matches_retained_workspace,
-//! documented_intent_authority_checks_produced_payload,
-//! documented_bank_call_crosses_custody_and_attestor_codecs,
-//! documented_sponsorship_uses_chain_125_quote, and
-//! documented_commitment_requires_authenticated_consensus_evidence.
-//! Baseline: no target or previous gate ledger existed at session start. The
-//! explicit implementation-first, hf-build then hf-done order prohibits the
-//! contradictory unchanged-tree verify; no pre-change test failure is claimed.
-//! This is the task record: spec/ edits are outside the user-authorized scope.
-//! No out-of-path wiring is required. The crate test shim maps this planned path
-//! to the Cargo integration target. Gates retain the exact candidate revision,
-//! command, exit and private log; no completion is asserted before hf-done passes.
-//! Proof peers are the existing committed node/sequencer transcript and loopback
-//! HTTP, with production custody, attestor, receipt and consensus codecs in-process.
-//! No external clock, credentials, endpoint, device or subprocess is required.
+//! The workspace guide matches retained crates, intent authority, custody, sponsorship and authenticated commitment.
 
 use std::collections::BTreeSet;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -45,7 +30,7 @@ const README: &str = include_str!("../README.md");
 const MANIFEST: &str = include_str!("../Cargo.toml");
 
 fn checked<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
-    result.unwrap_or_else(|error| panic!("repair 22.33.32: {error:?}"))
+    result.unwrap_or_else(|error| panic!("documented workspace contract: {error:?}"))
 }
 
 #[test]
