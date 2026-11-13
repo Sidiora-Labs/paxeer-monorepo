@@ -28,7 +28,7 @@ use zeroize::Zeroizing;
 const CERTIFICATE: &[u8] =
     include_bytes!("../../../examples/buyer-agent/test/fixtures/localhost-cert.pem");
 const KEY: &[u8] = include_bytes!("../../../examples/buyer-agent/test/fixtures/localhost-key.pem");
-const RECEIPTS: &str = include_str!("../src/fixtures/repair_22_33_1410_receipts.json");
+const RECEIPTS: &str = include_str!("../src/fixtures/verified_payment_receipts.json");
 
 fn checked<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
     result.unwrap_or_else(|error| panic!("{error:?}"))

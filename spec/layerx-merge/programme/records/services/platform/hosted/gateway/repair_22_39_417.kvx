@@ -35,10 +35,10 @@ fact = "Wallet identity frames use bounded lengths, and the gateway listener use
 
 [included_sources]
 lint = "unused_imports, dead_code, unused_braces, clippy::all, clippy::pedantic, clippy::unwrap_used, clippy::expect_used, clippy::float_arithmetic, clippy::lossy_float_literal"
-files_changed = ["src/lib.rs", "src/paxeer.rs", "src/state.rs", "tests/repair_22_31_345.rs", "tests/repair_22_33_1439.rs", "tests/repair_22_33_1440.rs"]
+files_changed = ["src/lib.rs", "src/paxeer.rs", "src/state.rs", "tests/rpc_egress.rs", "tests/upstream_read_contracts.rs", "tests/hosted_service_contracts.rs"]
 fact = "Gateway modules include committed receipt, program, identity, wallet, and platform sources at their declaration boundaries."
 
 [test_paths]
 lint = "too_many_lines, needless_borrow, dead_code"
-files_changed = ["tests/chain_only_readiness.rs", "tests/router_surface.rs", "tests/repair_22_33_1441.rs", "tests/receipt_keys.rs", "tests/unified_service_paths.rs", "tests/registration_tenant_boundary.rs", "tests/one_source_reads.rs", "tests/repair_22_31_202.rs", "src/rpc.rs", "src/settlement.rs", "src/main.rs"]
+files_changed = ["tests/chain_only_readiness.rs", "tests/router_surface.rs", "tests/published_transports.rs", "tests/receipt_keys.rs", "tests/unified_service_paths.rs", "tests/registration_tenant_boundary.rs", "tests/one_source_reads.rs", "tests/producer_paths.rs", "src/rpc.rs", "src/settlement.rs", "src/main.rs"]
 fact = "Gateway tests retain their request, response, receipt, readiness, registration, and transport assertions while sharing setup and focused checks through helpers."
