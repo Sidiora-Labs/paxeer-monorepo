@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairRampCustomerPayment2231211(t *testing.T) {
+func TestRampCustomerBudgetPayment(t *testing.T) {
 	f := newEscrowTestFixture(t)
 	h := f.h
 	h.keeper.SetParams(h.db.Ctx(), paytypes.Params{BudgetEnabled: true, EscrowEnabled: true})

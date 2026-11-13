@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairRampExpiry2231211(t *testing.T) {
+func TestRampPaymentExpiryAtNativeBoundary(t *testing.T) {
 	data, err := hex.DecodeString(os.Getenv("RAMP_REPAIR_CALLDATA"))
 	require.NoError(t, err)
 	require.Len(t, data, 196)

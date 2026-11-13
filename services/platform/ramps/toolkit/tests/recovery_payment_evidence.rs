@@ -1,6 +1,6 @@
 //! Recovery and payment tests exercise retained receipt and signer evidence.
 
-#[path = "support/repair_22_33_1490.rs"]
+#[path = "support/recovery_payment.rs"]
 pub mod support;
 pub use support::*;
 
