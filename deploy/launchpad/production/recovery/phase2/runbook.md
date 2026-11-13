@@ -1,4 +1,4 @@
-# Recovery operator v2
+# Recovery operator
 
 This runbook covers launchpad application recovery on chain ID `125`.
 The restoration epoch controls application/database and broker authority;
@@ -12,7 +12,7 @@ source digests to those checked-in paths before admitting a runner.
 
 ## Admission and proposal
 
-Use a fresh isolated recovery target and the exact interface, deployment, chain 125 address, source and resource inventory identities emitted by the admitted integration gate. Configuration rendering emits credential references only. The PostgreSQL service file, AWS credentials file and independent runner signing key must be owned regular files with mode 0600. Provider binaries and source are pinned by digest before invocation. Production resources require separate explicit admission.
+Use a fresh isolated recovery target and the exact interface, deployment, chain 125 address, source and resource inventory identities bound to the recovery configuration. Configuration rendering emits credential references only. The PostgreSQL service file, AWS credentials file and independent runner signing key must be owned regular files with mode 0600. Provider binaries and source are pinned by digest before invocation. Production resources require separate explicit admission.
 
 ```sh
 python3 deploy/launchpad/production/recovery/phase2/operator.py \
@@ -46,7 +46,7 @@ the retained identity dataset. The transport permits at most 2 MiB per row and
 the 20-second statement and 2-second lock limits, uses 8 MiB sort memory without
 parallel workers, and requires an administrator-pinned `temp_file_limit` of at
 most 256 MiB. An unlimited disk setting, exhausted budget, interrupted stream or
-count mismatch fails the capture. Have the serial database migration owner pin
+count mismatch fails the capture. Have the database administrator pin
 the coordinator role's disk limit before admission; application credentials
 must not gain authority to change it.
 
@@ -114,7 +114,7 @@ python3 deploy/launchpad/production/recovery/phase2/operator.py \
   --observations <signed-v2-file> --scenarios <signed-v3-file>
 ```
 
-The v3 path records both digests and the earliest observation expiry in the same transaction as validation and audit. `activate_fenced_v3` locks control/proposal/validation in order, binds the database session principal, requires the identical fresh digests and an actual verified broker fence, then atomically advances authority and writes its audit. Register this resource and exact coordinator grants through the serial migration owner. Production v3 coordinators must not retain direct execution grants on legacy activation functions or direct application control-table writes.
+The v3 path records both digests and the earliest observation expiry in the same transaction as validation and audit. `activate_fenced_v3` locks control/proposal/validation in order, binds the database session principal, requires the identical fresh digests and an actual verified broker fence, then atomically advances authority and writes its audit. Register this resource and exact coordinator grants through the database administrator. Production v3 coordinators must not retain direct execution grants on legacy activation functions or direct application control-table writes.
 
 If the activation response is interrupted, reconcile with the same admitted configuration and proposal:
 

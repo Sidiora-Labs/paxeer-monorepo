@@ -24,7 +24,7 @@ func main() {
 Baseline
 --------
 
-```
+```text
 VmPeak:    42604 kB
 VmSize:    42604 kB
 VmLck:         0 kB
@@ -45,7 +45,7 @@ package main
 
 import (
 	"fmt"
-	"metrics"
+	"github.com/ethereum/go-ethereum/metrics"
 	"time"
 )
 
@@ -59,7 +59,7 @@ func main() {
 1000 counters registered
 ------------------------
 
-```
+```text
 VmPeak:    44016 kB
 VmSize:    44016 kB
 VmLck:         0 kB
@@ -78,7 +78,7 @@ VmSwap:        0 kB
 100000 counters registered
 --------------------------
 
-```
+```text
 VmPeak:    55024 kB
 VmSize:    55024 kB
 VmLck:         0 kB
@@ -97,7 +97,7 @@ VmSwap:        0 kB
 1000 gauges registered
 ----------------------
 
-```
+```text
 VmPeak:    44012 kB
 VmSize:    44012 kB
 VmLck:         0 kB
@@ -116,7 +116,7 @@ VmSwap:        0 kB
 100000 gauges registered
 ------------------------
 
-```
+```text
 VmPeak:    55020 kB
 VmSize:    55020 kB
 VmLck:         0 kB
@@ -135,7 +135,7 @@ VmSwap:        0 kB
 1000 histograms with a uniform sample size of 1028
 --------------------------------------------------
 
-```
+```text
 VmPeak:    72272 kB
 VmSize:    72272 kB
 VmLck:         0 kB
@@ -154,7 +154,7 @@ VmSwap:        0 kB
 10000 histograms with a uniform sample size of 1028
 ---------------------------------------------------
 
-```
+```text
 VmPeak:   256912 kB
 VmSize:   256912 kB
 VmLck:         0 kB
@@ -173,7 +173,7 @@ VmSwap:        0 kB
 50000 histograms with a uniform sample size of 1028
 ---------------------------------------------------
 
-```
+```text
 VmPeak:   908112 kB
 VmSize:   908112 kB
 VmLck:         0 kB
@@ -192,7 +192,7 @@ VmSwap:     1544 kB
 1000 histograms with an exponentially-decaying sample size of 1028 and alpha of 0.015
 -------------------------------------------------------------------------------------
 
-```
+```text
 VmPeak:    62480 kB
 VmSize:    62480 kB
 VmLck:         0 kB
@@ -211,7 +211,7 @@ VmSwap:        0 kB
 10000 histograms with an exponentially-decaying sample size of 1028 and alpha of 0.015
 --------------------------------------------------------------------------------------
 
-```
+```text
 VmPeak:   153296 kB
 VmSize:   153296 kB
 VmLck:         0 kB
@@ -230,7 +230,7 @@ VmSwap:        0 kB
 50000 histograms with an exponentially-decaying sample size of 1028 and alpha of 0.015
 --------------------------------------------------------------------------------------
 
-```
+```text
 VmPeak:   557264 kB
 VmSize:   557264 kB
 VmLck:         0 kB
@@ -249,7 +249,7 @@ VmSwap:        0 kB
 1000 meters
 -----------
 
-```
+```text
 VmPeak:    74504 kB
 VmSize:    74504 kB
 VmLck:         0 kB
@@ -268,7 +268,7 @@ VmSwap:        0 kB
 10000 meters
 ------------
 
-```
+```text
 VmPeak:   278920 kB
 VmSize:   278920 kB
 VmLck:         0 kB

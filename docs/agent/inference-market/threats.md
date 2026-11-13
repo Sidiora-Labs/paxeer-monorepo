@@ -29,17 +29,17 @@ escape detection. A wrong host expectation or mismatched model/runtime can
 also produce a fault. Correct canary output is not a proof of semantic accuracy
 for user answers.
 
-The sampling inputs specified today are deal ID and lap index. A deterministic
-derivation using only public inputs is predictable; its cryptographic encoding
-and any secret contribution remain unspecified. The pending derivation must
-not be presented as an established unpredictability guarantee. Commit/reveal
-binds expectations before disclosure but cannot by itself conceal a public
-sampling rule or prevent the host from revealing canaries to collaborators.
+The host's Ed25519 meter key contributes to deterministic sampling through
+[a signature-derived key](protocol.md#canary-derivation-and-challenge).
+The signature stays with the host. Peers cannot derive that key from the public
+deal ID and lap index alone. Host-key disclosure or a cooperating host can
+expose canary choices. Commit/reveal binds expectations before disclosure;
+it does not prevent the host from sharing them with collaborators.
 
 ## Collusion and economic limits
 
 A host and cooperating peers may agree on false receipts, selectively answer
-known canaries or withhold countersignatures from an honest peer. The planned
+known canaries or withhold countersignatures from an honest peer. The
 roster-size-minus-one countersign threshold does not make the signers
 independent. Enrolment and development attestations do not prove that distinct
 keys belong to distinct operators. Host-controlled expectations and sampling
@@ -70,7 +70,7 @@ a payout, claim or bond return as completed.
 ## Transport and privacy
 
 The host and assigned peers process inference data; these documents make no
-confidential-computing or end-to-end prompt privacy guarantee. The planned
+confidential-computing or end-to-end prompt privacy guarantee. The
 signalling listener is plain WebSocket for browser interoperability. A signed
 hello authenticates its peer but does not encrypt that connection. Operators
 must provide appropriate transport protection when exposing listeners beyond

@@ -3,7 +3,7 @@
 The executable compatibility row lives in
 [`compat.rs`](../../services/agent/crates/layerx-agentd/src/compat.rs); the Agent API version is
 declared in [`schema/agent-api/v1.kvx`](../../services/agent/schema/agent-api/v1.kvx).
-The schema filename is retained, but the current contract is **2.0**.
+The current contract is **2.0**.
 
 | Daemon | Node interface | Contract | SDK |
 | --- | --- | --- | --- |
@@ -17,10 +17,8 @@ receipt. Node connections check `eth_chainId`; Paxeer mainnet-beta uses 125
 (`0x7d`). See the [workspace network boundary](../../services/agent/README.md#network-boundary).
 
 Approval operations and lifecycle events are included in the current major-2
-contract. The schema's approval `1.1` and Programs `1.2` entries describe
-historical additive changes to major 1, not alternative supported versions.
-SDKs reject an unsupported contract major. Approval holds are daemon-enforced
-restrictions and confer no protocol authority.
+contract. SDKs reject an unsupported contract major. Approval holds are
+daemon-enforced restrictions and confer no protocol authority.
 
 Major 2 signs native EVM transactions. The [write schema](../../services/agent/schema/agent-api/write.kvx)
 requires the caller's exact 65-byte secp256k1 signature (`r || s || v`, 130

@@ -167,7 +167,7 @@ Key takeaways:
 - **Enabled-level overhead is 2–3%** across all scenarios (Info, typed attrs, pre-bound attrs, text handler, parallel). This is within benchmark noise — paxlog is effectively free at log time.
 - **Contention under concurrent `SetLevel` mutations** adds modest overhead (~325 ns/op) with no lock contention surprises — the `RWMutex` + atomic `LevelVar` design holds up cleanly.
 
-```
+```sh
 go test -bench=. -benchmem ./...
 ```
 
@@ -251,7 +251,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 
 Mirror your module or package structure. A consistent convention makes `SetLevel` patterns predictable across teams:
 
-```
+```text
 myapp
 myapp/db
 myapp/db/pool

@@ -11,9 +11,7 @@ are test data. Never fund these accounts outside this fixture.
 
 All host ports bind to `127.0.0.1`. The private Compose bridge disables outbound
 IP masquerading. This is not an absolute egress firewall: access to reachable host
-or private-network routes may still be possible. Docker internal networks suppress
-published ports on Docker 29, so they are unsuitable for host-run integration tests.
-A local privileged user can still access Docker and these test services.
+or private-network routes may still be possible. A local privileged user can still access Docker and these test services.
 No existing service, production volume, `.env`, or chain data is mounted.
 
 ## Start from the repository root
@@ -21,7 +19,7 @@ No existing service, production volume, `.env`, or chain data is mounted.
 All command paths below are relative to the repository root; keep the
 `deploy/launchpad/production/bootstrap/` prefix when invoking these tools.
 
-The coordinator starts this stack once, after reviewing this configuration:
+Start the stack with:
 
 ```sh
 docker compose -f deploy/launchpad/production/bootstrap/compose.yml config --quiet
@@ -30,13 +28,11 @@ python3 deploy/launchpad/production/bootstrap/start.py
 python3 deploy/launchpad/production/bootstrap/smoke.py
 ```
 
-`start.py` starts and waits for the five persistent services, then runs the profiled
+`start.py` starts and waits for the five long-running services, then runs the profiled
 `minio-init` one-shot bucket initializer and requires its exit code to be zero.
-This avoids incorrectly treating successful initializer termination as a failed
-long-running service health check. An initialization failure fails startup. Other services
-have application-level Docker health checks. NATS uses persistent JetStream R1
-for this small bootstrap fixture. Production R3, multi-zone failure, capacity and
-recovery qualification remain later requirements and are not demonstrated here.
+An initialization failure fails startup. The long-running services have
+application-level Docker health checks. NATS uses persistent JetStream R1
+for this local fixture.
 Redis is deliberately ephemeral. PostgreSQL, broker, object and EVM state use
 project-scoped named volumes. Restart preserves fixture data.
 
@@ -46,22 +42,15 @@ Host connection strings are in [fixture.env.example](fixture.env.example). This 
 production secrets and should not be copied over any application environment.
 Containers on this fixture network use service DNS and container ports instead.
 The chain starts without Sidiora contracts: contract deployment and application
-address configuration remain explicit coordinator prerequisites. Existing storage
+address configuration require explicit deployment configuration. Existing storage
 integration tests may launch their own Testcontainers rather than consume this
 stack; the fixture alone does not change those test configurations.
 
-## Image provenance
+## Images
 
-Every image in [compose.yml](compose.yml) is digest-pinned.
-[images.json](images.json) records the original provenance checks: PostgreSQL,
-Redis and the MinIO server/client were checked against the authoring environment's
-local cache; NATS 2.11.9-alpine and Ganache 7.9.2 had upstream manifests verified.
-The MinIO server record identifies RELEASE.2025-09-07T16-13-09Z and notes that its
-historical remote tag was unavailable. The fixture uses Ganache because the
-original Foundry registry access was denied and no verified Anvil reference was
-available. These records do not establish image availability on the current
-machine. Verify the pinned images can be obtained on a fresh host before
-claiming cold-host reproduction.
+Every image in [compose.yml](compose.yml) is digest-pinned. The stack uses
+PostgreSQL 16, Redis 7, NATS 2.11.9, MinIO and Ganache 7.9.2.
+The pinned image references are also listed in [images.json](images.json).
 
 ## Stop and preserve state
 
@@ -70,9 +59,8 @@ docker compose -f deploy/launchpad/production/bootstrap/compose.yml down
 ```
 
 Deleting fixture volumes is a separate destructive local cleanup decision; the
-provided scripts never remove volumes. Concurrent independent fixture stacks
-require explicitly reviewed project names and host-port overrides; the default
-stack is coordinator-owned to prevent duplicate starts.
+provided scripts never remove volumes. Independent fixture stacks require distinct project names and host-port
+overrides.
 
 Use the [recovery overview](../recovery/README.md) for the local PostgreSQL
 checks that depend on this fixture, and the [observability overview](../observability/README.md)
