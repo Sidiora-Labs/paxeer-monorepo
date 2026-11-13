@@ -1,0 +1,32 @@
+[manifest]
+task = "22.43.86"
+records_moved = 1
+files_renamed = 1
+
+[file.1]
+from = "precompiles/solo/repair_m1284_test.go"
+to = "precompiles/solo/cw721_claim_pagination_test.go"
+
+[file.2]
+from = "precompiles/solo/repair_m1284.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/solo/repair_m1284.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/solo/repair_m1284_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1284_"
+
+[reference.3]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/solo/repair_m1284_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1284_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "precompiles/solo/repair_m1284_test.go"

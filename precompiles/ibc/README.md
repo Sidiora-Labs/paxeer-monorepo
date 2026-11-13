@@ -13,8 +13,8 @@ This directory holds the Go implementation, Solidity interface, embedded ABI and
 - [ibc_test.go](ibc_test.go) — transfer validation, timeout tests and persistent IBC application fixtures.
 - [abi_freeze_test.go](abi_freeze_test.go) — ABI, selector and precompile address checks.
 - [gas_golden_test.go](gas_golden_test.go) — gas checks for zero and positive transfers through constructed and registered implementations.
-- [repair_m1265_test.go](repair_m1265_test.go) — packet delivery, acknowledgements, timeout refunds, recovery and replay tests.
-- [repair_m1265.kvx](repair_m1265.kvx) — transfer and gas test coverage metadata.
+- [transfer_lifecycle_test.go](transfer_lifecycle_test.go) — packet delivery, acknowledgements, timeout refunds, recovery and replay tests.
+- [repair_m1265.kvx](../../spec/layerx-merge/programme/records/precompiles/ibc/repair_m1265.kvx) — transfer and gas test coverage metadata.
 
 ## Build and test
 

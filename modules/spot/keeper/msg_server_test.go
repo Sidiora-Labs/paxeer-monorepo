@@ -89,7 +89,7 @@ func TestUpdateParamsRegistersNewToken(t *testing.T) {
 
 func testUpdateParamsRegistersNewToken(t *testing.T) {
 	t.Helper()
-	e := newRepair17Env(t)
+	e := newPoolRecoveryEnv(t)
 	k, ctx := e.a.SpotKeeper, e.ctx
 	server := keeper.NewMsgServerImpl(k)
 	params := getParams(t, k, ctx)
@@ -139,7 +139,7 @@ func testUpdateParamsRegistersNewToken(t *testing.T) {
 		Authority: governanceAuthority, Params: stored,
 	})
 	require.NoError(t, err)
-	repairM481PoolLifecycle(e, []common.Address{e.native})
+	requireListedPoolLifecycle(e, []common.Address{e.native})
 }
 
 func TestUpdateParamsRefusesUnknownMarket(t *testing.T) {

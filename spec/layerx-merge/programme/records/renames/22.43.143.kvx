@@ -1,0 +1,76 @@
+[manifest]
+task = "22.43.143"
+records_moved = 4
+files_renamed = 6
+
+[file.1]
+from = "services/explorer/backend/apps/nft_media_handler/test/repair/repair_22_33_489_test.exs"
+to = "services/explorer/backend/apps/nft_media_handler/test/repair/readme_resizing_test.exs"
+
+[file.2]
+from = "services/explorer/deploy/tools/test_repair_22_33_310.py"
+to = "services/explorer/deploy/tools/test_copy_session.py"
+
+[file.3]
+from = "services/explorer/deploy/tools/tests/test_repair_22_39_236.py"
+to = "services/explorer/deploy/tools/tests/test_mix_builder_redis.py"
+
+[file.4]
+from = "services/explorer/backend/apps/nft_media_handler/tmp/NFTMediaHandler.Repair2233489Test/test-010-README-handles-an-invalid-image-before-attempting-resize-b0ca4066/invalid.jpg"
+to = "services/explorer/backend/apps/nft_media_handler/tmp/NFTMediaHandler.ReadmeResizingTest/test-010-README-handles-an-invalid-image-before-attempting-resize-b0ca4066/invalid.jpg"
+
+[file.5]
+from = "services/explorer/backend/apps/nft_media_handler/tmp/NFTMediaHandler.Repair2233489Test/test-010-README-preserves-the-resizer's-empty-list-for-a-small-image-af80a69b/image.jpg"
+to = "services/explorer/backend/apps/nft_media_handler/tmp/NFTMediaHandler.ReadmeResizingTest/test-010-README-preserves-the-resizer's-empty-list-for-a-small-image-af80a69b/image.jpg"
+
+[file.6]
+from = "services/explorer/backend/apps/nft_media_handler/tmp/NFTMediaHandler.Repair2233489Test/test-010-README-unwraps-the-opened-image-and-produces-decodable-thumbnails-29375faf/image.jpg"
+to = "services/explorer/backend/apps/nft_media_handler/tmp/NFTMediaHandler.ReadmeResizingTest/test-010-README-unwraps-the-opened-image-and-produces-decodable-thumbnails-29375faf/image.jpg"
+
+[file.7]
+from = "services/explorer/backend/apps/nft_media_handler/test/repair/repair_22_33_489.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/nft_media_handler/test/repair/repair_22_33_489.kvx"
+
+[file.8]
+from = "services/explorer/backend/config/repair_22_31_401.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/config/repair_22_31_401.kvx"
+
+[file.9]
+from = "services/explorer/deploy/tools/repair_22_33_310.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/deploy/tools/repair_22_33_310.kvx"
+
+[file.10]
+from = "services/explorer/deploy/tools/repair_22_39_236.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/deploy/tools/repair_22_39_236.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-28.kvx"
+name = "repair_22_33_489_test.exs"
+
+[reference.2]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_489_test.exs"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_489_test.exs"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_236.kvx"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_310.py"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_39_236.py"
+
+[reference.7]
+file = "tools/qualification/audit_repairs/repair_22_33_311.kvx"
+name = "test_repair_22_33_310.py"
+
+[reference.8]
+file = "tools/qualification/audit_repairs/test_repair_22_33_311.py"
+name = "test_repair_22_33_310.py"

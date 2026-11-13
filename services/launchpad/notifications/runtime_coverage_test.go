@@ -54,10 +54,10 @@ func TestCredentialRefreshReplacesValuesAndReportsUnavailability(t *testing.T) {
 
 func TestPushRuntimeRunsWorkerAndCredentialLifecycle(t *testing.T) {
 	ctx := context.Background()
-	db, _ := repair958Open(t, t.TempDir())
-	repair958Schema(t, db)
-	peer := repair958Authorities(t)
-	options := repair958Credentials(t)
+	db, _ := notificationDeliveryOpen(t, t.TempDir())
+	notificationDeliverySchema(t, db)
+	peer := notificationDeliveryAuthorities(t)
+	options := notificationDeliveryCredentials(t)
 	credentials, err := NewCredentials(ctx, options, "REPAIR958_D11")
 	if err != nil {
 		t.Fatal(err)

@@ -14,7 +14,7 @@ import (
 )
 
 func TestConnectedRuntimeRequiresBoundProviderAndIdentityInputs(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	f.useConnectedRuntime()
 	cfg := *f.connectedConfig
 	for _, tc := range []struct {

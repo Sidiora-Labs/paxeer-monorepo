@@ -652,11 +652,11 @@ private final class RPCFixtureServer {
 
 extension ProgramsEvmTests {
   func testRecordedNodeReceiptsAcrossCommitAndDifferentDenominations() async throws {
-    try await Self.proveRecordedEVMProducer1398()
+    try await Self.proveRecordedEVMProducer()
   }
 
-  static func proveRecordedEVMProducer1398() async throws {
-    typealias E = RecordedProgramEvidence1398
+  static func proveRecordedEVMProducer() async throws {
+    typealias E = RecordedProgramEvidence
     let (committed, committedView) = try E.recordedCommitted()
     let (feeToken, feeTokenView) = try E.feeToken()
     let reverted = try E.firstVector("vector-v2-receipted-revert")
@@ -668,7 +668,7 @@ extension ProgramsEvmTests {
     ]
     var preCommitDigest: Data?
     for (vector, view, state) in sources {
-      let server = try ProgramReplayServer1398(E.rpcSteps(vector, view: view))
+      let server = try RecordedProgramReplayServer(E.rpcSteps(vector, view: view))
       defer { server.stop() }
       let hash = try E.bytes(view, "txHash")
       let submission = try await E.client(server, vector: vector).activity(transactionHash: hash)
@@ -710,7 +710,7 @@ extension ProgramsEvmTests {
     // Refusals traverse HTTP and the production transaction and signature checks.
     for (vector, view) in [(committed, committedView), (feeToken, feeTokenView)] {
       let hash = try E.bytes(view, "txHash")
-      let unpinned = try ProgramReplayServer1398(E.rpcSteps(vector, view: view))
+      let unpinned = try RecordedProgramReplayServer(E.rpcSteps(vector, view: view))
       defer { unpinned.stop() }
       do {
         _ = try await E.client(unpinned, vector: vector, keys: []).activity(transactionHash: hash)
@@ -718,7 +718,7 @@ extension ProgramsEvmTests {
       } catch let error as PlatformSDKError { XCTAssertEqual(error.code, .verificationFailure) }
       unpinned.assertConsumed(3)
       let other = vector["id"] == committed["id"] ? feeToken : committed
-      let wrongTransaction = try ProgramReplayServer1398(
+      let wrongTransaction = try RecordedProgramReplayServer(
         E.rpcSteps(vector, view: view, raw: E.text(other, "rawTransaction")))
       defer { wrongTransaction.stop() }
       do {
@@ -729,7 +729,7 @@ extension ProgramsEvmTests {
       for field in ["paymentDenom", "feeDenom"] {
         var changed = view
         changed[field] = .string("unregistered")
-        let tampered = try ProgramReplayServer1398(E.rpcSteps(vector, view: changed))
+        let tampered = try RecordedProgramReplayServer(E.rpcSteps(vector, view: changed))
         defer { tampered.stop() }
         do {
           _ = try await E.client(tampered, vector: vector).activity(transactionHash: hash)

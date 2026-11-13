@@ -712,7 +712,7 @@ fn rotation_observation_for_another_transaction_is_refused() {
     assert!(replacement.is_some());
 }
 
-#[path = "support/repair_22_33_63_rotation.rs"]
+#[path = "support/rotation_custody_fixture.rs"]
 mod current_rotation_path;
 
 #[test]

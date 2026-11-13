@@ -12,7 +12,7 @@ import (
 func TestInventoryRequiresIndependentArchiveAgreement(t *testing.T) {
 	ctx := context.Background()
 	service, pool := recordedRebuildService(t, ctx)
-	origin := repair63RecordedRPC(t)
+	origin := coordinatorReplayRecordedRPC(t)
 	for _, tc := range []struct {
 		name, method string
 		result       any

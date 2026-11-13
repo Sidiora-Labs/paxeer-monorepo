@@ -1,0 +1,16 @@
+[manifest]
+task = "22.43.83"
+records_moved = 1
+files_renamed = 1
+
+[file.1]
+from = "precompiles/layerxpay/repair_132_test.go"
+to = "precompiles/layerxpay/service_default_outcomes_test.go"
+
+[file.2]
+from = "precompiles/layerxpay/repair_132.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/layerxpay/repair_132.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/layerxpay/repair_132_test.go"

@@ -204,11 +204,11 @@ func testSignerServerSafetyState(t *testing.T) {
 	t.Helper()
 	for _, kind := range []string{"vote", "proposal"} {
 		t.Run(kind, func(t *testing.T) {
-			pv, files := repair171FilePV(t)
+			pv, files := newSigningSafetyValidator(t)
 			const requests = 16
 			var arrived atomic.Int32
 			release := make(chan struct{})
-			address, stop := repairM1085Server(t, pv, grpc.UnaryInterceptor(
+			address, stop := startLifecycleSignerServer(t, pv, grpc.UnaryInterceptor(
 				func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 					if arrived.Add(1) == requests {
 						close(release)
@@ -220,15 +220,15 @@ func testSignerServerSafetyState(t *testing.T) {
 						return nil, ctx.Err()
 					}
 				}))
-			conn := repairM1085Connection(t, address)
+			conn := dialLifecycleSignerConnection(t, address)
 			client, err := tmgrpc.NewSignerClient(conn, chainID)
 			testrequire.NoError(t, err)
 			votes := make([]*tmproto.Vote, requests)
 			proposals := make([]*tmproto.Proposal, requests)
 			results := make([]error, requests)
 			for i := range requests {
-				votes[i] = repair171Vote(pv, 10, byte(i))
-				proposals[i] = repair171Proposal(10, byte(i))
+				votes[i] = signingSafetyVote(pv, 10, byte(i))
+				proposals[i] = signingSafetyProposal(10, byte(i))
 			}
 			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 			defer cancel()
@@ -261,7 +261,7 @@ func testSignerServerSafetyState(t *testing.T) {
 				}
 				testrequire.Equal(t, -1, winner, "conflicting messages must not both be signed")
 				winner, wantSig, wantBytes = i, sig, signBytes
-				repair171Verify(t, pv.Key.PubKey, signBytes, sig)
+				verifySigningSafetySignature(t, pv.Key.PubKey, signBytes, sig)
 			}
 			testrequire.NotEqual(t, -1, winner)
 			before, err := os.ReadFile(files.state)
@@ -271,10 +271,10 @@ func testSignerServerSafetyState(t *testing.T) {
 				pub, err := wire.GetPubKey(ctx, &privvalproto.PubKeyRequest{ChainId: wrongChain})
 				testrequire.Equal(t, codes.InvalidArgument, status.Code(err))
 				testrequire.Nil(t, pub)
-				vote, err := wire.SignVote(ctx, &privvalproto.SignVoteRequest{ChainId: wrongChain, Vote: repair171Vote(pv, 100, 1)})
+				vote, err := wire.SignVote(ctx, &privvalproto.SignVoteRequest{ChainId: wrongChain, Vote: signingSafetyVote(pv, 100, 1)})
 				testrequire.Equal(t, codes.InvalidArgument, status.Code(err))
 				testrequire.Nil(t, vote)
-				proposal, err := wire.SignProposal(ctx, &privvalproto.SignProposalRequest{ChainId: wrongChain, Proposal: repair171Proposal(100, 1)})
+				proposal, err := wire.SignProposal(ctx, &privvalproto.SignProposalRequest{ChainId: wrongChain, Proposal: signingSafetyProposal(100, 1)})
 				testrequire.Equal(t, codes.InvalidArgument, status.Code(err))
 				testrequire.Nil(t, proposal)
 			}
@@ -294,18 +294,18 @@ func testSignerServerSafetyState(t *testing.T) {
 			}
 			testrequire.Equal(t, wantSig, reopened.LastSignState.Signature)
 			testrequire.Equal(t, wantBytes, []byte(reopened.LastSignState.SignBytes))
-			address, _ = repairM1085Server(t, reopened)
-			conn = repairM1085Connection(t, address)
+			address, _ = startLifecycleSignerServer(t, reopened)
+			conn = dialLifecycleSignerConnection(t, address)
 			client, err = tmgrpc.NewSignerClient(conn, chainID)
 			testrequire.NoError(t, err)
 			for i := range requests {
 				var sig []byte
 				if kind == "vote" {
-					vote := repair171Vote(reopened, 10, byte(i))
+					vote := signingSafetyVote(reopened, 10, byte(i))
 					err = client.SignVote(ctx, chainID, vote)
 					sig = vote.Signature
 				} else {
-					proposal := repair171Proposal(10, byte(i))
+					proposal := signingSafetyProposal(10, byte(i))
 					err = client.SignProposal(ctx, chainID, proposal)
 					sig = proposal.Signature
 				}
@@ -320,9 +320,9 @@ func testSignerServerSafetyState(t *testing.T) {
 			after, err = os.ReadFile(files.state)
 			testrequire.NoError(t, err)
 			testrequire.Equal(t, before, after)
-			next := repair171Vote(reopened, 11, 1)
+			next := signingSafetyVote(reopened, 11, 1)
 			testrequire.NoError(t, client.SignVote(ctx, chainID, next))
-			repair171Verify(t, reopened.Key.PubKey, types.VoteSignBytes(chainID, next), next.Signature)
+			verifySigningSafetySignature(t, reopened.Key.PubKey, types.VoteSignBytes(chainID, next), next.Signature)
 		})
 	}
 }

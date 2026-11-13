@@ -121,7 +121,7 @@ fn tenant() -> TenantId {
 
 fn transaction_receipt() -> AuthenticatedTransactionReceipt {
     let recording: Value = serde_json::from_str(include_str!(
-        "../../layerx-agentd-host/src/repair_22_31_363_receipts.json"
+        "../../layerx-agentd-host/src/payer_payment_receipts.json"
     ))
     .unwrap_or_else(|error| panic!("producer recording: {error}"));
     let case = &recording["success"];

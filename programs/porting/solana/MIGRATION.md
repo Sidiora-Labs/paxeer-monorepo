@@ -508,7 +508,7 @@ The committed `native-token/05-initialize.*` artifacts record successful
 initialization before approve and transfer calls; `08-transfer_from.*` records
 the refused missing-spend-authority case, `09-transfer_from.*` the paused-asset
 refusal and `10-transfer_from.*` the authorized delegated payment. The focused
-[integration test](tests/repair_22_33_241.rs) executes the committed token
+[integration test](tests/custody_crypto_lxt20_guide.rs) executes the committed token
 WASM in-process, including positive and refused initialization and later
 owner-bound payouts; it needs no native harness or live endpoint.
 Fixtures and runtime tests are not certification of a live deployment.

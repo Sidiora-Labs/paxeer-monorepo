@@ -15,7 +15,10 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]
 README = (ROOT / "README.md").read_text(encoding="utf-8")
-RECORD = Path(__file__).with_name("repair_22_33_380.kvx")
+RECORD = (
+    ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs"
+    / "repair_22_33_380.kvx"
+)
 
 
 def source(path):
@@ -236,7 +239,7 @@ def test_root_retired_daemon_record_names_proofs_limits_and_wiring_owner():
     assert set(finding["tests"]) == functions
     assert len(finding["tests"]) == len(functions) == 7
     assert task["base_revision"] == "399c122802fbe3326c62ef9251760c3e53ee4060"
-    assert task["verify_cmd"] == "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_380.py"
+    assert task["verify_cmd"] == "python3 -m pytest -q tools/qualification/audit_repairs/test_readme_retired_daemon.py"
     assert task["evidence_ledger"] == "/out/run/gates.jsonl"
     assert "same candidate revision" in task["evidence"]
     assert "not executed" in task["review_only"]

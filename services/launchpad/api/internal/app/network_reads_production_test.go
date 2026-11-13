@@ -233,14 +233,14 @@ func assertProductionReceiptPosition(t *testing.T, origin string, receipt *types
 }
 
 func TestProductionNetworkReceiptPositions(t *testing.T) {
-	c := repair27Node(t, 125)
+	c := receiptEvidenceNode(t, 125)
 	event := c.events(t)
 	to := common.HexToAddress("0x1234")
 	success := c.send(t, &to, nil)
 	reverted := c.send(t, nil, common.FromHex("0x60006000fd"))
 	c.backend.Commit()
-	sdk := repair27SDK(t, c)
-	server := repair27HTTP(t, c.endpoint)
+	sdk := receiptEvidenceSDK(t, c)
+	server := receiptEvidenceHTTP(t, c.endpoint)
 	for _, tc := range []struct {
 		name          string
 		hash          common.Hash
@@ -259,7 +259,7 @@ func TestProductionNetworkReceiptPositions(t *testing.T) {
 			if len(receipt.Logs) != tc.logs || (tc.logs > 0 && (receipt.Logs[0].Index != 1 || receipt.TransactionIndex != 1)) {
 				t.Fatalf("producer position fixture: %+v", receipt)
 			}
-			next, expected, err := sdk.ReceiptState(context.Background(), repair27Submitted(t, tc.hash))
+			next, expected, err := sdk.ReceiptState(context.Background(), receiptEvidenceSubmitted(t, tc.hash))
 			if err != nil || expected.Status != tc.status || next.State != tc.state || expected.Receipt == nil {
 				t.Fatalf("SDK receipt: state %+v view %+v error %v", next, expected, err)
 			}

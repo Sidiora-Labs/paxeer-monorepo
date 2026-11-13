@@ -24,13 +24,13 @@ use std::time::{Duration, Instant};
 use layerx_ramp_toolkit::clients::{LayerxConfig, MutualTlsClient, MutualTlsFiles, SecretFile};
 use serde_json::{json, Value};
 
-#[path = "support/repair_22_33_1490.rs"]
-pub mod repair_1490;
-pub use repair_1490::*;
+#[path = "support/recovery_payment.rs"]
+pub mod recovery_payment;
+pub use recovery_payment::*;
 
 #[test]
 fn compact_signer_contract_preserves_wrong_key_refusal() {
-    repair_1490::signer_contract();
+    recovery_payment::signer_contract();
 }
 
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);

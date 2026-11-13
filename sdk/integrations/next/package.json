@@ -37,7 +37,7 @@
     "prebuild": "npm --prefix ../../.. run build:dependencies -- @sidiora/layerx-next",
     "build": "tsc -p tsconfig.json",
     "test": "node --test test/*.test.mjs && npm --prefix example test",
-    "test:fulfillment": "node --test example/test/repair-22-33-619.test.mjs",
+    "test:fulfillment": "node --test example/test/fulfillment-conformance.test.mjs",
     "pretest": "npm run build"
   },
   "dependencies": {

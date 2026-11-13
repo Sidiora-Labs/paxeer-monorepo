@@ -1,4 +1,4 @@
-#[path = "support/repair_22_33_1529.rs"]
+#[path = "support/authority_receipt_transcripts.rs"]
 mod repair_support;
 mod support;
 

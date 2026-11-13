@@ -246,8 +246,8 @@ all ordinary balances. Iterator callbacks returning true stop iteration.
 queries do not include fractional wei or pending deferred module credits.
 
 The interface blocks above are checked against their source declarations by
-`TestRepairM_669_KeeperCapabilities` in
-[repair_m669_test.go](../repair_m669_test.go). Its keeper examples also demonstrate
+`TestBankContractKeeperCapabilities` in
+[module_contract_test.go](../module_contract_test.go). Its keeper examples also demonstrate
 that `SubUnlockedCoins` with `checkNeg = false` can persist a negative balance,
 and that `AddCoins` with `checkNeg = true` rejects a still-negative result. Neither
 flag disables input validation, recipient checkers, or balance-change hooks.

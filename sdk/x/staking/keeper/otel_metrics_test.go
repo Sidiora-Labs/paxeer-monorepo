@@ -176,13 +176,13 @@ func testStakingMetricsLargeAmounts(t *testing.T) {
 		{"undelegate", undelegateTotal, undelegateAmount},
 	} {
 		t.Run(operation.name, func(t *testing.T) {
-			f := repair310Open(t, t.TempDir())
+			f := stakingTransitionOpen(t, t.TempDir())
 			t.Cleanup(func() { require.NoError(t, f.store.Close()) })
 			f.ctx = f.ctx.WithBlockHeight(1)
-			source := repair310Validator(t, f.staking, f.ctx, 250).UpdateStatus(types.Unbonding)
+			source := stakingTransitionValidator(t, f.staking, f.ctx, 250).UpdateStatus(types.Unbonding)
 			source.UnbondingTime = f.ctx.BlockTime().Add(24 * time.Hour)
 			f.staking.SetValidator(f.ctx, source)
-			destination := repair310Validator(t, f.staking, f.ctx, 251)
+			destination := stakingTransitionValidator(t, f.staking, f.ctx, 251)
 			delegator := sdk.AccAddress(PKs[252].Address())
 			denom := f.staking.BondDenom(f.ctx)
 			max := sdk.NewInt(math.MaxInt64)

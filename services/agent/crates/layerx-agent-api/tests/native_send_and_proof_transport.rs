@@ -1,0 +1,929 @@
+//! Native-send owner consent and proof bundles across shared transport codecs.
+
+use std::fs;
+use std::io::{Read as _, Write as _};
+use std::net::{Shutdown, TcpListener, TcpStream};
+use std::path::{Path, PathBuf};
+use std::process::{Command, Output};
+use std::sync::atomic::{AtomicU64, Ordering};
+
+use layerx_agent_api::identity::{
+    AgentDid, CapabilityId, ContractError, NativeActivity, NativeSendPurposeV1,
+    NativeSendPurposeV2, SessionId, SignedNativeSendPurposeV1, SignedNativeSendPurposeV2, TenantId,
+};
+use layerx_agent_api::prepare::CanonicalBytes;
+use layerx_agent_api::proof::{ProofBundle, ProofBundleTarget};
+use layerx_agent_api::read::{Freshness, ReadRequest, RelativeTo, VerifiedRead};
+use layerx_agent_api::verify::Rung;
+use layerx_client::sequencer::ReceiptKeyEntry;
+use layerx_proof::inclusion::SequencerAuthorization;
+use layerx_proof::receipt::{verify_sequencer_signature, ReceiptKeys};
+use layerx_types::json::{parse, JsonValue};
+
+const RECORDED: &str =
+    include_str!("../../../../../sdk/platform/conformance/fixtures/vector-v5-portable.json");
+
+static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
+
+struct Directory(PathBuf);
+
+impl Directory {
+    fn new() -> Self {
+        let path = std::env::temp_dir().join(format!(
+            "native-send-proof-transport-{}-{}",
+            std::process::id(),
+            NEXT_TEMP.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir(&path).unwrap_or_else(|error| panic!("private test directory: {error:?}"));
+        Self(path)
+    }
+
+    fn path(&self, name: &str) -> PathBuf {
+        self.0.join(name)
+    }
+}
+
+impl Drop for Directory {
+    fn drop(&mut self) {
+        fs::remove_dir_all(&self.0)
+            .unwrap_or_else(|error| panic!("remove this test's temporary files: {error:?}"));
+    }
+}
+
+fn openssl(arguments: &[&str], paths: &[&Path]) -> Output {
+    let mut command = Command::new("openssl");
+    command.args(arguments);
+    for path in paths {
+        command.arg(path);
+    }
+    command
+        .output()
+        .unwrap_or_else(|error| panic!("installed OpenSSL crypto implementation: {error:?}"))
+}
+
+fn successful(output: Output) -> Vec<u8> {
+    assert!(
+        output.status.success(),
+        "OpenSSL failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    output.stdout
+}
+
+fn sha256(directory: &Directory, bytes: &[u8]) -> [u8; 32] {
+    let path = directory.path("digest-input");
+    fs::write(&path, bytes).unwrap_or_else(|error| panic!("hash input: {error:?}"));
+    successful(openssl(&["dgst", "-sha256", "-binary"], &[&path]))
+        .try_into()
+        .unwrap_or_else(|error| panic!("SHA256 digest: {error:?}"))
+}
+
+fn consent_key(directory: &Directory, name: &str, seed: u8) -> ([u8; 32], PathBuf, PathBuf) {
+    // Public deterministic test seeds, encoded as RFC 8410 PKCS#8 Ed25519 keys.
+    let mut der = vec![
+        0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04,
+        0x20,
+    ];
+    der.extend_from_slice(&[seed; 32]);
+    let private = directory.path(&format!("{name}.der"));
+    fs::write(&private, der).unwrap_or_else(|error| panic!("public test key: {error:?}"));
+    let public_der = successful(openssl(
+        &[
+            "pkey", "-inform", "DER", "-pubout", "-outform", "DER", "-in",
+        ],
+        &[&private],
+    ));
+    assert_eq!(public_der.len(), 44);
+    let public = directory.path(&format!("{name}-public.der"));
+    fs::write(&public, &public_der)
+        .unwrap_or_else(|error| panic!("public verification key: {error:?}"));
+    (
+        public_der[12..]
+            .try_into()
+            .unwrap_or_else(|error| panic!("Ed25519 public key: {error:?}")),
+        private,
+        public,
+    )
+}
+
+fn sign(
+    directory: &Directory,
+    key: &Path,
+    purpose: NativeSendPurposeV2,
+) -> SignedNativeSendPurposeV2 {
+    let digest = sha256(
+        directory,
+        &purpose
+            .canonical_bytes()
+            .unwrap_or_else(|error| panic!("canonical purpose: {error:?}")),
+    );
+    let path = directory.path("consent-digest");
+    fs::write(&path, digest).unwrap_or_else(|error| panic!("consent digest: {error:?}"));
+    let output = Command::new("openssl")
+        .args(["pkeyutl", "-sign", "-rawin", "-keyform", "DER", "-inkey"])
+        .arg(key)
+        .arg("-in")
+        .arg(path)
+        .output()
+        .unwrap_or_else(|error| panic!("real Ed25519 signer: {error:?}"));
+    SignedNativeSendPurposeV2 {
+        purpose,
+        signature: successful(output)
+            .try_into()
+            .unwrap_or_else(|error| panic!("Ed25519 signature: {error:?}")),
+    }
+    .validate()
+    .unwrap_or_else(|error| panic!("signed consent carrier: {error:?}"))
+}
+
+fn signature_valid(directory: &Directory, key: &Path, signed: &SignedNativeSendPurposeV2) -> bool {
+    let digest = sha256(
+        directory,
+        &signed
+            .purpose
+            .canonical_bytes()
+            .unwrap_or_else(|error| panic!("canonical purpose: {error:?}")),
+    );
+    let path = directory.path("verify-digest");
+    let signature = directory.path("signature");
+    fs::write(&path, digest).unwrap_or_else(|error| panic!("verification digest: {error:?}"));
+    fs::write(&signature, signed.signature)
+        .unwrap_or_else(|error| panic!("verification signature: {error:?}"));
+    Command::new("openssl")
+        .args([
+            "pkeyutl", "-verify", "-rawin", "-pubin", "-keyform", "DER", "-inkey",
+        ])
+        .arg(key)
+        .arg("-in")
+        .arg(path)
+        .arg("-sigfile")
+        .arg(signature)
+        .output()
+        .unwrap_or_else(|error| panic!("real Ed25519 verifier: {error:?}"))
+        .status
+        .success()
+}
+
+fn hex(bytes: &[u8]) -> String {
+    bytes
+        .iter()
+        .flat_map(|byte| {
+            let digits = b"0123456789abcdef";
+            [
+                char::from(digits[usize::from(byte >> 4)]),
+                char::from(digits[usize::from(byte & 15)]),
+            ]
+        })
+        .collect()
+}
+
+fn signed_transport(signed: &SignedNativeSendPurposeV2) -> SignedNativeSendPurposeV2 {
+    let listener = TcpListener::bind(("127.0.0.1", 0))
+        .unwrap_or_else(|error| panic!("bind real transport: {error:?}"));
+    let address = listener
+        .local_addr()
+        .unwrap_or_else(|error| panic!("transport address: {error:?}"));
+    let consumer = std::thread::spawn(move || {
+        let (mut stream, _) = listener
+            .accept()
+            .unwrap_or_else(|error| panic!("accept consent: {error:?}"));
+        let mut bytes = Vec::new();
+        stream
+            .read_to_end(&mut bytes)
+            .unwrap_or_else(|error| panic!("receive canonical consent: {error:?}"));
+        SignedNativeSendPurposeV2::from_canonical_bytes(&bytes)
+            .unwrap_or_else(|error| panic!("real consumer codec: {error:?}"))
+    });
+    let mut stream = TcpStream::connect(address)
+        .unwrap_or_else(|error| panic!("connect real transport: {error:?}"));
+    stream
+        .write_all(
+            &signed
+                .canonical_bytes()
+                .unwrap_or_else(|error| panic!("real producer codec: {error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("send consent: {error:?}"));
+    stream
+        .shutdown(Shutdown::Write)
+        .unwrap_or_else(|error| panic!("complete consent frame: {error:?}"));
+    consumer
+        .join()
+        .unwrap_or_else(|error| panic!("consumer completed: {error:?}"))
+}
+
+fn purpose(
+    key: [u8; 32],
+    owner: AgentDid,
+    digest: [u8; 32],
+    sender: [u8; 20],
+) -> NativeSendPurposeV2 {
+    NativeSendPurposeV2 {
+        tenant: TenantId::new("rotating-owner")
+            .unwrap_or_else(|error| panic!("required value: {error:?}")),
+        agent_did: AgentDid::new(format!("did:layerx:{}", hex(&[0x33; 32])))
+            .unwrap_or_else(|error| panic!("required value: {error:?}")),
+        owner_did: owner,
+        consent_public_key: key,
+        evm_sender: sender,
+        session_id: SessionId::new(hex(&[4; 32]))
+            .unwrap_or_else(|error| panic!("required value: {error:?}")),
+        generation: 2,
+        expires_at_ms: 1_900_000_000_000,
+        capability_id: CapabilityId::new(hex(&[5; 32]))
+            .unwrap_or_else(|error| panic!("required value: {error:?}")),
+        transaction_type: 2,
+        chain_id: 125,
+        activity: NativeActivity::new(1, 5)
+            .unwrap_or_else(|error| panic!("required value: {error:?}")),
+        preparation_id: [6; 32],
+        canonical_digest: digest,
+        economic_action: [7; 32],
+        idempotency_key: [8; 32],
+        commitment: [9; 32],
+    }
+}
+
+#[test]
+fn rotated_owner_consent_crosses_transport_signing_and_reopen() -> Result<(), String> {
+    let directory = Directory::new();
+    let (old_key, old_private, old_public) = consent_key(&directory, "original", 0x11);
+    let (current_key, current_private, current_public) = consent_key(&directory, "rotated", 0x22);
+    let stable_owner = AgentDid::new(format!("did:layerx:{}", hex(&old_key)))
+        .map_err(|error| format!("required value: {error:?}"))?;
+    assert_ne!(
+        stable_owner.as_str(),
+        format!("did:layerx:{}", hex(&current_key))
+    );
+
+    let (sender, digest) = recorded_native_unsigned(&directory)?;
+    let expected = purpose(current_key, stable_owner.clone(), digest, sender);
+    assert_eq!(expected.clone().validate(), Ok(expected.clone()));
+    let signed = sign(&directory, &current_private, expected.clone());
+    assert!(signature_valid(&directory, &current_public, &signed));
+    assert!(!signature_valid(&directory, &old_public, &signed));
+    let received = signed_transport(&signed);
+    assert_eq!(received, signed);
+    received
+        .purpose
+        .check_current_owner(&stable_owner, &current_key, &sender)
+        .map_err(|error| format!("required value: {error:?}"))?;
+    received
+        .purpose
+        .check_prepared_transaction(2, 125, &sender, &digest)
+        .map_err(|error| format!("required value: {error:?}"))?;
+
+    let record = directory.path("retained-send");
+    fs::write(
+        &record,
+        received
+            .canonical_bytes()
+            .map_err(|error| format!("required value: {error:?}"))?,
+    )
+    .map_err(|error| format!("required value: {error:?}"))?;
+    drop(received);
+    drop(signed);
+    // Reopen the persisted production codec frame with no live consumer state.
+    let mut file = fs::File::open(&record).map_err(|error| format!("required value: {error:?}"))?;
+    let mut retained = Vec::new();
+    file.read_to_end(&mut retained)
+        .map_err(|error| format!("required value: {error:?}"))?;
+    drop(file);
+    let recovered = SignedNativeSendPurposeV2::from_canonical_bytes(&retained)
+        .map_err(|error| format!("required value: {error:?}"))?;
+    assert_eq!(recovered.purpose, expected);
+    assert!(signature_valid(&directory, &current_public, &recovered));
+    recovered
+        .purpose
+        .check_current_owner(&stable_owner, &current_key, &sender)
+        .map_err(|error| format!("required value: {error:?}"))?;
+    recovered
+        .purpose
+        .check_prepared_transaction(2, 125, &sender, &digest)
+        .map_err(|error| format!("required value: {error:?}"))?;
+
+    let stale = sign(
+        &directory,
+        &old_private,
+        NativeSendPurposeV2 {
+            consent_public_key: old_key,
+            ..expected.clone()
+        },
+    );
+    assert!(signature_valid(&directory, &old_public, &stale));
+    assert_eq!(
+        stale
+            .purpose
+            .check_current_owner(&stable_owner, &current_key, &sender),
+        Err(ContractError::Mismatch("native_send.current_owner"))
+    );
+    let other_owner = AgentDid::new(format!("did:layerx:{}", hex(&[0x44; 32])))
+        .map_err(|error| format!("required value: {error:?}"))?;
+    assert!(recovered
+        .purpose
+        .check_current_owner(&other_owner, &current_key, &sender)
+        .is_err());
+    assert!(recovered
+        .purpose
+        .check_current_owner(&stable_owner, &current_key, &[1; 20])
+        .is_err());
+    for (kind, chain, address, hash) in [
+        (3, 125, sender, digest),
+        (2, 126, sender, digest),
+        (2, 125, [1; 20], digest),
+        (2, 125, sender, [1; 32]),
+    ] {
+        assert!(recovered
+            .purpose
+            .check_prepared_transaction(kind, chain, &address, &hash)
+            .is_err());
+    }
+    assert_consent_mutations(recovered, &directory, &current_public);
+
+    Ok(())
+}
+
+#[test]
+fn native_send_refuses_legacy_domains_and_noncanonical_frames() -> Result<(), String> {
+    let directory = Directory::new();
+    let (key, private, _) = consent_key(&directory, "owner", 0x11);
+    let owner = AgentDid::new(format!("did:layerx:{}", hex(&key)))
+        .map_err(|error| format!("required value: {error:?}"))?;
+    let current = purpose(key, owner.clone(), [1; 32], [2; 20]);
+    let signed = sign(&directory, &private, current.clone());
+    let bytes = current
+        .canonical_bytes()
+        .map_err(|error| format!("required value: {error:?}"))?;
+    let frame = signed
+        .canonical_bytes()
+        .map_err(|error| format!("required value: {error:?}"))?;
+    for end in 0..bytes.len() {
+        assert!(NativeSendPurposeV2::from_canonical_bytes(&bytes[..end]).is_err());
+    }
+    for end in 0..frame.len() {
+        assert!(SignedNativeSendPurposeV2::from_canonical_bytes(&frame[..end]).is_err());
+    }
+    let mut trailing = bytes.clone();
+    trailing.push(0);
+    assert!(NativeSendPurposeV2::from_canonical_bytes(&trailing).is_err());
+    let mut trailing = frame.clone();
+    trailing.push(0);
+    assert!(SignedNativeSendPurposeV2::from_canonical_bytes(&trailing).is_err());
+    let mut wrong_version = bytes.clone();
+    wrong_version[NativeSendPurposeV2::DOMAIN.len()] = 1;
+    assert!(NativeSendPurposeV2::from_canonical_bytes(&wrong_version).is_err());
+    assert!(NativeSendPurposeV1::from_canonical_bytes(&bytes).is_err());
+    assert_native_send_invalid_fields(&current);
+    let mut oversized = bytes.clone();
+    oversized.resize(NativeSendPurposeV2::MAX_CANONICAL_BYTES + 1, 0);
+    assert!(NativeSendPurposeV2::from_canonical_bytes(&oversized).is_err());
+    let mut oversized = frame.clone();
+    oversized.resize(SignedNativeSendPurposeV2::MAX_CANONICAL_BYTES + 1, 0);
+    assert!(SignedNativeSendPurposeV2::from_canonical_bytes(&oversized).is_err());
+    let mut bad_length = frame;
+    let offset = SignedNativeSendPurposeV2::DOMAIN.len();
+    bad_length[offset..offset + 4].copy_from_slice(&u32::MAX.to_be_bytes());
+    assert!(SignedNativeSendPurposeV2::from_canonical_bytes(&bad_length).is_err());
+    assert!(SignedNativeSendPurposeV2 {
+        signature: [0; 64],
+        ..signed
+    }
+    .validate()
+    .is_err());
+
+    assert_legacy_native_send(current, owner, key, &bytes);
+
+    Ok(())
+}
+
+fn quantity(value: &JsonValue, field: &str) -> u64 {
+    u64::from_str_radix(
+        value
+            .str_at(field)
+            .unwrap_or_else(|error| panic!("required value: {error:?}"))
+            .strip_prefix("0x")
+            .unwrap_or_else(|| panic!("required value")),
+        16,
+    )
+    .unwrap_or_else(|error| panic!("required value: {error:?}"))
+}
+
+// Preserve the native recorder's original proof fragments as opaque codec data.
+fn recorded_fragment(name: &str) -> CanonicalBytes {
+    let key = format!("\"{name}\":");
+    let start = RECORDED
+        .find(&key)
+        .unwrap_or_else(|| panic!("required value"))
+        + key.len();
+    let text = RECORDED[start..].trim_start();
+    let mut quoted = false;
+    let mut escaped = false;
+    let mut depth = 0;
+    for (index, byte) in text.bytes().enumerate() {
+        if quoted {
+            if escaped {
+                escaped = false;
+            } else if byte == b'\\' {
+                escaped = true;
+            } else if byte == b'"' {
+                quoted = false;
+            }
+        } else {
+            match byte {
+                b'"' => quoted = true,
+                b'{' | b'[' => depth += 1,
+                b'}' | b']' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        parse(&text[..=index])
+                            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+                        return CanonicalBytes::new(text.as_bytes()[..=index].to_vec())
+                            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    panic!("incomplete native evidence {name}");
+}
+
+fn recorded_bundle(index: usize) -> (ProofBundle, [u8; 32], Freshness) {
+    let corpus = parse(RECORDED).unwrap_or_else(|error| panic!("required value: {error:?}"));
+    let value = &corpus
+        .array_at("bundles")
+        .unwrap_or_else(|error| panic!("required value: {error:?}"))[index];
+    let height = quantity(value, "receiptJson.height");
+    let optional = |field| value.field(field).map(|_| recorded_fragment(field));
+    let bytes = |field| {
+        CanonicalBytes::new(
+            value
+                .hex_at(field)
+                .unwrap_or_else(|error| panic!("required value: {error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("required value: {error:?}"))
+    };
+    let bundle = ProofBundle {
+        format: value
+            .str_at("format")
+            .unwrap_or_else(|error| panic!("required value: {error:?}"))
+            .into(),
+        verification_level: Rung::from_name(
+            value
+                .str_at("verificationLevel")
+                .unwrap_or_else(|error| panic!("required value: {error:?}")),
+        )
+        .unwrap_or_else(|| panic!("required value")),
+        raw_transaction: bytes("rawTransaction"),
+        signed_receipt: bytes("signedReceipt"),
+        receipt_digest: value
+            .hex_array_at("receiptDigest")
+            .unwrap_or_else(|error| panic!("required value: {error:?}")),
+        receipt_key: ReceiptKeyEntry {
+            key_id: value
+                .hex_array_at("receiptKey.keyId")
+                .unwrap_or_else(|error| panic!("required value: {error:?}")),
+            public_key: value
+                .hex_array_at("receiptKey.publicKey")
+                .unwrap_or_else(|error| panic!("required value: {error:?}")),
+            first_height: quantity(value, "receiptKey.firstHeight"),
+            last_height: quantity(value, "receiptKey.lastHeight"),
+        },
+        block_header: optional("blockHeader"),
+        receipt_inclusion: optional("receiptInclusion"),
+        commit: optional("commit"),
+        validator_set: optional("validatorSet"),
+        account_proof: None,
+    };
+    let pins = [SequencerAuthorization::new(
+        bundle.receipt_key.key_id,
+        bundle.receipt_key.public_key,
+        bundle.receipt_key.first_height,
+        bundle.receipt_key.last_height,
+    )];
+    let receipt = verify_sequencer_signature(
+        bundle.signed_receipt.as_bytes(),
+        ReceiptKeys::HeightRanges(&pins),
+    )
+    .unwrap_or_else(|error| panic!("genuine native producer receipt: {error:?}"));
+    let id = value
+        .hex_array_at("receiptJson.txHash")
+        .unwrap_or_else(|error| panic!("required value: {error:?}"));
+    assert_eq!(
+        receipt
+            .protocol()
+            .unwrap_or_else(|| panic!("required value"))
+            .activity_id(),
+        id
+    );
+    let hash = if index == 1 {
+        // Recorded execution header's native block hash, from the successor link.
+        // The API transports this coordinate; finality authentication is a consumer duty.
+        [
+            0x06, 0x6b, 0x3b, 0x86, 0xeb, 0x6f, 0x62, 0x43, 0x7b, 0x65, 0x9c, 0x1d, 0x07, 0x5f,
+            0x28, 0xeb, 0x22, 0x24, 0x6d, 0x23, 0x3f, 0xe8, 0x6b, 0x3d, 0x5c, 0xac, 0xbd, 0xb5,
+            0xe1, 0x82, 0x16, 0xe9,
+        ]
+    } else {
+        [0; 32]
+    };
+    (
+        bundle,
+        id,
+        Freshness {
+            chain_head: height,
+            value_height: height,
+            relative_to: RelativeTo::Block { height, hash },
+        },
+    )
+}
+
+#[test]
+fn committed_activity_and_receipt_cross_shared_rpc_codecs() -> Result<(), String> {
+    let (bundle, id, freshness) = recorded_bundle(1);
+    assert_eq!(bundle.verification_level, Rung::Committed);
+    let pinned = bundle.receipt_key;
+    for target in [
+        ProofBundleTarget::Activity(id),
+        ProofBundleTarget::Receipt(id),
+    ] {
+        for requested in [Rung::Submitted, Rung::Receipted, Rung::Committed] {
+            let request = ReadRequest {
+                selector: target,
+                requested_rung: requested,
+            };
+            let produced = VerifiedRead::new(bundle.clone(), Rung::Committed, freshness.clone());
+            ProofBundle::check_response(&request, &produced)
+                .map_err(|error| format!("strong evidence satisfies both minima: {error:?}"))?;
+            let selector = target
+                .encode()
+                .map_err(|error| format!("required value: {error:?}"))?;
+            let consumer_request =
+                ReadRequest::proof_bundle(selector.as_bytes().to_vec(), requested.name())
+                    .map_err(|error| format!("required value: {error:?}"))?;
+            let listener = TcpListener::bind(("127.0.0.1", 0))
+                .map_err(|error| format!("required value: {error:?}"))?;
+            let address = listener
+                .local_addr()
+                .map_err(|error| format!("required value: {error:?}"))?;
+            let consumer = std::thread::spawn(move || {
+                let (mut stream, _) = listener
+                    .accept()
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"));
+                let mut wire = String::new();
+                stream
+                    .read_to_string(&mut wire)
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"));
+                let read = VerifiedRead::<ProofBundle>::decode_json(&wire)
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"));
+                consumer_request
+                    .check_proof_response(&read)
+                    .unwrap_or_else(|error| {
+                        panic!("RPC request consumer accepts committed evidence: {error:?}")
+                    });
+                let pins = [SequencerAuthorization::new(
+                    pinned.key_id,
+                    pinned.public_key,
+                    pinned.first_height,
+                    pinned.last_height,
+                )];
+                let receipt = verify_sequencer_signature(
+                    read.value.signed_receipt.as_bytes(),
+                    ReceiptKeys::HeightRanges(&pins),
+                )
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
+                assert_eq!(
+                    receipt
+                        .protocol()
+                        .unwrap_or_else(|| panic!("required value"))
+                        .activity_id(),
+                    target.activity_id()
+                );
+                read
+            });
+            let mut stream = TcpStream::connect(address)
+                .map_err(|error| format!("required value: {error:?}"))?;
+            stream
+                .write_all(
+                    produced
+                        .encode_json()
+                        .map_err(|error| format!("required value: {error:?}"))?
+                        .as_bytes(),
+                )
+                .map_err(|error| format!("required value: {error:?}"))?;
+            stream
+                .shutdown(Shutdown::Write)
+                .map_err(|error| format!("required value: {error:?}"))?;
+            let read = consumer
+                .join()
+                .map_err(|error| format!("required value: {error:?}"))?;
+            assert_eq!(read, produced);
+            ProofBundle::check_response(&request, &read)
+                .map_err(|error| format!("required value: {error:?}"))?;
+        }
+    }
+
+    Ok(())
+}
+
+#[test]
+fn proof_rung_refuses_downgrades_and_inconsistent_evidence() -> Result<(), String> {
+    let (bundle, id, freshness) = recorded_bundle(1);
+    let committed = VerifiedRead::new(bundle, Rung::Committed, freshness);
+    let mut receipted = committed.clone();
+    receipted.achieved_rung = Rung::Receipted;
+    receipted.value.verification_level = Rung::Receipted;
+    receipted.value.block_header = None;
+    receipted.value.receipt_inclusion = None;
+    receipted.value.commit = None;
+    receipted.value.validator_set = None;
+    receipted
+        .value
+        .validate()
+        .map_err(|error| format!("valid lower-rung field set: {error:?}"))?;
+    for target in [
+        ProofBundleTarget::Activity(id),
+        ProofBundleTarget::Receipt(id),
+    ] {
+        let request = ReadRequest {
+            selector: target,
+            requested_rung: Rung::Committed,
+        };
+        assert_eq!(
+            ProofBundle::check_response(&request, &receipted),
+            Err(ContractError::OutOfRange("proof_bundle_rung"))
+        );
+        for requested in [Rung::Submitted, Rung::Receipted] {
+            ProofBundle::check_response(
+                &ReadRequest {
+                    requested_rung: requested,
+                    ..request.clone()
+                },
+                &receipted,
+            )
+            .map_err(|error| format!("required value: {error:?}"))?;
+        }
+        let mut submitted = receipted.clone();
+        submitted.achieved_rung = Rung::Submitted;
+        submitted.value.verification_level = Rung::Submitted;
+        assert!(ProofBundle::check_response(
+            &ReadRequest {
+                requested_rung: Rung::Submitted,
+                ..request.clone()
+            },
+            &submitted
+        )
+        .is_err());
+        let mut inconsistent = committed.clone();
+        inconsistent.achieved_rung = Rung::Receipted;
+        assert!(ProofBundle::check_response(&request, &inconsistent).is_err());
+        assert!(inconsistent.encode_json().is_err());
+        let wire = committed
+            .encode_json()
+            .map_err(|error| format!("required value: {error:?}"))?
+            .replace(
+                "\"achieved_verification_level\":\"committed\"",
+                "\"achieved_verification_level\":\"receipted\"",
+            );
+        assert!(VerifiedRead::<ProofBundle>::decode_json(&wire).is_err());
+        for field in 0..4 {
+            let mut incomplete = committed.clone();
+            match field {
+                0 => incomplete.value.block_header = None,
+                1 => incomplete.value.receipt_inclusion = None,
+                2 => incomplete.value.commit = None,
+                _ => incomplete.value.validator_set = None,
+            }
+            assert!(ProofBundle::check_response(&request, &incomplete).is_err());
+        }
+        let mut leaked = receipted.clone();
+        leaked.value.commit = committed.value.commit.clone();
+        assert!(ProofBundle::check_response(&request, &leaked).is_err());
+    }
+    let account = ReadRequest {
+        selector: ProofBundleTarget::AccountState {
+            activity_id: id,
+            account_id: [1; 32],
+        },
+        requested_rung: Rung::Submitted,
+    };
+    assert!(ProofBundle::check_response(&account, &receipted).is_err());
+    assert_eq!(
+        ProofBundle::check_response(&account, &committed),
+        Err(ContractError::Empty("account_proof"))
+    );
+
+    Ok(())
+}
+
+fn assert_consent_mutations(
+    recovered: SignedNativeSendPurposeV2,
+    directory: &Directory,
+    current_public: &Path,
+) {
+    let mutations: [fn(&mut NativeSendPurposeV2); 13] = [
+        |p| {
+            p.tenant = TenantId::new("other-tenant")
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        },
+        |p| {
+            p.agent_did = AgentDid::new(format!("did:layerx:{}", hex(&[0x55; 32])))
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        },
+        |p| {
+            p.owner_did = AgentDid::new(format!("did:layerx:{}", hex(&[0x66; 32])))
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        },
+        |p| p.consent_public_key = [1; 32],
+        |p| p.evm_sender = [1; 20],
+        |p| {
+            p.session_id = SessionId::new(hex(&[1; 32]))
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        },
+        |p| p.generation += 1,
+        |p| p.expires_at_ms += 1,
+        |p| {
+            p.capability_id = CapabilityId::new(hex(&[1; 32]))
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        },
+        |p| p.preparation_id[0] ^= 1,
+        |p| p.canonical_digest[0] ^= 1,
+        |p| p.economic_action[0] ^= 1,
+        |p| p.idempotency_key[0] ^= 1,
+    ];
+    for mutate in mutations {
+        let mut changed = recovered.clone();
+        mutate(&mut changed.purpose);
+        assert!(!signature_valid(directory, current_public, &changed));
+    }
+    let mut changed = recovered;
+    changed.purpose.commitment[0] ^= 1;
+    assert!(!signature_valid(directory, current_public, &changed));
+}
+
+fn assert_native_send_invalid_fields(current: &NativeSendPurposeV2) {
+    for kind in [0, 1, 3, 4] {
+        assert!(NativeSendPurposeV2 {
+            transaction_type: kind,
+            ..current.clone()
+        }
+        .validate()
+        .is_err());
+    }
+    for chain in [0, 1, 126, u64::MAX] {
+        assert!(NativeSendPurposeV2 {
+            chain_id: chain,
+            ..current.clone()
+        }
+        .validate()
+        .is_err());
+    }
+    for activity in [
+        NativeActivity::new(1, 1).unwrap_or_else(|error| panic!("required value: {error:?}")),
+        NativeActivity::new(2, 5).unwrap_or_else(|error| panic!("required value: {error:?}")),
+    ] {
+        assert!(NativeSendPurposeV2 {
+            activity,
+            ..current.clone()
+        }
+        .validate()
+        .is_err());
+    }
+    assert_native_send_invalid_dimensions(current);
+}
+
+fn assert_native_send_invalid_dimensions(current: &NativeSendPurposeV2) {
+    assert!(NativeSendPurposeV2 {
+        consent_public_key: [0; 32],
+        ..current.clone()
+    }
+    .validate()
+    .is_err());
+    assert!(NativeSendPurposeV2 {
+        evm_sender: [0; 20],
+        ..current.clone()
+    }
+    .validate()
+    .is_err());
+    assert!(NativeSendPurposeV2 {
+        generation: 0,
+        ..current.clone()
+    }
+    .validate()
+    .is_err());
+    assert!(NativeSendPurposeV2 {
+        expires_at_ms: 0,
+        ..current.clone()
+    }
+    .validate()
+    .is_err());
+    assert!(NativeSendPurposeV2 {
+        owner_did: AgentDid::new("not-a-did")
+            .unwrap_or_else(|error| panic!("required value: {error:?}")),
+        ..current.clone()
+    }
+    .validate()
+    .is_err());
+    assert!(NativeSendPurposeV2 {
+        tenant: TenantId::new("x".repeat(256))
+            .unwrap_or_else(|error| panic!("required value: {error:?}")),
+        ..current.clone()
+    }
+    .validate()
+    .is_err());
+    let invalid: [fn(&mut NativeSendPurposeV2); 10] = [
+        |p| p.preparation_id = [0; 32],
+        |p| p.canonical_digest = [0; 32],
+        |p| p.economic_action = [0; 32],
+        |p| p.idempotency_key = [0; 32],
+        |p| p.commitment = [0; 32],
+        |p| {
+            p.session_id =
+                SessionId::new("00").unwrap_or_else(|error| panic!("required value: {error:?}"));
+        },
+        |p| {
+            p.capability_id =
+                CapabilityId::new("00").unwrap_or_else(|error| panic!("required value: {error:?}"));
+        },
+        |p| {
+            p.tenant = TenantId::new("tenant\0alias")
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        },
+        |p| {
+            p.owner_did = AgentDid::new(format!("did:layerx:{}", "AB".repeat(32)))
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        },
+        |p| {
+            p.agent_did = AgentDid::new(format!("did:layerx:{}", "AB".repeat(32)))
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        },
+    ];
+    for mutate in invalid {
+        let mut changed = current.clone();
+        mutate(&mut changed);
+        assert!(changed.clone().validate().is_err());
+        assert!(changed.canonical_bytes().is_err());
+    }
+}
+
+fn assert_legacy_native_send(
+    current: NativeSendPurposeV2,
+    owner: AgentDid,
+    key: [u8; 32],
+    bytes: &[u8],
+) {
+    let legacy = NativeSendPurposeV1 {
+        tenant: current.tenant,
+        agent_did: current.agent_did,
+        owner_did: owner,
+        owner_public_key: key,
+        session_id: current.session_id,
+        generation: current.generation,
+        expires_at_ms: current.expires_at_ms,
+        capability_id: current.capability_id,
+        protocol_version: 3,
+        network_id: 125,
+        activity: current.activity,
+        preparation_id: current.preparation_id,
+        canonical_digest: current.canonical_digest,
+        economic_action: current.economic_action,
+        idempotency_key: current.idempotency_key,
+        commitment: current.commitment,
+    };
+    assert_eq!(
+        legacy.clone().validate(),
+        Err(ContractError::Mismatch("native_send.legacy_version"))
+    );
+    assert!(legacy.canonical_bytes().is_err());
+    assert!(SignedNativeSendPurposeV1 {
+        purpose: legacy,
+        owner_public_key: key,
+        signature: [1; 64]
+    }
+    .validate()
+    .is_err());
+    let mut legacy_domain = NativeSendPurposeV1::DOMAIN.to_vec();
+    legacy_domain.extend_from_slice(&bytes[NativeSendPurposeV2::DOMAIN.len()..]);
+    assert!(NativeSendPurposeV2::from_canonical_bytes(&legacy_domain).is_err());
+}
+
+fn recorded_native_unsigned(directory: &Directory) -> Result<([u8; 20], [u8; 32]), String> {
+    let corpus = parse(RECORDED).map_err(|error| format!("required value: {error:?}"))?;
+    let recorded = &corpus
+        .array_at("bundles")
+        .map_err(|error| format!("required value: {error:?}"))?[0];
+    let sender = recorded
+        .hex_array_at("receiptJson.from")
+        .map_err(|error| format!("required value: {error:?}"))?;
+    let raw = recorded
+        .hex_at("rawTransaction")
+        .map_err(|error| format!("required value: {error:?}"))?;
+    assert_eq!(&raw[..4], &[2, 0xf8, 0x72, 125]);
+    // The recorded transaction has a 47-byte unsigned field list followed by
+    // yParity and two 32-byte signature scalars. Preserve those original fields.
+    assert_eq!(raw.len(), 117);
+    assert_eq!(&raw[50..53], &[0x80, 0xa0, 0xc1]);
+    let mut unsigned = vec![2, 0xef];
+    unsigned.extend_from_slice(&raw[3..50]);
+    let digest = sha256(directory, &unsigned);
+    Ok((sender, digest))
+}

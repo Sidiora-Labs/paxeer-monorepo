@@ -1,0 +1,60 @@
+[manifest]
+task = "22.43.187"
+records_moved = 3
+files_renamed = 0
+
+[file.1]
+from = "tests/repair_22_33_1135.kvx"
+to = "spec/layerx-merge/programme/records/tests/repair_22_33_1135.kvx"
+
+[file.2]
+from = "tests/repair_22_33_7.kvx"
+to = "spec/layerx-merge/programme/records/tests/repair_22_33_7.kvx"
+
+[file.3]
+from = "tests/repair_22_39_76.kvx"
+to = "spec/layerx-merge/programme/records/tests/repair_22_39_76.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "repair_22_33_1135.kvx"
+
+[reference.2]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "repair_22_33_1135.kvx"
+
+[reference.3]
+file = "spec/layerx-merge/programme/issues/1832.kvx"
+name = "repair_22_39_76.kvx"
+
+[reference.4]
+file = "spec/layerx-merge/programme/issues/1834.kvx"
+name = "repair_22_39_76.kvx"
+
+[reference.5]
+file = "spec/layerx-merge/programme/issues/input/1832.md"
+name = "repair_22_39_76.kvx"
+
+[reference.6]
+file = "spec/layerx-merge/programme/issues/input/1834.md"
+name = "repair_22_39_76.kvx"
+
+[reference.7]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_1135.kvx"
+
+[reference.8]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_7.kvx"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1135.kvx"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_7.kvx"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_76.kvx"

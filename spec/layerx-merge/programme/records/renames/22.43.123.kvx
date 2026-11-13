@@ -1,0 +1,308 @@
+[manifest]
+task = "22.43.123"
+records_moved = 17
+files_renamed = 18
+
+[file.1]
+from = "sdk/x/auth/ante/repair_m655_test.go"
+to = "sdk/x/auth/ante/ante_params_multisig_gas_test.go"
+
+[file.2]
+from = "sdk/x/auth/client/cli/repair_463_test.go"
+to = "sdk/x/auth/client/cli/sign_gas_adjustment_test.go"
+
+[file.3]
+from = "sdk/x/auth/client/cli/repair_m660_test.go"
+to = "sdk/x/auth/client/cli/batch_signatures_test.go"
+
+[file.4]
+from = "sdk/x/auth/client/testutil/repair_m661_test.go"
+to = "sdk/x/auth/client/testutil/cli_network_test.go"
+
+[file.5]
+from = "sdk/x/auth/keeper/repair_m657_test.go"
+to = "sdk/x/auth/keeper/migration_recovery_test.go"
+
+[file.6]
+from = "sdk/x/auth/legacy/legacytx/repair_m656_test.go"
+to = "sdk/x/auth/legacy/legacytx/multisig_transport_test.go"
+
+[file.7]
+from = "sdk/x/auth/repair_m668_test.go"
+to = "sdk/x/auth/auth_contract_test.go"
+
+[file.8]
+from = "sdk/x/auth/tx/repair_303_test.go"
+to = "sdk/x/auth/tx/gas_estimate_block_pagination_test.go"
+
+[file.9]
+from = "sdk/x/auth/tx/repair_m654_test.go"
+to = "sdk/x/auth/tx/signature_decoding_block_query_test.go"
+
+[file.10]
+from = "sdk/x/auth/types/repair_m659_test.go"
+to = "sdk/x/auth/types/account_address_validation_test.go"
+
+[file.11]
+from = "sdk/x/auth/vesting/client/testutil/repair_m662_test.go"
+to = "sdk/x/auth/vesting/client/testutil/vesting_cli_network_test.go"
+
+[file.12]
+from = "sdk/x/auth/vesting/repair_301_test.go"
+to = "sdk/x/auth/vesting/transfer_permissions_test.go"
+
+[file.13]
+from = "sdk/x/auth/vesting/repair_m658_test.go"
+to = "sdk/x/auth/vesting/creation_end_time_metrics_test.go"
+
+[file.14]
+from = "sdk/x/auth/vesting/types/repair_m670_test.go"
+to = "sdk/x/auth/vesting/types/cancellation_genesis_test.go"
+
+[file.15]
+from = "sdk/x/authz/client/rest/repair_m694_test.go"
+to = "sdk/x/authz/client/rest/grants_gateway_test.go"
+
+[file.16]
+from = "sdk/x/authz/client/testutil/repair_m693_test.go"
+to = "sdk/x/authz/client/testutil/grant_cli_config_test.go"
+
+[file.17]
+from = "sdk/x/authz/keeper/repair_m692_test.go"
+to = "sdk/x/authz/keeper/grant_expiry_cleanup_test.go"
+
+[file.18]
+from = "sdk/x/authz/repair_m691_test.go"
+to = "sdk/x/authz/grant_lifecycle_test.go"
+
+[file.19]
+from = "sdk/x/auth/ante/repair_m655.kvx"
+to = "spec/layerx-merge/programme/records/sdk/x/auth/ante/repair_m655.kvx"
+
+[file.20]
+from = "sdk/x/auth/client/cli/repair_m660.kvx"
+to = "spec/layerx-merge/programme/records/sdk/x/auth/client/cli/repair_m660.kvx"
+
+[file.21]
+from = "sdk/x/auth/client/testutil/repair_m661.kvx"
+to = "spec/layerx-merge/programme/records/sdk/x/auth/client/testutil/repair_m661.kvx"
+
+[file.22]
+from = "sdk/x/auth/keeper/repair_m657.kvx"
+to = "spec/layerx-merge/programme/records/sdk/x/auth/keeper/repair_m657.kvx"
+
+[file.23]
+from = "sdk/x/auth/legacy/legacytx/repair_m656.kvx"
+to = "spec/layerx-merge/programme/records/sdk/x/auth/legacy/legacytx/repair_m656.kvx"
+
+[file.24]
+from = "sdk/x/auth/repair_m668.kvx"
+to = "spec/layerx-merge/programme/records/sdk/x/auth/repair_m668.kvx"
+
+[file.25]
+from = "sdk/x/auth/tx/repair_303.kvx"
+to = "spec/layerx-merge/programme/records/sdk/x/auth/tx/repair_303.kvx"
+
+[file.26]
+from = "sdk/x/auth/tx/repair_m654.kvx"
+to = "spec/layerx-merge/programme/records/sdk/x/auth/tx/repair_m654.kvx"
+
+[file.27]
+from = "sdk/x/auth/types/repair_m659.kvx"
+to = "spec/layerx-merge/programme/records/sdk/x/auth/types/repair_m659.kvx"
+
+[file.28]
+from = "sdk/x/auth/vesting/client/testutil/repair_m662.kvx"
+to = "spec/layerx-merge/programme/records/sdk/x/auth/vesting/client/testutil/repair_m662.kvx"
+
+[file.29]
+from = "sdk/x/auth/vesting/repair_301.kvx"
+to = "spec/layerx-merge/programme/records/sdk/x/auth/vesting/repair_301.kvx"
+
+[file.30]
+from = "sdk/x/auth/vesting/repair_m658.kvx"
+to = "spec/layerx-merge/programme/records/sdk/x/auth/vesting/repair_m658.kvx"
+
+[file.31]
+from = "sdk/x/auth/vesting/types/repair_m670.kvx"
+to = "spec/layerx-merge/programme/records/sdk/x/auth/vesting/types/repair_m670.kvx"
+
+[file.32]
+from = "sdk/x/authz/client/rest/repair_m694.kvx"
+to = "spec/layerx-merge/programme/records/sdk/x/authz/client/rest/repair_m694.kvx"
+
+[file.33]
+from = "sdk/x/authz/client/testutil/repair_m693.kvx"
+to = "spec/layerx-merge/programme/records/sdk/x/authz/client/testutil/repair_m693.kvx"
+
+[file.34]
+from = "sdk/x/authz/keeper/repair_m692.kvx"
+to = "spec/layerx-merge/programme/records/sdk/x/authz/keeper/repair_m692.kvx"
+
+[file.35]
+from = "sdk/x/authz/repair_m691.kvx"
+to = "spec/layerx-merge/programme/records/sdk/x/authz/repair_m691.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "sdk/x/auth/client/testutil/repair_m661_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "sdk/x/auth/types/repair_m659_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/qualification.kvx"
+name = "sdk/x/auth/client/testutil/repair_m661_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/qualification.kvx"
+name = "sdk/x/auth/tx/repair_303_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/qualification.kvx"
+name = "sdk/x/auth/types/repair_m659_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair463_"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_654_"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_655_"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_656_"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_657_"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_658_"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_659_"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_660_"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_661_"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_662_"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_668_"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_670_"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_691_"
+
+[reference.19]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_692_"
+
+[reference.20]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_693_"
+
+[reference.21]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_694_"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_301_"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_303_"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/x/auth/ante/repair_m655_test.go"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/x/auth/client/cli/repair_463_test.go"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/x/auth/client/cli/repair_m660_test.go"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/x/auth/client/testutil/repair_m661_test.go"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/x/auth/keeper/repair_m657_test.go"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/x/auth/legacy/legacytx/repair_m656_test.go"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/x/auth/repair_m668_test.go"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/x/auth/tx/repair_303_test.go"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/x/auth/tx/repair_m654_test.go"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/x/auth/types/repair_m659_test.go"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/x/auth/vesting/client/testutil/repair_m662_test.go"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/x/auth/vesting/repair_301_test.go"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/x/auth/vesting/repair_m658_test.go"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/x/auth/vesting/types/repair_m670_test.go"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/x/authz/client/rest/repair_m694_test.go"
+
+[reference.39]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/x/authz/client/testutil/repair_m693_test.go"
+
+[reference.40]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/x/authz/keeper/repair_m692_test.go"
+
+[reference.41]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/x/authz/repair_m691_test.go"

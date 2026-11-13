@@ -19,10 +19,10 @@ func TestPreflightResponseClassifiesRequestAndSource(t *testing.T) {
 		return []byte(`{"family":"trading","expectedRevision":"` + revision + `","blockHash":"0x` + strings.Repeat("a", 64) + `","trader":"` + trader + `","recipient":"` + trader + `","pool":"` + zero + `","amountIn":"","isBuy":false,"creationPath":"","name":"","symbol":"","feeStrategy":0,"optical":"` + zero + `","nftId":""}`)
 	}
 	for _, tc := range []struct {
-		name string
-		raw []byte
-		status int
-		code string
+		name    string
+		raw     []byte
+		status  int
+		code    string
 		reports int
 	}{
 		{"invalid request", []byte(`{}`), 422, "FIELD_INVALID", 0},

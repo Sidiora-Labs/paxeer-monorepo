@@ -28,8 +28,8 @@ import (
 )
 
 func TestProvisionAndReconcileWorkersPersistProviderState(t *testing.T) {
-	f := repair57New(t)
-	f.transit = repair57Vault(t)
+	f := streamContractNew(t)
+	f.transit = streamContractVault(t)
 	ctx := context.Background()
 	o, _ := f.create("worker-provider-state")
 	var created atomic.Bool
@@ -247,7 +247,7 @@ func TestProvisionAndReconcileWorkersPersistProviderState(t *testing.T) {
 }
 
 func TestViewerHeartbeatsPruneExpiredMembersAndPersistCount(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	if _, err := f.database.Exec(ctx, "CREATE TABLE livestream.streams(id text PRIMARY KEY, viewer_count bigint NOT NULL DEFAULT 0)"); err != nil {
 		t.Fatal(err)
@@ -283,12 +283,12 @@ func TestViewerHeartbeatsPruneExpiredMembersAndPersistCount(t *testing.T) {
 }
 
 func TestVendorUsageWorkerPersistsAccountUsageAndAlerts(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	if _, err := f.database.Exec(ctx, f.store.BudgetSchemaSQL()); err != nil {
 		t.Fatal(err)
 	}
-	policy := repairM1001Budget()
+	policy := studioRecoveryBudget()
 	policy.VendorUserID = "account_1"
 	policy.MonthlyUnits = "10"
 	policy.DeliveryPricePerMinute = "1"

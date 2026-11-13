@@ -32,9 +32,9 @@ not change that gateway conversion or protobuf JSON's bytes encoding.
 
 The commands and response examples use the same deterministic ABCI-produced
 `Equivocation` fixture (RFC 8032 test-vector validator, height `100`, power
-`1000000`, time `2006-01-02T15:04:05Z`). `TestRepairM_605_ResponseShapes`
+`1000000`, time `2006-01-02T15:04:05Z`). `TestEvidenceContractResponseShapes`
 checks the examples against the current CLI and gateway marshalers;
-`TestRepairM_605_GRPCHash` queries this digest through the real Query service:
+`TestEvidenceContractGRPCHash` queries this digest through the real Query service:
 
 ```text
 hex:    6DE180E498DA2745F6E8243AEB9837A93A36056C8D2788BE51A08DF973583CB4
