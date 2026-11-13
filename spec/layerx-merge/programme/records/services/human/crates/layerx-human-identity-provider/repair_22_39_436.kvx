@@ -13,11 +13,11 @@ source = "src/assertion.rs"
 
 [lint.too_many_lines]
 locations = 5
-source = "src/provision_head.rs, src/main.rs, tests/repair_22_33_34.rs, tests/principal_store.rs and tests/assertion.rs"
+source = "src/provision_head.rs, src/main.rs, tests/account_head_validation.rs, tests/principal_store.rs and tests/assertion.rs"
 
 [lint.unreadable_literal]
 locations = 1
-source = "tests/repair_22_33_34.rs"
+source = "tests/account_head_validation.rs"
 
 [lint.duplicate_mod]
 locations = 2
@@ -30,7 +30,7 @@ source = "tests/support/mod.rs, tests/provider.rs and tests/assertion.rs"
 [lint.dead_code]
 locations = 11
 unit = "module declarations"
-source = "tests/account_head.rs, tests/client.rs, tests/principal_store.rs, tests/repair_22_33_35.rs, tests/repair_22_33_36.rs and tests/support/mod.rs"
+source = "tests/account_head.rs, tests/client.rs, tests/principal_store.rs, tests/identity_binding_transport.rs, tests/identity_clock_readiness.rs and tests/support/mod.rs"
 
 [lint.format_collect]
 locations = 4

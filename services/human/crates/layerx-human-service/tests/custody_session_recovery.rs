@@ -213,15 +213,15 @@ impl Clock for ElapsedClock {
         })
     }
 }
-const CA: &[u8] = include_bytes!("../../layerx-human-kms/tests/fixtures/repair_22_33_27/ca.der");
+const CA: &[u8] = include_bytes!("../../layerx-human-kms/tests/fixtures/wallet_mtls/ca.der");
 const SERVER: &[u8] =
-    include_bytes!("../../layerx-human-kms/tests/fixtures/repair_22_33_27/server.der");
+    include_bytes!("../../layerx-human-kms/tests/fixtures/wallet_mtls/server.der");
 const SERVER_KEY: &[u8] =
-    include_bytes!("../../layerx-human-kms/tests/fixtures/repair_22_33_27/server.pk8");
+    include_bytes!("../../layerx-human-kms/tests/fixtures/wallet_mtls/server.pk8");
 const CLIENT: &[u8] =
-    include_bytes!("../../layerx-human-kms/tests/fixtures/repair_22_33_27/client.der");
+    include_bytes!("../../layerx-human-kms/tests/fixtures/wallet_mtls/client.der");
 const CLIENT_KEY: &[u8] =
-    include_bytes!("../../layerx-human-kms/tests/fixtures/repair_22_33_27/client.pk8");
+    include_bytes!("../../layerx-human-kms/tests/fixtures/wallet_mtls/client.pk8");
 fn roots() -> RootCertStore {
     let mut roots = RootCertStore::empty();
     checked(roots.add(CertificateDer::from(CA.to_vec())));

@@ -528,9 +528,9 @@ fn assert_reveal(fixture: &Fixture, receipt: &RecoveryReceipt) {
 }
 
 #[test]
-fn repair_22_33_54_documented_administration_ingests_reveals_and_reopens() {
+fn documented_administration_ingests_reveals_and_reopens() {
     // The README's complete Rust example is the function compiled and called here.
-    let source = include_str!("repair_22_33_54.rs");
+    let source = include_str!("recovery_documentation.rs");
     let example = source
         .split_once("// BEGIN documented administration\n")
         .unwrap()
@@ -567,7 +567,7 @@ fn repair_22_33_54_documented_administration_ingests_reveals_and_reopens() {
 }
 
 #[test]
-fn repair_22_33_54_documented_decoder_and_trust_refusals() {
+fn documented_decoder_and_trust_refusals() {
     let produced = transcript();
     let receipt = documented_receipt(&produced.receipt);
     let fixture = Fixture::new(&produced.trust);
@@ -609,7 +609,7 @@ fn repair_22_33_54_documented_decoder_and_trust_refusals() {
 }
 
 #[test]
-fn repair_22_33_54_documented_one_record_head_repair_and_pending_cleanup() {
+fn documented_one_record_head_repair_and_pending_cleanup() {
     let produced = transcript();
     let receipt = documented_receipt(&produced.receipt);
     let fixture = Fixture::new(&produced.trust);

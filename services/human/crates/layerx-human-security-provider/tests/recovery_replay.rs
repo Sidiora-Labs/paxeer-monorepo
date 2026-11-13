@@ -194,7 +194,7 @@ fn refusals() -> Vec<RecoveryReceipt> {
 }
 
 #[test]
-fn repair_22_33_47_committed_recovery_ingest_reveal_restart_and_replay() {
+fn committed_recovery_ingest_reveal_restart_and_replay() {
     let (trust, receipt) = support::evidence();
     let inclusion = receipt.transaction_evidence().unwrap();
     let transaction = STANDARD.decode(&inclusion.containing_transaction).unwrap();
@@ -271,7 +271,7 @@ fn repair_22_33_47_committed_recovery_ingest_reveal_restart_and_replay() {
 }
 
 #[test]
-fn repair_22_33_47_altered_transactions_failed_outcomes_and_mismatched_receipts_refuse_ingest() {
+fn altered_transactions_failed_outcomes_and_mismatched_receipts_refuse_ingest() {
     let (trust, _) = support::evidence();
     for (index, receipt) in refusals().iter().enumerate() {
         let fixture = Fixture::new(&trust);
@@ -284,7 +284,7 @@ fn repair_22_33_47_altered_transactions_failed_outcomes_and_mismatched_receipts_
 }
 
 #[test]
-fn repair_22_33_47_invalid_recordings_refuse_reveal_and_reopen() {
+fn invalid_recordings_refuse_reveal_and_reopen() {
     let (trust, good) = support::evidence();
     for (index, bad) in refusals().iter().enumerate() {
         let fixture = Fixture::new(&trust);

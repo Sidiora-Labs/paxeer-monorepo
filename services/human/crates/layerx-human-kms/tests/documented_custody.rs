@@ -46,7 +46,7 @@ mod server {
 }
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
 mod clock_server;
-#[path = "support/repair_22_33_27_host.rs"]
+#[path = "support/wallet_mtls_host.rs"]
 mod fixture;
 
 use fixture::{checked, Host, Result, SERIAL};
@@ -454,28 +454,28 @@ fn configure_from_readme(
         (
             "CLIENT_CA_DER",
             "config-ca.der",
-            include_bytes!("fixtures/repair_22_33_27/ca.der").as_slice(),
+            include_bytes!("fixtures/wallet_mtls/ca.der").as_slice(),
         ),
         (
             "CLIENT_CERT_DER",
             "config-client.der",
-            include_bytes!("fixtures/repair_22_33_27/client.der").as_slice(),
+            include_bytes!("fixtures/wallet_mtls/client.der").as_slice(),
         ),
         (
             "TLS_CERT_DER",
             "config-server.der",
-            include_bytes!("fixtures/repair_22_33_27/server.der").as_slice(),
+            include_bytes!("fixtures/wallet_mtls/server.der").as_slice(),
         ),
         (
             "TLS_KEY_DER",
             "config-server.pk8",
-            include_bytes!("fixtures/repair_22_33_27/server.pk8").as_slice(),
+            include_bytes!("fixtures/wallet_mtls/server.pk8").as_slice(),
         ),
         ("SEAL_SECRET_FILE", "config-seal", &[37; 32][..]),
         (
             "EVM_CLIENT_CERT_DER",
             "config-executor.der",
-            include_bytes!("fixtures/repair_22_33_27/executor.der").as_slice(),
+            include_bytes!("fixtures/wallet_mtls/executor.der").as_slice(),
         ),
     ] {
         let path = host.root.join(name);
