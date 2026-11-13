@@ -43,7 +43,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type repair308Chain struct {
+type voteHistoryChain struct {
 	app      *baseapp.BaseApp
 	ctx      sdk.Context
 	keeper   govkeeper.Keeper
@@ -52,7 +52,7 @@ type repair308Chain struct {
 	proposal govtypes.Proposal
 }
 
-func repair308Encoding() moduletestutil.TestEncodingConfig {
+func voteHistoryEncoding() moduletestutil.TestEncodingConfig {
 	enc := moduletestutil.MakeTestEncodingConfig(gov.AppModuleBasic{})
 	authtypes.RegisterLegacyAminoCodec(enc.Amino)
 	authtypes.RegisterInterfaces(enc.InterfaceRegistry)
@@ -63,9 +63,9 @@ func repair308Encoding() moduletestutil.TestEncodingConfig {
 	return enc
 }
 
-func newRepair308Chain(t *testing.T, indexer string) *repair308Chain {
+func newVoteHistoryChain(t *testing.T, indexer string) *voteHistoryChain {
 	t.Helper()
-	enc := repair308Encoding()
+	enc := voteHistoryEncoding()
 	cfg := config.TestConfig().SetRoot(t.TempDir())
 	config.EnsureRoot(cfg.RootDir)
 	cfg.Mode = config.ModeFull
@@ -121,20 +121,20 @@ func newRepair308Chain(t *testing.T, indexer string) *repair308Chain {
 	// The node supplies the production stores and local RPC handlers; no consensus
 	// service or listening endpoint is started in this integration test.
 	t.Cleanup(node.(interface{ OnStop() }).OnStop)
-	return &repair308Chain{app: app, ctx: ctx, keeper: k, encoding: enc, node: node, proposal: proposal}
+	return &voteHistoryChain{app: app, ctx: ctx, keeper: k, encoding: enc, node: node, proposal: proposal}
 }
 
-func (chain *repair308Chain) client(t *testing.T) client.Context {
+func (chain *voteHistoryChain) client(t *testing.T) client.Context {
 	t.Helper()
 	rpc, err := local.New(chain.node)
 	require.NoError(t, err)
-	enc := repair308Encoding()
+	enc := voteHistoryEncoding()
 	return client.Context{}.WithClient(rpc).WithCodec(enc.Codec).WithLegacyAmino(enc.Amino).
 		WithInterfaceRegistry(enc.InterfaceRegistry).WithTxConfig(enc.TxConfig).
 		WithChainID("repair-308").WithOutputFormat("json")
 }
 
-func (chain *repair308Chain) cast(t *testing.T, msg sdk.Msg, saveBlock bool) {
+func (chain *voteHistoryChain) cast(t *testing.T, msg sdk.Msg, saveBlock bool) {
 	t.Helper()
 	builder := chain.encoding.TxConfig.NewTxBuilder()
 	require.NoError(t, builder.SetMsgs(msg))
@@ -169,13 +169,13 @@ func (chain *repair308Chain) cast(t *testing.T, msg sdk.Msg, saveBlock bool) {
 	}
 }
 
-func (chain *repair308Chain) commit() {
+func (chain *voteHistoryChain) commit() {
 	chain.ctx.MultiStore().(sdk.CacheMultiStore).Write()
 	chain.app.CommitMultiStore().Commit(true)
 	chain.ctx = chain.ctx.WithMultiStore(chain.app.CommitMultiStore().CacheMultiStore())
 }
 
-func (chain *repair308Chain) tally(t *testing.T) {
+func (chain *voteHistoryChain) tally(t *testing.T) {
 	t.Helper()
 	chain.ctx = chain.ctx.WithBlockTime(chain.proposal.VotingEndTime.Add(time.Second))
 	gov.EndBlocker(chain.ctx, chain.keeper)
@@ -185,7 +185,7 @@ func (chain *repair308Chain) tally(t *testing.T) {
 	chain.commit()
 }
 
-func repair308Query(ctx context.Context, clientCtx client.Context, proposalID uint64, voter sdk.AccAddress) (string, error) {
+func voteHistoryQuery(ctx context.Context, clientCtx client.Context, proposalID uint64, voter sdk.AccAddress) (string, error) {
 	var output bytes.Buffer
 	clientCtx = clientCtx.WithOutput(&output)
 	cmd := cli.GetCmdQueryVote()
@@ -198,10 +198,10 @@ func repair308Query(ctx context.Context, clientCtx client.Context, proposalID ui
 	return output.String(), err
 }
 
-func TestRepair_308_HistoricalSingleVoteAfterTallyAndClientRestart(t *testing.T) {
+func TestVoteHistoryQueryHistoricalSingleVoteAfterTallyAndClientRestart(t *testing.T) {
 	for _, weighted := range []bool{false, true} {
 		t.Run(fmt.Sprintf("weighted=%t", weighted), func(t *testing.T) {
-			chain := newRepair308Chain(t, "kv")
+			chain := newVoteHistoryChain(t, "kv")
 			voter := sdk.AccAddress(bytes.Repeat([]byte{1}, 20))
 			options := govtypes.NewNonSplitVoteOption(govtypes.OptionYes)
 			var msg sdk.Msg = govtypes.NewMsgVote(voter, chain.proposal.ProposalId, govtypes.OptionYes)
@@ -216,7 +216,7 @@ func TestRepair_308_HistoricalSingleVoteAfterTallyAndClientRestart(t *testing.T)
 			chain.commit()
 			oldClient := chain.client(t)
 			ctx, stopClient := context.WithCancel(t.Context())
-			output, err := repair308Query(ctx, oldClient, chain.proposal.ProposalId, voter)
+			output, err := voteHistoryQuery(ctx, oldClient, chain.proposal.ProposalId, voter)
 			require.NoError(t, err)
 			var liveVote govtypes.Vote
 			require.NoError(t, oldClient.Codec.UnmarshalAsJSON([]byte(output), &liveVote))
@@ -229,7 +229,7 @@ func TestRepair_308_HistoricalSingleVoteAfterTallyAndClientRestart(t *testing.T)
 			freshClient := chain.client(t)
 			_, err = govtypes.NewQueryClient(freshClient).Vote(t.Context(), &govtypes.QueryVoteRequest{ProposalId: chain.proposal.ProposalId, Voter: voter.String()})
 			require.Equal(t, codes.InvalidArgument, status.Code(err))
-			output, err = repair308Query(t.Context(), freshClient, chain.proposal.ProposalId, voter)
+			output, err = voteHistoryQuery(t.Context(), freshClient, chain.proposal.ProposalId, voter)
 			require.NoError(t, err)
 			var recovered govtypes.Vote
 			require.NoError(t, freshClient.Codec.UnmarshalAsJSON([]byte(output), &recovered))
@@ -240,28 +240,28 @@ func TestRepair_308_HistoricalSingleVoteAfterTallyAndClientRestart(t *testing.T)
 	}
 }
 
-func TestRepair_308_LiveVoteDoesNotRequireTransactionIndex(t *testing.T) {
-	chain := newRepair308Chain(t, "null")
+func TestVoteHistoryQueryLiveVoteDoesNotRequireTransactionIndex(t *testing.T) {
+	chain := newVoteHistoryChain(t, "null")
 	voter := sdk.AccAddress(bytes.Repeat([]byte{2}, 20))
 	chain.cast(t, govtypes.NewMsgVote(voter, chain.proposal.ProposalId, govtypes.OptionNo), false)
 	chain.commit()
 	clientCtx := chain.client(t)
-	output, err := repair308Query(t.Context(), clientCtx, chain.proposal.ProposalId, voter)
+	output, err := voteHistoryQuery(t.Context(), clientCtx, chain.proposal.ProposalId, voter)
 	require.NoError(t, err)
 	var vote govtypes.Vote
 	require.NoError(t, clientCtx.Codec.UnmarshalAsJSON([]byte(output), &vote))
 	require.Equal(t, voter.String(), vote.Voter)
 	require.Equal(t, govtypes.NewNonSplitVoteOption(govtypes.OptionNo), govtypes.WeightedVoteOptions(vote.Options))
 	missing := sdk.AccAddress(bytes.Repeat([]byte{3}, 20))
-	output, err = repair308Query(t.Context(), clientCtx, chain.proposal.ProposalId, missing)
+	output, err = voteHistoryQuery(t.Context(), clientCtx, chain.proposal.ProposalId, missing)
 	require.Equal(t, codes.InvalidArgument, status.Code(err))
 	require.Empty(t, output)
 }
 
-func TestRepair_308_HistoricalAbsenceAndIndexFailure(t *testing.T) {
+func TestVoteHistoryQueryHistoricalAbsenceAndIndexFailure(t *testing.T) {
 	for _, indexer := range []string{"kv", "null"} {
 		t.Run(indexer, func(t *testing.T) {
-			chain := newRepair308Chain(t, indexer)
+			chain := newVoteHistoryChain(t, indexer)
 			voter := sdk.AccAddress(bytes.Repeat([]byte{4}, 20))
 			chain.commit()
 			chain.tally(t)
@@ -273,15 +273,15 @@ func TestRepair_308_HistoricalAbsenceAndIndexFailure(t *testing.T) {
 			} else {
 				require.Contains(t, expected.Error(), "transaction searching is disabled")
 			}
-			output, err := repair308Query(t.Context(), clientCtx, chain.proposal.ProposalId, voter)
+			output, err := voteHistoryQuery(t.Context(), clientCtx, chain.proposal.ProposalId, voter)
 			require.EqualError(t, err, expected.Error())
 			require.Empty(t, output)
 		})
 	}
 }
 
-func TestRepair_308_HistoricalTransportErrorIsPreserved(t *testing.T) {
-	chain := newRepair308Chain(t, "kv")
+func TestVoteHistoryQueryHistoricalTransportErrorIsPreserved(t *testing.T) {
+	chain := newVoteHistoryChain(t, "kv")
 	voter := sdk.AccAddress(bytes.Repeat([]byte{5}, 20))
 	chain.cast(t, govtypes.NewMsgVote(voter, chain.proposal.ProposalId, govtypes.OptionYes), false)
 	chain.commit()
@@ -291,7 +291,7 @@ func TestRepair_308_HistoricalTransportErrorIsPreserved(t *testing.T) {
 	// This must remain a query failure rather than become an absent-vote error.
 	_, expected := gcutils.QueryVoteByTxQuery(t.Context(), clientCtx, govtypes.NewQueryVoteParams(chain.proposal.ProposalId, voter))
 	require.ErrorIs(t, expected, coretypes.ErrHeightNotAvailable)
-	output, err := repair308Query(t.Context(), clientCtx, chain.proposal.ProposalId, voter)
+	output, err := voteHistoryQuery(t.Context(), clientCtx, chain.proposal.ProposalId, voter)
 	require.ErrorIs(t, err, coretypes.ErrHeightNotAvailable)
 	require.Empty(t, output)
 }

@@ -30,7 +30,7 @@ import (
 	paramtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types"
 )
 
-func TestRepairM_680_TestConfig(t *testing.T) {
+func TestFeegrantCLIConfig(t *testing.T) {
 	// The integration entry point has a norace build tag, so inspect it as well
 	// as exercising its real configuration and codec below.
 	file, err := parser.ParseFile(token.NewFileSet(), "cli_test.go", nil, 0)
@@ -86,7 +86,7 @@ func TestRepairM_680_TestConfig(t *testing.T) {
 	}
 }
 
-func TestRepairM_680_FeeGrantCLIFixtures(t *testing.T) {
+func TestFeegrantCLIAllowanceLifecycle(t *testing.T) {
 	cfg := network.DefaultConfig(t)
 	kb := keyring.NewInMemory(cfg.KeyringOptions...)
 	clientCtx := client.Context{}.WithCodec(cfg.Codec).WithInterfaceRegistry(cfg.InterfaceRegistry).
@@ -157,7 +157,7 @@ func TestRepairM_680_FeeGrantCLIFixtures(t *testing.T) {
 				from = granterInfo.GetName()
 			}
 			args := append([]string{from, grantee.String()}, tc.flags...)
-			msg := repairM680CLIMessage(t, clientCtx, cli.NewCmdFeeGrant(), args).(*feegrant.MsgGrantAllowance)
+			msg := feegrantCLIMessage(t, clientCtx, cli.NewCmdFeeGrant(), args).(*feegrant.MsgGrantAllowance)
 			require.Equal(t, granter.String(), msg.Granter)
 			require.Equal(t, grantee.String(), msg.Grantee)
 			_, err := messages.GrantAllowance(sdk.WrapSDKContext(ctx), msg)
@@ -232,7 +232,7 @@ func TestRepairM_680_FeeGrantCLIFixtures(t *testing.T) {
 			} else {
 				require.Empty(t, remaining.(*feegrant.BasicAllowance).SpendLimit)
 			}
-			revoke := repairM680CLIMessage(t, clientCtx, cli.NewCmdRevokeFeegrant(), []string{granter.String(), grantee.String()}).(*feegrant.MsgRevokeAllowance)
+			revoke := feegrantCLIMessage(t, clientCtx, cli.NewCmdRevokeFeegrant(), []string{granter.String(), grantee.String()}).(*feegrant.MsgRevokeAllowance)
 			require.Equal(t, granter.String(), revoke.Granter)
 			require.Equal(t, grantee.String(), revoke.Grantee)
 			_, err = messages.RevokeAllowance(sdk.WrapSDKContext(ctx), revoke)
@@ -253,7 +253,7 @@ func TestRepairM_680_FeeGrantCLIFixtures(t *testing.T) {
 	require.Empty(t, byGranter.Allowances)
 }
 
-func repairM680CLIMessage(t *testing.T, ctx client.Context, cmd *cobra.Command, args []string) sdk.Msg {
+func feegrantCLIMessage(t *testing.T, ctx client.Context, cmd *cobra.Command, args []string) sdk.Msg {
 	t.Helper()
 	args = append(args, "--generate-only", "--offline", "--gas=200000")
 	out, err := clitestutil.ExecTestCLICmd(ctx, cmd, args)

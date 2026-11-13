@@ -35,9 +35,9 @@ import (
 	stakingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/types"
 )
 
-const repair299ChainID = "gentx-round-trip"
+const genesisTxChainID = "gentx-round-trip"
 
-func repair299Context() client.Context {
+func genesisTxContext() client.Context {
 	registry := codectypes.NewInterfaceRegistry()
 	sdk.RegisterInterfaces(registry)
 	cryptocodec.RegisterInterfaces(registry)
@@ -56,7 +56,7 @@ func repair299Context() client.Context {
 		WithTxConfig(authtx.NewTxConfig(cdc, authtx.DefaultSignModes))
 }
 
-func repair299SignedGenTx(t *testing.T, ctx client.Context, mode signing.SignMode, memo string) authsigning.Tx {
+func genesisTxSignedGenTx(t *testing.T, ctx client.Context, mode signing.SignMode, memo string) authsigning.Tx {
 	t.Helper()
 	key := secp256k1.GenPrivKey()
 	msg, err := stakingtypes.NewMsgCreateValidator(
@@ -70,7 +70,7 @@ func repair299SignedGenTx(t *testing.T, ctx client.Context, mode signing.SignMod
 	require.NoError(t, msg.ValidateBasic())
 	txf := clienttx.Factory{}.
 		WithTxConfig(ctx.TxConfig).
-		WithChainID(repair299ChainID).
+		WithChainID(genesisTxChainID).
 		WithGas(200000).
 		WithFees("7stake").
 		WithMemo(memo).
@@ -81,7 +81,7 @@ func repair299SignedGenTx(t *testing.T, ctx client.Context, mode signing.SignMod
 		PubKey: key.PubKey(),
 		Data:   &signing.SingleSignatureData{SignMode: mode},
 	}))
-	sig, err := clienttx.SignWithPrivKey(mode, authsigning.SignerData{ChainID: repair299ChainID}, builder, key, ctx.TxConfig, 0)
+	sig, err := clienttx.SignWithPrivKey(mode, authsigning.SignerData{ChainID: genesisTxChainID}, builder, key, ctx.TxConfig, 0)
 	require.NoError(t, err)
 	require.NoError(t, builder.SetSignatures(sig))
 	require.NoError(t, builder.GetTx().ValidateBasic())
@@ -90,19 +90,19 @@ func repair299SignedGenTx(t *testing.T, ctx client.Context, mode signing.SignMod
 
 // Type inference lets the test initialize the real RPC environment exposed by
 // Local without importing the consensus internal package or replacing its methods.
-func repair299New[T any](_ *T) *T { return new(T) }
+func genesisTxNew[T any](_ *T) *T { return new(T) }
 
-func repair299GenesisRoute(t *testing.T, ctx client.Context, state map[string]json.RawMessage) (*mux.Router, *tmtypes.GenesisDoc) {
+func genesisTxRoute(t *testing.T, ctx client.Context, state map[string]json.RawMessage) (*mux.Router, *tmtypes.GenesisDoc) {
 	t.Helper()
 	appState, err := json.Marshal(state)
 	require.NoError(t, err)
-	doc := &tmtypes.GenesisDoc{ChainID: repair299ChainID, AppState: appState}
+	doc := &tmtypes.GenesisDoc{ChainID: genesisTxChainID, AppState: appState}
 	path := filepath.Join(t.TempDir(), "genesis.json")
 	require.NoError(t, doc.SaveAs(path))
 	loaded, err := tmtypes.GenesisDocFromFile(path)
 	require.NoError(t, err)
 	node := &local.Local{}
-	node.Environment = repair299New(node.Environment)
+	node.Environment = genesisTxNew(node.Environment)
 	node.GenDoc = loaded
 	require.NoError(t, node.InitGenesisChunks())
 	rpcMux := http.NewServeMux()
@@ -121,13 +121,13 @@ func repair299GenesisRoute(t *testing.T, ctx client.Context, state map[string]js
 	return router, loaded
 }
 
-func repair299Query(router *mux.Router) *httptest.ResponseRecorder {
+func genesisTxQuery(router *mux.Router) *httptest.ResponseRecorder {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/txs?height=0", nil))
 	return w
 }
 
-func TestRepair_299_GenesisTxRoundTrip(t *testing.T) {
+func TestGenesisTxQueryRoundTrip(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		mode   signing.SignMode
@@ -138,22 +138,22 @@ func TestRepair_299_GenesisTxRoundTrip(t *testing.T) {
 		{"legacy_amino", signing.SignMode_SIGN_MODE_LEGACY_AMINO_JSON, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := repair299Context()
+			ctx := genesisTxContext()
 			if tc.legacy {
 				ctx = ctx.WithTxConfig(legacytx.StdTxConfig{Cdc: ctx.LegacyAmino})
 			}
 			originals := []sdk.Tx{
-				repair299SignedGenTx(t, ctx, tc.mode, "first-validator"),
-				repair299SignedGenTx(t, ctx, tc.mode, "second-validator"),
+				genesisTxSignedGenTx(t, ctx, tc.mode, "first-validator"),
+				genesisTxSignedGenTx(t, ctx, tc.mode, "second-validator"),
 			}
 			state, err := genutil.SetGenTxsInAppGenesisState(ctx.Codec, ctx.TxConfig.TxJSONEncoder(), map[string]json.RawMessage{}, originals)
 			require.NoError(t, err)
-			router, loaded := repair299GenesisRoute(t, ctx, state)
+			router, loaded := genesisTxRoute(t, ctx, state)
 			appState, err := genutiltypes.GenesisStateFromGenDoc(*loaded)
 			require.NoError(t, err)
 			stored := genutiltypes.GetGenesisStateFromAppState(ctx.Codec, appState)
 			require.NoError(t, genutiltypes.ValidateGenesis(stored, ctx.TxConfig.TxJSONDecoder()))
-			w := repair299Query(router)
+			w := genesisTxQuery(router)
 			require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 			require.Equal(t, "application/json", w.Header().Get("Content-Type"))
 			var response []json.RawMessage
@@ -177,7 +177,7 @@ func TestRepair_299_GenesisTxRoundTrip(t *testing.T) {
 				data, ok := sigs[0].Data.(*signing.SingleSignatureData)
 				require.True(t, ok)
 				require.Equal(t, tc.mode, data.SignMode)
-				signBytes, err := ctx.TxConfig.SignModeHandler().GetSignBytes(tc.mode, authsigning.SignerData{ChainID: repair299ChainID}, decoded)
+				signBytes, err := ctx.TxConfig.SignModeHandler().GetSignBytes(tc.mode, authsigning.SignerData{ChainID: genesisTxChainID}, decoded)
 				require.NoError(t, err)
 				require.True(t, sigs[0].PubKey.VerifySignature(signBytes, data.Signature))
 			}
@@ -185,20 +185,20 @@ func TestRepair_299_GenesisTxRoundTrip(t *testing.T) {
 	}
 }
 
-func TestRepair_299_EmptyGenesisTxs(t *testing.T) {
-	ctx := repair299Context()
+func TestGenesisTxQueryEmptyGenesisTxs(t *testing.T) {
+	ctx := genesisTxContext()
 	state, err := genutil.SetGenTxsInAppGenesisState(ctx.Codec, ctx.TxConfig.TxJSONEncoder(), map[string]json.RawMessage{}, nil)
 	require.NoError(t, err)
-	router, _ := repair299GenesisRoute(t, ctx, state)
-	w := repair299Query(router)
+	router, _ := genesisTxRoute(t, ctx, state)
+	w := genesisTxQuery(router)
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	require.Equal(t, "application/json", w.Header().Get("Content-Type"))
 	require.JSONEq(t, "[]", w.Body.String())
 }
 
-func TestRepair_299_InvalidGenesisTx(t *testing.T) {
-	ctx := repair299Context()
-	tx := repair299SignedGenTx(t, ctx, signing.SignMode_SIGN_MODE_DIRECT, "valid-before-invalid")
+func TestGenesisTxQueryInvalidGenesisTx(t *testing.T) {
+	ctx := genesisTxContext()
+	tx := genesisTxSignedGenTx(t, ctx, signing.SignMode_SIGN_MODE_DIRECT, "valid-before-invalid")
 	state, err := genutil.SetGenTxsInAppGenesisState(ctx.Codec, ctx.TxConfig.TxJSONEncoder(), map[string]json.RawMessage{}, []sdk.Tx{tx, tx})
 	require.NoError(t, err)
 	genState := genutiltypes.GetGenesisStateFromAppState(ctx.Codec, state)
@@ -206,8 +206,8 @@ func TestRepair_299_InvalidGenesisTx(t *testing.T) {
 	require.NotEqual(t, genState.GenTxs[1], json.RawMessage(bad))
 	genState.GenTxs[1] = bad
 	state = genutiltypes.SetGenesisStateInAppState(ctx.Codec, state, genState)
-	router, _ := repair299GenesisRoute(t, ctx, state)
-	w := repair299Query(router)
+	router, _ := genesisTxRoute(t, ctx, state)
+	w := genesisTxQuery(router)
 	require.Equal(t, http.StatusInternalServerError, w.Code)
 	require.Equal(t, "application/json", w.Header().Get("Content-Type"))
 	var response struct {

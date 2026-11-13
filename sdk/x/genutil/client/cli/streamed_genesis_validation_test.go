@@ -30,7 +30,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type repair298Fixture struct {
+type genesisStreamFixture struct {
 	ctx       sdk.Context
 	keeper    paramkeeper.Keeper
 	cdc       *codec.ProtoCodec
@@ -39,7 +39,7 @@ type repair298Fixture struct {
 	home      string
 }
 
-func newRepair298Fixture(t *testing.T) repair298Fixture {
+func newGenesisStreamFixture(t *testing.T) genesisStreamFixture {
 	t.Helper()
 	registry := codectypes.NewInterfaceRegistry()
 	cdc := codec.NewProtoCodec(registry)
@@ -53,34 +53,34 @@ func newRepair298Fixture(t *testing.T) repair298Fixture {
 	keeper := paramkeeper.NewKeeper(cdc, amino, key, tkey)
 	keeper.InitGenesis(ctx, paramtypes.DefaultGenesis())
 	home := t.TempDir()
-	return repair298Fixture{
+	return genesisStreamFixture{
 		ctx: ctx, keeper: keeper, cdc: cdc, mbm: mbm, home: home,
 		clientCtx: client.Context{}.WithCodec(cdc).WithHomeDir(home).
 			WithTxConfig(authtx.NewTxConfig(cdc, authtx.DefaultSignModes)),
 	}
 }
 
-func (f repair298Fixture) exportParams(t *testing.T) []byte {
+func (f genesisStreamFixture) exportParams(t *testing.T) []byte {
 	t.Helper()
 	var chunks []json.RawMessage
 	for chunk := range params.NewAppModule(f.keeper).ExportGenesisStream(f.ctx, f.cdc) {
 		chunks = append(chunks, chunk)
 	}
 	require.Len(t, chunks, 1)
-	return repair298ModuleLine(t, paramtypes.ModuleName, chunks[0])
+	return genesisStreamModuleLine(t, paramtypes.ModuleName, chunks[0])
 }
 
-func (f repair298Fixture) exportGenutil(t *testing.T) []byte {
+func (f genesisStreamFixture) exportGenutil(t *testing.T) []byte {
 	t.Helper()
 	var chunks []json.RawMessage
 	for chunk := range (genutil.AppModule{}).ExportGenesisStream(f.ctx, f.cdc) {
 		chunks = append(chunks, chunk)
 	}
 	require.Len(t, chunks, 1)
-	return repair298ModuleLine(t, "genutil", chunks[0])
+	return genesisStreamModuleLine(t, "genutil", chunks[0])
 }
 
-func repair298ModuleLine(t *testing.T, name string, chunk json.RawMessage) []byte {
+func genesisStreamModuleLine(t *testing.T, name string, chunk json.RawMessage) []byte {
 	t.Helper()
 	line, err := json.Marshal(genutilcli.ModuleState{
 		AppState: genutilcli.AppState{Module: name, Data: chunk},
@@ -89,7 +89,7 @@ func repair298ModuleLine(t *testing.T, name string, chunk json.RawMessage) []byt
 	return append(line, '\n')
 }
 
-func repair298Header(t *testing.T) []byte {
+func genesisStreamHeader(t *testing.T) []byte {
 	t.Helper()
 	header, err := json.Marshal(server.GenesisDocNoAppState{
 		ChainID: "repair-298", InitialHeight: 1,
@@ -99,14 +99,14 @@ func repair298Header(t *testing.T) []byte {
 	return header
 }
 
-func (f repair298Fixture) write(t *testing.T, parts ...[]byte) string {
+func (f genesisStreamFixture) write(t *testing.T, parts ...[]byte) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "genesis.stream")
 	require.NoError(t, os.WriteFile(path, bytes.Join(parts, nil), 0600))
 	return path
 }
 
-func (f repair298Fixture) run(t *testing.T, ctx context.Context, file ...string) (string, error) {
+func (f genesisStreamFixture) run(t *testing.T, ctx context.Context, file ...string) (string, error) {
 	t.Helper()
 	serverCtx := server.NewContext(viper.New(), tmcfg.DefaultConfig().SetRoot(f.home))
 	ctx = context.WithValue(ctx, client.ClientContextKey, &f.clientCtx)
@@ -129,8 +129,8 @@ func (f repair298Fixture) run(t *testing.T, ctx context.Context, file ...string)
 	}
 }
 
-func TestRepair_298_InvalidFinalModuleChunk(t *testing.T) {
-	f := newRepair298Fixture(t)
+func TestValidateGenesisStreamInvalidFinalModuleChunk(t *testing.T) {
+	f := newGenesisStreamFixture(t)
 	defer leaktest.CheckTimeout(t, 2*time.Second)()
 	valid := f.exportParams(t)
 	space, ok := f.keeper.GetSubspace(paramtypes.ModuleName)
@@ -144,7 +144,7 @@ func TestRepair_298_InvalidFinalModuleChunk(t *testing.T) {
 			name = "before_next_module"
 		}
 		t.Run(name, func(t *testing.T) {
-			parts := [][]byte{append(repair298Header(t), '\n'), valid, invalid}
+			parts := [][]byte{append(genesisStreamHeader(t), '\n'), valid, invalid}
 			if !finalModule {
 				parts = append(parts, f.exportGenutil(t))
 			}
@@ -158,8 +158,8 @@ func TestRepair_298_InvalidFinalModuleChunk(t *testing.T) {
 	}
 }
 
-func TestRepair_298_EmptyMissingAndUnreadableInput(t *testing.T) {
-	f := newRepair298Fixture(t)
+func TestValidateGenesisStreamEmptyMissingAndUnreadableInput(t *testing.T) {
+	f := newGenesisStreamFixture(t)
 	defer leaktest.CheckTimeout(t, 2*time.Second)()
 	for _, tc := range []struct {
 		name string
@@ -184,8 +184,8 @@ func TestRepair_298_EmptyMissingAndUnreadableInput(t *testing.T) {
 	})
 }
 
-func TestRepair_298_ValidMultiChunkExport(t *testing.T) {
-	f := newRepair298Fixture(t)
+func TestValidateGenesisStreamValidMultiChunkExport(t *testing.T) {
+	f := newGenesisStreamFixture(t)
 	defer leaktest.CheckTimeout(t, 2*time.Second)()
 	first := f.exportParams(t)
 	f.keeper.SetCosmosGasParams(f.ctx, paramtypes.NewCosmosGasParams(2, 3))
@@ -193,10 +193,10 @@ func TestRepair_298_ValidMultiChunkExport(t *testing.T) {
 	require.NotEqual(t, first, second)
 	for _, headerFirst := range []bool{true, false} {
 		name := "export_header_at_end"
-		parts := [][]byte{f.exportGenutil(t), first, second, repair298Header(t)}
+		parts := [][]byte{f.exportGenutil(t), first, second, genesisStreamHeader(t)}
 		if headerFirst {
 			name = "header_at_start_final_module_at_eof"
-			parts = [][]byte{append(repair298Header(t), '\n'), f.exportGenutil(t), first, bytes.TrimSuffix(second, []byte{'\n'})}
+			parts = [][]byte{append(genesisStreamHeader(t), '\n'), f.exportGenutil(t), first, bytes.TrimSuffix(second, []byte{'\n'})}
 		}
 		t.Run(name, func(t *testing.T) {
 			path := f.write(t, parts...)
@@ -207,10 +207,10 @@ func TestRepair_298_ValidMultiChunkExport(t *testing.T) {
 	}
 }
 
-func TestRepair_298_MalformedInputJoinsValidator(t *testing.T) {
-	f := newRepair298Fixture(t)
+func TestValidateGenesisStreamMalformedInputJoinsValidator(t *testing.T) {
+	f := newGenesisStreamFixture(t)
 	defer leaktest.CheckTimeout(t, 2*time.Second)()
-	header := repair298Header(t)
+	header := genesisStreamHeader(t)
 	invalidHeader, err := json.Marshal(server.GenesisDocNoAppState{InitialHeight: -1})
 	require.NoError(t, err)
 	for _, tc := range []struct {
@@ -231,12 +231,12 @@ func TestRepair_298_MalformedInputJoinsValidator(t *testing.T) {
 	}
 }
 
-func TestRepair_298_CancelledInput(t *testing.T) {
-	f := newRepair298Fixture(t)
+func TestValidateGenesisStreamCancelledInput(t *testing.T) {
+	f := newGenesisStreamFixture(t)
 	defer leaktest.CheckTimeout(t, 2*time.Second)()
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	output, err := f.run(t, ctx, f.write(t, append(repair298Header(t), '\n'), f.exportParams(t)))
+	output, err := f.run(t, ctx, f.write(t, append(genesisStreamHeader(t), '\n'), f.exportParams(t)))
 	require.ErrorIs(t, err, context.Canceled)
 	require.NotContains(t, output, "is a valid genesis file")
 }

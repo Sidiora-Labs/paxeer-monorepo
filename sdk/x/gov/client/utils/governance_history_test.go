@@ -11,7 +11,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/types"
 )
 
-func TestRepairM_676_HistoricalMultiMessage(t *testing.T) {
+func TestGovernanceHistoryMultiMessageTransactions(t *testing.T) {
 	f := newGovHistoryFixture(t, 5)
 	firstID, err := f.app.GovKeeper.GetProposalID(f.govCtx)
 	require.NoError(t, err)
@@ -86,11 +86,11 @@ func TestRepairM_676_HistoricalMultiMessage(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestRepairM_676_HistoricalPagination(t *testing.T) {
+func TestGovernanceHistoryPagination(t *testing.T) {
 	exerciseHistoricalVotePagination(t)
 }
 
-func TestRepairM_676_GovHistoryTestShape(t *testing.T) {
+func TestGovernanceHistoryMessageScopedIndexPages(t *testing.T) {
 	f := newGovHistoryFixture(t, 5)
 	target := f.submit(0, "target")
 	other := f.submit(1, "other")

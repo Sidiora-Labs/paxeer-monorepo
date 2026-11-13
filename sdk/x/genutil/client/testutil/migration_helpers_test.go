@@ -16,7 +16,7 @@ import (
 	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/types"
 )
 
-func repairM652ClientContext(t *testing.T) client.Context {
+func migrationClientContext(t *testing.T) client.Context {
 	t.Helper()
 	enc := paxapp.MakeEncodingConfig()
 	return client.Context{}.WithCodec(enc.Marshaler).
@@ -24,15 +24,15 @@ func repairM652ClientContext(t *testing.T) client.Context {
 		WithTxConfig(enc.TxConfig).WithHomeDir(t.TempDir())
 }
 
-func TestRepairM_652_RegisteredTargets(t *testing.T) {
+func TestMigrationHelpersRegisteredTargets(t *testing.T) {
 	TestGetMigrationCallback(t)
-	out, err := clitestutil.ExecTestCLICmd(repairM652ClientContext(t), cli.MigrateGenesisCmd(), []string{"--help"})
+	out, err := clitestutil.ExecTestCLICmd(migrationClientContext(t), cli.MigrateGenesisCmd(), []string{"--help"})
 	require.NoError(t, err)
 	require.Contains(t, out.String(), "Supported target versions: none (this application has not registered any genesis migrations)")
 }
 
-func TestRepairM_652_WeightedVoteMigration(t *testing.T) {
-	clientCtx := repairM652ClientContext(t)
+func TestMigrationHelpersWeightedVoteMigration(t *testing.T) {
+	clientCtx := migrationClientContext(t)
 	genesisFile := testutil.WriteToNewTempFile(t, v040Valid)
 	// The committed legacy vote fixture is valid input, but this fork does not
 	// register the upstream conversion to weighted votes.
@@ -61,9 +61,9 @@ func TestRepairM_652_WeightedVoteMigration(t *testing.T) {
 	require.Equal(t, v040Valid, string(unchanged), "rejection must preserve the legacy vote fixture")
 }
 
-func TestRepairM_652_InvalidConsensusParams(t *testing.T) {
+func TestMigrationHelpersInvalidConsensusParams(t *testing.T) {
 	genesisFile := testutil.WriteToNewTempFile(t, v037Exported)
-	out, err := clitestutil.ExecTestCLICmd(repairM652ClientContext(t), cli.MigrateGenesisCmd(), []string{"v0.42", genesisFile.Name()})
+	out, err := clitestutil.ExecTestCLICmd(migrationClientContext(t), cli.MigrateGenesisCmd(), []string{"v0.42", genesisFile.Name()})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "Make sure that you have correctly migrated all Tendermint consensus params")
 	require.NotContains(t, err.Error(), "unknown migration function", "consensus validation must reject the input before migration dispatch")

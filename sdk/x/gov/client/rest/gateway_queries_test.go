@@ -38,7 +38,7 @@ import (
 
 // The norace suite imports the native node. Check its repaired call here while
 // the gateway test below exercises the real keeper without native artifacts.
-func TestRepairM_681_NetworkConfig(t *testing.T) {
+func TestGovernanceGatewayNetworkConfig(t *testing.T) {
 	file, err := parser.ParseFile(token.NewFileSet(), "grpc_query_test.go", nil, 0)
 	require.NoError(t, err)
 	var setup *ast.FuncDecl
@@ -77,7 +77,7 @@ func TestRepairM_681_NetworkConfig(t *testing.T) {
 	require.Equal(t, 1, calls)
 }
 
-func TestRepairM_681_GovernanceGateway(t *testing.T) {
+func TestGovernanceGatewayQueries(t *testing.T) {
 	registry := codectypes.NewInterfaceRegistry()
 	authtypes.RegisterInterfaces(registry)
 	banktypes.RegisterInterfaces(registry)
