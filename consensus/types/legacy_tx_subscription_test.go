@@ -27,7 +27,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func TestRepair_93_FailedTransactionSubscription(t *testing.T) {
+func TestFailedTransactionSubscription(t *testing.T) {
 	app := kvstore.NewApplication()
 	t.Cleanup(func() { require.NoError(t, app.Close()) })
 	tx := types.Tx("val:invalid-validator-update")
@@ -43,12 +43,12 @@ func TestRepair_93_FailedTransactionSubscription(t *testing.T) {
 	event := types.EventDataTx{TxResultV2: abci.TxResultV2{
 		Height: 1, Tx: tx, Result: *finalized.TxResults[0],
 	}}
-	decoded, _ := repair93SubscriptionRoundTrip(t, event)
-	repair93AssertResult(t, event, decoded)
+	decoded, _ := legacyTxSubscriptionRoundTrip(t, event)
+	assertLegacyTxResult(t, event, decoded)
 	require.NotZero(t, decoded.TxResult.Result.Code)
 }
 
-func TestRepair_93_LegacyTxResultSubscription(t *testing.T) {
+func TestLegacyTxResultSubscription(t *testing.T) {
 	for _, code := range []uint32{37, math.MaxUint32, 0} {
 		t.Run(strconv.FormatUint(uint64(code), 10), func(t *testing.T) {
 			result := abci.ExecTxResult{
@@ -78,8 +78,8 @@ func TestRepair_93_LegacyTxResultSubscription(t *testing.T) {
 				Height: math.MaxInt64, Index: 3, Tx: []byte("transaction-result"),
 				Result: *transported.TxResults[0],
 			}}
-			decoded, wire := repair93SubscriptionRoundTrip(t, event)
-			repair93AssertResult(t, event, decoded)
+			decoded, wire := legacyTxSubscriptionRoundTrip(t, event)
+			assertLegacyTxResult(t, event, decoded)
 
 			var envelope struct {
 				Data struct {
@@ -112,13 +112,13 @@ func TestRepair_93_LegacyTxResultSubscription(t *testing.T) {
 	}
 }
 
-func TestRepair_93_EmptyTransactionResultSubscription(t *testing.T) {
+func TestEmptyTransactionResultSubscription(t *testing.T) {
 	event := types.EventDataTx{TxResultV2: abci.TxResultV2{Height: 1, Tx: []byte("empty-result")}}
-	decoded, _ := repair93SubscriptionRoundTrip(t, event)
-	repair93AssertResult(t, event, decoded)
+	decoded, _ := legacyTxSubscriptionRoundTrip(t, event)
+	assertLegacyTxResult(t, event, decoded)
 }
 
-func repair93SubscriptionRoundTrip(t *testing.T, event types.EventDataTx) (types.LegacyEventDataTx, json.RawMessage) {
+func legacyTxSubscriptionRoundTrip(t *testing.T, event types.EventDataTx) (types.LegacyEventDataTx, json.RawMessage) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	t.Cleanup(cancel)
@@ -142,7 +142,7 @@ func repair93SubscriptionRoundTrip(t *testing.T, event types.EventDataTx) (types
 	require.NoError(t, client.Start(ctx))
 	t.Cleanup(func() { require.NoError(t, client.Stop()) })
 	require.NoError(t, client.Subscribe(ctx, query.String()))
-	ack := repair93Response(t, ctx, client)
+	ack := readSubscriptionResponse(t, ctx, client)
 	require.Nil(t, ack.Error)
 	require.JSONEq(t, "{}", string(ack.Result))
 
@@ -150,7 +150,7 @@ func repair93SubscriptionRoundTrip(t *testing.T, event types.EventDataTx) (types
 	message, err := sub.Next(ctx)
 	require.NoError(t, err)
 	require.Equal(t, event, message.Data())
-	response := repair93Response(t, ctx, client)
+	response := readSubscriptionResponse(t, ctx, client)
 	require.Nil(t, response.Error)
 	var decoded coretypes.ResultEvent
 	require.NoError(t, tmjson.Unmarshal(response.Result, &decoded))
@@ -160,13 +160,13 @@ func repair93SubscriptionRoundTrip(t *testing.T, event types.EventDataTx) (types
 	require.Equal(t, message.LegacyData(), legacy)
 
 	require.NoError(t, client.UnsubscribeAll(ctx))
-	unsubscribed := repair93Response(t, ctx, client)
+	unsubscribed := readSubscriptionResponse(t, ctx, client)
 	require.Nil(t, unsubscribed.Error)
 	require.NoError(t, bus.UnsubscribeAll(ctx, "repair93"))
 	return legacy, response.Result
 }
 
-func repair93Response(t *testing.T, ctx context.Context, client *rpcclient.WSClient) rpctypes.RPCResponse {
+func readSubscriptionResponse(t *testing.T, ctx context.Context, client *rpcclient.WSClient) rpctypes.RPCResponse {
 	t.Helper()
 	select {
 	case response, ok := <-client.ResponsesCh:
@@ -178,7 +178,7 @@ func repair93Response(t *testing.T, ctx context.Context, client *rpcclient.WSCli
 	}
 }
 
-func repair93AssertResult(t *testing.T, want types.EventDataTx, got types.LegacyEventDataTx) {
+func assertLegacyTxResult(t *testing.T, want types.EventDataTx, got types.LegacyEventDataTx) {
 	t.Helper()
 	require.Equal(t, strconv.FormatInt(want.Height, 10), got.TxResult.Height)
 	require.Equal(t, want.Index, got.TxResult.Index)
