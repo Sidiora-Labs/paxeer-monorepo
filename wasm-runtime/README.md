@@ -16,10 +16,9 @@ The Rust library (`libwasmvm`, crate version 1.5.4) builds against `cosmwasm-vm`
 
 This repo contains both Rust and Go code. The Rust code is compiled into a
 library (shared `.dll`/`.dylib`/`.so` or static `.a`) to be linked via cgo and
-wrapped with a pleasant Go API. The full build step involves compiling Rust -> C
-library, and linking that library to the Go code. For ergonomics of the user, we
-will include pre-compiled libraries to easily link with, and Go developers
-should just be able to import this directly.
+wrapped with a Go API. The full build step compiles the Rust library and links
+it to the Go code. Precompiled libraries in `internal/api` allow Go applications
+to import the wrapper without compiling Rust themselves.
 
 ### Rust code
 
@@ -34,7 +33,7 @@ library that can be used via FFI. It is compiled like this:
 # version you have installed.
 make build-rust
 
-# Create reproducible release builds for other systems (slow, don't use for development)
+# Create containerized release builds for other systems
 make release-build-alpine
 make release-build-linux
 make release-build-macos
@@ -43,7 +42,7 @@ make release-build-windows
 
 ### Go code
 
-The Go code consists of three packages:
+The wrapper's three main Go packages are:
 
 1. The types (the `github.com/Sidiora-Labs/Paxeer-X-Network/wasm-runtime/types` import), using
    `package types`
@@ -61,14 +60,14 @@ graph TD;
 
 The Go code is built like this:
 
-```
+```sh
 make build-go
 make test
 ```
 
 #### Package github.com/Sidiora-Labs/Paxeer-X-Network/wasm-runtime/types
 
-This packages contains types used by the two other packages. It can be compiled
+This package contains types used by the two other packages. It can be compiled
 without cgo.
 
 ```sh
@@ -86,8 +85,9 @@ cgo. Using the `internal/` convention makes this package fully private.
 
 #### Package github.com/Sidiora-Labs/Paxeer-X-Network/wasm-runtime
 
-This is the package users import. It can be compiled without cgo, but when you
-do so, a lot of functionality is removed.
+This is the package users import. Without cgo, it provides the shared type
+aliases and `CreateChecksum`; `LibwasmvmVersion` returns an error. The `VM`
+type and contract execution methods require cgo.
 
 ```sh
 # Build
@@ -102,39 +102,25 @@ The Rust implementation of the VM is compiled to a library called libwasmvm.
 This is then linked to the Go code when the final binary is built. For that
 reason not all systems supported by Go are supported by this project.
 
-Linux (tested on Ubuntu, Debian, and CentOS7, Alpine) and macOS is supported. We
-are working on Windows (#288).
-
-[#288]: https://github.com/CosmWasm/wasmvm/pull/288
+The checked-in native libraries cover Linux and macOS. The Makefile also
+contains a Windows cross-compilation target.
 
 ### Builds of libwasmvm
 
-Our system currently supports the following builds. In general we can only
-support targets that are
-supported by Wasmer's singlepass backend,
-which for example excludes all 32 bit systems.
+The native linker files in `internal/api` select these libraries:
 
-| OS family       | Arch    | Linking | Supported                    | Note                                                                                                                                   |
-| --------------- | ------- | ------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Linux (glibc)   | x86_64  | shared  | ✅​libwasmvm.x86_64.so       |                                                                                                                                        |
-| Linux (glibc)   | x86_64  | static  | 🚫​                          | Would link libwasmvm statically but glibc dynamically as static glibc linking is not recommended. Potentially interesting for Osmosis. |
-| Linux (glibc)   | aarch64 | shared  | ✅​libwasmvm.aarch64.so      |                                                                                                                                        |
-| Linux (glibc)   | aarch64 | static  | 🚫​                          |                                                                                                                                        |
-| Linux (musl)    | x86_64  | shared  | 🚫​                          | Possible but not needed                                                                                                                |
-| Linux (musl)    | x86_64  | static  | ✅​libwasmvm_muslc.a         |                                                                                                                                        |
-| Linux (musl)    | aarch64 | shared  | 🚫​                          | Possible but not needed                                                                                                                |
-| Linux (musl)    | aarch64 | static  | ✅​libwasmvm_muslc.aarch64.a |                                                                                                                                        |
-| macOS           | x86_64  | shared  | ✅​libwasmvm.dylib           | Fat/universal library with multiple archs ([#294])                                                                                     |
-| macOS           | x86_64  | static  | ✅​libwasmvmstatic_darwin.amd64.a | Linked with the `static_wasm` build tag |
-| macOS           | aarch64 | shared  | ✅​libwasmvm.dylib           | Fat/universal library with multiple archs ([#294])                                                                                     |
-| macOS           | aarch64 | static  | ✅​libwasmvmstatic_darwin.arm64.a | Linked with the `static_wasm` build tag |
-| Windows (mingw) | x86_64  | shared  | 🏗​wasmvm.dll                 | Shared library linking not working on Windows ([#389])                                                                                 |
-| Windows (mingw) | x86_64  | static  | 🚫​                          | Unclear if this can work using a cross compiler; needs research on .lib (MSVC toolchain) vs. .a (GNU toolchain). ([#389])              |
-| Windows (mingw) | aarch64 | shared  | 🚫​                          | Shared library linking not working on Windows ([#389])                                                                                 |
-| Windows (mingw) | aarch64 | static  | 🚫​                          | Unclear if this can work using a cross compiler; needs research on .lib (MSVC toolchain) vs. .a (GNU toolchain). ([#389])              |
+| Platform | Architecture | Library | Go build tag |
+| --- | --- | --- | --- |
+| Linux glibc | x86_64 | `libwasmvm.x86_64.so` | default |
+| Linux glibc | aarch64 | `libwasmvm.aarch64.so` | default |
+| Linux musl | x86_64 | `libwasmvm_muslc.a` | `muslc` |
+| Linux musl | aarch64 | `libwasmvm_muslc.aarch64.a` | `muslc` |
+| macOS | x86_64 or aarch64 | `libwasmvm.dylib` | default |
+| macOS | x86_64 | `libwasmvmstatic_darwin.amd64.a` | `static_wasm` |
+| macOS | aarch64 | `libwasmvmstatic_darwin.arm64.a` | `static_wasm` |
 
-[#294]: https://github.com/CosmWasm/wasmvm/pull/294
-[#389]: https://github.com/CosmWasm/wasmvm/issues/389
+The Windows linker file expects `wasmvm.dll`, which can be built with
+`make release-build-windows`.
 
 The libraries are committed in `internal/api`. The static archives are stored in
 parts: `libwasmvm_muslc.a` and `libwasmvm_muslc.aarch64.a` are linker `GROUP`
@@ -163,7 +149,7 @@ there is a proper library built for your platform in `internal/api`:
 
 - `libwasmvm.x86_64.so` or `libwasmvm.aarch64.so` for Linux (glibc) systems
 - `libwasmvm.dylib` for macOS
-- `wasmvm.dll` for Windows - not currently supported
+- `wasmvm.dll` for Windows, built separately
 
 If this is present, then `make test` will run the Go test suite and you can
 import this code freely. If it is not present, build it for your system with

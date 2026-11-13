@@ -3,8 +3,8 @@
 Adapters at the edge of Paxeer X Network translate external protocols into
 evidence consumed by the kernel inside `paxd`. Native ledger and payment
 operations execute on the merged chain (EVM chain ID `125`); transaction
-finality is BFT block commit. Interop services provide the mirror archive,
-attestation bindings and sequencer receipts described below.
+finality is BFT block commit. Interop services publish mirror archives, verify
+external attestations and consume signed network receipts.
 
 This is the Rust workspace in `services/interop/` (members listed in [`Cargo.toml`](Cargo.toml)). It is not a second ledger.
 
@@ -14,7 +14,7 @@ This is the Rust workspace in `services/interop/` (members listed in [`Cargo.tom
 | --- | --- | --- |
 | Gateway | Transport-neutral routes, redaction, adapter host | `crates/layerx-interop-gateway`, executable composition in `crates/layerx-interop-service` |
 | MCP / A2A transports | Ingress labels `mcp` and `a2a` next to `http` | Gateway `IngressTransport`; x402 `TransportKind` |
-| x402 v2 | Buyer, seller, facilitator over HTTP, MCP, and A2A | `crates/layerx-x402` - [COMPATIBILITY.md](crates/layerx-x402/COMPATIBILITY.md). Commitment extras and metered/subscription grant draws: [`docs/wiki/X402Transport.md`](../../docs/wiki/X402Transport.md) |
+| x402 v2 | Buyer, seller, facilitator over HTTP, MCP, and A2A | `crates/layerx-x402` - [COMPATIBILITY.md](crates/layerx-x402/COMPATIBILITY.md). Payment profiles and settlement evidence: [`docs/wiki/X402Transport.md`](../../docs/wiki/X402Transport.md) |
 | Ethereum / Solana mirrors | Batch archive publication and verification. Pure archives: no vault, no portal, no custody | `crates/layerx-mirror`; contracts in `contracts/ethereum-mirror/` and `contracts/solana-mirror/`; deploy notes in `deploy/mirror/` |
 | Ethereum / Solana migration | Source-chain verifiers and the `migration` adapter | `crates/layerx-migrate` - [OPERATIONS.md](crates/layerx-migrate/OPERATIONS.md) |
 | Portable receipts | Verify signed `ProtocolReceipt` v2 bytes under independently pinned, height-ranged receipt keys without a live node | `crates/layerx-portable` - [PORTABILITY.md](../../docs/interop/PORTABILITY.md) |
@@ -108,4 +108,4 @@ cargo build --locked --release --manifest-path services/interop/Cargo.toml --pac
 cargo build --locked --release --manifest-path services/interop/Cargo.toml --package layerx-mirror --bin layerx-mirror-verify
 ```
 
-`make mirror-live` and `make mirror-verify-live` build those binaries and run them against live networks through `scripts/qualify-mirror-live.sh` and `scripts/qualify-mirror-verification-live.sh`; they require operator configuration. Example configurations are `deploy/mirror/config.example.json` and `deploy/mirror/verify-config.example.json`.
+`make mirror-live` and `make mirror-verify-live` build those binaries and run them against live networks through `scripts/qualify-mirror-live.sh` and `scripts/qualify-mirror-verification-live.sh`; they require operator configuration. Example configurations are [the publisher template](deploy/mirror/config.example.json) and [the verifier example](crates/layerx-mirror/examples/verifier.json).

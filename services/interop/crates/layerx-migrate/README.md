@@ -3,7 +3,7 @@
 Ethereum and Solana source-chain verifiers for the `migration` interop adapter.
 This crate imports provenance against pinned source deployments. Network credits must cross
 the authenticated payment boundary and be checked against network evidence.
-This crate is distinct from the C17 genesis cutover. Paxeer mainnet-beta is one
+Paxeer mainnet-beta is one
 network (chain ID 125), with the kernel participating in block proposal and
 finality at block commit.
 

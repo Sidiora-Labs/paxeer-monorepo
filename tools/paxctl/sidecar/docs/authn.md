@@ -1,14 +1,21 @@
 # Sidecar HTTP API authentication
 
-The sidecar exposes its task API over plain HTTP. Authentication is
-controlled by a single environment variable; the runtime trust
+The sidecar exposes its task API over plain HTTP behind the pod's TLS proxy.
+Authentication defaults to `trusted-header`; the runtime trust
 boundary is the pod, not the loopback interface.
 
 ## Environment contract
 
 | Env | Values | Default | Behavior |
 |---|---|---|---|
-| `SEI_SIDECAR_AUTHN_MODE` | unset \| `unauthenticated` \| `trusted-header` | unset | unset/`unauthenticated`: bind all interfaces, no auth. `trusted-header`: bind loopback, require `X-Remote-User` on non-probe paths. |
+| `SEI_SIDECAR_AUTHN_MODE` | `trusted-header` \| `unauthenticated` | `trusted-header` | Unset selects `trusted-header`: bind loopback and require `X-Remote-User` on non-probe paths. |
+| `SEI_SIDECAR_ISOLATED_DEVELOPMENT` | `true` | unset | Required to select the low-level `unauthenticated` development mode. |
+
+The `serve` command requires `trusted-header` because it registers signing and
+destructive handlers. The low-level development server can bind all interfaces
+in `unauthenticated` mode only with the explicit development setting; it rejects
+task writes. See [the authentication implementation](../server/auth.go) and
+[the production command](../../serve.go).
 
 Parsing is strict: any non-empty value other than `unauthenticated`
 or `trusted-header` is a startup error so a typo cannot silently

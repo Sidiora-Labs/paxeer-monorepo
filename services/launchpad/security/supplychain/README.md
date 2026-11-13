@@ -90,13 +90,11 @@ The workflow has no pull-request trigger; its publication authority is scoped
 to its push/manual execution. Manual dispatch can publish images, but it does
 not satisfy the admission policies' independent requirement for push evidence.
 External actions are pinned to full revisions.
-No workflow execution or registry publication is performed by this documentation
-rewrite.
 
 ## Reviewed toolchain and container builds
 
 [ci_tools.py](ci_tools.py) pins Go 1.26.4, Node 24.16.0 and pnpm 9.15.0, the
-intentional qualified wave-zero baseline. It verifies reviewed executable hashes
+reviewed tool baseline. It verifies reviewed executable hashes
 and versions rather than inferring trust from PATH. A leaf module's Go 1.25.0
 language directive is not an instruction to downgrade that tool baseline.
 
@@ -137,7 +135,7 @@ from external release qualification. Actual qualification additionally requires
 approved tool/scanner bytes, schemas, source/image identity, GitHub run evidence,
 registry and signing authority, reproducible builds and confinement inputs.
 The release measurement checks bind the candidate and raw artifacts; they do
-not claim global capacity acceptance. This page does not claim those checks ran.
+not claim global capacity acceptance.
 
 For adjacent runtime boundaries, see the
 [private control primitives](../control/README.md) and

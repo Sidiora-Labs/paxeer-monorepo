@@ -56,8 +56,8 @@ Hosted requests may be single objects or batches of 1..32 entries; notification-
 produce HTTP 204. Malformed JSON answers `-32700`, invalid request envelopes
 `-32600`, and unknown methods `-32601`.
 
-The old `/rpc`, `/rpc/schema`, `/rpc/ws` and `/rpc/evm/ws` network coordinates
-are retired and return HTTP 404 at the gateway. There is no unified WebSocket
+Retired `/rpc`, `/rpc/schema`, `/rpc/ws` and `/rpc/evm/ws` coordinates return
+HTTP 404 at the gateway. There is no unified WebSocket
 execution router; the HTTP relay does not provide subscriptions.
 The retired `lx_*` methods answer `-32601` without contacting a backend.
 Use native signed transactions and chain reads for network execution.

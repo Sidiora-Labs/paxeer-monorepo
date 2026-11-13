@@ -21,8 +21,8 @@ wire strings of the presentation and the registry it is verified against:
   tampered presentation can be expressed as data
 - `signature_params`: the exact RFC 9421 `Signature-Input` parameters
 - `registry_*`, `key_status`, `key_expires_at`: the registered agent key
-- `clock_skew_seconds`: a number verifies through `verify_credential`, `null`
-  verifies through `verify` and a shared nonce window
+- `clock_skew_seconds`: a number verifies through `TapVerifier::verify_credential`, `null`
+  verifies through `TapVerifier::verify` and a shared nonce window
 - `now`, `replays`: verification time and how many accepted deliveries precede
   this one
 - `expect`: `verified` or the exact `TapError` variant
@@ -35,10 +35,9 @@ Target records carry `authority`, `path`, `signature_input`, `signature`,
 
 `services/interop/crates/layerx-visa-tap/tests/conformance.rs` reads these files with
 `include_str!` and runs every record through the production `TapRequest`,
-`SignatureInput`, `RegisteredAgentKey`, `NonceWindow` and `verify` types. The
-Ed25519 signature itself is produced here from the record's own key seed,
-because a signature is a live signer's output over the canonical signature base
-and cannot be a literal; every other byte of the presentation is data.
+`SignatureInput`, `RegisteredAgentKey`, `NonceWindow` and `TapVerifier` types.
+The tests sign the canonical signature base at runtime using each record's
+deterministic test-key seed; the remaining presentation fields come from data.
 
 One case in that file is not a vector and is not counted:
 `binding_is_scoped_non_authoritative_and_success_requires_a_real_receipt`

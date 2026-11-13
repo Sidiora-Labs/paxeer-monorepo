@@ -2,7 +2,7 @@
 
 The source service stores immutable content and persistent trees in S3, with repository, revision, operation and authorization metadata in PostgreSQL. Its online API is `POST /api/v1/source-control`; the SDK works without a checkout or Git history.
 
-On the release builder, build the service from `core/control-plane`:
+On the release builder, build the service from `tools/hyperfide/core/control-plane`:
 
 ```sh builder
 npm run build
@@ -257,7 +257,7 @@ The declarations below pin current source references. Evidence references, when 
   "source_refs": [
     {
       "path": "tools/hyperfide/tests/hyperfide/source-control/registry.json",
-      "sha256": "5379f8bfbf1bfd71546fc127263da683819d91dba66234aa028b695170b58874"
+      "sha256": "082f41fff8be19a89b0593349d376a15fc7f9c0c60a211a4012213dd56e85d0f"
     },
     {
       "path": "tools/hyperfide/tests/hyperfide/source-control/claims.json",
@@ -269,7 +269,7 @@ The declarations below pin current source references. Evidence references, when 
     },
     {
       "path": "tools/hyperfide/core/control-plane/src/source_control/contracts.ts",
-      "sha256": "d916cbde34b3410b024a503cc12c90a487f504999e356a7104603c9d1f72571b"
+      "sha256": "3b5e07ce2d65a10293ae78660aac10dd31310ee813e35b09cf0414e6fdd3aa7d"
     },
     {
       "path": "tools/hyperfide/core/control-plane/src/source_control/graph-adapter.ts",
@@ -305,4 +305,4 @@ Closure requires nonempty, separately listed evidence classes:
 
 Full evidence class entries name the exact case, variant, receipt ID and receipt hash independently verified from the closure packet. A component receipt cannot replace any of these entries. The packet must still cover every canonical case and required variant, including those outside this table. Operator acceptance binds the runtime receipt and profile as well as the source revision and packet. Closure rechecks current retained custody; a previously passing receipt cannot hide a revoked, superseded or differently qualified source.
 
-The bounded task command is `python3 tests/hyperfide/cases/source_control/7_2.py --self-test`. It checks input pins and rejection paths, including every missing/empty evidence class and stale custody source, generation, policy and qualification. It writes a private `build/source-control/7.2/closure-report.json` with product variants UNRUN. Full closure writes each required variant's checked outcome and the separate evidence classes to that report. Neither the bounded gate nor a package component result promotes the UNQUALIFIED profiles above.
+The release checker validates input pins, evidence classes and current custody, source, generation, policy and qualification. Full closure records every required variant’s outcome and the separate evidence classes in its closure report.

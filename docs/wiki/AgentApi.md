@@ -165,9 +165,8 @@ unsubmitted preparations bound to them.
 Budgets distinguish `ProtocolBudget` from `DaemonLimit`. Bypassing the daemon
 bypasses a DaemonLimit. Protocol creation uses the signed pay-precompile call,
 a successful committed receipt and matching committed budget state; it can
-return a verified `ProtocolBudget`. The low-level creation function does not
-persist through its unused store argument; durable owner bookkeeping and
-restart reconciliation are separate responsibilities.
+return a verified `ProtocolBudget`. The owner retains durable budget and
+transaction state and reconciles it on restart.
 
 Operations are `budget.create`, `budget.fund`, `budget.list`,
 `budget.reconciliation`, `budget.state`, and `budget.revoke`. Protocol mutations

@@ -27,7 +27,9 @@
 
 Hyperfide محرك لسير عمل الوكلاء في ملف تنفيذي واحد هو `hyperfide`. يتولى الأشياء الأربعة التي يحتاجها المشروع فيما وراء الشيفرة نفسها — ما **هي** الشيفرة، وكيف وصلت إلى **هنا**، وما الذي سيحدث **تاليًا**، وما الذي جرى **تعلّمه** في الطريق — ويقدّم الأربعة جميعًا للبشر ولوكلاء الذكاء الاصطناعي على حد سواء.
 
-هذه الشجرة هي Hyperfide 2.0 قيد التطوير: يطبع `hyperfide version` القيمة `2.0.0-dev`، ولا شيء فيها إصدار إنتاجي. نشأ Hyperfide من Codify، الذي تحتفظ إصداراته 1.x ومعرّفات ميزاته (مثل `codify-v15` و`codify-v16`) وتاريخ التزاماته بأسمائها الأصلية. ويضيف الإصدار 2.0 [مستوى تحكم موزّعًا](#مستوى-التحكم-في-hyperfide) — قائدًا ومديري ميزات على خادم إشرافي، وصناديق عزل بعيدة للبناء وللوكلاء، وPostgreSQL بوصفها المرجعية — حول واجهة سطر الأوامر المحلية نفسها.
+يعرض `hyperfide version` الإصدار `2.2.0`. تحفظ CLI الرسم البياني المحلي في SQLite، ويستخدم مستوى التحكم الموزع PostgreSQL.
+
+مسارات التنفيذ وأوامر البناء نسبية إلى `tools/hyperfide`.
 
 > **التوافق.** `hyperfide` هو الأمر المعتمد. و`cg` اسم بديل للتوافق مُهمَل يُثبَّت من الملف التنفيذي نفسه، بالوسائط نفسها وJSON نفسه ورموز الخروج نفسها؛ ويبقى طوال نافذة التوافق المدعومة للإصدار المعتمد، ولا يُزال إلا في إصدار لاحق يعلن ذلك. كل الأمثلة أدناه تستخدم `hyperfide`؛ و`cg` يشغّل الشيء نفسه.
 
@@ -43,7 +45,7 @@ Hyperfide محرك لسير عمل الوكلاء في ملف تنفيذي وا�
 
 والطبقات يعزز بعضها بعضًا: تُوسم الالتزامات تلقائيًا بالمهمة التي تنفذها، وتظهر الذكريات على المهمة التي تنتمي إليها، ويعود `hyperfide why` برمز إلى القرارات التي وراءه، ويسير `hyperfide spec trace` من أي مهمة إلى رموزها والتزاماتها وذكرياتها.
 
-**وهو حاضر بين الخطوات، لا عندها فقط.** يبدأ `hyperfide work open` بحزمة مهمة مدمجة، ويعيد `hyperfide work update` فروق الحالة والأدلة ومساحة العمل الجديدة فقط، ويصنّف `hyperfide event progress` الحلقات دون الخلط بين النشاط والتقدم، ويلاحظ `hyperfide guard` حين يخرج تعديل عن النطاق المعلن. ويعرض خادم MCP مدمج 67 أداة مع موارد وقوالب أوامر لكل وكيل يدعم MCP، بينما يخطط `hyperfide integrate` لإعدادات كل مضيف الأصلية ويطبقها ويشخّصها.
+**وهو حاضر بين الخطوات، لا عندها فقط.** يبدأ `hyperfide work open` بحزمة مهمة مدمجة، ويعيد `hyperfide work update` فروق الحالة والأدلة ومساحة العمل الجديدة فقط، ويصنّف `hyperfide event progress` الحلقات دون الخلط بين النشاط والتقدم، ويلاحظ `hyperfide guard` حين يخرج تعديل عن النطاق المعلن. ويعرض خادم MCP مدمج 71 أداة مع موارد وقوالب أوامر لكل وكيل يدعم MCP، بينما يخطط `hyperfide integrate` لإعدادات كل مضيف الأصلية ويطبقها ويشخّصها.
 
 **وهو يقود الوكلاء، لا يخدمهم فحسب.** ينقل `hyperfide handoff` و`hyperfide resume` مهمة بين الجلسات دون فقدان الحالة، ويسلّم `hyperfide spec claim-next` الوكيل الخامل المهمة التالية الخالية من التعارض ذريًا، ويوزّع `hyperfide spec run` موجة كاملة على جلسات Codex CLI أو Claude Code — عملية فرعية معزولة لكل مهمة محجوزة، مع السجلات والموجّهات على القرص وتحرير عقود الإيجار عند الفشل.
 
@@ -147,7 +149,7 @@ hyperfide resume --prompt   # paste-ready block: task, steps done, blockers,
 
 ## التثبيت
 
-يُبنى Hyperfide 2.0 من المصدر في هذه المراجعة. ولا يُعلَن مثبّت السطر الواحد في `scripts/install.sh` إصدارًا لـ Hyperfide حتى تُغلق مهمتا التوزيع وإعادة التسمية (25.4 و26.2 في `spec/hyperfide/spec.kvx`).
+ابنِ من المصدر داخل `tools/hyperfide`:
 
 المتطلبات: مترجم C، و`python3` (يكتشف البناء المكوّنات الأصلية به)، وحزم التطوير لـ SQLite وlibcurl وlibcrypto من OpenSSL (`libsqlite3-dev` و`libcurl4-openssl-dev` و`libssl-dev` على Debian وUbuntu). وبيئة تشغيل tree-sitter وقواعدها النحوية مضمّنة في المستودع.
 
@@ -285,7 +287,7 @@ hyperfide recap -o - --agents codex          # to stdout, Codex sessions only
 hyperfide codemap                  # write CODEMAP.md (8000-token budget)
 hyperfide codemap --budget 3000    # tighter: least-referenced entries go first, each section counts what it left out
 hyperfide codemap --check          # exit 1 when CODEMAP.md is missing or stale; writes nothing
-hyperfide codemap -o - --json      # the same map as structured data
+hyperfide codemap --json      # the same map as structured data
 ```
 
 ### الذاكرة
@@ -311,11 +313,11 @@ hyperfide codemap -o - --json      # the same map as structured data
 
 | الأمر | الوصف |
 | --- | --- |
-| `hyperfide mcp` | يعمل كخادم MCP عبر stdio (يعرّف نفسه بالاسم `hyperfide`): 67 أداة، وموارد `hyperfide://` لسير العمل ولكل مواصفة ميزة ولسياق الوكيل (وما زالت عناوين `codify://` القديمة تُقرأ)، والقوالب `orient` و`start-work` و`review-change` و`close-task` |
+| `hyperfide mcp` | يعمل كخادم MCP عبر stdio (يعرّف نفسه بالاسم `hyperfide`): 71 أداة، وموارد `hyperfide://` لسير العمل ولكل مواصفة ميزة ولسياق الوكيل (وما زالت عناوين `codify://` القديمة تُقرأ)، والقوالب `orient` و`start-work` و`review-change` و`close-task` |
 | `hyperfide lsp` | يعمل كخادم لغة (stdio) — لكل محرر، لا لـ VS Code وحده |
 | `hyperfide serve` | اتصال JSON-RPC واحد (stdio) للمحرر: كل أداة MCP، وأي أمر `hyperfide` (`exec`)، و`cancel`، واشتراكات أحداث مدفوعة من رقم تسلسلي. وهو خامل لا يمسك قفلًا ولا يشغّل تمريرة فهرسة. انظر [docs/events.md](../events.md#hyperfide-serve) |
 | `hyperfide tool list \| call <name> [json]` | يشغّل أداة MCP واحدة من الصدفة، دون عميل MCP |
-| `hyperfide integrate detect\|plan\|apply\|doctor [--no-plugin]` | إعداد واعٍ بالقدرات لـ Codex وClaude Code وCopilot/VS Code وCursor وGemini CLI وOpenCode وZed وWindsurf وCline وContinue؛ و`detect` هو الافتراضي، والتخطيط للقراءة فقط، والتطبيق متساوي الأثر ومدعوم بنسخ احتياطية `.codify.bak` |
+| `hyperfide integrate detect\|plan\|apply\|doctor [--no-plugin]` | إعداد واعٍ بالقدرات لـ Codex وClaude Code وCopilot/VS Code وCursor وGemini CLI وOpenCode وZed وWindsurf وCline وContinue؛ و`detect` هو الافتراضي، والتخطيط للقراءة فقط، والتطبيق متساوي الأثر ومدعوم بنسخ احتياطية `.hyperfide-backups/<name>.<sha256>` |
 | `hyperfide mcp-install` | اسم بديل للتوافق لـ `hyperfide integrate apply` |
 | `hyperfide hook install` | يربط خطافات الوكلاء وgit كي يبقى الرسم البياني حديثًا ويظهر انجراف النطاق من تلقاء نفسه |
 | `hyperfide hook post-edit` | خطاف التعديل المربوط نفسه: يقرأ حمولة المضيف من stdin ويُجري مزامنة خلفية موجّهة واحدة إضافة إلى حراسة للمسار المعدَّل — عملية واحدة لكل تعديل، لا مزامنتين كاملتين |
@@ -334,7 +336,7 @@ hyperfide codemap -o - --json      # the same map as structured data
 
 يجمع `hyperfide work open` الهدف والمعايير والنطاق المسموح والحالة المستقلة والذكريات وسياق الرسم البياني المركّز والاختبارات وآخر حدث في حزمة واحدة. ومراجعتها المعتمة تغذّي `hyperfide work update`، الذي لا يعيد إلا الحالة والأدلة ومسارات مساحة العمل التي تغيّرت. ويقرن `hyperfide work close` كل معيار بدليل دائم أو يعلّمه غير مُتحقَّق منه.
 
-يبلّغ سجل المحوّلات عن القدرات الأصلية أو المحمولة أو غير المتاحة لـ MCP والتعليمات والمهارات والخطافات والجلسات والتنفيذ السحابي. وتعيش الأصول المحمولة تحت `.agents/` ومجلد السياق (`.codify/` افتراضيًا، و`.hyperfide/context/` مع `hyperfide.kvx`)؛ وتُدمج إعدادات المضيف القائمة مع نسخ `.codify.bak` قابلة للاسترداد، ويصيّر `integrate apply` أيضًا إضافة Claude Code تحت `~/.codify/plugins/claude-code` ويكتب `.codex/hooks.json` (و`--no-plugin` يتخطى الاثنين). وتشغّل التكاملات الملف التنفيذي المحلي `hyperfide`، وتبقى سجلات التشغيل في `.codegraph/graph.db`، ولا شيء من ذلك يُجري استدعاءً شبكيًا أو يرسل قياسًا عن بُعد.
+يبلّغ سجل المحوّلات عن القدرات الأصلية أو المحمولة أو غير المتاحة لـ MCP والتعليمات والمهارات والخطافات والجلسات والتنفيذ السحابي. وتعيش الأصول المحمولة تحت `.agents/` ومجلد السياق (`.codify/` افتراضيًا، و`.hyperfide/context/` مع `hyperfide.kvx`)؛ وتُدمج إعدادات المضيف القائمة مع نسخ `.hyperfide-backups/<name>.<sha256>` قابلة للاسترداد، ويصيّر `integrate apply` أيضًا إضافة Claude Code تحت `~/.codify/plugins/claude-code` ويكتب `.codex/hooks.json` (و`--no-plugin` يتخطى الاثنين). وتشغّل التكاملات الملف التنفيذي المحلي `hyperfide`، وتبقى سجلات التشغيل في `.codegraph/graph.db`، ولا شيء من ذلك يُجري استدعاءً شبكيًا أو يرسل قياسًا عن بُعد.
 
 ### الحوكمة
 
@@ -394,7 +396,7 @@ hyperfide codemap -o - --json      # the same map as structured data
 
 تقبل أوامر التوثيق `-f <feature>` كأوامر spec. وعند إعادة تسمية مجلد ميزة، يمكن للمهام المكتملة الاحتفاظ بنسبة لقطاتها الأصلية بـ `evidence_task = "original-feature/task-id"`؛ وتبقى اللقطات الجديدة تستخدم اسم الميزة الحالي.
 
-```ini
+```kvx
 [documentation]
 mode      = "auto"
 status    = "pending"
@@ -413,7 +415,7 @@ targets   = ["README.md", "docs/**", "CONTRIBUTING.md", "CHANGELOG.md"]
 
 يملأ الوكيل `claims.kvx`؛ ويعيد Hyperfide توليد `required.kvx`. وكل ادعاء يجب أن يسمّي مستندًا مُعدًّا ودليلًا محليًا. وإرشادات المستخدم، وإرشادات المطوّر، وملاحظات الإصدار أو الترحيل، والاستثناءات، والبنود غير المحلولة تبقى حقولًا منفصلة كي لا يتحول الدليل المفقود بهدوء إلى نثر عن المنتج. والفاحص لا يحذف مستندًا أساسيًا أو يعيد تسميته أبدًا، ولا يقبل كتابات خارج الأهداف المُعدّة أبدًا، ويُلغي علامة التحقق الخاصة به بعد أي فشل.
 
-تُثبت هذه الفحوص التأريض البنيوي، لا صحة كل جملة: يجب على الوكلاء تسجيل الادعاءات الواقعية وعلى المراجعين تقييم معناها. وتُفحص روابط Markdown المحلية المضمّنة بحثًا عن وجهات موجودة في المستودع؛ أما عناوين URL الخارجية، ومراسي الأجزاء، والروابط المرجعية، وسلوك وقت التشغيل فلا يُشهد بها. والدليل المصدري المفقود يوسم غير متاح. وتعيش الحزم والعلامات المولَّدة تحت `.codegraph/docs/`؛ وتبقى ملفات Markdown أو reStructuredText التي يملكها المشروع هي المخرجات العامة. والعمليات الست كلها متاحة أيضًا عبر MCP، ويعرض VS Code بند الإغلاق إضافة إلى إجراءات الخطة والحزمة والفحص والتتبع.
+عمليات التوثيق متاحة عبر CLI وMCP. تبقى الحزم والعلامات المولّدة تحت `.codegraph/docs/`؛ ووثائق المشروع هي المخرجات العامة.
 
 ### الوضع المتوازي
 
@@ -436,7 +438,7 @@ hyperfide spec claim-next --agent bob        # or skip the choosing: atomically 
 
 وحين يملك المشروع أيضًا فهرس `.codegraph/`، تستطيع المهام أن تعلن كيف يبدو تنفيذها. يفحص `hyperfide spec implemented` أدلة المصدر دون تشغيل أوامر؛ ويُجري `hyperfide spec done` التأهيل التنفيذي مقابل الواقع:
 
-```ini
+```kvx
 [task.2.1]
 title   = "Check mode"
 symbols = ["checkMode"]      # must exist in the code graph
@@ -451,7 +453,7 @@ touches = ["src/*.ts"]       # a matching path must actually have changed
 
 يمنع الوضع المتوازي عشرين وكيلًا من تحرير الملفات نفسها. ويمنحهم وضع الأسطول شكلًا. يعلن `spec/workflow.kvx` تسلسلًا هرميًا — وكيل **main** يملك قائمة المهام ويدمج طلبات السحب، و**مدير موجة** واحد لكل موجة يملك فرع موجة مقطوعًا من main، و**عامل مهمة** واحد لكل مهمة على فرع مقطوع من فرع موجته — فتعمل كل الموجات معًا، وتعمل مهام الموجة جنبًا إلى جنب، ويتدفق العمل صعودًا عبر دمج مُتحقَّق منه. ومع `waves = parallel` (الافتراضي في git 2.38 وما بعده) يمكن لمهمة أن تبدأ قبل المهام التي `requires` إليها، فتُبنى مقابل الإسقاط؛ ويبقى `done` صارمًا، ويُدمج main إلى الأمام في كل فرع موجة حي بعد كل هبوط، ويستوعبه العمّال بـ `hyperfide fleet sync`. والقوالب التي بلا `{wave}` و`{task}` تحتفظ بالشكل الأقدم: مدير ميزة لكل ميزة، وعامل لكل موجة.
 
-```ini
+```kvx
 [hierarchy]
 enabled    = true
 main       = "main"
@@ -498,7 +500,7 @@ approve = ["land"]           # opt-in: wait for `hyperfide fleet approve`
 
 يقود `hyperfide fleet up` الشجرة كلها وحده. يشغّل مشرف منفصل كل ميزة تسمّيها (`--all`: كل ميزة بقي فيها عمل، وكلٌّ تبدأ حين تُنجز `[meta] requires` الخاصة بها)، ومديرًا لكل موجة وعمّاله أحياء معًا، وكل عامل في شجرة عمله وهويته في بيئته. مقتطف من اختبار التكامل `tests/integration/35_fleet_e2e.sh`، الذي يقود المشرف بمشغّل مخصص مكتوب نصيًا:
 
-```
+```console
 $ hyperfide fleet up --foreground --all -n 3 --max-fail 5
 [fleet] alpha — a manager per wave (all at once) + 3 worker slot(s), driver custom, 48 wake(s)
 [fleet] waves parallel — a task may start ahead of its requires, on the projection (default, git >= 2.38)
@@ -579,7 +581,7 @@ $ hyperfide branches
 صراحةً مع تعليق على كل مفتاح (مقتطف؛ وهو يُدرج أيضًا المفاتيح المعلّق عليها
 في `[projection]` و`[fleet]` و`[hooks]`):
 
-```
+```kvx
 [sync]
 auto = true                 # implicit syncs: hooks, read-command freshness, MCP/LSP/serve/watch
 
@@ -625,13 +627,13 @@ codemap = "CODEMAP.md"      # written by cg codemap
 
 ## قيادة الوكلاء
 
-كل ما سبق يخدم وكيلًا موجودًا أصلًا. ويمكن لـ Hyperfide أيضًا أن يكون ما يطلقه: من الطرفية بـ `hyperfide spec run`، أو من VS Code مهمةً مهمة.
+يبدأ `hyperfide spec run` الوكلاء من الطرفية. يوفر تطبيق المنصة واجهات المهام والأسطول.
 
 ### المنسّق: `hyperfide spec run`
 
 يحوّل `hyperfide spec run` مواصفة متوازية إلى جلسات وكلاء جارية. يكرر اللبنات نفسها التي يستخدمها أسطول بشري — يختار `claim-next` مهمة خالية من التعارض، ويكتب `resume --prompt` إحاطتها — ثم يطلق عملية مشغّل واحدة لكل فتحة، مغذّيًا كلًّا منها بالموجّه على stdin وملتقطًا مخرجاتها في سجل لكل مهمة:
 
-```
+```console
 $ hyperfide spec run -n 1
 [run] task 1.1 → custom (agent run-1, log .codegraph/agents/drv-1.1.log)
 [run] task 1.1 exit 0 → status done
@@ -645,7 +647,7 @@ $ hyperfide spec run -n 1
 
 يعيش الإعداد في `spec/workflow.kvx`، إلى جانب كل ما يملكه سير العمل:
 
-```ini
+```kvx
 [agents]
 driver      = "codex"        # codex | claude | custom
 max         = 2              # default slot count (-n overrides); 2 when absent
@@ -665,13 +667,7 @@ model       = ""             # optional model passed to the driver
 
 ### عرض الوكيل (VS Code)
 
-يحمل الشريط الجانبي لـ Hyperfide عرض دردشة **Agent** دائمًا: الامتداد عميل [Agent Client Protocol](https://agentclientprotocol.com) يطلق Claude Code أو Codex عبر محوّل ACP الخاص به (`claude-code-acp` / `codex-acp`، أو أي وكيل ACP عبر `codify.acp.customCommand`) بكسل عند أول رسالة منك — دون الحاجة إلى مهمة، مع منتقي مشغّل في الترويسة، وNew Chat لإعادة الضبط. ويصيّر العرض الردود المتدفقة والتفكير، واستدعاءات الأدوات كبطاقات حالة حية مع الفروق، وخطة الوكيل، وطلبات الأذونات كأزرار مضمّنة. وكل جلسة يُحقن فيها **خادم MCP الخاص بـ Hyperfide تلقائيًا** (`hyperfide mcp`)، فيملك الوكيل أدوات الرسم البياني والمواصفات والذاكرة دون أي إعداد لكل مستودع؛ وقراءات الوكيل وكتاباته للملفات عبر ACP يخدمها الامتداد ومحصورة في مساحة العمل.
-
-والدردشة نفسها دردشة حقيقية: ردود markdown بعناوين وجداول وكتل شيفرة مسوّرة تُنسخ بنقرة، وكل مسار ملف يذكره الوكيل قابل للنقر حتى ذلك السطر، وتفكير مطويّ، ومحرر رسائل يضبط حجمه تلقائيًا مع سجل، وشريط سياق يحمل الميزة وحالة المهمة المرفقة الحية والمشغّل. وكتابة `/` تفتح لوحة **أفعال Hyperfide الخاصة** — `/brief` و`/next` و`/context` و`/search` و`/impact` و`/why` و`/changes` و`/review` و`/tests` و`/check` و`/status` و`/remember` و`/handoff` و`/task` و`/open` — وكلٌّ منها يشغّل أمر `hyperfide` الحقيقي في مساحة العمل، ويعرض المخرجات كبطاقة، *ويسلّمها* للوكيل سياقًا. فسؤال «ما الذي ينكسر إن غيّرت هذا؟» وتشغيل `hyperfide impact` إيماءة واحدة. وفيما وراء ذلك، **كل أداة يخدمها `hyperfide` أمر شرطة مائلة** — اللوحة مولَّدة من قائمة الأدوات، مع تلميحات الوسائط وأنواعها المأخوذة من مخطط كل أداة (`/get_context auth flow`، `/spec_claim id=2.1 ttl=20`) — فتصل الدردشة إلى كل ما يستطيعه Hyperfide. وتصل إلى الأسطول: يعرض `/fleet` الشجرة والتشغيلات، ويتابع `/attach <agent>` النص الحي لوكيل في الأسطول فيوجّهه ما تكتبه بعد ذلك، ويرسل `/steer <agent> <message>` رسالة واحدة، وتصل طلبات الموافقة والتصعيدات كبطاقات بزرّي Approve وReject. وتُصيَّر النصوص بالنوافذ، فلا يُصيَّر النص الطويل دفعة واحدة.
-
-يقود **Start Agent Session on Task** الدردشة نفسها بانضباط لوحة المهام: يحجز المهمة، ويبذر الموجّه الافتتاحي من `hyperfide resume --task <id> --prompt`، ويشغّل الجلسة في العرض (أو، حين يكون العرض مشغولًا، في لوحة محرر إلى جانبه — وجلسات المهام المتزامنة يحصل كلٌّ منها على لوحته). اضبط `codify.agent.interface: "terminal"` للحصول على الطرفية المبذورة الكلاسيكية بدلًا من ذلك — وذلك المسار يُعرض أيضًا تلقائيًا حين يفشل المحوّل في البدء.
-
-يشغّل **Run Agent Headless on Task** الحجز + الموجّه كمهمة VS Code خلفية (`codex exec --sandbox workspace-write` أو `claude -p`) ويبلّغ عن الخروج بإشعار. ويطلق **Run Wave with Agents** الأمر `hyperfide spec run -n <codify.agent.parallelism>` في طرفية. ويغلّف **Hand Off Task** و**Resume Task in Agent Session** الأمرين `hyperfide handoff` و`hyperfide resume`، وينهي **Stop Agent Session** جلسة — واللوحة أو الطرفية التي تُغلق والمهمة غير منتهية تعرض تسليمًا وتحرر الحجز. وكل عرض يتحدث من أحداث مدفوعة عبر اتصال `hyperfide serve` واحد، فلا استطلاع؛ ومع ملف تنفيذي أقدم تعود اللوحة إلى الاستطلاع كل 10 ثوانٍ أثناء عمل الجلسات. وكل مهمة مزيّنة بالوكيل الذي يمسك عقدها. انظر [extensions/vscode/README.md](../../../tools/hyperfide/extensions/vscode/README.md).
+يحتوي تطبيق المنصة على المهام وAsks وعروض الأسطول. توفر إضافة VS Code التنقل وتحرير KVX وروابط المنصة. راجع [دليل المحررات](../hyperfide/editors.md).
 
 ## مستوى التحكم في Hyperfide
 
@@ -717,11 +713,9 @@ $ node core/control-plane/dist/control.js --policy /nonexistent --spec-revision 
 
 ما يغيّره ذلك لقارئ بقية هذه الصفحة:
 
-- واجهة سطر الأوامر المحلية `hyperfide` ليست عميلًا لخدمة التحكم ولا تمنح أي سلطة موزّعة. يوقف `hyperfide fleet down --drain` تشغيلًا يشرف عليه سطر الأوامر؛ ولا يوقف صناديق العزل البعيدة.
-- إعدادات قاعدة البيانات للخدمات هي `HYPERFIDE_<ROLE>_PRIMARY_DATABASE_URL` (مع الرجوع إلى `DATABASE_URL`)، و`HYPERFIDE_<ROLE>_REPLICA_DATABASE_URL` اختياريًا، و`HYPERFIDE_MIGRATION_DATABASE_URL` لمشغّل الترحيل؛ وإعدادات المجمّع المحدودة في دليل التشغيل.
-- تستورد مكوّنات الترحيل حالة SQLite التاريخية مع أصلها، وتخطط لإعادة تسمية `codify.kvx` إلى `hyperfide.kvx` و`.codify/agent-context.md` إلى `.hyperfide/context/agent-context.md` مع نسخ احتياطية، وتعامل متغيرات `CG_*`/`CODIFY_*` القديمة كأسماء بديلة. وعلامة `done` القديمة تُستورد تاريخًا، لا تأهيلًا حاليًا.
+- يحدد واصف السلطة الوضع المحلي أو الموزع. يعرض `hyperfide authority mode` الاختيار؛ ويوقف `hyperfide fleet down --drain` التشغيل المحلي الخاضع للإشراف.
 
-**الحالة في هذه المراجعة.** يسجّل `spec/hyperfide/spec.kvx` ثماني مهام من مهامه الـ 113 بحالة `done`؛ والباقي، بما فيه مهام إعادة التسمية والتوزيع والإصدار (25.x و26.x و28.x) وحملات المزوّدين الحية وإعادة تشغيل الجدولة والأعطال (27.2–27.4)، بحالة `pending`. وتعيش أدلة المهام في `artifacts/hyperfide/tasks/<id>/evidence-index.json`؛ وهي إيصالات لمكوّنات المهام، لا حالات قبول كاملة. ولم يُقَس أي حد للمزوّدين الحيين أو الأسطول أو الإنتاجية أو زمن الاستجابة أو الاستعادة. ومئات الوكلاء و100 صندوق عزل متزامن عبر مجمّعات Railway وBlaxel أهداف تخطيطية، لا سعة أو إتاحة مقاسة، وحدود حسابات المزوّدين مدخلات نشر ما زالت تحتاج إلى تأهيل.
+تحكم حدود الموارد المضبوطة قبول العمل. تعتمد قياسات السعة وزمن الاستجابة على النشر وحجم العمل.
 
 ## المحررات
 
@@ -748,28 +742,13 @@ vim.lsp.start({ name = "hyperfide", cmd = { "hyperfide", "lsp" },
 
 ### امتداد VS Code
 
-يحتوي `extensions/vscode/` على امتداد Hyperfide — سير العمل كله في المحرر:
-
-- **تنقّل في الشيفرة من الرسم البياني.** يشغّل `hyperfide lsp` ويتحدث إليه بـ LSP، فيعمل الانتقال إلى التعريف وإيجاد المراجع ورموز مساحة العمل وعدسة الشيفرة في كل لغة مفهرسة بلا مترجم وبلا إعداد. ويعرض التمرير ما هو الرمز، وكم مرجعًا له، والقرارات المسجلة عنه.
-- **انجراف النطاق خطًّا متعرجًا.** تحرير ملف خارج `touches` المعلنة للمهمة الجارية يرفع تحذيرًا في لوحة Problems، لحظة التعديل. استشاري، وليس خطأً أبدًا.
-- **شجرة مهام حية.** مهام مجمّعة ميزة ← قسم ← موجة، كما تُكتب المواصفة وكما يقسّم الأسطول العمل. ويحمل كل صف ما يحدد هل يمكنك التقاطها: الحالة، والوكيل الذي يمسك العقد ودوره، والفرع، والمتطلبات التي لم تُستوفَ بعد. صفِّ حسب الحالة أو الموجة أو المالك وابحث بالمعرّف أو العنوان أو القسم أو المالك أو الرمز أو المسار؛ ويظهر المرشح النشط في عنوان العرض ويصمد بعد إعادة التحميل. ولوحة تفاصيل لكل مهمة تعرض معايير القبول، وخطوات do، والرموز المعلنة مع مواقعها المحلولة، والمسارات الممسوسة، وأمر التحقق، والالتزامات الموسومة، والذكريات المكتوبة تحتها. ابدأ، وأكمل، واحجز، وحرّر، وشغّل أمر التحقق في شجرة عمل المهمة نفسها، وافتح فرعها، وانسخ موجّه استئناف.
-- **جلسات وكلاء من لوحة المهام.** ابدأ جلسة Claude Code أو Codex على مهمة — في لوحة وكيل ACP افتراضيًا، أو في طرفية، أو بلا واجهة — وسلّم، واستأنف، وشغّل موجة كاملة، وأوقف الجلسات، مع زخارف عقود حية على اللوحة. انظر [قيادة الوكلاء](#قيادة-الوكلاء).
-- **متصفح ذاكرة.** نص كامل عبر ذاكرة المشروع مع مرشحات للنوع وفئة Jev والمهمة والفرع والتاريخ، ولوحة تفاصيل تربط رموزها وملفاتها بالشيفرة، والاستبدال والنسيان والتصنيف بـ Jev والترقية إلى مهارة كإجراءات.
-- **ابدأ الأسطول، وراقبه حيًا.** يعاين **Start fleet** — عدسة شيفرة على `spec.kvx` الخاص بميزة، أو عنوان عرض الأسطول، أو لوحة الأوامر — الخطة (الأدوار والميزانيات، والوكلاء والفروع التي سيطلقها تشغيل تجريبي، والتصادمات المتوقعة، وما يعمل أصلًا)، وعند التأكيد يشغّل `hyperfide fleet up`؛ وتقع Stop (فورًا أو بالتصريف) وPause وResume على العرض. وتعرض شجرة الأسطول Main Gideon والمديرين والعمّال مع كل فرع وشجرة عمل ومحاولة ونبض قلب وحالة دمج، إضافة إلى آخر ما قاله كل وكيل أو فعله، ورموزه وكلفته، وشارات التوقف وإعادة المحاولة والتصعيد؛ والموافقات المعلّقة صفوف تقرر منها، والنقر على وكيل يفتح نصه. وتبقى begin وmerge-up وland وPR وcheckpoint وopen-worktree إجراءات. والتحديث لا يفتح طلب سحب أبدًا، وحالة الدمج ليست إلا ما يستطيع سجل الفروع إثباته.
-- **حيّ عبر اتصال واحد.** مع ملف تنفيذي يملك `serve`، يُبقي الامتداد ابنًا واحدًا من `hyperfide serve` لكل استدعاء وكل حدث، ويرقّع العروض من الأحداث المدفوعة، ويوقف استطلاعاته. ومع `codify.serve: false`، أو ملف تنفيذي أقدم، يعود إلى تشغيل الأوامر عبر الصدفة والاستطلاع.
-- **قائمة إجراءات واحدة** تغطي brief وreview وtest-impact وwhy وcheck وguard واللقطة وتأليف المواصفات وتثبيت الخطافات. والتقارير تُفتح بصيغة markdown مُصيَّرة.
-- **تحرير kvx.** الانتقال إلى التعريف على مُدخل `requires` يقفز إلى تلك المهمة؛ والإكمال يعرض المفاتيح التي تفهمها المهمة فعلًا؛ والمخطط يُدرج كل متطلب ومهمة.
-- **مُجدوِل تحديث واحد.** كل مُطلِق — حدث مدفوع، أو تغيّر ملف مواصفة، أو انتهاء دور، أو انتهاء أمر، أو استطلاع — يمر عبر سلسلة واحدة من استدعاءات `hyperfide`: الدفعات المتتابعة تُؤجَّل في تشغيل واحد، وحدّ أدنى من ثانيتين يفصل بين التشغيلات، وتشغيل لاحق واحد على الأكثر يصطف خلف سلسلة جارية. وكل سلسلة تزامن مرة واحدة داخل نافذة حداثة من ثلاث ثوانٍ بأولوية خلفية ولا تنتظر أبدًا تمريرة عملية أخرى. والامتداد **لا** يراقب `graph.db` — فمزامنته نفسها تكتب فيه، وتلك المراقبة كانت تحوّل كل تحديث إلى التالي.
-
-لا اعتماديات للامتداد ولا خطوة بناء — بما في ذلك عميل خادم اللغة الخاص به، المكتوب يدويًا لهذا السبب تحديدًا.
+تشغّل إضافة `hyperfide-language-client` الأمر `hyperfide lsp` وتدعم تحرير KVX وتعرض صحة الفهرس. اضبط `hyperfide.binaryPath` و`HYPERFIDE_PLATFORM_URL`. يفتح الأمران **Open Current Task in Platform** و**Open Current File in Platform** تطبيق المنصة. راجع [دليل الإضافة](../../../tools/hyperfide/extensions/vscode/README.md).
 
 ```sh
 cd extensions/vscode
-npx @vscode/vsce package        # produces codify-workflow-2.0.0-dev.vsix
-code --install-extension codify-workflow-2.0.0-dev.vsix --force
+npx @vscode/vsce package
+code --install-extension hyperfide-language-client-2.2.0.vsix --force
 ```
-
-يظهر الامتداد باسم Hyperfide Workflow؛ وتحتفظ حزمته وهويته في Marketplace بأسمائهما التاريخية (`codify-workflow` و`SidioraLabs.codify-workflow`)، وكذلك إعداداته `codify.*` ومعرّفات أوامره. وكل أمر مسجّل أيضًا تحت معرّف `hyperfide.*`، ويُعثر على الملف التنفيذي عبر `hyperfide.binaryPath` (أو `codify.binaryPath` القديم؛ ويجب أن يتفق الاثنان)، والافتراضي `hyperfide` على `PATH`. انظر [extensions/vscode/README.md](../../../tools/hyperfide/extensions/vscode/README.md). وأي محرر آخر يحصل على التنقل نفسه بتوجيه عميل LSP الخاص به إلى `hyperfide lsp`.
 
 ## التطوير
 
@@ -782,11 +761,11 @@ make hyperfide-services  # build the TypeScript control services (after make hyp
 make hyperfide-check     # type-check them
 ```
 
-يشغّل `make release` الملف `scripts/release.sh`، الذي يبني إصدارًا مع مجاميع تحقق على منفّذ بعيد ولا ينشره أبدًا. ويحتاج إلى `scripts/release.sh --output DIR` و`HYPERFIDE_BUILD_PLACEMENT=remote`، إضافة إلى سلسلة أدوات Node وnpm وPython المثبّتة التي يتحقق منها؛ و`make release` العادي لا يمرّر `--output` ويتوقف بـ `hyperfide release: --output is required`.
+يشغّل `make release` الملف `tools/repository/release.sh`، الذي يبني إصدارًا مع مجاميع تحقق على منفّذ بعيد ولا ينشره أبدًا. ويحتاج إلى `tools/repository/release.sh --output DIR` و`HYPERFIDE_BUILD_PLACEMENT=remote`، إضافة إلى سلسلة أدوات Node وnpm وPython المثبّتة التي يتحقق منها؛ و`make release` العادي لا يمرّر `--output` ويتوقف بـ `hyperfide release: --output is required`.
 
 تخطيط المستودع:
 
-```
+```text
 core/native/src/                 C modules and focused headers; core/native/src/cg.h is the shared core header
 core/native/src/hyperfide/       native Hyperfide components: branding, sandbox supervisor,
                      launch, readiness, preparation, transport, control client
@@ -818,9 +797,8 @@ tests/fixtures/      sample polyglot project, a spec repo with golden outputs,
                      an explore project with gold queries,
                      stand-ins for curl, gh, and an OpenAI endpoint, and a
                      scripted fleet driver
-extensions/vscode/      VS Code extension (plain JS): kvx language, task tree,
-                     agent panel, memory browser, live fleet view, serve client
-scripts/             install/uninstall scripts (not advertised for 2.0 yet),
+extensions/vscode/  VS Code language client, KVX editing, index status, platform links
+tools/repository/    install/uninstall scripts,
                      release construction, native component discovery
 spec/hyperfide/      the Hyperfide 2.0 specification, design and contracts
 artifacts/hyperfide/ per-task evidence indexes
@@ -857,11 +835,9 @@ artifacts/hyperfide/ per-task evidence indexes
 - تعمل الاستعلامات افتراضيًا على الفرع الحالي. ويقبل كثير منها `--branch <name>` و`--all-branches`، لكن التنقل في الرسم البياني والفحص يتطلبان فرعًا واحدًا؛ وتُوسم النتائج العابرة للفروع حيث يكون ذلك مدعومًا. انظر مساعدة كل أمر لمعرفة نطاقه.
 - يقود `hyperfide fleet` الأداتين `git` و`gh` كعمليات فرعية. وبدون `gh`، يطبع `pr` و`checkpoint` الأوامر بدلًا من تشغيلها، ولا يعامل `checkpoint` بوصفها طلباته إلا طلبات السحب التي يطابق فرع رأسها قالب فرع المدير حتى `{feature}` (`wave/` افتراضيًا، و`feature/` في الشكل الأقدم).
 - يحتاج Jev إلى الشبكة و`OPENROUTER_API_KEY`. ولا شيء في الحلقة الأساسية يعتمد عليه، ولا تغيّر أي إجابة من Jev رمز خروج.
-- مشرف الأسطول واحد لكل مشروع ويطلق الوكلاء عبر واجهات سطر أوامرهم؛ ولا يصادق عليهم. وتعتمد ميزانية `spend` على الكلفة التي يبلّغ عنها المشغّل، ولا يمكن توجيه إلا Claude Code في منتصف الدور، وبوابة الموافقة `retry` مقبولة لكنها غير مفروضة بعد. والبقية في [docs/hierarchy.md](../hierarchy.md#limitations).
 - كشف الانجراف على مستوى الأسطر والرسم البياني: تغييرات السلوك داخل أسطر لم تتغير، والاستدعاءات عبر دالة ثالثة، والمراجع التي لا يراها المفهرس كلها تفوته ([docs/drift.md](../drift.md#limitations)).
 - تحتاج أبرز نقاط سجل التغييرات إلى الشبكة ومفتاح؛ وبدونه تكون الملاحظات هي السجل المشتق العادي.
 - مستوى التحكم الموزّع غير مؤهل في هذه المراجعة: حالات قبوله الكاملة وتشغيلات المزوّدين الحية وحملات الأعطال معلّقة، فلا ينطبق عليه أي رقم للسعة أو الإنتاجية أو الإتاحة ([الحالة في هذه المراجعة](#مستوى-التحكم-في-hyperfide)).
-- بعض النصوص المولَّدة والمعرّفات التاريخية ما زالت تحمل اسم Codify: مرجع الإسقاط `refs/codify/projection`، ومجلد الفتحات `/tmp/codify-<uid>`، والنسخ الاحتياطية `.codify.bak`، و`.cgignore`، وإعدادات الامتداد `codify.*`.
 
 ## المجتمع
 

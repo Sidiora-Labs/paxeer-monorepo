@@ -1,5 +1,5 @@
-# Testdb
-This package contains an in memory DB for testing purpose only. The original code was copied from
-https://github.com/tendermint/tm-db/tree/v0.6.7 to decouple project dependencies.
+# Test database
 
-All credits and a big thank you go to the original authors!
+This package provides an in-memory B-tree database for tests. Keys and values
+returned by `MemDB` must be treated as read-only. Iterators must be closed by
+the caller. The database API follows [tm-db](https://github.com/tendermint/tm-db/tree/v0.6.7).

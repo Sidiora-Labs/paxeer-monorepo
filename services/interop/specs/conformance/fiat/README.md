@@ -23,8 +23,8 @@ Journey records carry:
 - `provider_facts`: the facts the certified provider returns — `provider`,
   `settlement`, `rail`, `evidence_class`, `amount`, `asset`, `destination`,
   `observed_at`, `hold_until`, and `fault` for a provider that refuses
-- `plane`: `pending`, `refused` or `executed`; an executed plane carries the
-  `receipt` fields (`signing_key_seed`, `sequence`, `amount`, `from`, `to`)
+- `plane`: an object whose `outcome` is `pending`, `refused` or `executed`;
+  an executed plane carries the `receipt` fields (`signing_key_seed`, `sequence`, `amount`, `from`, `to`)
 - `replay_at`: when set, the same journey is delivered twice and must return
   one outcome
 - `expect`: the declared `state` (with `until` or `hold_until`) or the exact
@@ -36,9 +36,8 @@ Journey records carry:
 `include_str!` and runs every record through the production `TokenReference`,
 `VerifiedProviderFacts` and `FiatAdapter` types against a real `GatewayCore`,
 so the suite the deployment pins is the suite the tests exercise. The canonical
-receipt an executed journey settles against is signed here from the record's own
-key seed, because a receipt signature is a live signer's output over canonical
-bytes and cannot be a literal.
+receipt an executed journey settles against is signed at runtime from the
+record's deterministic test-key seed.
 
 `services/interop/deploy/gateway/render.py` derives the suite identifier, the vector
 count and the SHA-256 the gateway configuration declares from these files.

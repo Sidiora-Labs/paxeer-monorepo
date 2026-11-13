@@ -27,7 +27,9 @@
 
 Hyperfide एक ही बाइनरी, `hyperfide`, में समाया हुआ एजेंट वर्कफ़्लो इंजन है। यह कोड से आगे की उन चार चीज़ों को सँभालता है जिनकी हर प्रोजेक्ट को ज़रूरत होती है — कोड **क्या है**, वह **यहाँ तक कैसे पहुँचा**, **आगे क्या होना है**, और रास्ते में **क्या सीखा गया** — और चारों को इंसानों और AI एजेंटों, दोनों के लिए उपलब्ध कराता है।
 
-यह ट्री विकासाधीन Hyperfide 2.0 है: `hyperfide version` `2.0.0-dev` छापता है, और इसमें कुछ भी production रिलीज़ नहीं है। Hyperfide, Codify से निकला है, जिसकी 1.x रिलीज़, फ़ीचर IDs (जैसे `codify-v15` और `codify-v16`) और कमिट इतिहास अपने मूल नाम रखते हैं। 2.0 उसी लोकल CLI के चारों ओर एक [वितरित control plane](#hyperfide-कंट्रोल-प्लेन) जोड़ता है — supervisory सर्वर पर एक leader और feature managers, builds और एजेंटों के लिए remote sandboxes, और authority के रूप में PostgreSQL।
+`hyperfide version` का आउटपुट `2.2.0` है। लोकल CLI ग्राफ़ SQLite में रखती है; वितरित control plane PostgreSQL का उपयोग करता है।
+
+इम्प्लीमेंटेशन पथ और बिल्ड कमांड `tools/hyperfide` के सापेक्ष हैं।
 
 > **संगतता।** `hyperfide` मानक (canonical) कमांड है। `cg` एक deprecated compatibility alias है जो उसी executable से इंस्टॉल होता है, समान arguments, JSON और exit codes के साथ; यह स्वीकृत रिलीज़ की समर्थित compatibility window तक बना रहता है और केवल किसी बाद की रिलीज़ में हटाया जाता है जो इसकी घोषणा करे। नीचे हर उदाहरण `hyperfide` का उपयोग करता है; `cg` वही चीज़ चलाता है।
 
@@ -43,7 +45,7 @@ Hyperfide एक ही बाइनरी, `hyperfide`, में समाय�
 
 ये परतें एक-दूसरे को मज़बूत करती हैं: कमिट अपने आप उस टास्क से टैग होते हैं जिसे वे लागू करते हैं, मेमोरी उसी टास्क पर सामने आती हैं जिससे वे जुड़ी हैं, `hyperfide why` किसी सिंबल को उसके पीछे के निर्णयों तक ले जाता है, और `hyperfide spec trace` किसी भी टास्क से उसके सिंबल, कमिट और मेमोरी तक ले जाता है।
 
-**और यह कदमों के बीच भी मौजूद रहता है, सिर्फ़ उन पर नहीं।** `hyperfide work open` एक संक्षिप्त टास्क पैकेट से शुरू करता है, `hyperfide work update` केवल नए state/evidence/workspace बदलाव लौटाता है, `hyperfide event progress` गतिविधि को प्रगति समझे बिना loops पहचानता है, और `hyperfide guard` बताता है जब कोई edit घोषित दायरे से बाहर जाता है। बिल्ट-इन MCP सर्वर हर MCP-सक्षम एजेंट को 67 टूल, resources और prompts देता है, जबकि `hyperfide integrate` हर host के नेटिव कॉन्फ़िगरेशन की योजना बनाता, लागू करता और जाँचता है।
+**और यह कदमों के बीच भी मौजूद रहता है, सिर्फ़ उन पर नहीं।** `hyperfide work open` एक संक्षिप्त टास्क पैकेट से शुरू करता है, `hyperfide work update` केवल नए state/evidence/workspace बदलाव लौटाता है, `hyperfide event progress` गतिविधि को प्रगति समझे बिना loops पहचानता है, और `hyperfide guard` बताता है जब कोई edit घोषित दायरे से बाहर जाता है। बिल्ट-इन MCP सर्वर हर MCP-सक्षम एजेंट को 71 टूल, resources और prompts देता है, जबकि `hyperfide integrate` हर host के नेटिव कॉन्फ़िगरेशन की योजना बनाता, लागू करता और जाँचता है।
 
 **और यह एजेंटों को चलाता भी है, सिर्फ़ सेवा नहीं करता।** `hyperfide handoff` और `hyperfide resume` किसी टास्क को state खोए बिना एक सेशन से दूसरे तक ले जाते हैं, `hyperfide spec claim-next` खाली बैठे एजेंट को अगला टकराव-रहित टास्क atomically सौंपता है, और `hyperfide spec run` पूरी wave को Codex CLI या Claude Code सेशनों में बाँट देता है — हर claimed टास्क के लिए एक sandboxed child प्रोसेस, लॉग और prompt डिस्क पर, विफलता पर lease मुक्त।
 
@@ -148,7 +150,7 @@ Handoff टास्क से जुड़ी एक structured मेमोर
 
 ## इंस्टॉलेशन
 
-इस संशोधन में Hyperfide 2.0 सोर्स से बिल्ड किया जाता है। `scripts/install.sh` का one-line installer तब तक Hyperfide रिलीज़ के रूप में प्रचारित नहीं किया जाता जब तक distribution और rename टास्क (`spec/hyperfide/spec.kvx` में 25.4 और 26.2) बंद न हो जाएँ।
+`tools/hyperfide` में स्रोत से बिल्ड करें:
 
 निर्भरताएँ: एक C कंपाइलर, `python3` (बिल्ड इससे नेटिव components खोजता है), और SQLite, libcurl और OpenSSL के libcrypto के development packages (Debian और Ubuntu पर `libsqlite3-dev`, `libcurl4-openssl-dev`, `libssl-dev`)। tree-sitter runtime और grammars vendored हैं।
 
@@ -286,7 +288,7 @@ hyperfide recap -o - --agents codex          # to stdout, Codex sessions only
 hyperfide codemap                  # write CODEMAP.md (8000-token budget)
 hyperfide codemap --budget 3000    # tighter: least-referenced entries go first, each section counts what it left out
 hyperfide codemap --check          # exit 1 when CODEMAP.md is missing or stale; writes nothing
-hyperfide codemap -o - --json      # the same map as structured data
+hyperfide codemap --json      # the same map as structured data
 ```
 
 ### मेमोरी
@@ -312,11 +314,11 @@ Classify की गई मेमोरी जहाँ भी दिखती �
 
 | कमांड | विवरण |
 | --- | --- |
-| `hyperfide mcp` | MCP stdio सर्वर के रूप में चलता है (यह ख़ुद को `hyperfide` बताता है): 67 टूल, वर्कफ़्लो, हर फ़ीचर spec और agent context के लिए `hyperfide://` resources (पुराने `codify://` URIs अब भी पढ़े जाते हैं), और prompts `orient`, `start-work`, `review-change` और `close-task` |
+| `hyperfide mcp` | MCP stdio सर्वर के रूप में चलता है (यह ख़ुद को `hyperfide` बताता है): 71 टूल, वर्कफ़्लो, हर फ़ीचर spec और agent context के लिए `hyperfide://` resources (पुराने `codify://` URIs अब भी पढ़े जाते हैं), और prompts `orient`, `start-work`, `review-change` और `close-task` |
 | `hyperfide lsp` | Language Server (stdio) के रूप में चलता है — हर एडिटर के लिए, सिर्फ़ VS Code नहीं |
 | `hyperfide serve` | एडिटर के लिए एक JSON-RPC connection (stdio): हर MCP टूल, कोई भी `hyperfide` कमांड (`exec`), `cancel`, और sequence नंबर से pushed event subscriptions। निष्क्रिय होने पर यह न कोई lock रखता है, न इंडेक्स पास चलाता है। देखें [docs/events.md](../events.md#hyperfide-serve) |
 | `hyperfide tool list \| call <name> [json]` | MCP client के बिना shell से एक MCP टूल चलाता है |
-| `hyperfide integrate detect\|plan\|apply\|doctor [--no-plugin]` | Codex, Claude Code, Copilot/VS Code, Cursor, Gemini CLI, OpenCode, Zed, Windsurf, Cline और Continue के लिए क्षमता-सचेत सेटअप; `detect` डिफ़ॉल्ट है, planning केवल पढ़ती है, apply idempotent है और `.codify.bak` प्रतियों के साथ बैकअप लेता है |
+| `hyperfide integrate detect\|plan\|apply\|doctor [--no-plugin]` | Codex, Claude Code, Copilot/VS Code, Cursor, Gemini CLI, OpenCode, Zed, Windsurf, Cline और Continue के लिए क्षमता-सचेत सेटअप; `detect` डिफ़ॉल्ट है, planning केवल पढ़ती है, apply idempotent है और `.hyperfide-backups/<name>.<sha256>` प्रतियों के साथ बैकअप लेता है |
 | `hyperfide mcp-install` | `hyperfide integrate apply` का compatibility alias |
 | `hyperfide hook install` | एजेंट और git hooks जोड़ता है ताकि ग्राफ़ ताज़ा रहे और scope drift अपने आप सामने आए |
 | `hyperfide hook post-edit` | ख़ुद जुड़ा हुआ edit hook: stdin पर host का payload पढ़ता है और edit किए पाथ का एक लक्षित बैकग्राउंड सिंक और एक guard करता है — हर edit पर एक प्रोसेस, दो पूरे सिंक नहीं |
@@ -335,7 +337,7 @@ Hyperfide चार स्वतंत्र authorities को स्पष्�
 
 `hyperfide work open` उद्देश्य, मानदंड, अनुमत दायरा, स्वतंत्र state, मेमोरी, केंद्रित ग्राफ़ कॉन्टेक्स्ट, टेस्ट और आख़िरी event को एक पैकेट में जोड़ता है। उसका opaque revision `hyperfide work update` को दिया जाता है, जो केवल बदली state, evidence और workspace पाथ लौटाता है। `hyperfide work close` हर मानदंड को टिकाऊ evidence से जोड़ता है या उसे unverified चिह्नित करता है।
 
-Adapter registry MCP, instructions, skills, hooks, sessions और cloud execution के लिए native, portable या unavailable क्षमताएँ बताती है। Portable assets `.agents/` और context डायरेक्टरी (डिफ़ॉल्ट रूप से `.codify/`, `hyperfide.kvx` होने पर `.hyperfide/context/`) के नीचे रहते हैं; मौजूदा host configs वापस पाने योग्य `.codify.bak` प्रतियों के साथ merge होते हैं, और `integrate apply` `~/.codify/plugins/claude-code` के नीचे Claude Code plugin भी रेंडर करता है और `.codex/hooks.json` लिखता है (`--no-plugin` दोनों को छोड़ देता है)। Integrations लोकल `hyperfide` बाइनरी चलाते हैं, runtime records `.codegraph/graph.db` में रहते हैं, और इनमें से कुछ भी नेटवर्क कॉल नहीं करता या टेलीमेट्री नहीं भेजता।
+Adapter registry MCP, instructions, skills, hooks, sessions और cloud execution के लिए native, portable या unavailable क्षमताएँ बताती है। Portable assets `.agents/` और context डायरेक्टरी (डिफ़ॉल्ट रूप से `.codify/`, `hyperfide.kvx` होने पर `.hyperfide/context/`) के नीचे रहते हैं; मौजूदा host configs वापस पाने योग्य `.hyperfide-backups/<name>.<sha256>` प्रतियों के साथ merge होते हैं, और `integrate apply` `~/.codify/plugins/claude-code` के नीचे Claude Code plugin भी रेंडर करता है और `.codex/hooks.json` लिखता है (`--no-plugin` दोनों को छोड़ देता है)। Integrations लोकल `hyperfide` बाइनरी चलाते हैं, runtime records `.codegraph/graph.db` में रहते हैं, और इनमें से कुछ भी नेटवर्क कॉल नहीं करता या टेलीमेट्री नहीं भेजता।
 
 ### गवर्नेंस
 
@@ -395,7 +397,7 @@ Spec वर्कफ़्लो वह तरीक़ा है जिसस�
 
 Documentation कमांड spec कमांडों की तरह `-f <feature>` स्वीकार करते हैं। किसी फ़ीचर डायरेक्टरी का नाम बदलते समय, पूरे हो चुके टास्क `evidence_task = "original-feature/task-id"` से अपना मूल स्नैपशॉट attribution रख सकते हैं; नए स्नैपशॉट फिर भी मौजूदा फ़ीचर नाम उपयोग करते हैं।
 
-```ini
+```kvx
 [documentation]
 mode      = "auto"
 status    = "pending"
@@ -414,7 +416,7 @@ targets   = ["README.md", "docs/**", "CONTRIBUTING.md", "CHANGELOG.md"]
 
 एजेंट `claims.kvx` भरता है; Hyperfide `required.kvx` फिर से बनाता है। हर claim को एक कॉन्फ़िगर किया गया document और लोकल evidence नामित करना होता है। User guidance, developer guidance, रिलीज़ या migration नोट, exclusions और अनसुलझे items अलग fields में रहते हैं ताकि गायब evidence चुपचाप product गद्य न बन जाए। Checker कभी किसी canonical document को हटाता या नाम नहीं बदलता, कॉन्फ़िगर किए targets के बाहर writes कभी स्वीकार नहीं करता, और किसी भी विफलता के बाद अपना verification marker वापस ले लेता है।
 
-ये जाँचें संरचनात्मक आधार स्थापित करती हैं, हर वाक्य की सच्चाई नहीं: एजेंटों को तथ्यात्मक claims दर्ज करने होते हैं और समीक्षकों को उनका अर्थ परखना होता है। लोकल inline Markdown links की जाँच मौजूदा रिपॉज़िटरी गंतव्यों के लिए होती है; बाहरी URLs, fragment anchors, reference-style links और runtime व्यवहार प्रमाणित नहीं होते। गायब source evidence को unavailable लेबल किया जाता है। Generated पैकेट और markers `.codegraph/docs/` के नीचे रहते हैं; प्रोजेक्ट के स्वामित्व वाली Markdown या reStructuredText फ़ाइलें ही public आउटपुट रहती हैं। सभी छह operations MCP के ज़रिए भी उपलब्ध हैं, और VS Code closure item के साथ plan, packet, check और trace actions दिखाता है।
+Documentation operations CLI और MCP पर उपलब्ध हैं। Generated packets और markers `.codegraph/docs/` में रहते हैं; प्रोजेक्ट दस्तावेज़ public output हैं।
 
 ### Parallel मोड
 
@@ -437,7 +439,7 @@ Leases expire होते हैं, इसलिए lease पकड़े ह�
 
 जब प्रोजेक्ट में `.codegraph/` इंडेक्स भी हो, तो टास्क घोषित कर सकते हैं कि उनका implementation कैसा दिखता है। `hyperfide spec implemented` कमांड चलाए बिना source evidence जाँचता है; `hyperfide spec done` हक़ीक़त के मुक़ाबले executable qualification करता है:
 
-```ini
+```kvx
 [task.2.1]
 title   = "Check mode"
 symbols = ["checkMode"]      # must exist in the code graph
@@ -452,7 +454,7 @@ touches = ["src/*.ts"]       # a matching path must actually have changed
 
 Parallel मोड बीस एजेंटों को एक ही फ़ाइलें edit करने से रोकता है। Fleet मोड उन्हें एक ढाँचा देता है। `spec/workflow.kvx` एक hierarchy घोषित करता है — एक **main** एजेंट जो टास्क सूची का मालिक है और pull requests merge करता है, हर wave का एक **wave manager** जो main से कटी wave branch का मालिक है, और हर टास्क का एक **task worker** जो अपनी wave branch से कटी branch पर काम करता है — इसलिए सभी waves एक साथ चलती हैं, एक wave के टास्क अगल-बगल चलते हैं, और काम सत्यापित merges के ज़रिए ऊपर बहता है। `waves = parallel` (git 2.38 और नए पर डिफ़ॉल्ट) के साथ कोई टास्क अपने `requires` वाले टास्कों से पहले शुरू होकर projection पर बन सकता है; `done` सख़्त रहता है, हर land के बाद main हर लाइव wave branch में आगे merge होता है, और workers उसे `hyperfide fleet sync` से लेते हैं। `{wave}` और `{task}` के बिना templates पुराना ढाँचा रखते हैं: हर फ़ीचर का एक feature manager, हर wave का एक worker।
 
-```ini
+```kvx
 [hierarchy]
 enabled    = true
 main       = "main"
@@ -499,7 +501,7 @@ approve = ["land"]           # opt-in: wait for `hyperfide fleet approve`
 
 `hyperfide fleet up` पूरा पेड़ ख़ुद चलाता है। एक detached supervisor आपके नामित हर फ़ीचर को चलाता है (`--all`: काम बाकी वाला हर फ़ीचर, हर एक तब शुरू होता है जब उसके `[meta] requires` done हों), हर wave का एक manager और उसके workers साथ ज़िंदा, हर worker अपने worktree में और अपनी पहचान environment में लिए हुए। integration टेस्ट `tests/integration/35_fleet_e2e.sh` का एक अंश, जो supervisor को एक scripted custom driver से चलाता है:
 
-```
+```console
 $ hyperfide fleet up --foreground --all -n 3 --max-fail 5
 [fleet] alpha — a manager per wave (all at once) + 3 worker slot(s), driver custom, 48 wake(s)
 [fleet] waves parallel — a task may start ahead of its requires, on the projection (default, git >= 2.38)
@@ -580,7 +582,7 @@ Hyperfide किसी कॉन्फ़िगरेशन फ़ाइल क�
 ऐसी फ़ाइल लिखता है (अंश; वह टिप्पणी किए गए
 `[projection]`, `[fleet]` और `[hooks]` keys भी सूचीबद्ध करता है):
 
-```
+```kvx
 [sync]
 auto = true                 # implicit syncs: hooks, read-command freshness, MCP/LSP/serve/watch
 
@@ -626,13 +628,13 @@ read कमांडों पर freshness जाँच, pre-commit इंड�
 
 ## एजेंटों को चलाना
 
-ऊपर की हर चीज़ ऐसे एजेंट की सेवा करती है जो पहले से मौजूद है। Hyperfide वह चीज़ भी हो सकता है जो उन्हें शुरू करे: टर्मिनल से `hyperfide spec run` के ज़रिए, या VS Code से एक-एक टास्क करके।
+`hyperfide spec run` टर्मिनल से एजेंट शुरू करता है। प्लेटफ़ॉर्म ऐप टास्क और fleet interfaces देता है।
 
 ### Orchestrator: `hyperfide spec run`
 
 `hyperfide spec run` parallel spec को चलते एजेंट सेशनों में बदलता है। यह वही primitives दोहराता है जो इंसानों का fleet उपयोग करता — `claim-next` टकराव-रहित टास्क चुनता है, `resume --prompt` उसकी briefing लिखता है — फिर हर slot के लिए एक driver प्रोसेस fork करता है, हर एक को prompt stdin पर देता है और उसका आउटपुट प्रति-टास्क लॉग में पकड़ता है:
 
-```
+```console
 $ hyperfide spec run -n 1
 [run] task 1.1 → custom (agent run-1, log .codegraph/agents/drv-1.1.log)
 [run] task 1.1 exit 0 → status done
@@ -646,7 +648,7 @@ $ hyperfide spec run -n 1
 
 कॉन्फ़िगरेशन `spec/workflow.kvx` में रहता है, वर्कफ़्लो के स्वामित्व वाली बाकी हर चीज़ के साथ:
 
-```ini
+```kvx
 [agents]
 driver      = "codex"        # codex | claude | custom
 max         = 2              # default slot count (-n overrides); 2 when absent
@@ -666,13 +668,7 @@ Orchestration के लिए `.codegraph/` इंडेक्स (leases व�
 
 ### Agent view (VS Code)
 
-Hyperfide sidebar में एक स्थायी **Agent** chat view है: एक्सटेंशन एक [Agent Client Protocol](https://agentclientprotocol.com) client है जो Claude Code या Codex को उनके ACP adapter (`claude-code-acp` / `codex-acp`, या `codify.acp.customCommand` के ज़रिए कोई भी ACP एजेंट) से आपके पहले संदेश पर आलस्य से (lazily) शुरू करता है — कोई टास्क ज़रूरी नहीं, header में driver picker, और रीसेट के लिए New Chat। View streamed जवाब और thinking, diffs वाले लाइव status cards के रूप में tool calls, एजेंट की योजना, और inline buttons के रूप में permission requests रेंडर करता है। हर सेशन में **Hyperfide का MCP सर्वर अपने आप जुड़ता है** (`hyperfide mcp`), इसलिए एजेंट के पास बिना किसी प्रति-रिपो config के ग्राफ़, spec और मेमोरी टूल होते हैं; एजेंट की ACP फ़ाइल reads और writes एक्सटेंशन संभालता है और उन्हें workspace तक सीमित रखता है।
-
-Chat ख़ुद एक असली chat है: headings, tables और एक क्लिक में कॉपी होने वाले fenced code blocks वाले markdown जवाब, एजेंट का बताया हर फ़ाइल पाथ उस लाइन तक क्लिक करने योग्य, collapsed thinking, इतिहास वाला अपने आप आकार लेने वाला composer, और एक context bar जिसमें फ़ीचर, जुड़े टास्क का लाइव status और driver होते हैं। `/` टाइप करने पर **Hyperfide की अपनी क्रियाओं** का palette खुलता है — `/brief`, `/next`, `/context`, `/search`, `/impact`, `/why`, `/changes`, `/review`, `/tests`, `/check`, `/status`, `/remember`, `/handoff`, `/task`, `/open` — जिनमें से हर एक workspace में असली `hyperfide` कमांड चलाता है, आउटपुट एक card के रूप में दिखाता है, *और* उसे context के रूप में एजेंट को सौंपता है। "अगर मैं इसे बदलूँ तो क्या टूटेगा?" पूछना और `hyperfide impact` चलाना एक ही इशारा है। उनके अलावा, **`hyperfide` का हर टूल एक slash कमांड है** — palette टूल सूची से बनता है, argument hints और typing हर टूल के schema से लिए जाते हैं (`/get_context auth flow`, `/spec_claim id=2.1 ttl=20`) — इसलिए chat उस हर चीज़ तक पहुँचती है जो Hyperfide कर सकता है। और fleet तक भी: `/fleet` पेड़ और runs दिखाता है, `/attach <agent>` किसी fleet एजेंट का लाइव transcript फ़ॉलो करता है ताकि आप आगे जो टाइप करें वह उसे steer करे, `/steer <agent> <message>` एक संदेश भेजता है, और approval requests व escalations Approve और Reject वाले cards के रूप में आते हैं। Transcripts windowed रूप में रेंडर होते हैं, इसलिए लंबा transcript एक साथ पूरा रेंडर नहीं होता।
-
-**Start Agent Session on Task** उसी chat को बोर्ड के अनुशासन के साथ चलाता है: यह टास्क claim करता है, शुरुआती prompt `hyperfide resume --task <id> --prompt` से तैयार करता है, और सेशन view में चलाता है (या, view व्यस्त हो तो, उसके बगल में एक editor पैनल में — एक साथ चलने वाले हर task सेशन को अपना पैनल मिलता है)। इसके बजाय क्लासिक seeded टर्मिनल के लिए `codify.agent.interface: "terminal"` सेट करें — adapter शुरू न हो पाने पर वह रास्ता अपने आप भी पेश किया जाता है।
-
-**Run Agent Headless on Task** claim + prompt को बैकग्राउंड VS Code task (`codex exec --sandbox workspace-write` या `claude -p`) के रूप में चलाता है और exit को एक notification के रूप में बताता है। **Run Wave with Agents** टर्मिनल में `hyperfide spec run -n <codify.agent.parallelism>` चलाता है। **Hand Off Task** और **Resume Task in Agent Session** `hyperfide handoff` और `hyperfide resume` को लपेटते हैं, और **Stop Agent Session** एक सेशन समाप्त करता है — टास्क अधूरा रहते पैनल या टर्मिनल बंद हो तो handoff पेश किया जाता है और claim release होता है। हर view एक `hyperfide serve` connection पर pushed events से अपडेट होता है, इसलिए कोई polling नहीं; पुरानी बाइनरी के साथ, सेशन चलते समय बोर्ड हर 10 सेकंड पर polling पर लौट आता है। हर टास्क पर उसका lease रखने वाले एजेंट का निशान होता है। देखें [extensions/vscode/README.md](../../../tools/hyperfide/extensions/vscode/README.md)।
+प्लेटफ़ॉर्म ऐप में टास्क, Asks और fleet views हैं। VS Code एक्सटेंशन navigation, KVX editing और प्लेटफ़ॉर्म links देता है। [एडिटर गाइड](../hyperfide/editors.md) देखें।
 
 ## Hyperfide कंट्रोल प्लेन
 
@@ -718,11 +714,9 @@ $ node core/control-plane/dist/control.js --policy /nonexistent --spec-revision 
 
 इस पेज के बाकी हिस्से के पाठक के लिए इससे क्या बदलता है:
 
-- लोकल `hyperfide` CLI control-service client नहीं है और कोई वितरित authority नहीं देता। `hyperfide fleet down --drain` CLI-निगरानी वाला run रोकता है; यह remote sandboxes नहीं रोकता।
-- सेवाओं के लिए डेटाबेस settings `HYPERFIDE_<ROLE>_PRIMARY_DATABASE_URL` (fallback `DATABASE_URL`), एक वैकल्पिक `HYPERFIDE_<ROLE>_REPLICA_DATABASE_URL`, और migration operator के लिए `HYPERFIDE_MIGRATION_DATABASE_URL` हैं; सीमित pool settings operations गाइड में हैं।
-- Migration components ऐतिहासिक SQLite state को उसकी provenance के साथ import करते हैं, `codify.kvx` का `hyperfide.kvx` में और `.codify/agent-context.md` का `.hyperfide/context/agent-context.md` में rename बैकअप के साथ योजनाबद्ध करते हैं, और पुराने `CG_*`/`CODIFY_*` variables को aliases मानते हैं। पुराना `done` flag इतिहास के रूप में import होता है, मौजूदा qualification के रूप में नहीं।
+- Authority descriptor local या distributed mode चुनता है। `hyperfide authority mode` यह चयन दिखाता है; `hyperfide fleet down --drain` supervised local run रोकता है।
 
-**इस संशोधन में स्थिति।** `spec/hyperfide/spec.kvx` अपने 113 टास्कों में से 8 को `done` दर्ज करता है; बाकी, जिनमें rename, distribution और release टास्क (25.x, 26.x, 28.x) और live-provider, schedule-replay और fault campaigns (27.2–27.4) शामिल हैं, `pending` हैं। टास्क evidence `artifacts/hyperfide/tasks/<id>/evidence-index.json` में रहता है; वे task-component रसीदें हैं, पूरे acceptance cases नहीं। कोई live provider, fleet, throughput, latency या restore सीमा मापी नहीं गई है। सैकड़ों एजेंट और Railway और Blaxel pools में 100 एक साथ चलने वाले sandboxes योजना के लक्ष्य हैं, मापी गई क्षमता या उपलब्धता नहीं, और provider account सीमाएँ deployment inputs हैं जिनका qualification अभी बाकी है।
+Configured resource limits admission नियंत्रित करते हैं। Capacity और latency के माप deployment और workload पर निर्भर करते हैं।
 
 ## एडिटर
 
@@ -749,28 +743,13 @@ vim.lsp.start({ name = "hyperfide", cmd = { "hyperfide", "lsp" },
 
 ### VS Code एक्सटेंशन
 
-`extensions/vscode/` में Hyperfide एक्सटेंशन है — पूरा वर्कफ़्लो एडिटर में:
-
-- **ग्राफ़ से कोड नेविगेशन।** यह `hyperfide lsp` चलाता है और उससे LSP में बात करता है, इसलिए go-to-definition, find-references, workspace symbols और code lens हर इंडेक्स की गई भाषा में बिना कंपाइलर और बिना कॉन्फ़िगरेशन के काम करते हैं। Hover दिखाता है कि सिंबल क्या है, उसके कितने रेफ़रेंस हैं, और उसके बारे में दर्ज निर्णय।
-- **Scope drift एक squiggle के रूप में।** चालू टास्क के घोषित `touches` से बाहर की फ़ाइल edit करने पर Problems पैनल में edit के क्षण ही चेतावनी आती है। सलाहकारी, कभी त्रुटि नहीं।
-- **लाइव टास्क पेड़।** टास्क feature → section → wave में समूहित, जैसे spec लिखा जाता है और जैसे fleet काम बाँटता है। हर पंक्ति पर वह सब होता है जो तय करता है कि आप उसे उठा सकते हैं या नहीं: status, lease रखने वाला एजेंट और उसका role, branch, और वे requires जो अभी पूरे नहीं हुए। status, wave या owner से फ़िल्टर करें और id, शीर्षक, section, owner, सिंबल या पाथ से खोजें; सक्रिय फ़िल्टर view के शीर्षक में दिखता है और reload के बाद भी बना रहता है। हर टास्क का एक detail पैनल स्वीकृति मानदंड, do-steps, हल हुए स्थान सहित घोषित सिंबल, छुए पाथ, verify कमांड, टैग हुए कमिट और उसके दौरान लिखी मेमोरी दिखाता है। Start, complete, claim, release, टास्क के अपने worktree में verify कमांड चलाना, उसकी branch खोलना, और resume prompt कॉपी करना।
-- **टास्क बोर्ड से एजेंट सेशन।** किसी टास्क पर Claude Code या Codex सेशन शुरू करें — डिफ़ॉल्ट रूप से ACP agent पैनल में, या टर्मिनल में, या headless — handoff, resume, पूरी wave चलाना, और सेशन रोकना, बोर्ड पर लाइव lease निशानों के साथ। देखें [एजेंटों को चलाना](#एजेंटों-को-चलाना)।
-- **मेमोरी ब्राउज़र।** पूरी प्रोजेक्ट मेमोरी में फुल टेक्स्ट, type, Jev class, टास्क, branch और तारीख़ के फ़िल्टरों के साथ, एक detail pane जिसके सिंबल और फ़ाइलें वापस कोड से जुड़ते हैं, और actions के रूप में supersede, forget, classify-with-Jev और promote-to-skill।
-- **Fleet शुरू करें, और उसे लाइव देखें।** **Start fleet** — फ़ीचर के `spec.kvx` पर CodeLens, fleet view का शीर्षक, या command palette — योजना का preview दिखाता है (roles और बजट, dry run जो एजेंट और branches spawn करता, अनुमानित टकराव, जो पहले से चल रहा है) और पुष्टि पर `hyperfide fleet up` चलाता है; Stop (अभी या drain), Pause और Resume view पर हैं। Fleet पेड़ Main Gideon, managers और workers को हर branch, worktree, attempt, heartbeat और merge state के साथ दिखाता है, साथ में हर एजेंट ने आख़िरी बार क्या कहा या किया, उसके tokens और लागत, और stall, retry और escalation badges; pending approvals ऐसी पंक्तियाँ हैं जिनसे आप फ़ैसला करते हैं, और किसी एजेंट पर क्लिक करने से उसका transcript खुलता है। Begin, merge-up, land, PR, checkpoint और open-worktree actions के रूप में बने रहते हैं। Refresh कभी pull request नहीं खोलता, और merge state केवल वही है जो branch registry साबित कर सकती है।
-- **एक connection पर लाइव।** `serve` वाली बाइनरी के साथ एक्सटेंशन हर कॉल और हर event के लिए एक `hyperfide serve` child रखता है, pushed events से views को patch करता है, और अपनी polling बंद कर देता है। `codify.serve: false`, या पुरानी बाइनरी, shell कमांड चलाने और polling पर लौटती है।
-- **एक Actions मेनू** जो brief, review, test-impact, why, check, guard, snapshot, spec authoring और hook installation को कवर करता है। रिपोर्ट रेंडर किए markdown के रूप में खुलती हैं।
-- **kvx editing।** किसी `requires` entry पर go-to-definition उस टास्क पर ले जाता है; completion वे keys पेश करता है जिन्हें टास्क वास्तव में समझता है; outline हर requirement और टास्क सूचीबद्ध करता है।
-- **एक refresh scheduler।** हर trigger — pushed event, spec फ़ाइल का बदलना, turn का ख़त्म होना, कमांड का पूरा होना, poll — `hyperfide` कॉल की एक ही चेन से होकर जाता है: बौछारें debounce होकर एक run बनती हैं, runs के बीच दो सेकंड का अंतर रहता है, और उड़ान में चल रही चेन के पीछे अधिकतम एक अगला run कतार में रहता है। हर चेन तीन-सेकंड की freshness window के भीतर बैकग्राउंड प्राथमिकता पर एक बार सिंक करती है और किसी दूसरे प्रोसेस के पास का कभी इंतज़ार नहीं करती। एक्सटेंशन `graph.db` को **नहीं** देखता — उसका अपना सिंक उसे लिखता है, और वह watcher हर refresh को अगले refresh में बदल देता था।
-
-एक्सटेंशन की कोई निर्भरता और कोई बिल्ड स्टेप नहीं — इसके Language Server client सहित, जो ठीक इसी वजह से हाथ से लिखा गया है।
+`hyperfide-language-client` एक्सटेंशन `hyperfide lsp` चलाता है, KVX editing देता है और index health दिखाता है। `hyperfide.binaryPath` और `HYPERFIDE_PLATFORM_URL` सेट करें। **Open Current Task in Platform** और **Open Current File in Platform** कमांड प्लेटफ़ॉर्म ऐप खोलते हैं। [एक्सटेंशन README](../../../tools/hyperfide/extensions/vscode/README.md) देखें।
 
 ```sh
 cd extensions/vscode
-npx @vscode/vsce package        # produces codify-workflow-2.0.0-dev.vsix
-code --install-extension codify-workflow-2.0.0-dev.vsix --force
+npx @vscode/vsce package
+code --install-extension hyperfide-language-client-2.2.0.vsix --force
 ```
-
-एक्सटेंशन Hyperfide Workflow के रूप में दिखता है; उसका package और Marketplace पहचान अपने ऐतिहासिक नाम रखते हैं (`codify-workflow`, `SidioraLabs.codify-workflow`), और वैसे ही उसकी `codify.*` settings और command ids भी। हर कमांड एक `hyperfide.*` id के नीचे भी दर्ज है, और बाइनरी `hyperfide.binaryPath` (या पुराने `codify.binaryPath`; दोनों का मेल होना चाहिए) से मिलती है, डिफ़ॉल्ट रूप से `PATH` पर `hyperfide`। देखें [extensions/vscode/README.md](../../../tools/hyperfide/extensions/vscode/README.md)। कोई भी दूसरा एडिटर अपने LSP client को `hyperfide lsp` की ओर इंगित करके वही नेविगेशन पाता है।
 
 ## डेवलपमेंट
 
@@ -783,11 +762,11 @@ make hyperfide-services  # build the TypeScript control services (after make hyp
 make hyperfide-check     # type-check them
 ```
 
-`make release` `scripts/release.sh` चलाता है, जो एक remote executor पर checksum-युक्त रिलीज़ बनाता है और उसे कभी प्रकाशित नहीं करता। इसे `scripts/release.sh --output DIR` और `HYPERFIDE_BUILD_PLACEMENT=remote` चाहिए, साथ में वह pinned Node, npm और Python टूलचेन जिसकी यह जाँच करता है; सादा `make release` कोई `--output` नहीं देता और `hyperfide release: --output is required` के साथ रुक जाता है।
+`make release` कमांड `tools/repository/release.sh --output "$(RELEASE_DIR)"` चलाती है; `RELEASE_DIR` का डिफ़ॉल्ट `build/release` है। इसके लिए `HYPERFIDE_BUILD_PLACEMENT=remote` और तय toolchain चाहिए। यह checksums के साथ पैकेज बनाती है, प्रकाशित नहीं करती।
 
 रिपॉज़िटरी संरचना:
 
-```
+```text
 core/native/src/                 C modules and focused headers; core/native/src/cg.h is the shared core header
 core/native/src/hyperfide/       native Hyperfide components: branding, sandbox supervisor,
                      launch, readiness, preparation, transport, control client
@@ -819,9 +798,8 @@ tests/fixtures/      sample polyglot project, a spec repo with golden outputs,
                      an explore project with gold queries,
                      stand-ins for curl, gh, and an OpenAI endpoint, and a
                      scripted fleet driver
-extensions/vscode/      VS Code extension (plain JS): kvx language, task tree,
-                     agent panel, memory browser, live fleet view, serve client
-scripts/             install/uninstall scripts (not advertised for 2.0 yet),
+extensions/vscode/  VS Code language client, KVX editing, index status, platform links
+tools/repository/    install/uninstall scripts,
                      release construction, native component discovery
 spec/hyperfide/      the Hyperfide 2.0 specification, design and contracts
 artifacts/hyperfide/ per-task evidence indexes
@@ -858,11 +836,9 @@ spec-render के golden आउटपुट मूल Go specgen से बन�
 - क्वेरी डिफ़ॉल्ट रूप से मौजूदा branch पर चलती हैं। कई `--branch <name>` और `--all-branches` स्वीकार करती हैं, पर ग्राफ़ traversal और inspection को एक branch चाहिए; जहाँ समर्थित है, cross-branch hits लेबल होते हैं। हर कमांड का दायरा उसकी help में देखें।
 - `hyperfide fleet` `git` और `gh` को subprocesses के रूप में चलाता है। `gh` के बिना `pr` और `checkpoint` कमांड चलाने के बजाय छापते हैं, और `checkpoint` केवल उन pull requests को अपना मानता है जिनकी head branch manager के branch template से `{feature}` तक मेल खाती है (डिफ़ॉल्ट रूप से `wave/`, पुराने ढाँचे में `feature/`)।
 - Jev को नेटवर्क और `OPENROUTER_API_KEY` चाहिए। मूल चक्र में कुछ भी इस पर निर्भर नहीं, और Jev का कोई जवाब exit code नहीं बदलता।
-- Fleet supervisor प्रति प्रोजेक्ट एक है और एजेंटों को उनके CLI से spawn करता है; उन्हें authenticate नहीं करता। `spend` बजट driver द्वारा बताई लागत पर निर्भर है, केवल Claude Code को turn के बीच steer किया जा सकता है, और `retry` approval gate स्वीकार होता है पर अभी लागू नहीं होता। बाकी [docs/hierarchy.md](../hierarchy.md#limitations) में है।
 - Drift detection लाइन- और ग्राफ़-स्तरीय है: अपरिवर्तित लाइनों के भीतर व्यवहार बदलाव, किसी तीसरे फ़ंक्शन से होकर कॉल, और इंडेक्सर को न दिखने वाले रेफ़रेंस छूट जाते हैं ([docs/drift.md](../drift.md#limitations))।
 - Changelog highlights को नेटवर्क और key चाहिए; key के बिना नोट सादा derived रिकॉर्ड होते हैं।
 - वितरित control plane इस संशोधन में qualified नहीं है: उसके पूरे acceptance cases, live provider runs और fault campaigns लंबित हैं, इसलिए उस पर कोई क्षमता, throughput या उपलब्धता आँकड़ा लागू नहीं होता ([इस संशोधन में स्थिति](#hyperfide-कंट्रोल-प्लेन))।
-- कुछ generated टेक्स्ट और ऐतिहासिक पहचानकर्ता अब भी Codify नाम रखते हैं: projection ref `refs/codify/projection`, `/tmp/codify-<uid>` slot डायरेक्टरी, `.codify.bak` बैकअप, `.cgignore`, और एक्सटेंशन की `codify.*` settings।
 
 ## समुदाय
 

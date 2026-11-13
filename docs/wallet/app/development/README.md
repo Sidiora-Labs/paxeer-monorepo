@@ -4,12 +4,12 @@ Run every command from `apps/wallet`.
 
 ## Setup
 
-- Node 20 (`.nvmrc`) and pnpm.
-- The app links the wallet SDK from `../../sdk/wallet` (`"@paxeer/wallet": "link:../../sdk/wallet"`); build it first from `services/wallet` with `pnpm install` and `pnpm -r --filter ../../sdk/wallet build`.
+- Node 22.22.0 (`.nvmrc`) and pnpm 10.34.9 (`package.json`).
+- The app links the wallet SDK from `../../sdk/wallet` (`"@paxeer/wallet": "link:../../sdk/wallet"`); build it first from `services/wallet` with `pnpm install --frozen-lockfile --filter ../../sdk/wallet...` and `pnpm --filter ../../sdk/wallet... run build`.
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm dev                       # http://localhost:3099
+pnpm dev                       # http://localhost:3099/wallet
 ```
 
 Set the build-time variables listed in the [app README](../../../../apps/wallet/README.md#configuration) in the environment, or in a local `.env.local`, which git ignores.

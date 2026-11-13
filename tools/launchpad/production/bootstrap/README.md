@@ -34,24 +34,21 @@ contract root. Standalone `contracts/run.sh` requires `CONTRACT_SOURCE_ROOT` and
 
 ## Current-source baseline gate
 
-The launchpad baseline runner expects its own production-system specification
-and reviewed [check registry](check-registry.json). The configured invocation is:
+The launchpad baseline runner requires a reviewed production-system specification
+with its task `0.1` schema and the [check registry](check-registry.json). Set the
+shell variable `LAUNCHPAD_SPEC_FILE` to that specification and
+`QUALIFICATION_OUTPUT_DIR` to the private output directory before running:
 
 ```sh
 python3 tools/launchpad/production/qualify.py \
   --task 0.1 \
-  --spec launchpad/spec/production-system/spec.kvx \
+  --spec "$LAUNCHPAD_SPEC_FILE" \
   --registry tools/launchpad/production/bootstrap/check-registry.json \
   --contract-root contracts/launchpad \
-  --evidence-dir launchpad/evidence/production-system/qualification \
+  --evidence-dir "$QUALIFICATION_OUTPUT_DIR" \
   --require-current-source
 ```
 
-The configured `launchpad/spec/production-system/spec.kvx` is absent from this
-checkout. The command needs that reviewed launchpad specification restored or an
-explicit reviewed `--spec` file with the runner's expected task schema. Do not
-substitute `spec/layerx-merge/spec.kvx`: this is bootstrap task `0.1`, not a
-layerx-merge task gate.
 The runner verifies tools, dependency integrity and source provenance, starts
 loopback fixtures, deploys contracts on a private EVM, and executes registered
 Go, SDK and web checks. At most two contiguous Go test suites overlap; individual

@@ -28,7 +28,7 @@ Each file holds a JSON array of records:
 
 `services/interop/crates/layerx-ucp/tests/conformance_vectors.rs` reads these files with
 `include_str!` and runs every record through the production `MerchantProfile`,
-`PaymentHandler`, `IdempotencyKey`, `CheckoutStatus` and `UcpCapability` types,
+`PaymentHandler`, `UcpIdempotencyKey`, `CheckoutStatus` and `Capability` types,
 so the suite the deployment pins is the suite the tests exercise.
 
 Two cases in that file are not vectors and are not counted: the crate descriptor

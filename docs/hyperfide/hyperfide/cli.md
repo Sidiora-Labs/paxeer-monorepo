@@ -16,3 +16,5 @@ receives `HYPERFIDE_REPO_ROOT` set to this absolute root, the inherited environm
 and streams, and all arguments unchanged. Its exit status is preserved.
 An unavailable CLI prints the locations searched to stderr and exits 69.
 See also [the manual page](hyperfide-platform.1).
+
+In this monorepo, the bundled executable is `tools/hyperfide/apps/cli/bin/hyperfide-platform`. Set `HYPERFIDE_PLATFORM_BIN` to its absolute path when using the checkout directly from the monorepo root.

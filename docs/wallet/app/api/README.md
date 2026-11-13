@@ -1,6 +1,8 @@
 # Wallet app server routes
 
-Every server route lives under `src/app/api` and runs inside the Next.js app. Proxies forward only to fixed or configured upstream origins, bound path segments and query parameters, and convert upstream failures into public error codes through `src/server/http.ts`.
+Every server route lives under `apps/wallet/src/app/api` and runs inside the Next.js app.
+The route paths below are under the `/wallet` base path; source paths are relative
+to `apps/wallet`. Proxies forward only to fixed or configured upstream origins, bound path segments and query parameters, and convert upstream failures into public error codes through `src/server/http.ts`.
 
 | Route | Methods | Upstream or store | Notes |
 | --- | --- | --- | --- |

@@ -2,9 +2,8 @@
 
 All seven JSON profiles in this directory intentionally sign for EVM chain
 **125** (`0x7d`). Their `qualification-chain-125-*` metric labels identify that
-environment. The historical autobake name describes the workload only; it no
-longer selects the retired autobake network. These are qualification workloads
-for an operator-controlled, isolated chain-125 deployment, using root RPC URLs.
+environment. The autobake name describes the workload. These are qualification
+workloads for an operator-controlled, isolated chain-125 deployment, using root RPC URLs.
 The local and Docker profiles use ports reachable from the **CLI's** network
 namespace. In a container, loopback means that container; select root RPC URLs
 reachable on its network or deliberately use host networking where supported.
@@ -29,7 +28,6 @@ use**; contract workloads also require successful deployment and token allocatio
 Without that funding integration these profiles support dry-run generation only,
 not a claim of fee-paying network throughput. Matching chain ID alone does not
 prove funding, network identity, transaction admission, or successful receipts.
-See the funding wiring request in `repair_m823.kvx`.
 
 The autobake transfer profile writes indented JSON to
 `evm_transfer_report.json` in the process's current working directory. That

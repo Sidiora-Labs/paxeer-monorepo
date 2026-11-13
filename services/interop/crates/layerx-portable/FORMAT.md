@@ -2,8 +2,8 @@
 
 The current receipt format is `layerx-receipt-proof-v2`. The public API exports
 `PortableReceiptV2`, `ReceiptKeyEntry`, `PortableVerifiedReceiptV2` and
-`verify_portable_json`. Historical formats are described only in the
-[retired migration appendix](#retired-v1-migration-appendix).
+`verify_portable_json`. The verifier refuses other format identifiers with
+`PortableReceiptError::UnsupportedFormat`.
 
 Paxeer mainnet-beta is one network, chain ID 125 (`0x7d`). The kernel participates
 in that network and proposes blocks; block commit is finality. A portable proof
@@ -172,14 +172,3 @@ kind matching, typed results and digest binding. The
 [independent verifier harness](tests/independent_verifier.rs) covers receipt
 portability with the Python implementation and independently supplied fixture
 keys. These sources do not establish live-network settlement or verifier provenance.
-
-## Retired v1 migration appendix
-
-The historical `layerx-receipt-proof-v1` format used base64url byte strings,
-batch authorization and an `AuthorizedBatch` verification path. These are
-retired pre-merge interfaces, not current importer options.
-`verify_portable_json` refuses v1 with `PortableReceiptError::UnsupportedFormat`;
-changing only the format label or re-encoding old fields does not migrate a proof.
-Acquire a current sequencer-signed ProtocolReceipt v2 and independently pinned
-receipt keys, then export and verify it through the v2 path above. Historical
-batch evidence does not establish current Paxeer block-commit finality.

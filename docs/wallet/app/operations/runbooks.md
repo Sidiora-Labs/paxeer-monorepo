@@ -20,9 +20,9 @@ Stop promotion, preserve the failing artifact and correlation evidence, and acti
 
 Use the submitted hash, selected chain, account, nonce, and durable operation state; do not infer success from a local send response. Query an approved RPC and indexer until the bounded reconciliation deadline, distinguish pending, replaced, dropped, reverted, and confirmed states, and show stale or unavailable data explicitly. Never resubmit without a new user approval.
 
-## Chain reorganization
+## Conflicting chain observations
 
-Mark affected confirmations stale, retain the original hash and block observation, and re-query the canonical chain until the configured finality threshold is re-established. Roll back derived portfolio or activity state without rewriting the signed intent. Surface replacement, revert, and balance effects separately.
+Paxeer receipts are final once their block is committed. Retain the transaction hash and block observations when RPC and indexer responses disagree. Recheck the selected chain, committed block and execution result through a current node, and mark derived portfolio or activity data stale while reconciling it. Preserve the signed intent and require a new approval for another payment.
 
 ## Compromised dApp origin
 

@@ -1,5 +1,3 @@
-<!-- Preserve the lifecycle and address-selection notes when refreshing ABI signatures. -->
-
 # Precompile ABIs
 
 Paxeer is one BFT network, with EVM chain id **125 (`0x7d`)**. The kernel is part of the network and proposes blocks; a receipt is final when its block is committed. Kernel accounts and EVM accounts use the same chain state. Tenant sub-chains are database domains, rather than separate infrastructure.
@@ -44,7 +42,7 @@ Spot ABIs map one-to-one to rails; they are not interchangeable. See [served spo
 | `vault.json` (`spot_vault`) | `0x0000000000000000000000000000000000001025` |
 | Share-token operations | Dynamic native ERC20 pointer returned by vault `shareTokens(address token)` |
 
-`0x1026` and `0x1027` have no registered spot precompile. Share balances are bank balances of `spot/share/<lowercase token address>`; the spot keeper mints and burns them inside vault transactions. The retained `share.json` includes Ownable and public mint/burn declarations that the native pointer does not serve. Share pointers emit ERC20 `Transfer` and `Approval`, without `OwnershipTransferred`. See [share creation and accounting](../../modules/spot/keeper/shares.go) and [served event selection](../../precompiles/spot/events.go).
+`0x1026` and `0x1027` have no registered spot precompile. Share balances are bank balances of `spot/share/<lowercase token address>`; the spot keeper mints and burns them inside vault transactions. The `share.json` ABI describes the native ERC20 pointer; share minting and burning are keeper operations. Share pointers emit ERC20 `Transfer` and `Approval`, without `OwnershipTransferred`. See [share creation and accounting](../../modules/spot/keeper/shares.go) and [served event selection](../../precompiles/spot/events.go).
 
 The distribution `staking_abi.json` is a test helper, not an additional ABI at `0x1007`. Send staking operations to the staking precompile at `0x1005`. The common ERC20 ABI is a contract template, with no fixed precompile address.
 
@@ -84,16 +82,16 @@ The current `XWebProgramRequested` schema is `(bytes32 indexed programId, uint64
 | launchpad | [`precompiles/launchpad/abi/SidioraNFT.json`](../../precompiles/launchpad/abi/SidioraNFT.json) | Registered SidioraNFT surface | 37 | Role ABI; resolve surface from state |
 | launchpad | [`precompiles/launchpad/abi/SidioraPool.json`](../../precompiles/launchpad/abi/SidioraPool.json) | Registered SidioraPool surface | 42 | Role ABI; resolve surface from state |
 | launchpad | [`precompiles/launchpad/abi/Treasury.json`](../../precompiles/launchpad/abi/Treasury.json) | Registered Treasury surface | 17 | Role ABI; resolve surface from state |
-| launchpad | [`precompiles/launchpad/abi.json`](../../precompiles/launchpad/abi.json) | `0x0000000000000000000000000000000000001017` | 113 | Direct ABI; generation 2 from `v6.12.0` |
+| launchpad | [`precompiles/launchpad/abi.json`](../../precompiles/launchpad/abi.json) | `0x0000000000000000000000000000000000001017` | 126 | Direct ABI; generation 2 from `v6.12.0` |
 | layerxanchor | [`precompiles/layerxanchor/abi.json`](../../precompiles/layerxanchor/abi.json) | `0x0000000000000000000000000000000000001014` | 21 | Retained ABI; retirement rules above |
 | layerxauth | [`precompiles/layerxauth/abi.json`](../../precompiles/layerxauth/abi.json) | `0x000000000000000000000000000000000000101C` | 10 | Merge-gated (`v7.0`) |
 | layerxbridge | [`precompiles/layerxbridge/abi.json`](../../precompiles/layerxbridge/abi.json) | `0x0000000000000000000000000000000000001016` | 7 | Registered; subject to module checks |
 | layerxchains | [`precompiles/layerxchains/abi.json`](../../precompiles/layerxchains/abi.json) | `0x000000000000000000000000000000000000101E` | 12 | Merge-gated (`v7.0`) |
 | layerxcustody | [`precompiles/layerxcustody/abi.json`](../../precompiles/layerxcustody/abi.json) | `0x0000000000000000000000000000000000001013` | 20 | Retained ABI; retirement rules above |
-| layerxexchange | [`precompiles/layerxexchange/abi.json`](../../precompiles/layerxexchange/abi.json) | `0x0000000000000000000000000000000000001015` | 12 | Historical; replaced by perps at `v6.12.0` |
+| layerxexchange | [`precompiles/layerxexchange/abi.json`](../../precompiles/layerxexchange/abi.json) | `0x0000000000000000000000000000000000001015` | 13 | Historical; replaced by perps at `v6.12.0` |
 | layerxledger | [`precompiles/layerxledger/abi.json`](../../precompiles/layerxledger/abi.json) | `0x000000000000000000000000000000000000101A` | 18 | Merge-gated (`v7.0`) |
-| layerxpay | [`precompiles/layerxpay/abi.json`](../../precompiles/layerxpay/abi.json) | `0x000000000000000000000000000000000000101B` | 57 | Merge-gated (`v7.0`) |
-| layerxprograms | [`precompiles/layerxprograms/abi.json`](../../precompiles/layerxprograms/abi.json) | `0x000000000000000000000000000000000000101D` | 35 | Merge-gated (`v7.0`) |
+| layerxpay | [`precompiles/layerxpay/abi.json`](../../precompiles/layerxpay/abi.json) | `0x000000000000000000000000000000000000101B` | 59 | Merge-gated (`v7.0`) |
+| layerxprograms | [`precompiles/layerxprograms/abi.json`](../../precompiles/layerxprograms/abi.json) | `0x000000000000000000000000000000000000101D` | 36 | Merge-gated (`v7.0`) |
 | layerxverify | [`precompiles/layerxverify/abi.json`](../../precompiles/layerxverify/abi.json) | `0x0000000000000000000000000000000000001012` | 5 | Retained ABI; retirement rules above |
 | oracle | [`precompiles/oracle/abi.json`](../../precompiles/oracle/abi.json) | `0x0000000000000000000000000000000000001008` | 2 | Retained ABI; retirement rules above |
 | p256 | [`precompiles/p256/abi.json`](../../precompiles/p256/abi.json) | `0x0000000000000000000000000000000000001011` | 1 | Registered; subject to module checks |
@@ -105,7 +103,7 @@ The current `XWebProgramRequested` schema is `(bytes32 indexed programId, uint64
 | spot | [`precompiles/spot/abi/orders.json`](../../precompiles/spot/abi/orders.json) | `0x0000000000000000000000000000000000001022` | 40 | Single rail, gated by `v6.12.0` |
 | spot | [`precompiles/spot/abi/pecor.json`](../../precompiles/spot/abi/pecor.json) | `0x0000000000000000000000000000000000001021` | 45 | Single rail, gated by `v6.12.0` |
 | spot | [`precompiles/spot/abi/quoter.json`](../../precompiles/spot/abi/quoter.json) | `0x0000000000000000000000000000000000001024` | 17 | Single rail, gated by `v6.12.0` |
-| spot | [`precompiles/spot/abi/share.json`](../../precompiles/spot/abi/share.json) | Dynamic native ERC20 pointer | 14 | Retained contract ABI; subset served by pointer |
+| spot | [`precompiles/spot/abi/share.json`](../../precompiles/spot/abi/share.json) | Dynamic native ERC20 pointer | 14 | Native ERC20 pointer ABI |
 | spot | [`precompiles/spot/abi/stoporders.json`](../../precompiles/spot/abi/stoporders.json) | `0x0000000000000000000000000000000000001023` | 49 | Single rail, gated by `v6.12.0` |
 | spot | [`precompiles/spot/abi/vault.json`](../../precompiles/spot/abi/vault.json) | `0x0000000000000000000000000000000000001025` | 42 | Single rail, gated by `v6.12.0` |
 | staking | [`precompiles/staking/abi.json`](../../precompiles/staking/abi.json) | `0x0000000000000000000000000000000000001005` | 19 | Registered; subject to module checks |
@@ -118,7 +116,7 @@ The current `XWebProgramRequested` schema is `(bytes32 indexed programId, uint64
 | layerxagent/pofq | [`precompiles/layerxagent/pofq/pofq.go:abiJSON`](../../precompiles/layerxagent/pofq/pofq.go) | `0x0000000000000000000000000000000000000904` | 3 | Merge-gated (`v7.0`) |
 | layerxagent/scheduler | [`precompiles/layerxagent/scheduler/scheduler.go:abiJSON`](../../precompiles/layerxagent/scheduler/scheduler.go) | `0x0000000000000000000000000000000000000905` | 5 | Merge-gated (`v7.0`) |
 | layerxagent/streams | [`precompiles/layerxagent/streams/streams.go:abiJSON`](../../precompiles/layerxagent/streams/streams.go) | `0x0000000000000000000000000000000000000906` | 6 | Merge-gated (`v7.0`) |
-| layerxagent/teeattestor | [`precompiles/layerxagent/teeattestor/teeattestor.go:abiJSON`](../../precompiles/layerxagent/teeattestor/teeattestor.go) | `0x0000000000000000000000000000000000000907` | 4 | Merge-gated (`v7.0`) |
+| layerxagent/teeattestor | [`precompiles/layerxagent/teeattestor/teeattestor.go:abiJSON`](../../precompiles/layerxagent/teeattestor/teeattestor.go) | `0x0000000000000000000000000000000000000907` | 6 | Merge-gated (`v7.0`) |
 
 ## addr (`abi.json`)
 
@@ -1088,11 +1086,15 @@ Direct `0x1017` ABI. Shared selectors follow the role precedence described above
 - `burn(address pool) returns (uint256 amount)` `nonpayable`
 - `buy(address pool, uint256 usdlAmountIn, uint256 minTokensOut, uint256 deadline) returns (uint256 amountOut)` `nonpayable`
 - `buyWithPermit(address pool, uint256 usdlAmountIn, uint256 minTokensOut, uint256 deadline, (uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) permit) returns (uint256 amountOut)` `nonpayable`
+- `chainRevenueClaimable(uint32 chain, uint64 epoch, address holder) returns (uint256 amount)` `view`
+- `chainRevenueEpoch(uint32 chain, uint64 epoch) returns (uint32 registryNumber, uint64 epochNumber, uint256 epochAmount, uint64 snapshotBlock, uint256 eligibleSupply, uint256 claimedTotal, uint64 openedAt)` `view`
 - `claim(address pool, address recipient) returns (uint256 amount)` `nonpayable`
 - `claimAirdrop(address pool, address holder) returns (uint256 amount)` `nonpayable`
 - `claimAirdrop(uint256 nftId) returns (uint256 amount)` `nonpayable`
 - `claimAirdropEpoch(address pool, address holder, uint256 epoch) returns (uint256 amount)` `nonpayable`
 - `claimAirdropEpoch(uint256 nftId, uint256 epoch) returns (uint256 amount)` `nonpayable`
+- `claimChainRevenue(uint32 chain, uint64 epoch) returns (uint256 amount)` `nonpayable`
+- `claimChainRevenueBatch(uint32 chain, uint64[] epochs) returns (uint256 totalAmount)` `nonpayable`
 - `claimFees(uint256 nftId) returns (uint256 amount)` `nonpayable`
 - `claimLegacyAirdrop(address pool, uint256 epoch, address holder, uint256 amount, bytes32[] proof)` `nonpayable`
 - `claimOpticalSurplus(address pool, uint256 amount, address recipient)` `nonpayable`
@@ -1130,6 +1132,7 @@ Direct `0x1017` ABI. Shared selectors follow the role precedence described above
 - `grantRole(bytes32 role, address account)` `nonpayable`
 - `hasClaimedAirdrop(address pool, address holder, uint256 epoch) returns (bool)` `view`
 - `hasRole(bytes32 role, address account) returns (bool)` `view`
+- `homeChainOf(address pool) returns (uint64 chainId)` `view`
 - `initialize(address _eventEmitter, address _admin)` `nonpayable`
 - `initialize(address _factory, address _poolRegistry, address _protocolConfig, address _usdlAddress, address _admin)` `nonpayable`
 - `initialize(address _nftContract, address _feeAccumulator, address _poolRegistry, address _admin)` `nonpayable`
@@ -1137,6 +1140,10 @@ Direct `0x1017` ABI. Shared selectors follow the role precedence described above
 - `initialize(address _poolRegistry, address _protocolConfig, address _admin)` `nonpayable`
 - `initialize(address _protocolConfig, address _treasury, address _poolRegistry, address _eventEmitter, address _usdlAddress, address _admin)` `nonpayable`
 - `isRegisteredPool(address pool) returns (bool)` `view`
+- `launchChain(string name, string symbol, uint8 feeStrategy, address optical, string chainName, uint64 gasAllowance, uint64 byteAllowance, uint16 feeShareBps) returns (address tokenAddr, address poolAddr, uint256 nftId, uint32 chain, uint64 chainId)` `payable`
+- `launchChainWithPermit(string name, string symbol, uint8 feeStrategy, address optical, string chainName, uint64 gasAllowance, uint64 byteAllowance, uint16 feeShareBps, (uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) permit) returns (address tokenAddr, address poolAddr, uint256 nftId, uint32 chain, uint64 chainId)` `payable`
+- `launchedChain(uint32 chain) returns (uint32 registryNumber, uint64 chainId, address pool, address token, uint256 nftId, address creator, uint64 blockNumber)` `view`
+- `launchedChainOfPool(address pool) returns (uint32 chain)` `view`
 - `legacyAirdropRemaining(address, uint256) returns (uint256)` `view`
 - `legacyAirdropRoot(address, uint256) returns (bytes32)` `view`
 - `legacyAirdropUnallocated(address) returns (uint256)` `view`
@@ -1146,6 +1153,8 @@ Direct `0x1017` ABI. Shared selectors follow the role precedence described above
 - `minFeeBps() returns (uint256)` `view`
 - `multicall(bytes[] data) returns (bytes[] results)` `nonpayable`
 - `nftContract() returns (address)` `view`
+- `openChainRevenueEpoch(uint32 chain) returns (uint64 epoch, uint256 epochAmount)` `nonpayable`
+- `pauseLaunchedChain(uint32 chain)` `nonpayable`
 - `poolBeacon() returns (address)` `view`
 - `poolRegistry() returns (address)` `view`
 - `predictPoolAddress(address token, address creator, address optical) returns (address)` `view`
@@ -1159,6 +1168,8 @@ Direct `0x1017` ABI. Shared selectors follow the role precedence described above
 - `register(address pool, address token, address creator, address optical, uint256 nftId)` `nonpayable`
 - `registeredDefaultAdminCount() returns (uint256)` `view`
 - `renounceRole(bytes32 role, address callerConfirmation)` `nonpayable`
+- `resumeLaunchedChain(uint32 chain)` `nonpayable`
+- `retireLaunchedChain(uint32 chain)` `nonpayable`
 - `revokeRole(bytes32 role, address account)` `nonpayable`
 - `sell(address pool, uint256 tokenAmountIn, uint256 minUsdlOut, uint256 deadline) returns (uint256 amountOut)` `nonpayable`
 - `sellWithPermit(address pool, uint256 tokenAmountIn, uint256 minUsdlOut, uint256 deadline, (uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) permit) returns (uint256 amountOut)` `nonpayable`
@@ -1183,10 +1194,14 @@ Direct `0x1017` ABI. Shared selectors follow the role precedence described above
 
 ### Events
 
+- `ChainLaunched(uint32 indexed chain, address indexed pool, address indexed token, uint64 chainId, uint256 nftId, address creator, uint256 timestamp, uint256 blockNumber)`
+- `ChainRevenueClaimed(uint32 indexed chain, uint64 indexed epoch, address indexed holder, uint256 amount, uint256 timestamp, uint256 blockNumber)`
+- `ChainRevenueEpochOpened(uint32 indexed chain, uint64 indexed epoch, uint256 epochAmount, uint64 snapshotBlock, uint256 eligibleSupply, uint256 timestamp, uint256 blockNumber)`
 - `ConfigUpdated(bytes32 indexed key, uint256 oldValue, uint256 newValue, uint256 timestamp, uint256 blockNumber)`
 - `FeeDistributed(bytes32 indexed poolId, uint256 nftId, uint8 strategy, uint256 amount, address recipient, uint256 timestamp, uint256 blockNumber)`
 - `FeeFlow(uint8 indexed kind, address indexed pool, address indexed party, uint256 amount, uint256 protocolCut, uint256 poolCut, uint256 epoch, uint256 timestamp, uint256 blockNumber)`
 - `FeeStrategyChanged(bytes32 indexed poolId, uint256 nftId, uint8 oldStrategy, uint8 newStrategy, uint256 timestamp, uint256 blockNumber)`
+- `LaunchedChainRetired(uint32 indexed chain, address indexed holder, uint256 bond, uint256 timestamp, uint256 blockNumber)`
 - `MarketCreated(bytes32 indexed poolId, address indexed token, address indexed creator, address pool, address optical, uint256 timestamp, uint256 blockNumber)`
 - `NftMint(uint256 indexed tokenId, address indexed creator, address indexed pool, uint8 strategy, uint256 timestamp, uint256 blockNumber)`
 - `NftTransfer(address indexed nft, address indexed from, address indexed to, uint256 tokenId, uint256 timestamp, uint256 blockNumber)`
@@ -1208,6 +1223,7 @@ Direct `0x1017` ABI. Shared selectors follow the role precedence described above
 - `DivisionByZero()`
 - `DuplicatePool()`
 - `DuplicateToken()`
+- `EpochTooEarly()`
 - `FeeOutOfRange()`
 - `FutureLookup()`
 - `IndexOutOfBounds()`
@@ -1233,10 +1249,13 @@ Direct `0x1017` ABI. Shared selectors follow the role precedence described above
 - `NonERC721Receiver()`
 - `NonPayableUpgrade()`
 - `NotApproved()`
+- `NotFeeRightHolder()`
 - `NotInitializing()`
+- `NotLaunchedChain()`
 - `NotNftOwner()`
 - `NotPaused()`
 - `NotTokenOwner()`
+- `NothingToDistribute()`
 - `OpticalQuoteUnsupported()`
 - `Overflow()`
 - `Paused()`
@@ -1259,6 +1278,7 @@ Direct `0x1017` ABI. Shared selectors follow the role precedence described above
 - `UnsupportedSnapshotToken()`
 - `UpgradeInitializationFailed()`
 - `VirtualFloorBreached()`
+- `WrongChain()`
 - `WrongStrategy()`
 - `ZeroAddress()`
 - `ZeroAmount()`
@@ -1449,6 +1469,7 @@ Historical ABI for the implementation below `v6.12.0`. The current address serve
 - `getOrder(bytes32 marketId, bytes32 orderId, uint64 batchNumber, bytes witness) returns ((uint64 batchNumber, bytes32 stateRoot, bytes key, bytes value) record)` `view`
 - `getPosition(bytes32 marketId, bytes32 positionId, uint64 batchNumber, bytes witness) returns ((uint64 batchNumber, bytes32 stateRoot, bytes key, bytes value) record)` `view`
 - `intentNonce(address owner) returns (uint64 nonce)` `view`
+- `placeOrder(bytes32 market, bytes32 accountId, uint8 side, uint256 price, uint256 qty, uint8 tif) returns (bytes32 intentId)` `nonpayable`
 - `placeOrder(bytes32 market, uint8 side, uint256 price, uint256 qty, uint8 tif) returns (bytes32 intentId)` `nonpayable`
 - `requestSettlement(bytes32 positionId) returns (bytes32 intentId)` `nonpayable`
 - `withdrawMargin(bytes32 account, bytes32 assetId, uint256 amount) returns (bytes32 intentId)` `nonpayable`
@@ -1512,6 +1533,7 @@ Served after merge activation. `budgetPull` is always retired and reverts with `
 
 ### Functions
 
+- `askStreamOf(bytes32 askRef) returns (bytes32 streamId)` `view`
 - `budgetAmend(bytes32 budgetId, uint128 perPeriodLimit, uint128 carryCap, uint64 expiryMs, uint8 rolloverPolicy)` `nonpayable`
 - `budgetClose(bytes32 budgetId, uint64 revocationSequence)` `nonpayable`
 - `budgetCreate(bytes32 budgetId, bytes32 budgetAccount, bytes32 assetId, bytes32 purposeHash, uint128 perPeriodLimit, uint128 carryCap, uint128 amount, uint64 periodLengthMs, uint64 periodStartMs, uint64 expiryMs, uint64 revocationSequence, uint8 rolloverPolicy)` `nonpayable`
@@ -1565,6 +1587,7 @@ Served after merge activation. `budgetPull` is always retired and reverts with `
 - `streamClose(bytes32 streamId, bytes32 idempotencyKey)` `nonpayable`
 - `streamMeter(bytes32 streamId, uint64 cumulativeReading, bytes32 authorityKey, bytes signature)` `nonpayable`
 - `streamOpen(bytes32 streamId, bytes32 streamAccount, bytes32 recipient, bytes32 assetId, uint8 mode, uint128 rate, uint64 rateUnit, uint64 startMs, uint64 endMs, uint128 totalCap, uint128 initialFunding, bytes32[] meterAuthorities)` `nonpayable`
+- `streamOpenForAsk(bytes32 askRef, address settlementAccount, uint256 rate, uint8 rateUnit, uint256 totalCap, bytes32 hostAuthorityKey) returns (bytes32 streamId)` `nonpayable`
 - `streamPause(bytes32 streamId)` `nonpayable`
 - `streamResume(bytes32 streamId)` `nonpayable`
 - `streamSettle(bytes32 streamId, bytes32 idempotencyKey)` `nonpayable`
@@ -1574,6 +1597,7 @@ Served after merge activation. `budgetPull` is always retired and reverts with `
 
 - `AgreementAccepted(bytes32 indexed primary, bytes32 indexed secondary, uint8 code, uint64 sequence)`
 - `AgreementProposed(bytes32 indexed primary, bytes32 indexed secondary, uint8 code, uint64 sequence)`
+- `AskStreamOpened(bytes32 indexed askRef, bytes32 indexed streamId, address settlementAccount)`
 - `BudgetAmended(bytes32 indexed budgetId, uint128 perPeriodLimit, uint64 expiryMs)`
 - `BudgetClosed(bytes32 indexed budgetId, uint128 drained, uint64 revocationSequence)`
 - `BudgetCreated(bytes32 indexed budgetId, bytes32 assetId, uint128 amount)`
@@ -1622,6 +1646,7 @@ Served at this fixed address after merge activation. `feeAsset` is the active sc
 ### Functions
 
 - `call(bytes32 programId, uint16 abiVersion, string entrypoint, bytes callData, bytes capabilities, bytes accessDeclaration, uint32 responseCapacity, uint64[7] budget, uint128 feeLimit) returns (int32 terminalResult, uint8 terminalKind, bytes response)` `nonpayable`
+- `callWithReceipts(bytes32 programId, uint16 abiVersion, string entrypoint, bytes callData, bytes capabilities, bytes accessDeclaration, uint32 responseCapacity, uint64[7] budget, uint128 feeLimit, (bytes canonicalReceipt, uint64 blockHeight)[] receiptAuthorities) returns (int32 terminalResult, uint8 terminalKind, bytes response)` `nonpayable`
 - `deploy(bytes32 programId, uint16 abiVersion, uint8 policy, bytes32 authority, bytes32 codeHash, bytes interfaceEncoding, bytes wasm)` `nonpayable`
 - `deprecate(bytes32 programId, bytes32 exitProgram, uint64 deadline)` `nonpayable`
 - `exitValue(bytes32 programId, bytes32 account)` `nonpayable`
@@ -1879,10 +1904,10 @@ Destination: `0x000000000000000000000000000000000000100b`.
 
 ### Functions
 
-- `addCW1155Pointer(string cwAddr) returns (address ret)` `payable`
-- `addCW20Pointer(string cwAddr) returns (address ret)` `payable`
-- `addCW721Pointer(string cwAddr) returns (address ret)` `payable`
-- `addNativePointer(string token) returns (address ret)` `payable`
+- `addCW1155Pointer(string cwAddr) returns (address ret)` `nonpayable`
+- `addCW20Pointer(string cwAddr) returns (address ret)` `nonpayable`
+- `addCW721Pointer(string cwAddr) returns (address ret)` `nonpayable`
+- `addNativePointer(string token) returns (address ret)` `nonpayable`
 
 ## pointerview (`abi.json`)
 
@@ -2169,29 +2194,28 @@ Source: [`precompiles/spot/abi/share.json`](../../precompiles/spot/abi/share.jso
 
 Destination: Dynamic native ERC20 pointer.
 
-Retained share contract ABI, not a fixed rail ABI. Resolve the actual native ERC20 pointer with vault `shareTokens(token)`. Public `mint`, `burn`, `owner`, `renounceOwnership` and `transferOwnership`, and the `OwnershipTransferred` event, are not served by that pointer. Mint/burn accounting belongs to the spot keeper; only ERC20 Transfer/Approval logs describe the pointer.
+Resolve the native ERC20 pointer with vault `shareTokens(token)` before using this ABI. Share minting and burning belong to the spot keeper. The pointer emits ERC20 `Transfer` and `Approval` events.
 
 ### Functions
 
+- `BankPrecompile() returns (address)` `view`
 - `allowance(address owner, address spender) returns (uint256)` `view`
 - `approve(address spender, uint256 value) returns (bool)` `nonpayable`
 - `balanceOf(address account) returns (uint256)` `view`
-- `burn(address from, uint256 amount)` `nonpayable`
+- `ddecimals() returns (uint8)` `view`
 - `decimals() returns (uint8)` `view`
-- `mint(address to, uint256 amount)` `nonpayable`
+- `denom() returns (string)` `view`
 - `name() returns (string)` `view`
-- `owner() returns (address)` `view`
-- `renounceOwnership()` `nonpayable`
+- `nname() returns (string)` `view`
+- `ssymbol() returns (string)` `view`
 - `symbol() returns (string)` `view`
 - `totalSupply() returns (uint256)` `view`
 - `transfer(address to, uint256 value) returns (bool)` `nonpayable`
 - `transferFrom(address from, address to, uint256 value) returns (bool)` `nonpayable`
-- `transferOwnership(address newOwner)` `nonpayable`
 
 ### Events
 
 - `Approval(address indexed owner, address indexed spender, uint256 value)`
-- `OwnershipTransferred(address indexed previousOwner, address indexed newOwner)`
 - `Transfer(address indexed from, address indexed to, uint256 value)`
 
 ### Errors
@@ -2202,8 +2226,6 @@ Retained share contract ABI, not a fixed rail ABI. Resolve the actual native ERC
 - `ERC20InvalidReceiver(address receiver)`
 - `ERC20InvalidSender(address sender)`
 - `ERC20InvalidSpender(address spender)`
-- `OwnableInvalidOwner(address owner)`
-- `OwnableUnauthorizedAccount(address account)`
 
 ## spot (`stoporders.json`)
 
@@ -2608,6 +2630,8 @@ Served after merge activation with the node-supplied keepers and registered cons
 
 ### Functions
 
+- `bindPeer(uint8 family, bytes envelope, bytes32 peerKey, bytes32 modelDigest, bytes32 runtimeDigest) returns (bool bound)` `nonpayable`
+- `peerBinding(bytes32 peerKey) returns (uint8 family, bytes32 modelDigest, bytes32 runtimeDigest, uint64 blockHeight)` `view`
 - `rootCount(uint8 family) returns (uint256 count)` `view`
 - `rootOf(uint8 family, uint256 index) returns (bytes root)` `view`
 - `verify(uint8 family, bytes quote) returns ((uint8 family, bytes32 mrtd, bytes32 reportData, uint64 timestamp, bool debug) att)` `view`
@@ -2616,6 +2640,7 @@ Served after merge activation with the node-supplied keepers and registered cons
 ### Events
 
 - `AttestationVerified(uint8 indexed family, bytes32 indexed mrtd, bytes32 reportData, uint64 timestamp, bool debug)`
+- `PeerAttestationBound(bytes32 indexed peerKey, uint8 family, bytes32 modelDigest, bytes32 runtimeDigest)`
 
 ## Solidity interfaces (`contracts/src/precompiles/`)
 

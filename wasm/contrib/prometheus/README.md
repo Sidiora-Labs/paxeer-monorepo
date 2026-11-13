@@ -1,54 +1,66 @@
-# Setup
-Enable Prometheus metrics in `paxd` (node home `~/.paxeer` by default):
+# Prometheus metrics
 
-* Edit `<node home>/config/app.toml`
+The node exposes application telemetry through the REST API and consensus
+metrics through the instrumentation listener.
+
+## Node configuration
+
+In `<node home>/config/app.toml`, enable the API and telemetry and choose a
+positive retention time in seconds:
+
 ```toml
+[api]
+enable = true
+
 [telemetry]
-
-# Enabled enables the application telemetry functionality. When enabled,
-# an in-memory sink is also enabled by default. Operators may also enabled
-# other sinks such as Prometheus.
 enabled = true
-# ...
-
-# PrometheusRetentionTime, when positive, enables a Prometheus metrics sink.
 prometheus-retention-time = 15
 ```
 
-`prometheus-retention-time` must be > 0 (see the Prometheus scrape config)
+The API serves `GET /metrics?format=prometheus`; its default port is 1317.
+The `format` parameter selects Prometheus output. A positive
+`prometheus-retention-time` enables the telemetry Prometheus sink.
 
+In `<node home>/config/config.toml`, enable consensus metrics:
 
-* Edit `<node home>/config/config.toml`
 ```toml
 [instrumentation]
-
-# When true, Prometheus metrics are served under /metrics on
-# PrometheusListenAddr.
-# Check out the documentation for the list of available metrics.
 prometheus = true
 ```
 
-Application telemetry is served by the REST API at `http://localhost:1317/metrics?format=prometheus`
-(note the `format` parameter). Consensus metrics are served on the instrumentation listen address,
-`:26660` by default, which is what [`prometheus.yaml`](prometheus.yaml) scrapes.
+The consensus instrumentation listener serves `/metrics` on port 26660 by
+default. The supplied [`prometheus.yaml`](prometheus.yaml) scrapes that
+listener every five seconds. To collect application telemetry, configure an
+additional scrape target for the API with the `format=prometheus` query
+parameter.
 
+## Local Prometheus
 
-# Local testing
-## Run Prometheus
 From the `wasm/` directory:
+
 ```sh
-# port 9090 is used by the node's gRPC server already
-docker run -it -v $(pwd)/contrib/prometheus:/prometheus  -p9091:9090  prom/prometheus --config.file=/prometheus/prometheus.yaml
+docker run -it -v "$(pwd)/contrib/prometheus:/prometheus" -p 9091:9090 prom/prometheus --config.file=/prometheus/prometheus.yaml
 ```
-* Open the console at `http://localhost:9091` and look for `wasm_` metrics
 
-## Run Grafana
+This publishes the Prometheus console on port 9091, leaving the node's default
+gRPC port 9090 available. The scrape target uses Docker's
+`host.docker.internal` name to reach the host instrumentation listener; the
+container must be able to resolve and reach that host mapping.
 
-```shell
+## Local Grafana
+
+```sh
 docker run -it -p 3000:3000 grafana/grafana
 ```
-* Add Prometheus data source
-`http://host.docker.internal:9091`
-### Metrics
-The wasm keeper records timings (telemetry `MeasureSince`) under the keys `wasm_contract_instantiate`,
-`wasm_contract_execute`, `wasm_contract_migrate`, and `wasm_contract_ibc-*` for the contract IBC callbacks.
+
+Open Grafana on port 3000 and add the Prometheus server on port 9091 as a data
+source reachable from the Grafana container.
+
+## Wasm timings
+
+The [keeper](../../x/wasm/keeper/keeper.go) records telemetry timings under
+`wasm_contract_instantiate`, `wasm_contract_execute`, `wasm_contract_migrate`,
+`wasm_contract_sudo`, `wasm_contract_query-smart` and
+`wasm_contract_query-raw`. [IBC callbacks](../../x/wasm/keeper/relay.go) use
+`wasm_contract_ibc-*` timing keys. Application telemetry must be included in
+the scrape configuration to collect these metrics.

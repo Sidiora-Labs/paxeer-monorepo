@@ -15,10 +15,7 @@ The recipes install these pinned executable packages with `go install package@ve
 | `runsim` | `github.com/cosmos/tools/cmd/runsim` | `v1.0.0` |
 | `golangci-lint` | `github.com/golangci/golangci-lint/v2/cmd/golangci-lint` | `v2.5.0` |
 
-The linter uses the v2 module and configuration format. Its
-[release history](https://github.com/golangci/golangci-lint/blob/v2.5.0/CHANGELOG.md)
-records Go 1.25 support starting with v2.4.0; v2.5.0 matches the repository's v2
-configuration. `statik` and `runsim` retain their existing command interfaces.
+The linter uses the v2 module and configuration format.
 
 `TOOLS_DESTDIR` defaults to `$(GOPATH)/bin`. Each recipe sets `GOBIN` to the absolute
 path of `TOOLS_DESTDIR`, so Go writes the binary at its Make prerequisite path,

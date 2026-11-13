@@ -1,15 +1,13 @@
-# media/livestream — implementation and qualification status
+# Livestream service
 
 The service entry point is [cmd/livestreamd/main.go](cmd/livestreamd/main.go).
-The current tree contains persistent lifecycle handling, v2 HTTP adapters,
-provider workers and integration tests. Implementation availability and the
-inventory sweep's compile-only qualification are separate claims.
+The service provides persistent lifecycle handling, v2 HTTP adapters and
+provider workers.
 
 ## Current manifests and storage
 
-[go.mod](go.mod) declares Go 1.25.0 and pins goose v3.24.3; the former instructions
-to downgrade goose from v3.27.1 have already been addressed. The reviewed
-supply-chain tool baseline is Go 1.26.4, Node 24.16.0 and pnpm 9.15.0; see the
+[go.mod](go.mod) declares Go 1.25.0 and pins goose v3.24.3. The
+supply-chain tools pin Go 1.26.4, Node 24.16.0 and pnpm 9.15.0; see the
 [supply-chain notes](../security/supplychain/README.md). A module's `go` directive
 is distinct from that build-tool pin.
 
@@ -85,18 +83,11 @@ response/error envelopes. Provisioning, reconciliation and termination workers
 preserve operation identity across retries and restart; an HTTP acceptance does
 not by itself prove provider activation.
 
-## Inventory sweep qualification (decision 2496)
+## Integration prerequisites
 
-The recorded inventory repair uses `go vet ./...` and
-`go test -count=1 -run NoTestMatchesThisName ./...` to compile every test.
-This gate does not execute the full suite or qualify provider integrations.
-It must not be described as a passing execution of `go test -count=1 ./...`.
-
-The full suite requires dedicated PostgreSQL and Redis fixtures, a chain-125
-RPC, real TLS Vault transit, admitted Livepeer operations and a registered
-playback webhook, and an approved media measurement manifest with its SHA256.
-The lifecycle proof also starts PostgreSQL and Redis executables directly.
-The exact test names and producer inputs are recorded in the
-[inventory repair record](../../../spec/layerx-merge/programme/sweeps/repairs/go-launchpad-modules-2.4.kvx).
-Those prerequisites and production measurements remain distinct from the
-documentation gate for this page.
+Integration tests require dedicated PostgreSQL and Redis stores, a chain-125
+RPC, TLS Vault transit, admitted Livepeer operations and a registered playback
+webhook, and a media measurement manifest with its SHA-256. The lifecycle
+fixtures also start PostgreSQL and Redis executables directly. Receipt and
+provider observations remain separate: HTTP acceptance does not establish
+broadcast activation.

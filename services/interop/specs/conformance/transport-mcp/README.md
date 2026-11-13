@@ -35,11 +35,10 @@ This binding carries JSON on every message.
 `services/interop/crates/layerx-x402/tests/transports.rs` reads these files with
 `include_str!` and runs every record through the production x402 model types
 and the production encoder and decoder for this transport. The current codecs
-also invoke semantic validation. The retained envelope-only profile cases are
-therefore expected to fail with `ProfileMismatch`, despite their historical
-`accepted: true` envelope classification. The consumer must assert the explicit
-semantic expectation separately; its existing single-boolean harness needs the
-owning-domain wiring recorded in `repair_22_33_97.kvx`.
+also invoke semantic validation. `profile_refusal` assigns `ProfileMissing`
+to the three `eip155_125_*` payment cases, and the harness checks that both
+encoding and decoding refuse them even when their envelope representation is
+classified as accepted.
 
 The fault-injected settlement cases in that file are not vectors and are not
 counted: they drive a live sequencer signer and a canonical receipt encoder
@@ -59,22 +58,13 @@ contain those same bytes; `layerxIdempotencyKey` is the recorded payment referen
 The recorded observation time is historical and must be used for deterministic
 expiry checks. These bytes must not be submitted to a live endpoint.
 
-The original profile-bearing records remain intentional envelope-only cases.
-`PaymentRequirements::validate` rejects `extra.layerx` on `eip155:125` with
-`ProfileMismatch`. The original pending settlement responses and opaque
-authorization are representations, with no proof of a successful settlement.
+`PaymentRequirements::validate` requires `extra.layerx.account` and
+`extra.layerx.currency` on `eip155:125`, and binds `payTo` to that account's
+identifier. Offers on another network must omit the LayerX profile. The
+profile-free `eip155_125_*` records therefore produce `ProfileMissing`.
 
-The current offer passes the requirements rules. The seller and facilitator
-currently call `layerx_terms()` unconditionally, so even the corrected offer
-reaches `ProfileMissing`: mounted `POST /v1/mcp/x402/seller/offer` returns
-`400 invalid_x402_offer`, and mounted verify/settle returns
-`400 invalid_x402_request`. These pre-existing consumer mismatches require
-out-of-scope repairs. No current fixture claims successful settlement through
-those blockers.
-
-The focused Python qualification parses the fixtures and recorded transaction,
-checks their byte-for-byte provenance and payment facts, and asserts production
-source connections through the codec, route, service and relay. It does not
-execute the Rust validator or mounted ingress. Runtime semantic validation,
-ingress coverage and deployment digest regeneration are owning-domain wiring
-requests in `tools/qualification/audit_repairs/repair_22_33_97.kvx`.
+The original pending settlement responses and opaque authorization fields are
+role representations; they do not establish successful settlement. Mounted
+payment ingress additionally requires authentication, typed signed payer bytes,
+a payment idempotency key and verified receipt evidence from its configured
+relay.

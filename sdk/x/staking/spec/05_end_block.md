@@ -1,5 +1,5 @@
 <!--
-order: 4
+order: 5
 -->
 
 # End-Block
@@ -27,9 +27,9 @@ In all cases, any validators leaving or entering the bonded validator set or
 changing balances and staying within the bonded validator set incur an update
 message reporting their new consensus power which is passed back to Tendermint.
 
-The `LastTotalPower` and `LastValidatorsPower` hold the state of the total power
+The `LastTotalPower` and `LastValidatorPower` hold the state of the total power
 and validator power from the end of the last block, and are used to check for
-changes that have occured in `ValidatorsByPower` and the total new power, which
+changes that have occurred in `ValidatorsByPower` and the total new power, which
 is calculated during `EndBlock`.
 
 ## Queues

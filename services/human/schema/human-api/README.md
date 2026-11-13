@@ -4,7 +4,7 @@ The versioned HTTPS and JSON contract between the human service and the web appl
 
 `golden/` holds a request, response and failure JSON example for each operation.
 
-Operations also own supplemental fixtures through `golden_requests`, `golden_responses`, `golden_failures`, `golden_inputs` and `golden_artifacts`: lists of `set/file` paths within `golden/`. The checker validates supplemental HTTP vectors against the owning operation, parses producer inputs as non-empty JSON objects and requires non-empty binary artifacts. Every supplemental file has exactly one owner; missing, duplicate and unowned files fail the check. Historical examples retain their wire vocabulary; the existing producer and decoder tests continue to consume their original paths and verify their semantics and artifact bytes.
+Operations also own supplemental fixtures through `golden_requests`, `golden_responses`, `golden_failures`, `golden_inputs` and `golden_artifacts`: lists of `set/file` paths within `golden/`. The checker validates supplemental HTTP vectors against the owning operation, parses producer inputs as non-empty JSON objects and requires non-empty binary artifacts. Every supplemental file has exactly one owner; missing, duplicate and unowned files fail the check. Producer and decoder tests consume the examples and verify their semantics and artifact bytes.
 
 From the repository root:
 

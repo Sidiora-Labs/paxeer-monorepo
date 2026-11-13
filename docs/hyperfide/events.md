@@ -1,5 +1,8 @@
 # Events, serve, and drivers
 
+Implementation and test paths on this page are relative to `tools/hyperfide`.
+
+
 Everything a fleet does — a task changing status, a claim, an agent
 spawning, a tool call it made, a merge, a gate, a pull request, a stall, a
 drift finding, an approval — is appended to one table with a sequence
@@ -10,12 +13,12 @@ in a terminal, `hyperfide serve` for an editor, the supervisor itself.
 `hyperfide` is the command; `cg` is the deprecated compatibility alias from
 the same executable, with identical arguments, JSON and exit codes.
 
-Implemented in `src/events.c`, `src/serve.c`, and `src/drivers.c`; covered
+Implemented in `core/native/src/events.c`, `core/native/src/serve.c`, and `core/native/src/drivers.c`; covered
 by `tests/integration/30_events.sh` and `tests/integration/31_serve.sh`.
 
 ## The event log
 
-```
+```text
 events(seq INTEGER PRIMARY KEY AUTOINCREMENT, at, kind, subject, run, node, branch, payload)
 ```
 
@@ -61,11 +64,11 @@ behind the prune that it missed events.
 
 ## `hyperfide events`
 
-```
+```text
 hyperfide events [--since N] [--kind K,..] [-n N] [--follow [--for S]] [--head] [--json]
 ```
 
-```
+```console
 $ hyperfide events --kind supervisor.,drift. --since 0 -n 3
     56  20:11:29  supervisor.stall alpha/2.2   on main  {"agent":"w-alpha-2.2","task":"2.2","action":"nudge","reason":"no progress","value":2}
     60  20:11:31  supervisor.stall alpha/2.2   on main  {"agent":"w-alpha-2.2","task":"2.2","action":"stop","reason":"stalled — no progress for 2s after a nudge","value":2}
@@ -95,7 +98,7 @@ JSON-RPC 2.0 over stdio.
 | `snapshot {all?}` | the native agents now: `{head, native: [...], counts: {live, subagents, worktree_branches}}` — the same tree `hyperfide fleet tree --json` carries, current to event `head`; `all` includes sessions stopped for more than a day. Runs the transcript discovery pass (`hyperfide fleet discover`) first |
 | `unsubscribe {subscription}`, `ping`, `shutdown` | |
 
-```
+```text
 → {"jsonrpc":"2.0","id":3,"method":"subscribe","params":{"since":136}}
 ← {"jsonrpc":"2.0","id":3,"result":{"subscription":1,"cursor":136,"head":138}}
 ← {"jsonrpc":"2.0","method":"events","params":{"subscription":1,"events":[{"seq":137,"kind":"orch.complete",...},{"seq":138,"kind":"fleet.run",...}],"cursor":138}}
@@ -114,17 +117,15 @@ An editor follows native agents the way it follows fleet agents: it takes
 a `snapshot` (or `hyperfide fleet tree --json`), subscribes from that head, and
 folds every `agent.native.start`, `agent.native.spawn`,
 `agent.native.tool` and `agent.native.stop` onto the rows — each payload
-carries the agent's whole row, so no event needs a second call. The VS
-Code extension's Sessions root (see
-[hierarchy.md](hierarchy.md#native-sessions-in-the-editor)) is built that
-way.
+carries the agent's whole row, so a client can update it without a second call.
+See [native session reporting](hierarchy.md#native-sessions-in-the-editor).
 
 ## `hyperfide tool`
 
 `hyperfide tool list` prints the MCP tool table; `hyperfide tool call <name> [json]` runs
 one tool without an MCP client and prints its result:
 
-```
+```console
 $ hyperfide tool call get_symbol '{"name":"alpha"}'
 {"definitions":[{"name":"alpha","kind":"function","path":"src/a.ts","line":1,"end_line":3,"references":1,...}]}
 ```
@@ -147,7 +148,7 @@ way. Lines that are not JSON stay in the log and are ignored.
 
 ## Steering a running agent
 
-```
+```console
 $ hyperfide fleet steer w-alpha-3.2 "try the smaller fix"
 queued for w-alpha-3.2 (#139): delivered at its next edit (Claude Code, through the post-edit hook) or its next prompt
 ```
@@ -167,7 +168,7 @@ this way.
 A Claude Code or Codex session, and every subagent it spawns through its own
 Agent tool, never passes through `hyperfide fleet`. Its hooks do:
 
-```
+```text
 hyperfide hook event --host claude|codex [--json]     # one hook payload on stdin
 ```
 
@@ -221,7 +222,7 @@ The event log is one checkout's SQLite table, and every surface above
 reads it locally. In distributed authority mode (a
 `.hyperfide/authority.json` descriptor, or `HYPERFIDE_AUTHORITY_DESCRIPTOR`;
 `hyperfide authority mode` prints the mode), `hyperfide events` refuses with
-`DISTRIBUTED_COMMAND_UNSUPPORTED`, exit 78 (`src/hyperfide/client.c`), and
+`DISTRIBUTED_COMMAND_UNSUPPORTED`, exit 78 (`core/native/src/hyperfide/client.c`), and
 `hyperfide fleet status` is routed to the service's fleet view instead of
 the local tables.
 
@@ -231,9 +232,7 @@ inbox deduplication and replay-gap recovery (`events/inbox.ts`,
 `events/recovery.ts`), and generation-bound start, steering and cancellation
 instructions (`events/instructions.ts`). Historical SQLite sequence numbers
 are imported as provenance and never become a delivery cursor
-([migration.md](../../tools/hyperfide/spec/hyperfide/migration.md)). Tasks 6.1 to 6.4 and
-25.3 are `pending` in `spec/hyperfide/spec.kvx`, so that path is not
-qualified in this revision.
+([migration.md](../../tools/hyperfide/spec/hyperfide/migration.md)).
 
 ## Limitations
 

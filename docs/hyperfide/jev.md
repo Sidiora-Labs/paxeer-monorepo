@@ -1,17 +1,13 @@
 # Jev decisions
 
+Implementation and test paths on this page are relative to `tools/hyperfide`.
+
+
 Jev is TypeSafe AI's **System One** decision model, reached over OpenRouter
 as `typesafe/jev-1.13`. It does not generate text. It answers a fixed set
 of typed questions about a state, and that is the whole interface.
 
-Hyperfide's local core loop — graph, memory, spec, snapshots — still runs
-with no network. Jev is the one remote call, and the principle changed name to say
-so:
-
-> **Local first.** The graph, memory, and workflow run with no network and
-> no telemetry. Jev decisions are the one remote call: mandatory for the
-> features built on them, never for the core loop, and never authoritative
-> — they narrow, rank, and flag; `verify_cmd` and graph checks decide.
+Hyperfide's local graph, memory, spec and snapshots run without a network. Jev-backed features make an optional decision-model call; changelog summaries and recap have their own remote configuration. Decision outputs classify, rank and flag, while deterministic checks decide qualification.
 
 Two halves of that rule matter equally. **Mandatory**: a Jev-backed command
 with no `OPENROUTER_API_KEY` fails with a clear message rather than quietly
@@ -19,7 +15,7 @@ degrading to a worse heuristic — a silent fallback makes the feature a lie.
 **Advisory**: nothing Jev returns can pass or fail anything. It classifies,
 ranks, and flags; the deterministic checks stay the only authority.
 
-Implemented in `src/jev.c`; covered by `tests/integration/28_jev.sh`.
+Implemented in `core/native/src/jev.c`; covered by `tests/integration/28_jev.sh`.
 Examples use `hyperfide`; `cg` is the deprecated compatibility alias of the
 same executable, and the messages below still begin with `cg:` because
 that is what this build prints.
@@ -85,7 +81,7 @@ aliases for HYPERFIDE_JEV_MODEL (values redacted)` and exit 78.
 
 A missing key is spelled out rather than worked around:
 
-```
+```console
 $ hyperfide jev ask --state hello --noul greeting "Is it a greeting?"
 cg: OPENROUTER_API_KEY is not set. Jev is mandatory for this command —
 export the key in the agent's environment (cg jev doctor checks it)
@@ -100,10 +96,10 @@ A refused call is not logged: nothing was sent.
 Key, curl, endpoint, model, and log health in one call. Exits non-zero when
 Jev could not be used.
 
-```
+```console
 $ hyperfide jev doctor
 jev: typesafe/jev-1.13 via https://openrouter.ai/api/alpha/decisions
-key: OPENROUTER_API_KEY set (sk-or-…ca41)
+key: OPENROUTER_API_KEY set (<redacted>)
 curl: /usr/bin/curl (8.5.0)
 log: /path/proj/.codegraph/jev.log — 1 call, last 2026-09-25 12:05
 ```
@@ -120,7 +116,7 @@ there is no log line then.
 Ask directly — the operator's way to see what Jev does with a state, and
 how the tests drive it.
 
-```
+```console
 $ hyperfide jev ask --state "the build failed: undefined reference to alpha" \
     --noul flaky "Is this failure flaky rather than a real defect?" \
     --choice category "Classify the failure" \
@@ -152,7 +148,7 @@ filled in from the configuration.
 Every call, successful or not, appends one JSON line to
 `.codegraph/jev.log`. `hyperfide jev log [-n N]` renders the tail:
 
-```
+```text
 2026-09-25 12:43:17  ok    3q  typesafe/jev-1.13-20260917  427/73 tok  $0.000018  116 ms  gen-dec-…1
 2026-09-25 12:43:18  ok    1q  typesafe/jev-1.13-20260917  427/73 tok  $0.000018  109 ms  gen-dec-…3
 2026-09-25 12:43:18  fail  1q  status 500 (1 attempt)  jev request failed (status 500): {"error":{"message":"boom"}}
@@ -184,7 +180,7 @@ two `choice` questions: a category (`test_failure`, `build_error`,
 action (`fix_code`, `fix_test`, `rerun`, `install_dependency`,
 `revise_spec`, `ask_human`).
 
-```
+```console
 $ hyperfide spec done 2.1
 …
 FAIL: expected 3, got 4
@@ -196,7 +192,7 @@ The verdict is unchanged — the task is still not done — and the triage is
 appended to the outcome memory the failure records, so the next session
 reads it without asking again:
 
-```
+```console
 $ hyperfide recall --task adv/2.1 --type outcome -n 1
 #3  [outcome]  2026-09-25  (task adv/2.1)  auto
     blocked: Advisory work — verify_cmd failed (exit 1) [jev: test_failure → fix_test]
@@ -205,7 +201,7 @@ $ hyperfide recall --task adv/2.1 --type outcome -n 1
 Without a key, the failure is reported exactly as before and the triage says
 it was skipped, once, not once per question:
 
-```
+```text
 cg spec: verify_cmd failed (exit 1) — task 2.1 NOT marked done (--force to override)
 jev: OPENROUTER_API_KEY is not set — failure triage skipped
 ```
@@ -219,7 +215,7 @@ memory.
 `hyperfide guard` scores every finding in **one** call, whatever the count (capped
 at 50), and prints them most severe first:
 
-```
+```console
 $ hyperfide guard src/typo.ts
 guard: every change is inside task 2.1's declared scope
   warn  src/typo.ts:3: function 'doWork' has no inbound reference  [jev 3.80 Blocking]
@@ -247,7 +243,7 @@ Jev's order or not.
 feature, branch, base, commits ahead, and the task list with what is
 qualified — and writes the answer into the PR body:
 
-```
+```text
 Jev readiness: 0.95 (high) — 0/2 tasks qualified, 0 commits, gates not run in this command
 ```
 
@@ -261,7 +257,7 @@ always was.
 **mandatory**, not advisory: classification is the whole command, so with no
 key it fails rather than guessing.
 
-```
+```console
 $ hyperfide memory classify --all
 classified 2 memories:
   #1    decision     skill      0.82  reusable 0.95  Use the trigram index for symbol search
@@ -279,7 +275,7 @@ unclassified ones and says `no memories to classify` when there are none.
 
 The class then travels with the memory, in `hyperfide recall`:
 
-```
+```text
 #1  [decision]  2026-09-25  class skill 0.82
     Use the trigram index for symbol search
 ```
@@ -298,7 +294,7 @@ Skill** — the portable `SKILL.md` format every agent host reads.
 | `hyperfide skills promote <id>` | write `.agents/skills/<slug>/SKILL.md` from that memory |
 | `hyperfide skills render` | refresh every generated file from its memory; name the orphans |
 
-```
+```console
 $ hyperfide skills list
 skills — 2 candidate(s), 0 promoted under .agents/skills:
   #1    candidate 0.82  Use the trigram index for symbol search
@@ -362,8 +358,7 @@ or a network.
 - Answers are advice. No Jev output changes an exit code: qualification is
   `verify_cmd` plus the graph checks, and `hyperfide guard --strict` fails on its
   own deterministic findings, in Jev's order.
-- The transport is `curl`. There is no built-in HTTP client, and there will
-  not be one — libsqlite3 and libc remain the only link-time dependencies.
+- The Jev transport uses the `curl` executable. The native binary links SQLite, libcurl, libcrypto, libm and pthreads, as declared in `tools/hyperfide/Makefile`.
 - `jev.log` grows without bound and is read back only by `hyperfide jev log`
   and `hyperfide jev doctor`. It is
   evidence for an operator, not state.
@@ -378,9 +373,7 @@ or a network.
   statement selection to the control plane's `decision.legacy.<purpose>`
   path (a 2 second budget; anything unusable is dropped and the
   deterministic outcome stands) instead of calling Jev, while the top-level
-  CLI refuses most local commands in that mode with exit 78. Tasks 21.3 and
-  21.4 are pending in `spec/hyperfide/spec.kvx`, so that path is not
-  qualified in this revision.
+  CLI refuses most local commands in that mode with exit 78. See [authority mode](integrate.md#authority-mode) for command routing.
 - Triage reads the tail of the output, not the whole log. A failure whose
   only explanation is in the first line of a 10,000-line run is one Jev
   cannot see.

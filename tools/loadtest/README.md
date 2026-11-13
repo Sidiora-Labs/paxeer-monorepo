@@ -13,8 +13,8 @@ is committed. Public JSON-RPC uses the root URL of
 
 The checked-in [profiles](profiles/) target operator-owned loopback nodes on chain
 125. Qualification tests use isolated loopback JSON-RPC transcripts; those results
-do not qualify a live chain's throughput. The historical fixture ID `713714` is
-only appropriate for an explicitly isolated node configured with that identity.
+do not qualify a live chain's throughput. A different chain ID requires an
+explicitly isolated node and a matching profile.
 Before any deployment or traffic, the executable calls `eth_chainId` on **every**
 configured endpoint, including entries excluded by `--nodes`, and refuses a
 mismatch. The CLI has no chain-ID override flag. All endpoints must serve the
@@ -32,7 +32,7 @@ cd tools/loadtest
 make build
 ```
 
-The [Makefile](Makefile) writes **`build/paxload`** using the committed Go contract
+The [Makefile](Makefile) writes **`build/paxload`** using the Go contract
 bindings. This build does not require regenerating Solidity bindings. All commands
 below assume the working directory is `tools/loadtest`.
 
@@ -389,7 +389,7 @@ bindings or regenerating them with `make generate` and the Makefile's Solidity a
 or tidies dependencies; `make tidy` is a separate maintenance operation.
 
 For deliberate regeneration, `make install-tools` installs abigen v1.17.0 and
-SHA-256-verified Solidity 0.8.19 release bytes into private `.tools/`. The historical
+SHA-256-verified Solidity 0.8.19 release bytes into private `.tools/`. The
 `setup-node` target installs only native solc; no Node or nvm download is needed.
 `make generate` refuses missing or changed tools and records compiler/generator
 versions, tool hashes, and ABI/bytecode/binding hashes in per-binding `.provenance`
