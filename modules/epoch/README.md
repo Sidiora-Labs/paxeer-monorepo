@@ -1,19 +1,64 @@
-# modules/epoch
+# Epoch module
 
-The `modules/epoch` module manages time-based epochs in the single Paxeer network,
-inside `paxd`. Epochs follow a fixed duration, one minute by default, from the
-epoch genesis time. The module checks consensus block time in `BeginBlock` and
-calls registered module hooks when it advances an epoch.
+The `modules/epoch` directory holds the Go implementation of time-based epochs
+inside `paxd` on the single Paxeer network. Epochs follow a fixed duration, one
+minute by default, from the epoch genesis time. The module checks consensus block
+time in `BeginBlock` and calls registered module hooks when it advances an epoch.
+
+## Layout
+
+- [client/](client/): CLI queries and transaction command grouping, plus Wasm query bindings.
+- [keeper/](keeper/): Epoch persistence, block transitions, hooks, gRPC queries, metrics and keeper tests.
+- [simulation/](simulation/): Simulation account lookup helper and its tests.
+- [spec/](spec/): Module specification.
+- [types/](types/): Epoch and genesis types, validation, hook interfaces, events, store keys and generated protobuf bindings.
+- [genesis.go](genesis.go): Genesis initialization and export.
+- [genesis_test.go](genesis_test.go): Genesis round-trip and consensus-time initialization tests.
+- [handler.go](handler.go): Message handler that rejects unrecognized messages.
+- [handler_test.go](handler_test.go): Message rejection test.
+- [module.go](module.go): Module registration, query services and genesis integration.
+- [module_simulation.go](module_simulation.go): Randomized simulation genesis and simulation interfaces.
+- [module_test.go](module_test.go): Module registration, simulation genesis, export and transition tests.
+
+## Build and test
+
+This directory belongs to the root [Go module](../../go.mod) and has no separate
+manifest or Makefile. From the repository root, use the chain targets in
+[chain.mk](../../chain.mk):
+
+```sh
+make -f chain.mk build
+make -f chain.mk test
+```
+
+The build target builds `paxd`, including the epoch module, and its native library
+dependencies. The test target builds those dependencies and runs the root Go
+package tests in groups, including this directory and its subpackages, with race
+detection and coverage.
+
+### Package verification
+
+The package tests cover genesis initialization and export, message rejection,
+module registration, and epoch transitions. They require no external inputs.
+
+## Configuration
+
+The module reads no environment variables or configuration files directly. The
+node passes its `epoch` genesis state from `genesis.json` to
+[InitGenesis](genesis.go). The state fields are `genesis_time`, `epoch_duration`,
+`current_epoch`, `current_epoch_start_time` and `current_epoch_height`.
+
+The module's `Params` type is empty; `paxd q epoch params` queries it. The epoch
+duration belongs to epoch state, not a module parameter.
 
 Epoch transitions occur strictly after a scheduled boundary and advance at most
 one elapsed period per block. See [Hooks](#hooks) for timing and catch-up behavior,
 and the [module specification](spec/README.md) for an overview.
 
-**Example usage:**
 The [mint module](../mint/keeper/hooks.go) implements `AfterEpochEnd` to release
 scheduled tokens to the fee collector using the ending epoch's start date in UTC.
 
-## State
+### State
 
 The module stores an `Epoch` under the `epoch` key in its KV store. Query it with:
 
@@ -49,12 +94,12 @@ The response has this shape (timestamps below are placeholders):
 with the consensus block time; explicitly configured timestamps are preserved.
 Later transitions preserve `GenesisTime` and `EpochDuration`.
 
-## Messages
+### Messages
 
 The module defines no transaction messages. State is read through queries;
 transitions are driven by `BeginBlock`, with hooks and events for other modules.
 
-## Hooks
+### Hooks
 
 In [keeper/abci.go](keeper/abci.go), `BeginBlock` advances an epoch only when:
 
@@ -110,7 +155,7 @@ app.EpochKeeper = *epochmodulekeeper.NewKeeper(
 `NewMultiEpochHooks` invokes hooks in registration order. A keeper with no hooks
 registered still advances epoch state and emits its transition event.
 
-## Events
+### Events
 
 Each successful transition emits one `new_epoch` event with these attributes:
 
@@ -118,17 +163,10 @@ Each successful transition emits one `new_epoch` event with these attributes:
 - `epoch_time`: The new epoch's scheduled start time, formatted with Go's `time.Time.String()`.
 - `epoch_height`: The block height at which the new epoch was entered, as a decimal string.
 
-## Parameters
+## Documentation
 
-The module's `Params` type is empty; `paxd q epoch params` queries it. The epoch
-duration belongs to epoch state, not a module parameter.
-
-## Package verification
-
-The package tests cover genesis initialization and export, message rejection,
-module registration, and epoch transitions. They require no external inputs.
-
-```sh
-CGO_ENABLED=1 go vet ./modules/epoch/
-CGO_ENABLED=1 go test -count=1 -v ./modules/epoch/
-```
+- [Module specification](spec/README.md).
+- [Chain module declarations](../../docs/system/chain-modules.md#epoch).
+- [Epoch documentation site page](../../docs/site/paxeer-docs/src/app/modules/epoch/page.tsx).
+- [Epoch documentation in Markdown](../../docs/site/paxeer-docs/public/markdown/modules/epoch.md).
+- [Mint documentation](../../docs/site/paxeer-docs/public/markdown/modules/mint.md).
