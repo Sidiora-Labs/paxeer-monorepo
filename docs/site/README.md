@@ -2,7 +2,7 @@
 
 MkDocs Material site for Paxeer X Network, configured by `mkdocs.yml` in this
 directory. Page sources are under `docs/`. Normative protocol text remains in
-`spec/`. The hosted documentation is [docs.paxeer.app](https://docs.paxeer.app/).
+the repository-root `spec/` directory. The hosted documentation is [docs.paxeer.app](https://docs.paxeer.app/).
 
 ## Preview locally
 
@@ -53,5 +53,5 @@ committed) and refuses broken relative Markdown links. It is a standalone
 Python 3 script and is not part of the MkDocs build:
 
 ```sh
-python3 docs/site/build_wiki.py
+python3 build_wiki.py
 ```

@@ -177,7 +177,7 @@ Source: `src/budget/divergence.rs`.
 rejects replay and sums successful receipt amounts. It verifies and decodes the
 protocol budget state, then totals unresolved durable holds.
 
-`RestartAccounting.protocol_consumed` can now be present. Reconciliation
+`RestartAccounting.protocol_consumed` is optional. Reconciliation
 succeeds when protocol consumption falls between the verified receipt sum and
 that sum plus unresolved holds. `require_write_ready` refuses missing schema
 or unreconciled accounting. A process restart or an elapsed expiry is not
@@ -383,7 +383,6 @@ The repository `Makefile` retains focused targets such as
 `agent-test-agentd-finality`, `agent-test-agentd-degraded`,
 `agent-test-agentd-idempotency` and `agent-test-agentd-config`.
 The retained name `agent-test-agentd-handshake-gate` exercises node readiness;
-it does not reintroduce LNI. Select the suite for the implementation being
-changed; this reference is not a claim that those suites ran for this page.
+it does not reintroduce LNI. These suites cover the corresponding daemon APIs.
 
 [Node access](lni.md) · [MCP](mcp.md) · [Home](../index.md)

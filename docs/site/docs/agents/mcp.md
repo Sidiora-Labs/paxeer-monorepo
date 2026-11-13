@@ -124,9 +124,9 @@ Its required fields are:
 - `session_id`, `session_token_file`, `session_generation`, `capability_id`;
 - `core_height`, positive `deadline_ms`, `agent` and `limit`.
 
-`agent` declares `endpoint`, `bearer_file` and `probe_program`, with optional
-`readiness` containing `endpoint`, `gateway_key_file` and optional
-`trust_anchors`. `limit` declares `id`, `name`, `scope`, `scope_id`, `ceiling`
+`agent` declares `endpoint`, `bearer_file` and `probe_program`. Serving through
+either binary also requires `agent.readiness`, containing `endpoint`,
+`gateway_key_file` and optional `trust_anchors`, for the authenticated gateway. `limit` declares `id`, `name`, `scope`, `scope_id`, `ceiling`
 and `consumed`. These are bindings to daemon-owned records, not independent
 permissions minted by the document. The old `core_sequence` binding key is
 retired; the current key is `core_height`.

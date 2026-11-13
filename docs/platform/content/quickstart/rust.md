@@ -6,7 +6,7 @@ The Rust surface for the LayerX kernel is aimed at the two things Rust callers a
 
 ## Make the payment
 
-```text
+```sh
 layerx payment test --from "$LAYERX_SOURCE" --to "$LAYERX_DESTINATION" \
   --currency "$LAYERX_CURRENCY" --amount "$LAYERX_AMOUNT" \
   --idempotency-key order-2f9c1b7e4a10 --json
@@ -14,11 +14,11 @@ layerx payment test --from "$LAYERX_SOURCE" --to "$LAYERX_DESTINATION" \
 
 That quotes and commits under a key you chose and prints the journey. Fetch the receipt material it references:
 
-```text
-layerx receipt get "$EVIDENCE_ID" --json
+```sh
+layerx receipt get "$TX_HASH" --json
 ```
 
-The retained command example uses the compatibility evidence identifier. On the merged network, `receipt get` takes a transaction hash and fetches `pax_sequencerReceipt`; fetching that response does not verify its execution or finality.
+Use the transaction hash for `TX_HASH`. `receipt get` fetches `pax_sequencerReceipt`; fetching that response does not verify execution or finality. The compatibility verifier below accepts a different receipt encoding.
 
 ## Verify it yourself
 
@@ -26,9 +26,7 @@ The sample is a local compatibility verifier for receipt bytes and caller-suppli
 
 The network rungs are `submitted`, `receipted` and `committed`. `checkpoint-finalised` and `done-finalised` are retained API names for the `committed` rung. `settlement-anchored` and `paxeer-finalised` are never reached on the merged network.
 
-```text
-cargo add layerx-sdk layerx-proof
-```
+Use the local `layerx-sdk` and `layerx-proof` dependencies declared in the sample’s `Cargo.toml`.
 
 ```rust sample=verify-receipt-rust
 use layerx_proof::receipt::AuthorizedBatch;
@@ -48,19 +46,22 @@ Get those five compatibility facts from an independently trusted source. If the 
 
 ## Run the whole sample
 
-```text
+Supply `LAYERX_RECEIPT_FILE`, `LAYERX_BATCH_ID`, `LAYERX_ASSET`,
+`LAYERX_PREVIOUS_STATE_ROOT`, `LAYERX_RESULTING_STATE_ROOT` and
+`LAYERX_SEQUENCER_PUBLIC_KEY`. The five batch facts are 32-byte hexadecimal
+values obtained independently of the receipt supplier. The receipt file holds
+raw compatibility receipt bytes or unprefixed ASCII hex of those bytes.
+
+```sh
 cd services/platform/examples/samples/verify-receipt-rust
 cargo build --release
-LAYERX_RECEIPT_FILE=./receipt.hex \
-LAYERX_BATCH_ID=$(cat ./batch/batch-id.hex) \
-LAYERX_BATCH_ASSET=$(cat ./batch/asset.hex) \
-LAYERX_PREVIOUS_STATE_ROOT=$(cat ./batch/previous-state-root.hex) \
-LAYERX_RESULTING_STATE_ROOT=$(cat ./batch/resulting-state-root.hex) \
-LAYERX_SEQUENCER_PUBLIC_KEY=$(cat ./batch/sequencer-public-key.hex) \
 cargo run --release
 ```
 
-The batch facts are read from files here for a reason: they must come from somewhere you trust independently of whoever handed you the receipt. The receipt file itself may be raw canonical bytes or the hex text the CLI prints; the sample accepts either. It has no dependency beyond `layerx-proof` and `layerx-sdk`, and it is its own cargo workspace, so it does not join the platform workspace when you copy it.
+The project depends on `layerx-proof` and `layerx-sdk` through local source
+paths and declares its own Cargo workspace. Preserve or update those dependency
+paths when copying it. Its local verification result does not replace committed
+block evidence.
 
 ## Verifying without any LayerX component
 

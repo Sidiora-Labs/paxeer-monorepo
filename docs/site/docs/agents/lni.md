@@ -43,11 +43,11 @@ Sources: `services/agent/crates/layerx-agentd/src/node_rpc.rs`,
 | Receipt-key discovery | `px_getReceiptKeys`, produced by the node and relayed by the hosted gateway |
 | Blocks and head | `eth_getBlockByNumber`, `eth_blockNumber` |
 
-The `px_` namespace belongs to the hosted gateway contract; key discovery
-is a node-produced compatibility method also consumed directly by agent
-readiness. The table does not imply that every public node serves the whole
-hosted catalogue. The hosted contract additionally declares `px_getCommit`,
-`px_getValidators` and `px_getSequenceBatch` for consensus and inclusion reads.
+The node registers native `px_` reads, including `px_getReceiptKeys`,
+`px_getCommit`, `px_getValidators` and `px_getSequenceBatch`. Agent readiness
+consumes node-produced key discovery. The hosted gateway has a separate
+contract and authentication policy; registration and funding require its
+identity and faucet services.
 
 A submission hash establishes `submitted`, a verified signed receipt
 establishes `receipted`, and a verified CometBFT commit at the receipt height

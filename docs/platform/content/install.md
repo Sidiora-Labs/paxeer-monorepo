@@ -35,9 +35,10 @@ or every hosted method. See the [gateway source guide in the Paxeer monorepo](ht
 and [reference applications](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/services/platform/examples/README.md)
 for the distinct service bindings.
 
-The emulator exercises local protocol transitions. A successful emulator
-payment does not establish native transaction submission, BFT commitment,
-mainnet funding, or hosted service availability.
+The emulator provides local inspection, prefunding, clock and snapshot
+operations. Its payment and program write routes are retired; `/v1/settle`
+returns HTTP 410. Native payments use signed transactions submitted to the
+node and independently verified receipts.
 
 ### Local bootstrap
 

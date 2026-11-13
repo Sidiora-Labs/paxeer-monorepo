@@ -68,7 +68,7 @@ curl -sS https://api1.mainnet-beta.paxeer.network \
 make paxd-build
 ```
 
-该目标先构建 `build/liblayerx.a` 和 `programs/target/release/liblayerx_programs_sandbox.a`，再通过 `chain.mk` 构建 `build/paxd`。Go 与 C 通过 cgo 链接，需要可用的 C 编译器、OpenSSL 开发库和 Rust 工具链。`make paxeer-build` 也构建节点；这两个目标的 Go 步骤均设置 `GOPROXY=off`，因此需预先准备依赖缓存。
+该目标先构建 `build/liblayerx.a`、`programs/target/release/liblayerx_programs_sandbox.a` 和 evmone，再通过 `chain.mk` 构建 `build/paxd`，版本来自 `tools/release/version.json`。Go 与 C 通过 cgo 链接，需要可用的 C 编译器、OpenSSL 开发库和 Rust 工具链。`make paxeer-build` 也构建节点；这两个目标的 Go 步骤均设置 `GOPROXY=off`，因此需预先准备依赖缓存。
 
 内核库及开发工具的目标仍保留在根目录：
 
