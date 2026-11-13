@@ -30,7 +30,7 @@ The batch fields in `modules/sequencer/types/msgs.go` are:
 | `KeyId` | Identifier of the pinned receipt key, 32 bytes |
 | `Sig` | Ed25519 signature, 64 bytes |
 
-`batch_tx.go` encodes the domain `PAXEER/v1/sequence-batch\0`, the three
+`modules/sequencer/types/batch_tx.go` encodes the domain `PAXEER/v1/sequence-batch\0`, the three
 big-endian u64 positions, the hashes, key identifier, and signature in that
 order. `MsgSequenceBatch.SignBytes` hashes the domain, consensus chain ID,
 positions, and three hashes. The signing context uses the consensus chain ID;

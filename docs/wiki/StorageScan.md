@@ -198,7 +198,7 @@ Host status constants
 | -1 `STATUS_DENIED` | missing matching read grant; `AccessDeclaration` | no | sentinel kept |
 | -2 `STATUS_INVALID` | `InvalidEncoding` (selector not `1` or `2`); `InvalidScanCursor`; `InvalidScanLimits`; negative pointer/length/`max_entries`/`max_bytes`/`output_capacity` via `nonnegative` | no | sentinel kept |
 | -3 `STATUS_BOUNDS` | prefix or cursor longer than the `read_guest` ceiling; output range past memory; encoded page longer than `output_capacity`; `ScanCeilingExceeded` and other `AbiError::Storage(_)` not listed as invalid | no, when returned before `charge_storage_scan` | sentinel kept |
-| -4 `STATUS_METER` | `charge_storage_scan` meter refusal | `finish_resource_failure` reports `storage_read_bytes == 0` (`programs/crates/layerx-programs-runtime/src/storage/scan.rs`) | not written; host returns before `output.write` (`programs/crates/layerx-programs-runtime/src/host/scan.rs`) |
+| -4 `STATUS_METER` | `charge_storage_scan` meter refusal | failed storage-read charge; the meter retains the resource refusal | not written; host returns before `output.write` (`programs/crates/layerx-programs-runtime/src/host/scan.rs`) |
 
 Host fixtures that assert unmetered refusal plus unchanged `keep`:
 

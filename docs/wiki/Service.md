@@ -9,8 +9,8 @@ an escrow the agreement names). The module must not write balances
 Payload version is `LX_SERVICE_RECORD_VERSION = 1` (`bytes[0]=0`,
 `bytes[1]=1`). At most `LX_SERVICE_MAX_DELIVERABLES` (16) hashes or items.
 
-Event types mirror activity ordinals 1–13; event 14 is default acceptance
-applied by batch maintenance.
+Event types mirror activity ordinals 1–13; event 14 reports the configured
+default outcome applied by batch maintenance.
 
 Sources: `include/layerx/lx_service.h`, `src/modules/service/lx_service_module.c`,
 `src/modules/service/lx_service_payload.c`, `src/modules/service/lx_service_acceptance.c`.
@@ -36,8 +36,11 @@ Sources: `include/layerx/lx_service.h`, `src/modules/service/lx_service_module.c
 | `LX_SERVICE_DISPUTE_RESOLVE` | `0x0005000d` | 72 bytes |
 
 Unknown ordinals are `LXP_ERR_UNKNOWN_ACTIVITY`. Version mismatches are
-`LXP_ERR_VERSION_UNSUPPORTED`. Wrong length is `LXP_ERR_TRAILING_BYTES` or
-`LXP_ERR_TRUNCATED`.
+`LXP_ERR_VERSION_UNSUPPORTED`. Fixed-size payloads reject short input as
+`LXP_ERR_TRUNCATED` and extra bytes as `LXP_ERR_TRAILING_BYTES`.
+DELIVER, REJECT and DISPUTE_OPEN reject an out-of-range item count as
+`LXP_ERR_LENGTH_LIMIT` and a length inconsistent with that count as
+`LXP_ERR_NON_CANONICAL`, after checking the minimum payload length.
 
 ---
 
@@ -52,8 +55,8 @@ offer_id32 || asset_id32 || price:u128 || terms_hash32
 || default_outcome:u8 || offer_expiry:u64
 ```
 
-`default_outcome` is `1` accept or `2` reject. Zero ids, zero price, or zero
-windows are `LXP_ERR_NON_CANONICAL`.
+`default_outcome` is `1` accept or `2` reject. Zero ids, hashes, price,
+deadline, windows or expiry are `LXP_ERR_NON_CANONICAL`.
 
 ---
 
@@ -166,8 +169,9 @@ dispute_id32 || ruling:u16 || provider_basis_points:u32
 `LXP_ERR_AGREEMENT_STATE`, `LXP_ERR_SEQUENCE_REUSED`,
 `LXP_ERR_UNAUTHORIZED_DEBIT`, `LXP_ERR_MODULE_MAY_NOT_WRITE_BALANCE`.
 
-Protocol-3 batch maintenance applies default acceptance when the acceptance
-window ends (`lx_service_acceptance_default`).
+Protocol-3 batch maintenance applies the agreement's configured default
+outcome, acceptance or rejection, when the acceptance window ends
+(`lx_service_batch_maintenance`).
 
 ---
 

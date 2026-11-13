@@ -9,7 +9,8 @@ Modes: `LX_STREAM_MODE_TIME = 1`, `LX_STREAM_MODE_METERED = 2`. At most
 `LX_STREAM_MAX_METER_AUTHORITIES` (8) meter keys. Payload version is 1
 (`bytes[0]=0`, `bytes[1]=1`).
 
-Sources: `include/layerx/lx_stream.h`, `src/modules/stream/lx_stream_payload.c`,
+Sources: `include/layerx/lx_stream.h`, `src/modules/stream/lx_stream_open.c`,
+`src/modules/stream/lx_stream_payload.c`,
 `src/modules/stream/lx_stream_lifecycle.c`, `src/modules/stream/lx_stream_settle.c`.
 
 ---
@@ -25,8 +26,7 @@ Sources: `include/layerx/lx_stream.h`, `src/modules/stream/lx_stream_payload.c`,
 | `LX_STREAM_PAUSE` | `0x00040005` | `lx_stream_id_decode` | 34 |
 | `LX_STREAM_RESUME` | `0x00040006` | `lx_stream_id_decode` | 34 |
 | `LX_STREAM_CLOSE` | `0x00040007` | `lx_stream_keyed_decode` | 66 |
-
-Ordinal `0x00040008` is not declared in `lx_stream.h` and is not registered.
+| `LX_STREAM_RATE_CHANGE` | `0x00040008` | `lx_stream_rate_change_decode` | 82 |
 
 ---
 
@@ -81,6 +81,21 @@ stream_id32 || idempotency_key32
 ```text
 stream_id32
 ```
+
+---
+
+## RATE_CHANGE
+
+After the two-byte version prefix:
+
+```text
+stream_id32 || new_rate:u128 || idempotency_key32
+```
+
+Zero stream ID, new rate or idempotency key is `LXP_ERR_NON_CANONICAL`.
+`lx_stream_rate_change_execute` checks lifecycle authority and replay state,
+settles accrued payment at the old rate, then saves the new rate and the
+economic result (`src/modules/stream/lx_stream_settle.c`).
 
 ---
 
