@@ -23,7 +23,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 KERNEL = ROOT / 'docker/kernel'
 NODE = ROOT / 'services/platform/hosted/node'
-FIXTURES = NODE / 'tests/fixtures/repair_22_31_355'
+FIXTURES = NODE / 'tests/fixtures/native_lifecycle'
 CAPTURE = json.loads((FIXTURES / 'native_configuration.json').read_text())
 GENESIS = hashlib.sha256((FIXTURES / 'genesis.json').read_bytes()).hexdigest()
 COMMIT_TIME = datetime.fromisoformat(
@@ -35,13 +35,19 @@ PUBLIC_NAMES = tuple(f'api{i}.mainnet-beta.paxeer.network' for i in range(1, 15)
 RECORD = (ROOT / 'spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_814.kvx')
 
 
-def load_source(name, path):
+def load_source(name, path, replacements=None):
     module = importlib.util.module_from_spec(importlib.util.spec_from_file_location(name, path))
     previous_path, previous_bytecode = sys.path[:], sys.dont_write_bytecode
     try:
         sys.dont_write_bytecode = True
         sys.path.insert(0, str(NODE))
-        module.__spec__.loader.exec_module(module)
+        if replacements:
+            source = path.read_text()
+            for old, new in replacements.items():
+                source = source.replace(old, new)
+            exec(compile(source, path, 'exec'), module.__dict__)
+        else:
+            module.__spec__.loader.exec_module(module)
     finally:
         sys.path[:] = previous_path
         sys.dont_write_bytecode = previous_bytecode
@@ -59,7 +65,10 @@ def runtime():
 def transport():
     # Reuse only the already committed recorded-peer/HTTP transport helpers,
     # never another test function or a replacement production implementation.
-    return load_source('kernel_node_transcript', Path(__file__).with_name('test_kernel_backend_readiness.py'))
+    return load_source(
+        'kernel_node_transcript', Path(__file__).with_name('test_kernel_backend_readiness.py'),
+        {'tests/fixtures/repair_22_31_355': 'tests/fixtures/native_lifecycle'},
+    )
 
 
 @pytest.fixture
