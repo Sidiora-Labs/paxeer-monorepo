@@ -373331,7 +373331,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.43.251]
 title = "Bring the readers of renamed files under the repository tests, the inventory test scripts and the workflows to the present paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.43.249"]
