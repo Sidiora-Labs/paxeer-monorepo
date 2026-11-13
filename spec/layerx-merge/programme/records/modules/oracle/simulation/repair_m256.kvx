@@ -2,7 +2,7 @@
 audit_record = "22.30.13"
 base_revision = "84b6cf09552744359c78f419900ba8fcd9bbeaf5"
 qualified_revision = "Recorded by hf-done in the private gate ledger for this candidate; this file makes no independent qualification claim."
-baseline = "No pre-change test result exists: repair_m256_test.go was absent at task start; the ordered gate rules prohibit running verify before implementation or by hand. No baseline failure is claimed."
+baseline = "No pre-change test result exists: state_and_operations_test.go was absent at task start; the ordered gate rules prohibit running verify before implementation or by hand. No baseline failure is claimed."
 build = "hf-build: go build ./modules/oracle/simulation/..."
 verify = "hf-done: cg spec done 22.33.256 -f layerx-merge --root $TASK_ROOT"
 evidence = "Private runner gate ledger and /tmp/repair-m256.log; exact candidate revision, command, exit and log are emitted by hf-done."

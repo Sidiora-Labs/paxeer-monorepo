@@ -17,7 +17,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking"
 )
 
-func TestRepair_10_WeightedMedian(t *testing.T) {
+func TestMedianBoundariesWeightedMedian(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		rates  []int64
@@ -48,7 +48,7 @@ func TestRepair_10_WeightedMedian(t *testing.T) {
 	}
 }
 
-func TestRepair_10_AssertionRejectsUnsorted(t *testing.T) {
+func TestMedianBoundariesAssertionRejectsUnsorted(t *testing.T) {
 	for _, power := range []int64{0, 1} {
 		ballot := types.ExchangeRateBallot{
 			types.NewVoteForTally(sdk.NewDec(100), utils.MicroAtomDenom, nil, power),
@@ -58,19 +58,19 @@ func TestRepair_10_AssertionRejectsUnsorted(t *testing.T) {
 	}
 }
 
-func TestRepair_10_MidBlockOddTotalOne(t *testing.T) {
-	repair10MidBlock(t, []int64{1, 1}, []int64{0, 100}, []int64{0, 50}, 1, 100, 50)
+func TestMedianBoundariesMidBlockOddTotalOne(t *testing.T) {
+	medianBoundariesMidBlock(t, []int64{1, 1}, []int64{0, 100}, []int64{0, 50}, 1, 100, 50)
 }
 
-func TestRepair_10_MidBlockOddTotalThree(t *testing.T) {
-	repair10MidBlock(t, []int64{1, 2}, []int64{1, 100}, []int64{1, 50}, 3, 100, 50)
+func TestMedianBoundariesMidBlockOddTotalThree(t *testing.T) {
+	medianBoundariesMidBlock(t, []int64{1, 2}, []int64{1, 100}, []int64{1, 50}, 3, 100, 50)
 }
 
-func TestRepair_10_MidBlockEvenTie(t *testing.T) {
-	repair10MidBlock(t, []int64{1, 1}, []int64{2, 100}, []int64{2, 50}, 2, 2, 2)
+func TestMedianBoundariesMidBlockEvenTie(t *testing.T) {
+	medianBoundariesMidBlock(t, []int64{1, 1}, []int64{2, 100}, []int64{2, 50}, 2, 2, 2)
 }
 
-func repair10MidBlock(t *testing.T, powers, referenceRates, quoteRates []int64, ballotPower, wantReference, wantQuote int64) {
+func medianBoundariesMidBlock(t *testing.T, powers, referenceRates, quoteRates []int64, ballotPower, wantReference, wantQuote int64) {
 	t.Helper()
 	previousWhitelist := types.DefaultWhitelist
 	types.DefaultWhitelist = types.DenomList{{Name: utils.MicroAtomDenom}, {Name: utils.MicroEthDenom}}

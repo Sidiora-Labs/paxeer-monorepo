@@ -32,7 +32,7 @@ import (
 
 // This fixture serves the production query router over loopback JSON-RPC. The
 // REST route still uses client.Context and its real protobuf/ABCI transport.
-type repairM255Fixture struct {
+type queryRoutesFixture struct {
 	input    testutils.TestInput
 	cdc      codec.Codec
 	router   *mux.Router
@@ -41,7 +41,7 @@ type repairM255Fixture struct {
 	requests []abci.RequestQuery
 }
 
-func newRepairM255Fixture(t *testing.T) *repairM255Fixture {
+func newQueryRoutesFixture(t *testing.T) *queryRoutesFixture {
 	t.Helper()
 	input := testutils.CreateTestInput(t)
 	input.Ctx = input.Ctx.WithBlockHeight(100).WithBlockTime(time.Unix(5400, 0))
@@ -57,7 +57,7 @@ func newRepairM255Fixture(t *testing.T) *repairM255Fixture {
 		}, observation.timestamp))
 	}
 	encoding := testutils.MakeEncodingConfig(t)
-	f := &repairM255Fixture{input: input, cdc: encoding.Marshaler, router: mux.NewRouter()}
+	f := &queryRoutesFixture{input: input, cdc: encoding.Marshaler, router: mux.NewRouter()}
 	queryRouter := baseapp.NewGRPCQueryRouter()
 	queryRouter.SetInterfaceRegistry(encoding.InterfaceRegistry)
 	msgRouter := baseapp.NewMsgServiceRouter()
@@ -96,7 +96,7 @@ func newRepairM255Fixture(t *testing.T) *repairM255Fixture {
 	return f
 }
 
-func (f *repairM255Fixture) request(t *testing.T, path string, expectedStatus int) *httptest.ResponseRecorder {
+func (f *queryRoutesFixture) request(t *testing.T, path string, expectedStatus int) *httptest.ResponseRecorder {
 	t.Helper()
 	response := httptest.NewRecorder()
 	f.router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
@@ -107,7 +107,7 @@ func (f *repairM255Fixture) request(t *testing.T, path string, expectedStatus in
 	return response
 }
 
-func repairM255Result(t *testing.T, response *httptest.ResponseRecorder, height int64) json.RawMessage {
+func queryRoutesResult(t *testing.T, response *httptest.ResponseRecorder, height int64) json.RawMessage {
 	t.Helper()
 	var envelope struct {
 		Height string          `json:"height"`
@@ -121,8 +121,8 @@ func repairM255Result(t *testing.T, response *httptest.ResponseRecorder, height 
 
 // Finding 015: the mounted route declares and validates its query parameter,
 // then obtains the actual weighted result from the keeper through QueryClient.
-func TestRepairM_255_TwapLookback(t *testing.T) {
-	f := newRepairM255Fixture(t)
+func TestQueryRoutesTwapLookback(t *testing.T) {
+	f := newQueryRoutesFixture(t)
 	for _, tc := range []struct {
 		lookback string
 		price    int64
@@ -140,7 +140,7 @@ func TestRepairM_255_TwapLookback(t *testing.T) {
 			}
 			response := f.request(t, "/oracle/denoms/twaps?lookback_seconds="+tc.lookback, http.StatusOK)
 			var result types.QueryTwapsResponse
-			require.NoError(t, f.cdc.UnmarshalAsJSON(repairM255Result(t, response, 100), &result))
+			require.NoError(t, f.cdc.UnmarshalAsJSON(queryRoutesResult(t, response, 100), &result))
 			require.Len(t, result.OracleTwaps, 1)
 			require.Equal(t, "uatom", result.OracleTwaps[0].Denom)
 			require.Equal(t, sdk.NewDec(tc.price), result.OracleTwaps[0].Twap)
@@ -180,8 +180,8 @@ func TestRepairM_255_TwapLookback(t *testing.T) {
 
 // Finding 014: all retained registrations reach the module's real typed query
 // service despite LegacyQuerierHandler returning nil, preserving response data.
-func TestRepairM_255_TypedQueryRoutes(t *testing.T) {
-	f := newRepairM255Fixture(t)
+func TestQueryRoutesTypedQueryRoutes(t *testing.T) {
+	f := newQueryRoutesFixture(t)
 	q := keeper.NewQuerier(f.input.OracleKeeper)
 	ctx := sdk.WrapSDKContext(f.input.Ctx)
 	voter := testutils.ValAddrs[0].String()
@@ -213,7 +213,7 @@ func TestRepairM_255_TypedQueryRoutes(t *testing.T) {
 			expectedJSON, err := f.cdc.MarshalAsJSON(expected)
 			require.NoError(t, err)
 			response := f.request(t, tc.path, http.StatusOK)
-			require.JSONEq(t, string(expectedJSON), string(repairM255Result(t, response, 100)))
+			require.JSONEq(t, string(expectedJSON), string(queryRoutesResult(t, response, 100)))
 			f.mu.Lock()
 			defer f.mu.Unlock()
 			require.Equal(t, "/paxprotocol.paxchain.oracle.Query/"+tc.method, f.requests[len(f.requests)-1].Path)
@@ -223,14 +223,14 @@ func TestRepairM_255_TypedQueryRoutes(t *testing.T) {
 	f.input.OracleKeeper.SetBaseExchangeRate(f.input.Ctx, "uatom", sdk.NewDec(77))
 	response := f.request(t, "/oracle/denoms/uatom/exchange_rate?height=100", http.StatusOK)
 	var result types.QueryExchangeRateResponse
-	require.NoError(t, f.cdc.UnmarshalAsJSON(repairM255Result(t, response, 100), &result))
+	require.NoError(t, f.cdc.UnmarshalAsJSON(queryRoutesResult(t, response, 100), &result))
 	require.Equal(t, sdk.NewDec(77), result.OracleExchangeRate.ExchangeRate)
 	require.Equal(t, sdk.NewInt(100), result.OracleExchangeRate.LastUpdate)
 	require.Equal(t, int64(5400000), result.OracleExchangeRate.LastUpdateTimestamp)
 }
 
-func TestRepairM_255_QueryValidationAndFailure(t *testing.T) {
-	f := newRepairM255Fixture(t)
+func TestQueryRoutesQueryValidationAndFailure(t *testing.T) {
+	f := newQueryRoutesFixture(t)
 	for _, path := range []string{
 		"/oracle/parameters?height=abc", "/oracle/parameters?height=-1",
 		"/oracle/denoms/x/exchange_rate", "/oracle/voters/invalid/feeder", "/oracle/voters/invalid/vote_penalty_counter",

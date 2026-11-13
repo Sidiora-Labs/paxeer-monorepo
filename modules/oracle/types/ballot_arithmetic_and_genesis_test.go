@@ -19,7 +19,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking"
 )
 
-func TestRepairM_251_WeightedMedian(t *testing.T) {
+func TestBallotAndGenesisWeightedMedian(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		rates  []int64
@@ -46,7 +46,7 @@ func TestRepairM_251_WeightedMedian(t *testing.T) {
 	}
 }
 
-func TestRepairM_251_DeterministicDeviation(t *testing.T) {
+func TestBallotAndGenesisDeterministicDeviation(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		rates  []string
@@ -90,7 +90,7 @@ func TestRepairM_251_DeterministicDeviation(t *testing.T) {
 	require.Equal(t, want, ballot.StandardDeviation(sdk.ZeroDec()))
 }
 
-func TestRepairM_251_ArithmeticFailureIsVisible(t *testing.T) {
+func TestBallotAndGenesisArithmeticFailureIsVisible(t *testing.T) {
 	oversized := sdk.NewDecFromInt(sdk.NewIntFromBigInt(new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1))))
 	for _, tc := range []struct {
 		name    string
@@ -124,7 +124,7 @@ func TestRepairM_251_ArithmeticFailureIsVisible(t *testing.T) {
 	require.Empty(t, claims, "arithmetic failure must occur before any reward claims change")
 }
 
-func repairM251Input(t *testing.T, powers []int64) testutils.TestInput {
+func ballotAndGenesisInput(t *testing.T, powers []int64) testutils.TestInput {
 	t.Helper()
 	oldWhitelist := types.DefaultWhitelist
 	types.DefaultWhitelist = types.DenomList{{Name: utils.MicroAtomDenom}}
@@ -148,7 +148,7 @@ func repairM251Input(t *testing.T, powers []int64) testutils.TestInput {
 	return input
 }
 
-func repairM251Submit(t *testing.T, input testutils.TestInput, rates []string) {
+func ballotAndGenesisSubmit(t *testing.T, input testutils.TestInput, rates []string) {
 	t.Helper()
 	handler := oracle.NewHandler(input.OracleKeeper)
 	for i, rate := range rates {
@@ -165,7 +165,7 @@ func repairM251Submit(t *testing.T, input testutils.TestInput, rates []string) {
 	}
 }
 
-func TestRepairM_251_TallyAndPenaltyOutcomes(t *testing.T) {
+func TestBallotAndGenesisTallyAndPenaltyOutcomes(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
 		powers    []int64
@@ -181,11 +181,11 @@ func TestRepairM_251_TallyAndPenaltyOutcomes(t *testing.T) {
 		{"eighteen_decimal_band", []int64{3, 1}, []string{"100", "100.000000000000000002"}, "0", "0.000000000000000001", []int64{1, 0}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			input := repairM251Input(t, tc.powers)
+			input := ballotAndGenesisInput(t, tc.powers)
 			params := input.OracleKeeper.GetParams(input.Ctx)
 			params.RewardBand = sdk.MustNewDecFromStr(tc.band)
 			input.OracleKeeper.SetParams(input.Ctx, params)
-			repairM251Submit(t, input, tc.rates)
+			ballotAndGenesisSubmit(t, input, tc.rates)
 			claims := map[string]types.Claim{}
 			for i, power := range tc.powers {
 				claims[testutils.ValAddrs[i].String()] = types.NewClaim(power, 0, 0, testutils.ValAddrs[i], false)
@@ -240,7 +240,7 @@ func TestRepairM_251_TallyAndPenaltyOutcomes(t *testing.T) {
 	}
 }
 
-func TestRepairM_251_MidBlockMedianRegressions(t *testing.T) {
+func TestBallotAndGenesisMidBlockMedianRegressions(t *testing.T) {
 	for _, tc := range []struct {
 		name                                  string
 		powers, reference, quote              []int64
@@ -251,11 +251,11 @@ func TestRepairM_251_MidBlockMedianRegressions(t *testing.T) {
 		{"even_tie", []int64{1, 1}, []int64{2, 100}, []int64{2, 50}, 2, 2, 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			repair10MidBlock(t, tc.powers, tc.reference, tc.quote, tc.ballotPower, tc.wantReference, tc.wantQuote)
+			medianBoundariesMidBlock(t, tc.powers, tc.reference, tc.quote, tc.ballotPower, tc.wantReference, tc.wantQuote)
 		})
 	}
-	input := repairM251Input(t, []int64{1, 2})
-	repairM251Submit(t, input, []string{"0", "0"})
+	input := ballotAndGenesisInput(t, []int64{1, 2})
+	ballotAndGenesisSubmit(t, input, []string{"0", "0"})
 	oracle.MidBlocker(input.Ctx, input.OracleKeeper)
 	_, _, _, err := input.OracleKeeper.GetBaseExchangeRate(input.Ctx, utils.MicroAtomDenom)
 	require.ErrorIs(t, err, types.ErrUnknownDenom)
@@ -264,10 +264,10 @@ func TestRepairM_251_MidBlockMedianRegressions(t *testing.T) {
 	}
 }
 
-func repairM251Genesis(t *testing.T) *types.GenesisState {
+func ballotGenesisState(t *testing.T) *types.GenesisState {
 	t.Helper()
-	input := repairM251Input(t, []int64{1, 2})
-	repairM251Submit(t, input, []string{"100", "0"})
+	input := ballotAndGenesisInput(t, []int64{1, 2})
+	ballotAndGenesisSubmit(t, input, []string{"100", "0"})
 	msg := types.NewMsgDelegateFeedConsent(testutils.ValAddrs[0], testutils.Addrs[1])
 	require.NoError(t, msg.ValidateBasic())
 	_, err := oracle.NewHandler(input.OracleKeeper)(input.Ctx, msg)
@@ -286,8 +286,8 @@ func repairM251Genesis(t *testing.T) *types.GenesisState {
 	return oracle.ExportGenesis(input.Ctx, input.OracleKeeper)
 }
 
-func TestRepairM_251_GenesisRoundTrip(t *testing.T) {
-	genesis := repairM251Genesis(t)
+func TestBallotAndGenesisGenesisRoundTrip(t *testing.T) {
+	genesis := ballotGenesisState(t)
 	require.NoError(t, types.ValidateGenesis(genesis))
 	cdc := testutils.MakeEncodingConfig(t).Marshaler
 	encoded, err := cdc.MarshalAsJSON(genesis)
@@ -295,7 +295,7 @@ func TestRepairM_251_GenesisRoundTrip(t *testing.T) {
 	var decoded types.GenesisState
 	require.NoError(t, cdc.UnmarshalAsJSON(encoded, &decoded))
 	require.NoError(t, types.ValidateGenesis(&decoded))
-	input := repairM251Input(t, nil)
+	input := ballotAndGenesisInput(t, nil)
 	require.NotPanics(t, func() { oracle.InitGenesis(input.Ctx, input.OracleKeeper, &decoded) })
 	require.Equal(t, genesis, oracle.ExportGenesis(input.Ctx, input.OracleKeeper))
 	require.Equal(t, testutils.Addrs[1], input.OracleKeeper.GetFeederDelegation(input.Ctx, testutils.ValAddrs[0]))
@@ -315,8 +315,8 @@ func TestRepairM_251_GenesisRoundTrip(t *testing.T) {
 	require.ErrorIs(t, err, types.ErrUnknownDenom, "legacy imports cannot claim fresh observations")
 }
 
-func TestRepairM_251_GenesisRejectsInvalidRecords(t *testing.T) {
-	base := repairM251Genesis(t)
+func TestBallotAndGenesisGenesisRejectsInvalidRecords(t *testing.T) {
+	base := ballotGenesisState(t)
 	cdc := testutils.MakeEncodingConfig(t).Marshaler
 	encoded, err := cdc.MarshalAsJSON(base)
 	require.NoError(t, err)
@@ -437,7 +437,7 @@ func TestRepairM_251_GenesisRejectsInvalidRecords(t *testing.T) {
 			var candidate types.GenesisState
 			require.NoError(t, cdc.UnmarshalAsJSON(encoded, &candidate))
 			tc.mutate(&candidate)
-			input := repairM251Input(t, nil)
+			input := ballotAndGenesisInput(t, nil)
 			before := oracle.ExportGenesis(input.Ctx, input.OracleKeeper)
 			var validationErr error
 			require.NotPanics(t, func() { validationErr = types.ValidateGenesis(&candidate) })

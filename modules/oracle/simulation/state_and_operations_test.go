@@ -36,7 +36,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repairM256Input(t *testing.T) testutils.TestInput {
+func simulationInput(t *testing.T) testutils.TestInput {
 	t.Helper()
 	input := testutils.CreateTestInput(t)
 	input.Ctx = input.Ctx.WithBlockHeight(11).WithBlockTime(time.Unix(1700000000, 0).UTC())
@@ -44,7 +44,7 @@ func repairM256Input(t *testing.T) testutils.TestInput {
 	return input
 }
 
-func repairM256ParamsKeeper(t *testing.T, input testutils.TestInput) paramskeeper.Keeper {
+func simulationParamsKeeper(t *testing.T, input testutils.TestInput) paramskeeper.Keeper {
 	t.Helper()
 	keys := make(map[string]sdk.StoreKey)
 	for _, key := range input.Ctx.MultiStore().(store.CommitMultiStore).StoreKeys() {
@@ -56,8 +56,8 @@ func repairM256ParamsKeeper(t *testing.T, input testutils.TestInput) paramskeepe
 	return pk
 }
 
-func TestRepairM_256_DecoderPersistedSchemas(t *testing.T) {
-	input := repairM256Input(t)
+func TestSimulationStateAndOperationsDecoderPersistedSchemas(t *testing.T) {
+	input := simulationInput(t)
 	ctx, k := input.Ctx, input.OracleKeeper
 	cdc := testutils.MakeEncodingConfig(t).Marshaler
 	decode := oraclesim.NewDecodeStore(cdc)
@@ -135,8 +135,8 @@ func TestRepairM_256_DecoderPersistedSchemas(t *testing.T) {
 	require.Panics(t, func() { decode(kv.Pair{Key: []byte{0xff}}, kv.Pair{}) })
 }
 
-func TestRepairM_256_RandomizedGenesis(t *testing.T) {
-	input := repairM256Input(t)
+func TestSimulationStateAndOperationsRandomizedGenesis(t *testing.T) {
+	input := simulationInput(t)
 	cdc := testutils.MakeEncodingConfig(t).Marshaler
 	for seed := int64(0); seed < 64; seed++ {
 		state := module.SimulationState{Cdc: cdc, Rand: rand.New(rand.NewSource(seed)), AppParams: simtypes.AppParams{}, GenState: map[string]json.RawMessage{}}
@@ -173,10 +173,10 @@ func TestRepairM_256_RandomizedGenesis(t *testing.T) {
 	}
 }
 
-func TestRepairM_256_AggregateVoteDelivery(t *testing.T) {
+func TestSimulationStateAndOperationsAggregateVoteDelivery(t *testing.T) {
 	for _, delegated := range []bool{false, true} {
 		t.Run(fmt.Sprintf("delegated_%t", delegated), func(t *testing.T) {
-			input := repairM256Input(t)
+			input := simulationInput(t)
 			// The shared keeper fixture predates deferred fees. Mount the same
 			// dedicated memory cache and bank implementation used by the node.
 			ms := input.Ctx.MultiStore().(store.CommitMultiStore)
@@ -191,7 +191,7 @@ func TestRepairM_256_AggregateVoteDelivery(t *testing.T) {
 				}
 			}
 			require.NotNil(t, bankKey)
-			pk := repairM256ParamsKeeper(t, input)
+			pk := simulationParamsKeeper(t, input)
 			input.BankKeeper = bankkeeper.NewBaseKeeperWithDeferredCache(input.OracleKeeper.GetCdc(), bankKey,
 				input.AccountKeeper, pk.Subspace(banktypes.ModuleName), nil, cacheKey)
 			r := rand.New(rand.NewSource(256))
@@ -298,7 +298,7 @@ func TestRepairM_256_AggregateVoteDelivery(t *testing.T) {
 	}
 }
 
-func repairM256TransportProposal(t *testing.T, input testutils.TestInput, p *proposal.ParameterChangeProposal) *proposal.ParameterChangeProposal {
+func transportSimulationProposal(t *testing.T, input testutils.TestInput, p *proposal.ParameterChangeProposal) *proposal.ParameterChangeProposal {
 	t.Helper()
 	var decoded proposal.ParameterChangeProposal
 	input.Cdc.MustUnmarshalJSON(input.Cdc.MustMarshalJSON(p), &decoded)
@@ -306,9 +306,9 @@ func repairM256TransportProposal(t *testing.T, input testutils.TestInput, p *pro
 	return &decoded
 }
 
-func TestRepairM_256_ParameterProgression(t *testing.T) {
-	input := repairM256Input(t)
-	pk := repairM256ParamsKeeper(t, input)
+func TestSimulationStateAndOperationsParameterProgression(t *testing.T) {
+	input := simulationInput(t)
+	pk := simulationParamsKeeper(t, input)
 	handler := params.NewParamChangeProposalHandler(pk)
 	producer := oraclesim.ParamChangeProposalContent(input.OracleKeeper)
 	r := rand.New(rand.NewSource(256))
@@ -319,7 +319,7 @@ func TestRepairM_256_ParameterProgression(t *testing.T) {
 		for _, change := range p.Changes {
 			seen[change.Key] = true
 		}
-		decoded := repairM256TransportProposal(t, input, p)
+		decoded := transportSimulationProposal(t, input, p)
 		require.NoError(t, handler(input.Ctx, decoded))
 		after := input.OracleKeeper.GetParams(input.Ctx)
 		require.NoError(t, after.Validate())
@@ -352,7 +352,7 @@ func TestRepairM_256_ParameterProgression(t *testing.T) {
 					}
 				}
 				p := proposal.NewParameterChangeProposal("Valid subset", "Apply generated oracle changes", changes, false)
-				require.NoError(t, handler(input.Ctx, repairM256TransportProposal(t, input, p)))
+				require.NoError(t, handler(input.Ctx, transportSimulationProposal(t, input, p)))
 				require.NoError(t, input.OracleKeeper.GetParams(input.Ctx).Validate())
 			}
 		}
@@ -360,19 +360,19 @@ func TestRepairM_256_ParameterProgression(t *testing.T) {
 	// The legacy context-free pool must remain safe against nondefault state.
 	for _, change := range oraclesim.ParamChanges(r) {
 		p := proposal.NewParameterChangeProposal("Legacy scalar", "Apply independent scalar parameter", []proposal.ParamChange{proposal.NewParamChange(change.Subspace(), change.Key(), change.SimValue()(r))}, false)
-		require.NoError(t, handler(input.Ctx, repairM256TransportProposal(t, input, p)))
+		require.NoError(t, handler(input.Ctx, transportSimulationProposal(t, input, p)))
 		require.NoError(t, input.OracleKeeper.GetParams(input.Ctx).Validate())
 	}
 }
 
-func TestRepairM_256_IntentionalParameterRejections(t *testing.T) {
-	input := repairM256Input(t)
-	handler := params.NewParamChangeProposalHandler(repairM256ParamsKeeper(t, input))
+func TestSimulationStateAndOperationsIntentionalParameterRejections(t *testing.T) {
+	input := simulationInput(t)
+	handler := params.NewParamChangeProposalHandler(simulationParamsKeeper(t, input))
 	for _, key := range [][]byte{types.KeyVotePeriod, types.KeySlashWindow} {
 		before := input.OracleKeeper.GetParams(input.Ctx)
 		p := proposal.NewParameterChangeProposal("Invalid zero", "Intentionally reject a zero timing parameter", []proposal.ParamChange{proposal.NewParamChange(types.ModuleName, string(key), `"0"`)}, false)
 		cache, _ := input.Ctx.CacheContext()
-		require.Error(t, handler(cache, repairM256TransportProposal(t, input, p)))
+		require.Error(t, handler(cache, transportSimulationProposal(t, input, p)))
 		require.Equal(t, before, input.OracleKeeper.GetParams(input.Ctx))
 	}
 	invalid := types.DefaultParams()
