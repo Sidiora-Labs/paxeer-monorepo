@@ -118,7 +118,17 @@ impl Producer {
                 format!("http://{}/", listener.local_addr()?),
             ),
             ("LAYERX_AGENT_MCP_WEB_NETWORK", chain.to_string()),
+            (
+                "LAYERX_AGENT_MCP_WEB_PAYER_ADDRESS",
+                "0x1111111111111111111111111111111111111111".to_owned(),
+            ),
+            (
+                "LAYERX_AGENT_MCP_WEB_RECEIVER_ADDRESS",
+                "0x2222222222222222222222222222222222222222".to_owned(),
+            ),
             ("LAYERX_AGENT_MCP_WEB_RECEIPT_KEY_INDEX", "0".to_owned()),
+            ("LAYERX_AGENT_MCP_WEB_FIRST_BATCH_NUMBER", "1".to_owned()),
+            ("LAYERX_AGENT_MCP_WEB_LAST_BATCH_NUMBER", "2".to_owned()),
             ("LAYERX_AGENT_MCP_WEB_TIMEOUT_MS", "1000".to_owned()),
             ("LAYERX_AGENT_MCP_WEB_PENDING_ATTEMPTS", "2".to_owned()),
             ("LAYERX_AGENT_MCP_WEB_APPROVAL_THRESHOLD", "1".to_owned()),
@@ -362,8 +372,8 @@ fn lint_error<T: std::fmt::Debug, E>(result: Result<T, E>, context: &str) -> E {
 
 fn verify_environment_documentation() {
     for document in [
-        include_str!("../../../../../docs/site/docs/agents/running.md"),
         include_str!("../../../../../docs/wiki/RunningAnAgent.md"),
+        include_str!("../../../../../docs/release/variables/service-agent.md"),
     ] {
         for name in [
             NETWORK,
