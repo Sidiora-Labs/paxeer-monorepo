@@ -238717,7 +238717,7 @@ do_4 = "do_4 Decision 3462, gotcha 4375. The file consensus/internal/rpc/core/pr
 
 [task.22.41.120]
 title = "Read the node inventory of the bring-up tools from docs/readme/PUBLIC-RPC.md"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.41.119"]
