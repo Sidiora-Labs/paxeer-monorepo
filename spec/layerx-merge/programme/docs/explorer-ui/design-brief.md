@@ -1,10 +1,8 @@
 # Paxscan explorer visual system brief (dark and light)
 
-This brief is the single design source for the explorer restyle tasks 22.35.1 to 22.35.8 in
-`spec/layerx-merge/spec.kvx`. It describes the target look, layout grammar, tokens, components and
-page blueprints for `apps/explorer` (the Blockscout-based Next.js frontend, Chakra UI v3). Every
-value here is a target the task implements in both colour modes; where the brief and an existing
-component disagree, the brief wins unless a task says otherwise.
+This brief describes the visual system in `apps/explorer`, the Blockscout-based
+Next.js frontend using Chakra UI v3. Its theme foundations, component recipes and
+page components define the palette, typography and layouts in both colour modes.
 
 The reference style is a contemporary market-data explorer: dark-first, dense, quiet surfaces,
 hairline dividers, uppercase micro-labels over every data group, tabular numerals, and a single
@@ -24,15 +22,15 @@ not derived by inversion.
 5. **Data honesty.** A sparkline, price, market cap or change is drawn only from a real series or
    field the backend already returns. Missing data renders as an em dash and a muted label,
    never as a placeholder curve or a zero.
-6. **Both modes, every token.** Every colour is a semantic token with `_light` and `_dark`
-   values; no component carries a literal colour. Body text meets 4.5:1 contrast on its surface,
-   muted labels meet 3:1, in both modes.
+6. **Both modes.** Semantic colour roles provide `_light` and `_dark` values for
+   shared surfaces, text, borders, accents and chart colours.
 
 ## 2. Colour tokens
 
-Values go into `apps/explorer/toolkit/theme/foundations/colors.ts` (the `LIGHT` and `DARK` sets
-and the `theme.*` palette) and are exposed through `semanticTokens.ts`. Names below are the
-semantic roles the components use.
+`apps/explorer/toolkit/theme/foundations/palette.ts` defines the `LIGHT` and `DARK`
+sets. `colors.ts` imports and re-exports them, and
+`apps/explorer/toolkit/theme/foundations/semanticTokens.ts` exposes the semantic
+roles below.
 
 | Role | Dark | Light |
 | --- | --- | --- |
@@ -59,10 +57,12 @@ semantic roles the components use.
 | chart area fill | accent 0.30 to 0 | accent 0.30 to 0 |
 
 The existing `graphStart` / `graphStop`, `success*`, `destructive*`, `warning*`, `tonal`,
-`outline`, `dataTableBorder` and `selectedOption` keys keep working and are re-pointed at the
-roles above so untouched components inherit the new palette.
+`outline`, `dataTableBorder` and `selectedOption` keys map to the roles above through
+the compatibility aliases in `palette.ts`.
 
 ## 3. Typography
+
+`apps/explorer/toolkit/theme/foundations/typography.ts` defines these families and text styles.
 
 - Body family: the configured body typeface (Inter by default) with the existing fallback stack.
 - Heading family: the same body family. Headings are distinguished by weight and size, not by a
@@ -83,10 +83,12 @@ roles above so untouched components inherit the new palette.
 
 - One top bar, no vertical sidebar on desktop (the horizontal navigation layout is the only
   layout; the `NEXT_PUBLIC_NAVIGATION_LAYOUT` value `vertical` is accepted and ignored).
-- Content column: max 1280 px, 24 px side gutters on desktop, 16 px on mobile.
+- Content column: 1280 px maximum by default. Setting
+  `NEXT_PUBLIC_MAX_CONTENT_WIDTH_ENABLED=false` changes the maximum to 10000 px.
+  The desktop header uses 24 px side gutters.
 - Page = entity header, tabs, then sections. Sections stack with 32 px gaps; inside a section
   the label sits 8 px above its content.
-- Cards are used only for stat tiles and chart panels: surface background, hairline border,
+- Stat tiles and chart panels use cards: surface background, hairline border,
   8 px radius, 16 px padding, no shadow.
 - Tables sit directly on the canvas with a hairline above the header row and between rows;
   no outer card.
@@ -116,8 +118,8 @@ chip = token symbol, price in mono and 24 h change coloured positive / negative.
 built from the tokens the API returns with a non-null exchange rate; when none has a rate the
 strip is not rendered.
 
-**Stat tile**: label (uppercase), value (stat value style), optional delta (positive /
-negative colour, mono) and optional 96 × 28 sparkline.
+**Stat tile**: label (uppercase), value in the stat value style, an optional hint and
+a loading skeleton. `ui/shared/Page/StatTile.tsx` uses an 8 px radius and 16 px padding.
 
 **Table**: header row 36 px with uppercase labels, body rows 44 px, hairline rules, raised
 background on hover, first column sticky on narrow screens, numbers right-aligned in mono,
@@ -138,14 +140,16 @@ appropriate; a hint icon after the key opens the existing tooltip.
 **Status pill**: 999 px radius, soft background and strong text in the semantic colour
 (positive = success, negative = failed, muted = pending).
 
-**Sparkline**: inline SVG, 1.5 px stroke, no axes, colour by sign of the first-to-last change,
-only drawn when a series with at least two points exists.
+**Network history chart**: inline SVG with a 1.5 px line, area fill, axes and a
+hover tooltip. `ui/home/indicators/ChainIndicatorChartContainer.tsx` draws a chart
+only when a series has at least two points; absent data renders an em dash.
 
 ## 6. Page blueprints
 
 **Home.** Ticker strip; hero with the display heading (network name and a one-line
 description) and the search-as-prompt field; a stat row of five tiles (Total blocks, Average
-block time, Total transactions, Wallet addresses, Gas price) with the network chart below;
+block time, Total transactions, Wallet addresses, Gas price) with transaction history
+and configured market charts below;
 then two dense tables side by side, LATEST BLOCKS and LATEST TRANSACTIONS, each with a *View
 all* link in the label row.
 
@@ -154,11 +158,13 @@ all* link in the label row.
 **Tokens (markets view).** Columns: #, Token (logo, name, symbol), Price, Change 24 h, Market
 cap, Volume 24 h, Holders. Price, change, market cap and volume render only from the fields
 the token API returns (exchange rate, circulating market cap, 24 h volume, holders count);
-absent values show an em dash. Sort controls on the numeric columns. Category chips above the
-table (All, Fungible, NFT, Bridged) map to the existing token type filters.
+absent values show an em dash. Price, Market cap and Holders have sort controls when
+sorting is available. Category chips above the table (All, Fungible, NFT, Bridged)
+map to the existing token type filters.
 
-**Transaction detail.** Entity header (TRANSACTION, hash, status pill, method tag); tabs
-*Overview*, *Token transfers*, *Internal*, *Logs*, *State*, *Raw*; the Overview is a stack of
+**Transaction detail.** Entity header (TRANSACTION, hash, status pill, method tag); core tabs
+*Overview*, *Token transfers*, *Internal*, *Logs*, *State*, *Raw*, with additional
+tabs enabled by data and configuration; the Overview is a stack of
 labelled groups: SUMMARY (status, block, timestamp, from, to, value, fee), TRANSFERS (table),
 BALANCE CHANGES (table with address, change, pre and post balance), DETAILS (gas, nonce,
 position, type, input data).
@@ -188,15 +194,21 @@ validators API provides); Epochs with Started, First block, Last block, Duration
 
 ## 7. Colour-mode rules
 
-- Every new or touched component takes colours from semantic tokens only.
+- Shared recipes take their palette values from semantic colour tokens.
 - The existing colour-mode toggle and the settings colour theme keep working; the stored
   preference wins over the system preference.
-- Every Playwright story touched by a task has a light and a dark variant (the existing
-  `dark-color-mode` project), and the vitest specs assert each new token resolves to a value
-  in both modes.
+- Playwright includes the `dark-color-mode` project. Theme specifications cover
+  semantic-token values in both modes.
 
-## 8. Out of scope for 22.35.1 to 22.35.8
+## 8. Ask assistant
 
-- *Explain* buttons or any further model-backed feature. The Ask assistant is decided: decision 2652 and task 22.35.10 add a server-side route to a configurable OpenAI-compatible chat-completions endpoint (default model xai/grok-4.7) and an Ask row in the search panel; it follows 22.35.8.
-- Watchlist, sign-in and profile flows beyond restyling what exists.
-- New backend endpoints; every page renders from the API the explorer already consumes.
+The search panel includes an Ask row backed by `pages/api/assistant.ts` at
+`POST /api/assistant`. It accepts a nonempty `question` of at most 2000 characters
+and optional string context fields `route`, `entityKind` and `identifier`.
+
+The server reads `EXPLORER_ASSISTANT_BASE_URL`, `EXPLORER_ASSISTANT_MODEL` and
+`EXPLORER_ASSISTANT_API_KEY`. The default model is `xai/grok-4.7`; the configured
+base URL supplies the `/chat/completions` endpoint. The request has a 30-second
+timeout and refuses redirects. A missing base URL returns 503, malformed input
+returns 400, and an upstream request error returns 502. Successful responses
+contain `answer` and `model`; responses use `Cache-Control: no-store`.
