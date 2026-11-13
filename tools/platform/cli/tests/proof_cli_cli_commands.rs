@@ -547,5 +547,5 @@ fn emulator_rpc_route_absence_is_a_negative_boundary() -> Result<(), Box<dyn std
     assert_invalid_inputs(root, &export, &before)
 }
 
-#[path = "repair_22_33_1496.rs"]
-mod audit_22_33_1496;
+#[path = "program_and_wallet_receipts.rs"]
+mod program_and_wallet_receipts;

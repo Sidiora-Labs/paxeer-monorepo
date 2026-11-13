@@ -1,0 +1,408 @@
+[manifest]
+task = "22.43.222"
+records_moved = 16
+files_renamed = 24
+
+[file.1]
+from = "tools/qualification/paxeer-x/repair-22.31.316.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.31.316.kvx"
+
+[file.2]
+from = "tools/qualification/paxeer-x/repair-22.31.318.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.31.318.kvx"
+
+[file.3]
+from = "tools/qualification/paxeer-x/repair-22.31.330.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.31.330.kvx"
+
+[file.4]
+from = "tools/qualification/paxeer-x/repair-22.31.332.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.31.332.kvx"
+
+[file.5]
+from = "tools/qualification/paxeer-x/repair-22.31.432.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.31.432.kvx"
+
+[file.6]
+from = "tools/qualification/paxeer-x/repair-22.33.703.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.33.703.kvx"
+
+[file.7]
+from = "tools/qualification/paxeer-x/repair-22.33.736.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.33.736.kvx"
+
+[file.8]
+from = "tools/qualification/paxeer-x/repair-22.33.765.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.33.765.kvx"
+
+[file.9]
+from = "tools/qualification/paxeer-x/repair-22.33.778.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.33.778.kvx"
+
+[file.10]
+from = "tools/qualification/paxeer-x/repair-22.33.779.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.33.779.kvx"
+
+[file.11]
+from = "tools/qualification/paxeer-x/repair-22.33.791.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.33.791.kvx"
+
+[file.12]
+from = "tools/qualification/paxeer-x/repair-22.33.810.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.33.810.kvx"
+
+[file.13]
+from = "tools/qualification/paxeer-x/repair-22.33.853.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.33.853.kvx"
+
+[file.14]
+from = "tools/qualification/paxeer-x/repair_m876_test.go"
+to = "tools/qualification/paxeer-x/native_manifest_proofs_test.go"
+
+[file.15]
+from = "tools/qualification/paxeer-x/test_repair_22_33_876.py"
+to = "tools/qualification/paxeer-x/test_native_manifest_contracts.py"
+
+[file.16]
+from = "tools/qualification/paxeer-x/tests/test_repair_22_31_316.py"
+to = "tools/qualification/paxeer-x/tests/test_agent_operation_envelope.py"
+
+[file.17]
+from = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+to = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py"
+
+[file.18]
+from = "tools/qualification/paxeer-x/tests/test_repair_22_31_330.py"
+to = "tools/qualification/paxeer-x/tests/test_native_artifact_publication.py"
+
+[file.19]
+from = "tools/qualification/paxeer-x/tests/test_repair_22_31_332.py"
+to = "tools/qualification/paxeer-x/tests/test_mcp_binding_authority.py"
+
+[file.20]
+from = "tools/qualification/paxeer-x/tests/test_repair_22_31_432.py"
+to = "tools/qualification/paxeer-x/tests/test_wallet_custody_recovery.py"
+
+[file.21]
+from = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py"
+to = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py"
+
+[file.22]
+from = "tools/qualification/paxeer-x/tests/test_repair_22_33_736.py"
+to = "tools/qualification/paxeer-x/tests/test_retired_merged_qualification_cli.py"
+
+[file.23]
+from = "tools/qualification/paxeer-x/tests/test_repair_22_33_765.py"
+to = "tools/qualification/paxeer-x/tests/test_agent_envelope_routes.py"
+
+[file.24]
+from = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+to = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py"
+
+[file.25]
+from = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py"
+to = "tools/qualification/paxeer-x/tests/test_program_router_wallet_contracts.py"
+
+[file.26]
+from = "tools/qualification/paxeer-x/tests/test_repair_22_33_791.py"
+to = "tools/qualification/paxeer-x/tests/test_event_delivery_source_bindings.py"
+
+[file.27]
+from = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+to = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
+
+[file.28]
+from = "tools/qualification/paxeer-x/tests/test_repair_22_33_853.py"
+to = "tools/qualification/paxeer-x/tests/test_migration_record_protocol.py"
+
+[file.29]
+from = "tools/qualification/paxeer-x/tests/test_repair_22_33_860.py"
+to = "tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py"
+
+[file.30]
+from = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+to = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py"
+
+[file.31]
+from = "tools/qualification/paxeer-x/tests/test_repair_22_33_862.py"
+to = "tools/qualification/paxeer-x/tests/test_wallet_package_and_private_bundle.py"
+
+[file.32]
+from = "tools/qualification/paxeer-x/tests/test_repair_22_33_863.py"
+to = "tools/qualification/paxeer-x/tests/test_proof_cli_genesis.py"
+
+[file.33]
+from = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py"
+to = "tools/qualification/paxeer-x/tests/test_runtime_custody_manifest_contracts.py"
+
+[file.34]
+from = "tools/qualification/paxeer-x/tests/test_repair_22_33_878.py"
+to = "tools/qualification/paxeer-x/tests/test_wallet_transfer_commitment.py"
+
+[file.35]
+from = "tools/qualification/repair_22_31_621.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/repair_22_31_621.kvx"
+
+[file.36]
+from = "tools/qualification/repair_22_31_623.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/repair_22_31_623.kvx"
+
+[file.37]
+from = "tools/qualification/repair_22_39_273.kvx"
+to = "spec/layerx-merge/programme/records/tools/qualification/repair_22_39_273.kvx"
+
+[file.38]
+from = "tools/qualification/tests/test_repair_22_33_780.py"
+to = "tools/qualification/tests/test_merged_release_evidence.py"
+
+[file.39]
+from = "tools/qualification/tests/test_repair_22_33_809.py"
+to = "tools/qualification/tests/test_beta_driver_committed_evidence.py"
+
+[file.40]
+from = "tools/qualification/tests/test_repair_22_33_864.py"
+to = "tools/qualification/tests/test_beta_driver_native_receipts.py"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "repair_22_31_621.kvx"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "test_repair_22_33_809.py"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "test_repair_22_33_877"
+
+[reference.4]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "test_repair_22_31_316.py"
+
+[reference.5]
+file = "spec/layerx-merge/dispositions/d22-21.kvx"
+name = "repair_22_31_623.kvx"
+
+[reference.6]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "test_repair_22_33_703.py"
+
+[reference.7]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "test_repair_22_33_810.py"
+
+[reference.8]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "test_repair_22_33_864.py"
+
+[reference.9]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "test_repair_22_33_877.py"
+
+[reference.10]
+file = "spec/layerx-merge/dispositions/d22-31.kvx"
+name = "repair_22_31_623.kvx"
+
+[reference.11]
+file = "spec/layerx-merge/programme/issues/1621.kvx"
+name = "repair-22.33.778.kvx"
+
+[reference.12]
+file = "spec/layerx-merge/programme/issues/1621.kvx"
+name = "test_repair_22_33_778.py"
+
+[reference.13]
+file = "spec/layerx-merge/programme/issues/1684.kvx"
+name = "test_repair_22_33_703.py"
+
+[reference.14]
+file = "spec/layerx-merge/programme/issues/1880.kvx"
+name = "repair_22_31_623.kvx"
+
+[reference.15]
+file = "spec/layerx-merge/programme/issues/1882.kvx"
+name = "test_repair_22_33_877.py"
+
+[reference.16]
+file = "spec/layerx-merge/programme/issues/1903.kvx"
+name = "repair_22_31_623.kvx"
+
+[reference.17]
+file = "spec/layerx-merge/programme/issues/input/1684.md"
+name = "repair-22.33.703.kvx"
+
+[reference.18]
+file = "spec/layerx-merge/programme/issues/input/1880.md"
+name = "repair_22_31_623.kvx"
+
+[reference.19]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_31_316.py"
+
+[reference.20]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_31_332.py"
+
+[reference.21]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_33_703.py"
+
+[reference.22]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_33_810.py"
+
+[reference.23]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_33_853.py"
+
+[reference.24]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_33_864.py"
+
+[reference.25]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_33_877.py"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22.33.778.kvx"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22.33.810.kvx"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22.33.853.kvx"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_621.kvx"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_623.kvx"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_273.kvx"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m876_test.go"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_31_316.py"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_31_318.py"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_31_330.py"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_31_332.py"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_31_432.py"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_703.py"
+
+[reference.39]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_736.py"
+
+[reference.40]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_765.py"
+
+[reference.41]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_778.py"
+
+[reference.42]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_779.py"
+
+[reference.43]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_780.py"
+
+[reference.44]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_791.py"
+
+[reference.45]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_809.py"
+
+[reference.46]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_810.py"
+
+[reference.47]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_853.py"
+
+[reference.48]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_860.py"
+
+[reference.49]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_861.py"
+
+[reference.50]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_862.py"
+
+[reference.51]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_863.py"
+
+[reference.52]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_864.py"
+
+[reference.53]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_876.py"
+
+[reference.54]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_877.py"
+
+[reference.55]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_878.py"
+
+[reference.56]
+file = "tests/ci/repair_22_39_26.kvx"
+name = "test_repair_22_33_809.py"
+
+[reference.57]
+file = "tests/ci/test_qualification_suites_collect.py"
+name = "repair_22_31_621.kvx"
+
+[reference.58]
+file = "tests/ci/test_qualification_suites_collect.py"
+name = "repair_22_31_623.kvx"
+
+[reference.59]
+file = "tools/paxeer-x/retired_callers.json"
+name = "repair-22.31.330.kvx"
+
+[reference.60]
+file = "tools/paxeer-x/retired_callers.json"
+name = "repair-22.33.765.kvx"
+
+[reference.61]
+file = "tools/qualification/audit_repairs/repair_22_36_2.kvx"
+name = "test_repair_22_33_809.py"

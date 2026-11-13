@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 
 SOURCE = Path(__file__).resolve().parent
-FIXTURES = SOURCE / "tests/fixtures/repair_22_33_973"
+FIXTURES = SOURCE / "tests/fixtures/reviewed_control_plane"
 LEGACY_PRELUDE_SHA256 = "9899f10158a075d02a90a22a9f826762e86b8f018791a5f2bd93296d70737c64"
 APPROVAL = "22.33.973"
 

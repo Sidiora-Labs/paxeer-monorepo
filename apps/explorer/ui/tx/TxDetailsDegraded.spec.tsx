@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, test } from 'vitest';
 import {
   TxDetailsDegraded, renderTransaction, degradedNodeReceiptReachesOverview,
   degradedRevertedReceiptReachesOverview, degradedReceiptErrorRecoversToIndexedTransaction,
-} from './repair-22-33-519.fixtures';
+} from './txDetailsRpcAndTrace.fixtures';
 import type { TxQuery } from './useTxQuery';
 
 // The degraded page reads the transaction from the node, and the node query ships the RPC

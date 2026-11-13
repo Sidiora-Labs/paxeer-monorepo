@@ -1,0 +1,561 @@
+[manifest]
+task = "22.43.21"
+records_moved = 21
+files_renamed = 25
+directories_renamed = 2
+
+[file.1]
+from = "apps/wallet/src/server/repair-22-31-246.test.ts"
+to = "apps/wallet/src/server/push-store-recovery.test.ts"
+
+[file.2]
+from = "apps/wallet/src/server/repair-22-33-167.store-fixture.ts"
+to = "apps/wallet/src/server/atomic-json-store-fixture.ts"
+
+[file.3]
+from = "apps/wallet/src/server/repair-22-33-167.test.ts"
+to = "apps/wallet/src/server/push-delivery-lifecycle.test.ts"
+
+[file.4]
+from = "apps/wallet/src/server/repair-22-33-168.test.ts"
+to = "apps/wallet/src/server/push-provider-validation.test.ts"
+
+[file.5]
+from = "apps/wallet/src/server/fixtures/repair-22-33-167/tls-agent.ts"
+to = "apps/wallet/src/server/fixtures/push-delivery/tls-agent.ts"
+
+[file.6]
+from = "apps/wallet/src/server/fixtures/repair-22-33-167/tls-cert.pem"
+to = "apps/wallet/src/server/fixtures/push-delivery/tls-cert.pem"
+
+[file.7]
+from = "apps/wallet/src/server/fixtures/repair-22-33-167/tls-key.pem"
+to = "apps/wallet/src/server/fixtures/push-delivery/tls-key.pem"
+
+[file.8]
+from = "apps/wallet/src/server/fixtures/repair-22-33-167/worker.mjs"
+to = "apps/wallet/src/server/fixtures/push-delivery/worker.mjs"
+
+[file.9]
+from = "apps/wallet/src/server/fixtures/repair-22-33-168/push-provider.crt"
+to = "apps/wallet/src/server/fixtures/push-provider/push-provider.crt"
+
+[file.10]
+from = "apps/wallet/src/server/fixtures/repair-22-33-168/push-provider.key"
+to = "apps/wallet/src/server/fixtures/push-provider/push-provider.key"
+
+[file.11]
+from = "apps/wallet/src/surfaces/repair-22-31-250.test.ts"
+to = "apps/wallet/src/surfaces/receipt-authentication.test.ts"
+
+[file.12]
+from = "apps/wallet/src/surfaces/repair-22-33-205.test.ts"
+to = "apps/wallet/src/surfaces/surface-confirmation.test.ts"
+
+[file.13]
+from = "apps/wallet/src/surfaces/test/repair-22-33-206.test.ts"
+to = "apps/wallet/src/surfaces/test/surface-receipt-contract.test.ts"
+
+[file.14]
+from = "apps/wallet/src/surfaces/test/repair-22-39-55.test.ts"
+to = "apps/wallet/src/surfaces/test/recorded-surface-receipts.test.ts"
+
+[file.15]
+from = "apps/wallet/src/wallet/repair-22-31-248.test.ts"
+to = "apps/wallet/src/wallet/virtual-network-lifecycle.test.ts"
+
+[file.16]
+from = "apps/wallet/src/wallet/repair-22-33-185.test.ts"
+to = "apps/wallet/src/wallet/connected-network-signing.test.ts"
+
+[file.17]
+from = "apps/wallet/src/wallet/test/repair-22-33-186.test.ts"
+to = "apps/wallet/src/wallet/test/signer-rpc-envelope.test.ts"
+
+[file.18]
+from = "apps/wallet/src/widgets/pns/repair-22-33-138.test.ts"
+to = "apps/wallet/src/widgets/pns/pns-registration-lifecycle.test.ts"
+
+[file.19]
+from = "apps/wallet/src/widgets/portfolio/repair-22-33-137.test.ts"
+to = "apps/wallet/src/widgets/portfolio/portfolio-balances-and-pending-sends.test.ts"
+
+[file.20]
+from = "apps/wallet/src/widgets/send/repair-22-33-136.test.ts"
+to = "apps/wallet/src/widgets/send/send-network-and-recovery.test.ts"
+
+[file.21]
+from = "apps/wallet/src/widgets/settings/repair-22-33-142.test.ts"
+to = "apps/wallet/src/widgets/settings/nonce-selection.test.ts"
+
+[file.22]
+from = "apps/wallet/src/widgets/swap/repair-22-31-239.test.ts"
+to = "apps/wallet/src/widgets/swap/swap-broadcast-recovery.test.ts"
+
+[file.23]
+from = "apps/wallet/src/widgets/swap/repair-22-33-139.test.ts"
+to = "apps/wallet/src/widgets/swap/swap-quotes-and-balances.test.ts"
+
+[file.24]
+from = "apps/wallet/src/widgets/tokenDetail/repair-22-33-140.test.ts"
+to = "apps/wallet/src/widgets/tokenDetail/token-detail-market-and-precision.test.ts"
+
+[file.25]
+from = "apps/wallet/src/widgets/txDetail/repair-22-33-141.test.ts"
+to = "apps/wallet/src/widgets/txDetail/transaction-transfers-and-precision.test.ts"
+
+[file.26]
+from = "apps/wallet/src/server/repair-22-31-246.kvx"
+to = "spec/layerx-merge/programme/records/apps/wallet/src/server/repair-22-31-246.kvx"
+
+[file.27]
+from = "apps/wallet/src/server/repair-22-33-167.kvx"
+to = "spec/layerx-merge/programme/records/apps/wallet/src/server/repair-22-33-167.kvx"
+
+[file.28]
+from = "apps/wallet/src/server/repair-22-33-168.kvx"
+to = "spec/layerx-merge/programme/records/apps/wallet/src/server/repair-22-33-168.kvx"
+
+[file.29]
+from = "apps/wallet/src/surfaces/repair-22-31-250.kvx"
+to = "spec/layerx-merge/programme/records/apps/wallet/src/surfaces/repair-22-31-250.kvx"
+
+[file.30]
+from = "apps/wallet/src/surfaces/repair-22-31-508.kvx"
+to = "spec/layerx-merge/programme/records/apps/wallet/src/surfaces/repair-22-31-508.kvx"
+
+[file.31]
+from = "apps/wallet/src/surfaces/repair-22-33-205.kvx"
+to = "spec/layerx-merge/programme/records/apps/wallet/src/surfaces/repair-22-33-205.kvx"
+
+[file.32]
+from = "apps/wallet/src/surfaces/repair-22-39-55.kvx"
+to = "spec/layerx-merge/programme/records/apps/wallet/src/surfaces/repair-22-39-55.kvx"
+
+[file.33]
+from = "apps/wallet/src/surfaces/test/repair-22-33-206.kvx"
+to = "spec/layerx-merge/programme/records/apps/wallet/src/surfaces/test/repair-22-33-206.kvx"
+
+[file.34]
+from = "apps/wallet/src/surfaces/test/repair-22-39-179.kvx"
+to = "spec/layerx-merge/programme/records/apps/wallet/src/surfaces/test/repair-22-39-179.kvx"
+
+[file.35]
+from = "apps/wallet/src/wallet/repair-22-31-248.kvx"
+to = "spec/layerx-merge/programme/records/apps/wallet/src/wallet/repair-22-31-248.kvx"
+
+[file.36]
+from = "apps/wallet/src/wallet/repair-22-33-185.kvx"
+to = "spec/layerx-merge/programme/records/apps/wallet/src/wallet/repair-22-33-185.kvx"
+
+[file.37]
+from = "apps/wallet/src/wallet/repair-22-39-346.kvx"
+to = "spec/layerx-merge/programme/records/apps/wallet/src/wallet/repair-22-39-346.kvx"
+
+[file.38]
+from = "apps/wallet/src/wallet/test/repair-22-33-186.kvx"
+to = "spec/layerx-merge/programme/records/apps/wallet/src/wallet/test/repair-22-33-186.kvx"
+
+[file.39]
+from = "apps/wallet/src/widgets/pns/repair-22-33-138.kvx"
+to = "spec/layerx-merge/programme/records/apps/wallet/src/widgets/pns/repair-22-33-138.kvx"
+
+[file.40]
+from = "apps/wallet/src/widgets/portfolio/repair-22-33-137.kvx"
+to = "spec/layerx-merge/programme/records/apps/wallet/src/widgets/portfolio/repair-22-33-137.kvx"
+
+[file.41]
+from = "apps/wallet/src/widgets/send/repair-22-33-136.kvx"
+to = "spec/layerx-merge/programme/records/apps/wallet/src/widgets/send/repair-22-33-136.kvx"
+
+[file.42]
+from = "apps/wallet/src/widgets/settings/repair-22-33-142.kvx"
+to = "spec/layerx-merge/programme/records/apps/wallet/src/widgets/settings/repair-22-33-142.kvx"
+
+[file.43]
+from = "apps/wallet/src/widgets/swap/repair-22-31-239.kvx"
+to = "spec/layerx-merge/programme/records/apps/wallet/src/widgets/swap/repair-22-31-239.kvx"
+
+[file.44]
+from = "apps/wallet/src/widgets/swap/repair-22-33-139.kvx"
+to = "spec/layerx-merge/programme/records/apps/wallet/src/widgets/swap/repair-22-33-139.kvx"
+
+[file.45]
+from = "apps/wallet/src/widgets/tokenDetail/repair-22-33-140.kvx"
+to = "spec/layerx-merge/programme/records/apps/wallet/src/widgets/tokenDetail/repair-22-33-140.kvx"
+
+[file.46]
+from = "apps/wallet/src/widgets/txDetail/repair-22-33-141.kvx"
+to = "spec/layerx-merge/programme/records/apps/wallet/src/widgets/txDetail/repair-22-33-141.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "apps/wallet/src/server/repair-22-33-168.test.ts"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "apps/wallet/src/surfaces/repair-22-33-205.test.ts"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "apps/wallet/src/surfaces/test/repair-22-33-206.test.ts"
+
+[reference.4]
+file = "GOTCHA.kvx"
+name = "apps/wallet/src/widgets/pns/repair-22-33-138.test.ts"
+
+[reference.5]
+file = "GOTCHA.kvx"
+name = "apps/wallet/src/widgets/swap/repair-22-31-239.test.ts"
+
+[reference.6]
+file = "GOTCHA.kvx"
+name = "repair-22-31-246.test.ts"
+
+[reference.7]
+file = "GOTCHA.kvx"
+name = "repair-22-31-248.test.ts"
+
+[reference.8]
+file = "GOTCHA.kvx"
+name = "repair-22-31-250.test.ts"
+
+[reference.9]
+file = "GOTCHA.kvx"
+name = "repair-22-33-168"
+
+[reference.10]
+file = "GOTCHA.kvx"
+name = "repair_22_33_206_unsigned_surface_fixture_replays_node_send_and_read"
+
+[reference.11]
+file = "apps/wallet/repair_22_39_123.kvx"
+name = "apps/wallet/src/server/repair-22-31-246.test.ts"
+
+[reference.12]
+file = "apps/wallet/repair_22_39_123.kvx"
+name = "apps/wallet/src/server/repair-22-33-168.test.ts"
+
+[reference.13]
+file = "apps/wallet/repair_22_39_123.kvx"
+name = "apps/wallet/src/surfaces/repair-22-31-250.test.ts"
+
+[reference.14]
+file = "apps/wallet/repair_22_39_123.kvx"
+name = "apps/wallet/src/wallet/repair-22-31-248.test.ts"
+
+[reference.15]
+file = "apps/wallet/repair_22_39_123.kvx"
+name = "apps/wallet/src/widgets/tokenDetail/repair-22-33-140.test.ts"
+
+[reference.16]
+file = "apps/wallet/repair_22_39_123.kvx"
+name = "repair-22-31-246.kvx"
+
+[reference.17]
+file = "apps/wallet/repair_22_39_123.kvx"
+name = "repair-22-31-248.kvx"
+
+[reference.18]
+file = "apps/wallet/repair_22_39_123.kvx"
+name = "repair-22-33-167"
+
+[reference.19]
+file = "apps/wallet/repair_22_39_123.kvx"
+name = "repair-22-33-168"
+
+[reference.20]
+file = "apps/wallet/repair_22_39_123.kvx"
+name = "repair-22-33-168.kvx"
+
+[reference.21]
+file = "apps/wallet/repair_22_39_43.kvx"
+name = "apps/wallet/src/widgets/portfolio/repair-22-33-137.test.ts"
+
+[reference.22]
+file = "apps/wallet/repair_22_39_43.kvx"
+name = "apps/wallet/src/widgets/send/repair-22-33-136.test.ts"
+
+[reference.23]
+file = "apps/wallet/repair_22_39_43.kvx"
+name = "apps/wallet/src/widgets/swap/repair-22-33-139.test.ts"
+
+[reference.24]
+file = "apps/wallet/repair_22_39_43.kvx"
+name = "apps/wallet/src/widgets/tokenDetail/repair-22-33-140.test.ts"
+
+[reference.25]
+file = "apps/wallet/repair_22_39_43.kvx"
+name = "apps/wallet/src/widgets/txDetail/repair-22-33-141.test.ts"
+
+[reference.26]
+file = "apps/wallet/repair_22_39_43.kvx"
+name = "repair-22-33-136.kvx"
+
+[reference.27]
+file = "apps/wallet/repair_22_39_43.kvx"
+name = "repair-22-33-137.kvx"
+
+[reference.28]
+file = "apps/wallet/repair_22_39_43.kvx"
+name = "repair-22-33-139.kvx"
+
+[reference.29]
+file = "apps/wallet/repair_22_39_43.kvx"
+name = "repair-22-33-140.kvx"
+
+[reference.30]
+file = "apps/wallet/repair_22_39_43.kvx"
+name = "repair-22-33-141.kvx"
+
+[reference.31]
+file = "daemon/committed-fixture/repair_22_31_486.kvx"
+name = "apps/wallet/src/surfaces/repair-22-33-205.test.ts"
+
+[reference.32]
+file = "precompiles/layerxledger/repair_m1501.kvx"
+name = "apps/wallet/src/surfaces/repair-22-33-205.test.ts"
+
+[reference.33]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "apps/wallet/src/widgets/swap/repair-22-31-239.test.ts"
+
+[reference.34]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "apps/wallet/src/surfaces/repair-22-31-250.test.ts"
+
+[reference.35]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "apps/wallet/src/wallet/repair-22-31-248.test.ts"
+
+[reference.36]
+file = "spec/layerx-merge/dispositions/d22-19.kvx"
+name = "apps/wallet/src/surfaces/repair-22-33-205.test.ts"
+
+[reference.37]
+file = "spec/layerx-merge/dispositions/d22-20.kvx"
+name = "apps/wallet/src/surfaces/repair-22-33-205.test.ts"
+
+[reference.38]
+file = "spec/layerx-merge/dispositions/d22-25.kvx"
+name = "apps/wallet/src/server/repair-22-33-167.test.ts"
+
+[reference.39]
+file = "spec/layerx-merge/dispositions/d22-25.kvx"
+name = "apps/wallet/src/wallet/test/repair-22-33-186.test.ts"
+
+[reference.40]
+file = "spec/layerx-merge/dispositions/d22-25.kvx"
+name = "repair-22-33-167"
+
+[reference.41]
+file = "spec/layerx-merge/dispositions/d22-26.kvx"
+name = "apps/wallet/src/surfaces/repair-22-33-205.test.ts"
+
+[reference.42]
+file = "spec/layerx-merge/dispositions/d22-26.kvx"
+name = "apps/wallet/src/surfaces/test/repair-22-33-206.test.ts"
+
+[reference.43]
+file = "spec/layerx-merge/dispositions/d22-31.kvx"
+name = "apps/wallet/src/server/repair-22-33-168.test.ts"
+
+[reference.44]
+file = "spec/layerx-merge/dispositions/d22-31.kvx"
+name = "apps/wallet/src/surfaces/repair-22-31-250.test.ts"
+
+[reference.45]
+file = "spec/layerx-merge/dispositions/d22-31.kvx"
+name = "apps/wallet/src/surfaces/test/repair-22-33-206.test.ts"
+
+[reference.46]
+file = "spec/layerx-merge/dispositions/d22-31.kvx"
+name = "repair-22-33-168"
+
+[reference.47]
+file = "spec/layerx-merge/dispositions/d22-32.kvx"
+name = "apps/wallet/src/surfaces/test/repair-22-39-55.test.ts"
+
+[reference.48]
+file = "spec/layerx-merge/programme/issues/1877.kvx"
+name = "apps/wallet/src/surfaces/test/repair-22-33-206.test.ts"
+
+[reference.49]
+file = "spec/layerx-merge/programme/issues/input/1877.md"
+name = "apps/wallet/src/surfaces/test/repair-22-33-206.test.ts"
+
+[reference.50]
+file = "spec/layerx-merge/programme/issues/input/1877.md"
+name = "repair_22_33_206_unsigned_surface_fixture_replays_node_send_and_read"
+
+[reference.51]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/wallet/src/server/repair-22-33-167.test.ts"
+
+[reference.52]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/wallet/src/server/repair-22-33-168.test.ts"
+
+[reference.53]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/wallet/src/surfaces/repair-22-31-250.test.ts"
+
+[reference.54]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/wallet/src/surfaces/repair-22-33-205.test.ts"
+
+[reference.55]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/wallet/src/surfaces/test/repair-22-33-206.test.ts"
+
+[reference.56]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/wallet/src/surfaces/test/repair-22-39-55.test.ts"
+
+[reference.57]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/wallet/src/wallet/repair-22-31-248.test.ts"
+
+[reference.58]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/wallet/src/wallet/test/repair-22-33-186.test.ts"
+
+[reference.59]
+file = "spec/layerx-merge/qualification.kvx"
+name = "apps/wallet/src/widgets/swap/repair-22-31-239.test.ts"
+
+[reference.60]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-167"
+
+[reference.61]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-168"
+
+[reference.62]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/server/repair-22-31-246.test.ts"
+
+[reference.63]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/server/repair-22-33-167.test.ts"
+
+[reference.64]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/server/repair-22-33-168.test.ts"
+
+[reference.65]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/surfaces/repair-22-31-250.test.ts"
+
+[reference.66]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/surfaces/repair-22-31-508.kvx"
+
+[reference.67]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/surfaces/repair-22-33-205.test.ts"
+
+[reference.68]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/surfaces/repair-22-39-55.kvx"
+
+[reference.69]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/surfaces/test/repair-22-33-206.kvx"
+
+[reference.70]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/surfaces/test/repair-22-33-206.test.ts"
+
+[reference.71]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/surfaces/test/repair-22-39-179.kvx"
+
+[reference.72]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/surfaces/test/repair-22-39-55.test.ts"
+
+[reference.73]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/wallet/repair-22-31-248.test.ts"
+
+[reference.74]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/wallet/repair-22-33-185.test.ts"
+
+[reference.75]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/wallet/repair-22-39-346.kvx"
+
+[reference.76]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/wallet/test/repair-22-33-186.kvx"
+
+[reference.77]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/wallet/test/repair-22-33-186.test.ts"
+
+[reference.78]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/widgets/pns/repair-22-33-138.test.ts"
+
+[reference.79]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/widgets/portfolio/repair-22-33-137.test.ts"
+
+[reference.80]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/widgets/send/repair-22-33-136.test.ts"
+
+[reference.81]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/widgets/settings/repair-22-33-142.test.ts"
+
+[reference.82]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/widgets/swap/repair-22-31-239.test.ts"
+
+[reference.83]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/widgets/swap/repair-22-33-139.test.ts"
+
+[reference.84]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/widgets/tokenDetail/repair-22-33-140.test.ts"
+
+[reference.85]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/wallet/src/widgets/txDetail/repair-22-33-141.test.ts"
+
+[reference.86]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-167"
+
+[reference.87]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-168"
+
+[reference.88]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_206_unsigned_surface_fixture_replays_node_send_and_read"
+
+[reference.89]
+file = "tests/ci/repair_22_39_178.kvx"
+name = "apps/wallet/src/widgets/pns/repair-22-33-138.test.ts"
+
+[reference.90]
+file = "tests/ci/repair_22_39_178.kvx"
+name = "apps/wallet/src/widgets/swap/repair-22-31-239.test.ts"
+
+[reference.91]
+file = "tests/ci/test_wallet_test_workflow.py"
+name = "repair-22-31-239.test.ts"
+
+[reference.92]
+file = "tests/ci/test_wallet_test_workflow.py"
+name = "repair-22-33-138.test.ts"
+
+[reference.93]
+file = "tests/ci/test_wallet_test_workflow.py"
+name = "repair-22-33-205.test.ts"
