@@ -1,6 +1,6 @@
 # Agent functions contract: precompiles 0x0901 to 0x0908 and the layerxagent module
 
-Agent functions execute inside the merged Paxeer network. The kernel is part of the network and proposes blocks; EVM calls and scheduled jobs use the same chain state. Paxeer mainnet-beta has EVM chain id 125 (`0x7d`), and a transaction receipt is final when its block commits. Public JSON-RPC uses the node root path, for example `https://api-mainnet-beta.paxeer.network/`.
+Agent functions execute inside the merged Paxeer network. The kernel is part of the network and proposes blocks; EVM calls and scheduled jobs use the same chain state. Paxeer mainnet-beta has EVM chain id 125 (`0x7d`), and a transaction receipt is final when its block commits. Public JSON-RPC uses the configured node origin at the root path.
 
 All eight packages under `precompiles/layerxagent` and their merge constructors exist. [Node precompile wiring](../../../node/precompiles.go) imports them and supplies the application keepers. [Upgrade wiring](../../../node/upgrades.go) declares their activation dependencies in `mergePrecompileGate` and checks for missing constructors. Construction alone does not activate a precompile: calls also require the configured merge plan to be active at the current height.
 
@@ -139,7 +139,7 @@ The price uses the same integer offset formula as OROB. The helper checks result
 
 Submission requires the caller's bound LayerX identity key and a signed native oracle activity. Ordinary external submissions append the versioned transport produced by `PackSubmitPrice` to the 100-byte selector-plus-arguments call. Its 311-byte suffix starts with the bytes `L`, `X`, `O`, `0x01` and carries the protocol version, authority key, account sequence, validity bounds, idempotency key, fee limit, signed observation and activity signature. `SignObservation` produces the observation and outer activity signatures. The internal `WithOracleReplay` path binds the verified key, validator and activity instead. Plain ABI arguments alone do not supply submission authority.
 
-`submitPrice` checks that the activity actor and authority match the caller key and that the signed observation matches the feed and price. Submitted prices must be positive and fit uint128; confidence is bounded by `10^18` and must fit uint64. The live constructor binds `LayerXHost()`: the oracle keeper executes the activity through the native host, stores the activity audit under `oracle/activity/` in the exchange store and reads prices from host state. It does not construct the historical exchange keeper adapter.
+`submitPrice` checks that the activity actor and authority match the caller key and that the signed observation matches the feed and price. Submitted prices must be positive and fit uint128; confidence is bounded by `10^18` and must fit uint64. The live constructor binds `LayerXHost()`: the oracle keeper executes the activity through the native host, stores the activity audit under `oracle/activity/` in the exchange store and reads prices from host state.
 
 `getValidatorPrice` reads the committed native oracle record. It returns its price, quorum `1`, and `ObservedAt / 1000` in seconds. A missing record returns `LXP_AGENT_ORACLE_NO_FEEDS`. Signer failures use `LXP_AGENT_ORACLE_NOT_SIGNER`; invalid or missing signed transport uses `LXP_AGENT_ABI_DECODE`. There are no oracle EVM events in this ABI.
 
@@ -240,11 +240,11 @@ UpdateAgentStreamRate(ctx sdk.Context, caller common.Address, streamID *big.Int,
 AgentStreamView(ctx sdk.Context, streamID *big.Int) (AgentStream, bool, error)
 ```
 
-For example, the executor's `open` handler passes the EVM caller as `payer`, ABI-decoded payee/token addresses, rate, start/stop seconds and cap to `OpenAgentStream`, then packs the returned `*big.Int` as `uint256 streamId`. The caller supplies neither a stream identifier nor an idempotency key. `TestRepairM_1304_DeclarationAgentOpen` proves this path through `vm.EVM.Call` at `0x0906` and the kernel record consumer.
+For example, the executor's `open` handler passes the EVM caller as `payer`, ABI-decoded payee/token addresses, rate, start/stop seconds and cap to `OpenAgentStream`, then packs the returned `*big.Int` as `uint256 streamId`. The caller supplies neither a stream identifier nor an idempotency key.
 
-The `settle`, `close` and `updateRate` handlers pass the EVM caller address and ABI-decoded `*big.Int` identifier. The keeper accepts only a positive identifier of at most 256 bits, and derives operation keys from the transaction hash, shared pay call ordinal and each method's selector. Failed operations discard their ordinal and state writes. `SettleAgentStream` returns the amount paid in this operation. `CloseAgentStream` returns final paid and refund amounts; the ABI returns final paid while `StreamClosed` carries both. `UpdateAgentStreamRate` settles at the previous rate before changing it and returns that previous rate; the ABI returns no values while `StreamRateUpdated` carries old/new rates. The corresponding `TestRepairM_1304_DeclarationAgentSettle`, `TestRepairM_1304_DeclarationAgentClose` and `TestRepairM_1304_DeclarationAgentRate` tests drive these actual handlers and inspect their persisted operation results and logs.
+The `settle`, `close` and `updateRate` handlers pass the EVM caller address and ABI-decoded `*big.Int` identifier. The keeper accepts only a positive identifier of at most 256 bits, and derives operation keys from the transaction hash, shared pay call ordinal and each method's selector. Failed operations discard their ordinal and state writes. `SettleAgentStream` returns the amount paid in this operation. `CloseAgentStream` returns final paid and refund amounts; the ABI returns final paid while `StreamClosed` carries both. `UpdateAgentStreamRate` settles at the previous rate before changing it and returns that previous rate; the ABI returns no values while `StreamRateUpdated` carries old/new rates.
 
-`AgentStreamView` reads kernel state plus exactly 60 persisted address bytes (payer, payee, token, 20 bytes each). A valid absent identifier returns `(AgentStream{}, false, nil)`; an existing stream with missing or malformed address metadata returns an error. Its `*big.Int` fields preserve uint256 identifiers and uint128 token amounts, and its times are seconds. `TestRepairM_1304_DeclarationAgentView` drives the ABI tuple consumer, stops and reopens the database, and verifies the recovered projection and metadata refusal.
+`AgentStreamView` reads kernel state plus exactly 60 persisted address bytes (payer, payee, token, 20 bytes each). A valid absent identifier returns `(AgentStream{}, false, nil)`; an existing stream with missing or malformed address metadata returns an error. Its `*big.Int` fields preserve uint256 identifiers and uint128 token amounts, and its times are seconds.
 
 Opening resolves payer and payee authority to kernel accounts and maps the token through custody. Zero token selects the mapped base denomination; unknown mappings return `LXP_AGENT_STREAMS_UNKNOWN_TOKEN`. A payee whose authority cannot be resolved returns `LXP_AGENT_STREAMS_INVALID_PAYEE`. Self-payment is refused both for equal EVM addresses and for equal resolved kernel accounts. Rate and cap must be positive uint128 amounts despite the uint256 ABI; oversized values return `LXP_AGENT_OVERFLOW`.
 
@@ -339,7 +339,7 @@ The [query service](../../../modules/layerxagent/keeper/grpc_query.go), declared
 
 These are module gateway routes when that API is enabled, distinct from the node root JSON-RPC service. CLI commands are implemented in [query.go](../../../modules/layerxagent/client/cli/query.go). Job ids parse as decimal uint64. Pending requires a `0x`-prefixed 20-byte hex creator address. Nil query requests and malformed creators return gRPC `InvalidArgument`; a missing job returns `NotFound`, unlike the EVM `getJob` zero record. Queries return parameters, a protobuf job or repeated uint64 job ids respectively.
 
-Existing source coverage includes [served-address tests](../../../precompiles/layerxagent/served/served_test.go), [error registry tests](../../../precompiles/layerxagent/common/errors_registry_test.go), [scheduler outcome tests](../../../precompiles/layerxagent/scheduler/merge_test.go) and [stream parity tests](../../../precompiles/layerxagent/streams/parity_test.go). These references identify implementation coverage, not a claim that those suites ran as part of this documentation rewrite.
+Existing source coverage includes [served-address tests](../../../precompiles/layerxagent/served/served_test.go), [error registry tests](../../../precompiles/layerxagent/common/errors_registry_test.go), [scheduler outcome tests](../../../precompiles/layerxagent/scheduler/merge_test.go) and [stream parity tests](../../../precompiles/layerxagent/streams/parity_test.go). 
 
 ## proto-layerxagent-eventjobexecuted
 
@@ -372,7 +372,7 @@ The reason records execution or payment failure and is truncated under `MaxReaso
 
 ## decisions
 
-The [feature specification](../spec.kvx) records the design decisions behind these contracts. Current implementation details and lifecycle limits are described in the sections above.
+The [feature specification](../spec.kvx) defines the module and precompile behavior summarized below.
 
 | Decision | Contract retained in the implementation |
 |---|---|
@@ -387,4 +387,4 @@ The [feature specification](../spec.kvx) records the design decisions behind the
 | 233 | TEE verification emits no log; scheduler outcome ABI topics correspond to typed module events only. |
 | 237 | Agent rate changes are kernel activities and log at both agent and pay addresses with their respective ABIs. |
 | 238 | Stream settlement accepts payer or recipient; close requires payer authority. |
-| 239 | Oracle submission and committed reads remain keeper-owned. The current oracle constructor uses its native-host keeper and exchange activity audit; the old exchange-keeper construction is historical. |
+| 239 | Oracle submission and committed reads remain keeper-owned. The current oracle constructor uses its native-host keeper and exchange activity audit. |
