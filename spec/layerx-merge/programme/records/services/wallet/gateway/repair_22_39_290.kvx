@@ -5,7 +5,7 @@ base_revision = "7c65ca246479ea68169faf54cef98cfeb9e66537"
 inventory_revision = "ffdbfa83942b"
 inventory = "Gotcha 3992 / decision 3126: original 68 failing cases in 25 files; attempt 2 runs the explicitly requested base comparison before further implementation."
 status = "implemented_not_qualified_pending_final_bounded_gate"
-verify_command = "test -s services/wallet/gateway/repair_22_39_290.kvx && pnpm --dir services/wallet/gateway run test"
+verify_command = "test -s spec/layerx-merge/programme/records/services/wallet/gateway/repair_22_39_290.kvx && pnpm --dir services/wallet/gateway run test"
 verified_revision = "Resolve the final verify row's revision in private /out/run/gates.jsonl; qualification is claimed only if that row has exit 0 and matches the preceding build revision."
 evidence = "/out/run/gates.jsonl and the log path printed by hf-done; no raw operational evidence is published."
 
@@ -48,7 +48,7 @@ assumption = "No generated or unrecorded receipt is substituted for a required n
 
 [boundary.schema]
 site = "test/schemas.injection.test.ts::TxRequest forward-compatible inner shape"
-observed = "Static inspection: the case expects unknown fields to be stripped while repair-22-33-184.test.ts and the strict TxRequest codec require refusal."
+observed = "Static inspection: the case expects unknown fields to be stripped while transaction-fields.test.ts and the strict TxRequest codec require refusal."
 owner = "22.33.184 (tx-extra-fields-discarded), wallet domain 12"
 assumption = "Both assertions remain intact; a cross-task contradiction is reported rather than changing acceptance to obtain a pass."
 
@@ -693,7 +693,7 @@ observed = "Receipt helper imports runtime env before per-case provisioning/iden
 repair_or_expected = "Attempt-1 pure protocol extraction; no weakening of recorded node-evidence requirements."
 
 [base_case.57]
-file = "services/wallet/gateway/test/repair-22-31-370.test.ts"
+file = "services/wallet/gateway/test/approval-recovery.test.ts"
 case = "hostedEvmSdkRoundTrip"
 fails_at_base = true
 base_result = "failed"
@@ -702,7 +702,7 @@ observed = "Hosted SDK round trip times out or answers a different refusal shape
 repair_or_expected = "Leave unchanged for task 22.31.370 hosted gateway/SDK owner; no neighboring repair."
 
 [base_case.58]
-file = "services/wallet/gateway/test/repair-22-31-370.test.ts"
+file = "services/wallet/gateway/test/approval-recovery.test.ts"
 case = "hostedSponsoredQuoteAndBudgetRefusal"
 fails_at_base = true
 base_result = "failed"
@@ -711,7 +711,7 @@ observed = "Hosted SDK round trip times out or answers a different refusal shape
 repair_or_expected = "Leave unchanged for task 22.31.370 hosted gateway/SDK owner; no neighboring repair."
 
 [base_case.59]
-file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+file = "services/wallet/gateway/test/signing-policy-reservations.test.ts"
 case = "humanDailyCapParallelLegacySigning"
 fails_at_base = true
 base_result = "failed"
@@ -720,7 +720,7 @@ observed = "Durable accounting conflicts with concurrent identical requests, fai
 repair_or_expected = "Expected two successes, refusal before legacy authority, or send_failed 500; leave unchanged for task 22.31.371/accounting owners."
 
 [base_case.60]
-file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+file = "services/wallet/gateway/test/signing-policy-reservations.test.ts"
 case = "humanDailyCapDatabaseRefusalBeforeLegacyAuthority"
 fails_at_base = true
 base_result = "failed"
@@ -729,7 +729,7 @@ observed = "Durable accounting conflicts with concurrent identical requests, fai
 repair_or_expected = "Expected two successes, refusal before legacy authority, or send_failed 500; leave unchanged for task 22.31.371/accounting owners."
 
 [base_case.61]
-file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+file = "services/wallet/gateway/test/signing-policy-reservations.test.ts"
 case = "humanDailyCapRetainsUncertainSendAcrossReopen"
 fails_at_base = true
 base_result = "failed"
@@ -738,7 +738,7 @@ observed = "Durable accounting conflicts with concurrent identical requests, fai
 repair_or_expected = "Expected two successes, refusal before legacy authority, or send_failed 500; leave unchanged for task 22.31.371/accounting owners."
 
 [base_case.62]
-file = "services/wallet/gateway/test/repair-22-33-208.test.ts"
+file = "services/wallet/gateway/test/sponsored-bind-receipts.test.ts"
 case = "walletSendReceiptAuthenticatesCanonicalNodeEvidence"
 fails_at_base = true
 base_result = "failed"
@@ -747,7 +747,7 @@ observed = "Native strip-only TypeScript loader imports a parameter property thr
 repair_or_expected = "Attempt-1 pure protocol import and production TypeScript transform loader."
 
 [base_case.63]
-file = "services/wallet/gateway/test/repair-22-33-208.test.ts"
+file = "services/wallet/gateway/test/sponsored-bind-receipts.test.ts"
 case = "provisioningReceiptTransportRecoversWithoutResubmission"
 fails_at_base = true
 base_result = "failed"
@@ -756,7 +756,7 @@ observed = "Native strip-only TypeScript loader imports a parameter property thr
 repair_or_expected = "Attempt-1 pure protocol import and production TypeScript transform loader."
 
 [base_case.64]
-file = "services/wallet/gateway/test/repair-22-33-208.test.ts"
+file = "services/wallet/gateway/test/sponsored-bind-receipts.test.ts"
 case = "sponsoredSubmitReceiptRequiresCanonicalSponsoredExecution"
 fails_at_base = true
 base_result = "failed"
@@ -765,7 +765,7 @@ observed = "Native strip-only TypeScript loader imports a parameter property thr
 repair_or_expected = "Attempt-1 pure protocol import and production TypeScript transform loader."
 
 [base_case.65]
-file = "services/wallet/gateway/test/repair-22-33-208.test.ts"
+file = "services/wallet/gateway/test/sponsored-bind-receipts.test.ts"
 case = "provisioningRequiresNodeExecutedSponsoredBind"
 fails_at_base = true
 base_result = "failed"
@@ -801,7 +801,7 @@ observed = "Native strip-only TypeScript loader imports a parameter property thr
 repair_or_expected = "Attempt-1 pure protocol import and production TypeScript transform loader."
 
 [base_case.69]
-file = "services/wallet/gateway/test/repair-22-33-210.test.ts"
+file = "services/wallet/gateway/test/chain-receipt-fixtures.test.ts"
 case = "sequencerReceiptMatchesNodeVectors"
 fails_at_base = true
 base_result = "failed"
@@ -1180,7 +1180,7 @@ observed = "AssertionError: {\"wallet_id\":\"6a6d3f31-0655-4d5c-b879-b82bd4844c2
 expected = "Reach declared provisioning assertions with independent database sessions; repaired by changes.25 and .26. Any remaining transcript conflict belongs to domain 5 / 22.33.208."
 
 [qualification_case.1_23]
-file = "services/wallet/gateway/test/repair-22-31-370.test.ts"
+file = "services/wallet/gateway/test/approval-recovery.test.ts"
 case = "hostedEvmSdkRoundTrip"
 fails_at_base = true
 base_result = "failed"
@@ -1189,7 +1189,7 @@ observed = "Error: Test timed out in 30000ms."
 expected = "SDK round trip completes within 30000ms and quote returns ok=true; base already times out/refuses quote (hosted SDK owner)."
 
 [qualification_case.1_24]
-file = "services/wallet/gateway/test/repair-22-31-370.test.ts"
+file = "services/wallet/gateway/test/approval-recovery.test.ts"
 case = "hostedSponsoredQuoteAndBudgetRefusal"
 fails_at_base = true
 base_result = "failed"
@@ -1198,7 +1198,7 @@ observed = "AssertionError: {\"ok\":false,\"refusal\":{\"code\":\"unavailable\",
 expected = "SDK round trip completes within 30000ms and quote returns ok=true; base already times out/refuses quote (hosted SDK owner)."
 
 [qualification_case.1_25]
-file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+file = "services/wallet/gateway/test/signing-policy-reservations.test.ts"
 case = "humanDailyCapParallelLegacySigning"
 fails_at_base = true
 base_result = "failed"
@@ -1207,7 +1207,7 @@ observed = "AssertionError: [{\"error\":\"DAILY_VALUE_CAP\",\"message\":\"daily 
 expected = "Two signed daily-cap reservations; duplicate reservation primary key leaves one success (signature accounting owner)."
 
 [qualification_case.1_26]
-file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+file = "services/wallet/gateway/test/signing-policy-reservations.test.ts"
 case = "humanDailyCapDatabaseRefusalBeforeLegacyAuthority"
 fails_at_base = true
 base_result = "failed"
@@ -1216,7 +1216,7 @@ observed = "error: permission denied for schema public"
 expected = "Mount routes with a restricted database role, then refuse signing; new ApprovalRecovery DDL requires schema CREATE at mount (approval recovery/fixture contract owner)."
 
 [qualification_case.1_27]
-file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+file = "services/wallet/gateway/test/signing-policy-reservations.test.ts"
 case = "humanDailyCapRetainsUncertainSendAcrossReopen"
 fails_at_base = true
 base_result = "failed"
@@ -1225,7 +1225,7 @@ observed = "AssertionError: {\"error\":\"outcome_unknown\",\"tx_hash\":\"0x40c54
 expected = "HTTP 500 send_failed; typed outcome_unknown producer returns HTTP 202 poll_receipt (broadcast outcome owner)."
 
 [qualification_case.1_28]
-file = "services/wallet/gateway/test/repair-22-33-210.test.ts"
+file = "services/wallet/gateway/test/chain-receipt-fixtures.test.ts"
 case = "sequencerReceiptMatchesNodeVectors"
 fails_at_base = true
 base_result = "failed"
@@ -1569,7 +1569,7 @@ observed = "AssertionError: {\"error\":\"station_contract_violation\",\"message\
 expected = "Exact node execution transcripts for random transaction bytes must exist in the fixed published corpus; missing transcripts cause timeouts or station_contract_violation. Domain 5 / 22.33.208 owns this interface; receipt and station guards are retained."
 
 [qualification_case.2_21]
-file = "services/wallet/gateway/test/repair-22-31-370.test.ts"
+file = "services/wallet/gateway/test/approval-recovery.test.ts"
 case = "hostedEvmSdkRoundTrip"
 fails_at_base = true
 base_result = "failed"
@@ -1578,7 +1578,7 @@ observed = "Error: Test timed out in 30000ms."
 expected = "SDK round trip completes within 30000ms and quote returns ok=true; base already times out/refuses quote (hosted SDK owner)."
 
 [qualification_case.2_22]
-file = "services/wallet/gateway/test/repair-22-31-370.test.ts"
+file = "services/wallet/gateway/test/approval-recovery.test.ts"
 case = "hostedSponsoredQuoteAndBudgetRefusal"
 fails_at_base = true
 base_result = "failed"
@@ -1587,7 +1587,7 @@ observed = "AssertionError: expected { ok: false, refusal: { …(2) } } to match
 expected = "SDK round trip completes within 30000ms and quote returns ok=true; base already times out/refuses quote (hosted SDK owner)."
 
 [qualification_case.2_23]
-file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+file = "services/wallet/gateway/test/signing-policy-reservations.test.ts"
 case = "humanDailyCapParallelLegacySigning"
 fails_at_base = true
 base_result = "failed"
@@ -1596,7 +1596,7 @@ observed = "Duplicate key value violates a signature-reservation or wallet-key u
 expected = "Two signed daily-cap reservations; duplicate reservation primary key leaves one success (signature accounting owner)."
 
 [qualification_case.2_24]
-file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+file = "services/wallet/gateway/test/signing-policy-reservations.test.ts"
 case = "humanDailyCapDatabaseRefusalBeforeLegacyAuthority"
 fails_at_base = true
 base_result = "failed"
@@ -1605,7 +1605,7 @@ observed = "error: permission denied for schema public"
 expected = "Mount routes with a restricted database role, then refuse signing; new ApprovalRecovery DDL requires schema CREATE at mount (approval recovery/fixture contract owner)."
 
 [qualification_case.2_25]
-file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+file = "services/wallet/gateway/test/signing-policy-reservations.test.ts"
 case = "humanDailyCapRetainsUncertainSendAcrossReopen"
 fails_at_base = true
 base_result = "failed"
@@ -1614,7 +1614,7 @@ observed = "AssertionError: {\"error\":\"outcome_unknown\",\"tx_hash\":\"0xda81f
 expected = "HTTP 500 send_failed; typed outcome_unknown producer returns HTTP 202 poll_receipt (broadcast outcome owner)."
 
 [qualification_case.2_26]
-file = "services/wallet/gateway/test/repair-22-33-210.test.ts"
+file = "services/wallet/gateway/test/chain-receipt-fixtures.test.ts"
 case = "sequencerReceiptMatchesNodeVectors"
 fails_at_base = true
 base_result = "failed"
@@ -2004,7 +2004,7 @@ expected = "Exact node execution transcripts for random transaction bytes must e
 evidence = "qualification.3_1; full assertion in its private log"
 
 [qualification_case.3_19]
-file = "services/wallet/gateway/test/repair-22-31-370.test.ts"
+file = "services/wallet/gateway/test/approval-recovery.test.ts"
 case = "hostedEvmSdkRoundTrip"
 classification = "product"
 observed = "Error: Test timed out in 30000ms."
@@ -2012,7 +2012,7 @@ expected = "SDK round trip completes within 30000ms and quote returns ok=true; b
 evidence = "qualification.3_1; full assertion in its private log"
 
 [qualification_case.3_20]
-file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+file = "services/wallet/gateway/test/signing-policy-reservations.test.ts"
 case = "humanDailyCapParallelLegacySigning"
 classification = "product"
 observed = "AssertionError: [{\"signed_tx\":\"<transaction-or-address>\",\"address\":\"<transaction-or-address>\",\"chain_id\":125,\"nonce\":0,\"broadcast_deadline\":\"2026-11-10T00:31:22.628Z\"},{\"error\":\"DAILY_VALUE_CAP\",\"message\":\"daily value cap exceeded. used=100 request=50 cap=100\"},{\"error\":\"DAILY_VALUE_CAP\",\"message\":\"daily value cap exceeded. used=100 request=50 cap=100\"},{\"error\":\"DAILY_VALUE_CAP\",\"message\":\"daily value cap exceeded. used=100 request=50 cap=100\"},{\"error\":\"DAILY_VALUE_CAP\",\"message\":\"daily value cap exceeded. used=100 request=50 cap=100\"},{\"error\":\"sign_failed\",\"detail\":\"duplicate key value violates unique constraint \\\"wallet_signature_reservations_pkey\\\"\"},{\"error\":\"DAILY_VALUE_CAP\",\"message\":\"daily value cap exceeded. used=100 request=50 cap=100\"},{\"error\":\"DAILY_VALUE_CAP\",\"message\":\"daily value cap exceeded. used=100 request=50 cap=100\"}]: expected [ { …(5) } ] to have a length of 2 b; full assertion in private evidence log"
@@ -2020,7 +2020,7 @@ expected = "Two signed daily-cap reservations; duplicate reservation primary key
 evidence = "qualification.3_1; full assertion in its private log"
 
 [qualification_case.3_21]
-file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+file = "services/wallet/gateway/test/signing-policy-reservations.test.ts"
 case = "humanDailyCapDatabaseRefusalBeforeLegacyAuthority"
 classification = "product"
 observed = "error: permission denied for schema public"
@@ -2028,7 +2028,7 @@ expected = "Mount routes with a restricted database role, then refuse signing; n
 evidence = "qualification.3_1; full assertion in its private log"
 
 [qualification_case.3_22]
-file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+file = "services/wallet/gateway/test/signing-policy-reservations.test.ts"
 case = "humanDailyCapRetainsUncertainSendAcrossReopen"
 classification = "product"
 observed = "AssertionError: {\"error\":\"outcome_unknown\",\"tx_hash\":\"<transaction-or-address>\",\"nonce\":0,\"retry\":\"poll_receipt\",\"poll\":\"eth_getTransactionReceipt\",\"must_not_resubmit\":true,\"member\":0,\"members\":1}: expected 202 to be 500 // Object.is equality"
@@ -2036,7 +2036,7 @@ expected = "HTTP 500 send_failed; typed outcome_unknown producer returns HTTP 20
 evidence = "qualification.3_1; full assertion in its private log"
 
 [qualification_case.3_23]
-file = "services/wallet/gateway/test/repair-22-33-210.test.ts"
+file = "services/wallet/gateway/test/chain-receipt-fixtures.test.ts"
 case = "sequencerReceiptMatchesNodeVectors"
 classification = "product"
 observed = "Grouped assertion; see private evidence log."
@@ -2208,7 +2208,7 @@ base_failed = true
 evidence = "Final bounded hf-done log enumerates actual outcomes; historical attempt-3 assertions remain in qualification_case.3_* ."
 
 [continuation_4.change_8]
-file = "services/wallet/gateway/test/repair-22-31-370.test.ts"
+file = "services/wallet/gateway/test/approval-recovery.test.ts"
 cases = ["hostedEvmSdkRoundTrip"]
 cause = "environment: Vite source loading times out while loading workspace SDK"
 repair = "Load actual committed wallet SDK and browser exports through the existing native production-source loader, resolving source .js imports to .ts and installed cryptographic dependencies. Keep real SDK, proxy, token and route assertions and 30000ms bound."
@@ -2217,7 +2217,7 @@ base_failed = true
 evidence = "Final bounded hf-done log enumerates actual outcomes; historical attempt-3 assertions remain in qualification_case.3_* ."
 
 [continuation_4.change_9]
-file = "services/wallet/gateway/test/repair-22-31-371.test.ts"
+file = "services/wallet/gateway/test/signing-policy-reservations.test.ts"
 cases = ["humanDailyCapParallelLegacySigning", "humanDailyCapDatabaseRefusalBeforeLegacyAuthority", "humanDailyCapRetainsUncertainSendAcrossReopen"]
 cause = "fixture_contract: duplicate intents, initialization DDL and missing accepted receipt"
 repair = "Distinct calldata creates eight distinct payment intents. Restricted role may initialize tables but retains its read/write denial. Unknown-send peer applies actual signed bytes to loopback chain, loses response, and returns canonical accepted receipt to restart recovery; assert exact typed 202 and no second broadcast."
@@ -2227,7 +2227,7 @@ evidence = "Final bounded hf-done log enumerates actual outcomes; historical att
 
 [continuation_4.change_10]
 file = "services/wallet/gateway/test/support/chain-sequencer-receipt.test.ts"
-cases = ["sequencerReceiptMatchesNodeVectors (also registered by repair-22-33-210.test.ts)"]
+cases = ["sequencerReceiptMatchesNodeVectors (also registered by chain-receipt-fixtures.test.ts)"]
 cause = "product: node corpus contains seven V1/V2 rows"
 repair = "Assert exact seven producer IDs; derive success/revert expectation from each producer receipt status, authenticate every pinned row and retain exact byte/JSON equality."
 producer = "21e7fad72320ab6e794dcd4a5d3be762f829acab"
@@ -2297,7 +2297,7 @@ repair = "Activate the declared pnpm 10.34.9 through corepack prepare pnpm@10.34
 base_revision = "5df42280640955ac1f70ea7e257ffaed6bb3f0b2"
 carried_revision = "96730306a637356de46b729b884b09f44f84a0fe"
 status = "implementation_complete_pending_isolated_files_and_bounded_gates"
-isolated_files = ["test/provisioning.test.ts", "test/provisioning-station.test.ts", "test/repair-22-33-207.test.ts", "test/e2e/gateway.e2e.test.ts", "test/agent-precompiles-streams.test.ts", "test/attestor.test.ts", "test/evm-sign.test.ts"]
+isolated_files = ["test/provisioning.test.ts", "test/provisioning-station.test.ts", "test/signing-identity-and-receipts.test.ts", "test/e2e/gateway.e2e.test.ts", "test/agent-precompiles-streams.test.ts", "test/attestor.test.ts", "test/evm-sign.test.ts"]
 isolated_evidence = "Each requested file is run alone through pnpm --dir services/wallet/gateway exec vitest run; private /out/logs/continuation-5-*.log records command, base revision and exit. These runs do not substitute for hf-done."
 gate_evidence = "The final /out/run/gates.jsonl row and hf-done output identify the exact candidate revision, declared command, exit and private log; a passing build is not completion."
 
@@ -2316,7 +2316,7 @@ repair = "Keep quote, account and relayer signatures, persistence, sponsored env
 contract = "precompiles/addr/abi.json; services/wallet/gateway/src/provision/protocol.ts::sponsoredBindAbi"
 
 [continuation_5.database_restart]
-files = ["services/wallet/gateway/test/repair-22-33-207.test.ts", "services/wallet/gateway/test/support/postgres.ts"]
+files = ["services/wallet/gateway/test/signing-identity-and-receipts.test.ts", "services/wallet/gateway/test/support/postgres.ts"]
 cases = ["all nine repair-22-33-207 cases held by beforeAll", "canonicalEvmEvidenceSurvivesDatabaseRestart", "ambiguousWriteRecoversWithoutReadPoolBroadcastOrReplacement"]
 cause = "environment: embedded PostgreSQL startup and connection bridge held setup beyond its unchanged 30000ms bound"
 repair = "Use the suite's private native PostgreSQL engine. Add an explicit restart operation retaining its data directory and listening port, close the production pool before restarting, and retain every persistence/evidence assertion. Migration conformance registrations and all 30000ms bounds remain."
@@ -2346,7 +2346,7 @@ contract = "services/wallet/gateway/src/routes/evmApprovals.ts::reconcile"
 
 [continuation_5.isolated_repair_restart]
 file = "services/wallet/gateway/test/support/postgres.ts"
-observed = "At base 5df42280640955ac1f70ea7e257ffaed6bb3f0b2, pnpm --dir services/wallet/gateway exec vitest run test/repair-22-33-207.test.ts exits 1; two restart cases get ECONNREFUSED on the retained port (/out/logs/continuation-5-3.log)."
+observed = "At base 5df42280640955ac1f70ea7e257ffaed6bb3f0b2, pnpm --dir services/wallet/gateway exec vitest run test/signing-identity-and-receipts.test.ts exits 1; two restart cases get ECONNREFUSED on the retained port (/out/logs/continuation-5-3.log)."
 repair = "pg_ctl start does not reuse postmaster.opts after a separate stop. Pass the original listen options explicitly on restart; preserve the data directory, port, real PostgreSQL and every test bound."
 
 [continuation_5.isolated_repair_readiness]
@@ -2357,7 +2357,7 @@ repair = "Assert both surviving real daemons return HTTP 503, ready=false and re
 producer = "e3835b654d65646c02681252839918c6f0aca72f; services/wallet/attestor/internal/health/health.go::MinReachablePeers=2; src/attestor/quorum.ts::isHealthy"
 
 [continuation_6.repaired_accounting]
-files = ["services/wallet/gateway/src/routes/sign.ts", "services/wallet/gateway/src/db/signatureAccounting.ts", "services/wallet/gateway/test/attestor.test.ts", "services/wallet/gateway/test/repair-22-31-371.test.ts"]
+files = ["services/wallet/gateway/src/routes/sign.ts", "services/wallet/gateway/src/db/signatureAccounting.ts", "services/wallet/gateway/test/attestor.test.ts", "services/wallet/gateway/test/signing-policy-reservations.test.ts"]
 cases = ["signs and broadcasts a transaction and signs typed data through the attestors", "humanSignatureReservationPreservesOperationGuards"]
 cause = "product: the send route inserted a second operation reservation before reserveSignature searched by request hash or operation hash; the sign-only request includes an explicit nonce while send allocates that same nonce, giving two request hashes for one operation"
 repair = "Under the accounting advisory transaction lock, bind the provisional daily charge only when no operation exists; otherwise adopt the original reservation after validating the operation hash, user, address, recipient, value, chain and principal. Delete only the validated unsigned provisional charge, retain the original daily window and signed evidence, and journal the send against the adopted signature ID. Both producers share the unchanged multi-row conflict, retarget and expired-unresolved refusals."
@@ -2412,7 +2412,7 @@ observed = "The repaired sign-then-send case passes, but mounting the following 
 repair = "Execute the real submitted envelope on the existing TestChain loopback material, retain its canonical execution receipt and answer receipt and transaction lookups from that state, so HumanSendRecovery can settle the prior send on startup. No existing assertion is changed."
 
 [continuation_6.isolated_results]
-accounting_command = "pnpm --dir services/wallet/gateway exec vitest run test/repair-22-31-371.test.ts"
+accounting_command = "pnpm --dir services/wallet/gateway exec vitest run test/signing-policy-reservations.test.ts"
 accounting_exit = 0
 accounting_log = "/out/logs/continuation-6-daily-accounting.log"
 accounting_result = "8 passed, 1 existing todo; includes humanSignatureReservationPreservesOperationGuards and all unchanged humanDailyCap cases"
