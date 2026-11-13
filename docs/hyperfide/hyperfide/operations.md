@@ -1,6 +1,6 @@
 # Hyperfide operations
 
-This guide describes implemented source interfaces and their evidence boundaries. It does not announce a production release. The implementation programme is Hyperfide 2.0; historical Codify feature IDs, Git commits and native provider names retain their original identities.
+This guide describes the Hyperfide control plane. Implementation paths and build commands are relative to `tools/hyperfide` unless a command explicitly starts at the monorepo root.
 
 ## Authority and topology
 
@@ -20,7 +20,7 @@ flowchart TD
     G --> I[Protected integration branches]
 ```
 
-The main server hosts leadership, feature management and supervision. Builds, implementation and checker execution belong in sandboxes. A sandbox is not an agent: fixed resource capacity must be reserved before admitting worker slots, tests or builds. Hundreds of agents and 100 sandboxes are planning requirements, not measured throughput or availability guarantees.
+The main server hosts leadership, feature management and supervision. Builds, implementation and checker execution belong in sandboxes. A sandbox is not an agent: fixed resource capacity must be reserved before admitting worker slots, tests or builds. Configured resource reservations and budgets bound admitted concurrency.
 
 The human interacts with the leader. Feature managers own their assigned packages and request work through Hyperfide; workers cannot acquire publication authority by naming a branch, posting a successful exit code or editing a task status. Claude Code and Codex remain frontier execution connectors. Primary and Wave Manager models choose typed orchestration actions within authenticated authority; qualified evidence and deterministic gates decide acceptance.
 
@@ -67,138 +67,28 @@ Before admitting installations, register the exact package/source configuration 
 
 For a routine restart, retain the state directory and configuration identity. The supervisor's host lock prevents concurrent ownership, and its journal preserves pending operation IDs and credential grants. A changed configuration digest is rejected against retained state. Investigate `UNKNOWN`, `FLEET_RECONCILIATION_REQUIRED` or uncertain provider/runner operations before changing that journal. Reconcile the existing operation instead of deleting state or inventing a new execution ID.
 
-Catalog-70 inventory maintenance requires a coordinated database and runtime rollout. Migration `0730-provider-inventory-journal-index.sql` adds six ordinary indexes and an append-only inventory-journal trigger. Ordinary `CREATE INDEX` blocks table writes while building; schedule a safe write window. Catalog-69 runtimes reject the additional migration catalog, so do not apply this migration beneath a running catalog-69 fleet. Prepare matching catalog-70 artifacts and verify the database/runtime catalog together before resuming admission.
+Migration `0730-provider-inventory-journal-index.sql` creates six ordinary indexes and an append-only inventory-journal trigger. Ordinary `CREATE INDEX` blocks table writes while building. Apply the migration within a coordinated write window and deploy runtime artifacts with the matching migration catalog before resuming admission.
 
 A process/cohort replacement requires explicit current operator bootstrap authority and matching expected generations. On startup, the supervisor observes retained authority before renewing credentials and routes a stale control host through that replacement path. Rebind the current hierarchy and manager identities through the supported bootstrap path; old model observations and credentials cannot authorize replacement-generation effects. Existing installation recovery uses model-selected `fleet.install.adopt` and immutable receipts, with an acknowledged hierarchy handoff when ownership changes. See [recovery and adoption](fleet.md#recovery-and-adoption). Missing models, incomplete bounded observations and uncertain installation results remain waiting or refused states; they do not grant task or publication readiness.
 
-## Prerequisite handoff
+## Fleet campaign configuration
 
-The final prerequisite is carried source-control task 0.14, implemented by merge task
-22.37.7. The bounded gate uses the throwaway database:
+Fleet execution requires an approved provider pool, a configured model backend,
+object storage, enrolled operator credentials and protected runtime inputs.
+Apply the trusted migrations before starting the services. Keep configuration
+and credentials private. `HYPERFIDE_FLEET_NODE` selects the Node executable for
+fleet campaign commands; otherwise they resolve `node` on PATH.
 
-```sh
-cd tools/hyperfide
-corepack enable
-python3 tests/hyperfide/support/withpg.py -- python3 tests/hyperfide/cases/source_control/0_14.py --component
-```
-
-Read `build/fleet/0.14/component-receipt.json`, its `receipt.json` alias and
-`supervisor-restoration.log` as private component evidence. The component receipt
-marks every live section UNRUN and distinguishes actual local recovery from
-missing-execution refusals. `build/fleet/0.14/live-receipt.json` is explicitly UNRUN
-in component mode. The matching final build and verification revisions, commands,
-exit codes and private logs are referenced from
-`tools/hyperfide/spec/hyperfide-source-control/qualification.kvx` through the task
-runner's `/out/run/gates.jsonl`; source task identity is
-`spec/layerx-merge/source-control/source-spec.kvx` task 0.14.
-
-The owner campaign needs an approved provider pool, model backend, object store,
-operator credentials and protected runtime inputs. Keep configuration and captures
-owner-only; never publish their contents. `HYPERFIDE_FLEET_NODE` selects an executable
-override; otherwise the journey and setup resolve `node` on PATH and refuse a missing
-binary. The actor check also needs its declared native binary/profile under
-`build/fleet/worker/private` and configured model authorization. Apply the trusted
-migrations separately before the live campaign.
-
-Once the campaign has been configured and enrolled, run the following from
-`tools/hyperfide`. `run` starts the actual supervisor/provisioner; `qualification`
-executes the owner's versioned signed request list and must finish before indexing.
-Retain actual signed captures for every `TASK_CASES['0.14']` entry, including
-supervisory box loss, stale generation replay, ambiguous provider outcome,
-interrupted install, failed implementing agent and unavailable model. Supply
-`build/fleet/integration/private/0_14-index-input.json` and `0_14-target-input.json`
-with the case capture digests, exact campaign scope, contract/source/toolchain pins,
-install and worker operation IDs and authenticated fault-driver bindings. Captures
-remain beside the index; indexing validates their pins and grants no live PASS.
-
-```sh
-python3 tests/hyperfide/cases/source_control/0_14_live.py run --task 0.14 --config /private/hyperfide-prerequisite/0_14-live-config.json
-python3 tests/hyperfide/cases/source_control/0_14_live.py qualification --task 0.14 --config /private/hyperfide-prerequisite/0_14-live-config.json
-python3 tests/hyperfide/cases/source_control/0_14_live.py evidence-index --task 0.14 --config /private/hyperfide-prerequisite/0_14-live-config.json
-python3 tests/hyperfide/support/withpg.py -- python3 tests/hyperfide/cases/source_control/0_14.py --live-evidence build/fleet/integration/private/0_14-index.json --target build/fleet/integration/private/0_14-target.json --receipt build/fleet/integration/private/0_14-live-receipt.json
-```
-
-The final command runs real-model actor checks in an owned database, then the live
-verifier reads the separate database named by the trusted target's `database_url_env`.
-Use a distinct environment variable for that live read-only connection; `withpg.py`
-replaces `DATABASE_URL` and `HYPERFIDE_*_DATABASE_URL` for isolation. The
-`actor-receipt.json` remains separate from the final live receipt. Only a live
-receipt with `status = PASS`, `qualified = true` and the classified assertion inventory
-permits a zero exit; missing credentials or evidence remain BLOCKED with exit 2.
-A failed assertion is retained, never converted to PASS by a component result.
-
-Recovery preserves the private `0_14-live-journal.json`, supervisor state, original
-operation IDs and receipts. After supervisory host loss, rebind current cohort and
-manager authority and prove the original instance absent. Reject stale generation
-replays without effects. Reconcile an ambiguous provider operation and retain its
-capacity hold until exact absence is proven. Resume interrupted installation only
-through the signed FAILED/quiescence recovery chain; preserve source and stage pins.
-Retain a failed implementing agent's terminal native result and cleanup proof, and
-independently verify any replacement result. Unavailable models remain waiting;
-restore their configured backend before requesting new reasoning. Do not erase
-journals or relaunch uncertain execution with a new identity.
-
-The source adapter migration preserves install and result evidence while replacing
-Git revisions/manifests with native revision, root-tree and security-domain pins.
-It must preserve authority, scope, modes, content digests, interface selection and
-boot/generation fences. Native task 0.1 is released only after this prerequisite
-qualification passes live; decision 2700's bounded component gate alone cannot release it.
+Recovery retains the supervisor state and the original operation identities.
+After supervisory host loss, rebind the current cohort and manager authority
+and establish that the original instance is absent. Reconcile ambiguous provider
+operations while retaining their capacity holds. Resume interrupted installation
+through its signed failure and quiescence chain. Independent verification uses
+the captured result and its source, environment and physical boot bindings.
 
 ## Source and qualification states
 
-A source branch, successful compiler run, authoring check or task-component receipt does not qualify a full acceptance case. The canonical runner records the selected variant, exact input hashes, source inventory, process outcome, assertion inventory and cleanup. The independent checker revalidates those records.
-
-The canonical case registry (tests/hyperfide/registry.json) currently holds 57 acceptance cases, V-001 to V-057, and every one has an empty full-case assertion inventory. Those cases are unregistered for full qualification and block release readiness. Do not fill missing evidence with component results, vendor benchmarks or unexecuted plan text. Provider, connector, restore, sustained-fleet and live-model measurements remain pending until their own exact-current receipts exist.
-
-Support state at the documented source revision. Task status comes from spec/hyperfide/spec.kvx; component evidence comes from artifacts/hyperfide/tasks/<id>/evidence-index.json, a local cache of the S3 artifact store (see Evidence in the artifact store). Labels:
-
-- **done**: the specification marks the task done.
-- **implemented (component evidence)**: the source exists and the task's registered task-component variant passed. The task is still pending in the specification, and its full cases remain UNRUN.
-- **pending**: the task is not closed and this tree has no passing task-component evidence for it.
-- **proposed**: planning text only.
-
-| Area                                                                                                           | State                                                                                                                                                                                | Owning task(s)      |
-| -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------- |
-| Approval policy and dependency-enabled build boundaries                                                        | done                                                                                                                                                                                 | 1.4                 |
-| Main-host placement, human programme interface, frontier assignment policy                                     | implemented (component evidence)                                                                                                                                                     | 1.1–1.3             |
-| Control/provisioner/dispatch service entrypoints, policy-gated startup                                         | done (policy, schema and gateway); implemented (component evidence) for the authenticated service                                                                                    | 1.4, 4.1, 4.2, 14.1 |
-| Pinned run specification import                                                                                | pending: source in core/control-plane/src/spec, no task-component evidence index in this tree                                                                                        | 2.1                 |
-| Dependency graphs, versioned decomposition, proof obligations                                                  | implemented (component evidence)                                                                                                                                                     | 2.2–2.4             |
-| Agent hierarchy, scoped packets and views                                                                      | implemented (component evidence)                                                                                                                                                     | 3.1–3.4             |
-| PostgreSQL authority schema, primary transaction gateway, migrations and old-primary fencing                   | done                                                                                                                                                                                 | 4.1, 4.2, 4.4       |
-| Replica-barrier packet assembly                                                                                | implemented (component evidence)                                                                                                                                                     | 4.3                 |
-| Claims, reservations, leases, dispatch reconciliation, resource admission                                      | implemented (component evidence)                                                                                                                                                     | 5.1–5.4             |
-| Outbox, inbox, instructions, dispatch recovery                                                                 | implemented (component evidence)                                                                                                                                                     | 6.1–6.4             |
-| Central graph extraction, staging, publication, query parity                                                   | implemented (component evidence)                                                                                                                                                     | 7.1–7.4             |
-| Provider interface and UNSUPPORTED outcomes                                                                    | done                                                                                                                                                                                 | 8.1                 |
-| Provider pools, intents/orphans, placement/relocation                                                          | implemented (component evidence)                                                                                                                                                     | 8.2–8.4             |
-| Railway adapter                                                                                                | implemented (component evidence)                                                                                                                                                     | 9.1–9.4             |
-| Blaxel coding images                                                                                           | done                                                                                                                                                                                 | 10.1                |
-| Blaxel lifetime, create-or-get, preview gating                                                                 | implemented (component evidence)                                                                                                                                                     | 10.2–10.4           |
-| Content-derived environment profiles                                                                           | done                                                                                                                                                                                 | 11.1                |
-| Source and cache materialisation, readiness probes, prewarming                                                 | implemented (component evidence)                                                                                                                                                     | 11.2–11.4           |
-| Packet-scoped workspace slices for very large repositories                                                     | pending: no source or evidence in this tree                                                                                                                                          | 11.5                |
-| Sandbox supervisor and worker slots                                                                            | implemented (component evidence)                                                                                                                                                     | 12.1–12.4           |
-| Claude Code and Codex connectors, session lineage                                                              | implemented (component evidence)                                                                                                                                                     | 13.1–13.4           |
-| Identity enrolment, scoped credentials, authenticated HTTPS service                                            | implemented (component evidence)                                                                                                                                                     | 14.1–14.4           |
-| Attempt source, artifacts, checkpoints, retention                                                              | implemented (component evidence)                                                                                                                                                     | 15.1–15.4           |
-| Independent task qualification                                                                                 | implemented (component evidence)                                                                                                                                                     | 16.1–16.4           |
-| Commit and semantic assurance                                                                                  | implemented (component evidence)                                                                                                                                                     | 17.1–17.4           |
-| Findings, GitHub projection, routing                                                                           | implemented (component evidence)                                                                                                                                                     | 18.1–18.3           |
-| Finding closure after fenced repair                                                                            | implemented; component evidence fails (exit 1: 28 of 31 registered assertions pass, and the genuine-execution-start, independent-resolution and reopen assertions are unmet)         | 18.4                |
-| Integration candidates, publication gateway, closure, release barrier                                          | implemented (component evidence)                                                                                                                                                     | 19.1–19.4           |
-| Typed decision providers, bounded decision assistance, decision evaluation and promotion                       | implemented (component evidence)                                                                                                                                                     | 20.1–22.4           |
-| Observability, resource accounting, notifications                                                              | implemented (component evidence)                                                                                                                                                     | 23.1–23.4           |
-| Supervisory and sandbox recovery, stop/drain/cancel controllers, recovery drills                               | implemented (component evidence)                                                                                                                                                     | 24.1–24.4           |
-| SQLite import, cutover/rollback, authority-mode routing, release planning                                      | implemented (component evidence)                                                                                                                                                     | 25.1–25.4           |
-| Hyperfide identity, canonical hyperfide entrypoint, cg compatibility, name/alias migration, generated guidance | implemented (component evidence)                                                                                                                                                     | 26.1–26.4           |
-| Strict qualifier and independent receipt checker                                                               | done                                                                                                                                                                                 | 27.1                |
-| Deterministic schedule replay                                                                                  | implemented (component evidence); full replay cases UNRUN                                                                                                                            | 27.2                |
-| Live Railway/Blaxel provider and native agent qualification, 48/72-hour fleet campaigns                        | pending: campaign driver source (tests/hyperfide/campaigns/live.py) but no task-component evidence index; no measured limits exist                                                   | 27.3                |
-| Composite fault qualification                                                                                  | implemented (component evidence, driver component only); full campaign blocked by O-06, O-09, destructive-execution approval, database failover topology and task 27.3 full receipts | 27.4                |
-| Operational documentation, documentation closure, release readiness, traceability retention                    | implemented (component evidence)                                                                                                                                                     | 28.1–28.4           |
-| Hundreds of agents / 100 concurrent sandboxes                                                                  | proposed planning target                                                                                                                                                             | 27.3                |
-| Optional Span GPU self-hosting                                                                                 | proposed; only the self-hosted promotion gate is implemented (component evidence)                                                                                                    | 22.4                |
+The canonical qualification runner records the selected case variant, input hashes, source inventory, process outcome, assertions and cleanup. The independent checker revalidates those records. Task-component checks and full acceptance campaigns have separate receipt inventories. Provider, connector, restore, sustained-fleet and live-model campaigns use their own exact input bindings.
 
 ## Build and start
 
@@ -212,12 +102,16 @@ npm --prefix core/control-plane run build
 The lockfile pins dependencies and the package declares Node 24.22.0. Start the appropriate entrypoint with an explicitly approved policy file, its exact specification revision, registered fragments and built module root:
 
 ```sh
-node core/control-plane/dist/control.js --policy /run/hyperfide/policy.json --spec-revision APPROVED_REVISION --components core/control-plane/components --module-root core/control-plane/dist
+node core/control-plane/dist/control.js \
+  --mode https --host "$HYPERFIDE_LISTEN_HOST" --port "$HYPERFIDE_LISTEN_PORT" \
+  --tls-cert /etc/hyperfide/control.crt --tls-key /etc/hyperfide/control.key \
+  --policy /etc/hyperfide/control-policy.json --spec-revision "$HYPERFIDE_SPEC_REVISION" \
+  --components core/control-plane/components --module-root core/control-plane/dist
 ```
 
-The corresponding source entrypoints are provisioner.js and dispatch.js. A missing approval, denied role/action, mismatched revision, absent linked module or invalid dependency graph refuses startup. The stdio protocol is bounded JSONL; its presence does not grant remote authority.
+Load the protected control-service environment, including `HF_IDENTITY_CONFIG_FILE`, and set the listener and specification values before starting this command. The corresponding built entrypoints are `provisioner.js` and `dispatch.js`. A missing approval, denied role/action, mismatched revision, absent linked module or invalid dependency graph refuses startup. The default stdio mode uses bounded JSONL and is refused when the selected component directory registers identity component `14.1`. Use HTTPS mode to serve authenticated requests with the supplied component directory.
 
-The authenticated network service uses the explicit HTTPS mode, trusted TLS certificate/key and identity configuration. Identity enrolment, request signatures, origin, nonce, credential version, deployment epoch and current run/boot/lease are enforced by the actual task 14.1 protocol. Never copy fixture credentials into an operational environment.
+The authenticated network service uses the explicit HTTPS mode, trusted TLS certificate/key and identity configuration. Identity enrolment, request signatures, origin, nonce, credential version, deployment epoch and current run/boot/lease are enforced by the authenticated transport protocol. Never copy fixture credentials into an operational environment.
 
 Every entrypoint (control.js, provisioner.js, dispatch.js) accepts exactly these flags, parsed by core/control-plane/src/components/service.ts; any other flag refuses startup with INVALID_ARGS:
 
@@ -241,36 +135,36 @@ Fleet preparation needs two executor configurations. `HF_PROVISIONER_EXECUTOR_CO
 
 Worker starts are durable per run in hyperfide.provisioner_worker_starts. A restart resumes the recorded start (resume_count increases, start_count and started_at do not); repeated provider.worker.start calls against a running worker change nothing. provider.worker.stop records STOPPED, which remains stopped across process restarts. An explicit authenticated provider.worker.start starts it again. A STARTED record owned by another current PROVISIONER credential refuses startup with WORKER_ALREADY_RUNNING; revoke or expire that credential before rotating the worker key. provider.worker.status reports the durable record beside the live loop state.
 
-Observed refusals from the built entrypoint in a task sandbox (exit code 1):
-
-```text
-$ node core/control-plane/dist/control.js
-{"ok":false,"error":{"code":"INVALID_ARGS","message":"Explicit trusted policy and pinned specification revision required"}}
-$ node core/control-plane/dist/control.js --policy /nonexistent --spec-revision X
-{"ok":false,"error":{"code":"POLICY_INVALID","message":"Trusted policy file is unavailable"}}
-```
-
-Authenticated startup, refusal of a request that claims its own approval, refusal of a request for another run and service restart are exercised against PostgreSQL by tests/hyperfide/cases/tasks/28_1.py; the recorded outcome is artifacts/hyperfide/tasks/28.1/evidence-index.json (local, force-added evidence; not a full-case receipt).
+Startup requires an explicit trusted policy and pinned specification revision.
+Missing flags return `INVALID_ARGS`; an unavailable policy returns `POLICY_INVALID`.
 
 An installed release launches its own runtimes directly: runtime/node, bin/hyperfide, bin/hyperfide-native and runtime/python/bin/python3 (a wrapper over python3.bin) run under the host dynamic loader /lib64/ld-linux-x86-64.so.2 with the host glibc, and take every other native library from the release (bin/hyperfide and bin/hyperfide-native through RUNPATH $ORIGIN/../lib/hyperfide, the service units and the migration job through LD_LIBRARY_PATH=<release>/lib/hyperfide, Python through runtime/python/lib). glibc itself is never bundled, so a host needs a glibc no older than the one on the release build host; tools/repository/release.sh refuses to construct a release that stages a glibc member or whose node does not run both plainly and under the bundled library path.
 
 ## Host bootstrap
 
-deploy/hyperfide/bootstrap-host.mjs prepares a host for the three service units. Run it as root from the installed release; it is idempotent, so rerun it after every release to pick up new templates:
+`deploy/hyperfide/bootstrap-host.mjs` prepares the control, provisioner and dispatch authority units, plus the supervisory-host and issue-watcher units. Run it as root from the installed release; it is idempotent, so rerun it after every release to pick up new templates:
 
     /opt/hyperfide/current/runtime/node /opt/hyperfide/current/deploy/hyperfide/bootstrap-host.mjs
 
-It creates the hyperfide group (gid 1900) and the system users hyperfide (uid 1900, control), hyperfide-provisioner (1901) and hyperfide-dispatch (1902), all with primary group hyperfide, home /nonexistent and shell /usr/sbin/nologin, through groupadd and useradd. An existing account with another id, group, home or shell refuses with BOOTSTRAP_IDENTITY_CONFLICT before any tree is created. It then creates /etc/hyperfide and /var/lib/hyperfide (root:hyperfide 0750), one state directory per role with its authority-journal (and, for the provisioner, preparation) directory (role user, 0700), and installs:
+It creates the hyperfide group (gid 1900) and the system users hyperfide (uid 1900, control), hyperfide-provisioner (1901) and hyperfide-dispatch (1902), all with primary group hyperfide, home /nonexistent and shell /usr/sbin/nologin, through groupadd and useradd. An existing account with another id, group, home or shell refuses with BOOTSTRAP_IDENTITY_CONFLICT before any tree is created. It then creates /etc/hyperfide and /var/lib/hyperfide (root:hyperfide 0750), one state directory per authority role with its authority-journal (and, for the provisioner, preparation) directory (role user, 0700), and installs the following files. In this table, `ROLE` means `control`, `provisioner` or `dispatch`:
 
 | Installed file                                             | Source                                                   | Owner and mode |
 | ---------------------------------------------------------- | -------------------------------------------------------- | -------------- |
 | /etc/hyperfide/ROLE.env                                    | deploy/hyperfide/env/ROLE.env.example                    | root:root 0600 |
-| /etc/hyperfide/ROLE-policy.json                            | deploy/hyperfide/policies/ROLE.example.json (task 29.5)  | role user 0600 |
-| /etc/hyperfide/ROLE-identity.json, provisioner-worker.json | deploy/hyperfide/identity/*.example.json                 | role user 0600 |
+| /etc/hyperfide/ROLE-policy.json                            | deploy/hyperfide/policies/ROLE.example.json  | role user 0600 |
+| /etc/hyperfide/ROLE-identity.json, provisioner-worker.json, runner-executor.json | deploy/hyperfide/identity/*.example.json                 | role user 0600 |
 | /etc/systemd/system/hyperfide-ROLE.service                 | deploy/hyperfide/ROLE.service                            | root:root 0644 |
 | hyperfide-ROLE.service.d/db-env.conf                       | EnvironmentFile=/etc/hyperfide/ROLE.db.env               | root:root 0644 |
 | hyperfide-ROLE.service.d/preflight.conf                    | ExecStartPre running bootstrap-host.mjs --preflight ROLE | root:root 0644 |
 | /etc/hyperfide/grants.sql                                  | deploy/hyperfide/grants.sql                              | root:root 0644 |
+
+The supervisory host uses root-owned configuration and private state and plan
+directories. Its socket directory permits the control group to connect. The
+issue watcher uses the `hyperfide` user and its own configuration, signing key
+and CA. These two roles receive environment templates, service units and
+preflight drop-ins. They receive no database environment drop-in or authority
+journal. Their preflight requires an installable service unit in the retained
+release and validates the role's configuration.
 
 deploy/hyperfide/env/control.env.example names every variable the control service reads (case v21/3_24 checks both directions): the required ones with placeholders, the optional ones commented with their defaults, and the rest by area as names only. Keys, tokens and database URLs go in a root-only drop-in such as control.db.env, never in control.env.
 
@@ -285,7 +179,7 @@ The preflight runs as each unit's ExecStartPre, as the unit's user and with its 
 | HYPERFIDE_DEPLOYMENT_ID not a UUID, or HYPERFIDE_AUTHORITY_JOURNAL_DIR missing, not canonical, not owned by the unit's uid or group/world accessible | EXTERNAL_JOURNAL_REQUIRED             |
 | Control without a 64-hex-character HYPERFIDE_CAUSAL_BARRIER_KEY                                                                                      | BARRIER_CONFIG_INVALID                |
 | Listener host or port, or HYPERFIDE_SPEC_REVISION, missing                                                                                           | TRANSPORT_CONFIG                      |
-| HYPERFIDE_ROLE_PRIMARY_DATABASE_URL missing or not postgres                                                                                          | DATABASE_CONFIG_INVALID               |
+| `HYPERFIDE_<ROLE>_PRIMARY_DATABASE_URL` missing or not postgres (`ROLE` is `CONTROL`, `PROVISIONER` or `DISPATCH`)                                      | DATABASE_CONFIG_INVALID               |
 | HF_IDENTITY_CONFIG_FILE missing                                                                                                                      | IDENTITY_CONFIG_REQUIRED              |
 | Dispatch without HF_EVENT_DISPATCH_CONFIG                                                                                                            | DISPATCH_CONFIG_REQUIRED              |
 | Provisioner without an absolute HF_PROVISIONER_EXECUTOR_CONFIG_FILE naming a regular file                                                            | PROVISIONER_EXECUTOR_CONFIG_INVALID   |
@@ -297,22 +191,22 @@ The preflight runs as each unit's ExecStartPre, as the unit's user and with its 
 | HYPERFIDE_POOL_CONFIG missing                                                                                                                        | POOL_CONFIG_REQUIRED                  |
 | HF_RAILWAY_CONFIG missing                                                                                                                            | Railway trusted configuration missing |
 
-The preflight prints only the outcome and code, never a value. A passing preflight does not prove that migrations, grants or an authority epoch exist; the service checks those at startup.
+The preflight reports its outcome, refusal code, missing configuration names or paths, and warnings. Configuration values stay private. The service checks migrations, grants and the authority epoch at startup.
 
 A new host follows this sequence:
 
 1. Install the release with install-service.mjs (--service-uid 1900 --service-gid 1900), then run the bootstrap above.
-2. Edit /etc/hyperfide/ROLE.env for each role. Write /etc/hyperfide/ROLE.db.env by hand (root:root 0600) with the role's HYPERFIDE_ROLE_PRIMARY_DATABASE_URL, the scoped runtime login only; never pass a database URL through a script or put a migration credential in either file. Place each role's ROLE.crt and ROLE.key, the provisioner's external-fence.json, pools.json, railway.json and worker key, and the dispatch worker configuration with its key, with the owner and mode the table above names. Replace the policy and identity placeholders.
+2. Edit /etc/hyperfide/ROLE.env for each authority role. Write /etc/hyperfide/ROLE.db.env by hand (root:root 0600) with `HYPERFIDE_<ROLE>_PRIMARY_DATABASE_URL`, substituting `CONTROL`, `PROVISIONER` or `DISPATCH` for `<ROLE>`. Use the scoped runtime login only; never pass a database URL through a script or put a migration credential in either file. Place each role's ROLE.crt and ROLE.key, the provisioner's external-fence.json, pools.json, railway.json and worker key, and the dispatch worker configuration with its key, with the owner and mode the table above names. Replace the policy and identity placeholders.
 3. Apply migrations with the migration credential in the operator's own environment (migrate.mjs --apply, see PostgreSQL and migrations).
 4. Apply grants.sql once per runtime login as the database owner. Grants need the migrated tables, so this follows step 3; rerun it after every migration.
 5. Activate the first epoch for control and adopt it for the provisioner and dispatch, as described in First authority epoch.
 6. Start the units: systemctl enable --now hyperfide-control hyperfide-provisioner hyperfide-dispatch. A unit whose preflight refuses does not start; journalctl -u hyperfide-ROLE shows the code.
 
-Identity enrolment of the service principals stays with bootstrap_identity.ts (task 26.4).
+Identity enrolment of the service principals stays with bootstrap_identity.ts.
 
 ## Local CLI
 
-The local-first CLI is the hyperfide executable. cg is a deprecated compatibility alias from the same executable, with identical arguments, JSON and exit codes; it is byte-identical at this revision, and version prints 2.0.0-dev for both. It stays for the compatibility window of the approved release (see hyperfide help, "command names"). In local mode it works on the local store and grants no distributed authority. In distributed mode it is a control-service client: about 63 commands (spec, task, submission, graph, fleet, docs, supervisor, work, hierarchy, human, ask and the decision verbs) route to component actions with explicit run and operation identities, and hyperfide mcp serves those routes plus the same four Ask tools (ask_raise, ask_status, ask_list, approvals_list) as local mode. The service, not the CLI, decides authority. Commands relevant to operations, all listed by hyperfide help --all:
+The local-first CLI is the hyperfide executable. cg is a deprecated compatibility alias from the same executable, with identical arguments, JSON and exit codes; the build copies identical bytes to both names, and version prints 2.2.0 for both. It stays for the compatibility window of the approved release (see hyperfide help, "command names"). In local mode it works on the local store and grants no distributed authority. In distributed mode it is a control-service client: about 63 commands (spec, task, submission, graph, fleet, docs, supervisor, work, hierarchy, human, ask and the decision verbs) route to component actions with explicit run and operation identities, and hyperfide mcp serves those routes plus the same four Ask tools (ask_raise, ask_status, ask_list, approvals_list) as local mode. The service, not the CLI, decides authority. Commands relevant to operations, all listed by hyperfide help --all:
 
 | Command                                                                          | Use                                                                                                               |
 | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
@@ -323,13 +217,13 @@ The local-first CLI is the hyperfide executable. cg is a deprecated compatibilit
 | hyperfide fleet up\|down [--drain] [--wait SECONDS]\|pause\|resume\|runs\|status | Local run supervision; fleet down releases claims and keeps branches.                                             |
 | hyperfide journal list\|apply\|drop                                              | Writes queued while the local database was busy.                                                                  |
 
-The configuration file is hyperfide.kvx (core/native/src/config.c); a tree that has only the legacy codify.kvx keeps reading it, and a tree with both is refused unless .hyperfide/names.json records a completed names migration. The 26.3 component migrates codify.kvx to hyperfide.kvx with a backup (docs/config.md). The installer (tools/repository/install.sh) is not advertised as a Hyperfide release until tasks 25.4 and 26.2 close.
+The configuration file is hyperfide.kvx (core/native/src/config.c); a tree that has only the legacy codify.kvx keeps reading it, and a tree with both is refused unless .hyperfide/names.json records a completed names migration. The name-migration component migrates codify.kvx to hyperfide.kvx with a backup; see [configuration](../config.md).
 
 ## PostgreSQL and migrations
 
 Connection settings are read by core/control-plane/src/storage/runtime.ts. Each role uses HYPERFIDE_<ROLE>_PRIMARY_DATABASE_URL (for example HYPERFIDE_CONTROL_PRIMARY_DATABASE_URL), falling back to the DATABASE_URL compatibility setting; HYPERFIDE_<ROLE>_REPLICA_DATABASE_URL is optional; migrations require HYPERFIDE_MIGRATION_DATABASE_URL and run with one connection. Bounded settings: HYPERFIDE_PG_LISTENER_MAX (default 1, maximum 4), HYPERFIDE_PG_MAX_QUEUED (default 32, maximum 1024), HYPERFIDE_PG_SYNCHRONOUS_COMMIT (on or remote_apply) and HYPERFIDE_REQUIRE_SYNC_REPLICA (0 or 1). A process that already owns a different PostgreSQL configuration refuses with DATABASE_CONFIG_CONFLICT. Replicas serve observation and discovery; ownership changes, leases, qualification and publication must revalidate on the primary. A replica is not a second writable authority.
 
-Migration credentials are dedicated to the migration operator. Task 4.4 owns ascending, checksummed migrations; request handlers never create their own tables. Missing schema is a readiness refusal. Preserve already applied SQL bytes and their checksums. The 28.2 documentation migration adds immutable packet, checker, baseline and closure records with the authority transaction-isolation guard.
+Migration credentials are dedicated to the migration operator. The migration runner applies ascending, checksummed migrations; request handlers never create their own tables. Missing schema is a readiness refusal. Preserve already applied SQL bytes and their checksums. The 28.2 documentation migration adds immutable packet, checker, baseline and closure records with the authority transaction-isolation guard.
 
 Run policies and runtime grants ship with the deployment files. deploy/hyperfide/policies/control.example.json, provisioner.example.json and dispatch.example.json each list every action the role's registered components admit, its startup action and, for dispatch, the standing worker actions plus every control action as a route candidate. Replace the programme, repository, approval record and specification revision placeholders, keep allowed_actions unchanged, and install each file as that role's --policy. A dispatch route whose action is missing from the dispatch policy refuses startup with DISPATCH_CONFIG_INVALID. After any change to component registrations, regenerate the examples with python3 tests/hyperfide/cases/tasks/29_5.py --write-policies; acceptance case V-062 fails and names each missing or unregistered action when a shipped list drifts.
 
@@ -417,21 +311,21 @@ Provider capability differences implemented by the adapters (core/control-plane/
 | Resources                                         | Memory must be exactly representable        | CPU and memory must match provider coupling; writable overlay cannot exceed memory; timeouts in whole seconds         |
 | Pre-boot worker credentials                       | —                                           | Disabled; use post-enrolment process references                                                                       |
 | Snapshots, network policy, copy, lifetime methods | —                                           | UNSUPPORTED in the process adapter (lifetime policy is a separate ttl-idle/ttl-max-age/date delete policy)            |
-| Account limits                                    | Planning input only                         | account_limits_qualified must be declared; live limits pending 27.3                                                   |
+| Account limits                                    | Planning input only                         | account_limits_qualified must be declared; live limits require separate qualification                                                   |
 
 Provider components: 8.2 provider.pools._, 8.3 provider.intents._ and provider.orphans.list, 8.4 provider.placement.* and provider.relocation.*. All three components register in the provisioner role, and 8.2 and 8.3 also register in the control role. Contract checks report authority NONE and live_qualification NOT_EVALUATED.
 
 Provider resolution Asks. An orphan or QUARANTINED provisioning intent left unresolved past the policy window becomes a decision Ask in hyperfide.asks (kind decision, chain operator, deadline 14400 s from ASK_POLICY), raised by provider.resolutions.escalate (the provisioner worker calls it every HYPERFIDE_RESOLUTION_ESCALATE_INTERVAL_MS) through the same path as human.ask.raise, at most one open Ask per subject. Operators see them in human.ask.list with every other Ask and answer with human.ask.answer: RETAIN or DELETE for an orphan, RELEASE or RETRY for an intent. Only an OPERATOR of the Ask's run may answer, and the answer is applied to the provider inventory in the same transaction and recorded in provider_resolutions. DELETE, and RELEASE of an intent bound to a provider resource, need evidence the resource is gone: an answer without it is refused (DELETION_EVIDENCE_REQUIRED, RELEASE_EVIDENCE_REQUIRED) and the Ask stays open; settle those with provider.orphans.resolve or provider.intents.resolve-quarantine and evidence_digest, which also close the Ask. If the Ask expires unanswered, its recommended answer is recorded as decided by default but the inventory is not changed; the subject is raised again at the next escalation. provider.resolutions.list returns the resolutions, the Asks with their subject, and legacy_asks.
 
-Migration 0715 copied every open row of the old provider_resolution_asks table (0708) into hyperfide.asks under the run of its intent, or for an orphan the run of the credential that raised it, with a fresh 14400 s deadline. The old table is read-only history from then on, and writes to it are refused. Importing a run (spec.import) registers its operator:asks consumer BUFFERING when the event_consumers table exists, so Ask delivery needs no deploy step; an Ask raised on a run without that consumer is refused with ASK_OPERATOR_CONSUMER_REQUIRED.
+Provider resolution decisions use `hyperfide.asks`. The legacy `provider_resolution_asks` table is read-only. Importing a run (`spec.import`) registers its `operator:asks` consumer as `BUFFERING` when `event_consumers` exists. Raising an Ask without that consumer returns `ASK_OPERATOR_CONSUMER_REQUIRED`.
 
-HYPERFIDE_PROVIDER_RESOLUTION_WINDOW_SECONDS sets the policy window; the owner sets it per deployment, and 900 is the recommended value. Without it, escalation refuses with RESOLUTION_WINDOW_REQUIRED, the provisioner worker records that in its errors and keeps running, no provider Asks are raised, and the operator resolve actions still work.
+HYPERFIDE_PROVIDER_RESOLUTION_WINDOW_SECONDS sets the policy window; the owner sets it per deployment, and the supplied control and provisioner environment templates recommend 3600 seconds. Without it, escalation refuses with RESOLUTION_WINDOW_REQUIRED, the provisioner worker records that in its errors and keeps running, no provider Asks are raised, and the operator resolve actions still work.
 
 Remote work is prepared in a primary transaction, its intent is committed, then the opaque runner permit executes. No remote build occurs inside a PostgreSQL transaction. Unknown execution or cleanup remains unknown and retains capacity until reconciliation proves otherwise.
 
-### Hand-built Railway sandbox fleet (interim)
+### Railway sandbox toolkit
 
-Until the sandbox path of hyperfide-v21 4.2 to 4.4 lands, `deploy/hyperfide/sandbox/` drives Railway Sandboxes directly through the `railway` SDK. It runs from the main working tree and never uses GitHub. It does four things: builds a base checkpoint (`hf-base-<commit10>`), runs a pool of up to 100 workers, runs qualify jobs (`cg spec done -f hyperfide` on a throwaway PostgreSQL cluster) and Codex jobs (one v21 task each: approval never, codify MCP with the ask tools, one gateway key per sandbox), and lands each result as a local `sandbox/<id>` branch with its evidence archive and a READY or NOT-QUALIFIED verdict. It reads only `HF_RAILWAY_API_TOKEN`, `HF_RAILWAY_ENV_ID`, `HF_GATEWAY_URL`, `HF_GATEWAY_KEYS` and `HF_GATEWAY_MODEL`, and redacts them from every log. The README in that directory gives the supervisor's command sequence. `tests/integration/96_sandbox_toolkit.sh` proves it against a stub SDK.
+`deploy/hyperfide/sandbox/` drives Railway Sandboxes directly through the `railway` SDK. It runs from the main working tree and never uses GitHub. It does four things: builds a base checkpoint (`hf-base-<commit10>`), runs a pool of up to 100 workers, runs qualify jobs (`cg spec done -f hyperfide` on a throwaway PostgreSQL cluster) and Codex jobs (one v21 task each: approval never, codify MCP with the ask tools, one gateway key per sandbox), and lands each result as a local `sandbox/<id>` branch with its evidence archive and a READY or NOT-QUALIFIED verdict. It reads only `HF_RAILWAY_API_TOKEN`, `HF_RAILWAY_ENV_ID`, `HF_GATEWAY_URL`, `HF_GATEWAY_KEYS` and `HF_GATEWAY_MODEL`, and redacts them from every log. The README in that directory gives the supervisor's command sequence. `tests/integration/96_sandbox_toolkit.sh` proves it against a stub SDK.
 
 ### Internal object store and regional mirrors
 
@@ -541,9 +435,9 @@ Evaluation uses independently signed historically available packets, separated i
 
 Controlled trials require exact-plan approval, independent randomised units, complete observed outcomes, full cost accounting and stop conditions. Synthetic fixtures cannot prove live performance or enable policy promotion. Promotion gates retain exact model/route/rubric/purpose and qualification versions; drift or expired qualification disables model action policy while preserving workers, artifacts and deterministic fallback. Optional Span GPU self-hosting requires separate licence/engine/correctness/overload/restart evidence and never blocks the hosted baseline.
 
-## Measured qualification limits
+## Deployment capacity
 
-No live provider, fleet, throughput, latency or restore limit has been measured: tasks 27.2 (schedule replay), 27.3 (live providers and native agents, 48/72-hour campaigns) and 27.4 (composite faults) are pending in the specification. 27.2 and 27.4 have task-component evidence only, 27.3 has none, and every referenced full acceptance case is UNRUN. Apart from the sandbox base-build timing below, the figures in this guide are configured bounds enforced by code (protocol bytes, PostgreSQL pool and listener limits) and the local task-component observation recorded in artifacts/hyperfide/tasks/28.1/evidence-index.json: the twelve registered 28.1 assertions run against a local PostgreSQL fixture on Node 24.22.0. That observation is a task-component receipt only and cannot replace any full-case, provider, connector or campaign receipt.
+Protocol byte limits, PostgreSQL pool sizes, provider resource coupling and listener limits are configured bounds. Measure throughput, latency and recovery against the actual deployment topology and workload; record the profile and source identity with the resulting observations.
 
 ## Stop, recovery and retention
 
@@ -559,9 +453,9 @@ Drain and offline policy is read from the control unit's environment. recovery.s
 
 ## Migration, identity and troubleshooting
 
-SQLite import preserves historical state and provenance separately from live authority. An old done flag is not current qualification. Offline/local core behavior cannot claim distributed ownership; stale projections cannot overwrite fresh central state. The canonical Hyperfide distribution and the cg compatibility entrypoint are implemented with task-component evidence for tasks 25.4 and 26.2. No installer is advertised until those tasks close in the specification.
+SQLite import preserves historical state and provenance separately from live authority. An old done flag is not current qualification. Offline/local core behavior cannot claim distributed ownership; stale projections cannot overwrite fresh central state. The distribution includes the canonical `hyperfide` executable and its byte-identical `cg` compatibility entrypoint.
 
-Migration and rebrand components, all in the control role. The tasks are pending in the specification and have task-component evidence only, so these are implemented interfaces, not qualified guarantees:
+Migration and name-management components run in the control role:
 
 - 25.1 migration.sqlite.describe/snapshot/inventory/archive/import/status: historical import with provenance.
 - 25.2 cutover.describe/inspect/prepare/validate/activate/rollback/recovery: single-authority cutover with separate rollback boundaries.
@@ -569,7 +463,7 @@ Migration and rebrand components, all in the control role. The tasks are pending
 - 26.3 migration.names.plan/apply/rollback/aliases: codify.kvx to hyperfide.kvx and .codify/agent-context.md to .hyperfide/context/agent-context.md with backups; legacy CG_* and CODIFY_* variables (for example CG_AUTHORITY_URL, CODIFY_ROOT) are aliases of their HYPERFIDE_* names, and differing values refuse with ALIAS_CONFLICT.
 - 26.4 migration.generated.inspect/run: regenerated owned guidance.
 
-Rollback restores the documented previous usable state only for reversible steps. Operating rule (not yet a qualified guarantee): treat schema contraction (CONTRACT_SCHEMA) and protocol upgrades accepted by new clients as irreversible; roll back before contraction, and never accept evidence produced under an incompatible protocol. Old/new parity is not yet qualified (V-028 and V-055 remain UNRUN as full cases).
+Rollback restores the documented previous usable state only for reversible steps. Treat schema contraction (CONTRACT_SCHEMA) and protocol upgrades accepted by new clients as irreversible; roll back before contraction, and never accept evidence produced under an incompatible protocol.
 
 | Observation                                                                                                                            | Required investigation                                                                                                                                                                                                    |
 | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -594,157 +488,25 @@ Component 28.2 exposes docs.packet with pinned accepted revision, generation, pr
 
 The checker runs through actual runner.remote.v1, with preparation and its durable intent committed before execution. Missing supplier capabilities or schema refuse operation. Each repository needs its own successful immutable check. docs.close accepts packet_id plus check_ids (or check_id for one repository), verifies complete exact repository coverage, and persists snapshot, baseline and closure atomically. Unconfirmed process cleanup or incomplete artifacts hold checker admission and closure. Successful checks still do not authorise slot release.
 
-The bounded 28.2 persistence fixture uses the actual createClosureComponent factory and explicit seeded checker records. It does not qualify the remote runner. Full distributed documentation acceptance requires the actual 5/12 service composition and independently admitted remote execution. The production fragment retains those supplier dependencies.
+Distributed documentation execution uses the registered runner and preparation suppliers. Component `28.2` retains those dependencies in its registration fragment.
 
-Component 28.4 separates a bounded structural mapping response from release.traceability.archive, which retains the complete sanitised public pack through artifact.store.v1. An archive verifies retrievable bytes and does not grant product qualification. Component 28.3 release.readiness.assess holds incomplete evidence. release.readiness.seal requires all full-case gates, current authoritative programme and documentation closure, a verified COMPLETE artifact, then a fresh guarded primary recheck before writing its immutable release record. Controlled complete-inventory checker fixtures do not establish a product release.
+Component 28.4 separates a bounded structural mapping response from release.traceability.archive, which retains the complete sanitised public pack through artifact.store.v1. An archive verifies retrievable bytes and does not grant product qualification. Component 28.3 release.readiness.assess holds incomplete evidence. release.readiness.seal requires all full-case gates, current authoritative programme and documentation closure, a verified COMPLETE artifact, then a fresh guarded primary recheck before writing its immutable release record.
 
 Release evidence admission uses a deployment-owned protected schema_version 2 index. Each entry binds reference, evidence_root, campaign, receipt_id, receipt_digest and gate_kinds; the index organisation_id/run_id must match the actual invocation. evidence_root is an exclusively service-owned mode 0700 portable stage containing trusted-relocation.json. The service must keep untrusted agents in separate UIDs or VMs and freeze its own stage writers. The canonical checker verifies every original source/input/tool/artifact pin through the exact relocation map. The release consumer uses absolute isolated Python, a closed environment, the qualified proof assets, and the actual private-stage guard/inspection lock. HYPERFIDE_RELEASE_PYTHON and HYPERFIDE_RELEASE_QUALIFIED_PROOF_ROOT are protected deployment settings, never request fields. Nonportable version 1 indexes fail closed. Component proof remains insufficient for full release gates.
 
 ## Full-tree graph indexing
 
-The graph includes platform source. `codify.kvx` sets `[index] workers = 8`
-for the 8 CPU sandbox. `.cgignore` excludes `dist`, `.turbo`,
-`storybook-static`, `coverage`, Android build and Gradle directories, iOS
-build and Pods directories, staged vendored runtimes, and JavaScript bundles
-(`*.bundle.js` and `*.min.js`), pnpm lockfiles and pnpm stores. Built-in
-rules also exclude `node_modules` and `vendor`. Platform build scripts,
-source tests and fixtures remain indexed.
+Run the graph commands in the project whose source you want indexed. The optional `[index] workers` configuration sets parser concurrency; `hyperfide info` reports its value and origin. `.cgignore` and `.gitignore` control project exclusions, alongside built-in exclusions such as `node_modules` and `vendor`.
 
-Run `bash tests/hyperfide/cases/v22/1_6.sh` to copy the current tracked source
-tree (without environment files or installed dependencies) into a temporary
-directory and execute `hyperfide init --nested`. The test enforces a wall-time
-limit below 2,700 seconds and checks `hyperfide index-status --json` for nonzero
-symbol counts under `core/server/`. That command reports total file
-and symbol counts plus per-file symbol counts for the current graph branch.
+`hyperfide init --nested` initializes a separate project inside an enclosing checkout. `hyperfide index-status --json` reports file and symbol counts for the current branch. See [indexing](../indexing.md) for parser coverage, freshness and resource bounds.
 
-Measurements on 2026-10-23 used 8 effective CPUs, approximately 15 GB RAM
-and SQLite 3.46.1. Completed counts come from `index-status --json`, after
-semantic resolution has synthesized route symbols; the init progress summary
-reports extracted symbols and therefore has a lower symbol count.
+## Sandbox toolkit image steps
 
-| Run                                                                    | Wall time | Files | Symbols |
-| ---------------------------------------------------------------------- | --------: | ----: | ------: |
-| Plain `hyperfide init`, fixed snapshot                                 | 379.636 s | 9,071 |  85,689 |
-| Paired `hyperfide init --nested`, same snapshot, SQL profiling enabled | 510.213 s | 9,071 |  85,689 |
-| Qualification `hyperfide init --nested`, current tree                  |     434 s | 9,070 |  85,689 |
-| Post-0.7 rerun `hyperfide init --nested`                               |     415 s | 9,090 |  85,783 |
+From `tools/hyperfide`, `bash tools/repository/platform-ci.sh` installs the pinned pnpm dependencies and runs platform typechecking, builds, unit tests and the repository identity check. `--quick` uses installed dependencies for typechecking and the identity check.
 
-The post-0.7 rerun used the real merged modules and passed
-`tests/hyperfide/cases/v22/1_6.sh` on 2026-10-23. It indexed 767 files and
-9,993 symbols under `core/server/`. An audit of task 1.6's changes
-found no stand-ins, projection modules, copied identity gates or SDK accessor
-call sites requiring replacement.
+The sandbox toolkit's `deploy/hyperfide/sandbox/fleet.json` defines checkpoint ancestry, installation steps, worker preparation and resource limits. `make platform-install`, `make platform-build` and `make platform-test` run pnpm in the tool workspace. See the [toolkit guide](../../../tools/hyperfide/deploy/hyperfide/sandbox/README.md) for its configuration.
 
-The fixed snapshot preserves the initial r2 source inventory and ignore rules
-for comparison; the qualification copy additionally excludes its pnpm lockfile.
-The three earlier completed runs include 765 files and 9,988 symbols under
-`core/server/` and finish below the 2,700-second limit. The paired
-nested measurement includes SQL profiling overhead. Init with `--nested` uses
-the same indexing pipeline as plain init; it changes project-root selection.
-
-The earlier r2 nested run timed out at 2,700 seconds with partial counts of
-8,861 files and 82,511 symbols. Profiling the original plain init identified
-branch-wide candidate scans caused by an OR across `symbols.name` and
-`semantic_symbols.qualified_name`. Type and dispatch resolution now combine
-the two indexed ID lookups before loading candidates. The instrumented
-original plain run was stopped at 2,700 seconds (2,702.542 s including process
-shutdown), with partial committed counts of 9,071 files and 82,874 symbols.
-Its last cumulative SQLite step profile attributed 2,200.808 s to the type
-candidate scan, 73.806 s to semantic call candidates, 59.642 s to incoming
-binding invalidation and 19.479 s to path-index insertion/probes. These are
-instrumented statement timings, not completed-run counts or production
-latencies. The fixed paired nested profile's largest remaining statements
-were dispatch fact lookup (89.769 s) and semantic call candidates (79.492 s).
-Dispatch explicitly starts from those IDs so SQLite cannot repeat the lookup
-for every file.
-A 1,000-lookup type benchmark fell from 36.363 s to 1.755 s with identical
-candidate sets and ambiguity bounds; 500 dispatch lookups fell from 14.049 s
-to 0.191 s. Incoming binding invalidation also needed an index on
-`semantic_bindings.target_symbol_id` (59.642 s across 9,071 original writes).
-Path-index existence checks now read FTS row metadata directly rather than
-flushing pending virtual-table writes on every probe (19.479 s originally).
-
-The original and fixed binaries produce identical normalized graph rows on
-the 97-file semantic fixture, including symbols, references, imports, routes,
-type facts, dependencies and edges. The completed plain and nested snapshot
-graphs also match across all those tables after normalizing row IDs, including
-85,689 symbols, 812,757 references and 130,253 semantic edges. The existing
-index and semantic integration tests exercise full rebuilds, incremental edits
-and branch reuse.
-
-## Sandbox toolkit image steps and measured base build
-
-Platform CI runs `bash tools/repository/platform-ci.sh` on Node 24. It uses Corepack's
-pnpm version from `package.json`, installs with `--frozen-lockfile`,
-then runs typecheck, build, unit tests, and the repository identity gate. Each
-failure stops the run. `--quick` uses existing dependencies and runs only
-typecheck and the identity gate; it is the task 0.9 qualification command.
-The GitHub workflow runs on push and pull request changes under the runtime
-category directories, tests, assets and patches, as well as changes to root
-workspace configuration, the CI script or workflow.
-It caches the pnpm store using the root `pnpm-lock.yaml` hash and has read-only
-repository permission. It does not publish artifacts or update remote branches.
-The measured sandbox build timings below describe the base image, not a CI run.
-
-`deploy/hyperfide/sandbox/fleet.json` builds checkpoints in this order: clone the
-pinned commit, build cg, install and build the service, install platform, build
-platform, index, and report tools. Corepack activates pnpm 9.15.0, with a global
-npm install fallback. Platform requires `pnpm install --frozen-lockfile`; the
-separate `platform-build` step runs `pnpm build` best effort. Logs remain in
-`/work/logs/pnpm-g.log`, `/work/logs/pnpm-install.log`, and
-`/work/logs/pnpm-build.log`. Tools print pnpm and disk space; pool probes print
-pnpm. Preparation reinstalls when `pnpm-lock.yaml` or
-`pnpm-workspace.yaml` differs from the checkpoint commit, frozen first,
-falling back to `--no-frozen-lockfile`.
-
-The real Railway ledger `state/ledger/base-ce200df474.json` records checkpoint
-`hf22-base-ce200df474`, commit `ce200df474`, built 2026-10-23 08:36 to 08:44 UTC
-on 4 vCPU / 8 GB:
-
-| Step                                         |          Seconds |
-| -------------------------------------------- | ---------------: |
-| create                                       |              4.6 |
-| upload (99.3 MB bundle)                      |             19.9 |
-| clone                                        |              8.2 |
-| cg                                           |             32.5 |
-| service                                      |             20.6 |
-| platform (frozen install; node_modules 4.3G) |             69.2 |
-| platform-build                               |            177.1 |
-| index (cg init, 1574 files, 8 workers)       |            109.3 |
-| tools                                        |              4.5 |
-| checkpoint                                   |             11.5 |
-| total (approximately)                        | 457 (7 min 37 s) |
-
-`make platform-install`, `make platform-build`, and `make platform-test` run pnpm
-at the repository root. `gen-jobs.py --codex hyperfide-v22 0.8` generates a packet;
-`--v21` remains an alias for v21 tasks. `HF_PACKET_PREAMBLE` appends a file to
-each packet. `node dispatch.mjs --watch` rescans jobs every tick and writes
-queued, running, settled and backoff state to `state/dispatch-loop.json`.
-Create `state/STOP` to stop admitting jobs, drain active runners, and exit.
-
-## Feature 2.2 measurement boundaries
-
-The table above is the measured image-build and index record retained in this
-repository from task 0.8. Its named ledger is runtime state, not tracked evidence
-in this checkout; the numbers are transcribed historical measurements. The
-record does not establish timings for the final merged branch. In particular,
-`platform-build` was best effort in that image recipe, so its elapsed time is
-not evidence of a successful platform build.
-
-| Measurement                                 | Recorded result                                         | Evidence boundary                                                                      |
-| ------------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Image build                                 | Approximately 457 s (7 min 37 s)                        | Base checkpoint ce200df474, 2026-10-23, table above                                    |
-| Graph index                                 | 109.3 s, 1,574 files, eight workers                     | Same 4 vCPU / 8 GB base build; not a full merged-tree benchmark                        |
-| Fleet boot, dispatch, collect and integrate | Not measured in tracked feature evidence on this branch | The 5.7 fixture checks sequencing with fake machines; no live timing ledger is tracked |
-| Authority and two-host qualification        | Not measured in tracked feature evidence on this branch | The 6.5 two-host fixture checks receipts; no live timing ledger is tracked             |
-
-Fleet cap 20, pool maximum 100, 1.5 s start staggering and 60-to-600 s backoff
-in fleet.json are configured limits, not measurements of achieved throughput.
-Capture builder step durations and dispatcher job ledgers with the source commit
-when measuring those integrations. Do not substitute fake-provider test durations
-for live service latency or sustained fleet capacity.
-
-See [the platform guide](platform.md) for the four layers and proof commands.
+The dispatcher watches for jobs with `node dispatch.mjs --watch` from the toolkit directory. Creating `state/STOP` stops admission and drains active runners. State and journals retain the original job and operation identities for recovery. See [the platform guide](platform.md) for the runtime layers.
 
 ## Native source runtime releases
 
@@ -754,13 +516,11 @@ Build and verify the [native source runtime package](../runtime/source-control.m
 
 The [source guide](source-control.md#profile-qualification) records the current source profile inventory and its UNQUALIFIED full-case variants. Follow its graph-freshness, retention and restore procedures for source operations. A successful package build or 7.1 component run does not qualify a deployment, live backend, hosted Git destination, fleet or disaster-recovery topology.
 
-The 7.1 driver executes documented source commands from both guides through the extracted binaries, checks source/evidence pins, validates recovery declarations and compares the carried specification, registry and claims inventories. It retains command logs, the package and release manifests, source input digest and component receipt under the private `tools/hyperfide/build/source-control/7.1/` evidence directory. The task’s bounded gate record supplies the verified candidate revision, command, exit status and private log reference. Keep those records with the exact package; requalify changed inputs instead of citing an older receipt.
+The package driver executes the documented source commands through the extracted binaries, checks source and evidence pins, validates recovery declarations and compares the packaged specification, registry and claims inventories. Package receipts bind those inputs and executed commands.
 
 The package’s `source-release-manifest.json` describes pinned dependencies and the `git-source-pre-native-0736-v1` schema upgrade boundary. Deployment migration, full-case closure and explicit operator release acceptance have separate evidence requirements. Recovery profiles must cover metadata acknowledgment, object placements, backup retention, external journal identity and RPO/RTO objectives. Schema validity does not measure those objectives or authorize restoring an older authority epoch.
 
 ## Running source release and restore drill
-
-Task 7.2 separates the bounded `7_2.py --self-test` gate from deployment qualification. The bounded gate exercises release-input checks, stale custody and missing evidence classes; all product case variants remain UNRUN in its closure report. Its build and verification references are recorded in the task record against the same candidate revision and the private gate ledger.
 
 Copy the [version-2 release manifest template](../../../tools/hyperfide/tests/hyperfide/source-control/manifests/release.json) into private release storage. Replace every sentinel identity, path, size and digest with the actual 7.1 package, current closure packet, deployment profile and independently checked receipts. The checked-in template cannot close a release. Paths may be absolute or relative to the private manifest, without parent traversal. Keep profiles, credentials, database dumps, raw receipts and logs owner-only.
 
@@ -790,6 +550,6 @@ python3 tests/hyperfide/cases/source_control/7_2.py --run-system --manifest /pri
 
 The driver verifies and extracts the 7.1 archive, uses its `bin/source-control`, Node, SDK and host modules, and revalidates assignment/replacement lineage, current retained custody, qualification and exact accepted source. It makes a real sparse edit and durable checkpoint and verifies the exact diff. It creates and verifies a native backup using the declared object backend. Its publication probe queues a real publication, forwards the resume request, drops the actual response, and resumes the original operation twice. Independent receiver ref, reflog, Git integrity and file-content readbacks require exactly one update.
 
-The driver snapshots accepted revisions and all verified object metadata and bytes, stops the packaged service, dumps PostgreSQL with `pg_dump`, and restores that dump with `pg_restore --clean --if-exists --exit-on-error --single-transaction`. Source object catalog, placements, routing, retained metadata and accepted roots are restored together; immutable object bytes remain in the qualified backend. After restart, fresh backend reads, source API reads and independent Git readback must reproduce the pre-drill snapshot exactly. The service must stop cleanly. Keep the generated `running-<id>/receipt.json` and all referenced evidence under `build/source-control/7.2/`; a failure retains private logs and cannot produce a passing runtime receipt.
+The driver snapshots accepted revisions and all verified object metadata and bytes, stops the packaged service, dumps PostgreSQL with `pg_dump`, and restores that dump with `pg_restore --clean --if-exists --exit-on-error --single-transaction`. Source object catalog, placements, routing, retained metadata and accepted roots are restored together; immutable object bytes remain in the qualified backend. After restart, fresh backend reads, source API reads and independent Git readback must reproduce the pre-drill snapshot exactly. The service must stop cleanly. Retain the running-system receipt and its referenced evidence privately with the package.
 
 Pin that receipt in `runtime.receipt`. Record explicit operator acceptance with the release/source/closure packet binding plus `runtime_receipt_sha256` and `runtime_profile_sha256`, then pin the acceptance file in the manifest. Run closure with `7_2.py --manifest /private/hyperfide/release/release.json`. Closure checks every canonical full-case receipt independently and rechecks current custody against the pinned deployment using a fresh extraction of the archive. A revoked or superseded custody, missing evidence class, stale source, changed artifact, incomplete cleanup or absent operator acceptance refuses closure. `closure-report.json` lists every required case variant and its outcome, with component, live backend, fleet, GitHub, consolidation, growth and recovery evidence listed separately.

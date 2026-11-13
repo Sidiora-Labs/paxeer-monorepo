@@ -326,25 +326,25 @@
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
     "test": "TestRepair_63_MigrationFixturePaths",
-    "reason": "repair_63_test.go line 90: open /work/paxeer-monorepo/launchpad/launchpad/spec/production-system/integration/migrations/60000.sql: no such file or directory",
+    "reason": "repair_63_test.go line 90: open /work/paxeer-monorepo/launchpad/migrations/60000.sql: no such file or directory",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
     "test": "TestRepair_63_CoordinatorWalletContract",
-    "reason": "repair_63_test.go line 102: open /work/paxeer-monorepo/launchpad/launchpad/spec/production-system/integration/migrations/60000.sql: no such file or directory",
+    "reason": "repair_63_test.go line 102: open /work/paxeer-monorepo/launchpad/migrations/60000.sql: no such file or directory",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
     "test": "TestRepair_63_ActiveSnapshotUpdateGrant",
-    "reason": "repair_63_test.go line 734: open /work/paxeer-monorepo/launchpad/launchpad/spec/production-system/integration/migrations/60000.sql: no such file or directory",
+    "reason": "repair_63_test.go line 734: open /work/paxeer-monorepo/launchpad/migrations/60000.sql: no such file or directory",
     "retiring_task": "22.39.154"
   },
   {
     "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
     "test": "TestRepair_63_WalletRangeSchemaMigrated",
-    "reason": "repair_63_test.go line 785: open /work/paxeer-monorepo/launchpad/launchpad/spec/production-system/integration/migrations/60000.sql: no such file or directory",
+    "reason": "repair_63_test.go line 785: open /work/paxeer-monorepo/launchpad/migrations/60000.sql: no such file or directory",
     "retiring_task": "22.39.154"
   },
   {

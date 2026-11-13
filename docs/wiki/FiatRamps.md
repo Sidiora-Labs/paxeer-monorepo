@@ -26,8 +26,14 @@ under `services/platform/ramps` and is documented on
 `VerifiedProviderFacts`, `ProviderVerifier`, `FiatIntentKind`,
 `FiatIntent`, `FiatPlaneResult`, `FiatPlane`, `FiatJourneyState`,
 `FiatAdapter` (`verify_evidence`, `apply`, `idempotency_key`),
-`FiatError`, `fiat_adapter_descriptor()`,
+`FiatError`, `fiat_adapter_descriptor(spec, conformance)`,
 `interop_fiat_adapters()`.
+
+The descriptor requires deployment-supplied `PinnedSpec` and `ConformanceSuite`
+values from `layerx_interop_gateway::adapter`. The adapter verifies provider
+facts and binds the resulting ledger payment to the signed receipt. Receipt
+verification and committed-block finality are distinct checks on the same
+Paxeer chain.
 
 Callbacks carry token references only. PAN-shaped input is refused.
 Credit, reversal, and chargeback apply only after

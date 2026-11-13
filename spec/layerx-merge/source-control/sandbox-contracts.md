@@ -1,8 +1,6 @@
 # Fleet sandbox source and environment contracts
 
-Status: proposed prerequisite contract. The `.neron` grammar, `package.kvx` grammar and `hyperfide install` behavior below are implementation requirements, not assertions about commands or formats already shipped. Source-control engine implementation remains pending. The examples are structurally illustrative and carry unresolved example digests; they cannot establish a ready environment.
-
-A fleet sandbox carries two distinct inputs before worker execution:
+The [fleet schemas](../../../tools/hyperfide/contracts/fleet/index.mjs) and [installer](../../../tools/hyperfide/core/native/src/install_cmd.c) define source configuration, environment manifests and `hyperfide install`. A fleet sandbox carries two distinct inputs before worker execution:
 
 - `.neron` describes how source is accessed: the online endpoint, repository, source backend, immutable revision, workspace identity/generation, read/write scope, cache policy and authentication profile references.
 - `package.kvx` describes the sandbox environment: source mounts, dependency installation, toolchains, configuration references, selected interfaces, readiness probes and worker-slot isolation. Its role resembles a package manifest for an environment. It is neither a task assignment nor a replacement for Hyperfide's spec task/package and attempt records.
@@ -19,15 +17,15 @@ The package digest is computed from its canonical parsed content; `.neron` has i
 
 `meta.example = true`, an `example.invalid` endpoint, placeholder identifiers or all-zero artifact digests make an example non-runnable. Static example validation may pass while installation readiness must fail. The [package example](examples/fleet/package.kvx) and [source configuration example](examples/fleet/.neron) describe the format without claiming that their prospective source layout or artifact pins exist.
 
-## 2. `.neron`: proposed source configuration v1
+## 2. `.neron`: source configuration v1
 
 Every fleet sandbox has a protected environment-level `.neron` delivered by the coordinator. Each writable worker view receives an effective `.neron` with that view's actual workspace ID and generation. The original descriptor remains unchanged and attributable. A shared file is never repeatedly overwritten to represent different workers.
 
 | Section | Required fields | Contract |
 |---|---|---|
 | `[meta]` | `format`, `schema_version` | `format = "neron.source-config"`; v1 schema. Optional `example` explicitly prevents readiness. |
-| `[source]` | `endpoint`, `repository`, `source_backend`, `revision`, `auth_profile` | Nonsecret online endpoint, stable logical repository identity, configured adapter name, immutable source revision and credential-profile reference. Native revisions use the source protocol's typed identity; the initial Git adapter accepts `git:<full-commit-id>`. Branch names and unqualified `latest` are not immutable pins. |
-| `[workspace]` | `workspace_id`, `workspace_generation`, `environment_id`, `environment_generation`, `authority_epoch`, `read_scope`, `write_scope` | Current environment/view association and explicit repository-relative allowed path patterns. Write scope must be contained in read scope and in server-granted capability. Generations are positive integers or explicit opaque authority values where the authority schema requires them. |
+| `[source]` | `endpoint`, `repository`, `source_backend`, `revision`, `auth_profile` | Nonsecret online endpoint, stable logical repository identity, `git` or `native` backend, immutable source revision and credential-profile reference. Native revisions use the source protocol's typed identity; the initial Git adapter accepts `git:<full-commit-id>`. Branch names and unqualified `latest` are not immutable pins. |
+| `[workspace]` | `workspace_id`, `workspace_generation`, `environment_id`, `environment_generation`, `authority_epoch`, `read_scope`, `write_scope` | Current environment/view association and explicit repository-relative allowed path patterns. Write scope must be contained in read scope and in server-granted capability. Workspace and environment generations are positive integers; `authority_epoch` is an explicit identity string. |
 | `[cache]` | `directory`, `max_bytes`, `max_entries`, `security_domain` | Absolute host/sandbox cache path, positive clean-cache bounds and authorization domain. Cache data is immutable; dirty files and pending uploads live elsewhere. |
 | `[client]` | `mode`, `dirty_directory`, `network_policy` | Mode is `api_only`, `sparse`, `virtual` or explicitly `materialized`; dirty data has a private absolute location. `network_policy = "online-required"` does not grant offline write authority. |
 
@@ -37,7 +35,7 @@ The installer treats `read_scope` and `write_scope` as requested/configured boun
 
 The environment-level workspace may be a coordinator-admitted read-only base view. Worker preparation derives private writable views, each with its own workspace identity, generations and effective scope. There is no writable shared default checkout used by every worker.
 
-## 3. `package.kvx`: proposed sandbox environment manifest v1
+## 3. `package.kvx`: sandbox environment manifest v1
 
 | Section | Fields | Contract |
 |---|---|---|
@@ -57,7 +55,7 @@ The environment-level workspace may be a coordinator-admitted read-only base vie
 
 The v1 `source` refers to the one source repository configured by the paired `.neron`; `mount.<name>.source = "primary"` names this singleton source. Multiple mounts select different regions of that same pinned repository. Adding other repositories requires a versioned explicit extension; a dependency command must not silently fetch an unrelated mutable repository.
 
-Paths and glob semantics are versioned and platform-independent. Mount metadata records the resolved selected paths, scope and source-manifest digest. Missing sparse paths are omitted source, not deletions. A package may request `api_only` work with no source mount, or virtual access with lazy hydration. A full materialized mount requires an explicit full selection and recorded cost/reason policy; the installer does not expand a small mount to the whole monorepo implicitly.
+Mount metadata records the resolved selected paths, scope and source-manifest digest. The [mount resolver](../../../tools/hyperfide/core/control-plane/src/preparation/fleet_mounts.ts) supports `sparse`, `materialized` and `api_only` client modes. File-based environments require named source mounts in `sparse` or `materialized` mode. An `api_only` environment uses a metadata-only source manifest without mounts or source dependencies. The schema also recognizes `virtual`; the installer returns `FLEET_INSTALL_BACKEND_UNSUPPORTED` for that client mode. Materialized mounts select the explicitly declared paths within the admitted scope.
 
 Dependency installation reads the pinned lockfile at the selected source revision, verifies its digest and follows its package-manager/version semantics. Before ready publication, the installer owns a private staging view of the source and dependency output paths. A mount declaring `read_only` describes the completed worker-visible base, not a prohibition on creating dependency outputs in installer-owned staging. Package-manager writes remain confined to that staging view; required dependency output directories are excluded from source mutation capture. The installer revalidates tracked source and lockfile identities after lifecycle scripts and refuses undeclared tracked-source changes before freezing the prepared base. The resolved dependency closure includes required workspace manifests and build configuration, even where those are read-only. Missing closure is a failed plan or an explicit authorized widening, not silent lockfile regeneration. No `--no-frozen-lockfile` fallback is implied. Registry/auth access, lifecycle scripts and network endpoints follow the approved environment plan. An installer cannot claim readiness from a cache entry alone without checking its input identity and completeness.
 
@@ -122,16 +120,14 @@ Each worker receives an independent workspace ID/generation, source overlay, hom
 
 Reuse verifies source/plan identity and clean state. If dirty files would be overwritten, the installer refuses with the affected workspace and recovery choices. It may preserve them for an explicit checkpoint/export/adoption operation authorized separately; it cannot auto-stash, delete, reset, rebase or silently move them. Cleanup of abandoned generations observes active workers, source retention and submitted-result custody. Cancelling a workload does not remove its last acknowledged checkpoint.
 
-## 7. Prerequisite source adapter and later engine transition
+## 7. Source adapters
 
-This environment contract must work before the native source-control engine exists. Its initial adapter may read current Git objects or a coordinator-produced manifest of the selected pinned Git revision. The coordinator may use existing Git facilities to obtain that revision; the sandbox installer consumes a manifest, code objects and configuration references through the same source-preparation interface. The example's `git:` identity denotes that compatibility adapter and does not imply native revision semantics.
+The [source preparation module](../../../tools/hyperfide/core/control-plane/src/preparation/fleet_source.ts) validates pinned source manifests for the `git` and `native` backends. Git identities use `git:<full-commit-id>`; native identities use `sha256:<64 lowercase hexadecimal digits>`. The backend and revision type must agree with `.neron` and the admitted install plan.
 
-The later native adapter supplies native revision/tree identities, scope authorization, content objects and workspace generations through the same manifest contract. `package.kvx`, selected interface blocks, dependency preparation and readiness behavior remain unchanged except for explicitly versioned source identity/backend fields. Native-engine code is therefore a consumer of the prepared environment, not a dependency required to bootstrap its first implementation worker. Source-only installation correctness is qualified independently from native commit/merge/acceptance correctness.
+Mounts select paths from the paired source manifest. Native preparation binds worker workspace identities and generations. Dependencies, configuration and interface selection remain inputs to the environment readiness receipt for either backend. Source metadata queries and native transformations use the online source service.
 
-A materialized code tree is not a complete local source-control server. Metadata queries, ancestry, merge and rebase remain online service operations. The Git prerequisite adapter must remain visibly identified during migration and must not appear as an implicit fallback when a native source operation fails.
+## 8. Readiness inputs
 
-## 8. Required future evidence
+The [readiness input builder](../../../tools/hyperfide/core/control-plane/src/preparation/fleet_readiness_contract.ts) derives per-slot inputs from the admission, package, source configuration, install plan and receipt. It binds source files, slot paths, source configuration digest, dependency inventory, toolchain pins, configuration references, selected interfaces and required probes. The operation, admission and plan identities must match.
 
-Prerequisite qualification must demonstrate a fresh sandbox receiving bootstrap inputs before worker execution, resolving a pinned scoped source view, installing declared locked dependencies/toolchains/configurations, selecting the bounded interface fragment and emitting a ready receipt. Negative cases include stale environment/workspace generation, mismatched source/config/lockfile/catalogue digest, missing interface block, incompatible toolchain, unavailable configuration reference, interrupted installation, duplicate operation, dirty reuse and two slots attempting to mutate shared cache/dependencies.
-
-The receipt includes environment/generation, installer and input digests, effective source/scope/closure, dependency/toolchain identities, configuration reference versions, interface selection coverage, stage outcomes, probes and timestamps. Sensitive values are absent. Runtime evidence must distinguish a real provider sandbox from a fixture and distinguish successful prerequisite installation from source-control feature qualification. This document and its example files provide no runtime evidence by themselves.
+The [readiness probe](../../../tools/hyperfide/core/control-plane/src/preparation/fleet_readiness_probe.ts) checks the prepared worker inputs. Source and workspace digests identify the installed environment; task assignment and source acceptance have separate authority records.

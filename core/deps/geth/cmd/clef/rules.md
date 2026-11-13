@@ -1,6 +1,6 @@
 # Rules
 
-The `signer` binary contains a ruleset engine, implemented with [OttoVM](https://github.com/robertkrimen/otto)
+The `clef` binary contains a ruleset engine, implemented with [Goja](https://github.com/dop251/goja)
 
 It enables usecases like the following:
 
@@ -41,11 +41,11 @@ function ApproveTx(req) {
 
 // Approve listings if request made from IPC
 function ApproveListing(req){
-    if (req.metadata.scheme == "ipc"){ return "Approve"}
+    if (req.meta.scheme == "ipc"){ return "Approve"}
 }
 ```
 
-Whenever the external API is called (and the ruleset is enabled), the `signer` calls the UI, which is an instance of a ruleset-engine. The ruleset-engine
+Whenever the external API is called (and the ruleset is enabled), Clef calls the UI, which is an instance of a ruleset-engine. The ruleset-engine
 invokes the corresponding method. In doing so, there are three possible outcomes:
 
 1. JS returns "Approve"
@@ -61,13 +61,9 @@ A more advanced example can be found below, "Example 1: ruleset for a rate-limit
 
 ### Things to note
 
-The Otto vm has a few [caveats](https://github.com/robertkrimen/otto):
+See [Goja](https://github.com/dop251/goja) for the JavaScript runtime's compatibility.
 
-* "use strict" will parse, but does nothing.
-* The regular expression engine (re2/regexp) is not fully compatible with the ECMA5 specification.
-* Otto targets ES5. ES6 features (eg: Typed Arrays) are not supported.
-
-Additionally, a few more have been added
+Clef configures the runtime as follows:
 
 * The rule execution cannot load external javascript files.
 * The only preloaded library is [`bignumber.js`](https://github.com/MikeMcl/bignumber.js) version `2.0.3`. This one is fairly old, and is not aligned with the documentation at the GitHub repository.
@@ -84,16 +80,16 @@ Some security precautions can be made, such as:
 * Never load `ruleset.js` unless the file is `readonly` (`r-??-??-?`). If the user wishes to modify the ruleset, he must make it writeable and then set back to readonly.
   * This is to prevent attacks where files are dropped on the users disk.
 * Since we're going to have to have some form of secure storage (not defined in this section), we could also store the `sha3` of the `ruleset.js` file in there.
-  * If the user wishes to modify the ruleset, he'd then have to perform e.g. `signer --attest /path/to/ruleset --credential <creds>`
+  * If the user wishes to modify the ruleset, he'd then have to perform e.g. `clef attest <sha256sum>` using the output of `sha256sum /path/to/ruleset`
 
 ##### Security of implementation
 
-The drawback of this very flexible solution is that the `signer` needs to contain a javascript engine. This is pretty simple to implement since it's already
+The drawback of this very flexible solution is that Clef needs to contain a javascript engine. This is pretty simple to implement since it's already
 implemented for `geth`. There are no known security vulnerabilities in it, nor have we had any security problems with it so far.
 
 The javascript engine would be an added attack surface; but if the validation of `rulesets` is made good (with hash-based attestation), the actual javascript cannot be considered
 an attack surface -- if an attacker can control the ruleset, a much simpler attack would be to implement an "always-approve" rule instead of exploiting the js vm. The only benefit
-to be gained from attacking the actual `signer` process from the `js` side would be if it could somehow extract cryptographic keys from memory.
+to be gained from attacking the actual `clef` process from the `js` side would be if it could somehow extract cryptographic keys from memory.
 
 ##### Security in usability
 
@@ -109,10 +105,10 @@ The ability to auto-approve transactions means that the signer needs to have the
 
 ### Example implementation
 
-Upon startup of the signer, the signer is given a switch: `--seed <path/to/masterseed>`
-The `seed` contains a blob of bytes, which is the master seed for the `signer`.
+Upon startup of the signer, the signer is given a switch: `--signersecret <path/to/masterseed>`
+The `seed` contains a blob of bytes, which is the master seed for Clef.
 
-The `signer` uses the `seed` to:
+Clef uses the `seed` to:
 
 * Generate the `path` where the settings are stored.
   * `./settings/1df094eb-c2b1-4689-90dd-790046d38025/vault.dat`

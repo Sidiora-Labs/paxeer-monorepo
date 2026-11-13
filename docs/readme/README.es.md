@@ -60,7 +60,7 @@ La mainnet beta pública usa el ID de cadena 125. Conecte las billeteras y los c
 | Nodo numerado | `https://api1.mainnet-beta.paxeer.network` |
 | WebSocket | `wss://api1.mainnet-beta.paxeer.network` |
 
-Los hosts numerados van de `api1.mainnet-beta.paxeer.network` a `api14.mainnet-beta.paxeer.network`. La lista completa y las indicaciones de uso están en [`docs/site/docs/reference/public-rpc.md`](../site/docs/reference/public-rpc.md). Compruebe el ID de cadena antes de firmar; esta consulta debe devolver `"0x7d"` como resultado:
+Los hosts numerados van de `api1.mainnet-beta.paxeer.network` a `api14.mainnet-beta.paxeer.network`. La lista completa y las indicaciones de uso están en [`docs/site/paxeer-docs/src/app/public-rpc/page.tsx`](../site/paxeer-docs/src/app/public-rpc/page.tsx). Compruebe el ID de cadena antes de firmar; esta consulta debe devolver `"0x7d"` como resultado:
 
 ```sh
 curl -sS --max-time 15 https://api1.mainnet-beta.paxeer.network \
@@ -82,7 +82,7 @@ Compile el nodo integrado desde la raíz del repositorio:
 make paxd-build
 ```
 
-Este target compila primero la biblioteca del kernel y el runtime de Programs que enlaza `paxd`, y después genera `build/paxd` mediante `chain.mk`. `make paxeer-build` solo delega la compilación Go y no sustituye esa preparación. Ambos usan `GOPROXY=off`; las dependencias Go necesarias deben estar disponibles de antemano. La biblioteca del kernel y los targets de pruebas existentes se pueden trabajar por separado:
+Este target compila primero la biblioteca del kernel, el runtime de Programs y evmone que enlaza `paxd`, y después genera `build/paxd` mediante `chain.mk`. `make paxeer-build` delega a `chain.mk` y también prepara las dependencias nativas; `make paxd-build` fija además la versión de `tools/release/version.json`. Ambos usan `GOPROXY=off`; las dependencias Go necesarias deben estar disponibles de antemano. La biblioteca del kernel y los targets de pruebas existentes se pueden trabajar por separado:
 
 ```sh
 make build

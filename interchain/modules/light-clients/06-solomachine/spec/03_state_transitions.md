@@ -44,9 +44,10 @@ to the subject client:
 - sets `IsFrozen = false`, unfreezing the subject if necessary.
 
 The subject retains its own `AllowUpdateAfterProposal` flag, which must be `true`
-for this update to succeed. The sequence is copied from the substitute rather
-than incremented. See [Updates By Proposal](01_concepts.md#updates-by-proposal)
-for the other handler requirements.
+for this update to succeed. Core requires a frozen subject and an active
+substitute with a higher sequence. The sequence is copied from the substitute
+rather than incremented. See [Updates By Proposal](01_concepts.md#updates-by-proposal)
+for the other requirements.
 
 ## Upgrade
 

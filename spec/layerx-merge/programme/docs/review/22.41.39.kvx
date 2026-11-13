@@ -1,0 +1,147 @@
+[manifest]
+task = "22.41.39"
+pages = 40
+
+[record.1]
+path = "tools/loadtest/LICENSE.md"
+
+[record.2]
+path = "tools/paxctl/LICENSE.md"
+
+[record.3]
+path = "tools/uci/.github/seidroid/README.md"
+
+[record.4]
+path = "tools/uci/.github/seidroid/ai-review/README.md"
+
+[record.5]
+path = "tools/uci/.github/seidroid/ai-review/assistant.md"
+
+[record.6]
+path = "tools/uci/.github/seidroid/ai-review/review.md"
+
+[record.7]
+path = "tools/uci/.github/seidroid/ai-review/scout.md"
+
+[record.8]
+path = "tools/uci/README.md"
+
+[record.9]
+path = "tools/wasm-tools/CODE_OF_CONDUCT.md"
+
+[record.10]
+path = "tools/wasm-tools/CONTRIBUTING.md"
+
+[record.11]
+path = "tools/wasm-tools/ORG_CODE_OF_CONDUCT.md"
+
+[record.12]
+path = "tools/wasm-tools/README.md"
+
+[record.13]
+path = "tools/wasm-tools/SECURITY.md"
+
+[record.14]
+path = "tools/wasm-tools/crates/c-api/README.md"
+
+[record.15]
+path = "tools/wasm-tools/crates/wasm-compose/CONFIG.md"
+
+[record.16]
+path = "tools/wasm-tools/crates/wasm-compose/README.md"
+
+[page.1]
+path = "tools/jev/tests/fixtures/markdown_links/README.md"
+status = "corrected"
+
+[page.2]
+path = "tools/jev/tests/fixtures/markdown_links/repository-drift.md"
+status = "reviewed"
+
+[page.3]
+path = "tools/jev/tests/fixtures/repair_22_33_705/command-drift.md"
+status = "corrected"
+
+[page.4]
+path = "tools/jev/tests/fixtures/repair_22_33_705/link-drift.md"
+status = "reviewed"
+
+[page.5]
+path = "tools/jev/tests/fixtures/repair_22_33_705/operations.md"
+status = "reviewed"
+
+[page.6]
+path = "tools/jev/tests/fixtures/repair_22_33_705/url-drift.md"
+status = "corrected"
+
+[page.7]
+path = "tools/launchpad/production/bootstrap/README.md"
+status = "corrected"
+
+[page.8]
+path = "tools/launchpad/production/bootstrap/security/GAPS.md"
+status = "reviewed"
+
+[page.9]
+path = "tools/launchpad/production/dispatcher/README.md"
+status = "corrected"
+
+[page.10]
+path = "tools/launchpad/production/feature-acceptance/README.md"
+status = "reviewed"
+
+[page.11]
+path = "tools/launchpad/production/integration/README.md"
+status = "reviewed"
+
+[page.12]
+path = "tools/launchpad/production/load/README.md"
+status = "reviewed"
+
+[page.13]
+path = "tools/loadtest/README.md"
+status = "corrected"
+
+[page.14]
+path = "tools/loadtest/profiles/README.md"
+status = "corrected"
+
+[page.15]
+path = "tools/paxctl/.agent/runbooks/seictl-smoke.md"
+status = "reviewed"
+
+[page.16]
+path = "tools/paxctl/CLAUDE.md"
+status = "reviewed"
+
+[page.17]
+path = "tools/paxctl/README.md"
+status = "reviewed"
+
+[page.18]
+path = "tools/paxctl/sidecar/docs/authn.md"
+status = "corrected"
+
+[page.19]
+path = "tools/paxctl/sidecar/docs/keyring.md"
+status = "corrected"
+
+[page.20]
+path = "tools/paxctl/workflow/README.md"
+status = "reviewed"
+
+[page.21]
+path = "tools/paxeer-x/gov/README.md"
+status = "corrected"
+
+[page.22]
+path = "tools/paxeer-x/sid-snapshot/README.md"
+status = "reviewed"
+
+[page.23]
+path = "tools/platform/cli/README.md"
+status = "corrected"
+
+[page.24]
+path = "tools/qualification/audit_repairs/fixtures/px_node_root_inference.md"
+status = "corrected"

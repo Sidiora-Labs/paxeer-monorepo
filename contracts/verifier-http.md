@@ -27,13 +27,12 @@ Paths below are relative to
 | Route/service registration | [server/src/run.rs](../services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/run.rs) |
 | Generated JSON representation | [proto/build.rs](../services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/build.rs), using `actix-prost-macros` 0.1.0 |
 
-The build generates the HTTP handlers and gRPC services from v2. Retained
-v1 proto files do not establish live v1 routes.
+The build generates the HTTP handlers and gRPC services from v2.
 
 ## Deployment and transport
 
-The shared launcher defaults to HTTP enabled at `0.0.0.0:8050` and gRPC
-disabled at `0.0.0.0:8051`. HTTP request bodies default to a maximum of
+The shared launcher defaults to HTTP enabled on port `8050` and gRPC
+disabled on port `8051`. HTTP request bodies default to a maximum of
 `2097152` bytes (`server.http.max_body_size`). These are local configuration
 defaults, not public endpoint guarantees. See
 [launcher settings](../services/explorer/services/libs/blockscout-service-launcher/src/launcher/settings.rs)
@@ -50,14 +49,19 @@ relative to the origin root.
 `solidity.enabled`, `vyper.enabled`, `sourcify.enabled` and
 `zksync_solidity.enabled` control registration on both transports. They
 default to true. A disabled family is not registered. Health is registered
-independently. HTTP and gRPC listeners must themselves be enabled.
+independently. HTTP and gRPC listeners must themselves be enabled. Enabled
+providers initialize concurrently, each with a 10-second startup deadline. If
+initialization fails or times out, that family's routes remain registered and
+return `Unavailable` (14), mapped to HTTP 503.
 
 The Rust HTTP client in
 [http_client/client.rs](../services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/src/http_client/client.rs)
-sets absolute route paths with `Url::set_path`; it does not preserve a prefix
-in its configured base URL. A prefixed deployment therefore needs a caller
-that constructs the full path or proxy mapping that exposes the root API.
-Do not assume a base URL path is carried forward by that client.
+appends each route to the path in its configured base URL, trimming trailing
+slashes from that base path before calling `Url::set_path`. Include the
+deployment's HTTP base path in the client base URL: a base path of
+`/explorer-verifier` produces `/explorer-verifier/health` for health requests.
+Request construction replaces the base URL's query with the method's query
+parameters, or clears it for methods without query parameters.
 
 All mapped POST methods accept `Content-Type: application/json` with the
 whole request as the body (`body: "*"`). They are not MIME multipart uploads,
@@ -106,24 +110,35 @@ Single multipart requests contain `bytecode`, `bytecodeType`,
 `compilerVersion`, `sourceFiles`, optional `evmVersion`, optional signed
 int32 `optimizationRuns`, optional `metadata`, and `postActions` (default
 empty). An absent optimization count disables optimization; a supplied count
-enables it. Standard JSON requests replace the multipart source/settings
-fields with `input`, retaining bytecode/type, compiler, metadata and actions.
+from `0` through `1000000` enables it. Negative counts and counts above
+`1000000` return `InvalidArgument`. Standard JSON requests replace the
+multipart source/settings fields with `input`, retaining bytecode/type,
+compiler, metadata and actions.
 
 `metadata` has optional string `chainId` and `contractAddress`; it provides
 explorer context, not a trusted chain proof. For Paxeer, the chain ID string
-is `"125"`. The proto reserves the old top-level `libraries` fields: place
-compiler library settings in standard JSON input instead.
+is `"125"`. The proto reserves the multipart `libraries` fields: place
+compiler library settings in standard JSON input instead. Source paths in
+multipart maps and parsed standard JSON must name relative files without
+parent components, absolute roots, Windows drive prefixes or NUL bytes.
 
-The proto declares `postActions: ["lookup-methods"]`, but the current solo
-conversion/service path does not execute those actions: success construction
-sets `postActionResponses.lookupMethods` to null. Use `LookupMethods`
-explicitly when method locations are required.
+Single Solidity verification methods execute `postActions: ["lookup-methods"]`
+after a successful match, populating `postActionResponses.lookupMethods` from
+the verified contract's runtime bytecode, ABI, runtime source map and source
+IDs. With no action requested, `lookupMethods` is null. Unsupported action
+names return `InvalidArgument`. Lookup requires a Solidity contract; missing
+or invalid verified lookup artifacts return `Internal`. The separate
+`LookupMethods` method accepts caller-supplied artifacts.
 
 Batch requests share `compilerVersion` and a `contracts` array. Each contract
 contains optional hex `creationCode`, optional hex `runtimeCode` and optional
 metadata. Supply code to compare. Multipart batches use `sources` (not
 `sourceFiles`), optional `evmVersion`, and optional uint32 `optimizationRuns`.
 Standard JSON batches use `input` instead of those source/settings fields.
+Batch multipart counts also range from `0` through `1000000`. In both single
+and batch Solidity standard JSON requests, `settings.optimizer.runs` has the
+same ceiling when supplied. See
+[request conversion](../services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/proto_conversions.rs).
 
 ## grpc-vyperverifier
 
@@ -137,7 +152,7 @@ gRPC service: `blockscout.smartContractVerifier.v2.VyperVerifier`.
 
 Multipart input contains `bytecode`, `bytecodeType`, `compilerVersion`,
 `sourceFiles`, optional `evmVersion`, optional `metadata`, and `interfaces`
-(default empty). The old `optimizations` field is reserved. Standard JSON
+(default empty). The `optimizations` field is reserved. Standard JSON
 uses `bytecode`, `bytecodeType`, `compilerVersion`, string `input` and
 optional metadata. There are no Vyper batch methods in this service.
 
@@ -186,13 +201,6 @@ advertised compiler identifier rather than assuming an installed system
 compiler or a version inferred from a pragma. Availability depends on the
 configured fetchers and refresh cycle; unsupported compilers return an error.
 
-For a root-mounted local service, for example:
-
-```bash
-curl --fail-with-body --max-time 15 \
-  http://127.0.0.1:8050/api/v2/verifier/solidity/versions
-```
-
 ## verifier-methods
 
 `LookupMethods` accepts hex `bytecode`, string `abi` containing an ABI JSON
@@ -235,18 +243,22 @@ every contract matched.
 gRPC service `blockscout.smartContractVerifier.v2.Health`, method `Check`,
 accepts `HealthCheckRequest { service }` and returns
 `HealthCheckResponse { status }`. There is no registered streaming `Watch`
-method. Only an empty service string or the exact name
-`blockscout.smartContractVerifier.v2.Health` is accepted.
+method. An empty service string or the exact name
+`blockscout.smartContractVerifier.v2.Health` returns `SERVING`. An enabled
+verifier service name returns `SERVING` if its provider initialized, or
+`NOT_SERVING` if initialization failed or timed out.
 
 ## verifier-health
 
 GET `/health` maps to `Health.Check`. With an omitted/empty `service`, or the
 exact health service name, it returns HTTP 200 with `{"status":"SERVING"}`.
-Any other nonempty name, including a verifier service name, returns gRPC
-`NotFound` (5), mapped to HTTP 404 with
-`{"code":5,"message":"unknown service"}`. A successful health check does
-not prove a language family is enabled, a compiler is downloadable, Sourcify
-is reachable or a contract will match.
+For an enabled verifier service name, HTTP 200 contains either
+`{"status":"SERVING"}` or `{"status":"NOT_SERVING"}` according to provider
+initialization. A disabled or unknown service name returns gRPC `NotFound`
+(5), mapped to HTTP 404 with `{"code":5,"message":"unknown service"}`.
+The empty-name and health-service checks do not establish provider readiness.
+Even a provider's `SERVING` status does not guarantee a compiler download,
+upstream availability or a contract match.
 
 ## Errors and caller behavior
 
@@ -257,6 +269,7 @@ JSON `{code: <numeric gRPC code>, message: <string>}`. Relevant mappings are:
 | --- | --- | --- |
 | `InvalidArgument` | 3 | 400 |
 | `NotFound` | 5 | 404 |
+| `ResourceExhausted` | 8 | 429 |
 | `Internal` | 13 | 500 |
 | `Unavailable` | 14 | 503 |
 | `DeadlineExceeded` | 4 | 504 |
@@ -269,6 +282,16 @@ errors. HTTP routing, JSON extraction and payload-size rejection occur
 before service execution and need not have the verification response shape.
 See [service conversion rules](../services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/common.rs)
 and [verification result handling](../services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types/verification_result.rs).
+
+Verification methods share admission limits across language families and
+transports. For `N = compilers.max_threads`, at most `N` operations run and
+`2N` are admitted in total. A full queue returns `ResourceExhausted`; waiting
+more than 2 seconds for a running slot or 30 seconds for an executing
+operation's response returns `DeadlineExceeded`. Work can continue after a
+response timeout or client cancellation, retaining its capacity until it
+finishes. `ListCompilerVersions`, `LookupMethods` and `ListCompilers` bypass
+admission. `compilers.max_threads` must be between 1 and 1024; its default is
+available CPU parallelism, falling back to 8.
 
 Use client deadlines and report transport errors separately from compilation
 and mismatch results. The Rust HTTP client's success path deserializes the

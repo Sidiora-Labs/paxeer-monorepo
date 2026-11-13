@@ -2,13 +2,20 @@
 
 ## IMetaAGQuoter
 
-Read-only vault-side quote layer for frontends. Spec §7.11.
+UUPS quote interface for oracle-priced PECORVault swaps. Quote methods read state without changing
+it. Cross-adapter route selection is exposed by [IMetaAGRouter](IMetaAGRouter.md).
 
-_UUPS-upgradeable, Timelock-admin. View-only — never mutates state.
+With a configured PECOR engine, quotes use its detailed exact input or exact output calculations.
+When `pecor` is zero, quotes use fee-free oracle conversion. Quote construction catches dependency
+errors and returns a partial result with stale flags. Quotes report available output reserves after
+reservations; `getLiquidityInfo` and `getAllLiquidityInfo` report total accounted reserves.
 
-Scope note (spec §7.11):
-  MetaAGQuoter quotes ONLY vault-side (oracle-priced) swaps.
-  Cross-adapter aggregation lives on MetaAGRouter.getBestQuote() / getAllQuotes()._
+With a configured engine, exact input quotes report `feeAmount` in output-token units and
+`feeBps` as the engine's tiered fee rate. Exact output quotes report `feeAmount` as the extra input
+above fee-free oracle conversion, including fee and impact costs; `feeBps` is that extra input
+divided by the fee-free input, scaled by 10,000 and rounded down.
+
+Source: [IMetaAGQuoter.sol](../../../contracts/meta-ag/interfaces/IMetaAGQuoter.sol).
 
 ### QuoteResult
 
@@ -48,17 +55,17 @@ struct QuoteRequest {
 function initialize(address priceOracle, address vault, address weth, address pecor, address admin) external
 ```
 
-Initialize the UUPS proxy (spec §7.11)
+Initialize the UUPS proxy
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| priceOracle | address | IPriceOracle address |
-| vault | address | IPECORVault address |
-| weth | address | Wrapped native coin (WPAX on Paxeer) |
-| pecor | address | PECOR engine address (for fee staticcall lookup) |
-| admin | address | Timelock — granted DEFAULT_ADMIN_ROLE |
+| Name        | Type    | Description                                                        |
+| ----------- | ------- | ------------------------------------------------------------------ |
+| priceOracle | address | IPriceOracle address                                               |
+| vault       | address | IPECORVault address                                                |
+| weth        | address | Wrapped native coin (WPAX on Paxeer)                               |
+| pecor       | address | PECOR engine used for exact quote amounts and detailed fee queries |
+| admin       | address | Timelock — granted DEFAULT_ADMIN_ROLE                              |
 
 ### quoteExactIn
 
@@ -131,4 +138,3 @@ function getTokenPrices(address[] tokens) external view returns (uint256[] price
 ```solidity
 function getTWAP(address token, uint256 period) external view returns (uint256)
 ```
-

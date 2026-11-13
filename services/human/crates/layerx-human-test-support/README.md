@@ -26,9 +26,8 @@ callers to inspect.
 
 `pax_sequencerReceipt` returns `rung: "submitted"`, the transaction hash and nonce
 for an admitted transaction, or null for an unknown hash. It does not manufacture
-an execution receipt or consensus commitment. `px_getReceiptKeys` is a fixture
-method here; it does not establish that public node endpoints expose hosted
-`px_*` methods.
+an execution receipt or consensus commitment. This fixture serves
+`px_getReceiptKeys` locally and does not query deployed node endpoints.
 
 ## Journal recovery and evidence limits
 

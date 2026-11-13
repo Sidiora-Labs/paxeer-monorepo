@@ -1,0 +1,43 @@
+[manifest]
+task = "22.41.109"
+pages = 10
+
+[page.1]
+path = "docs/site/paxeer-docs/src/app/proofs/page.tsx"
+status = "corrected"
+
+[page.2]
+path = "docs/site/paxeer-docs/src/app/public-rpc/page.tsx"
+status = "corrected"
+
+[page.3]
+path = "docs/site/paxeer-docs/src/app/python/page.tsx"
+status = "corrected"
+
+[page.4]
+path = "docs/site/paxeer-docs/src/app/querying-evm/page.tsx"
+status = "corrected"
+
+[page.5]
+path = "docs/site/paxeer-docs/src/app/receipts/page.tsx"
+status = "corrected"
+
+[page.6]
+path = "docs/site/paxeer-docs/src/app/registry/page.tsx"
+status = "corrected"
+
+[page.7]
+path = "docs/site/paxeer-docs/src/app/relay-archive/page.tsx"
+status = "corrected"
+
+[page.8]
+path = "docs/site/paxeer-docs/src/app/rest-grpc/page.tsx"
+status = "corrected"
+
+[page.9]
+path = "docs/site/paxeer-docs/src/app/run-node/page.tsx"
+status = "corrected"
+
+[page.10]
+path = "docs/site/paxeer-docs/src/app/sandbox/page.tsx"
+status = "corrected"

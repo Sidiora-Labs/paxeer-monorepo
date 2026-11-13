@@ -1,68 +1,70 @@
 # Solidity API
 
+Source: [MockRevertingERC20.sol](../../contracts/test/MockRevertingERC20.sol).
+
 ## MockRevertingERC20
 
-ERC20 that always reverts on transfer/transferFrom/approve
-Used to test TransferHelper's error handling
+ERC20 test helper whose `transfer`, `transferFrom` and `approve` revert while `shouldRevert` is true
+(the default). `setShouldRevert(false)` enables those operations.
 
 ### name
 
 ```solidity
-string name
+string public name
 ```
 
 ### symbol
 
 ```solidity
-string symbol
+string public symbol
 ```
 
 ### decimals
 
 ```solidity
-uint8 decimals
+uint8 public decimals
 ```
 
 ### totalSupply
 
 ```solidity
-uint256 totalSupply
+uint256 public totalSupply
 ```
 
 ### balanceOf
 
 ```solidity
-mapping(address => uint256) balanceOf
+mapping(address => uint256) public balanceOf
 ```
 
 ### allowance
 
 ```solidity
-mapping(address => mapping(address => uint256)) allowance
+mapping(address => mapping(address => uint256)) public allowance
 ```
 
 ### shouldRevert
 
 ```solidity
-bool shouldRevert
+bool public shouldRevert
 ```
 
 ### Transfer
 
 ```solidity
-event Transfer(address from, address to, uint256 value)
+event Transfer(address indexed from, address indexed to, uint256 value)
 ```
 
 ### Approval
 
 ```solidity
-event Approval(address owner, address spender, uint256 value)
+event Approval(address indexed owner, address indexed spender, uint256 value)
 ```
 
 ### constructor
 
 ```solidity
-constructor(string _name, string _symbol, uint8 _decimals) public
+constructor(string memory _name, string memory _symbol, uint8 _decimals)
 ```
 
 ### mint
@@ -94,4 +96,3 @@ function transfer(address to, uint256 amount) external returns (bool)
 ```solidity
 function transferFrom(address from, address to, uint256 amount) external returns (bool)
 ```
-

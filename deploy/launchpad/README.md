@@ -11,7 +11,7 @@ The applications use one Paxeer network: `paxd` includes the kernel in block
 execution and proposal, EVM chain ID is `125` (`0x7d`), and a receipt is final
 when its block is committed. Sub-chains are tenant domains in the database.
 See the [public node endpoint reference](../../docs/site/docs/reference/public-rpc.md)
-for the root-path JSON-RPC endpoints and their method contracts.
+for the JSON-RPC endpoints at the node root and their method contracts.
 
 ## Layout
 
@@ -55,11 +55,11 @@ for example, `charts` maps to `SERVICE=trading-charts`, `BIN=chartsd`.
 
 ## Registry and Railway configuration
 
-For an authorized image publication, supply the registry and release tag:
+For an authorized image publication, export `REGISTRY` with the registry namespace
+and `TAG` with the release tag, then run from the repository root:
 
 ```bash
-REGISTRY=registry.example/team TAG=release-tag \
-  deploy/launchpad/deploy.sh indexer indexerd
+deploy/launchpad/deploy.sh indexer indexerd
 ```
 
 The script builds `${REGISTRY}/launchpad-indexer:${TAG}` and invokes
@@ -74,14 +74,13 @@ uses `/health/ready`; [web.railway.json](railway/web.railway.json) uses
 variables from `railway/variables.json`, including the referenced private
 configuration documents and credentials.
 
-The checked-in `RPC_URL`, `NEXT_PUBLIC_RPC_URL` and
-`NEXT_PUBLIC_PAXEER_RPC_URL` value is
-`https://api5.mainnet-beta.paxeer.network`; the web fallback is
-`https://api2.mainnet-beta.paxeer.network`. These are node root URLs. Public web
-origins include `https://sidiora.fun`, `https://api.sidiora.fun` and
-`https://gateway.sidiora.fun`; set each `WEB_*_UPSTREAM` value to
-`http://OPERATOR_HOST:8080`.
-Replace `OPERATOR_HOST` with the operator-supplied hostname of the API, charts, gateway or sockets service selected by that upstream variable.
+`railway-values.json` supplies `RPC_URL`, `NEXT_PUBLIC_RPC_URL`,
+`NEXT_PUBLIC_PAXEER_RPC_URL` and `NEXT_PUBLIC_RPC_URL_FALLBACK` as node root
+URLs, alongside the public web and API origins. Configure
+`WEB_API_UPSTREAM`, `WEB_CHARTS_UPSTREAM`, `WEB_GATEWAY_UPSTREAM` and
+`WEB_SOCKETS_UPSTREAM` with the HTTP origins of their corresponding services.
+The Go service contracts in `railway/variables.json` set `PORT=8080`;
+`Dockerfile.web` defaults the web server to `PORT=3000`.
 
 Review the JSON contracts when changing these values. Checked-in
 configuration establishes neither deployed reachability nor production capacity.

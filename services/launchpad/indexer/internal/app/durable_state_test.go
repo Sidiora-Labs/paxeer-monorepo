@@ -144,7 +144,7 @@ func TestRuntimeDurableCheckpointAndMarketInventory(t *testing.T) {
 func applyRuntimeCreationSchema(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
 	for _, id := range []string{"60001", "190001"} {
-		body, err := os.ReadFile(filepath.Join("../../../../../launchpad/spec/production-system/integration/migrations", id+".sql"))
+		body, err := os.ReadFile(filepath.Join("../../../../../migrations", id+".sql"))
 		if err != nil {
 			t.Fatal(err)
 		}
