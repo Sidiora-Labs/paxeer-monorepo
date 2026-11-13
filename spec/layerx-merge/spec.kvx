@@ -375431,7 +375431,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.114]
 title = "Write the page of the directory precompiles/layerxbridge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375461,7 +375461,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.113]
 title = "Write the page of the directory precompiles/layerxauth"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375491,7 +375491,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.112]
 title = "Write the page of the directory precompiles/layerxanchor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375521,7 +375521,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.111]
 title = "Write the page of the directory precompiles/layerxagent"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375551,7 +375551,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.110]
 title = "Write the page of the directory precompiles/launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375581,7 +375581,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.109]
 title = "Write the page of the directory precompiles/json"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375611,7 +375611,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.108]
 title = "Write the page of the directory precompiles/ibc"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375641,7 +375641,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.107]
 title = "Write the page of the directory precompiles/gov"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375671,7 +375671,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.106]
 title = "Write the page of the directory precompiles/feetoken"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375701,7 +375701,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.105]
 title = "Write the page of the directory precompiles/distribution"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375731,7 +375731,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.104]
 title = "Write the page of the directory precompiles/common"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375761,7 +375761,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.103]
 title = "Write the page of the directory precompiles/bank"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375791,7 +375791,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.102]
 title = "Write the page of the directory precompiles/addr"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375821,7 +375821,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.101]
 title = "Write the page of the directory modules/xweb"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375851,7 +375851,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.100]
 title = "Write the page of the directory modules/tokenfactory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378424,7 +378424,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.10]
 title = "Write the page of variables of the service under services/wallet"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
