@@ -169809,7 +169809,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.208]
 title = "Move the task records and name the files after what they hold in tools/codebase-map"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205299,7 +205299,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.41]
 title = "Move the task records and name the files after what they hold in contracts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238493,7 +238493,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.213]
 title = "Move the task records and name the files after what they hold in tools/flyci"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238525,7 +238525,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.206]
 title = "Move the task records and name the files after what they hold in tools/chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238557,7 +238557,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.205]
 title = "Move the task records and name the files after what they hold in tools/bringup"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238621,7 +238621,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.202]
 title = "Move the task records and name the files after what they hold in tests/testutil"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -301939,7 +301939,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.91]
 title = "Move the task records and name the files after what they hold in programs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -325988,7 +325988,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.98]
 title = "Move the task records and name the files after what they hold in rpc"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -355976,7 +355976,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.201]
 title = "Move the task records and name the files after what they hold in tests/solidity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373505,7 +373505,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.212]
 title = "Move the task records and name the files after what they hold in tools/docs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373600,7 +373600,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.209]
 title = "Move the task records and name the files after what they hold in tools/containers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373664,7 +373664,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.203]
 title = "Move the task records and name the files after what they hold in tests/vectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374176,7 +374176,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.44]
 title = "Move the task records and name the files after what they hold in deploy"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
