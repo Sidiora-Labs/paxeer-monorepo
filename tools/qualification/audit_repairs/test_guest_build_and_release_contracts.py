@@ -301,10 +301,6 @@ def test_finding_22_release_script_syntax_guards_and_merged_artifacts():
         assert name in script and name in guide
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="RELEASE.md does not state that historical release packages may include retired components.",
-)
 def test_finding_22_guide_matches_builder_verification_and_recovery():
     guide = read("RELEASE.md")
     for fact in (
