@@ -39,5 +39,5 @@ jobs:
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4
+      - uses: azure/setup-kubectl@bda439f5f36b99b262ebdcd3613869bddb064c8e # v5.2.0
       - run: kubectl apply --dry-run=client -f services/platform/hosted/webhooks/deployment.yaml
