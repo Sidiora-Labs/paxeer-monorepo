@@ -15,17 +15,17 @@ export default function Contracts() {
       </div>
 
       <h2>Custody and settlement</h2>
-      <p>The pre-merge LayerX settlement contract family is retired. <code>LayerXCustody.sol</code>, <code>CheckpointRegistry.sol</code>, <code>GuarantorBond.sol</code>, <code>WithdrawalClaims.sol</code>, and <code>EmergencyExit.sol</code> no longer exist as deployable contracts and are not deployment requirements for the merged network; the surviving <code>LayerXCustody.sol</code> is the interface for the native custody precompile. Current funding uses native bank balances and derived sub-accounts, and the chain exposes custody and anchor modules through fixed precompile addresses.</p>
-      <p>Choose the interface for the custody route your application uses and verify its authority and deployment configuration. A deployed Solidity contract address and a fixed native precompile address have distinct call targets and state. The <Link href="/settlement">settlement guide</Link> explains checkpoints, proofs, challenge windows, and exits.</p>
+      <p>Paxeer mainnet-beta executes and settles transactions on one BFT chain. Funding uses native bank balances and derived sub-accounts. The <code>LayerXCustody.sol</code> ABI is in <code>precompiles/layerxcustody/LayerXCustody.sol</code>; <code>contracts/src/precompiles/ILayerXCustody.sol</code> is a Solidity interface. Custody calls at <code>0x1013</code> are disabled on the merged network. The checkpoint anchor at <code>0x1014</code> is also disabled once its store-delete upgrade is active.</p>
+      <p>Choose the interface for the native module your application uses and verify its authorization requirements. A deployed Solidity contract and a native precompile have distinct call targets and state. A receipt is final when its block is committed; see the <Link href="/settlement">settlement guide</Link> for related evidence.</p>
       <h3>Native application composition</h3>
-      <p>Contracts call custody at <code>0x1013</code>, anchor at <code>0x1014</code>, perpetuals at <code>0x1015</code> (from the v6.12.0 plan; below it, that address held the historical exchange implementation), bridge at <code>0x1016</code>, and launchpad at <code>0x1017</code>. The verification precompile at <code>0x1012</code> verifies LayerX proofs; fee-token selection uses <code>0x1018</code>, and XWeb requests use <code>0x1019</code>. Import the exact ABI or Solidity interface for each call and preserve integer units, authorization requirements, and event decoding.</p>
+      <p>Custody at <code>0x1013</code> and anchor at <code>0x1014</code> do not provide an application settlement path on the merged network. Native application interfaces include perpetuals at <code>0x1015</code>, bridge at <code>0x1016</code>, and launchpad at <code>0x1017</code>. The verification precompile at <code>0x1012</code> is disabled on the merged network. Fee-token selection uses <code>0x1018</code>, and XWeb requests use <code>0x1019</code>. Import the exact ABI or Solidity interface for each call and preserve integer units, authorization requirements, and event decoding.</p>
       <p>Combine <Link href="/assets">native denominations and token pointers</Link> with <Link href="/bridge">bridged assets</Link>, or use the <Link href="/xdk">XDK</Link> to prepare calls and consume application events.</p>
       <h3>Contract project boundaries</h3>
-      <p>Chain contracts under <code>contracts/src/</code> use <code>foundry.paxeer.toml</code> (sources <code>contracts/src</code>, tests <code>contracts/test</code>, artifacts <code>contracts/out</code>). The repository-root <code>foundry.toml</code> is a separate project (sources <code>contracts</code>, artifacts <code>build/forge-artifacts</code>) that explicitly skips <code>contracts/src/**</code> and <code>contracts/test/**</code>; its <code>tests/solidity/</code> suite now covers only governance and names. Select the configuration matching the contract family when compiling or testing.</p>
+      <p>Chain contracts under <code>contracts/src/</code> use <code>foundry.paxeer.toml</code> (sources <code>contracts/src</code>, tests <code>contracts/test</code>, artifacts <code>contracts/out</code>). The repository-root <code>foundry.toml</code> is a separate project (sources <code>contracts</code>, artifacts <code>build/forge-artifacts</code>) that explicitly skips <code>contracts/src/**</code> and <code>contracts/test/**</code>; its <code>tests/solidity/</code> suite covers governance and names. Select the configuration matching the contract family when compiling or testing.</p>
 
       <h2>Start a New Application</h2>
-      <p>Follow the <Link href="/foundry">Foundry</Link> or <Link href="/hardhat">Hardhat</Link> walkthrough to compile, test, and deploy a contract on chain ID 125 (<code>hyperpax_125-1</code>; other networks use their own IDs). Continue with <Link href="/building-a-frontend">Build a Frontend</Link> to connect a browser wallet and read deployed state.</p>
-      <p>The Paxeer X contract library provides Solidity interfaces and implementations for native token operations and Cosmos integration. Its sources live in <code>Paxeer-X-Network/contracts/src/</code>.</p>
+      <p>Follow the <Link href="/foundry">Foundry</Link> or <Link href="/hardhat">Hardhat</Link> walkthrough to compile, test, and deploy a contract on chain ID 125 (<code>hyperpax_125-1</code>). Continue with <Link href="/building-a-frontend">Build a Frontend</Link> to connect a browser wallet and read deployed state.</p>
+      <p>The Paxeer X contract library provides Solidity interfaces and implementations for native token operations and Cosmos integration. Its sources live in <code>contracts/src/</code>.</p>
 
       <h2>Wrapped PAX and Token Pointers</h2>
       <table>
@@ -69,11 +69,11 @@ export default function Contracts() {
       <table>
         <thead><tr><th>Tool</th><th>Configuration</th><th>Project layout</th></tr></thead>
         <tbody>
-          <tr><td>Foundry</td><td><code>Paxeer-X-Network/foundry.paxeer.toml</code></td><td>Sources in <code>contracts/src/</code>, tests in <code>contracts/test/</code>, artifacts in <code>contracts/out/</code></td></tr>
-          <tr><td>Hardhat</td><td><code>Paxeer-X-Network/contracts/hardhat.config.js</code></td><td>Hardhat 2 project with its dependencies and lockfile under <code>contracts/</code></td></tr>
+          <tr><td>Foundry</td><td><code>foundry.paxeer.toml</code></td><td>Sources in <code>contracts/src/</code>, tests in <code>contracts/test/</code>, artifacts in <code>contracts/out/</code></td></tr>
+          <tr><td>Hardhat</td><td><code>contracts/hardhat.config.js</code></td><td>Hardhat 2 project with its dependencies and lockfile under <code>contracts/</code></td></tr>
         </tbody>
       </table>
-      <p>The Hardhat <code>paxlocal</code> network reads <code>PAXEER_LOCAL_EVM_RPC_URL</code> and defaults to <code>http://127.0.0.1:8545</code>. Start a <Link href="/docker">Paxeer development cluster</Link> for integration tests that call native precompiles or CosmWasm modules.</p>
+      <p>The Hardhat <code>paxlocal</code> network reads <code>PAXEER_LOCAL_EVM_RPC_URL</code> and defaults to a loopback HTTP listener on port <code>8545</code>. Start a <Link href="/docker">Paxeer development cluster</Link> for integration tests that call native precompiles or CosmWasm modules.</p>
       <p>Use the <Link href="/foundry">Foundry</Link> and <Link href="/hardhat">Hardhat</Link> guides for a complete new-project setup, including compiler configuration, local tests, and deployment commands.</p>
 
       <h3>Choose the Relevant Tests</h3>
@@ -103,7 +103,7 @@ cast code "$CONTRACT_ADDRESS" --rpc-url "$PAXEER_RPC_URL"`}</code></pre>
       <p>Retain the creation transaction, source revision, compiler settings, constructor arguments, and ABI. For a proxy contract, also retain the implementation address and upgrade configuration. Continue with <Link href="/querying-evm">Query the EVM</Link> to read state and events.</p>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/contracts/src/</code>, <code>contracts/hardhat.config.js</code>, <code>foundry.paxeer.toml</code>, <code>precompiles/</code>, and <code>modules/evm/artifacts/</code> with <code>keeper/pointer.go</code>.
+        <strong>Source:</strong> <code>contracts/src/</code>, <code>contracts/hardhat.config.js</code>, <code>foundry.paxeer.toml</code>, <code>precompiles/</code>, and <code>modules/evm/artifacts/</code> with <code>modules/evm/keeper/pointer.go</code>.
       </div>
       <div className="prev-next">
         <Link href="/rest-grpc"><div className="prev-next-label">Previous</div><div className="prev-next-title">REST &amp; gRPC</div></Link>

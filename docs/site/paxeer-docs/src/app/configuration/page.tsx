@@ -15,18 +15,18 @@ export default function Configuration() {
 
       <DocArt name="configuration" />
       <h2>Configuration across the unified network</h2>
-      <p>The chain configuration below controls <code>paxd</code>. Hosted service configuration is maintained separately under <code>services/platform/hosted/</code> and the component workspaces. Give each component the same intended network identity and the correct settlement binding while retaining separate service roles and credentials.</p>
+      <p>The chain configuration below controls <code>paxd</code>. Hosted service configuration is maintained separately under <code>services/platform/hosted/</code> and the component workspaces. Paxeer mainnet-beta is one BFT chain with EVM chain ID 125. Its kernel runs within the network. Configure hosted dependencies for that network and preserve their service-specific authorization settings.</p>
       <table><thead><tr><th>Surface</th><th>Configure</th><th>Boundary</th></tr></thead><tbody>
         <tr><td>Core boundary</td><td>Network ID, node and replica connections, TLS material, and separate admin credentials</td><td>Core and admin listeners are separate planes</td></tr>
         <tr><td>Gateway</td><td>Public TLS, upstream dependencies, receipt verification, request policy, and shared coordination storage</td><td>Public application ingress</td></tr>
         <tr><td>Registry</td><td>Published service identities, network records, route destinations, and signing policy</td><td>Discovery records identify the authorized network services</td></tr>
-        <tr><td>Guarantor</td><td>Sequencer identity and batch range, persistent replay state, attestation peers, bonded identity, and settlement submitter</td><td>Verification and attestation authority remain role-specific</td></tr>
+        <tr><td>Node</td><td>Consensus identity, peer topology, execution, storage retention, and API listeners</td><td>Block commitment establishes receipt finality</td></tr>
         <tr><td>Agent and Human</td><td>Provider destinations, identity and approval policy, key-management channels, and receipt dependencies</td><td>User-facing authorization reaches protected provider boundaries</td></tr>
       </tbody></table>
-      <p>The former <code>layerxd --check-config</code> validation path is retired with the <code>layerxd</code> daemon; validate <code>paxd</code> configuration by generating it with the binary you will run (below) and checking startup logs. Persistent data and runtime socket directories are distinct. Keep administrative listeners and signer channels off public ingress; route applications through the <Link href="/platform-api">gateway API</Link>. See <Link href="/network-parameters">on-chain parameters</Link> for governance-controlled economic settings.</p>
+      <p>Generate <code>config.toml</code> and <code>app.toml</code> using <code>paxd</code> as shown below, then review the configured listeners and storage settings. Persistent data and runtime socket directories are distinct. Keep administrative listeners and signer channels off public ingress; route applications through the <Link href="/platform-api">gateway API</Link>. See <Link href="/network-parameters">on-chain parameters</Link> for governance-controlled economic settings.</p>
 
       <h2>Configuration Files</h2>
-      <p><code>paxd init</code> generates configuration under <code>~/.paxeer/config/</code>. An explicit <code>--home</code> changes that location. Generate files using the binary revision you will run, then edit the settings you need.</p>
+      <p><code>paxd init &lt;moniker&gt; --chain-id &lt;chain-id&gt;</code> generates configuration under <code>~/.paxeer/config/</code>. An explicit <code>--home</code> changes that location. Generate files using the binary revision you will run, then edit the settings you need.</p>
       <table><thead><tr><th>File</th><th>Purpose</th></tr></thead><tbody>
         <tr><td><code>config.toml</code></td><td>Consensus, P2P, mempool, consensus RPC, state-sync client, and validator signer</td></tr>
         <tr><td><code>app.toml</code></td><td>Application APIs, EVM RPC, execution, snapshots, and storage</td></tr>
@@ -45,15 +45,15 @@ export default function Configuration() {
       <div className="source-note"><strong>Source:</strong> <code>daemon/paxd/cmd/init.go</code>; <code>node/params/config.go</code> — <code>SetTendermintConfigByMode</code>, <code>SetAppConfigByMode</code>, <code>SetEVMConfigByMode</code>.</div>
 
       <h2>Consensus and P2P</h2>
-      <p>These example settings belong in <code>config.toml</code>. Use the current hyphenated keys and real peer IDs from your network.</p>
+      <p>These example settings belong in <code>config.toml</code>. Replace the angle-bracket listener placeholders with your chosen bind interfaces and use peer IDs from your network. Consensus options use hyphenated keys.</p>
       <pre><code>{`log-level = "info"
 log-format = "text"
 
 [rpc]
-laddr = "tcp://127.0.0.1:26657"
+laddr = "tcp://<consensus-listen-host>:26657"
 
 [p2p]
-laddr = "tcp://0.0.0.0:26656"
+laddr = "tcp://<p2p-listen-host>:26656"
 bootstrap-peers = ""
 persistent-peers = ""
 private-peer-ids = ""
@@ -76,20 +76,20 @@ occ-enabled = true
 [api]
 enable = true
 swagger = true
-address = "tcp://127.0.0.1:1317"
+address = "tcp://<api-listen-host>:1317"
 
 [grpc]
 enable = true
-address = "127.0.0.1:9090"
+address = "<grpc-listen-host>:9090"
 
 [evm]
 http_enabled = true
-http_address = "127.0.0.1"
+http_address = "<evm-listen-host>"
 http_port = 8545
 ws_enabled = true
 ws_port = 8546
 simulation_gas_limit = 10000000`}</code></pre>
-      <p>The example binds HTTP query services locally. Set <code>http_address</code> and <code>http_port</code> for the EVM HTTP listener, and <code>ws_port</code> for the WebSocket listener. Configure public routing to match your deployment.</p>
+      <p>Replace the listener placeholders with your chosen bind interfaces. Set <code>http_address</code> and <code>http_port</code> for the EVM HTTP listener, and <code>ws_port</code> for the WebSocket listener. Configure public routing to match your deployment.</p>
       <p>The default worker count is twice the detected CPU count, clamped to 10–128. Override <code>concurrency-workers</code> only after measuring your workload. The node admission setting <code>minimum-gas-prices</code> is separate from the EVM module&apos;s on-chain fee parameters.</p>
       <div className="source-note"><strong>Source:</strong> <code>rpc/config/config.go</code>, <code>rpc/server.go</code>, <code>sdk/server/config/config.go</code>, <code>daemon/paxd/cmd/root.go</code>.</div>
 
@@ -131,7 +131,7 @@ trust-hash = ""`}</code></pre>
       <pre><code>{`# config.toml
 [instrumentation]
 prometheus = true
-prometheus-listen-addr = "127.0.0.1:26660"`}</code></pre>
+prometheus-listen-addr = "<metrics-listen-host>:26660"`}</code></pre>
       <p>Read <code>/metrics</code> on the configured listener. Application telemetry is configured separately in <code>app.toml</code> under <code>[telemetry]</code>.</p>
       <h2>Validation</h2>
       <p>Review generated files using the selected binary&apos;s help and configuration templates. Start the configured node with <code>paxd start</code>, check its startup logs, then confirm its chain identity and synchronization with <code>paxd status</code>.</p>
