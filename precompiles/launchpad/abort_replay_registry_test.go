@@ -25,41 +25,41 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var repair947AbortAddress = common.HexToAddress("0x1001")
+var failFastPrecompileAddress = common.HexToAddress("0x1001")
 
 // The callback enters the production executor's fail-fast precompile through
 // an actual EVM STATICCALL; no NestedCaller or launchpad handler is replaced.
-func repair947EnableAbort(s *surfaceHarness) {
+func enableFailFastPrecompile(s *surfaceHarness) {
 	contracts := map[common.Address]vm.PrecompiledContract{}
 	for address, contract := range testkeeper.EVMTestApp.EvmKeeper.CustomPrecompiles(s.ctx()) {
 		contracts[address] = contract
 	}
 	contracts[precompile] = s.contract
-	contracts[repair947AbortAddress] = executionprecompiles.FailFastSingleton
+	contracts[failFastPrecompileAddress] = executionprecompiles.FailFastSingleton
 	s.evm = vm.NewEVM(s.evm.Context, s.stateDB, s.evm.ChainConfig(), s.evm.Config, contracts)
 }
 
-func repair947Word(value []byte) []byte {
+func returnWordBytecode(value []byte) []byte {
 	code := append([]byte{0x7f}, common.LeftPadBytes(value, 32)...)
 	return append(code, common.FromHex("60005260206000f3")...)
 }
 
-func repair947AbortCode() []byte {
+func failFastCallbackBytecode() []byte {
 	// Even a caller that ignores the success bit must stop at the abort.
 	code := common.FromHex("6000600060006000")
 	code = append(code, 0x73)
-	code = append(code, repair947AbortAddress.Bytes()...)
+	code = append(code, failFastPrecompileAddress.Bytes()...)
 	code = append(code, 0x5a, 0xfa, 0x50)
-	return append(code, repair947Word([]byte{1})...)
+	return append(code, returnWordBytecode([]byte{1})...)
 }
 
-type repair947Branch struct {
+type callbackBranch struct {
 	signature string
 	code      []byte
 }
 
 // Committed EVM bytecode fixtures select real token entry points by calldata.
-func repair947Dispatch(branches ...repair947Branch) []byte {
+func dispatchCallbackBytecode(branches ...callbackBranch) []byte {
 	code := common.FromHex("60003560e01c")
 	patches := []int{}
 	for _, branch := range branches {
@@ -77,13 +77,13 @@ func repair947Dispatch(branches ...repair947Branch) []byte {
 	return code
 }
 
-func repair947Catcher(target common.Address) []byte {
+func catchRevertBytecode(target common.Address) []byte {
 	code := common.FromHex("36600060003760006000366000600073")
 	code = append(code, target.Bytes()...)
 	return append(code, common.FromHex("5af150600160005500")...)
 }
 
-func repair947RequireAbort(t *testing.T, ret []byte, err error) {
+func requireExecutionAbort(t *testing.T, ret []byte, err error) {
 	t.Helper()
 	require.Same(t, executionprecompiles.ErrInvalidPrecompileCall, err)
 	abort, ok := err.(vm.AbortError)
@@ -92,39 +92,39 @@ func repair947RequireAbort(t *testing.T, ret []byte, err error) {
 	require.Empty(t, ret, "an abort has no ABI revert payload")
 }
 
-func TestRepairM_947_AirdropProbeAbort(t *testing.T) {
+func TestAirdropProbeAbortPropagation(t *testing.T) {
 	for position := 0; position < 3; position++ {
 		t.Run(fmt.Sprint(position), func(t *testing.T) {
 			s := newSurfaceHarness(t)
 			s.stateDB.WithCtx(s.ctx().WithBlockHeight(12))
-			repair947EnableAbort(s)
+			enableFailFastPrecompile(s)
 			pool, token := s.pools[2], s.tokens[2]
-			poolCode := repair947Word(token.Bytes())
-			totalCode, balanceCode := repair947Word([]byte{100}), repair947Word([]byte{1})
+			poolCode := returnWordBytecode(token.Bytes())
+			totalCode, balanceCode := returnWordBytecode([]byte{100}), returnWordBytecode([]byte{1})
 			switch position {
 			case 0:
-				poolCode = repair947AbortCode()
+				poolCode = failFastCallbackBytecode()
 			case 1:
-				totalCode = repair947AbortCode()
+				totalCode = failFastCallbackBytecode()
 			case 2:
-				balanceCode = repair947AbortCode()
+				balanceCode = failFastCallbackBytecode()
 			}
-			s.stateDB.SetCode(pool, repair947Dispatch(repair947Branch{"tokenAddress()", poolCode}))
-			s.stateDB.SetCode(token, repair947Dispatch(
-				repair947Branch{"getPastTotalSupply(uint256)", totalCode},
-				repair947Branch{"getPastBalance(address,uint256)", balanceCode}))
+			s.stateDB.SetCode(pool, dispatchCallbackBytecode(callbackBranch{"tokenAddress()", poolCode}))
+			s.stateDB.SetCode(token, dispatchCallbackBytecode(
+				callbackBranch{"getPastTotalSupply(uint256)", totalCode},
+				callbackBranch{"getPastBalance(address,uint256)", balanceCode}))
 			before, logs := s.exported(), len(s.stateDB.GetAllLogs())
 			s.frames = nil
 			input := s.encode(types.RoleFeeAccumulator, "supportsAirdrop", pool)
 			ret, _, err := s.evm.Call(s.alice, surfaceAt(types.RoleFeeAccumulator), input, surfaceGas, uint256.NewInt(0))
-			repair947RequireAbort(t, ret, err)
+			requireExecutionAbort(t, ret, err)
 			probes := []callFrame{}
 			abortCalls := 0
 			for _, frame := range s.frames {
 				if frame.to == pool || frame.to == token {
 					probes = append(probes, frame)
 				}
-				if frame.to == repair947AbortAddress {
+				if frame.to == failFastPrecompileAddress {
 					abortCalls++
 				}
 			}
@@ -141,12 +141,12 @@ func TestRepairM_947_AirdropProbeAbort(t *testing.T) {
 	}
 }
 
-func TestRepairM_947_RouterAbortLoss(t *testing.T) {
+func TestRouterAbortPropagation(t *testing.T) {
 	for _, method := range []string{"createMarketWithPermit", "buyWithPermit", "sellWithPermit", "swapTokenForTokenWithPermit", "sell"} {
 		for _, batched := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/batch=%t", method, batched), func(t *testing.T) {
 				s := newSurfaceHarness(t)
-				repair947EnableAbort(s)
+				enableFailFastPrecompile(s)
 				permit := routerPermit{Value: big.NewInt(1), Deadline: deadline}
 				var input []byte
 				token := s.tokens[2]
@@ -168,8 +168,8 @@ func TestRepairM_947_RouterAbortLoss(t *testing.T) {
 				if method == "sell" {
 					abortedSig = "transferFrom(address,address,uint256)"
 				}
-				s.stateDB.SetCode(token, repair947Dispatch(repair947Branch{abortedSig, repair947AbortCode()}))
-				role := repair36Grant(t, s, "repair 947 unreachable batch entry")
+				s.stateDB.SetCode(token, dispatchCallbackBytecode(callbackBranch{abortedSig, failFastCallbackBytecode()}))
+				role := grantRouterSurfaceRole(t, s, "repair 947 unreachable batch entry")
 				if batched {
 					input = s.encode(types.RoleRouter, "multicall", [][]byte{
 						s.encode(types.RoleRouter, "multicall", [][]byte{input}),
@@ -178,14 +178,14 @@ func TestRepairM_947_RouterAbortLoss(t *testing.T) {
 				before, logs := s.exported(), len(s.stateDB.GetAllLogs())
 				s.frames = nil
 				ret, _, err := s.evm.Call(s.alice, surfaceAt(types.RoleRouter), input, surfaceGas, uint256.NewInt(0))
-				repair947RequireAbort(t, ret, err)
+				requireExecutionAbort(t, ret, err)
 				tokenCalls, abortCalls := 0, 0
 				for _, frame := range s.frames {
 					if frame.to == token {
 						tokenCalls++
 						require.Equal(t, selector(abortedSig), frame.input[:4])
 					}
-					if frame.to == repair947AbortAddress {
+					if frame.to == failFastPrecompileAddress {
 						abortCalls++
 					}
 				}
@@ -199,14 +199,14 @@ func TestRepairM_947_RouterAbortLoss(t *testing.T) {
 	}
 }
 
-func TestRepairM_947_OuterAbortConversion(t *testing.T) {
+func TestOuterCallAbortPropagation(t *testing.T) {
 	for _, batched := range []bool{false, true} {
 		for _, target := range []common.Address{precompile, surfaceAt(types.RoleRouter)} {
 			t.Run(fmt.Sprintf("%s/batch=%t", target.Hex(), batched), func(t *testing.T) {
 				s := newSurfaceHarness(t)
-				repair947EnableAbort(s)
+				enableFailFastPrecompile(s)
 				catcher := named("repair 947 outer catcher")
-				s.stateDB.SetCode(catcher, repair947Catcher(target))
+				s.stateDB.SetCode(catcher, catchRevertBytecode(target))
 				input := s.encode(types.RoleRouter, "sell", s.pools[2], big.NewInt(1), big.NewInt(0), deadline)
 				if batched {
 					input = s.encode(types.RoleRouter, "multicall", [][]byte{s.encode(types.RoleRouter, "multicall", [][]byte{input})})
@@ -218,14 +218,14 @@ func TestRepairM_947_OuterAbortConversion(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, common.BigToHash(big.NewInt(1)), s.stateDB.GetState(catcher, common.Hash{}))
 				s.stateDB.RevertToSnapshot(snap)
-				s.stateDB.SetCode(s.tokens[2], repair947AbortCode())
+				s.stateDB.SetCode(s.tokens[2], failFastCallbackBytecode())
 				s.frames = nil
 				ret, _, err := s.evm.Call(s.alice, catcher, input, surfaceGas, uint256.NewInt(0))
-				repair947RequireAbort(t, ret, err)
+				requireExecutionAbort(t, ret, err)
 				require.Equal(t, common.Hash{}, s.stateDB.GetState(catcher, common.Hash{}), "the outer SSTORE must be unreachable")
 				reached := false
 				for _, frame := range s.frames {
-					if frame.to == repair947AbortAddress {
+					if frame.to == failFastPrecompileAddress {
 						reached = true
 					}
 				}
@@ -235,7 +235,7 @@ func TestRepairM_947_OuterAbortConversion(t *testing.T) {
 	}
 }
 
-func TestRepairM_947_OptionalPermitRefusal(t *testing.T) {
+func TestOptionalPermitRefusalUsesAllowance(t *testing.T) {
 	r := newRouterHarness(t)
 	permit := routerPermit{Value: big.NewInt(routerBuyAmount), Deadline: deadline}
 	// The real ERC20 rejects this unsigned permit, but the existing allowance
@@ -248,11 +248,11 @@ func TestRepairM_947_OptionalPermitRefusal(t *testing.T) {
 	require.Equal(t, new(big.Int).Sub(before, big.NewInt(routerBuyAmount)), r.usdlBalance(r.trader))
 }
 
-func TestRepairM_947_SurfaceValue(t *testing.T) {
+func TestSurfaceNativeValueRefusals(t *testing.T) {
 	assertSurfaceValueRefusals(t, newSurfaceHarness(t))
 }
 
-func repair947Logs(s *surfaceHarness, start int) []goldenLog {
+func surfaceLogsSince(s *surfaceHarness, start int) []goldenLog {
 	logs := []goldenLog{}
 	for _, log := range s.stateDB.GetAllLogs()[start:] {
 		logs = append(logs, goldenLog{Address: log.Address, Topics: append([]common.Hash(nil), log.Topics...), Data: common.CopyBytes(log.Data)})
@@ -260,7 +260,7 @@ func repair947Logs(s *surfaceHarness, start int) []goldenLog {
 	return logs
 }
 
-func TestRepairM_947_GoldenEventPayload(t *testing.T) {
+func TestGoldenEventPayloadTranslation(t *testing.T) {
 	r := newRouterHarness(t)
 	r.stateDB.WithCtx(r.ctx().WithBlockHeight(12))
 	r.evm.Context.BlockNumber = big.NewInt(12)
@@ -268,7 +268,7 @@ func TestRepairM_947_GoldenEventPayload(t *testing.T) {
 	_, err := r.call(r.trader, r.router, r.encode(types.RoleRouter, "buy", r.pools[2],
 		big.NewInt(routerBuyAmount), big.NewInt(0), deadline))
 	require.NoError(t, err)
-	logs := repair947Logs(r.surfaceHarness, start)
+	logs := surfaceLogsSince(r.surfaceHarness, start)
 	tr := goldenTranslation{tokens: map[common.Address]bool{r.usdl: true, r.tokens[2]: true}}
 	want, err := tr.events(logs, false)
 	require.NoError(t, err)
@@ -400,7 +400,7 @@ func TestRepairM_947_GoldenEventPayload(t *testing.T) {
 	}
 }
 
-func TestRepairM_947_GoldenLogOrder(t *testing.T) {
+func TestGoldenLogEmissionOrder(t *testing.T) {
 	r := newRouterHarness(t)
 	tracer, err := tracers.DefaultDirectory.New("callTracer", nil, json.RawMessage(`{"withLog":true}`), r.evm.ChainConfig())
 	require.NoError(t, err)
@@ -412,7 +412,7 @@ func TestRepairM_947_GoldenLogOrder(t *testing.T) {
 		big.NewInt(routerBuyAmount), big.NewInt(0), deadline), surfaceGas, uint256.NewInt(0))
 	require.NoError(t, err)
 	tracer.OnTxEnd(&ethtypes.Receipt{GasUsed: surfaceGas - left}, nil)
-	logs := repair947Logs(r.surfaceHarness, start)
+	logs := surfaceLogsSince(r.surfaceHarness, start)
 	require.GreaterOrEqual(t, len(logs), 3)
 	encoded, err := tracer.GetResult()
 	require.NoError(t, err)
@@ -432,7 +432,7 @@ func TestRepairM_947_GoldenLogOrder(t *testing.T) {
 	require.Equal(t, logs, got, "callTracer JSON must preserve the actual EVM emission order")
 }
 
-func TestRepairM_947_RegistryBoundedReads(t *testing.T) {
+func TestRegistryReadGasBounds(t *testing.T) {
 	creatorAcc, creator := testkeeper.MockAddressPair()
 	otherAcc, other := testkeeper.MockAddressPair()
 	poolA, tokenA := named("repair 947 pool A"), named("repair 947 token A")
@@ -486,7 +486,7 @@ func TestRepairM_947_RegistryBoundedReads(t *testing.T) {
 	require.Zero(t, left)
 }
 
-func TestRepairM_947_RegistryIndexReopen(t *testing.T) {
+func TestRegistryTokenIndexReopen(t *testing.T) {
 	s := newSurfaceHarness(t)
 	app := testkeeper.EVMTestApp
 	key := sdk.NewKVStoreKey(types.StoreKey)

@@ -515,7 +515,7 @@ func assertSurfaceValueRefusals(t *testing.T, s *surfaceHarness) {
 			check(t, s.creator, pool, s.encode(types.RolePool, "pause"))
 		})
 	}
-	role := repair36Grant(t, s, "repair 947 native value role")
+	role := grantRouterSurfaceRole(t, s, "repair 947 native value role")
 	t.Run("value/role write", func(t *testing.T) {
 		check(t, s.alice, surfaceAt(types.RoleRouter), s.encode(types.RoleRouter, "renounceRole", role, s.alice))
 	})
