@@ -29,7 +29,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repair17Env struct {
+type poolRecoveryEnv struct {
 	t                    *testing.T
 	a                    *app.App
 	ctx                  sdk.Context
@@ -40,7 +40,7 @@ type repair17Env struct {
 
 // Persist all application stores, including the bank balances, metadata,
 // accounts, code and pointer registries consumed by the production EVM.
-func repair17Disk(t *testing.T, source sdk.Context) (sdk.Context, func(sdk.Context) sdk.Context) {
+func poolRecoveryDisk(t *testing.T, source sdk.Context) (sdk.Context, func(sdk.Context) sdk.Context) {
 	t.Helper()
 	directory := t.TempDir()
 	keys := source.MultiStore().StoreKeys()
@@ -83,7 +83,7 @@ func repair17Disk(t *testing.T, source sdk.Context) (sdk.Context, func(sdk.Conte
 	return source.WithMultiStore(root), reopen
 }
 
-func newRepair17Env(t *testing.T) *repair17Env {
+func newPoolRecoveryEnv(t *testing.T) *poolRecoveryEnv {
 	t.Helper()
 	a := app.Setup(t, false, true, false)
 	ctx := a.GetContextForDeliverTx(nil).WithBlockHeight(1)
@@ -94,10 +94,10 @@ func newRepair17Env(t *testing.T) *repair17Env {
 	a.EvmKeeper.BeginBlock(ctx)
 	a.SpotKeeper.InitGenesis(ctx, *types.DefaultGenesis())
 	require.NoError(t, a.PricefeedKeeper.SetParams(ctx, pricefeedtypes.DefaultParams(pricefeedtypes.DefaultAuthority())))
-	ctx, reopen := repair17Disk(t, ctx)
+	ctx, reopen := poolRecoveryDisk(t, ctx)
 	vault, err := spotabi.Vault()
 	require.NoError(t, err)
-	e := &repair17Env{t: t, a: a, ctx: ctx, user: shareAddress("repair17 user"), vault: vault, reopen: reopen}
+	e := &poolRecoveryEnv{t: t, a: a, ctx: ctx, user: shareAddress("repair17 user"), vault: vault, reopen: reopen}
 	e.stable = e.deploy("USDL")
 	a.BankKeeper.SetDenomMetaData(ctx, banktypes.Metadata{Base: "uhpx", Display: "PAX", Name: "PAX", Symbol: "PAX",
 		DenomUnits: []*banktypes.DenomUnit{{Denom: "uhpx"}, {Denom: "PAX", Exponent: 6}}})
@@ -115,7 +115,7 @@ func newRepair17Env(t *testing.T) *repair17Env {
 	return e
 }
 
-func (e *repair17Env) deploy(symbol string) common.Address {
+func (e *poolRecoveryEnv) deploy(symbol string) common.Address {
 	e.t.Helper()
 	stringType, err := abi.NewType("string", "", nil)
 	require.NoError(e.t, err)
@@ -135,7 +135,7 @@ func (e *repair17Env) deploy(symbol string) common.Address {
 	return address
 }
 
-func (e *repair17Env) price() {
+func (e *poolRecoveryEnv) price() {
 	e.t.Helper()
 	raw, err := json.Marshal(pricefeedtypes.Aggregate{IndexPrice: limitPrice(500), MarkPrice: limitPrice(500),
 		Basis: sdk.ZeroInt(), TimestampMs: uint64(e.ctx.BlockTime().UnixMilli()), Height: e.ctx.BlockHeight(), Sources: 1})
@@ -143,7 +143,7 @@ func (e *repair17Env) price() {
 	e.ctx.KVStore(e.a.GetKey(pricefeedtypes.StoreKey)).Set(pricefeedtypes.AggregateKey(types.PAXMarketID), raw)
 }
 
-func (e *repair17Env) govern(params types.Params) error {
+func (e *poolRecoveryEnv) govern(params types.Params) error {
 	e.t.Helper()
 	proposal, err := layerxgovtypes.NewLayerXProposal("Update spot pools", "Update the spot pool registry.",
 		&types.MsgUpdateParams{Authority: e.a.SpotKeeper.Authority(), Params: params})
@@ -152,7 +152,7 @@ func (e *repair17Env) govern(params types.Params) error {
 	return layerxgov.NewProposalHandler(e.a.MsgServiceRouter())(e.ctx, proposal)
 }
 
-func (e *repair17Env) listing() types.Params {
+func (e *poolRecoveryEnv) listing() types.Params {
 	e.t.Helper()
 	params, err := e.a.SpotKeeper.GetParams(e.ctx)
 	require.NoError(e.t, err)
@@ -164,7 +164,7 @@ func (e *repair17Env) listing() types.Params {
 	return params
 }
 
-func (e *repair17Env) call(from, to common.Address, contract abi.ABI, method string, args ...interface{}) []interface{} {
+func (e *poolRecoveryEnv) call(from, to common.Address, contract abi.ABI, method string, args ...interface{}) []interface{} {
 	e.t.Helper()
 	input, err := contract.Pack(method, args...)
 	require.NoError(e.t, err)
@@ -175,7 +175,7 @@ func (e *repair17Env) call(from, to common.Address, contract abi.ABI, method str
 	return out
 }
 
-func (e *repair17Env) view(to common.Address, contract abi.ABI, method string, args ...interface{}) []interface{} {
+func (e *poolRecoveryEnv) view(to common.Address, contract abi.ABI, method string, args ...interface{}) []interface{} {
 	e.t.Helper()
 	input, err := contract.Pack(method, args...)
 	require.NoError(e.t, err)
@@ -186,7 +186,7 @@ func (e *repair17Env) view(to common.Address, contract abi.ABI, method string, a
 	return out
 }
 
-func (e *repair17Env) approveAndDeposit() {
+func (e *poolRecoveryEnv) approveAndDeposit() {
 	e.t.Helper()
 	native := *artifacts.GetParsedABI("native")
 	for _, rail := range []string{types.PECORVaultAddress, types.PECORAddress, types.PECOROrdersAddress} {
@@ -197,7 +197,7 @@ func (e *repair17Env) approveAndDeposit() {
 	}
 }
 
-func (e *repair17Env) restart() {
+func (e *poolRecoveryEnv) restart() {
 	e.t.Helper()
 	contracts := e.a.EvmKeeper.CustomPrecompiles(e.ctx)
 	e.a.SpotKeeper = nil
@@ -216,7 +216,7 @@ func (e *repair17Env) restart() {
 	e.a.EvmKeeper.SetCustomPrecompiles(versioned, app.LatestUpgrade)
 }
 
-func repair17RequireGenesisEqual(t *testing.T, expected, actual *types.GenesisState) {
+func requirePoolRecoveryGenesisEqual(t *testing.T, expected, actual *types.GenesisState) {
 	t.Helper()
 	want, err := json.Marshal(expected)
 	require.NoError(t, err)
@@ -225,8 +225,8 @@ func repair17RequireGenesisEqual(t *testing.T, expected, actual *types.GenesisSt
 	require.Equal(t, string(want), string(got))
 }
 
-func TestRepair_17_listingSharePointer(t *testing.T) {
-	e := newRepair17Env(t)
+func TestPoolListingSharePointer(t *testing.T) {
+	e := newPoolRecoveryEnv(t)
 	before := len(e.ctx.EVMEventManager().Events())
 	require.NoError(t, e.govern(e.listing()))
 	vault := common.HexToAddress(types.PECORVaultAddress)
@@ -256,7 +256,7 @@ func TestRepair_17_listingSharePointer(t *testing.T) {
 	e.approveAndDeposit()
 	want := e.a.SpotKeeper.ExportGenesis(e.ctx)
 	e.restart()
-	repair17RequireGenesisEqual(t, want, e.a.SpotKeeper.ExportGenesis(e.ctx))
+	requirePoolRecoveryGenesisEqual(t, want, e.a.SpotKeeper.ExportGenesis(e.ctx))
 	for _, token := range []common.Address{e.stable, e.native} {
 		denom := e.a.SpotKeeper.ShareDenom(token)
 		pointer := e.view(vault, e.vault, "shareTokens", token)[0].(common.Address)
@@ -278,8 +278,8 @@ func TestRepair_17_listingSharePointer(t *testing.T) {
 	}
 }
 
-func TestRepair_17_listingRollback(t *testing.T) {
-	e := newRepair17Env(t)
+func TestPoolListingRollback(t *testing.T) {
+	e := newPoolRecoveryEnv(t)
 	bad := e.deploy(" ")
 	params := e.listing()
 	params.Tokens[0].Address = bad
@@ -288,7 +288,7 @@ func TestRepair_17_listingRollback(t *testing.T) {
 	logs := len(e.ctx.EVMEventManager().Events())
 	events := len(e.ctx.EventManager().Events())
 	require.Error(t, e.govern(params))
-	repair17RequireGenesisEqual(t, before, e.a.SpotKeeper.ExportGenesis(e.ctx))
+	requirePoolRecoveryGenesisEqual(t, before, e.a.SpotKeeper.ExportGenesis(e.ctx))
 	require.Empty(t, logsSince(e.ctx, logs))
 	require.Len(t, e.ctx.EventManager().Events(), events)
 	for _, token := range params.Tokens {
@@ -300,8 +300,8 @@ func TestRepair_17_listingRollback(t *testing.T) {
 	}
 }
 
-func TestRepair_17_retainedTokenDecimals(t *testing.T) {
-	e := newRepair17Env(t)
+func TestRetainedTokenDecimals(t *testing.T) {
+	e := newPoolRecoveryEnv(t)
 	require.NoError(t, e.govern(e.listing()))
 	e.approveAndDeposit()
 	params, err := e.a.SpotKeeper.GetParams(e.ctx)
@@ -329,7 +329,7 @@ func TestRepair_17_retainedTokenDecimals(t *testing.T) {
 			logs := len(e.ctx.EVMEventManager().Events())
 			require.Error(t, e.govern(changed))
 			require.Empty(t, logsSince(e.ctx, logs))
-			repair17RequireGenesisEqual(t, want, e.a.SpotKeeper.ExportGenesis(e.ctx))
+			requirePoolRecoveryGenesisEqual(t, want, e.a.SpotKeeper.ExportGenesis(e.ctx))
 			require.Equal(t, quote, e.a.SpotKeeper.Quote(e.ctx, e.stable, e.native, sdk.NewInt(1_000_000), true))
 		})
 	}
@@ -340,7 +340,7 @@ func TestRepair_17_retainedTokenDecimals(t *testing.T) {
 	drifted.DenomUnits = []*banktypes.DenomUnit{{Denom: "uhpx"}, {Denom: "PAX", Exponent: 18}}
 	e.a.BankKeeper.SetDenomMetaData(e.ctx, drifted)
 	require.ErrorIs(t, e.govern(params), types.ErrUnsupportedToken)
-	repair17RequireGenesisEqual(t, want, e.a.SpotKeeper.ExportGenesis(e.ctx))
+	requirePoolRecoveryGenesisEqual(t, want, e.a.SpotKeeper.ExportGenesis(e.ctx))
 	e.a.BankKeeper.SetDenomMetaData(e.ctx, metadata)
 	book, err := e.a.SpotKeeper.GetBook(e.ctx, e.stable)
 	require.NoError(t, err)
@@ -365,7 +365,7 @@ func TestRepair_17_retainedTokenDecimals(t *testing.T) {
 	require.Zero(t, result.AmountOut.Cmp(after.Sub(before).BigInt()))
 }
 
-func (e *repair17Env) importSpot() {
+func (e *poolRecoveryEnv) importSpot() {
 	e.t.Helper()
 	gs := e.a.SpotKeeper.ExportGenesis(e.ctx)
 	raw, err := json.Marshal(gs)
@@ -379,11 +379,11 @@ func (e *repair17Env) importSpot() {
 		store.Delete([]byte(key))
 	}
 	e.a.SpotKeeper.InitGenesis(e.ctx, decoded)
-	repair17RequireGenesisEqual(e.t, gs, e.a.SpotKeeper.ExportGenesis(e.ctx))
+	requirePoolRecoveryGenesisEqual(e.t, gs, e.a.SpotKeeper.ExportGenesis(e.ctx))
 }
 
-func TestRepair_17_expiryHeadStarvation(t *testing.T) {
-	e := newRepair17Env(t)
+func TestExpiryScanProgressAfterRecovery(t *testing.T) {
+	e := newPoolRecoveryEnv(t)
 	params := e.listing()
 	params.MaxExpiriesPerBlock = 3
 	require.NoError(t, e.govern(params))
@@ -442,7 +442,7 @@ func TestRepair_17_expiryHeadStarvation(t *testing.T) {
 			require.Equal(t, cursor, e.ctx.KVStore(e.a.GetKey(types.StoreKey)).Get([]byte{0x12, 0x02}))
 			e.restart()
 			require.Equal(t, cursor, e.ctx.KVStore(e.a.GetKey(types.StoreKey)).Get([]byte{0x12, 0x02}))
-			repair17RequireGenesisEqual(t, exported, e.a.SpotKeeper.ExportGenesis(e.ctx))
+			requirePoolRecoveryGenesisEqual(t, exported, e.a.SpotKeeper.ExportGenesis(e.ctx))
 		}
 		// Import before every following block: the full leading failure
 		// window must not regain its original priority at each import.

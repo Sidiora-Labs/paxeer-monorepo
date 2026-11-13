@@ -12,12 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_481_MessageServerListingLifecycle(t *testing.T) {
+func TestMessageServerListingLifecycle(t *testing.T) {
 	testUpdateParamsRegistersNewToken(t)
 }
 
-func TestRepairM_481_GovernanceListingLifecycle(t *testing.T) {
-	e := newRepair17Env(t)
+func TestGovernanceListingLifecycle(t *testing.T) {
+	e := newPoolRecoveryEnv(t)
 	vault := common.HexToAddress(types.PECORVaultAddress)
 	tokens := []common.Address{e.stable, e.native}
 	for _, token := range tokens {
@@ -41,12 +41,12 @@ func TestRepairM_481_GovernanceListingLifecycle(t *testing.T) {
 		}
 		require.Equal(t, 1, created)
 	}
-	repairM481PoolLifecycle(e, tokens)
+	requireListedPoolLifecycle(e, tokens)
 }
 
 // Consume only the governance-created pointers, through the production vault
 // and ERC20 ABI, then close and reopen every application store before redeeming.
-func repairM481PoolLifecycle(e *repair17Env, tokens []common.Address) {
+func requireListedPoolLifecycle(e *poolRecoveryEnv, tokens []common.Address) {
 	t := e.t
 	t.Helper()
 	vault := common.HexToAddress(types.PECORVaultAddress)
@@ -104,7 +104,7 @@ func repairM481PoolLifecycle(e *repair17Env, tokens []common.Address) {
 	}
 	want := e.a.SpotKeeper.ExportGenesis(e.ctx)
 	e.restart()
-	repair17RequireGenesisEqual(t, want, e.a.SpotKeeper.ExportGenesis(e.ctx))
+	requirePoolRecoveryGenesisEqual(t, want, e.a.SpotKeeper.ExportGenesis(e.ctx))
 	for _, token := range tokens {
 		assertPool(token, deposit, deposit-keeper.MinimumShares)
 		paid := e.call(e.user, vault, e.vault, "withdraw", token, big.NewInt(redeem))
@@ -119,7 +119,7 @@ func repairM481PoolLifecycle(e *repair17Env, tokens []common.Address) {
 	}
 	want = e.a.SpotKeeper.ExportGenesis(e.ctx)
 	e.restart()
-	repair17RequireGenesisEqual(t, want, e.a.SpotKeeper.ExportGenesis(e.ctx))
+	requirePoolRecoveryGenesisEqual(t, want, e.a.SpotKeeper.ExportGenesis(e.ctx))
 	for _, token := range tokens {
 		assertPool(token, deposit-redeem, deposit-redeem-keeper.MinimumShares)
 		require.Zero(t, new(big.Int).Sub(balances[token], big.NewInt(deposit-redeem)).Cmp(underlyingBalance(token)))
