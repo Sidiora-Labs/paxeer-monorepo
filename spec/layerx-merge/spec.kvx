@@ -13768,6 +13768,18 @@ value = "A task record with the extension kvx lies under spec/layerx-merge/progr
 basis = "A reader of a source directory finds sources and tests named after behaviour, and the records stay available in one place."
 affects = []
 
+[decision.3443]
+title = "The program members build for both targets and the lock file of the agent workspace follows the platform indexer"
+value = "Task 22.39.512 builds the members layerx-programs-ai-market, layerx-programs-market and layerx-programs-interpreter for the native target and for the target wasm32 and brings the sections of the target wasm32 in line. Task 22.39.513 refreshes services/agent/Cargo.lock against the manifest of services/platform/hosted/indexer. Task 22.39.509 follows task 22.39.512, and tasks 22.38.37 and 22.39.498 follow task 22.39.513."
+basis = "A guest is built from the section of the target wasm32, and the agent daemon is built with the option --locked."
+affects = []
+
+[decision.3444]
+title = "The verification of task 22.39.170 runs the wiring cases and the format check, and the build of task 22.39.499 installs the Python packages its verification reads"
+value = "The verification command of task 22.39.170 runs the cases of tests/ci/test_launchpad_go_tests_wired.py and the target fmt-check of services/launchpad; the targets test, race, lint and cover-check of that directory run in the workflow .github/workflows/launchpad-test.yml. The build command of task 22.39.499 installs pytest, PyYAML and the packages of tests/bridge/requirements.txt before it builds."
+basis = "The verification of a task runs what the qualification environment can serve, and the workflow runs the whole set."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43428,6 +43440,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.513]
+title = "Bring the lock file of the agent workspace in line with the manifests of the members it reads by path"
+reqs = ["22998.1"]
+touches = ["services/agent/Cargo.lock", "services/agent/Cargo.toml", "services/agent/crates"]
+tests = []
+verification_contract = "make -C . build/liblayerx.a && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd"
+do_1 = "do_1 Decision 3443, gotcha 4360. The member layerx-agentd-host of the workspace services/agent reads the member services/platform/hosted/indexer by path, so services/agent/Cargo.lock resolves the dependencies that the manifest of that member names, the exact version of rusqlite among them."
+symbols = []
+
+[capability.22.39.512]
+title = "Build the program members that hold a section for the target wasm32 for both targets"
+reqs = ["22998.1"]
+touches = ["programs/crates/layerx-programs-ai-market/src", "programs/crates/layerx-programs-market/src", "programs/crates/layerx-programs-interpreter/src"]
+tests = []
+verification_contract = "make -s paxai-host-boundary-build"
+do_1 = "do_1 Decision 3443, gotcha 4359. The members layerx-programs-ai-market, layerx-programs-market and layerx-programs-interpreter under programs/crates each hold a section that is compiled only for the target wasm32. A build or a lint for the native target does not read that section."
+symbols = []
 
 [capability.22.43.247]
 title = "Move the task records and name the files after what they hold in tools/qualification/audit_repairs, the smaller series"
@@ -194084,6 +194114,66 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.513]
+title = "Bring the lock file of the agent workspace in line with the manifests of the members it reads by path"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.513"]
+interfaces = []
+do_1 = "do_1 Decision 3443, gotcha 4360. The member layerx-agentd-host of the workspace services/agent reads the member services/platform/hosted/indexer by path, so services/agent/Cargo.lock resolves the dependencies that the manifest of that member names, the exact version of rusqlite among them."
+do_2 = "do_2 Refresh services/agent/Cargo.lock so that a build with the option --locked resolves. Update only the packages whose requirement in a manifest changed and keep every other pinned version. Where a manifest of the agent workspace names the same package at another exact version and both versions link one native library, bring that manifest to the version that the platform workspace names, and adjust the calls of the changed interface in the sources of that member. Change nothing under services/platform."
+do_3 = "do_3 Run cargo metadata with the option --locked for every other workspace of the tree whose manifest reads a member of another workspace by path, and name in the final message each workspace that does not resolve; change only the agent workspace. Delete, rename and move nothing. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/Cargo.lock", "services/agent/Cargo.toml", "services/agent/crates"]
+tests = []
+planned_paths = []
+build_cmd = "cargo metadata --locked --format-version 1 --manifest-path services/agent/Cargo.toml > /dev/null"
+verify_cmd = "make -C . build/liblayerx.a && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.512]
+title = "Build the program members that hold a section for the target wasm32 for both targets"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.512"]
+interfaces = []
+do_1 = "do_1 Decision 3443, gotcha 4359. The members layerx-programs-ai-market, layerx-programs-market and layerx-programs-interpreter under programs/crates each hold a section that is compiled only for the target wasm32. A build or a lint for the native target does not read that section."
+do_2 = "do_2 Build each of the three members for the native target, and build the guest of each for the target wasm32 with the recipe that the Makefile holds for it; the target paxai-host-boundary-build builds the guest of layerx-programs-ai-market. Where a build for the target wasm32 stops, bring the section in line with the rest of the member: import each module that the section names, and pass a reference where a function of that target takes a slice. Keep what the native build and the guest do as it is, change no test, and add no lint exemption. Run the unit cases of each changed member once by hand."
+do_3 = "do_3 Change only source files of the three members. Delete, rename and move nothing. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["programs/crates/layerx-programs-ai-market/src", "programs/crates/layerx-programs-market/src", "programs/crates/layerx-programs-interpreter/src"]
+tests = []
+planned_paths = []
+build_cmd = "cd programs && cargo build --locked -p layerx-programs-ai-market -p layerx-programs-market -p layerx-programs-interpreter"
+verify_cmd = "make -s paxai-host-boundary-build"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.42.22]
 title = "Write the check of a node after the upgrade height"
 status = "pending"
@@ -194178,7 +194268,7 @@ title = "Let the binding cases of the Rust program SDK find the artifacts they r
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.512"]
 reqs = ["22998.1"]
 capabilities = ["22.39.509"]
 interfaces = []
@@ -194248,7 +194338,7 @@ symbols = []
 touches = ["services/platform/hosted/human", "services/human/crates/layerx-human-identity-provider", "services/human/crates/layerx-human-service/src/server"]
 tests = []
 planned_paths = ["services/human/crates/layerx-human-identity-provider/repair_22_39_499.kvx"]
-build_cmd = "make -s human-build"
+build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt pytest PyYAML && make -s human-build"
 verify_cmd = "test -s services/human/crates/layerx-human-identity-provider/repair_22_39_499.kvx && make -s human-test"
 gate_kind = "planned"
 sandbox_profile = "mixed"
@@ -195554,7 +195644,7 @@ title = "Prove that a canary failure slashes the faulty peer bond"
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["22.38.28", "22.38.7", "22.31.620", "22.39.370", "22.39.388"]
+requires = ["22.38.28", "22.38.7", "22.31.620", "22.39.370", "22.39.388", "22.39.513"]
 reqs = ["22380.6"]
 capabilities = ["22.38.37"]
 interfaces = []
@@ -205106,7 +205196,7 @@ title = "Bring the test target of the agent workspace in line"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.513"]
 reqs = ["22998.1"]
 capabilities = ["22.39.498"]
 interfaces = []
@@ -243701,7 +243791,7 @@ touches = ["services/launchpad", "sdk/launchpad/shared", "sdk/launchpad/protocol
 tests = ["tests/ci/test_launchpad_go_tests_wired.py"]
 planned_paths = ["services/launchpad/repair_22_39_170.kvx", "services/launchpad/.gitignore"]
 build_cmd = "python3 -m py_compile tests/ci/test_launchpad_go_tests_wired.py && cd services/launchpad/api && go vet ./..."
-verify_cmd = "anvil --version > /dev/null && python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py && GOFLAGS=-timeout=15m make -C services/launchpad ci"
+verify_cmd = "anvil --version > /dev/null && python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py && make -C services/launchpad fmt-check"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-launchpad"
@@ -243715,6 +243805,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "do_5 Decisions 3303 and 3304, gotcha 4233. The task now requires task 22.39.117, which brings the test target to green and repairs the build line of the Makefile, and the verification now sets GOFLAGS -timeout=15m; the job of do_3 sets the same value. Facts from a run of the stages at 6d0bb29124e2: build, vet and fmt-check pass. The lint stage fails in the first module, because golangci-lint 2.8.0, also when built with go1.27.3, cannot read the modules (export data version 5 is greater than maximum supported version 2): name in the lint recipe one release that reads them, install it as do_2 states with the toolchain of the modules, and record the release and how it was found. The race stage passed the shared module, the protocol module, the api module and the indexer module up to its package internal/source and stopped at TestHistoricalRealRangeExplorerSuffixAndParity, historical_integration_test.go:286, role explorer_reader already exists: canonicalExplorerSchema at :44 of that file creates a role of the database server and never removes it, and the test stage ran the case on the same server before. Make every such case repeatable as decision 3304 states. These test files create a role, a user or a database of the server and hold no statement that removes it: services/launchpad/indexer/internal/source/historical_integration_test.go, services/launchpad/gateway/internal/app/identity_peers_test.go, services/launchpad/livestream/internal/app/platform_test.go, services/launchpad/notifications/repair_40_test.go, the files proof_launchpad_pnl_tracker_test.go, repair_29_test.go and repair_m917_peer_test.go of services/launchpad/pnl-tracker/internal/app, services/launchpad/pnl-tracker/internal/production/l18/repair_62_support_test.go, services/launchpad/pnl-tracker/internal/referral/localfixture_test.go, services/launchpad/social/internal/app/platform_test.go, the files repair_68_peer_test.go and repair_68_test.go of services/launchpad/social/internal/social, and the three test files of the package internal/search of the launchpad statistics module. The test files of sdk/launchpad/shared/db/production and services/launchpad/api/internal/app/repair_m913_test.go create such objects as well and passed a second pass; change them only when a second run fails. The cover target writes services/launchpad/.cover, which no ignore file names: add services/launchpad/.gitignore with that directory and leave no profile untracked at the end. Before the counted verification run every stage once outside the counted gates (decision 3286)."
 do_6 = "do_6 Decisions 3364 and 3365. Task 22.39.458 pins the linter release and brings the wiring test to the baseline, tasks 22.39.459 to 22.39.474 pass the lint stage module by module and tasks 22.39.475 to 22.39.490 pass the race and coverage stages module by module. This task requires them, runs the whole target after them, adds the public job of do_3 and extends the wiring test for that job."
+do_7 = "do_7 Decision 3444. The verification of this task runs the wiring cases and the target fmt-check of services/launchpad. Bring services/launchpad/api/internal/app/constructor_boundaries_test.go and every other file that the format check names in line with gofmt. The targets test, race, lint and cover-check run in the workflow .github/workflows/launchpad-test.yml."
 
 [task.22.39.168]
 title = "Bring the twelve remaining launchpad Go modules to green and retire their baseline entries"
