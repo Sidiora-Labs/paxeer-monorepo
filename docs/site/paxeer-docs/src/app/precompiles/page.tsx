@@ -12,23 +12,23 @@ export default function Precompiles() {
         <p className="page-description">Call native Paxeer X capabilities from the EVM with the correct addresses, ABIs, permissions, and token units.</p>
       </div>
 
-      <div className="source-note"><strong>Source:</strong> <code>Paxeer-X-Network/precompiles/setup.go</code> and each precompile&apos;s <code>abi.json</code> and Go implementation.</div>
+      <div className="source-note"><strong>Source:</strong> <code>precompiles/setup.go</code> and each precompile&apos;s <code>abi.json</code> and Go implementation.</div>
       <h2>Kernel and native application precompiles</h2>
-      <p>Paxeer X extends the EVM with the LayerX kernel and native financial applications. These addresses share the same 20-byte padding convention as the chain interfaces above.</p>
+      <p>Paxeer X extends the EVM with the LayerX kernel and native financial applications. The tables use shortened addresses; pad each address to 20 bytes for an EVM call.</p>
       <table><thead><tr><th>Address</th><th>Interface</th><th>Operations</th></tr></thead><tbody>
-        <tr><td><code>0x1012</code></td><td>LayerX verification</td><td><code>verifyEd25519</code>, <code>verifyReceipt</code>, <code>verifyReceiptInclusion</code>, <code>verifyStateProof</code>, <code>verifyDiscoveryProof</code></td></tr>
-        <tr><td><code>0x1013</code></td><td>Custody</td><td>Native and token deposits, withdrawal requests and finalisation, deposit-root registration, nullifier queries, forced-exit requests and execution</td></tr>
-        <tr><td><code>0x1014</code></td><td>Anchor</td><td>Checkpoint submission and finality, finalized roots, availability attestations, guarantor bonds, sequencer authorization, challenges, and equivocation evidence</td></tr>
-        <tr><td><code>0x1015</code></td><td>Perpetuals</td><td><code>addCollateral</code>, <code>addSize</code>, <code>closePosition</code>, <code>executeOrder</code>, <code>cancelOrder</code>, account, balance, and market queries; every method is nonpayable. From the v6.12.0 activation height this address serves the perpetuals venue; below that height it served the v6.9 exchange precompile, so bindings must match the height range they target</td></tr>
+        <tr><td><code>0x1012</code></td><td>Disabled verification surface</td><td>Calls revert with <code>LXP_MODULE_DISABLED</code></td></tr>
+        <tr><td><code>0x1013</code></td><td>Disabled custody surface</td><td>Calls revert with <code>LXP_MODULE_DISABLED</code></td></tr>
+        <tr><td><code>0x1014</code></td><td>Anchor reads</td><td>Read-only queries use the available anchor store. Writes revert with <code>LXP_MODULE_DISABLED</code>. Network finality is block commit</td></tr>
+        <tr><td><code>0x1015</code></td><td>Perpetuals</td><td><code>addCollateral</code>, <code>addSize</code>, <code>closePosition</code>, <code>executeOrder</code>, <code>cancelOrder</code>, account, balance, and market queries; every method is nonpayable. Use <code>precompiles/perps/abi/abi.json</code> and <code>modules/perps</code> for the served venue</td></tr>
         <tr><td><code>0x1016</code></td><td>Bridge</td><td><code>bridgeIn</code>, <code>bridgeOut</code>, <code>getChain</code>, <code>getAttestors</code>, <code>getCap</code>, <code>isNullified</code>, <code>isPaused</code></td></tr>
         <tr><td><code>0x1017</code></td><td>Launchpad</td><td>Market creation, quotes, buys and sells, reserves and price snapshots, fee strategies, fee claims, burns, airdrops, and LP rewards</td></tr>
-        <tr><td><code>0x1018</code></td><td>Fee token</td><td><code>setFeeDenom</code>, <code>getFeeDenom</code>, <code>clearFeeDenom</code> select an approved fee denomination. Present only from the v6.7 upgrade</td></tr>
-        <tr><td><code>0x1019</code></td><td>XWeb</td><td><code>request</code>, <code>fulfil</code>, <code>fulfilProgram</code>, <code>refund</code>, <code>getRequest</code>, <code>getResult</code>, <code>getProgramResult</code>, <code>getKernelNetworkId</code>, attestors, threshold, fee, and parameters. Present only from the v6.8 upgrade</td></tr>
+        <tr><td><code>0x1018</code></td><td>Fee token</td><td><code>setFeeDenom</code>, <code>getFeeDenom</code>, <code>clearFeeDenom</code> select an approved fee denomination</td></tr>
+        <tr><td><code>0x1019</code></td><td>XWeb</td><td><code>request</code>, <code>fulfil</code>, <code>fulfilProgram</code>, <code>refund</code>, <code>getRequest</code>, <code>getResult</code>, <code>getProgramResult</code>, <code>getKernelNetworkId</code>, attestors, threshold, fee, and parameters</td></tr>
         <tr><td><code>0x1020</code></td><td>Price feed</td><td><code>getPrice</code>, <code>getPriceBySymbol</code>, <code>getPrices</code>, market and observation queries, feed-key registration and revocation</td></tr>
         <tr><td><code>0x1021</code>–<code>0x1025</code></td><td>Spot (PECOR)</td><td>Market and swap rail (<code>0x1021</code>), limit orders (<code>0x1022</code>), stop orders (<code>0x1023</code>), read-only quoter (<code>0x1024</code>), and liquidity vault (<code>0x1025</code>); see the <Link href="/spot-exchange">spot exchange guide</Link></td></tr>
       </tbody></table>
-      <h3>Merge and agent-function precompiles</h3>
-      <p>The merge upgrade plan brings a further address range online. These entries are withheld below the plan&apos;s activation height, and an address with no registered constructor is not served.</p>
+      <h3>Kernel constructs and agent functions</h3>
+      <p>The kernel constructs and agent functions are listed in <code>MergeAddressTable</code> in <code>precompiles/setup.go</code>. They are served through registered constructors and are gated by the merge activation height. Use the ABI for the address and queried height.</p>
       <table><thead><tr><th>Address</th><th>Interface</th></tr></thead><tbody>
         <tr><td><code>0x101a</code></td><td><code>layerxledger</code></td></tr>
         <tr><td><code>0x101b</code></td><td><code>layerxpay</code></td></tr>
@@ -37,10 +37,10 @@ export default function Precompiles() {
         <tr><td><code>0x101e</code></td><td><code>layerxchains</code></td></tr>
         <tr><td><code>0x0901</code>–<code>0x0908</code></td><td>Agent functions: <code>orob</code>, <code>clearing</code>, <code>oracle aggregator</code>, <code>pofq</code>, <code>scheduler</code>, <code>streams</code>, <code>tee attestor</code>, <code>eip712</code></td></tr>
       </tbody></table>
-      <p>Use <code>precompiles/&lt;name&gt;/abi.json</code> and <code>contracts/src/precompiles/</code> for exact tuple layouts, argument types, mutability, and events. <code>docs/system/precompiles.md</code> indexes the interfaces. A successful write transaction records an operation; check the corresponding checkpoint, claim, intent, or bridge lifecycle before treating it as finalized settlement.</p>
+      <p>Use each precompile&apos;s ABI for exact tuple layouts, argument types, mutability, and events. Perpetuals and pricefeed ABIs are under <code>precompiles/perps/abi/</code> and <code>precompiles/pricefeed/abi/</code>; spot ABIs are under <code>precompiles/spot/abi/</code>. Solidity interfaces for the bank, address, JSON, WASM and XWeb surfaces are in <code>contracts/src/precompiles/</code>. Verify the operation result and its committed block before treating execution as final.</p>
       <h3>One account across execution surfaces</h3>
       <p>The address precompile also exposes <code>bindLayerX</code>, <code>unbindLayerX</code>, <code>layerXBindNonce</code>, <code>getLayerXDid</code>, <code>getEvmAddrByLayerX</code>, and <code>getUnifiedAccount</code>. The unified account returns EVM, Cosmos, DID public key, and LayerX main account identifiers. Binding requires the account signature and current nonce; applications retain each identifier in its native encoding.</p>
-      <p>Continue with <Link href="/xdk">XDK</Link> for client bindings, <Link href="/settlement">settlement</Link> for custody and finality, <Link href="/bridge">bridge transfers</Link>, and <Link href="/assets">assets</Link> for denomination and pointer rules.</p>
+      <p>Continue with <Link href="/xdk">XDK</Link> for client bindings, <Link href="/settlement">settlement</Link> for receipt verification and block finality, <Link href="/bridge">bridge transfers</Link>, and <Link href="/assets">assets</Link> for denomination and pointer rules.</p>
 
       <h2>Fixed addresses and interfaces</h2>
       <p>Paxeer X implements precompiles natively in the node. Call them with their matching ABI rather than expecting deployed Solidity bytecode. Match your client bindings to the node revision you use.</p>
@@ -54,7 +54,7 @@ export default function Precompiles() {
           <tr><td><code>0x1005</code></td><td>Staking</td><td>Delegation and validator transactions, queries, pagination, pool, and parameters</td></tr>
           <tr><td><code>0x1006</code></td><td>Governance</td><td><code>vote</code>, <code>voteWeighted</code>, <code>deposit</code>, <code>submitProposal</code></td></tr>
           <tr><td><code>0x1007</code></td><td>Distribution</td><td>Reward queries, withdrawals, withdrawal address, and validator commission</td></tr>
-          <tr><td><code>0x1008</code></td><td>Oracle</td><td>Registered, but both price-query methods revert as retired</td></tr>
+          <tr><td><code>0x1008</code></td><td>Oracle</td><td>Both price-query methods revert with an explicit disabled-query error</td></tr>
           <tr><td><code>0x1009</code></td><td>IBC transfer</td><td><code>transfer</code>, <code>transferWithDefaultTimeout</code></td></tr>
           <tr><td><code>0x100a</code></td><td>Pointer lookup</td><td>Native, CW20, CW721, and CW1155 pointer address, version, and existence</td></tr>
           <tr><td><code>0x100b</code></td><td>Pointer creation</td><td><code>addNativePointer</code>, <code>addCW20Pointer</code>, <code>addCW721Pointer</code>, <code>addCW1155Pointer</code></td></tr>
@@ -66,14 +66,15 @@ export default function Precompiles() {
 
       <h2>Address association</h2>
       <p><code>getPaxAddr(address)</code> resolves an existing EVM-to-Paxeer association. <code>getEvmAddr(string)</code> performs the reverse lookup. Account addresses use <code>pax1</code>; validator operator addresses use <code>paxvaloper1</code>. These lookups can fail when no association exists; they are not interchangeable with a bech32 encoding of the same 20 bytes.</p>
-      <p>The manual association methods derive both addresses from a public key or signature. Use the key belonging to the account being linked. Creating a new random wallet would associate a different account. Signature construction must match the exact message bytes expected by <code>addr.go</code>; an application timestamp is not a replay-protection mechanism enforced by that method.</p>
+      <p>The manual association methods derive both addresses from a public key or signature. Use the key belonging to the account being linked. Creating a new random wallet would associate a different account. Signature construction must match the exact message bytes expected by <code>precompiles/addr/addr.go</code>. Use <code>layerXBindNonce</code> when preparing the consent message for <code>bindLayerX</code>.</p>
 
       <h2>Bank balances and transfers</h2>
       <p>Bank amounts are integers in the supplied base denomination. The native bank denomination is <code>uhpx</code>: one PAX equals <code>1,000,000 uhpx</code>, while EVM transaction value uses <code>10^18</code> wei per PAX. The internal human-unit identifier is <code>hpx</code>; see <Link href="/network-parameters">network parameters</Link> for the unit mapping.</p>
-      <pre><code>{`// Minimal ABI for a read; use the full bank/abi.json for other methods.
+      <pre><code>{`// Minimal read ABI; the complete interface is precompiles/bank/abi.json.
 import { Contract, JsonRpcProvider, formatUnits } from 'ethers'
 
-const provider = new JsonRpcProvider(process.env.PAXEER_EVM_RPC_URL)
+export async function readBankBalance(rpcUrl, account) {
+const provider = new JsonRpcProvider(rpcUrl)
 if ((await provider.getNetwork()).chainId !== 125n) throw new Error('Wrong chain')
 const bank = new Contract(
   '0x0000000000000000000000000000000000001001',
@@ -81,12 +82,11 @@ const bank = new Contract(
    'function decimals(string) view returns (uint8)'],
   provider,
 )
-const account = process.env.PAXEER_ACCOUNT_ADDRESS
-if (!account) throw new Error('Set PAXEER_ACCOUNT_ADDRESS')
 const amount = await bank.balance(account, 'uhpx')
 console.log('bank base units:', amount.toString())
 console.log('PAX:', formatUnits(amount, 6))
-console.log('bank denomination decimals:', await bank.decimals('uhpx')) // 0`}</code></pre>
+console.log('bank denomination decimals:', await bank.decimals('uhpx')) // 0
+}`}</code></pre>
       <p><code>bank.decimals(denom)</code> returns <code>0</code> because the ABI represents base-denomination integers. It does not return the display exponent of PAX. The <code>name</code> and <code>symbol</code> methods require bank denomination metadata.</p>
       <ul>
         <li><code>send(address from, address to, string denom, uint256 amount)</code> is nonpayable and restricted to the registered ERC-20 native pointer for that denomination. An arbitrary wrapper or wallet cannot call it successfully just by supplying a sender.</li>
@@ -101,7 +101,7 @@ console.log('bank denomination decimals:', await bank.decimals('uhpx')) // 0`}</
       <p>Distribution supports <code>setWithdrawAddress</code>, <code>withdrawDelegationRewards</code>, <code>withdrawMultipleDelegationRewards</code>, <code>withdrawValidatorCommission</code>, and <code>rewards</code>. The withdrawal target must be associated. Some validator addresses are indexed strings in EVM events; an indexed string topic is a hash, not the original bech32 text.</p>
 
       <h2>Governance transactions</h2>
-      <p>The governance ABI exposes writes only: <code>vote</code>, <code>voteWeighted</code>, <code>deposit</code>, and <code>submitProposal</code>. Use the native module query APIs to inspect proposals and live deposit or voting parameters. Take the exact argument and message shapes from <code>precompiles/gov/abi.json</code> and <code>gov/handler.go</code> for the node revision you target, and confirm a submission through the native governance queries rather than assuming a particular EVM event.</p>
+      <p>The governance ABI exposes writes only: <code>vote</code>, <code>voteWeighted</code>, <code>deposit</code>, and <code>submitProposal</code>. Use the native module query APIs to inspect proposals and live deposit or voting parameters. Take the exact argument and message shapes from <code>precompiles/gov/abi.json</code> and <code>precompiles/gov/handler.go</code> for the node revision you target, and confirm a submission through the native governance queries rather than assuming a particular EVM event.</p>
 
       <h2>JSON extraction</h2>
       <p>The JSON ABI provides <code>extractAsBytes(bytes,string)</code>, <code>extractAsBytesList(bytes,string)</code>, <code>extractAsUint256(bytes,string)</code>, and <code>extractAsBytesFromArray(bytes,uint16)</code>. Keys select a literal top-level field. To read a nested field, first extract its containing object.</p>
@@ -122,11 +122,11 @@ const firstTag = JSON.parse(toUtf8String(tags[0])) // 'one'`}</code></pre>
       <p>The <Link href="/wasm">CosmWasm guide</Link> covers matching the native coin list to payable EVM value. <Link href="/wasmbinding">WASM bindings</Link> expose calls in the other direction. The <Link href="/interchain">IBC guide</Link> covers the transfer ABI, which does not expose channel queries.</p>
       <p>Pointer lookup returns the pointer address, a version, and an existence flag for one supplied native denomination or CosmWasm address. It does not provide a list-all query. Solo claims consume signed Cosmos transaction payloads; they are asset-claim operations rather than a general administrative interface.</p>
 
-      <h2>Retired Oracle API</h2>
-      <p><code>getExchangeRates</code> and <code>getOracleTwaps</code> at <code>0x1008</code> revert with <code>oracle precompile is retired; oracle data queries are disabled</code>. See the <Link href="/modules/oracle">Oracle module guide</Link> for native query interfaces.</p>
+      <h2>Oracle query behavior</h2>
+      <p><code>getExchangeRates</code> and <code>getOracleTwaps</code> at <code>0x1008</code> revert with <code>oracle precompile is retired; oracle data queries are disabled</code>. See the <Link href="/modules/oracle">Oracle module guide</Link> for native module queries. The EVM pricefeed read interface is at <code>0x1020</code>.</p>
 
       <h2>ABI and failure handling</h2>
-      <p>Use the matching <code>precompiles/&lt;name&gt;/abi.json</code>, simulate the real caller and value, and inspect revert data before sending a transaction. Most module precompiles meter native execution dynamically; sample gas figures are not fixed limits. An off-chain read needs no funded signer, while an on-chain call still consumes gas.</p>
+      <p>Use the matching <code>precompiles/&lt;name&gt;/abi.json</code>, simulate the real caller and value, and inspect revert data before sending a transaction. Module-backed precompiles can meter native execution dynamically; kernel constructs and the perpetuals venue use method gas tables. Use the gas policy of the specific precompile. An off-chain read needs no funded signer, while an on-chain call still consumes gas.</p>
       <p>In particular, address lookup is <code>getPaxAddr</code> in this tree. An SDK package targeting another chain can carry different selectors, chain IDs, prefixes, or addresses even when its API looks similar.</p>
       <div className="prev-next">
         <Link href="/evm"><div className="prev-next-label">Previous</div><div className="prev-next-title">EVM Module</div></Link>
