@@ -31,7 +31,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repairM677FailedProposal(t *testing.T, expedited bool) (sdk.Context, keeper.Keeper, types.QueryClient, *codec.LegacyAmino, types.Proposal) {
+func newFailedProposalFixture(t *testing.T, expedited bool) (sdk.Context, keeper.Keeper, types.QueryClient, *codec.LegacyAmino, types.Proposal) {
 	t.Helper()
 	db := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
@@ -115,14 +115,14 @@ func repairM677FailedProposal(t *testing.T, expedited bool) (sdk.Context, keeper
 	return ctx, k, types.NewQueryClient(queryHelper), amino, proposal
 }
 
-func TestRepairM_677_FailedProposalTally(t *testing.T) {
+func TestGovernanceFailedProposalTally(t *testing.T) {
 	for _, expedited := range []bool{false, true} {
 		name := "regular"
 		if expedited {
 			name = "expedited"
 		}
 		t.Run(name, func(t *testing.T) {
-			ctx, k, client, _, proposal := repairM677FailedProposal(t, expedited)
+			ctx, k, client, _, proposal := newFailedProposalFixture(t, expedited)
 			for i := 0; i < 2; i++ {
 				response, err := client.TallyResult(context.Background(), &types.QueryTallyResultRequest{ProposalId: proposal.ProposalId})
 				require.NoError(t, err)
@@ -135,14 +135,14 @@ func TestRepairM_677_FailedProposalTally(t *testing.T) {
 	}
 }
 
-func TestRepairM_677_FailedProposalLegacyTally(t *testing.T) {
+func TestGovernanceFailedProposalLegacyTally(t *testing.T) {
 	for _, expedited := range []bool{false, true} {
 		name := "regular"
 		if expedited {
 			name = "expedited"
 		}
 		t.Run(name, func(t *testing.T) {
-			ctx, k, client, amino, proposal := repairM677FailedProposal(t, expedited)
+			ctx, k, client, amino, proposal := newFailedProposalFixture(t, expedited)
 			querier := keeper.NewQuerier(k, amino)
 			request := abci.RequestQuery{
 				Path: "custom/gov/tally",

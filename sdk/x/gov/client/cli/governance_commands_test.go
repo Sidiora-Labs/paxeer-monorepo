@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repair675CastBatch(t *testing.T, chain *repair308Chain, msgs ...sdk.Msg) {
+func governanceHistoryCastBatch(t *testing.T, chain *voteHistoryChain, msgs ...sdk.Msg) {
 	t.Helper()
 	txs := make([]tmtypes.Tx, 0, len(msgs))
 	results := make([]*abci.TxResultV2, 0, len(msgs))
@@ -63,14 +63,14 @@ func repair675CastBatch(t *testing.T, chain *repair308Chain, msgs ...sdk.Msg) {
 	}
 }
 
-func TestRepairM_675_QueryCommands(t *testing.T) {
+func TestGovernanceCLIQueryCommands(t *testing.T) {
 	for _, name := range []string{"params", "param", "proposer", "tally", "proposal", "proposals", "deposits", "deposit", "votes", "vote"} {
-		t.Run(name, func(t *testing.T) { repair675QueryCase(t, name) })
+		t.Run(name, func(t *testing.T) { governanceHistoryQueryCase(t, name) })
 	}
 }
 
-func TestRepairM_675_FinalizedHistoryPaginationAndRecovery(t *testing.T) {
-	chain := newRepair308Chain(t, "kv")
+func TestGovernanceCLIFinalizedHistoryPaginationAndRecovery(t *testing.T) {
+	chain := newVoteHistoryChain(t, "kv")
 	voters := []sdk.AccAddress{
 		sdk.AccAddress(bytes.Repeat([]byte{21}, 20)),
 		sdk.AccAddress(bytes.Repeat([]byte{22}, 20)),
@@ -81,7 +81,7 @@ func TestRepairM_675_FinalizedHistoryPaginationAndRecovery(t *testing.T) {
 		{{Option: govtypes.OptionYes, Weight: sdk.MustNewDecFromStr("0.7")}, {Option: govtypes.OptionAbstain, Weight: sdk.MustNewDecFromStr("0.3")}},
 		govtypes.NewNonSplitVoteOption(govtypes.OptionNo),
 	}
-	repair675CastBatch(t, chain,
+	governanceHistoryCastBatch(t, chain,
 		govtypes.NewMsgVoteWeighted(voters[0], chain.proposal.ProposalId, options[0]),
 		govtypes.NewMsgVoteWeighted(voters[1], chain.proposal.ProposalId, options[1]),
 		govtypes.NewMsgVoteWeighted(voters[2], chain.proposal.ProposalId, options[2]),
@@ -90,7 +90,7 @@ func TestRepairM_675_FinalizedHistoryPaginationAndRecovery(t *testing.T) {
 	oldClient := chain.client(t)
 	ctx, stop := context.WithCancel(t.Context())
 	defer stop()
-	output, err := repair675Execute(ctx, oldClient, cli.GetCmdQueryVotes(), "1", "--page=2", "--limit=1", "--output=json")
+	output, err := governanceHistoryExecute(ctx, oldClient, cli.GetCmdQueryVotes(), "1", "--page=2", "--limit=1", "--output=json")
 	require.NoError(t, err)
 	var live govtypes.QueryVotesResponse
 	require.NoError(t, oldClient.Codec.UnmarshalAsJSON([]byte(output), &live))
@@ -111,7 +111,7 @@ func TestRepairM_675_FinalizedHistoryPaginationAndRecovery(t *testing.T) {
 		{1, 1, []int{0}}, {2, 1, []int{1}}, {3, 1, []int{2}}, {2, 2, []int{2}}, {4, 1, nil}, {1, 0, []int{0, 1, 2}},
 	} {
 		t.Run(fmt.Sprintf("page=%d/limit=%d", tc.page, tc.limit), func(t *testing.T) {
-			output, err := repair675Execute(t.Context(), fresh, cli.GetCmdQueryVotes(), "1", fmt.Sprintf("--page=%d", tc.page), fmt.Sprintf("--limit=%d", tc.limit), "--output=json")
+			output, err := governanceHistoryExecute(t.Context(), fresh, cli.GetCmdQueryVotes(), "1", fmt.Sprintf("--page=%d", tc.page), fmt.Sprintf("--limit=%d", tc.limit), "--output=json")
 			require.NoError(t, err)
 			var recovered govtypes.Votes
 			require.NoError(t, fresh.LegacyAmino.UnmarshalAsJSON([]byte(output), &recovered))
@@ -123,7 +123,7 @@ func TestRepairM_675_FinalizedHistoryPaginationAndRecovery(t *testing.T) {
 			}
 		})
 	}
-	output, err = repair675Execute(t.Context(), fresh, cli.GetCmdQueryVote(), "1", voters[1].String(), "--output=json")
+	output, err = governanceHistoryExecute(t.Context(), fresh, cli.GetCmdQueryVote(), "1", voters[1].String(), "--output=json")
 	require.NoError(t, err)
 	var single govtypes.Vote
 	require.NoError(t, fresh.Codec.UnmarshalAsJSON([]byte(output), &single))
@@ -132,8 +132,8 @@ func TestRepairM_675_FinalizedHistoryPaginationAndRecovery(t *testing.T) {
 	require.Equal(t, options[1], govtypes.WeightedVoteOptions(single.Options))
 }
 
-func TestRepairM_675_HistoryPaginationErrors(t *testing.T) {
-	chain := newRepair308Chain(t, "null")
+func TestGovernanceCLIHistoryPaginationErrors(t *testing.T) {
+	chain := newVoteHistoryChain(t, "null")
 	chain.commit()
 	chain.tally(t)
 	clientCtx := chain.client(t)
@@ -144,7 +144,7 @@ func TestRepairM_675_HistoryPaginationErrors(t *testing.T) {
 		{"--page=2", "--limit=" + strconv.FormatUint(maxInt, 10)},
 		{"--page=" + strconv.FormatUint(maxInt, 10), "--limit=0"},
 	} {
-		output, err := repair675Execute(t.Context(), clientCtx, cli.GetCmdQueryVotes(), append([]string{"1"}, args...)...)
+		output, err := governanceHistoryExecute(t.Context(), clientCtx, cli.GetCmdQueryVotes(), append([]string{"1"}, args...)...)
 		require.ErrorContains(t, err, "supported history pagination range")
 		require.Empty(t, output)
 	}
@@ -153,27 +153,27 @@ func TestRepairM_675_HistoryPaginationErrors(t *testing.T) {
 		wrong := pflag.NewFlagSet("wrong-type", pflag.ContinueOnError)
 		wrong.Int(flag, 1, "")
 		cmd.Flags().Lookup(flag).Value = wrong.Lookup(flag).Value
-		output, err := repair675Execute(t.Context(), clientCtx, cmd, "1", "--node=")
+		output, err := governanceHistoryExecute(t.Context(), clientCtx, cmd, "1", "--node=")
 		require.ErrorContains(t, err, "uint64")
 		require.Empty(t, output)
 	}
-	output, err := repair675Execute(t.Context(), clientCtx, cli.GetCmdQueryVotes(), "1", "--page=2", "--limit=1")
+	output, err := governanceHistoryExecute(t.Context(), clientCtx, cli.GetCmdQueryVotes(), "1", "--page=2", "--limit=1")
 	require.ErrorContains(t, err, "transaction searching is disabled")
 	require.Empty(t, output)
 }
 
-func TestRepairM_675_QueryTransportFailure(t *testing.T) {
-	enc := repair308Encoding()
+func TestGovernanceCLIQueryTransportFailure(t *testing.T) {
+	enc := voteHistoryEncoding()
 	clientCtx := client.Context{}.WithCodec(enc.Codec).WithLegacyAmino(enc.Amino).WithOutputFormat("json")
 	for _, cmd := range []*cobra.Command{cli.GetCmdQueryProposal(), cli.GetCmdQueryVotes(), cli.GetCmdQueryDeposits(), cli.GetCmdQueryTally()} {
-		output, err := repair675Execute(t.Context(), clientCtx, cmd, "1", "--node=")
+		output, err := governanceHistoryExecute(t.Context(), clientCtx, cmd, "1", "--node=")
 		require.ErrorContains(t, err, "no RPC client")
 		require.Empty(t, output)
 	}
 }
 
-func TestRepairM_675_ExpeditedSubmission(t *testing.T) {
-	enc := repair308Encoding()
+func TestGovernanceCLIExpeditedSubmission(t *testing.T) {
+	enc := voteHistoryEncoding()
 	proposer := sdk.AccAddress(bytes.Repeat([]byte{31}, 20))
 	clientCtx := client.Context{}.WithCodec(enc.Codec).WithLegacyAmino(enc.Amino).
 		WithInterfaceRegistry(enc.InterfaceRegistry).WithTxConfig(enc.TxConfig).
@@ -186,7 +186,7 @@ func TestRepairM_675_ExpeditedSubmission(t *testing.T) {
 	}
 	var first []byte
 	for index, args := range paths {
-		output, err := repair675Execute(t.Context(), clientCtx, cli.NewCmdSubmitProposal(), append(args, "--generate-only", "--offline", "--from="+proposer.String())...)
+		output, err := governanceHistoryExecute(t.Context(), clientCtx, cli.NewCmdSubmitProposal(), append(args, "--generate-only", "--offline", "--from="+proposer.String())...)
 		require.NoError(t, err)
 		tx, err := enc.TxConfig.TxJSONDecoder()([]byte(output))
 		require.NoError(t, err)
@@ -207,7 +207,7 @@ func TestRepairM_675_ExpeditedSubmission(t *testing.T) {
 		} else {
 			require.Equal(t, first, encoded)
 		}
-		chain := newRepair308Chain(t, "null")
+		chain := newVoteHistoryChain(t, "null")
 		chain.cast(t, msg, false)
 		chain.commit()
 		submitted, found := chain.keeper.GetProposal(chain.ctx, 2)
@@ -216,11 +216,11 @@ func TestRepairM_675_ExpeditedSubmission(t *testing.T) {
 		require.True(t, submitted.GetContent().(*govtypes.TextProposal).IsExpedited)
 	}
 	for _, flag := range []string{"--is-expedited=true", "--is-expedited=false", "--title=", "--description=x", "--type=Text", "--deposit=1stake"} {
-		output, err := repair675Execute(t.Context(), clientCtx, cli.NewCmdSubmitProposal(), "--proposal="+proposalFile, flag, "--generate-only", "--offline", "--from="+proposer.String())
+		output, err := governanceHistoryExecute(t.Context(), clientCtx, cli.NewCmdSubmitProposal(), "--proposal="+proposalFile, flag, "--generate-only", "--offline", "--from="+proposer.String())
 		require.ErrorContains(t, err, "provided alongside --proposal")
 		require.Empty(t, output)
 	}
-	output, err := repair675Execute(t.Context(), clientCtx, cli.NewCmdSubmitProposal(), "--is-expedited=invalid", "--generate-only", "--from="+proposer.String())
+	output, err := governanceHistoryExecute(t.Context(), clientCtx, cli.NewCmdSubmitProposal(), "--is-expedited=invalid", "--generate-only", "--from="+proposer.String())
 	require.ErrorContains(t, err, "invalid")
 	require.Empty(t, output)
 }

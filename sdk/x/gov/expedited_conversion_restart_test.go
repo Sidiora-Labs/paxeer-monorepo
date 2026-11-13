@@ -27,7 +27,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repair305State struct {
+type expeditedProposalState struct {
 	cms     storetypes.CommitMultiStore
 	cache   storetypes.CacheMultiStore
 	ctx     sdk.Context
@@ -37,7 +37,7 @@ type repair305State struct {
 	staking stakingkeeper.Keeper
 }
 
-func openRepair305State(t *testing.T, dir string, at time.Time) *repair305State {
+func openExpeditedProposalState(t *testing.T, dir string, at time.Time) *expeditedProposalState {
 	t.Helper()
 	db, err := dbm.NewDB("gov", dbm.GoLevelDBBackend, dir)
 	require.NoError(t, err)
@@ -74,7 +74,7 @@ func openRepair305State(t *testing.T, dir string, at time.Time) *repair305State 
 	sk := stakingkeeper.NewKeeper(cdc, keys[stakingtypes.StoreKey], ak, bk, pk.Subspace(stakingtypes.ModuleName))
 	gk := govkeeper.NewKeeper(cdc, keys[govtypes.StoreKey], pk.Subspace(govtypes.ModuleName).WithKeyTable(govtypes.ParamKeyTable()), ak, bk, sk, pk,
 		govtypes.NewRouter().AddRoute(govtypes.RouterKey, govtypes.ProposalHandler))
-	s := &repair305State{cms: cms, cache: cache, ctx: ctx, gov: gk, auth: ak, bank: bk, staking: sk}
+	s := &expeditedProposalState{cms: cms, cache: cache, ctx: ctx, gov: gk, auth: ak, bank: bk, staking: sk}
 	if cms.LastCommitID().Version == 0 {
 		ak.SetParams(ctx, authtypes.DefaultParams())
 		bk.SetParams(ctx, banktypes.DefaultParams())
@@ -86,7 +86,7 @@ func openRepair305State(t *testing.T, dir string, at time.Time) *repair305State 
 	return s
 }
 
-func (s *repair305State) commitAndClose(t *testing.T) storetypes.CommitID {
+func (s *expeditedProposalState) commitAndClose(t *testing.T) storetypes.CommitID {
 	t.Helper()
 	s.cache.Write()
 	id := s.cms.Commit(true)
@@ -94,7 +94,7 @@ func (s *repair305State) commitAndClose(t *testing.T) storetypes.CommitID {
 	return id
 }
 
-func (s *repair305State) electorate(t *testing.T, bonded bool) []sdk.AccAddress {
+func (s *expeditedProposalState) electorate(t *testing.T, bonded bool) []sdk.AccAddress {
 	t.Helper()
 	addrs := []sdk.AccAddress{
 		sdk.AccAddress(ed25519.GenPrivKey().PubKey().Address()),
@@ -123,7 +123,7 @@ func (s *repair305State) electorate(t *testing.T, bonded bool) []sdk.AccAddress 
 	return addrs
 }
 
-func (s *repair305State) submit(t *testing.T, proposer sdk.AccAddress) govtypes.Proposal {
+func (s *expeditedProposalState) submit(t *testing.T, proposer sdk.AccAddress) govtypes.Proposal {
 	t.Helper()
 	msg, err := govtypes.NewMsgSubmitProposalWithExpedite(govtypes.NewTextProposal("Preserve votes", "Keep the electorate through conversion", true),
 		s.gov.GetDepositParams(s.ctx).MinExpeditedDeposit, proposer, true)
@@ -137,7 +137,7 @@ func (s *repair305State) submit(t *testing.T, proposer sdk.AccAddress) govtypes.
 	return p
 }
 
-func repair305Options(yes, abstain, no, veto string) govtypes.WeightedVoteOptions {
+func expeditedProposalOptions(yes, abstain, no, veto string) govtypes.WeightedVoteOptions {
 	options := govtypes.WeightedVoteOptions{}
 	for i, weight := range []string{yes, abstain, no, veto} {
 		w := sdk.MustNewDecFromStr(weight)
@@ -148,7 +148,7 @@ func repair305Options(yes, abstain, no, veto string) govtypes.WeightedVoteOption
 	return options
 }
 
-func TestRepair_305_ConversionRestartRegularTally(t *testing.T) {
+func TestExpeditedProposalConversionRestartRegularTally(t *testing.T) {
 	for _, tc := range []struct {
 		name          string
 		options       govtypes.WeightedVoteOptions
@@ -157,16 +157,16 @@ func TestRepair_305_ConversionRestartRegularTally(t *testing.T) {
 		status        govtypes.ProposalStatus
 		burn          bool
 	}{
-		{"threshold", repair305Options("0.6", "0", "0.4", "0"), false, false, govtypes.StatusPassed, false},
-		{"quorum", repair305Options("1", "0", "0", "0"), true, false, govtypes.StatusPassed, false},
-		{"abstain", repair305Options("0", "1", "0", "0"), false, false, govtypes.StatusRejected, false},
-		{"veto", repair305Options("0", "0", "0", "1"), false, false, govtypes.StatusRejected, true},
-		{"no", repair305Options("0", "0", "1", "0"), false, false, govtypes.StatusRejected, false},
-		{"zero_bonded", repair305Options("1", "0", "0", "0"), false, true, govtypes.StatusRejected, false},
+		{"threshold", expeditedProposalOptions("0.6", "0", "0.4", "0"), false, false, govtypes.StatusPassed, false},
+		{"quorum", expeditedProposalOptions("1", "0", "0", "0"), true, false, govtypes.StatusPassed, false},
+		{"abstain", expeditedProposalOptions("0", "1", "0", "0"), false, false, govtypes.StatusRejected, false},
+		{"veto", expeditedProposalOptions("0", "0", "0", "1"), false, false, govtypes.StatusRejected, true},
+		{"no", expeditedProposalOptions("0", "0", "1", "0"), false, false, govtypes.StatusRejected, false},
+		{"zero_bonded", expeditedProposalOptions("1", "0", "0", "0"), false, true, govtypes.StatusRejected, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
-			s := openRepair305State(t, dir, time.Unix(1700000000, 0).UTC())
+			s := openExpeditedProposalState(t, dir, time.Unix(1700000000, 0).UTC())
 			addrs := s.electorate(t, !tc.noStake)
 			proposal := s.submit(t, addrs[0])
 			voters := addrs
@@ -198,7 +198,7 @@ func TestRepair_305_ConversionRestartRegularTally(t *testing.T) {
 			require.NoError(t, iter.Close())
 			commit := s.commitAndClose(t)
 
-			s = openRepair305State(t, dir, proposal.VotingEndTime.Add(time.Second))
+			s = openExpeditedProposalState(t, dir, proposal.VotingEndTime.Add(time.Second))
 			require.Equal(t, commit, s.cms.LastCommitID())
 			require.Equal(t, votes, s.gov.GetVotes(s.ctx, proposal.ProposalId))
 			recovered, found := s.gov.GetProposal(s.ctx, proposal.ProposalId)
@@ -242,7 +242,7 @@ func TestRepair_305_ConversionRestartRegularTally(t *testing.T) {
 			require.False(t, iter.Valid())
 			require.NoError(t, iter.Close())
 			s.commitAndClose(t)
-			s = openRepair305State(t, dir, converted.VotingEndTime.Add(time.Second))
+			s = openExpeditedProposalState(t, dir, converted.VotingEndTime.Add(time.Second))
 			require.Empty(t, s.gov.GetVotes(s.ctx, proposal.ProposalId))
 			persisted, found := s.gov.GetProposal(s.ctx, proposal.ProposalId)
 			require.True(t, found)
@@ -252,8 +252,8 @@ func TestRepair_305_ConversionRestartRegularTally(t *testing.T) {
 	}
 }
 
-func TestRepair_305_ExpeditedPassDeletesVotes(t *testing.T) {
-	s := openRepair305State(t, t.TempDir(), time.Unix(1700000000, 0).UTC())
+func TestExpeditedProposalPassDeletesVotes(t *testing.T) {
+	s := openExpeditedProposalState(t, t.TempDir(), time.Unix(1700000000, 0).UTC())
 	defer func() { require.NoError(t, s.cms.Close()) }()
 	addrs := s.electorate(t, true)
 	proposal := s.submit(t, addrs[0])

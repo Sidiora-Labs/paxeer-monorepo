@@ -26,7 +26,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/types"
 )
 
-func TestRepair_309_HistoricalDepositOwner(t *testing.T) {
+func TestGovernanceHistoricalDepositOwner(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
 	defer cancel()
 	conf, err := rpctest.CreateConfig(t, t.Name())

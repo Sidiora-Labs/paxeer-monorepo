@@ -25,7 +25,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repairM678Env struct {
+type allowanceValidationEnv struct {
 	app     *baseapp.BaseApp
 	k       keeper.Keeper
 	ctx     sdk.Context
@@ -35,7 +35,7 @@ type repairM678Env struct {
 	grantee sdk.AccAddress
 }
 
-func repairM678Setup(t *testing.T) repairM678Env {
+func allowanceValidationSetup(t *testing.T) allowanceValidationEnv {
 	t.Helper()
 	db := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
@@ -57,12 +57,12 @@ func repairM678Setup(t *testing.T) repairM678Env {
 	feegrant.RegisterMsgServer(app.MsgServiceRouter(), keeper.NewMsgServerImpl(k))
 	require.NoError(t, app.LoadLatestVersion())
 	ctx := sdk.NewContext(app.CommitMultiStore(), tmproto.Header{Time: time.Unix(1700000000, 0).UTC()}, false)
-	return repairM678Env{app: app, k: k, ctx: ctx, cdc: cdc, key: feeKey,
+	return allowanceValidationEnv{app: app, k: k, ctx: ctx, cdc: cdc, key: feeKey,
 		granter: sdk.AccAddress(bytes.Repeat([]byte{1}, 20)),
 		grantee: sdk.AccAddress(bytes.Repeat([]byte{2}, 20))}
 }
 
-func (e repairM678Env) grantMessage(t *testing.T, allowance feegrant.FeeAllowanceI) *feegrant.MsgGrantAllowance {
+func (e allowanceValidationEnv) grantMessage(t *testing.T, allowance feegrant.FeeAllowanceI) *feegrant.MsgGrantAllowance {
 	t.Helper()
 	msg, err := feegrant.NewMsgGrantAllowance(allowance, e.granter, e.grantee)
 	require.NoError(t, err)
@@ -73,11 +73,11 @@ func (e repairM678Env) grantMessage(t *testing.T, allowance feegrant.FeeAllowanc
 	return &decoded
 }
 
-func (e repairM678Env) send() *banktypes.MsgSend {
+func (e allowanceValidationEnv) send() *banktypes.MsgSend {
 	return banktypes.NewMsgSend(e.grantee, e.granter, sdk.NewCoins(sdk.NewInt64Coin("atom", 1)))
 }
 
-func repairM678Events(t *testing.T, events []abci.Event, granter, grantee sdk.AccAddress, types ...string) {
+func allowanceValidationEvents(t *testing.T, events []abci.Event, granter, grantee sdk.AccAddress, types ...string) {
 	t.Helper()
 	require.Len(t, events, len(types))
 	for i, event := range events {
@@ -91,12 +91,12 @@ func repairM678Events(t *testing.T, events []abci.Event, granter, grantee sdk.Ac
 	}
 }
 
-func TestRepairM_678_FeegrantErrorAssertions(t *testing.T) {
+func TestAllowanceRejectionErrors(t *testing.T) {
 	for _, periodic := range []bool{false, true} {
 		for _, wrapped := range []bool{false, true} {
 			for _, limited := range []bool{false, true} {
 				t.Run(fmt.Sprintf("periodic_%t_wrapped_%t_limited_%t", periodic, wrapped, limited), func(t *testing.T) {
-					e := repairM678Setup(t)
+					e := allowanceValidationSetup(t)
 					expiration := e.ctx.BlockTime().Add(time.Hour)
 					basic := feegrant.BasicAllowance{Expiration: &expiration}
 					if limited {
@@ -138,7 +138,7 @@ func TestRepairM_678_FeegrantErrorAssertions(t *testing.T) {
 					require.True(t, remove, "removal is independent of rejection")
 					require.ErrorIs(t, e.k.UseGrantedFees(e.ctx, e.granter, e.grantee, fee, msgs), feegrant.ErrFeeLimitExpired)
 					require.False(t, e.ctx.KVStore(e.key).Has(key))
-					repairM678Events(t, e.ctx.EventManager().ABCIEvents(), e.granter, e.grantee, "revoke_feegrant")
+					allowanceValidationEvents(t, e.ctx.EventManager().ABCIEvents(), e.granter, e.grantee, "revoke_feegrant")
 					_, err = e.k.GetAllowance(e.ctx, e.granter, e.grantee)
 					require.ErrorIs(t, err, sdkerrors.ErrUnauthorized)
 				})
@@ -147,11 +147,11 @@ func TestRepairM_678_FeegrantErrorAssertions(t *testing.T) {
 	}
 }
 
-func TestRepairM_678_ZeroPeriod(t *testing.T) {
+func TestPeriodicAllowanceRejectsNonpositivePeriod(t *testing.T) {
 	for _, period := range []time.Duration{-time.Nanosecond, 0, time.Nanosecond, time.Hour} {
 		for _, wrapped := range []bool{false, true} {
 			t.Run(fmt.Sprintf("period_%s_wrapped_%t", period, wrapped), func(t *testing.T) {
-				e := repairM678Setup(t)
+				e := allowanceValidationSetup(t)
 				budget := sdk.NewCoins(sdk.NewInt64Coin("atom", 2))
 				var allowance feegrant.FeeAllowanceI = &feegrant.PeriodicAllowance{
 					Basic:  feegrant.BasicAllowance{SpendLimit: sdk.NewCoins(sdk.NewInt64Coin("atom", 10))},
@@ -214,7 +214,7 @@ func TestRepairM_678_ZeroPeriod(t *testing.T) {
 	}
 }
 
-func TestRepairM_678_FeegrantTypesDoc(t *testing.T) {
+func TestAllowanceTypesDocumentation(t *testing.T) {
 	doc, err := os.ReadFile("spec/01_concepts.md")
 	require.NoError(t, err)
 	for _, text := range []string{"BasicAllowance", "PeriodicAllowance", "AllowedMsgAllowance", "Any", "message type URLs", "strictly positive", "removal flag", "even on error"} {
@@ -222,7 +222,7 @@ func TestRepairM_678_FeegrantTypesDoc(t *testing.T) {
 	}
 	for _, kind := range []string{"BasicAllowance", "PeriodicAllowance", "AllowedMsgAllowance"} {
 		t.Run(kind, func(t *testing.T) {
-			e := repairM678Setup(t)
+			e := allowanceValidationSetup(t)
 			limit := sdk.NewCoins(sdk.NewInt64Coin("atom", 3))
 			var allowance feegrant.FeeAllowanceI = &feegrant.BasicAllowance{SpendLimit: limit}
 			if kind == "PeriodicAllowance" {
@@ -263,8 +263,8 @@ func TestRepairM_678_FeegrantTypesDoc(t *testing.T) {
 	}
 }
 
-func TestRepairM_678_FeegrantEventsDoc(t *testing.T) {
-	e := repairM678Setup(t)
+func TestAllowanceEventsDocumentation(t *testing.T) {
+	e := allowanceValidationSetup(t)
 	doc, err := os.ReadFile("spec/04_events.md")
 	require.NoError(t, err)
 	grant := e.grantMessage(t, &feegrant.BasicAllowance{SpendLimit: sdk.NewCoins(sdk.NewInt64Coin("atom", 3))})
@@ -297,11 +297,11 @@ func TestRepairM_678_FeegrantEventsDoc(t *testing.T) {
 	require.Len(t, result.Events[0].Attributes, 1)
 	require.Equal(t, "action", string(result.Events[0].Attributes[0].Key))
 	require.Equal(t, sdk.MsgTypeURL(grant), string(result.Events[0].Attributes[0].Value))
-	repairM678Events(t, result.Events[1:], e.granter, e.grantee, "set_feegrant")
+	allowanceValidationEvents(t, result.Events[1:], e.granter, e.grantee, "set_feegrant")
 
 	e.ctx = e.ctx.WithEventManager(sdk.NewEventManager())
 	require.NoError(t, e.k.UseGrantedFees(e.ctx, e.granter, e.grantee, sdk.NewCoins(sdk.NewInt64Coin("atom", 1)), []sdk.Msg{e.send()}))
-	repairM678Events(t, e.ctx.EventManager().ABCIEvents(), e.granter, e.grantee, "use_feegrant", "set_feegrant")
+	allowanceValidationEvents(t, e.ctx.EventManager().ABCIEvents(), e.granter, e.grantee, "use_feegrant", "set_feegrant")
 	result, err = e.app.RunMsgs(e.ctx, []sdk.Msg{&revoke})
 	require.NoError(t, err)
 	require.Len(t, result.Events, 2)
@@ -309,12 +309,12 @@ func TestRepairM_678_FeegrantEventsDoc(t *testing.T) {
 	require.Len(t, result.Events[0].Attributes, 1)
 	require.Equal(t, "action", string(result.Events[0].Attributes[0].Key))
 	require.Equal(t, sdk.MsgTypeURL(&revoke), string(result.Events[0].Attributes[0].Value))
-	repairM678Events(t, result.Events[1:], e.granter, e.grantee, "revoke_feegrant")
+	allowanceValidationEvents(t, result.Events[1:], e.granter, e.grantee, "revoke_feegrant")
 	_, err = e.app.RunMsgs(e.ctx, []sdk.Msg{grant})
 	require.NoError(t, err)
 	e.ctx = e.ctx.WithEventManager(sdk.NewEventManager())
 	require.NoError(t, e.k.UseGrantedFees(e.ctx, e.granter, e.grantee, sdk.NewCoins(sdk.NewInt64Coin("atom", 3)), []sdk.Msg{e.send()}))
-	repairM678Events(t, e.ctx.EventManager().ABCIEvents(), e.granter, e.grantee, "revoke_feegrant", "use_feegrant")
+	allowanceValidationEvents(t, e.ctx.EventManager().ABCIEvents(), e.granter, e.grantee, "revoke_feegrant", "use_feegrant")
 	_, err = e.k.GetAllowance(e.ctx, e.granter, e.grantee)
 	require.ErrorIs(t, err, sdkerrors.ErrUnauthorized)
 }

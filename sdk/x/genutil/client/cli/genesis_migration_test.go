@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type repairM651App struct {
+type genesisMigrationApp struct {
 	ctx       sdk.Context
 	cdc       *codec.ProtoCodec
 	keeper    paramkeeper.Keeper
@@ -30,7 +30,7 @@ type repairM651App struct {
 	clientCtx client.Context
 }
 
-func newRepairM651App(t *testing.T) repairM651App {
+func newGenesisMigrationApp(t *testing.T) genesisMigrationApp {
 	t.Helper()
 	registry := codectypes.NewInterfaceRegistry()
 	basic := params.AppModuleBasic{}
@@ -42,13 +42,13 @@ func newRepairM651App(t *testing.T) repairM651App {
 	tkey := sdk.NewTransientStoreKey("transient_params")
 	ctx := testutil.DefaultContext(key, tkey)
 	keeper := paramkeeper.NewKeeper(cdc, amino, key, tkey)
-	return repairM651App{
+	return genesisMigrationApp{
 		ctx: ctx, cdc: cdc, keeper: keeper, module: params.NewAppModule(keeper),
 		clientCtx: client.Context{}.WithCodec(cdc).WithLegacyAmino(amino),
 	}
 }
 
-func repairM651Registry(t *testing.T) {
+func genesisMigrationRegistry(t *testing.T) {
 	t.Helper()
 	migrationMutex.Lock()
 	previous := migrationMap
@@ -63,7 +63,7 @@ func repairM651Registry(t *testing.T) {
 
 // The application adapter imports the old fees-only params schema, runs the
 // production v1-to-v2 store migration, then exports through the module codec.
-func (app repairM651App) migration(t *testing.T) genutiltypes.MigrationCallback {
+func (app genesisMigrationApp) migration(t *testing.T) genutiltypes.MigrationCallback {
 	t.Helper()
 	return func(state genutiltypes.AppMap, clientCtx client.Context) genutiltypes.AppMap {
 		require.Same(t, app.cdc, clientCtx.Codec)
@@ -77,7 +77,7 @@ func (app repairM651App) migration(t *testing.T) genutiltypes.MigrationCallback 
 	}
 }
 
-func (app repairM651App) oldGenesis(t *testing.T) (string, *tmtypes.GenesisDoc, paramtypes.FeesParams) {
+func (app genesisMigrationApp) oldGenesis(t *testing.T) (string, *tmtypes.GenesisDoc, paramtypes.FeesParams) {
 	t.Helper()
 	fees := paramtypes.NewFeesParams(sdk.DecCoins{sdk.NewDecCoinFromDec("stake", sdk.NewDecWithPrec(7, 2))})
 	fees.AllowedFeeDenoms = []string{"stake"}
@@ -102,7 +102,7 @@ func (app repairM651App) oldGenesis(t *testing.T) (string, *tmtypes.GenesisDoc, 
 	return path, doc, fees
 }
 
-func repairM651Execute(cmd *cobra.Command, clientCtx client.Context, args ...string) (string, error) {
+func genesisMigrationExecute(cmd *cobra.Command, clientCtx client.Context, args ...string) (string, error) {
 	var output bytes.Buffer
 	cmd.SetOut(&output)
 	cmd.SetErr(&output)
@@ -114,14 +114,14 @@ func repairM651Execute(cmd *cobra.Command, clientCtx client.Context, args ...str
 	return output.String(), err
 }
 
-func TestRepairM_651_RegistryAndHelp(t *testing.T) {
-	repairM651Registry(t)
-	app := newRepairM651App(t)
+func TestGenesisMigrationRegistryAndHelp(t *testing.T) {
+	genesisMigrationRegistry(t)
+	app := newGenesisMigrationApp(t)
 	callback := app.migration(t)
 	require.Empty(t, GetMigrationVersions())
 	require.Nil(t, GetMigrationCallback("params-v2"))
 	beforeRegistration := MigrateGenesisCmd()
-	output, err := repairM651Execute(MigrateGenesisCmd(), app.clientCtx, "--help")
+	output, err := genesisMigrationExecute(MigrateGenesisCmd(), app.clientCtx, "--help")
 	require.NoError(t, err)
 	require.Contains(t, output, "Supported target versions: none (this application has not registered any genesis migrations)")
 	require.NotContains(t, output, "v0.36")
@@ -133,7 +133,7 @@ func TestRepairM_651_RegistryAndHelp(t *testing.T) {
 	require.Empty(t, GetMigrationVersions())
 	require.NoError(t, RegisterMigration("z-params-v2", callback))
 	require.NoError(t, RegisterMigration("params-v2", callback))
-	replacement := newRepairM651App(t)
+	replacement := newGenesisMigrationApp(t)
 	require.ErrorContains(t, RegisterMigration("params-v2", replacement.migration(t)), "already registered")
 	require.Equal(t, []string{"params-v2", "z-params-v2"}, GetMigrationVersions())
 	require.NotNil(t, GetMigrationCallback("params-v2"))
@@ -142,16 +142,16 @@ func TestRepairM_651_RegistryAndHelp(t *testing.T) {
 	require.Equal(t, []string{"params-v2", "z-params-v2"}, GetMigrationVersions())
 	cmd := MigrateGenesisCmd()
 	require.Equal(t, GetMigrationVersions(), cmd.ValidArgs)
-	output, err = repairM651Execute(cmd, app.clientCtx, "--help")
+	output, err = genesisMigrationExecute(cmd, app.clientCtx, "--help")
 	require.NoError(t, err)
 	require.Contains(t, output, "Supported target versions: params-v2, z-params-v2")
 	require.NotContains(t, output, "Supported target versions: none")
 
-	path, _, _ := newRepairM651App(t).oldGenesis(t)
-	output, err = repairM651Execute(beforeRegistration, app.clientCtx, "params-v2", path)
+	path, _, _ := newGenesisMigrationApp(t).oldGenesis(t)
+	output, err = genesisMigrationExecute(beforeRegistration, app.clientCtx, "params-v2", path)
 	require.ErrorContains(t, err, "supported target versions: none")
 	require.Empty(t, output)
-	output, err = repairM651Execute(MigrateGenesisCmd(), app.clientCtx, "params-v2", path)
+	output, err = genesisMigrationExecute(MigrateGenesisCmd(), app.clientCtx, "params-v2", path)
 	require.NoError(t, err)
 	require.True(t, json.Valid([]byte(output)))
 	space, ok := replacement.keeper.GetSubspace(paramtypes.ModuleName)
@@ -159,9 +159,9 @@ func TestRepairM_651_RegistryAndHelp(t *testing.T) {
 	require.False(t, space.Has(replacement.ctx, paramtypes.ParamStoreKeyFeesParams))
 }
 
-func TestRepairM_651_OldGenesisToCurrentGenesis(t *testing.T) {
-	repairM651Registry(t)
-	producer := newRepairM651App(t)
+func TestGenesisMigrationOldGenesisToCurrentGenesis(t *testing.T) {
+	genesisMigrationRegistry(t)
+	producer := newGenesisMigrationApp(t)
 	path, oldDoc, fees := producer.oldGenesis(t)
 	var oldState genutiltypes.AppMap
 	require.NoError(t, json.Unmarshal(oldDoc.AppState, &oldState))
@@ -172,14 +172,14 @@ func TestRepairM_651_OldGenesisToCurrentGenesis(t *testing.T) {
 			name = "override_metadata"
 		}
 		t.Run(name, func(t *testing.T) {
-			app := newRepairM651App(t)
+			app := newGenesisMigrationApp(t)
 			target := "params-v2-" + name
 			require.NoError(t, RegisterMigration(target, app.migration(t)))
 			args := []string{target, path}
 			if override {
 				args = append(args, "--chain-id=repair-m651-current", "--genesis-time=2020-01-02T03:04:05Z")
 			}
-			output, err := repairM651Execute(MigrateGenesisCmd(), app.clientCtx, args...)
+			output, err := genesisMigrationExecute(MigrateGenesisCmd(), app.clientCtx, args...)
 			require.NoError(t, err)
 			current, err := tmtypes.GenesisDocFromJSON([]byte(output))
 			require.NoError(t, err)
@@ -203,7 +203,7 @@ func TestRepairM_651_OldGenesisToCurrentGenesis(t *testing.T) {
 			require.NoError(t, app.cdc.UnmarshalAsJSON(state[paramtypes.ModuleName], &migrated))
 			require.Equal(t, fees, migrated.FeesParams)
 			require.Equal(t, *paramtypes.DefaultCosmosGasParams(), migrated.CosmosGasParams)
-			consumer := newRepairM651App(t)
+			consumer := newGenesisMigrationApp(t)
 			consumer.module.InitGenesis(consumer.ctx, consumer.cdc, state[paramtypes.ModuleName])
 			require.Equal(t, fees, consumer.keeper.GetFeesParams(consumer.ctx))
 			require.Equal(t, *paramtypes.DefaultCosmosGasParams(), consumer.keeper.GetCosmosGasParams(consumer.ctx))
@@ -214,12 +214,12 @@ func TestRepairM_651_OldGenesisToCurrentGenesis(t *testing.T) {
 	require.JSONEq(t, string(oldDoc.AppState), string(unchanged.AppState))
 }
 
-func TestRepairM_651_UnknownTarget(t *testing.T) {
-	repairM651Registry(t)
-	app := newRepairM651App(t)
+func TestGenesisMigrationUnknownTarget(t *testing.T) {
+	genesisMigrationRegistry(t)
+	app := newGenesisMigrationApp(t)
 	require.NoError(t, RegisterMigration("params-v2", app.migration(t)))
-	path, _, _ := newRepairM651App(t).oldGenesis(t)
-	output, err := repairM651Execute(MigrateGenesisCmd(), app.clientCtx, "unsupported", path)
+	path, _, _ := newGenesisMigrationApp(t).oldGenesis(t)
+	output, err := genesisMigrationExecute(MigrateGenesisCmd(), app.clientCtx, "unsupported", path)
 	require.ErrorContains(t, err, "unknown migration function for version: unsupported")
 	require.ErrorContains(t, err, "supported target versions: params-v2")
 	require.Empty(t, output)

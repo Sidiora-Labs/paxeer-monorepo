@@ -64,33 +64,33 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repairM679Encoding() moduletestutil.TestEncodingConfig {
+func governanceLifecycleEncoding() moduletestutil.TestEncodingConfig {
 	return moduletestutil.MakeTestEncodingConfig(auth.AppModuleBasic{}, bank.AppModuleBasic{}, staking.AppModuleBasic{}, gov.AppModuleBasic{})
 }
 
-func repairM679Doc(t *testing.T, name string) string {
+func governanceLifecycleDoc(t *testing.T, name string) string {
 	t.Helper()
 	b, err := os.ReadFile(filepath.Join("spec", name))
 	require.NoError(t, err)
 	return string(b)
 }
 
-func repairM679Example(t *testing.T, name, marker string) string {
+func governanceLifecycleExample(t *testing.T, name, marker string) string {
 	t.Helper()
 	pattern := "(?s)<!-- repair-m679:" + regexp.QuoteMeta(marker) + " -->\\s*```json\\s*(.*?)\\s*```"
-	match := regexp.MustCompile(pattern).FindStringSubmatch(repairM679Doc(t, name))
+	match := regexp.MustCompile(pattern).FindStringSubmatch(governanceLifecycleDoc(t, name))
 	require.Len(t, match, 2, "missing executable documentation example %s", marker)
 	return match[1]
 }
 
-func repairM679State(t *testing.T) *repair305State {
+func governanceLifecycleState(t *testing.T) *expeditedProposalState {
 	t.Helper()
-	s := openRepair305State(t, t.TempDir(), time.Unix(1700000000, 0).UTC())
+	s := openExpeditedProposalState(t, t.TempDir(), time.Unix(1700000000, 0).UTC())
 	t.Cleanup(func() { require.NoError(t, s.cms.Close()) })
 	return s
 }
 
-func repairM679ConversionRestart(t *testing.T) {
+func governanceLifecycleConversionRestart(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		option types.VoteOption
@@ -103,7 +103,7 @@ func repairM679ConversionRestart(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
-			s := openRepair305State(t, dir, time.Unix(1700000000, 0).UTC())
+			s := openExpeditedProposalState(t, dir, time.Unix(1700000000, 0).UTC())
 			t.Cleanup(func() { require.NoError(t, s.cms.Close()) })
 			addrs := s.electorate(t, true)
 			p := s.submit(t, addrs[0])
@@ -118,7 +118,7 @@ func repairM679ConversionRestart(t *testing.T) {
 			balance := s.bank.GetAllBalances(s.ctx, addrs[0])
 			commit := s.commitAndClose(t)
 
-			s = openRepair305State(t, dir, p.VotingEndTime)
+			s = openExpeditedProposalState(t, dir, p.VotingEndTime)
 			require.Equal(t, commit, s.cms.LastCommitID())
 			vote, found := s.gov.GetVote(s.ctx, p.ProposalId, addrs[1])
 			require.True(t, found)
@@ -136,9 +136,9 @@ func repairM679ConversionRestart(t *testing.T) {
 			require.NoError(t, oldQueue.Close())
 			commit = s.commitAndClose(t)
 
-			s = openRepair305State(t, dir, converted.VotingEndTime.Add(-time.Second))
+			s = openExpeditedProposalState(t, dir, converted.VotingEndTime.Add(-time.Second))
 			require.Equal(t, commit, s.cms.LastCommitID())
-			queries := baseapp.NewQueryServerTestHelper(s.ctx, repairM679Encoding().InterfaceRegistry)
+			queries := baseapp.NewQueryServerTestHelper(s.ctx, governanceLifecycleEncoding().InterfaceRegistry)
 			types.RegisterQueryServer(queries, s.gov)
 			response, err := types.NewQueryClient(queries).Vote(t.Context(), &types.QueryVoteRequest{ProposalId: p.ProposalId, Voter: addrs[1].String()})
 			require.NoError(t, err)
@@ -171,7 +171,7 @@ func repairM679ConversionRestart(t *testing.T) {
 			}
 			require.Equal(t, expectedBalance, s.bank.GetAllBalances(s.ctx, addrs[0]))
 			s.commitAndClose(t)
-			s = openRepair305State(t, dir, converted.VotingEndTime.Add(time.Second))
+			s = openExpeditedProposalState(t, dir, converted.VotingEndTime.Add(time.Second))
 			recovered, found := s.gov.GetProposal(s.ctx, p.ProposalId)
 			require.True(t, found)
 			require.Equal(t, final, recovered)
@@ -180,15 +180,15 @@ func repairM679ConversionRestart(t *testing.T) {
 	}
 }
 
-func TestRepairM_679_ConversionCoverage(t *testing.T) {
-	repairM679ConversionRestart(t)
+func TestGovernanceLifecycleConversionCoverage(t *testing.T) {
+	governanceLifecycleConversionRestart(t)
 }
 
 // The registry is an in-memory peer; the module manager, registered invariant,
 // governance deposit accounting and bank transfers are all production code.
-type repairM679InvariantRegistry map[string]sdk.Invariant
+type governanceLifecycleInvariantRegistry map[string]sdk.Invariant
 
-func (r repairM679InvariantRegistry) RegisterRoute(moduleName, route string, invariant sdk.Invariant) {
+func (r governanceLifecycleInvariantRegistry) RegisterRoute(moduleName, route string, invariant sdk.Invariant) {
 	key := moduleName + "/" + route
 	if _, exists := r[key]; exists {
 		panic("duplicate invariant route " + key)
@@ -196,12 +196,12 @@ func (r repairM679InvariantRegistry) RegisterRoute(moduleName, route string, inv
 	r[key] = invariant
 }
 
-func TestRepairM_679_InvariantRegistered(t *testing.T) {
-	s := repairM679State(t)
+func TestGovernanceLifecycleInvariantRegistered(t *testing.T) {
+	s := governanceLifecycleState(t)
 	addrs := s.electorate(t, false)
 	p := s.submit(t, addrs[0])
-	registry := repairM679InvariantRegistry{}
-	manager := module.NewManager(gov.NewAppModule(repairM679Encoding().Codec, s.gov, s.auth, s.bank))
+	registry := governanceLifecycleInvariantRegistry{}
+	manager := module.NewManager(gov.NewAppModule(governanceLifecycleEncoding().Codec, s.gov, s.auth, s.bank))
 	manager.RegisterInvariants(registry)
 	require.Len(t, registry, 1)
 	invariant := registry["gov/module-account"]
@@ -219,7 +219,7 @@ func TestRepairM_679_InvariantRegistered(t *testing.T) {
 	require.False(t, broken)
 }
 
-func TestRepairM_679_LifecycleDoc(t *testing.T) {
+func TestGovernanceLifecycleDocumentation(t *testing.T) {
 	db := dbm.NewMemDB()
 	cms := store.NewCommitMultiStore(db)
 	key := sdk.NewKVStoreKey(upgradetypes.StoreKey)
@@ -265,14 +265,14 @@ func TestRepairM_679_LifecycleDoc(t *testing.T) {
 	timed := plan
 	timed.Time = ctx.BlockTime()
 	require.Error(t, k.ScheduleUpgrade(ctx, timed))
-	doc := repairM679Doc(t, "01_concepts.md")
+	doc := governanceLifecycleDoc(t, "01_concepts.md")
 	require.Contains(t, doc, "ScheduleUpgrade")
 	require.Contains(t, doc, "writes upgrade information to disk and halts")
 	require.Contains(t, doc, "including failure from insufficient\nquorum or veto")
 	require.Contains(t, doc, "accepts an empty initial coin list")
 }
 
-func repairM679Key(t *testing.T, s *repair305State, name string) sdk.StoreKey {
+func governanceLifecycleKey(t *testing.T, s *expeditedProposalState, name string) sdk.StoreKey {
 	t.Helper()
 	for _, key := range s.cms.StoreKeys() {
 		if key.Name() == name {
@@ -283,15 +283,15 @@ func repairM679Key(t *testing.T, s *repair305State, name string) sdk.StoreKey {
 	return nil
 }
 
-func TestRepairM_679_StateDoc(t *testing.T) {
-	s := repairM679State(t)
+func TestGovernanceLifecycleStateDoc(t *testing.T) {
+	s := governanceLifecycleState(t)
 	addrs := s.electorate(t, false)
 	p := s.submit(t, addrs[0])
-	enc := repairM679Encoding()
-	options := repair305Options("0.4", "0.2", "0.1", "0.3")
+	enc := governanceLifecycleEncoding()
+	options := expeditedProposalOptions("0.4", "0.2", "0.1", "0.3")
 	_, err := govkeeper.NewMsgServerImpl(s.gov).VoteWeighted(sdk.WrapSDKContext(s.ctx), types.NewMsgVoteWeighted(addrs[0], p.ProposalId, options))
 	require.NoError(t, err)
-	kv := s.ctx.KVStore(repairM679Key(t, s, types.StoreKey))
+	kv := s.ctx.KVStore(governanceLifecycleKey(t, s, types.StoreKey))
 	id := make([]byte, 8)
 	binary.BigEndian.PutUint64(id, p.ProposalId)
 	require.Equal(t, append([]byte{0x00}, id...), types.ProposalKey(p.ProposalId))
@@ -314,7 +314,7 @@ func TestRepairM_679_StateDoc(t *testing.T) {
 	var deposit types.Deposit
 	enc.Codec.MustUnmarshal(kv.Get(types.DepositKey(p.ProposalId, addrs[0])), &deposit)
 	require.Equal(t, p.TotalDeposit, deposit.Amount)
-	doc := repairM679Doc(t, "02_state.md")
+	doc := governanceLifecycleDoc(t, "02_state.md")
 	for i, option := range []types.VoteOption{types.OptionEmpty, types.OptionYes, types.OptionAbstain, types.OptionNo, types.OptionNoWithVeto} {
 		require.Equal(t, i, int(option))
 		require.Regexp(t, regexp.QuoteMeta(option.String())+`\s*\|\s*`+fmt.Sprint(i)+`\s*\|`, doc)
@@ -324,10 +324,10 @@ func TestRepairM_679_StateDoc(t *testing.T) {
 	require.Contains(t, doc, "options")
 }
 
-func TestRepairM_679_MessageDoc(t *testing.T) {
-	s := repairM679State(t)
+func TestGovernanceLifecycleMessageDoc(t *testing.T) {
+	s := governanceLifecycleState(t)
 	addrs := s.electorate(t, false)
-	enc := repairM679Encoding()
+	enc := governanceLifecycleEncoding()
 	msg, err := types.NewMsgSubmitProposalWithExpedite(types.NewTextProposal("Empty deposit", "Contributions accumulate", false), nil, addrs[0], true)
 	require.NoError(t, err)
 	require.NoError(t, msg.ValidateBasic())
@@ -361,13 +361,13 @@ func TestRepairM_679_MessageDoc(t *testing.T) {
 		require.True(t, found)
 		require.Equal(t, types.DefaultDepositParams().MinDeposit, deposit.Amount)
 	}
-	doc := repairM679Doc(t, "03_messages.md")
+	doc := governanceLifecycleDoc(t, "03_messages.md")
 	require.Contains(t, doc, "possibly empty")
 	require.Contains(t, doc, "message's `is_expedited`")
 	require.Contains(t, doc, "cumulative")
 }
 
-func repairM679BaseApp(t *testing.T, enc moduletestutil.TestEncodingConfig) *baseapp.BaseApp {
+func governanceLifecycleBaseApp(t *testing.T, enc moduletestutil.TestEncodingConfig) *baseapp.BaseApp {
 	t.Helper()
 	opts := viper.New()
 	opts.Set("chain-id", "repair-m679")
@@ -377,7 +377,7 @@ func repairM679BaseApp(t *testing.T, enc moduletestutil.TestEncodingConfig) *bas
 	return app
 }
 
-func repairM679EventValues(events []abci.Event, kind, key string) []string {
+func governanceLifecycleEventValues(events []abci.Event, kind, key string) []string {
 	var values []string
 	for _, event := range events {
 		if event.Type == kind {
@@ -391,12 +391,12 @@ func repairM679EventValues(events []abci.Event, kind, key string) []string {
 	return values
 }
 
-func TestRepairM_679_EventsDoc(t *testing.T) {
+func TestGovernanceLifecycleEventsDoc(t *testing.T) {
 	for _, protobuf := range []bool{false, true} {
 		t.Run(fmt.Sprintf("protobuf=%t", protobuf), func(t *testing.T) {
-			s := repairM679State(t)
+			s := governanceLifecycleState(t)
 			addrs := s.electorate(t, false)
-			app := repairM679BaseApp(t, repairM679Encoding())
+			app := governanceLifecycleBaseApp(t, governanceLifecycleEncoding())
 			if protobuf {
 				types.RegisterMsgServer(app.MsgServiceRouter(), govkeeper.NewMsgServerImpl(s.gov))
 			} else {
@@ -412,12 +412,12 @@ func TestRepairM_679_EventsDoc(t *testing.T) {
 			var submitted types.MsgSubmitProposalResponse
 			require.NoError(t, proto.Unmarshal(data.Data[0].Data, &submitted))
 			id := fmt.Sprint(submitted.ProposalId)
-			require.Equal(t, []string{id}, repairM679EventValues(result.Events, types.EventTypeSubmitProposal, types.AttributeKeyProposalID))
-			require.Equal(t, []string{types.ProposalTypeText}, repairM679EventValues(result.Events, types.EventTypeSubmitProposal, types.AttributeKeyProposalType))
-			require.Equal(t, []string{id}, repairM679EventValues(result.Events, types.EventTypeSubmitProposal, types.AttributeKeyVotingPeriodStart))
+			require.Equal(t, []string{id}, governanceLifecycleEventValues(result.Events, types.EventTypeSubmitProposal, types.AttributeKeyProposalID))
+			require.Equal(t, []string{types.ProposalTypeText}, governanceLifecycleEventValues(result.Events, types.EventTypeSubmitProposal, types.AttributeKeyProposalType))
+			require.Equal(t, []string{id}, governanceLifecycleEventValues(result.Events, types.EventTypeSubmitProposal, types.AttributeKeyVotingPeriodStart))
 			// The bank transfer emits its own message.sender as well as the governance event.
 			// Assert both senders and the exact single governance-scoped sender.
-			require.Equal(t, []string{addrs[0].String(), addrs[0].String()}, repairM679EventValues(result.Events, sdk.EventTypeMessage, sdk.AttributeKeySender))
+			require.Equal(t, []string{addrs[0].String(), addrs[0].String()}, governanceLifecycleEventValues(result.Events, sdk.EventTypeMessage, sdk.AttributeKeySender))
 			var governanceEvents []abci.Event
 			for _, event := range result.Events {
 				if event.Type != sdk.EventTypeMessage {
@@ -430,9 +430,9 @@ func TestRepairM_679_EventsDoc(t *testing.T) {
 				}
 			}
 			require.Len(t, governanceEvents, 1)
-			require.Equal(t, []string{addrs[0].String()}, repairM679EventValues(governanceEvents, sdk.EventTypeMessage, sdk.AttributeKeySender))
-			require.Equal(t, []string{types.DefaultDepositParams().MinExpeditedDeposit.String()}, repairM679EventValues(result.Events, types.EventTypeProposalDeposit, sdk.AttributeKeyAmount))
-			weighted := types.NewMsgVoteWeighted(addrs[1], submitted.ProposalId, repair305Options("0.6", "0", "0.4", "0"))
+			require.Equal(t, []string{addrs[0].String()}, governanceLifecycleEventValues(governanceEvents, sdk.EventTypeMessage, sdk.AttributeKeySender))
+			require.Equal(t, []string{types.DefaultDepositParams().MinExpeditedDeposit.String()}, governanceLifecycleEventValues(result.Events, types.EventTypeProposalDeposit, sdk.AttributeKeyAmount))
+			weighted := types.NewMsgVoteWeighted(addrs[1], submitted.ProposalId, expeditedProposalOptions("0.6", "0", "0.4", "0"))
 			require.NoError(t, weighted.ValidateBasic())
 			result, err = app.RunMsgs(s.ctx, []sdk.Msg{weighted})
 			require.NoError(t, err)
@@ -440,23 +440,23 @@ func TestRepairM_679_EventsDoc(t *testing.T) {
 			if protobuf {
 				action = sdk.MsgTypeURL(weighted)
 			}
-			require.Equal(t, []string{action}, repairM679EventValues(result.Events, sdk.EventTypeMessage, sdk.AttributeKeyAction))
-			require.Equal(t, []string{addrs[1].String()}, repairM679EventValues(result.Events, sdk.EventTypeMessage, sdk.AttributeKeySender))
-			require.Equal(t, []string{types.AttributeValueCategory}, repairM679EventValues(result.Events, sdk.EventTypeMessage, sdk.AttributeKeyModule))
-			require.Equal(t, []string{types.WeightedVoteOptions(weighted.Options).String()}, repairM679EventValues(result.Events, types.EventTypeProposalVote, types.AttributeKeyOption))
+			require.Equal(t, []string{action}, governanceLifecycleEventValues(result.Events, sdk.EventTypeMessage, sdk.AttributeKeyAction))
+			require.Equal(t, []string{addrs[1].String()}, governanceLifecycleEventValues(result.Events, sdk.EventTypeMessage, sdk.AttributeKeySender))
+			require.Equal(t, []string{types.AttributeValueCategory}, governanceLifecycleEventValues(result.Events, sdk.EventTypeMessage, sdk.AttributeKeyModule))
+			require.Equal(t, []string{types.WeightedVoteOptions(weighted.Options).String()}, governanceLifecycleEventValues(result.Events, types.EventTypeProposalVote, types.AttributeKeyOption))
 			vote, found := s.gov.GetVote(s.ctx, submitted.ProposalId, addrs[1])
 			require.True(t, found)
 			require.Equal(t, weighted.Options, vote.Options)
-			require.Contains(t, repairM679Doc(t, "04_events.md"), action)
+			require.Contains(t, governanceLifecycleDoc(t, "04_events.md"), action)
 		})
 	}
 }
 
-func TestRepairM_679_ParamsDoc(t *testing.T) {
-	s := repairM679State(t)
-	enc := repairM679Encoding()
+func TestGovernanceLifecycleParamsDoc(t *testing.T) {
+	s := governanceLifecycleState(t)
+	enc := governanceLifecycleEncoding()
 	pk := paramskeeper.NewKeeper(enc.Codec, enc.Amino,
-		repairM679Key(t, s, paramtypes.StoreKey), repairM679Key(t, s, paramtypes.TStoreKey))
+		governanceLifecycleKey(t, s, paramtypes.StoreKey), governanceLifecycleKey(t, s, paramtypes.TStoreKey))
 	space := pk.Subspace(types.ModuleName).WithKeyTable(types.ParamKeyTable())
 	defaults := types.DefaultParams()
 	for _, item := range []struct {
@@ -499,7 +499,7 @@ func TestRepairM_679_ParamsDoc(t *testing.T) {
 	require.NoError(t, space.Update(s.ctx, types.ParamStoreKeyVotingParams, []byte(`{"expedited_voting_period":"43200000000000"}`)))
 	require.Equal(t, 12*time.Hour, s.gov.GetVotingParams(s.ctx).ExpeditedVotingPeriod)
 	require.Equal(t, defaults.VotingParams.VotingPeriod, s.gov.GetVotingParams(s.ctx).VotingPeriod)
-	doc := repairM679Doc(t, "06_params.md")
+	doc := governanceLifecycleDoc(t, "06_params.md")
 	for field, value := range map[string]string{
 		"min_deposit": "10000000uhpx", "min_expedited_deposit": "20000000uhpx", "max_deposit_period": "48 hours",
 		"voting_period": "48 hours", "expedited_voting_period": "24 hours", "quorum": "0.334000000000000000",
@@ -519,7 +519,7 @@ func TestRepairM_679_ParamsDoc(t *testing.T) {
 	require.Equal(t, "0.334000000000000000", defaults.TallyParams.VetoThreshold.String())
 }
 
-func repairM679CLI(t *testing.T, ctx client.Context, cmd *cobra.Command, args ...string) (string, error) {
+func governanceLifecycleCLI(t *testing.T, ctx client.Context, cmd *cobra.Command, args ...string) (string, error) {
 	t.Helper()
 	var output bytes.Buffer
 	ctx = ctx.WithOutput(&output)
@@ -532,9 +532,9 @@ func repairM679CLI(t *testing.T, ctx client.Context, cmd *cobra.Command, args ..
 	return output.String(), err
 }
 
-func TestRepairM_679_ClientDoc(t *testing.T) {
-	enc := repairM679Encoding()
-	app := repairM679BaseApp(t, enc)
+func TestGovernanceLifecycleClientDoc(t *testing.T) {
+	enc := governanceLifecycleEncoding()
+	app := governanceLifecycleBaseApp(t, enc)
 	cfg := tmconfig.TestConfig().SetRoot(t.TempDir())
 	tmconfig.EnsureRoot(cfg.RootDir)
 	cfg.Mode = tmconfig.ModeFull
@@ -572,7 +572,7 @@ func TestRepairM_679_ClientDoc(t *testing.T) {
 	bk.SetParams(ctx, banktypes.DefaultParams())
 	sk.SetParams(ctx, stakingtypes.DefaultParams())
 	gov.InitGenesis(ctx, ak, bk, k, types.DefaultGenesisState())
-	s := &repair305State{cms: app.CommitMultiStore(), ctx: ctx, gov: k, auth: ak, bank: bk, staking: sk}
+	s := &expeditedProposalState{cms: app.CommitMultiStore(), ctx: ctx, gov: k, auth: ak, bank: bk, staking: sk}
 	addrs := s.electorate(t, false)
 	s.ctx.MultiStore().(sdk.CacheMultiStore).Write()
 	require.Equal(t, int64(1), s.cms.Commit(true).Version)
@@ -589,8 +589,8 @@ func TestRepairM_679_ClientDoc(t *testing.T) {
 		WithInterfaceRegistry(enc.InterfaceRegistry).WithTxConfig(enc.TxConfig).
 		WithChainID("repair-m679").WithOutputFormat("json").WithKeyring(keyring.NewInMemory())
 	proposalFile := filepath.Join(t.TempDir(), "proposal.json")
-	require.NoError(t, os.WriteFile(proposalFile, []byte(repairM679Example(t, "07_client.md", "expedited-file")), 0600))
-	generated, err := repairM679CLI(t, clientCtx.WithFrom(addrs[0].String()).WithFromAddress(addrs[0]),
+	require.NoError(t, os.WriteFile(proposalFile, []byte(governanceLifecycleExample(t, "07_client.md", "expedited-file")), 0600))
+	generated, err := governanceLifecycleCLI(t, clientCtx.WithFrom(addrs[0].String()).WithFromAddress(addrs[0]),
 		cli.NewCmdSubmitProposal(), "--proposal="+proposalFile, "--"+flags.FlagGenerateOnly, "--"+flags.FlagOffline)
 	require.NoError(t, err)
 	tx, err := enc.TxConfig.TxJSONDecoder()([]byte(generated))
@@ -626,7 +626,7 @@ func TestRepairM_679_ClientDoc(t *testing.T) {
 	p, found := s.gov.GetProposal(s.ctx, 1)
 	require.True(t, found)
 	require.Equal(t, types.StatusVotingPeriod, p.Status)
-	options := repair305Options("0.6", "0", "0.4", "0")
+	options := expeditedProposalOptions("0.6", "0", "0.4", "0")
 	execute(types.NewMsgVoteWeighted(addrs[0], p.ProposalId, options))
 	execute(types.NewMsgDeposit(addrs[1], p.ProposalId, sdk.NewCoins(sdk.NewInt64Coin(sdk.DefaultBondDenom, 1))))
 	// A real indexed block supplies the header consumed by historical tx queries.
@@ -647,11 +647,11 @@ func TestRepairM_679_ClientDoc(t *testing.T) {
 	require.Equal(t, int64(2), s.cms.Commit(true).Version)
 	s.ctx = s.ctx.WithMultiStore(s.cms.CacheMultiStore()).WithBlockHeight(3)
 
-	paramsJSON, err := repairM679CLI(t, clientCtx, cli.GetCmdQueryParams(), "--height=2", "--output=json")
+	paramsJSON, err := governanceLifecycleCLI(t, clientCtx, cli.GetCmdQueryParams(), "--height=2", "--output=json")
 	require.NoError(t, err)
-	require.JSONEq(t, repairM679Example(t, "07_client.md", "cli-params"), paramsJSON)
+	require.JSONEq(t, governanceLifecycleExample(t, "07_client.md", "cli-params"), paramsJSON)
 	t.Logf("fixture height 2 CLI params: %s", paramsJSON)
-	liveVote, err := repairM679CLI(t, clientCtx, cli.GetCmdQueryVote(), "1", addrs[0].String(), "--height=2", "--output=json")
+	liveVote, err := governanceLifecycleCLI(t, clientCtx, cli.GetCmdQueryVote(), "1", addrs[0].String(), "--height=2", "--output=json")
 	require.NoError(t, err)
 	var vote types.Vote
 	require.NoError(t, enc.Codec.UnmarshalAsJSON([]byte(liveVote), &vote))
@@ -678,7 +678,7 @@ func TestRepairM_679_ClientDoc(t *testing.T) {
 	body := get("params/voting", http.StatusOK)
 	var groups map[string]json.RawMessage
 	require.NoError(t, json.Unmarshal(body, &groups))
-	require.JSONEq(t, repairM679Example(t, "07_client.md", "gateway-voting"), string(groups["voting_params"]))
+	require.JSONEq(t, governanceLifecycleExample(t, "07_client.md", "gateway-voting"), string(groups["voting_params"]))
 	t.Logf("fixture height 2 gateway voting_params: %s", groups["voting_params"])
 	var voteResponse types.QueryVoteResponse
 	require.NoError(t, enc.Codec.UnmarshalAsJSON(get("proposals/1/votes/"+addrs[0].String(), http.StatusOK), &voteResponse))
@@ -714,16 +714,16 @@ func TestRepairM_679_ClientDoc(t *testing.T) {
 	var votes types.QueryVotesResponse
 	require.NoError(t, enc.Codec.UnmarshalAsJSON(get("proposals/1/votes", http.StatusOK), &votes))
 	require.Empty(t, votes.Votes)
-	historical, err := repairM679CLI(t, clientCtx, cli.GetCmdQueryVote(), "1", addrs[0].String(), "--height=3", "--output=json")
+	historical, err := governanceLifecycleCLI(t, clientCtx, cli.GetCmdQueryVote(), "1", addrs[0].String(), "--height=3", "--output=json")
 	require.NoError(t, err)
 	require.JSONEq(t, liveVote, historical)
-	historicalDeposit, err := repairM679CLI(t, clientCtx, cli.GetCmdQueryDeposit(), "1", addrs[1].String(), "--height=3", "--output=json")
+	historicalDeposit, err := governanceLifecycleCLI(t, clientCtx, cli.GetCmdQueryDeposit(), "1", addrs[1].String(), "--height=3", "--output=json")
 	require.NoError(t, err)
 	var deposit types.Deposit
 	require.NoError(t, enc.Codec.UnmarshalAsJSON([]byte(historicalDeposit), &deposit))
 	require.Equal(t, sdk.NewCoins(sdk.NewInt64Coin(sdk.DefaultBondDenom, 1)), deposit.Amount)
 	require.Equal(t, addrs[1].String(), deposit.Depositor)
-	doc := repairM679Doc(t, "07_client.md")
+	doc := governanceLifecycleDoc(t, "07_client.md")
 	require.Contains(t, doc, "height 2")
 	require.Contains(t, doc, "height 3")
 	require.Contains(t, doc, "individual `vote`")

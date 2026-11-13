@@ -43,11 +43,11 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-const repair684Chain = "repair684"
+const proposalSimulationChain = "repair684"
 
-var repair684Time = time.Unix(1700000000, 0).UTC()
+var proposalSimulationTime = time.Unix(1700000000, 0).UTC()
 
-type repair684Fixture struct {
+type proposalSimulationFixture struct {
 	app      *baseapp.BaseApp
 	cdc      *codec.ProtoCodec
 	keys     map[string]*sdk.KVStoreKey
@@ -58,7 +58,7 @@ type repair684Fixture struct {
 	accounts []simtypes.Account
 }
 
-func newRepair684Fixture(t *testing.T) *repair684Fixture {
+func newProposalSimulationFixture(t *testing.T) *proposalSimulationFixture {
 	t.Helper()
 	registry := codectypes.NewInterfaceRegistry()
 	std.RegisterInterfaces(registry)
@@ -69,7 +69,7 @@ func newRepair684Fixture(t *testing.T) *repair684Fixture {
 	proposal.RegisterInterfaces(registry)
 	cdc := codec.NewProtoCodec(registry)
 	gen := authtx.NewTxConfig(cdc, authtx.DefaultSignModes)
-	app := baseapp.NewBaseApp(repair684Chain, dbm.NewMemDB(), gen.TxDecoder(), nil, &testutil.TestAppOpts{})
+	app := baseapp.NewBaseApp(proposalSimulationChain, dbm.NewMemDB(), gen.TxDecoder(), nil, &testutil.TestAppOpts{})
 	t.Cleanup(func() { require.NoError(t, app.Close()) })
 	keys := sdk.NewKVStoreKeys(govtypes.StoreKey, authtypes.StoreKey, banktypes.StoreKey, stakingtypes.StoreKey, paramtypes.StoreKey)
 	for _, key := range keys {
@@ -94,7 +94,7 @@ func newRepair684Fixture(t *testing.T) *repair684Fixture {
 	sk := stakingkeeper.NewKeeper(cdc, keys[stakingtypes.StoreKey], ak, bk, pk.Subspace(stakingtypes.ModuleName))
 	gk := govkeeper.NewKeeper(cdc, keys[govtypes.StoreKey], pk.Subspace(govtypes.ModuleName).WithKeyTable(govtypes.ParamKeyTable()), ak, bk, sk, pk,
 		govtypes.NewRouter().AddRoute(govtypes.RouterKey, govtypes.ProposalHandler).AddRoute(proposal.RouterKey, params.NewParamChangeProposalHandler(pk)))
-	f := &repair684Fixture{app: app, cdc: cdc, keys: keys, auth: ak, bank: bk, gov: gk, params: pk}
+	f := &proposalSimulationFixture{app: app, cdc: cdc, keys: keys, auth: ak, bank: bk, gov: gk, params: pk}
 	for i := 0; i < 5; i++ {
 		key := secp256k1.GenPrivKeyFromSecret([]byte(fmt.Sprintf("repair684 account %d", i)))
 		f.accounts = append(f.accounts, simtypes.Account{Address: sdk.AccAddress(key.PubKey().Address()), PrivKey: key, PubKey: key.PubKey()})
@@ -123,21 +123,21 @@ func newRepair684Fixture(t *testing.T) *repair684Fixture {
 	return f
 }
 
-func (f *repair684Fixture) start(t *testing.T) sdk.Context {
+func (f *proposalSimulationFixture) start(t *testing.T) sdk.Context {
 	t.Helper()
 	require.NoError(t, f.app.LoadLatestVersion())
-	_, err := f.app.InitChain(context.Background(), &abci.RequestInitChain{ChainId: repair684Chain, Time: repair684Time})
+	_, err := f.app.InitChain(context.Background(), &abci.RequestInitChain{ChainId: proposalSimulationChain, Time: proposalSimulationTime})
 	require.NoError(t, err)
 	*f.app.DeliverContext() = f.app.DeliverContext().WithBlockHeight(1)
 	return *f.app.DeliverContext()
 }
 
-func repair684Content(_ *rand.Rand, _ sdk.Context, _ []simtypes.Account) simtypes.Content {
+func proposalSimulationContent(_ *rand.Rand, _ sdk.Context, _ []simtypes.Account) simtypes.Content {
 	return govtypes.NewTextProposal("Simulation repair", "Exercise the submitted proposal and its scheduled votes", false)
 }
 
-func TestRepairM_684_DecoderEndian(t *testing.T) {
-	f := newRepair684Fixture(t)
+func TestProposalSimulationDecoderEndian(t *testing.T) {
+	f := newProposalSimulationFixture(t)
 	ctx := f.start(t)
 	ids := []uint64{0x0102030405060708, 0x1020304050607080}
 	end := ctx.BlockTime().Add(time.Hour)
@@ -163,12 +163,12 @@ func TestRepairM_684_DecoderEndian(t *testing.T) {
 	}
 }
 
-func TestRepairM_684_ScheduledVotesTargetSubmittedProposal(t *testing.T) {
-	f := newRepair684Fixture(t)
+func TestProposalSimulationScheduledVotesTargetSubmittedProposal(t *testing.T) {
+	f := newProposalSimulationFixture(t)
 	ctx := f.start(t)
 	submitted, err := f.gov.GetProposalID(ctx)
 	require.NoError(t, err)
-	msg, future, err := govsimulation.SimulateMsgSubmitProposal(f.auth, f.bank, f.gov, repair684Content)(rand.New(rand.NewSource(684)), f.app, ctx, f.accounts, repair684Chain)
+	msg, future, err := govsimulation.SimulateMsgSubmitProposal(f.auth, f.bank, f.gov, proposalSimulationContent)(rand.New(rand.NewSource(684)), f.app, ctx, f.accounts, proposalSimulationChain)
 	require.NoError(t, err)
 	require.True(t, msg.OK)
 	require.NotEmpty(t, future)
@@ -181,7 +181,7 @@ func TestRepairM_684_ScheduledVotesTargetSubmittedProposal(t *testing.T) {
 	require.Empty(t, f.gov.GetVotes(ctx, submitted))
 	for _, scheduled := range future {
 		require.NotNil(t, scheduled.Op)
-		vote, nested, err := scheduled.Op(rand.New(rand.NewSource(685)), f.app, ctx.WithBlockTime(scheduled.BlockTime), f.accounts, repair684Chain)
+		vote, nested, err := scheduled.Op(rand.New(rand.NewSource(685)), f.app, ctx.WithBlockTime(scheduled.BlockTime), f.accounts, proposalSimulationChain)
 		require.NoError(t, err)
 		require.True(t, vote.OK)
 		require.Empty(t, nested)
@@ -198,9 +198,9 @@ func TestRepairM_684_ScheduledVotesTargetSubmittedProposal(t *testing.T) {
 	require.False(t, found)
 }
 
-func TestRepairM_684_ScheduleThroughExecutor(t *testing.T) {
-	f := newRepair684Fixture(t)
-	submit := govsimulation.SimulateMsgSubmitProposal(f.auth, f.bank, f.gov, repair684Content)
+func TestProposalSimulationScheduleThroughExecutor(t *testing.T) {
+	f := newProposalSimulationFixture(t)
+	submit := govsimulation.SimulateMsgSubmitProposal(f.auth, f.bank, f.gov, proposalSimulationContent)
 	scheduledCount := 0
 	var proposalID uint64
 	operation := func(r *rand.Rand, app *baseapp.BaseApp, ctx sdk.Context, accs []simtypes.Account, chain string) (simtypes.OperationMsg, []simtypes.FutureOperation, error) {
@@ -225,14 +225,14 @@ func TestRepairM_684_ScheduleThroughExecutor(t *testing.T) {
 	}
 	result, err := simulation.Simulate(t, f.app, simulation.SimulationConfig{
 		Seed: 684, NumBlocks: 4, BlockSize: 1, Params: simulation.RandomParams(rand.New(rand.NewSource(684))),
-		Genesis:  abci.RequestInitChain{ChainId: repair684Chain, Time: repair684Time},
+		Genesis:  abci.RequestInitChain{ChainId: proposalSimulationChain, Time: proposalSimulationTime},
 		Accounts: f.accounts, Operations: simulation.WeightedOperations{simulation.NewWeightedOperation(1, operation)},
 		BeginBlock: func(sdk.Context, abci.RequestBeginBlock) error { return nil }, LogDirectory: t.TempDir(),
 	})
 	require.NoError(t, err)
 	require.Equal(t, 4, result.Blocks)
 	require.Equal(t, 4+scheduledCount, result.Operations)
-	ctx := f.app.NewUncachedContext(false, tmproto.Header{ChainID: repair684Chain, Height: f.app.LastBlockHeight()})
+	ctx := f.app.NewUncachedContext(false, tmproto.Header{ChainID: proposalSimulationChain, Height: f.app.LastBlockHeight()})
 	require.Len(t, f.gov.GetVotes(ctx, proposalID), scheduledCount)
 	require.Empty(t, f.gov.GetVotes(ctx, proposalID+1))
 	log, err := os.ReadFile(result.LogPath)
@@ -240,8 +240,8 @@ func TestRepairM_684_ScheduleThroughExecutor(t *testing.T) {
 	require.Equal(t, scheduledCount, bytes.Count(log, []byte(`"entry_kind":"queued_msg"`)))
 }
 
-func TestRepairM_684_VetoFieldThroughProposalHandler(t *testing.T) {
-	f := newRepair684Fixture(t)
+func TestProposalSimulationVetoFieldThroughProposalHandler(t *testing.T) {
+	f := newProposalSimulationFixture(t)
 	ctx := f.start(t)
 	changes := govsimulation.ParamChanges(rand.New(rand.NewSource(684)))
 	var tally simtypes.ParamChange
