@@ -1,0 +1,79 @@
+[manifest]
+task = "22.41.74"
+pages = 19
+
+[page.1]
+path = "docs/wiki/X402Transport.md"
+status = "corrected"
+
+[page.2]
+path = "engine/tests/AGENTS.md"
+status = "corrected"
+
+[page.3]
+path = "interchain/README.md"
+status = "reviewed"
+
+[page.4]
+path = "interchain/modules/apps/27-interchain-accounts/README.md"
+status = "reviewed"
+
+[page.5]
+path = "interchain/modules/apps/transfer/keeper/MBT_README.md"
+status = "reviewed"
+
+[page.6]
+path = "interchain/modules/apps/transfer/spec/01_concepts.md"
+status = "reviewed"
+
+[page.7]
+path = "interchain/modules/apps/transfer/spec/02_state.md"
+status = "reviewed"
+
+[page.8]
+path = "interchain/modules/apps/transfer/spec/03_state_transitions.md"
+status = "reviewed"
+
+[page.9]
+path = "interchain/modules/apps/transfer/spec/04_messages.md"
+status = "reviewed"
+
+[page.10]
+path = "interchain/modules/apps/transfer/spec/05_events.md"
+status = "reviewed"
+
+[page.11]
+path = "interchain/modules/apps/transfer/spec/06_metrics.md"
+status = "reviewed"
+
+[page.12]
+path = "interchain/modules/apps/transfer/spec/07_params.md"
+status = "reviewed"
+
+[page.13]
+path = "interchain/modules/apps/transfer/spec/README.md"
+status = "reviewed"
+
+[page.14]
+path = "interchain/modules/core/spec/01_concepts.md"
+status = "corrected"
+
+[page.15]
+path = "interchain/modules/light-clients/06-solomachine/spec/01_concepts.md"
+status = "corrected"
+
+[page.16]
+path = "interchain/modules/light-clients/06-solomachine/spec/02_state.md"
+status = "reviewed"
+
+[page.17]
+path = "interchain/modules/light-clients/06-solomachine/spec/03_state_transitions.md"
+status = "corrected"
+
+[page.18]
+path = "interchain/modules/light-clients/06-solomachine/spec/README.md"
+status = "reviewed"
+
+[page.19]
+path = "interchain/testing/README.md"
+status = "corrected"
