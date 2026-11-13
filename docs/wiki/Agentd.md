@@ -39,12 +39,10 @@ reconciles them before admitting later writes.
 ### Node readiness and receipt keys
 
 `src/node_rpc.rs` connects through `NodeRpc::connect`, compares `eth_chainId`
-with the configured chain id, and applies finite RPC deadlines. Use the public
-root URL, for example `https://api-mainnet-beta.paxeer.network/` or
-`https://api1.mainnet-beta.paxeer.network/`; numbered public nodes run through
-`api14`. Hosted `px_` methods have their own contract in
-`services/platform/hosted/gateway/openrpc.json`, so public namespace support
-must not be inferred from an agent client method.
+with the configured chain id, and applies finite RPC deadlines. Select the
+node root URL from [Public RPC](PublicRpc.md). Hosted `px_` methods have their
+own contract in `services/platform/hosted/gateway/openrpc.json`, so public
+namespace support must not be inferred from an agent client method.
 
 `src/boot.rs` implements `readiness_gate`: obtain a nonempty receipt-key set
 from the chain-checked NodeRpc. `Gate::readiness_gate` first clears readiness,
@@ -68,10 +66,13 @@ boundary actually used rather than copying a library fixture.
 `src/finality.rs` verifies canonical execution receipts against the pinned
 receipt-key id, public key and inclusive height interval. The receipt must
 bind the transaction hash. Receipt keys are distinct from validator keys.
-`VerifiedBlock` checks block height/hash and CometBFT canonical precommit
-signatures against an independently trusted chain id and validator set;
-strictly more than two thirds of voting power must verify. Duplicate
-validators or signatures and malformed coordinates are refused.
+`VerifiedBlock::verify` checks block height/hash and CometBFT canonical
+precommit signatures against an independently trusted chain id and validator
+set; strictly more than two thirds of voting power must verify.
+`VerifiedBlock::verify_with_header` additionally authenticates the header and
+the transaction list against its data root. Use that header-bound path to
+establish transaction inclusion. Duplicate validators or signatures and
+malformed coordinates are refused.
 
 Committed state reads in `src/read/committed.rs` bind a precompile call and
 its storage witnesses to one authenticated committed block. State evidence

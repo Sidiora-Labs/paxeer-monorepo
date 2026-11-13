@@ -31,9 +31,8 @@ The HTTP handlers are in
 | POST | `/v1/http/ap2/execute` | Bind the mandate to a payer-signed transaction and relay it |
 
 The request uses `checkout_presentation`, `payment_presentation`, and `nonce`.
-Execution additionally needs `activity`: despite that field's historical
-name, the handler decodes it as a signed EIP-1559 transaction calling the
-ledger's `payExact` entry point. Follow the authentication and idempotency
+Execution additionally needs `activity`, a signed EIP-1559 transaction calling
+the ledger's `payExact` entry point. Follow the authentication and idempotency
 requirements on [Interop](Interop.md).
 
 The service chooses asset and merchant bindings from its authenticated

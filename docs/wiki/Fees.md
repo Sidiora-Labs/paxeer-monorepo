@@ -20,9 +20,9 @@ Sources: `include/layerx/lxp_fee.h`, `src/protocol/lxp_fee.c`,
 | Version | Encoded size | Extra prices |
 | ---: | ---: | --- |
 | 1 | 86 bytes | coefficients only |
-| 2 | 87 + 16×10 | ten Asset ordinal prices |
-| 3 | V2 + 8 | eleven Asset prices; withdraw `u64` slot must have high 64 bits zero |
-| 4 | V3 head + 16×7 | seven module prices (escrow through bridge) |
+| 2 | 247 bytes | ten Asset ordinal prices |
+| 3 | 255 bytes | eleven Asset prices; withdraw `u64` slot must have high 64 bits zero |
+| 4 | 368 bytes | version-3 fields, a one-byte module-price count, and seven 16-byte prices (escrow through bridge) |
 
 `lxp_fee_params` fields: `base_fee`, `per_activity_type_unit`,
 `per_encoded_byte`, `per_execution_unit`, `per_storage_unit`,
@@ -69,7 +69,7 @@ Indices 0–6 are modules 2–8:
 Programs is not in this table. A Programs CALL that presents
 `exact_program_fee_present` uses `exact_program_fee_units` instead of the
 coefficient formula (`lxp_fee_compute`). That path is only legal for module 9
-ordinal 3.
+ordinal 3 with a nonzero `program_fee_schedule_version`.
 
 ---
 
@@ -79,8 +79,9 @@ ordinal 3.
 
 1. If an exact program fee is present, return those units (CALL only).
 2. Start at `base_fee`.
-3. Asset module: add the flat `asset_prices` slot for the ordinal. Other
-   modules: add `per_activity_type_unit × activity_type`.
+3. For the Asset module with schedule version ≥ 2, add the flat
+   `asset_prices` slot for the ordinal. Otherwise, including Asset under
+   version 1, add `per_activity_type_unit × activity_type`.
 4. Version 4: if the module is escrow–bridge, add that module price.
 5. Add `per_encoded_byte × canonical_encoded_bytes`,
    `per_execution_unit × execution_units`,
@@ -110,10 +111,6 @@ The treasury account is `system:fees`. Charge is a `402LXP` leg with
 
 Programs occupancy rent is a separate batch settlement, also as `402LXP`
 legs. See [Programs](Programs.md).
-
-The retained node-interface `fee_estimate` and `session_fee_state` (minor 1.5)
-return a committed schedule projection without reserving fees. They are not
-public JSON-RPC methods.
 
 ---
 

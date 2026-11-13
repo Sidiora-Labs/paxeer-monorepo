@@ -31,8 +31,11 @@ Sources: `include/layerx/lx_budget.h`, `src/modules/budget/lx_budget_module.c`,
 | `LX_BUDGET_DELEGATE_SPEND` | `0x0003000a` | v1 114 bytes |
 
 Every payload starts `version:u16` with `bytes[0]=0` and `bytes[1]` the
-encoding version (`src/modules/budget/lx_budget_codec.c`). Decode refusals
-are `LXP_ERR_NON_CANONICAL`, `LXP_ERR_INVALID_AMOUNT`,
+encoding version (`src/modules/budget/lx_budget_codec.c`). The codec refuses
+an invalid version or layout with `LXP_ERR_NON_CANONICAL` and invalid amounts
+with `LXP_ERR_INVALID_AMOUNT`. Version-2 CREATE and native-source FUND require
+protocol version 3. FUND also checks that its encoding version matches the
+budget's stored source kind. These execution checks can return
 `LXP_ERR_VERSION_UNSUPPORTED`.
 
 ---

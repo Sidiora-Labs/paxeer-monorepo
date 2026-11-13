@@ -37,8 +37,8 @@ escrow_id32 || owner32 || escrow_account32 || beneficiary32 || arbiter32
 ```
 
 Validate refuses a zero amount (`LXP_ERR_ZERO_AMOUNT`). Execute refusals
-include `LXP_ERR_UNAUTHORIZED_DEBIT`, `LXP_ERR_SEQUENCE_REUSED`, and
-transfer-set codes.
+include `LXP_ERR_UNAUTHORIZED_DEBIT`, `LXP_ERR_ESCROW_STATE` for an existing
+escrow ID, and transfer-set codes.
 
 ---
 
@@ -51,7 +51,10 @@ escrow_id32 || amount:u128 || idempotency_key32
 Partial capture also refuses a zero amount. Capture refusals include
 `LXP_ERR_ESCROW_STATE`, `LXP_ERR_HOLD_EXPIRED`, `LXP_ERR_HOLD_DISPUTED`,
 `LXP_ERR_UNAUTHORIZED_CAPTURE`, `LXP_ERR_CAPTURE_EXCEEDS_HOLD`,
-`LXP_ERR_UNAUTHORIZED_ESCROW_SPEND`, `LXP_ERR_IDEMPOTENT_REPLAY`.
+`LXP_ERR_UNAUTHORIZED_ESCROW_SPEND`, and `LXP_ERR_CONTEXT_MISMATCH`.
+An exact replay with the same idempotency key and bound operation context
+returns the stored economic result without moving funds again. Reusing that
+key for a different escrow, operation or context is `LXP_ERR_CONTEXT_MISMATCH`.
 
 ---
 
@@ -80,7 +83,9 @@ Payload is `escrow_id32`. Refusals include `LXP_ERR_ESCROW_STATE`,
 escrow_id32 || beneficiary_basis_points:u32 || idempotency_key32
 ```
 
-Validate refuses out-of-range basis points with `LXP_ERR_PARAMETER_BOUNDS`.
+The decoder refuses basis points above 10,000 with `LXP_ERR_NON_CANONICAL`;
+the idempotency key must be nonzero. The validator also checks the bound and
+returns `LXP_ERR_PARAMETER_BOUNDS` for an out-of-range decoded value.
 The split is `lx_escrow_split_bps`. Conservation failures are
 `LXP_ERR_CONSERVATION`.
 

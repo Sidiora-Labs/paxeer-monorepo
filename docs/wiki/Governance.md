@@ -55,13 +55,16 @@ Length is 4–1024 bytes. Any other header is `LXP_ERR_NON_CANONICAL`.
 | 3 | 0 | 3 or 5 | 70 or 86 | Recovery root at 36; optional delay / max-delay u64 at 70 and 78 |
 | 5 | 1 or 2 | 3 or 5 | ≥ 52 | Session grant |
 | 6 | 0 | 3 | 45 | `grant_id32` at 4; reason byte at 36; sequence u64 at 37 |
-| 8 | 1 | 1 | ≥ 9 | Grant body after the four-byte header |
+| 8 | 1 | 1 | ≥ 9 | Big-endian u32 byte length, then the grant body |
 
 Activity 7:8 issues kind 3 (delegated capability) or kind 4 (budget allowance).
 The payload is `0x71 0x08 0x01 0x01`
-followed by `lxp_grant_encode` bytes (structure `0x2001`, version 1). No
-trailing bytes. The inner grantor signature is all zero because the outer
-owner signature binds the body. Identity must already exist via 7:1.
+followed by the body length as a big-endian `u32`, then `lxp_grant_encode`
+bytes (structure `0x2001`). The grant uses version 1 without a fee budget or
+version 2 with a fee budget. No trailing bytes are accepted. The inner grantor
+signature is all zero because the outer owner signature binds the body.
+Protocol version 3 and owner authority matching the actor DID are required.
+Identity must already exist via 7:1.
 
 Ordinal 10 uses `lxp_programs_migration_proposal_decode`; ordinal 11 uses
 `lxp_programs_fee_governance_proposal_validate`. These proposal payloads
