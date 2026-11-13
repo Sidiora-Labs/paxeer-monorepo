@@ -17,7 +17,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 )
 
-func TestRepairM_1463_PathFailure(t *testing.T) {
+func TestShowDevicePathFailure(t *testing.T) {
 	kb := keyring.NewInMemory()
 	pubKey := secp256k1.GenPrivKeyFromSecret([]byte(t.Name())).PubKey()
 	_, err := kb.SavePubKey("offline", pubKey, hd.Secp256k1Type)
@@ -35,7 +35,7 @@ func TestRepairM_1463_PathFailure(t *testing.T) {
 	require.EqualError(t, errors.Unwrap(err), pathErr.Error())
 }
 
-func repairM1463LedgerKeyring(t *testing.T) (keyring.Keyring, keyring.Info) {
+func ledgerDisplayKeyring(t *testing.T) (keyring.Keyring, keyring.Info) {
 	t.Helper()
 	// Public metadata from Test_writeReadLedgerInfo in sdk/crypto/keyring,
 	// decoded as the registered production ledgerInfo rather than a test Info.
@@ -64,8 +64,8 @@ func repairM1463LedgerKeyring(t *testing.T) (keyring.Keyring, keyring.Info) {
 	return kb, restored
 }
 
-func TestRepairM_1463_LedgerDeviceFailure(t *testing.T) {
-	kb, info := repairM1463LedgerKeyring(t)
+func TestShowDeviceUnavailableLedger(t *testing.T) {
+	kb, info := ledgerDisplayKeyring(t)
 	const deviceErr = "ledger nano S: support for ledger devices is not available in this executable"
 	for _, keyref := range []string{info.GetName(), info.GetAddress().String()} {
 		for _, output := range []struct {
