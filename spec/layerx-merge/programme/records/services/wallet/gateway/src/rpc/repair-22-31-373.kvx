@@ -1,7 +1,7 @@
 [repair.22.31.373]
 finding = "send-transport-uncertainty"
 base_revision = "4273de5e86f58f8212e00898cbfeb995efcb85b5"
-test_file = "services/wallet/gateway/test/repair-22-31-373.test.ts"
+test_file = "services/wallet/gateway/test/sequencer-broadcast-outcomes.test.ts"
 proving_tests = ["sendTransportUncertaintyAfterNodeAcceptance", "sendHttpFailureRetainsCanonicalHashAndNonce", "sendLostJsonBodyRequiresReceiptPolling", "sendTimeoutPreservesUncertainOutcome", "sendBodyTimeoutPreservesUncertainOutcome"]
 regression_tests = ["definitiveNodeRefusalRemainsRejected", "missingSequencerRemainsUnavailableBeforeSend"]
 proof = "A viem account signs a payment; the existing in-process chain fixture validates and applies it through HTTP, a forwarding HTTP server loses the response, and the real RpcPool and outcomeUnknownBody consumer retain canonical hash and nonce for receipt polling with exactly one submission."

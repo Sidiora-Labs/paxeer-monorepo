@@ -4,7 +4,7 @@ requirement = "22998.1"
 base_revision = "7d5db08196d6c24493a563e6b754b6e5cf74901a"
 verified_revision = "The candidate revision in the private hf-done ledger, kind=verify; only exit=0 qualifies this record."
 build_command = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir services/wallet/gateway run typecheck"
-verify_command = "pnpm --dir services/wallet/gateway run typecheck && pnpm --dir services/wallet/gateway exec vitest run test/repair-22-31-517.test.ts"
+verify_command = "pnpm --dir services/wallet/gateway run typecheck && pnpm --dir services/wallet/gateway exec vitest run test/single-connection-signing.test.ts"
 evidence = "hf-build and hf-done emit the exact content-addressed candidate revision, command, exit and private log path; the runner attaches the matching build and verify records."
 
 [site.human_signing]
@@ -74,7 +74,7 @@ path = "services/wallet/gateway/src/provision/state.ts"
 status = "Audited lockSubject: session advisory lock, no BEGIN or caller-owned transaction. The separately exported sendSetupTransaction nonce callback is included in the repair above."
 
 [proof]
-file = "services/wallet/gateway/test/repair-22-31-517.test.ts"
+file = "services/wallet/gateway/test/single-connection-signing.test.ts"
 database = "Real PGlite with pgcrypto, exposed over PostgreSQL wire by PGLiteSocketServer; normal gateway migrations; env.DATABASE_POOL_MAX=1 before getPool."
 transport = "Fastify injection into real routes with locally signed JWTs verified over the existing local identity-provider JWKS server; existing TestChain for signed EVM transactions and sequencer receipts. No live endpoints, credentials, subprocess toolchain or externally supplied environment required."
 deadline = "Each named test has a 4000ms deadline, below the pool acquisition timeout of 5000ms."
@@ -83,7 +83,7 @@ regression = "Pre-repair sign.ts checks out the only client before the account l
 
 [gotcha.missing_reference]
 symptom = "The task references test/support/node-receipts.ts, which is absent in this revision."
-resolution = "Use the same committed PGlite/pgcrypto/PGLiteSocketServer bootstrap as repair-22-33-180.test.ts, through src/db/testDatabase.ts, and the real migration runner."
+resolution = "Use the same committed PGlite/pgcrypto/PGLiteSocketServer bootstrap as database-reservation-guards.test.ts, through src/db/testDatabase.ts, and the real migration runner."
 
 [qualification.build_prerequisite]
 revision = "f75f9efcbf80e1a0adb81391293dd06ad6521029"

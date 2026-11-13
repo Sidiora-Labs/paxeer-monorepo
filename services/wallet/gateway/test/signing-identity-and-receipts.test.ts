@@ -27,7 +27,7 @@ import {
 } from './support/identity.js';
 import './migrations-evm.test.js';
 
-export const repair2233207Record = {
+export const signingIdentityAndReceiptCoverage = {
   task: '22.33.207',
   findings: {
     'tee-selector-order': 'teeSelectorOrderDistinguishesAvailabilityProbe',
