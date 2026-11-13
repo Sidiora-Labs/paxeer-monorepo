@@ -7,7 +7,7 @@
 | **Server**      | Central hub. Stores runtime state in SQLite or PostgreSQL, exposes an HTTP API, and pushes change notifications over WebSocket. Stateless itself; the DB is the source of truth. Routes work to hosts over the active daemon WebSocket.                                                                                |
 | **Host daemon** | Runs on each enrolled execution machine. Connects to the server, handles host RPC requests, provisions workspaces, runs agent provider processes, and posts events back. Exposes a local HTTP API for co-located app and CLI operations such as opening an editor, picking folders, and checking daemon status. |
 | **App**         | Web UI for inspecting projects and threads, following progress, and steering work.                                                                                                                                                                                                                              |
-| **CLI** (`hyperfide platform`)  | First-class interface for both users and agents. Same capabilities as the app, scriptable.                                                                                                                                                                                                                      |
+| **CLI** (`hyperfide platform`)  | Scriptable interface for users and agents to the server and host operations exposed by its commands.                                                                                                                                                                                                          |
 
 ## Data model
 

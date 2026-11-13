@@ -249,6 +249,9 @@ The Next.js frontend forwards chart requests through its own
 [`src/pages/api/candle/[...path].ts`](../../apps/perps/src/pages/api/candle/%5B...path%5D.ts).
 It accepts GET/HEAD for `config`, `symbols`, `search`, `history`, `marks`,
 `timescale_marks`, `time` and `quotes`, with allowlisted query parameters.
+`search` returns the frontend's supported-symbol list, and `marks` and
+`timescale_marks` return empty arrays locally. `quotes` combines upstream
+responses for the requested symbols; the other endpoints proxy upstream.
 
 A typical history request is
 `/api/candle/history?symbol=BTC&resolution=1&from=1747522800&to=1747526400`.
@@ -349,11 +352,13 @@ A market record has this shape:
 `market_id` is a decimal **string**. Prices/notionals are USD, `change_24h` is a
 fraction (0.0123 means 1.23%), and `perp_basis_bps` is in basis points.
 `price`, `change_24h`, `last_updated`, mark/index/basis, long/short ratio,
-`perp_oi_contracts` and `perp_oi_usd` are nullable in the record type.
-Volumes, trade count and top-level open interest are numeric; empty aggregate
-windows yield zero. A zero short OI leaves the long/short ratio `null`.
-`last_updated` reflects a mark block in REST and the rolling-statistics update
-block in market topic records; it is not a per-field freshness guarantee.
+and `perp_oi_contracts` are nullable in the record type.
+`perp_oi_usd`, volumes, trade count and top-level open interest are numeric;
+empty aggregate windows yield zero. A zero short OI leaves the long/short ratio
+`null`. In REST, `last_updated` is the block time of the latest index price,
+selected from mark-price rows and successful pricefeed aggregates. Market
+topic records use the rolling-statistics update block instead. Neither value
+is a per-field freshness guarantee.
 
 ### Funding contract
 

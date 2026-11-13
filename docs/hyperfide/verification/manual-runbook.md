@@ -47,8 +47,9 @@ commands.
 - Thread recovery is validated with the existing lifecycle commands:
   `hyperfide-platform thread stop`, `hyperfide-platform thread tell`, `hyperfide-platform thread spawn`, archive/unarchive, and
   the recovery checks below. When the provider-retry plugin is enabled,
-  `Hyperfide provider-retry retry <thread-id>` is the manual path for a failed,
-  accepted provider rate-limit turn; inspect the thread before using it. For
+  `Hyperfide provider-retry status <thread-id>` lists its pending automatic retry;
+  `Hyperfide provider-retry retry <thread-id>` sends that queued retry immediately.
+  The retry command requires a pending retry row. For
   other failed or interrupted threads, send a fresh turn with `hyperfide-platform thread tell`,
   or create a replacement with `hyperfide-platform thread spawn` when a new thread is the right
   recovery path.
@@ -418,8 +419,8 @@ hyperfide-platform thread show "$DIRTY_ARCHIVE_THREAD_ID" --work-status
 hyperfide-platform thread archive "$DIRTY_ARCHIVE_THREAD_ID"
 
 curl -fsS "$HYPERFIDE_SERVER_URL/api/v1/threads/$DIRTY_ARCHIVE_THREAD_ID" | jq -e '.archivedAt != null'
-DIRTY_ARCHIVE_ENV_STATUS=$(curl -fsS "$HYPERFIDE_SERVER_URL/api/v1/environments/$DIRTY_ARCHIVE_ENV_ID" | jq -r '.status')
-test "$DIRTY_ARCHIVE_ENV_STATUS" = "retiring"
+DIRTY_ARCHIVE_ENV_PHASE=$(curl -fsS "$HYPERFIDE_SERVER_URL/api/v1/environments/$DIRTY_ARCHIVE_ENV_ID" | jq -er '.lifecycle.phase')
+test "$DIRTY_ARCHIVE_ENV_PHASE" = "retiring"
 test -e "$DIRTY_ARCHIVE_ENV_PATH"
 
 # A last-live archived managed environment remains revivable during the five-minute
@@ -443,7 +444,7 @@ Expected result:
 - `Hyperfide environment commit` succeeds with helper-generated commit text without requiring `OPENAI_API_KEY`.
 - Environment merge-base metadata can be set, reflected by `Hyperfide environment show`, used by thread status/diff output, and cleared.
 - Archiving blocks `hyperfide-platform thread tell`; unarchiving restores normal operation.
-- Archiving the last live dirty managed worktree puts it in `retiring` and preserves it during the undo grace period; permanently deleting its archived thread then destroys the environment and removes the worktree even while uncommitted or unmerged work remains.
+- Archiving the last live dirty managed worktree sets `lifecycle.phase` to `retiring` and preserves it during the undo grace period; permanently deleting its archived thread then destroys the environment and removes the worktree even while uncommitted or unmerged work remains. Environment `status` and `lifecycle.phase` are separate fields.
 
 ## Multi-Thread and Shared Environment
 

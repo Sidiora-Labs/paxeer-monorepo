@@ -11,7 +11,11 @@ python3 build/build_site.py ../..
 python3 build/build_site.py --check ../..
 ```
 
-The first form writes. The second asserts, and fails when a generated page or an extracted code block is stale, or when an internal link names a file the standalone site does not generate.
+The first form writes the reference Markdown, extracted sample blocks and
+static site. The second compares the generated reference Markdown and sample
+blocks with their inputs, validates capability labels, and checks the internal
+links in a freshly rendered in-memory site. Run the write form to publish that
+rendering to `site/`.
 Link checking ignores query strings and fragments; it validates file targets,
 not heading anchors or remote URL availability.
 
@@ -25,7 +29,11 @@ use immutable source URLs so they resolve when the site is hosted alone.
 
 `content/reference/human-api.md`, `content/reference/agent-api.md` and `content/reference/errors.md` are generated from `services/human/schema/human-api` and `services/agent/schema/agent-api`. `content/reference/enforcement.md` is generated from `capabilities.kvx`, and `content/reference/samples.md` from `samples.kvx`. None of the five is hand-edited; the build overwrites them.
 
-Every other page under `content/` is written by hand and must carry an `Enforced by` table naming, for each capability it documents, the layer that enforces it: `protocol`, `agent-layer`, `service` or `hosted-surface`. A page without one fails the build.
+Every other page under `content/` is written by hand and carries an
+`Enforced by` table. Capability rows use `protocol`, `agent-layer`, `service` or
+`hosted-surface`; the builder checks each matched capability title and layer
+against `capabilities.kvx` and requires every declared capability to appear on
+at least one page.
 
 `beta-environment.md` sits outside `content/` and is never rewritten.
 
