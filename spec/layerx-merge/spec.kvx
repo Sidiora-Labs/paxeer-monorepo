@@ -204208,7 +204208,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.232]
 title = "Move the task records and name the files after what they hold in wasm-runtime"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204240,7 +204240,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.220]
 title = "Move the task records and name the files after what they hold in tools/platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238137,7 +238137,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.43.231]
 title = "Move the task records and name the files after what they hold in wasm"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238169,7 +238169,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.230]
 title = "Move the task records and name the files after what they hold in utils"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238233,7 +238233,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.227]
 title = "Move the task records and name the files after what they hold in tools/tx-scanner"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238265,7 +238265,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.226]
 title = "Move the task records and name the files after what they hold in tools/specgen"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238297,7 +238297,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.221]
 title = "Move the task records and name the files after what they hold in tools/pnsdns"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238329,7 +238329,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.218]
 title = "Move the task records and name the files after what they hold in tools/paxctl"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238361,7 +238361,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.217]
 title = "Move the task records and name the files after what they hold in tools/loadtest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -301837,7 +301837,7 @@ do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/
 
 [task.22.43.229]
 title = "Move the task records and name the files after what they hold in tools/workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -372764,7 +372764,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.246]
 title = "Move the task records and name the files after what they hold in tools/qualification/audit_repairs, numbers 22.33.1550 to 22.33.1579"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -372796,7 +372796,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.245]
 title = "Move the task records and name the files after what they hold in tools/qualification/audit_repairs, numbers 22.33.1410 to 22.33.1549"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -372828,7 +372828,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.244]
 title = "Move the task records and name the files after what they hold in tools/qualification/audit_repairs, numbers 22.33.1350 to 22.33.1409"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -372892,7 +372892,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.242]
 title = "Move the task records and name the files after what they hold in tools/qualification/audit_repairs, numbers 22.33.1010 to 22.33.1229"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -372924,7 +372924,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.241]
 title = "Move the task records and name the files after what they hold in tools/qualification/audit_repairs, numbers 22.33.850 to 22.33.999"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -372956,7 +372956,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.240]
 title = "Move the task records and name the files after what they hold in tools/qualification/audit_repairs, numbers 22.33.780 to 22.33.849"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -372988,7 +372988,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.239]
 title = "Move the task records and name the files after what they hold in tools/qualification/audit_repairs, numbers 22.33.740 to 22.33.779"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373020,7 +373020,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.238]
 title = "Move the task records and name the files after what they hold in tools/qualification/audit_repairs, numbers 22.33.610 to 22.33.739"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373148,7 +373148,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.234]
 title = "Move the task records and name the files after what they hold in tools/qualification/audit_repairs, numbers 22.33.0 to 22.33.149"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373180,7 +373180,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.233]
 title = "Move the task records and name the files after what they hold in tools/qualification/audit_repairs, numbers 22.31.390 to 22.31.619"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373212,7 +373212,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.225]
 title = "Move the task records and name the files after what they hold in tools/spec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373244,7 +373244,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.224]
 title = "Move the task records and name the files after what they hold in tools/rollout"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373276,7 +373276,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.223]
 title = "Move the task records and name the files after what they hold in tools/release"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373308,7 +373308,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.222]
 title = "Move the task records and name the files after what they hold in tools/qualification and 2 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373340,7 +373340,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.219]
 title = "Move the task records and name the files after what they hold in tools/paxeer-x"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373372,7 +373372,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.216]
 title = "Move the task records and name the files after what they hold in tools/launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373404,7 +373404,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.215]
 title = "Move the task records and name the files after what they hold in tools/jev"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
