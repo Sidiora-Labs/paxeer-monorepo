@@ -14062,6 +14062,24 @@ value = "One task per group of files. The task changes the file the case reads s
 basis = "Gotcha 4404, decision 3478."
 affects = []
 
+[decision.3492]
+title = "The task of the tests that read the kernel sentence runs after the page tasks and over every test that names the wording"
+value = "Task 22.43.295 runs on a tree that holds the pages of the tasks 22.43.296 to 22.43.303. An assertion that read an old clause on a page reads the sentence that page holds now, whichever task wrote it; no page of another task changes. The verification runs every Python test file under tests/ci and tools/qualification/audit_repairs that names the wording, apart from the three modules that task 22.43.310 brings to their present paths, and an old clause in any file of the two directories ends it."
+basis = "Gotcha 4405, decision 3490."
+affects = ["22.43.295"]
+
+[decision.3493]
+title = "The case on the contract page of the inference market reads the page in its present form"
+value = "The page spec/layerx-merge/contracts/inference-market.md keeps its tables: one per section, four columns, the name, the kind and the signature in code tags with character entities, the source as a link to the file. The case reads that form. Every row of the page is a row of the registry and stands on the page once; for the inference interfaces the kind, the path of the source and the signature equal the registry row and the section of the row is on the page. The page holds no task column, no status column and no count lines, so the case does not read them there."
+basis = "Gotcha 4406, decision 3491."
+affects = ["22.43.319"]
+
+[decision.3494]
+title = "A page description of the documentation site holds 50 to 160 characters and leads with the kernel"
+value = "The lead paragraph of a page of the documentation site is its description and holds 50 to 160 characters. On a page that describes the network it says first what the LayerX kernel does: it executes and orders each transaction and builds each block, and validators check and commit it. A fact the longer text held stays on the page in the first paragraph of the body."
+basis = "Gotcha 4407, decision 3490."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43722,6 +43740,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.43.321]
+title = "Bring four page descriptions of the documentation site to the recommended length"
+reqs = ["22998.1"]
+touches = ["docs/site/paxeer-docs/src/app", "docs/site/paxeer-docs/src/lib/seo-pages.json", "docs/site/paxeer-docs/public", "docs/site/paxeer-docs/.generated"]
+tests = []
+verification_contract = "npm --prefix docs/site/paxeer-docs run build && test -s docs/site/paxeer-docs/out/index.html && SEO_STRICT=1 npm --prefix docs/site/paxeer-docs run audit:seo && git grep -q -F 'LayerX kernel' -- docs/site/paxeer-docs/src/app/page.tsx && git grep -q -F 'LayerX kernel' -- docs/site/paxeer-docs/src/app/unified-network/page.tsx && test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- docs/site/paxeer-docs/src/app docs/site/paxeer-docs/public/markdown docs/site/paxeer-docs/src/lib/seo-pages.json | wc -l) -eq 0"
+do_1 = "do_1 Decision 3494, gotcha 4407. Build the documentation site and write down the lines of the audit that name a description: the front page, paxeer-vs-layerx, public-rpc and unified-network, each longer than 160 characters. The description of a page is the lead paragraph under its title in the page file under docs/site/paxeer-docs/src/app."
+symbols = []
 
 [capability.22.43.320]
 title = "Give the fixture answers of the wallet live check the block and application hashes"
@@ -170740,9 +170767,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.43.321]
+title = "Bring four page descriptions of the documentation site to the recommended length"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.321"]
+interfaces = []
+do_1 = "do_1 Decision 3494, gotcha 4407. Build the documentation site and write down the lines of the audit that name a description: the front page, paxeer-vs-layerx, public-rpc and unified-network, each longer than 160 characters. The description of a page is the lead paragraph under its title in the page file under docs/site/paxeer-docs/src/app."
+do_2 = "do_2 Give each of the four pages a lead paragraph of 50 to 160 characters. It says first what the LayerX kernel does: the kernel inside paxd executes and orders each transaction and builds each block, and validators check and commit it. The page public-rpc keeps the chain identifier 125 in its lead. A fact the longer paragraph held and the shorter one does not, such as the one global sequence or the signed execution receipt, moves into the first paragraph of the body of the same page, so nothing the page stated is lost. No page calls the network one BFT network and none says the kernel takes part in proposal."
+do_3 = "do_3 Do not write the generated copies by hand. The build runs the generators of the site before it compiles; commit what they write under the paths of this task and nothing else. Change no other page and no script. Run the audit in its strict mode by hand until it reports no warning. Before each commit read the output of git status. Then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site/paxeer-docs/src/app", "docs/site/paxeer-docs/src/lib/seo-pages.json", "docs/site/paxeer-docs/public", "docs/site/paxeer-docs/.generated"]
+tests = []
+planned_paths = []
+build_cmd = "npm ci --prefix docs/site/paxeer-docs"
+verify_cmd = "npm --prefix docs/site/paxeer-docs run build && test -s docs/site/paxeer-docs/out/index.html && SEO_STRICT=1 npm --prefix docs/site/paxeer-docs run audit:seo && git grep -q -F 'LayerX kernel' -- docs/site/paxeer-docs/src/app/page.tsx && git grep -q -F 'LayerX kernel' -- docs/site/paxeer-docs/src/app/unified-network/page.tsx && test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- docs/site/paxeer-docs/src/app docs/site/paxeer-docs/public/markdown docs/site/paxeer-docs/src/lib/seo-pages.json | wc -l) -eq 0"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.43.303]
 title = "Bring the pages of the documentation site to the kernel sentence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.43.294"]
@@ -195425,7 +195482,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.307]
 title = "Run the static test script of the documentation site in its workflow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -195455,7 +195512,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.306]
 title = "Bring the checksum file of the vendored wasmi crate to its present sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374363,10 +374420,11 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3493, gotcha 4406. The contract page holds one table per section with four columns: Interface, Kind, Source, Signature. The name, the kind and the signature stand in code tags with character entities, and the source is a link whose text is the path of the file. Bring the case test_contract_matches_the_served_registry to that form. Read every table row whose first cell names an interface, take the code tags off and resolve the entities. Assert for each row that the name is a row of the registry and stands on the page once, and for the inference interfaces that the kind, the path and the signature equal the registry row and that the section the row names is on the page. The count of 43 rows, the assertion that every inference interface is on the page and the assertion on the revision line stay. The page holds no task column, no status column and no count lines: the assertions on those go from the case. Change nothing on the page beyond the revision line of do_2. Then take the mark off and run the file as the verification does."
 
 [task.22.43.318]
 title = "State on the HTTP transport conformance page which cases are for review only"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374396,7 +374454,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.317]
 title = "State on the release page that earlier release packages may hold retired components"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374456,7 +374514,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.315]
 title = "Let a wallet repair record that names its suites by path stand on those suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374516,7 +374574,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.312]
 title = "Take the retired finality vector out of the ledger fixture of the evidence tool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374546,7 +374604,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.311]
 title = "Bring the receipt case of the Python kit to the receipt the node returns for a native transfer without balance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374576,7 +374634,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.310]
 title = "Bring four qualification test modules to the present fixture and helper paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374606,7 +374664,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.309]
 title = "Bring the severity values of the ledger to the four values its checker reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374696,7 +374754,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.304]
 title = "Say what the history data of the RPC tests is without a planning number"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374726,7 +374784,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.302]
 title = "Bring the pages of the node, the modules, the RPC and the storage to the kernel sentence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374756,7 +374814,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.301]
 title = "Bring the pages of the kits and the applications to the kernel sentence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374816,7 +374874,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.299]
 title = "Bring the system, release, platform and remaining documentation pages to the kernel sentence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374846,7 +374904,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.298]
 title = "Bring the contract pages to the kernel sentence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374876,7 +374934,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.297]
 title = "Bring the wiki pages to the kernel sentence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374906,7 +374964,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.296]
 title = "Bring the pages of upstream specification to the kernel sentence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374948,11 +375006,11 @@ do_2 = "do_2 In docs/readme/NETWORK.md, docs/paxeer-network.md and programs/READ
 do_3 = "do_3 Thirteen test files read the old clauses: tests/ci/test_docs_readme_current_pages.py, which reads docs/README.md and docs/paxeer-network.md, and twelve files under tools/qualification/audit_repairs, which git grep finds by the two clauses. In each, an assertion that reads one of the two old clauses reads the new sentences instead, on the page it reads today; for docs/README.md that is the opening as it stands on main. An assertion on the chain identifier and on any other fact stays as it is. No assertion goes and no case gets a mark of expected failure or a skip."
 do_4 = "do_4 State nothing that the code read under do_1 does not show. Change no code, no link, no table and no heading of the three pages. Change no file outside the paths of this task. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["docs/readme/NETWORK.md", "docs/paxeer-network.md", "programs/README.md", "tests/ci/test_docs_readme_current_pages.py", "tools/qualification/audit_repairs"]
+touches = ["docs/readme/NETWORK.md", "docs/paxeer-network.md", "programs/README.md", "tests/ci", "tools/qualification/audit_repairs"]
 tests = []
 planned_paths = []
 build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
-verify_cmd = "python3 -m pytest -q -m 'not native' tests/ci/test_docs_readme_current_pages.py tools/qualification/audit_repairs/test_program_packaging_and_chain_proof_guidance.py tools/qualification/audit_repairs/test_programs_readme_retired_adapter.py tools/qualification/audit_repairs/test_readme_binding_and_funding_contract.py tools/qualification/audit_repairs/test_readme_execution_domains.py tools/qualification/audit_repairs/test_readme_integrated_node_contract.py tools/qualification/audit_repairs/test_readme_kernel_lifecycle_contracts.py tools/qualification/audit_repairs/test_readme_network_commit_coverage.py tools/qualification/audit_repairs/test_readme_network_receipt_finality.py tools/qualification/audit_repairs/test_readme_retired_daemon.py tools/qualification/audit_repairs/test_readme_retired_network.py tools/qualification/audit_repairs/test_readme_retired_runtime.py tools/qualification/audit_repairs/test_root_readme_programs_precompile.py && test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- docs/readme/NETWORK.md docs/paxeer-network.md programs/README.md tests/ci/test_docs_readme_current_pages.py tools/qualification/audit_repairs | wc -l) -eq 0 && git grep -q -F 'LayerX kernel' -- docs/readme/NETWORK.md && git grep -q -F 'LayerX kernel' -- docs/paxeer-network.md"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(git grep -l -i -E 'LayerX kernel|BFT network|proposes blocks|block proposal' -- tests/ci tools/qualification/audit_repairs | grep -E '[.]py$' | grep -v -E 'test_(gateway_receipt_key_provisioning|kernel_backend_readiness|kernel_container_state_and_identity)[.]py$') && test $(git grep -c -i -E 'one BFT network|participates in block (proposal|production)' -- docs/readme/NETWORK.md docs/paxeer-network.md programs/README.md tests/ci tools/qualification/audit_repairs | wc -l) -eq 0 && git grep -q -F 'LayerX kernel' -- docs/readme/NETWORK.md && git grep -q -F 'LayerX kernel' -- docs/paxeer-network.md"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-docs"
@@ -374964,6 +375022,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Decision 3492, gotcha 4405. The tests under tools/qualification/audit_repairs and tests/ci read the two old clauses also on pages of the tasks 22.43.296 to 22.43.303: pages of the wiki, docs/system/rpc.md and sdk/README.md among them. This task runs on a tree that holds the pages of those tasks, and its paths take in tests/ci. For each test file that names the wording, find every page it reads and read the sentence that page holds now. An assertion that read an old clause on a page reads the present sentence of that page, which differs from page to page: some hold the long form of three sentences, some the one short sentence. An assertion on the chain identifier, on the finality of a receipt and on any other fact stays. No assertion goes and no case gets a mark of expected failure or a skip. Change no page outside docs/readme/NETWORK.md, docs/paxeer-network.md and programs/README.md. Run every Python test of tests/ci and of tools/qualification/audit_repairs by hand with the marker expression not native and bring each case that stops on a sentence of the network to the present page; a case that stops for another cause stays as it is and is named in the final message. Then run the build once and the verification once at the final revision."
 
 [task.22.43.293]
 title = "Lead the documentation index, the applications page and the citation abstract with the kernel"
@@ -375346,7 +375405,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.281]
 title = "Bring the Python tests 1 to 17 of tests/ci to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

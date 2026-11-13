@@ -10,12 +10,12 @@ export default function UnifiedNetwork() {
     <DocsLayout>
       <div className="page-header">
         <h1 className="page-title">Unified Network Architecture</h1>
-        <p className="page-description">How Paxeer X combines EVM and Cosmos execution with LayerX activities, identity, programs, and receipts in one BFT network.</p>
+        <p className="page-description">The LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it.</p>
       </div>
 
       <DocArt name="system-overview" />
       <h2>The Network Model</h2>
-      <p>Paxeer X is one BFT network with EVM chain ID <code>125</code> (<code>0x7d</code>). The node binary <code>paxd</code> runs the Cosmos SDK application and native EVM. The LayerX kernel runs in-process inside <code>paxd</code> through <code>modules/lxphost</code>, and <code>node/sequencer</code> supplies execution ordering within the node.</p>
+      <p>Paxeer X uses EVM chain ID <code>125</code> (<code>0x7d</code>). The node binary <code>paxd</code> runs the Cosmos SDK application and native EVM. The LayerX kernel runs in-process inside <code>paxd</code> through <code>modules/lxphost</code>, and <code>node/sequencer</code> supplies execution ordering within the node.</p>
       <p>Kernel state changes commit with the rest of the node&apos;s transaction state. A receipt is final once its block is committed. Applications establish finality from the committed block and the receipt&apos;s inclusion evidence.</p>
       <p>Sub-chains are tenant domains stored in the database and managed by <code>modules/layerxchains</code>. Creating a domain namespaces state within the shared network. It does not require new node infrastructure.</p>
 

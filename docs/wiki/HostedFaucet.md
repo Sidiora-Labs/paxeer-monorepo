@@ -8,9 +8,10 @@ of mainnet funds. An approved public allocation is an operator-arranged native
 chain transfer; the private service described here is not a prerequisite for
 using public accounts.
 
-Paxeer mainnet-beta is one BFT network running `paxd`, with the kernel inside
-the network proposing blocks, EVM chain ID `125` (`0x7d`), and finality when a
-block is committed. Use a root node URL from
+Paxeer mainnet-beta runs `paxd` with EVM chain ID `125` (`0x7d`). The LayerX
+kernel inside `paxd` executes and orders each transaction and builds each block;
+validators check and commit it. A receipt is final when a block is committed. Use
+a root node URL from
 [Public JSON-RPC](PublicRpc.md) for chain calls. The funding method below
 belongs to a configured hosted gateway.
 

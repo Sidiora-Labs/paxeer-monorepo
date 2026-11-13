@@ -1,6 +1,6 @@
 # Hyperpax trading frontend
 
-This directory holds the Next.js and React trading application for Paxeer mainnet-beta, including perpetual orders and positions, markets, portfolio analytics, explorer views, embedded-wallet integration and spot trading screens. It sends contract calls to the network's native venues through node JSON-RPC and reads REST, WebSocket and GraphQL data from the perps data gateway. Paxeer is one BFT network with EVM chain ID 125; transaction receipts are final when their block commits.
+This directory holds the Next.js and React trading application for Paxeer mainnet-beta, including perpetual orders and positions, markets, portfolio analytics, explorer views, embedded-wallet integration and spot trading screens. It sends contract calls to the network's native venues through node JSON-RPC and reads REST, WebSocket and GraphQL data from the perps data gateway. Paxeer uses EVM chain ID 125; the LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Transaction receipts are final when their block commits.
 
 ## Layout
 

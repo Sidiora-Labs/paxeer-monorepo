@@ -1,6 +1,6 @@
 # Paxeer daemon
 
-This directory holds the `paxd` chain-node entry point and the committed receipt fixture. `paxd` runs the Cosmos SDK application, native EVM, and the LayerX kernel in one BFT network; the fixture records and checks receipt vectors against a local node. A transaction is final when its block is committed.
+This directory holds the `paxd` chain-node entry point and the committed receipt fixture. `paxd` runs the Cosmos SDK application and native EVM; the LayerX kernel inside every `paxd` node executes and orders each transaction and builds each block, and validators check and commit it; the fixture records and checks receipt vectors against a local node. A transaction is final when its block is committed.
 
 ## Layout
 

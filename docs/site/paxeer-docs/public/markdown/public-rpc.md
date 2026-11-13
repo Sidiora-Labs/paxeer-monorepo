@@ -2,11 +2,11 @@
 
 # Public RPC endpoints
 
-Connect wallets and applications to Paxeer mainnet-beta, EVM chain ID 125, using node JSON-RPC at the endpoint root.
+Connect to Paxeer mainnet-beta, EVM chain ID 125, through node JSON-RPC; the LayerX kernel executes and orders transactions and builds blocks that validators check and commit.
 
 ## Connect to the node
 
-Paxeer is one BFT network. The kernel runs inside `paxd`, and the proposer executes transactions and proposes their block. The node exposes Ethereum JSON-RPC for contracts, balances, logs and broadcasts. A receipt is final once its covering block commits.
+The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. The node exposes Ethereum JSON-RPC for contracts, balances, logs and broadcasts. A receipt is final once its covering block commits.
 
 | Interface | Endpoint | Purpose |
 | --- | --- | --- |
