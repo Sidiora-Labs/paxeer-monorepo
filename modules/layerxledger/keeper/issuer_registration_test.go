@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type repairM1238Fixture struct {
+type issuerRegistrationFixture struct {
 	app                      *app.App
 	ctx                      sdk.Context
 	ledger                   *ledgerkeeper.IssuerBindingKeeper
@@ -31,7 +31,7 @@ type repairM1238Fixture struct {
 	creator, subdenom, denom string
 }
 
-func newRepairM1238Fixture(t *testing.T) *repairM1238Fixture {
+func newIssuerRegistrationFixture(t *testing.T) *issuerRegistrationFixture {
 	t.Helper()
 	a := app.Setup(t, false, false, false)
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
@@ -59,7 +59,7 @@ func newRepairM1238Fixture(t *testing.T) *repairM1238Fixture {
 	subdenom := fmt.Sprintf("%043s", new(big.Int).SetBytes(asset[:]).Text(62))
 	denom, err := tokenfactorytypes.GetTokenDenom(creator, subdenom)
 	require.NoError(t, err)
-	return &repairM1238Fixture{
+	return &issuerRegistrationFixture{
 		app: a, ctx: ctx, ledger: ledger, actor: actor,
 		args: types.RegisterArgs{AssetID: asset, Salt: salt, Symbol: "RPR", Name: "Issuer binding repair",
 			Decimals: 6, SupplyCap: sdk.NewInt(1000), IssuerKind: types.AssetIssuerNative},
@@ -67,7 +67,7 @@ func newRepairM1238Fixture(t *testing.T) *repairM1238Fixture {
 	}
 }
 
-func (f *repairM1238Fixture) stores(t *testing.T) map[string]map[string][]byte {
+func (f *issuerRegistrationFixture) stores(t *testing.T) map[string]map[string][]byte {
 	t.Helper()
 	rows := make(map[string]map[string][]byte)
 	for _, name := range []string{"lxphost", types.StoreKey, tokenfactorytypes.StoreKey, banktypes.StoreKey, authtypes.StoreKey} {
@@ -78,7 +78,7 @@ func (f *repairM1238Fixture) stores(t *testing.T) map[string]map[string][]byte {
 	return rows
 }
 
-func (f *repairM1238Fixture) assertPause(t *testing.T, ledgerPaused, denomPaused bool) {
+func (f *issuerRegistrationFixture) assertPause(t *testing.T, ledgerPaused, denomPaused bool) {
 	t.Helper()
 	asset, err := f.ledger.GetAsset(f.ctx, f.args.AssetID)
 	require.NoError(t, err)
@@ -92,8 +92,8 @@ func (f *repairM1238Fixture) assertPause(t *testing.T, ledgerPaused, denomPaused
 	require.Equal(t, string(f.actor.DID), response.IssuerDid)
 }
 
-func TestRepairM_1238_RegisterQueriesAndPause(t *testing.T) {
-	f := newRepairM1238Fixture(t)
+func TestIssuerRegistrationQueriesAndPause(t *testing.T) {
+	f := newIssuerRegistrationFixture(t)
 	_, found := f.app.BankKeeper.GetDenomMetaData(f.ctx, f.denom)
 	require.False(t, found)
 	registered, err := f.ledger.RegisterAsset(f.ctx, f.actor, f.args, [32]byte{1})
@@ -154,8 +154,8 @@ func TestRepairM_1238_RegisterQueriesAndPause(t *testing.T) {
 	require.Equal(t, sdk.NewInt(20), f.app.BankKeeper.GetBalance(f.ctx, to, f.denom).Amount)
 }
 
-func TestRepairM_1238_RegisterRefusalRollback(t *testing.T) {
-	f := newRepairM1238Fixture(t)
+func TestIssuerRegistrationRefusalRollback(t *testing.T) {
+	f := newIssuerRegistrationFixture(t)
 	denom, err := f.app.TokenFactoryKeeper.CreateDenom(f.ctx, f.creator, f.subdenom)
 	require.NoError(t, err)
 	require.Equal(t, f.denom, denom)
@@ -179,8 +179,8 @@ func TestRepairM_1238_RegisterRefusalRollback(t *testing.T) {
 	require.Equal(t, string(f.actor.DID), issuer)
 }
 
-func TestRepairM_1238_PauseRefusalRollback(t *testing.T) {
-	f := newRepairM1238Fixture(t)
+func TestIssuerRegistrationPauseRefusalRollback(t *testing.T) {
+	f := newIssuerRegistrationFixture(t)
 	_, err := f.ledger.RegisterAsset(f.ctx, f.actor, f.args, [32]byte{1})
 	require.NoError(t, err)
 	for _, operation := range []struct {
