@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
 
 const source = "services/agent/sdk/typescript/src/exchange.ts";
-const temporary = await mkdtemp(join(tmpdir(), "repair459-sdk-"));
+const temporary = await mkdtemp(join(tmpdir(), "account-order-sdk-"));
 await writeFile(join(temporary, "package.json"), '{"type":"module"}\n');
 execFileSync("npm", ["install", "--prefix", temporary, "--ignore-scripts", "--no-audit", "--no-fund", "@noble/hashes@2.4.0"], { stdio: "inherit" });
 const sdk = await readFile(source);
@@ -30,10 +30,10 @@ nameLength.writeUInt32BE(name.length);
 const accountId = `0x${hash(Buffer.from("LX:ACCOUNT:v1"), nameLength, name).toString("hex")}`;
 const marketId = `0x6d01${"00".repeat(30)}`;
 const call = exchangePlaceOrderCall({ marketId, accountId, side: 1, price: 30000n, quantity: 2n, timeInForce: 0 });
-await writeFile("precompiles/layerxexchange/testdata/repair_459_typescript.json", `${JSON.stringify({
+await writeFile("precompiles/layerxexchange/testdata/account_order_typescript_calldata.json", `${JSON.stringify({
   producer: `${source}#exchangePlaceOrderCall`,
   sourceSha256: createHash("sha256").update(sdk).digest("hex"),
-  generate: "node precompiles/layerxexchange/testdata/repair_459_generate.mjs",
+  generate: "node precompiles/layerxexchange/testdata/generate_account_order_calldata.mjs",
   signature: "placeOrder(bytes32,bytes32,uint8,uint256,uint256,uint8)",
   pythonCaller: "services/agent/sdk/python/layerx_sdk/exchange.py#exchange_place_order_call",
   marketId, accountId, side: 1, price: "30000", quantity: "2", timeInForce: 0,
