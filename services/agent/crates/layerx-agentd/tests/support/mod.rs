@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
-// Task 9.35.22: repair_22_31_545::retained_authorization follows the call-bound
+// Task 9.35.22: native_send_consent_recovery::retained_authorization follows the call-bound
 // preparation producer of 9.35.17; its consent-reopen restoration and
-// repair_22_31_217::repair_wire_carrier_binds_the_retained_signing_preparation_after_restart
+// native_budget_preparation::repair_wire_carrier_binds_the_retained_signing_preparation_after_restart
 // follow 9.35.19's retained-call restoration (decode_unsigned, bind_call and the
 // observed head). Retained preparation validation now compares the exact EVM
 // preparation with its separately retained signing preparation.
