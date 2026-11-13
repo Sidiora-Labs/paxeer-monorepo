@@ -9,13 +9,13 @@ Minimal mock pool that returns configurable reserves for optical testing
 ### feeAccumulator
 
 ```solidity
-address feeAccumulator
+address public feeAccumulator
 ```
 
 ### opticalAddress
 
 ```solidity
-address opticalAddress
+address public opticalAddress
 ```
 
 ### setFeeAccumulator

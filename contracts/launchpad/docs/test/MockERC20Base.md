@@ -7,7 +7,7 @@ Source: [MockERC20Base.sol](../../contracts/test/MockERC20Base.sol).
 ### constructor
 
 ```solidity
-constructor(string _name, string _symbol, uint8 _decimals) public
+constructor(string memory _name, string memory _symbol, uint8 _decimals)
 ```
 
 ### mint

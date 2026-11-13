@@ -4,12 +4,12 @@ Source: [MockOptical.sol](../../contracts/test/MockOptical.sol).
 
 ## MockOptical
 
-Test mock that inherits BaseOptical with configurable behavior
+Inherits the default hooks from `BaseOptical` and returns zero from `getFlags()`.
 
 ### constructor
 
 ```solidity
-constructor(address _poolRegistry, address _owner) public
+constructor(address _poolRegistry, address _owner)
 ```
 
 ## MockOpticalWithFlags
@@ -19,79 +19,79 @@ Test mock with configurable flags and hook behavior
 ### beforeSwapRejectNext
 
 ```solidity
-bool beforeSwapRejectNext
+bool public beforeSwapRejectNext
 ```
 
 ### beforeSwapDeltaNext
 
 ```solidity
-int256 beforeSwapDeltaNext
+int256 public beforeSwapDeltaNext
 ```
 
 ### beforeSwapCalled
 
 ```solidity
-bool beforeSwapCalled
+bool public beforeSwapCalled
 ```
 
 ### afterSwapCalled
 
 ```solidity
-bool afterSwapCalled
+bool public afterSwapCalled
 ```
 
 ### beforeFeeDistCalled
 
 ```solidity
-bool beforeFeeDistCalled
+bool public beforeFeeDistCalled
 ```
 
 ### afterFeeDistCalled
 
 ```solidity
-bool afterFeeDistCalled
+bool public afterFeeDistCalled
 ```
 
 ### lastPool
 
 ```solidity
-address lastPool
+address public lastPool
 ```
 
 ### lastSender
 
 ```solidity
-address lastSender
+address public lastSender
 ```
 
 ### lastIsBuy
 
 ```solidity
-bool lastIsBuy
+bool public lastIsBuy
 ```
 
 ### lastAmountIn
 
 ```solidity
-uint256 lastAmountIn
+uint256 public lastAmountIn
 ```
 
 ### lastAmountOut
 
 ```solidity
-uint256 lastAmountOut
+uint256 public lastAmountOut
 ```
 
 ### lastFeeAmount
 
 ```solidity
-uint256 lastFeeAmount
+uint256 public lastFeeAmount
 ```
 
 ### constructor
 
 ```solidity
-constructor(address _poolRegistry, address _owner, uint8 flags_) public
+constructor(address _poolRegistry, address _owner, uint8 flags_)
 ```
 
 ### setFlags
@@ -126,8 +126,9 @@ function getFlags() external view returns (uint8)
 
 Returns a bitmap of active hooks for this optical.
 
-_Bit 0: beforeSwap, Bit 1: afterSwap, Bit 2: beforeFeeDistribution, Bit 3: afterFeeDistribution Pool
-checks this to skip unused callbacks (gas optimization)._
+`beforeSwap` uses bit 0, `afterSwap` bit 1, `beforeFeeDistribution` bit 2 and
+`afterFeeDistribution` bit 3. The pool checks the swap flags; the fee accumulator checks the
+fee-distribution flags.
 
 #### Return Values
 
@@ -167,7 +168,7 @@ behavior of `BaseOptical`.
 ### constructor
 
 ```solidity
-constructor(address _poolRegistry, address _owner, uint8 flags_) public
+constructor(address _poolRegistry, address _owner, uint8 flags_)
 ```
 
 ### getFlags
@@ -178,8 +179,9 @@ function getFlags() external view returns (uint8)
 
 Returns a bitmap of active hooks for this optical.
 
-_Bit 0: beforeSwap, Bit 1: afterSwap, Bit 2: beforeFeeDistribution, Bit 3: afterFeeDistribution Pool
-checks this to skip unused callbacks (gas optimization)._
+`beforeSwap` uses bit 0, `afterSwap` bit 1, `beforeFeeDistribution` bit 2 and
+`afterFeeDistribution` bit 3. The pool checks the swap flags; the fee accumulator checks the
+fee-distribution flags.
 
 #### Return Values
 

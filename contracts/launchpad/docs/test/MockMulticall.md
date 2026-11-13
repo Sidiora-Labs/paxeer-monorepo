@@ -7,13 +7,13 @@ Source: [MockMulticall.sol](../../contracts/test/MockMulticall.sol).
 ### value1
 
 ```solidity
-uint256 value1
+uint256 public value1
 ```
 
 ### value2
 
 ```solidity
-uint256 value2
+uint256 public value2
 ```
 
 ### setValue1

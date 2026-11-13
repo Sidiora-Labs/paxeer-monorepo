@@ -7,13 +7,13 @@ Source: [MockReentrancy.sol](../../contracts/test/MockReentrancy.sol).
 ### counter
 
 ```solidity
-uint256 counter
+uint256 public counter
 ```
 
 ### protectedIncrement
 
 ```solidity
-function protectedIncrement() external
+function protectedIncrement() external nonReentrant
 ```
 
 ### unprotectedIncrement
@@ -25,13 +25,13 @@ function unprotectedIncrement() external
 ### reentrantCall
 
 ```solidity
-function reentrantCall() external
+function reentrantCall() external nonReentrant
 ```
 
 ### crossFunctionReentrantCall
 
 ```solidity
-function crossFunctionReentrantCall() external
+function crossFunctionReentrantCall() external nonReentrant
 ```
 
 ## ReentrancyAttacker
@@ -39,19 +39,19 @@ function crossFunctionReentrantCall() external
 ### target
 
 ```solidity
-contract MockReentrancyGuard target
+MockReentrancyGuard public target
 ```
 
 ### attackCount
 
 ```solidity
-uint256 attackCount
+uint256 public attackCount
 ```
 
 ### constructor
 
 ```solidity
-constructor(address _target) public
+constructor(address _target)
 ```
 
 ### attack

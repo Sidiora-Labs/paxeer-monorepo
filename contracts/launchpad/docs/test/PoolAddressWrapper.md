@@ -9,7 +9,7 @@ Wrapper to expose PoolAddress library functions for testing
 ### computeAddress
 
 ```solidity
-function computeAddress(address factory, address beacon, address token, bytes creationCode, bytes initData) external pure returns (address)
+function computeAddress(address factory, address beacon, address token, bytes memory creationCode, bytes memory initData) external pure returns (address)
 ```
 
 ### computeSalt

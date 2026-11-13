@@ -4,61 +4,60 @@ Source: [MockNonStandardERC20.sol](../../contracts/test/MockNonStandardERC20.sol
 
 ## MockNonStandardERC20
 
-ERC20 that does NOT return bool on transfer/transferFrom/approve Used to test TransferHelper's
-handling of non-standard tokens (like USDT)
+ERC20 test helper whose `transfer`, `transferFrom` and `approve` functions have no return value.
 
 ### name
 
 ```solidity
-string name
+string public name
 ```
 
 ### symbol
 
 ```solidity
-string symbol
+string public symbol
 ```
 
 ### decimals
 
 ```solidity
-uint8 decimals
+uint8 public decimals
 ```
 
 ### totalSupply
 
 ```solidity
-uint256 totalSupply
+uint256 public totalSupply
 ```
 
 ### balanceOf
 
 ```solidity
-mapping(address => uint256) balanceOf
+mapping(address => uint256) public balanceOf
 ```
 
 ### allowance
 
 ```solidity
-mapping(address => mapping(address => uint256)) allowance
+mapping(address => mapping(address => uint256)) public allowance
 ```
 
 ### Transfer
 
 ```solidity
-event Transfer(address from, address to, uint256 value)
+event Transfer(address indexed from, address indexed to, uint256 value)
 ```
 
 ### Approval
 
 ```solidity
-event Approval(address owner, address spender, uint256 value)
+event Approval(address indexed owner, address indexed spender, uint256 value)
 ```
 
 ### constructor
 
 ```solidity
-constructor(string _name, string _symbol, uint8 _decimals) public
+constructor(string memory _name, string memory _symbol, uint8 _decimals)
 ```
 
 ### mint

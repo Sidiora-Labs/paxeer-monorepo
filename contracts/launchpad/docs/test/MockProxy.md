@@ -7,7 +7,7 @@ Source: [MockProxy.sol](../../contracts/test/MockProxy.sol).
 ### constructor
 
 ```solidity
-constructor(address implementation, bytes data) public
+constructor(address implementation, bytes memory data)
 ```
 
 ### \_implementation
@@ -23,7 +23,7 @@ Returns the current implementation address
 ### value
 
 ```solidity
-uint256 value
+uint256 public value
 ```
 
 ### setValue
@@ -43,13 +43,13 @@ function getValue() external view returns (uint256)
 ### value
 
 ```solidity
-uint256 value
+uint256 public value
 ```
 
 ### extra
 
 ```solidity
-uint256 extra
+uint256 public extra
 ```
 
 ### setValue
