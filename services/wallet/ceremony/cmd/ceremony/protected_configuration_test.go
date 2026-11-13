@@ -95,12 +95,12 @@ func assertCommandSecretsRedacted(t *testing.T, env map[string]string, output st
 	}
 }
 
-func TestRepairM_173_MissingProtectedInputs(t *testing.T) {
+func TestCommandMissingProtectedInputs(t *testing.T) {
 	TestRehearseRejectsMissingProtectedInputs(t)
 	TestUsageAndMissingEnvironment(t)
 }
 
-func TestRepairM_173_ProtectedJournalInputs(t *testing.T) {
+func TestCommandProtectedJournalInputs(t *testing.T) {
 	env := protectedCommandEnvironment(t)
 	get := func(name string) string { return env[name] }
 	opts, err := migrate.LoadOptions(get)
@@ -156,7 +156,7 @@ func writeCommandKey(t *testing.T, env map[string]string, size int, mode os.File
 	}
 }
 
-func TestRepairM_173_IsolatedConfiguration(t *testing.T) {
+func TestCommandIsolatedConfiguration(t *testing.T) {
 	env := protectedCommandEnvironment(t)
 	opts, err := rehearsal.LoadOptions(func(name string) string { return env[name] })
 	if err != nil {
@@ -189,7 +189,7 @@ func TestRepairM_173_IsolatedConfiguration(t *testing.T) {
 	}
 }
 
-func TestRepairM_173_RejectsIsolationConflicts(t *testing.T) {
+func TestCommandRejectsIsolationConflicts(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		mutate func(*testing.T, map[string]string)

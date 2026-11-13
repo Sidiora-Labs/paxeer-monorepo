@@ -19,7 +19,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/ceremony/internal/attestor"
 )
 
-func repairM175Config(t *testing.T) (*TLSFiles, []attestor.NodeConfig) {
+func ceremonyNodesConfig(t *testing.T) (*TLSFiles, []attestor.NodeConfig) {
 	t.Helper()
 	files := NewTLSFiles(t)
 	nodes := make([]attestor.NodeConfig, attestor.NodeCount)
@@ -31,8 +31,8 @@ func repairM175Config(t *testing.T) (*TLSFiles, []attestor.NodeConfig) {
 	return files, nodes
 }
 
-func TestRepairM_175_ExternalConfigProductionClient(t *testing.T) {
-	files, nodes := repairM175Config(t)
+func TestCeremonyNodesExternalConfigProductionClient(t *testing.T) {
+	files, nodes := ceremonyNodesConfig(t)
 	want := append([]attestor.NodeConfig(nil), nodes...)
 	cfg, err := ExternalAttestorConfig(files.CertFile, files.KeyFile, files.CAFile, nodes)
 	if err != nil {
@@ -54,8 +54,8 @@ func TestRepairM_175_ExternalConfigProductionClient(t *testing.T) {
 	}
 }
 
-func TestRepairM_175_ExternalConfigIndependentMembers(t *testing.T) {
-	files, nodes := repairM175Config(t)
+func TestCeremonyNodesExternalConfigIndependentMembers(t *testing.T) {
+	files, nodes := ceremonyNodesConfig(t)
 	for _, tc := range []struct {
 		name string
 		edit func([]attestor.NodeConfig) []attestor.NodeConfig
@@ -98,7 +98,7 @@ func TestRepairM_175_ExternalConfigIndependentMembers(t *testing.T) {
 	}
 }
 
-func TestRepairM_175_RealProtocolRefreshAndDescribe(t *testing.T) {
+func TestCeremonyNodesRealProtocolRefreshAndDescribe(t *testing.T) {
 	nodes := StartCeremonyNodes(t)
 	client, err := attestor.New(nodes.Config(t))
 	if err != nil {
@@ -117,7 +117,7 @@ func TestRepairM_175_RealProtocolRefreshAndDescribe(t *testing.T) {
 		t.Fatal(err)
 	}
 	approval := CeremonyInventoryKey{KeyID: keyID, Curve: "secp256k1", PublicKey: hex.EncodeToString(publicBytes), Owner: "repair-owner", Operations: []string{"import", "refresh", "sign"}}
-	repairM175Approve(t, nodes, approval, nil)
+	ceremonyNodesApprove(t, nodes, approval, nil)
 	if _, err := client.ImportCeremony(ctx, ceremonyID, importID, keyID, "repair-owner", "", bundles, pub); err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +168,7 @@ func TestRepairM_175_RealProtocolRefreshAndDescribe(t *testing.T) {
 	})
 }
 
-func repairM175Approve(t *testing.T, nodes *CeremonyNodes, key CeremonyInventoryKey, epochs []uint64) {
+func ceremonyNodesApprove(t *testing.T, nodes *CeremonyNodes, key CeremonyInventoryKey, epochs []uint64) {
 	t.Helper()
 	approvals := make([][]CeremonyInventoryKey, len(nodes.nodes))
 	for i := range approvals {
@@ -181,7 +181,7 @@ func repairM175Approve(t *testing.T, nodes *CeremonyNodes, key CeremonyInventory
 	nodes.PublishInventory(t, approvals)
 }
 
-func TestRepairM_175_PartialCommitAndReopen(t *testing.T) {
+func TestCeremonyNodesPartialCommitAndReopen(t *testing.T) {
 	nodes := StartCeremonyNodes(t)
 	client, err := attestor.New(nodes.Config(t))
 	if err != nil {
@@ -229,7 +229,7 @@ func TestRepairM_175_PartialCommitAndReopen(t *testing.T) {
 		seed[i] = 0
 	}
 	approval := CeremonyInventoryKey{KeyID: keyID, Curve: "ed25519", PublicKey: hex.EncodeToString(publicBytes), Owner: "repair-owner", Operations: []string{"import", "refresh", "sign"}}
-	repairM175Approve(t, nodes, approval, nil)
+	ceremonyNodesApprove(t, nodes, approval, nil)
 	if _, err = client.ImportCeremony(ctx, ceremonyID, importID, keyID, "repair-owner", "0x4444444444444444444444444444444444444444", bundles, pub); err != nil {
 		t.Fatal(err)
 	}
@@ -275,7 +275,7 @@ func TestRepairM_175_PartialCommitAndReopen(t *testing.T) {
 			t.Fatalf("missing durable commit decision: %+v", row)
 		}
 	}
-	repairM175Approve(t, nodes, approval, epochs)
+	ceremonyNodesApprove(t, nodes, approval, epochs)
 	if _, err = client.RefreshCeremony(ctx, ceremonyID, importID, refreshID, "", keyID, pub, 0); err != nil {
 		t.Fatal(err)
 	}
@@ -298,7 +298,7 @@ func TestRepairM_175_PartialCommitAndReopen(t *testing.T) {
 			t.Fatalf("%s did not refresh its scalar", row.NodeID)
 		}
 	}
-	repairM175Approve(t, nodes, approval, []uint64{1, 1, 1, 1, 1})
+	ceremonyNodesApprove(t, nodes, approval, []uint64{1, 1, 1, 1, 1})
 	signed, err := client.SignVerificationCeremony(ctx, ceremonyID, "repair-m175-threshold-proof", "", keyID, importID, pub, 1)
 	if err != nil {
 		t.Fatal(err)

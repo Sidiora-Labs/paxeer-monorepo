@@ -11,9 +11,9 @@ import (
 	"testing"
 )
 
-var repairM176Passphrase = []byte("correct horse battery staple ceremony")
+var archivePublicationPassphrase = []byte("correct horse battery staple ceremony")
 
-func repairM176Fixture(t *testing.T, id string) ([]json.RawMessage, []byte) {
+func archivePublicationFixture(t *testing.T, id string) ([]json.RawMessage, []byte) {
 	t.Helper()
 	row, err := json.Marshal(map[string]string{"id": id, "encrypted_private_key": "private envelope " + id})
 	if err != nil {
@@ -24,7 +24,7 @@ func repairM176Fixture(t *testing.T, id string) ([]json.RawMessage, []byte) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sealed, err := Seal(plain, repairM176Passphrase)
+	sealed, err := Seal(plain, archivePublicationPassphrase)
 	zero(plain)
 	if err != nil {
 		t.Fatal(err)
@@ -32,9 +32,9 @@ func repairM176Fixture(t *testing.T, id string) ([]json.RawMessage, []byte) {
 	return rows, sealed
 }
 
-func repairM176Verify(rows []json.RawMessage) func(string) error {
+func archivePublicationVerify(rows []json.RawMessage) func(string) error {
 	return func(path string) error {
-		got, err := Open(path, repairM176Passphrase)
+		got, err := Open(path, archivePublicationPassphrase)
 		if err != nil {
 			return err
 		}
@@ -42,7 +42,7 @@ func repairM176Verify(rows []json.RawMessage) func(string) error {
 	}
 }
 
-func repairM176Absent(t *testing.T, path string) {
+func archivePublicationAbsent(t *testing.T, path string) {
 	t.Helper()
 	if _, err := os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("path %s should be absent: %v", path, err)
@@ -51,7 +51,7 @@ func repairM176Absent(t *testing.T, path string) {
 
 // Closing every descriptor and dropping the writer models process exit without
 // running its deferred cleanup. The next writer must reconstruct state from disk.
-func repairM176Stop(t *testing.T, w *archiveWrite) {
+func archivePublicationStop(t *testing.T, w *archiveWrite) {
 	t.Helper()
 	if w.file != nil {
 		if err := w.file.Close(); err != nil {
@@ -63,13 +63,13 @@ func repairM176Stop(t *testing.T, w *archiveWrite) {
 	}
 }
 
-func TestRepairM_176_KDFCost(t *testing.T) {
-	rows, sealed := repairM176Fixture(t, "kdf")
+func TestArchiveKDFCost(t *testing.T) {
+	rows, sealed := archivePublicationFixture(t, "kdf")
 	path := filepath.Join(t.TempDir(), "funded.archive")
-	if err := writeExclusive(path, sealed, repairM176Verify(rows)); err != nil {
+	if err := writeExclusive(path, sealed, archivePublicationVerify(rows)); err != nil {
 		t.Fatal(err)
 	}
-	if err := repairM176Verify(rows)(path); err != nil {
+	if err := archivePublicationVerify(rows)(path); err != nil {
 		t.Fatalf("writer profile must remain readable: %v", err)
 	}
 	cases := []struct{ logN, r, p byte }{
@@ -88,7 +88,7 @@ func TestRepairM_176_KDFCost(t *testing.T) {
 			}
 			// ErrFormat, rather than a failed authentication, proves refusal
 			// before expensive scrypt derivation of the unauthenticated header.
-			if _, err := Open(path, repairM176Passphrase); !errors.Is(err, ErrFormat) {
+			if _, err := Open(path, archivePublicationPassphrase); !errors.Is(err, ErrFormat) {
 				t.Fatalf("untrusted KDF costs were not refused: %v", err)
 			}
 		})
@@ -111,18 +111,18 @@ func TestRepairM_176_KDFCost(t *testing.T) {
 	// The previously readable cheaper profile still reaches authentication.
 	cheaper := bytes.Clone(sealed)
 	cheaper[len(magic)] = 14
-	if _, err := Unseal(cheaper, repairM176Passphrase); !errors.Is(err, ErrDecrypt) {
+	if _, err := Unseal(cheaper, archivePublicationPassphrase); !errors.Is(err, ErrDecrypt) {
 		t.Fatalf("cheaper profile was not admitted to authentication: %v", err)
 	}
 	// Emit a correctly authenticated cheaper-profile fixture with the production
 	// cipher, then read it through the production archive decoder.
-	plain, err := Unseal(sealed, repairM176Passphrase)
+	plain, err := Unseal(sealed, archivePublicationPassphrase)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer zero(plain)
 	header := bytes.Clone(cheaper[:headerLen])
-	gcm, err := newGCM(repairM176Passphrase, header[len(magic)+3:len(magic)+3+saltLen], 14, 8, 1)
+	gcm, err := newGCM(archivePublicationPassphrase, header[len(magic)+3:len(magic)+3+saltLen], 14, 8, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func TestRepairM_176_KDFCost(t *testing.T) {
 	if err := os.WriteFile(path, legacy, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := repairM176Verify(rows)(path); err != nil {
+	if err := archivePublicationVerify(rows)(path); err != nil {
 		t.Fatalf("supported cheaper archive no longer opens: %v", err)
 	}
 	if _, err := Unseal(sealed, []byte("a different sufficiently long password")); !errors.Is(err, ErrDecrypt) {
@@ -138,9 +138,9 @@ func TestRepairM_176_KDFCost(t *testing.T) {
 	}
 }
 
-func TestRepairM_176_StaleRowsRegenerated(t *testing.T) {
-	_, stale := repairM176Fixture(t, "stale database rows")
-	currentRows, current := repairM176Fixture(t, "current database rows")
+func TestArchiveStaleRowsRegenerated(t *testing.T) {
+	_, stale := archivePublicationFixture(t, "stale database rows")
+	currentRows, current := archivePublicationFixture(t, "current database rows")
 	path := filepath.Join(t.TempDir(), "funded.archive")
 	w, err := beginArchiveWrite(path)
 	if err != nil {
@@ -149,12 +149,12 @@ func TestRepairM_176_StaleRowsRegenerated(t *testing.T) {
 	if err := w.stage(stale); err != nil {
 		t.Fatal(err)
 	}
-	repairM176Stop(t, w)
+	archivePublicationStop(t, w)
 	w = nil
-	if err := writeExclusive(path, current, repairM176Verify(currentRows)); err != nil {
+	if err := writeExclusive(path, current, archivePublicationVerify(currentRows)); err != nil {
 		t.Fatalf("restart reused stale rows instead of regenerating: %v", err)
 	}
-	if err := repairM176Verify(currentRows)(path); err != nil {
+	if err := archivePublicationVerify(currentRows)(path); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(path)
@@ -163,8 +163,8 @@ func TestRepairM_176_StaleRowsRegenerated(t *testing.T) {
 	}
 }
 
-func TestRepairM_176_RestartRecovery(t *testing.T) {
-	rows, sealed := repairM176Fixture(t, "recovery")
+func TestArchiveRestartRecovery(t *testing.T) {
+	rows, sealed := archivePublicationFixture(t, "recovery")
 	for _, boundary := range []string{"created", "partial", "written", "synced", "verified", "published"} {
 		t.Run(boundary, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "funded.archive")
@@ -191,7 +191,7 @@ func TestRepairM_176_RestartRecovery(t *testing.T) {
 				}
 			}
 			if boundary == "verified" || boundary == "published" {
-				if err := repairM176Verify(rows)(w.temp); err != nil {
+				if err := archivePublicationVerify(rows)(w.temp); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -200,15 +200,15 @@ func TestRepairM_176_RestartRecovery(t *testing.T) {
 					t.Fatal(err)
 				}
 			} else {
-				repairM176Absent(t, path)
+				archivePublicationAbsent(t, path)
 			}
 			temp := w.temp
-			repairM176Stop(t, w)
+			archivePublicationStop(t, w)
 			w = nil
 
 			// A new writer reopens the directory and reconciles the previous
 			// writer's staging file, then uses the real verifier and publisher.
-			err = writeExclusive(path, sealed, repairM176Verify(rows))
+			err = writeExclusive(path, sealed, archivePublicationVerify(rows))
 			if boundary == "published" {
 				if !errors.Is(err, os.ErrExist) {
 					t.Fatalf("published archive must not be replaced on restart: %v", err)
@@ -216,8 +216,8 @@ func TestRepairM_176_RestartRecovery(t *testing.T) {
 			} else if err != nil {
 				t.Fatalf("restart could not recover an interrupted %s write: %v", boundary, err)
 			}
-			repairM176Absent(t, temp)
-			if err := repairM176Verify(rows)(path); err != nil {
+			archivePublicationAbsent(t, temp)
+			if err := archivePublicationVerify(rows)(path); err != nil {
 				t.Fatalf("reopened archive did not recover rows: %v", err)
 			}
 			raw, err := os.ReadFile(path)
@@ -235,9 +235,9 @@ func TestRepairM_176_RestartRecovery(t *testing.T) {
 	}
 }
 
-func TestRepairM_176_VerifyBeforePublication(t *testing.T) {
-	rows, sealed := repairM176Fixture(t, "verified")
-	otherRows, other := repairM176Fixture(t, "different")
+func TestArchiveVerifyBeforePublication(t *testing.T) {
+	rows, sealed := archivePublicationFixture(t, "verified")
+	otherRows, other := archivePublicationFixture(t, "different")
 	corrupt := bytes.Clone(sealed)
 	corrupt[len(corrupt)-1] ^= 1
 	for _, tc := range []struct {
@@ -251,36 +251,36 @@ func TestRepairM_176_VerifyBeforePublication(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "funded.archive")
-			if err := writeExclusive(path, tc.data, repairM176Verify(rows)); !errors.Is(err, tc.want) {
+			if err := writeExclusive(path, tc.data, archivePublicationVerify(rows)); !errors.Is(err, tc.want) {
 				t.Fatalf("verification refusal: got %v, want %v", err, tc.want)
 			}
-			repairM176Absent(t, path)
+			archivePublicationAbsent(t, path)
 			if err := writeExclusive(path, sealed, func(staged string) error {
-				repairM176Absent(t, path)
-				return repairM176Verify(rows)(staged)
+				archivePublicationAbsent(t, path)
+				return archivePublicationVerify(rows)(staged)
 			}); err != nil {
 				t.Fatalf("retry after failed verification: %v", err)
 			}
-			if err := repairM176Verify(rows)(path); err != nil {
+			if err := archivePublicationVerify(rows)(path); err != nil {
 				t.Fatal(err)
 			}
 		})
 	}
 	// A pre-existing authenticated archive with different rows is preserved.
 	path := filepath.Join(t.TempDir(), "funded.archive")
-	if err := writeExclusive(path, other, repairM176Verify(otherRows)); err != nil {
+	if err := writeExclusive(path, other, archivePublicationVerify(otherRows)); err != nil {
 		t.Fatal(err)
 	}
-	if err := writeExclusive(path, sealed, repairM176Verify(rows)); !errors.Is(err, os.ErrExist) {
+	if err := writeExclusive(path, sealed, archivePublicationVerify(rows)); !errors.Is(err, os.ErrExist) {
 		t.Fatalf("replacement was not refused: %v", err)
 	}
-	if err := repairM176Verify(otherRows)(path); err != nil {
+	if err := archivePublicationVerify(otherRows)(path); err != nil {
 		t.Fatalf("existing archive changed: %v", err)
 	}
 }
 
-func TestRepairM_176_PublicationRace(t *testing.T) {
-	rows, sealed := repairM176Fixture(t, "racing")
+func TestArchivePublicationRace(t *testing.T) {
+	rows, sealed := archivePublicationFixture(t, "racing")
 	path := filepath.Join(t.TempDir(), "funded.archive")
 	var wg sync.WaitGroup
 	results := make(chan error, 2)
@@ -288,7 +288,7 @@ func TestRepairM_176_PublicationRace(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			results <- writeExclusive(path, sealed, repairM176Verify(rows))
+			results <- writeExclusive(path, sealed, archivePublicationVerify(rows))
 		}()
 	}
 	wg.Wait()
@@ -306,7 +306,7 @@ func TestRepairM_176_PublicationRace(t *testing.T) {
 	if success != 1 || exists != 1 {
 		t.Fatalf("expected one publication and one refusal, got %d and %d", success, exists)
 	}
-	if err := repairM176Verify(rows)(path); err != nil {
+	if err := archivePublicationVerify(rows)(path); err != nil {
 		t.Fatal(err)
 	}
 
@@ -314,7 +314,7 @@ func TestRepairM_176_PublicationRace(t *testing.T) {
 	// initial absence check. Link must still refuse to replace its final file.
 	racePath := filepath.Join(t.TempDir(), "funded.archive")
 	if err := writeExclusive(racePath, sealed, func(staged string) error {
-		if err := repairM176Verify(rows)(staged); err != nil {
+		if err := archivePublicationVerify(rows)(staged); err != nil {
 			return err
 		}
 		return os.Link(path, racePath)
@@ -331,8 +331,8 @@ func TestRepairM_176_PublicationRace(t *testing.T) {
 	}
 }
 
-func TestRepairM_176_StagingSymlinkRefused(t *testing.T) {
-	rows, sealed := repairM176Fixture(t, "symlink")
+func TestArchiveStagingSymlinkRefused(t *testing.T) {
+	rows, sealed := archivePublicationFixture(t, "symlink")
 	dir := t.TempDir()
 	path := filepath.Join(dir, "funded.archive")
 	target := filepath.Join(dir, "unrelated")
@@ -343,21 +343,21 @@ func TestRepairM_176_StagingSymlinkRefused(t *testing.T) {
 	if err := os.Symlink(target, staged); err != nil {
 		t.Fatal(err)
 	}
-	if err := writeExclusive(path, sealed, repairM176Verify(rows)); !errors.Is(err, ErrFormat) {
+	if err := writeExclusive(path, sealed, archivePublicationVerify(rows)); !errors.Is(err, ErrFormat) {
 		t.Fatalf("staging symlink was not refused: %v", err)
 	}
 	got, err := os.ReadFile(target)
 	if err != nil || string(got) != "preserve this file" {
 		t.Fatalf("staging reconciliation changed symlink target: %v", err)
 	}
-	repairM176Absent(t, path)
+	archivePublicationAbsent(t, path)
 	if _, err := os.Readlink(staged); err != nil {
 		t.Fatalf("staging symlink was removed: %v", err)
 	}
 }
 
-func TestRepairM_176_FilesystemFailures(t *testing.T) {
-	rows, sealed := repairM176Fixture(t, "filesystem")
+func TestArchiveFilesystemFailures(t *testing.T) {
+	rows, sealed := archivePublicationFixture(t, "filesystem")
 	for _, boundary := range []string{"write", "file_sync", "directory_sync"} {
 		t.Run(boundary, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "funded.archive")
@@ -370,7 +370,7 @@ func TestRepairM_176_FilesystemFailures(t *testing.T) {
 				if err := w.stage(sealed); err != nil {
 					t.Fatal(err)
 				}
-				if err := repairM176Verify(rows)(w.temp); err != nil {
+				if err := archivePublicationVerify(rows)(w.temp); err != nil {
 					t.Fatal(err)
 				}
 				// The real link succeeds, but Sync on a closed directory must
@@ -398,14 +398,14 @@ func TestRepairM_176_FilesystemFailures(t *testing.T) {
 				if !errors.Is(err, os.ErrClosed) {
 					t.Fatalf("%s failure was lost: %v", boundary, err)
 				}
-				repairM176Absent(t, path)
+				archivePublicationAbsent(t, path)
 			}
 			if err := w.close(); !errors.Is(err, os.ErrClosed) {
 				t.Fatalf("cleanup must retain the real descriptor error: %v", err)
 			}
 			w = nil
-			repairM176Absent(t, temp)
-			err = writeExclusive(path, sealed, repairM176Verify(rows))
+			archivePublicationAbsent(t, temp)
+			err = writeExclusive(path, sealed, archivePublicationVerify(rows))
 			if boundary == "directory_sync" {
 				if !errors.Is(err, os.ErrExist) {
 					t.Fatalf("retry must preserve the already published archive: %v", err)
@@ -413,7 +413,7 @@ func TestRepairM_176_FilesystemFailures(t *testing.T) {
 			} else if err != nil {
 				t.Fatalf("retry after %s error: %v", boundary, err)
 			}
-			if err := repairM176Verify(rows)(path); err != nil {
+			if err := archivePublicationVerify(rows)(path); err != nil {
 				t.Fatalf("archive reopened after %s error: %v", boundary, err)
 			}
 		})
