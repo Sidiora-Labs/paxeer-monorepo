@@ -31,7 +31,8 @@ The database service is named `db`, listens on port 5432 and creates database
 variable is unset.
 
 For a VS Code database connection inside the devcontainer, select database
-`app` on `db:5432` and use the credentials configured for that local service.
+`app` on the Compose database service's port 5432 and use its configured
+credentials.
 
 ## Backend configuration
 
@@ -56,7 +57,7 @@ Paxeer mainnet-beta uses EVM chain ID 125. See the
 
 | Command | Behavior |
 | --- | --- |
-| `bs --init` | Compile dependencies and the application, then generate local Phoenix certificates if absent |
+| `bs --init` | When the Phoenix certificate directory is absent, install Rebar, compile dependencies and the application, then generate local certificates; otherwise leave initialization unchanged |
 | `bs --db-init` | Drop the database, create it and run migrations; removes its existing data |
 | `bs` | Start the Phoenix server with indexing enabled |
 | `bs --no-sync` | Start the server with indexing disabled |
@@ -69,11 +70,12 @@ Paxeer mainnet-beta uses EVM chain ID 125. See the
 | `bs --docs` | Generate documentation |
 | `bs --help` | List options |
 
-Initialize the application and database before starting the server. With the
-local HTTP listener on port 4000, the blocks API is available at:
+Initialize the application and database before starting the server. For the
+local HTTP listener on port 4000, set the shell variable `EXPLORER_BACKEND_URL`
+to its base URL, then request the blocks:
 
 ```sh
-curl http://localhost:4000/api/v2/blocks
+curl "${EXPLORER_BACKEND_URL:?Set the backend base URL}/api/v2/blocks"
 ```
 
 The HTTP API is separate from node JSON-RPC.

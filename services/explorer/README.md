@@ -10,16 +10,13 @@ The explorer indexes Paxeer mainnet-beta, one BFT network running `paxd` with
 EVM chain id **125** (`0x7d`). The kernel is part of this network and proposes
 blocks. A transaction receipt is final once its block is committed.
 
-Public node JSON-RPC uses the root URL, for example
-`https://api1.mainnet-beta.paxeer.network/`. The public node names are
-`api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`
-and `api-mainnet-beta.paxeer.network`. The node namespaces are `debug`, `echo`,
+Public node JSON-RPC uses HTTPS at the node's root path.
+The node namespaces are `debug`, `echo`,
 `eth`, `net`, `pax`, `px`, `test` and `txpool`. The node registers `px` account,
 balance, receipt and consensus reads at the root; asset and history reads use
 its configured indexer. `px_register` and `px_requestFunds` require hosted
 services. The gateway's methods have their own
 [OpenRPC contract](../platform/hosted/gateway/openrpc.json).
-`node.hyperpaxeer.com` is only the hpx library mirror, not an RPC endpoint.
 
 The explorer's indexed REST API is served by its backend under `/api/v2`;
 account features use `/api/account/v2`. These are explorer HTTP APIs, separate
@@ -240,30 +237,36 @@ which columns each table would gain and lose.
 
 The [explorer build workflow](../../.github/workflows/explorer-build.yml)
 runs for pull requests touching `apps/explorer/`, `services/explorer/`,
-`scripts/explorer/`, `tests/explorer/` or the workflow itself. Besides builds,
+`scripts/explorer/`, `tests/explorer/`, `tests/ci/test_explorer_suites_wired.py`
+or the workflow itself. Besides builds,
 it runs the backend lint job, the frontend/services lint matrix and the test
 ratio job. Lint and ratio failures fail their jobs.
 
 ### The ratio rule
 
 A change under `apps/explorer/` or `services/explorer/` carries at least as
-many test files as source files, and every changed source file has a changed
-test that references it. A test
+many referencing test files as source files, and every changed source file
+has a changed test that references it. A test
 references a source file when it names its Elixir module, names something the
 file exports, contains a fragment of its path, or sits where that source file's
 test belongs - beside it under the same name, or under the umbrella `test/`
 mirror of its `lib/` path.
 
-Files are classified by name, and by content for Rust:
+Files are classified by name. Rust files outside `tests/` are classified by
+comparing their production and test regions in the base and head blobs, using
+Python 3 through `scripts/explorer/rust-test-ranges.py`:
 
 | Class | Files |
 | --- | --- |
-| source | an Elixir `.ex`; a TypeScript `.ts` or `.tsx` that is not a test; a Rust `.rs` that is not a test module |
-| test | an Elixir `*_test.exs`; a TypeScript `*.test.ts`, `*.test.tsx`, `*.spec.ts`, `*.spec.tsx` or `*.pw.tsx`; a Rust file under a `tests/` directory or carrying a `#[cfg(test)]` module |
+| source | an Elixir `.ex`; a TypeScript `.ts` or `.tsx` that is not a test; a Rust `.rs` with changed production items |
+| test | an Elixir `*_test.exs`; a TypeScript `*.test.ts`, `*.test.tsx`, `*.spec.ts`, `*.spec.tsx` or `*.pw.tsx`; a Rust file under a `tests/` directory or with changed `#[cfg(test)]` or `#[test]` items |
 | neither | everything else - shell scripts, YAML workflows and compose files, JSON deployment definitions, environment presets, SVG marks and Markdown |
 
 A file classified as neither carries no test requirement, and a range that
 changes no explorer source file passes whatever else it carries.
+A mixed Rust file can count as both source and test; unchanged inline tests
+do not satisfy a production change. Only tests that reference a changed source
+file count towards the ratio.
 
 ### Running the ratio gate locally
 

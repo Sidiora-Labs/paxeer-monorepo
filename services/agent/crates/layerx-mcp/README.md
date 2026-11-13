@@ -132,120 +132,83 @@ present, and standard input/output otherwise. The CLI serves standard
 input/output and may further narrow tools with `--read-only`. Both paths
 authenticate the session and retrieve the live catalogue before serving it.
 
-The document is a closed JSON object. This template shows all required fields
-and the readiness section required by the served daemon-client path. Replace
-the illustrative identifiers, paths and endpoints with operator-provisioned
-values; it does not create a session or capability. The hexadecimal values below
-are public example identifiers, addresses and a receipt verification key, never
-signing secrets:
+The binding is a closed JSON object. Its required top-level fields are:
 
-```json
-{
-  "mode": "full",
-  "tenant": "beta",
-  "store": "/var/lib/layerx/agentd/store",
-  "audit_root": "/var/lib/layerx/agentd/audit",
-  "session_id": "0707070707070707070707070707070707070707070707070707070707070707",
-  "session_token_file": "/etc/layerx/mcp-session-token",
-  "session_generation": 1,
-  "capability_id": "0909090909090909090909090909090909090909090909090909090909090909",
-  "core_height": 120,
-  "deadline_ms": 10000,
-  "agent": {
-    "endpoint": "127.0.0.1:8081",
-    "bearer_file": "/etc/layerx/agentd-bearer",
-    "probe_program": "5555555555555555555555555555555555555555555555555555555555555555",
-    "readiness": {
-      "endpoint": "https://gateway.example.invalid",
-      "gateway_key_file": "/etc/layerx/mcp-gateway-key"
-    }
-  },
-  "limit": {
-    "id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
-    "name": "mcp",
-    "scope": "tenant",
-    "scope_id": "0101010101010101010101010101010101010101010101010101010101010101",
-    "ceiling": "1000",
-    "consumed": "0"
-  }
-}
-```
+| Field | Value |
+| --- | --- |
+| `mode` | `full` or `read-only` |
+| `tenant` | Session tenant name |
+| `store`, `audit_root` | Absolute paths to the owner's store and audit directory |
+| `session_id`, `capability_id` | Session and capability identifiers, each 32 bytes encoded as 64 hex characters |
+| `session_token_file` | Absolute path to the protected session token file |
+| `session_generation` | Unsigned session generation |
+| `core_height` | Unsigned height used by local owner operations |
+| `deadline_ms` | Positive unsigned deadline in milliseconds |
+| `agent` | Programs and gateway connection fields described below |
+| `limit` | Local spending limit fields described below |
 
-`mode` is `full` or `read-only`. `agent.endpoint` names the local IPv4
-loopback Programs surface, while `agent.readiness.endpoint` names the HTTPS
-gateway base URL used by `AgentEnvelopeTransport`. Optional
-`agent.readiness.trust_anchors` names a PEM trust file; absent that field, the
-transport uses system roots. `Binding::parse` can accept an absent readiness
-section for local owner use, but `open_daemon_client` requires it. Both gateway
-API-key admission and the tenant session credential are required for the
-`POST /v1/agent/rpc` envelope. This gateway is an agent API transport, distinct
-from public node JSON-RPC. Readiness reports `transport_ready`,
-`verified_reads_ready`, `writes_admitted` and `recovery_reason`; it is local
-readiness information, not verified protocol state.
+The required `agent` fields are `endpoint`, `bearer_file` and `probe_program`.
+They identify the local IPv4 loopback Programs surface, its protected bearer
+file and its probe program for local owner operations. The daemon-client
+transport uses `agent.readiness`, with required `endpoint` and
+`gateway_key_file` fields. `endpoint` is the HTTPS gateway base URL used by
+`AgentEnvelopeTransport`. Optional `trust_anchors` names an absolute PEM trust
+file; absent that field, the transport uses system roots. `Binding::parse`
+accepts an absent readiness section for local owner use, but
+`Binding::open_daemon_client` requires it.
+
+The required `limit` fields are `id` (16 hex-encoded bytes), `name`, `scope`,
+`scope_id` (32 hex-encoded bytes), `ceiling` and `consumed` (decimal strings
+representing unsigned 128-bit amounts). The scope is `tenant`, `agent`,
+`session`, `capability` or `counterparty`.
+
+Both gateway API-key admission and the tenant session credential are required
+for the `POST /v1/agent/rpc` envelope. Readiness reports `transport_ready`,
+`verified_reads_ready`, `writes_admitted` and `recovery_reason` as local
+readiness information.
 
 The binding and secret files must be canonical absolute regular files owned
 by the process with owner-only access. The document is bounded to 65,536
 bytes. `session_token_file` contains the session's 32-byte token encoded as
-64 hex characters. The gateway credential file contains
-`key_id:lxp_live_<64 lowercase hex characters>`. Gateway admission and the
-tenant session credential are separate authorities; neither file holds a
-signing seed. Keep credential contents out of the binding document.
+64 hex characters. The gateway credential file contains a key identifier,
+a colon, the prefix `lxp_live_` and 64 lowercase hex characters. Credential
+contents stay in their protected files.
 
-For a socket deployment, add this optional top-level member with the actual
-owner and admitted peer UIDs (zero is only an example). Create the canonical
-parent directory with the declared ownership and no group-write or world access;
-the socket mode permits owner and optional group access only:
+For a socket deployment, the optional top-level `listener` object has exactly
+these fields:
 
-```json
-{
-  "listener": {
-    "socket": "/run/layerx/mcp.sock",
-    "owner_uid": 0,
-    "owner_gid": 0,
-    "mode": "660",
-    "admitted_uids": [0]
-  }
-}
-```
+| Field | Value |
+| --- | --- |
+| `socket` | Absolute normalized Unix socket path inside a dedicated directory |
+| `owner_uid`, `owner_gid` | Unsigned 32-bit owner identifiers |
+| `mode` | Octal string granting owner read/write and optional group read/write, bounded by `600` and `660` |
+| `admitted_uids` | Array of 1 through 64 distinct unsigned 32-bit peer UIDs |
+
+The canonical parent directory has the declared ownership and permits no
+group-write or world access.
 
 ### Paid web configuration
 
 The owner's full session needs a `web` section and an attached payer and
 approval registry to serve web scopes. The daemon host loads payer
-configuration through `LAYERX_AGENTD_MCP_PAYERS`; the client transport does not
-load signing material. Add the following top-level member, substituting the
-actual payment addresses and independently obtained receipt key index:
+configuration through `LAYERX_AGENTD_MCP_PAYERS`. The `web` object requires:
 
-```json
-{
-  "web": {
-    "endpoint": "http://127.0.0.1:8090",
-    "payer_address": "0xabababababababababababababababababababab",
-    "receiver_address": "0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
-    "network": "eip155:125",
-    "receipt_key_index": [
-      {
-        "keyId": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a",
-        "publicKey": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
-        "firstHeight": 1,
-        "lastHeight": 1000
-      }
-    ],
-    "sequencer_id": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a",
-    "first_batch_number": 120,
-    "last_batch_number": 120,
-    "timeout_ms": 10000,
-    "pending_attempts": 3,
-    "approval_threshold": "1000"
-  }
-}
-```
+| Field | Value |
+| --- | --- |
+| `endpoint` | Configured x-websearch sidecar endpoint |
+| `payer_address`, `receiver_address` | EVM payment addresses encoded as `0x` plus 40 hex characters |
+| `network` | EIP-155 network identifier, `eip155:125` for mainnet-beta |
+| `receipt_key_index` | Independently obtained receipt key authorizations |
+| `sequencer_id` | Selected nonzero receipt key identifier, encoded as 64 hex characters |
+| `first_batch_number`, `last_batch_number` | Selected unsigned receipt height interval, with first no greater than last |
+| `timeout_ms` | Unsigned timeout from 1 through 60,000 milliseconds |
+| `pending_attempts` | Unsigned attempt count from 1 through 10 |
+| `approval_threshold` | Decimal string representing an unsigned 128-bit amount |
 
-`sequencer_id`, `first_batch_number` and `last_batch_number` are retained wire
-field names for the selected receipt key and height interval. The key index
-must contain 1 through 64 entries, unique nonzero key IDs and nonzero public keys, and
-cover the selected interval. Each entry has exactly `keyId`, `publicKey`,
-`firstHeight` and `lastHeight`. `timeout_ms` is 1 through 60,000 and
-`pending_attempts` is 1 through 10. See [`binding.rs`](src/binding.rs) for the
-closed field sets and bounds, and [`tools/web.rs`](src/tools/web.rs) for the
-payment and receipt checks.
+The key index contains 1 through 64 entries with unique nonzero key IDs and
+nonzero public keys. Each entry has exactly `keyId`, `publicKey`, `firstHeight`
+and `lastHeight`: the first two encode 32 bytes as hex, and the last two are
+unsigned heights with first no greater than last. One authorization for the
+selected key must cover the entire selected interval. See
+[`binding.rs`](src/binding.rs) for field sets and bounds, and
+[`tools/web.rs`](src/tools/web.rs) for payment and receipt checks.
