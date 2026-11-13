@@ -1,5 +1,8 @@
 # Project configuration — hyperfide.kvx
 
+Implementation and test paths on this page are relative to `tools/hyperfide`.
+
+
 You can put an optional `hyperfide.kvx` at the root of a repository to change
 where Hyperfide keeps its files, whether it syncs the graph on its own, how
 many parse workers an index pass uses, how a pass finds changed files, and how
@@ -8,7 +11,7 @@ file is optional. If the file or a key is missing, Hyperfide uses the
 default, so a repository without the file works exactly as it did before the
 file existed.
 
-The implementation is in `src/config.c`. Tests are in
+The implementation is in `core/native/src/config.c`. Tests are in
 `tests/unit/test_config.c` and `tests/integration/40_config.sh`.
 
 Examples use `hyperfide`; `cg` is the deprecated compatibility alias of the
@@ -29,8 +32,7 @@ A completed migration is a `.hyperfide/names.json` with `schema_version` 1,
 `state` `APPLIED`, a `migration_id` and `manifest_digest`, and a mapping from
 `codify.kvx` to `hyperfide.kvx` whose `digest` matches the current bytes of
 `codify.kvx`. The names migration in `core/control-plane/src/migration/names.ts`
-writes that record; the rename task (26.3 in `spec/hyperfide/spec.kvx`) is
-still pending there, so treat the migration as not qualified in this revision.
+writes that record.
 
 Every message, origin column and `hyperfide check` line names the file that
 was actually read, so a tree still on `codify.kvx` is told about `codify.kvx`.
@@ -42,7 +44,7 @@ that still uses the legacy name.
 `hyperfide config init` writes the following file. It refuses to overwrite an
 existing one (exit 1).
 
-```
+```kvx
 # hyperfide.kvx — project configuration for Hyperfide. Every key is optional.
 [sync]
 auto = true                 # implicit syncs: hooks, read-command freshness, MCP/LSP/serve/watch
@@ -170,7 +172,7 @@ result). `[index] workers = N` replaces that choice with N, from 1 to 64 — mor
 than the machine profile would pick on a big machine, fewer on one you share
 with a build:
 
-```
+```kvx
 [index]
 workers = 24
 ```
@@ -221,7 +223,7 @@ default it walks the tree: every directory read, every file's size and
 mtime compared with the graph. That costs time in proportion to the tree,
 whatever changed. `[index] walk` picks how it finds them:
 
-```
+```kvx
 [index]
 walk = git
 ```
@@ -293,7 +295,7 @@ process. Neither stops a command.
 
 `hyperfide check` reports any problems as a warning:
 
-```
+```text
   warn  N hyperfide.kvx problem(s) — defaults used (cg config check):
 ```
 

@@ -1,12 +1,5 @@
 # Paxeer X explorer release notes
 
-## Current tree — unreleased
-
-These notes describe the explorer source based on monorepo revision
-`5c65ff650b571b5294048762896e896aa35d11ae`. They record the configuration and
-interfaces in this tree; they do not certify a deployed release or an API version
-compatibility matrix.
-
 ## Features and network behavior
 
 The frontend serves the Paxeer X explorer under `/explorer`, as configured in
@@ -19,11 +12,7 @@ native currency **PAX** (18 decimals). Its kernel is part of the network and
 proposes blocks; a receipt is final when its block is committed. Sub-chains are
 tenant domains in the database, launchable without separate infrastructure.
 
-Public node JSON-RPC uses HTTPS at the root path of `api1.mainnet-beta.paxeer.network`
-through `api14.mainnet-beta.paxeer.network`, or
-`https://api-mainnet-beta.paxeer.network/`. For example, a wallet can use
-`https://api1.mainnet-beta.paxeer.network/`. The explorer backend API and node
-JSON-RPC have separate configuration inputs.
+The node JSON-RPC URL uses HTTPS at the root path and is configured separately from the explorer backend API.
 
 ## UI and account behavior
 
@@ -47,7 +36,7 @@ upstream package as `@blockscout/ui-toolkit`, version `2.4.0-alpha`.
 ## Deployment configuration
 
 The tracked [public preset](../../apps/explorer/configs/envs/paxeer-x.env) sets
-`NEXT_PUBLIC_APP_HOST=paxscan.io`, `NEXT_PUBLIC_API_HOST=api.paxscan.io`,
+the app and backend API hosts,
 `NEXT_PUBLIC_NETWORK_ID=125`, and `NEXT_PUBLIC_PAXEER_X_ENABLED=true`.
 It uses HTTPS for the app/API and WSS for the API socket connection. The
 [development preset](../../apps/explorer/configs/envs/paxeer-x-dev.env) uses HTTP/WS and requires
@@ -55,8 +44,7 @@ replacement of its app and API host placeholders before use. Both presets
 disable marketplace and ad providers and hide the native coin price.
 
 For wallet interactions on this network, supply `NEXT_PUBLIC_NETWORK_RPC_URL`
-with a root-path public node URL such as
-`https://api1.mainnet-beta.paxeer.network/`. Neither tracked preset supplies this
+with a root-path public node URL. Neither tracked preset supplies this
 value. Account and wallet availability also depends on the
 [provider configuration](../../apps/explorer/ui/snippets/user/README.md#configuration).
 
@@ -67,10 +55,7 @@ The [environment reference](./ENVS.md) documents the available inputs;
 
 The [import record](./UPSTREAM.md) identifies the frontend
 baseline as Blockscout `v2.7.2` and the backend baseline as Blockscout `v10.2.6`.
-These are import versions. Current API resource paths and payload types are
+These identify the upstream baselines. Current API resource paths and payload types are
 maintained in [lib/api](../../apps/explorer/lib/api); deployments must provide the APIs used by
 their enabled features. Optional service configuration lives in
 [configs/app/apis.ts](../../apps/explorer/configs/app/apis.ts).
-
-The documentation gate checks these pages only. Application builds, backend
-compatibility and live deployment health require their own qualification.

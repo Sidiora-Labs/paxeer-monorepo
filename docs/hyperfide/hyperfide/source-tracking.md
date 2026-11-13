@@ -1,5 +1,7 @@
 # Source tracking
 
+Implementation and test paths are relative to `tools/hyperfide`.
+
 ## Snapshot slice environments
 
 The `hyperfide-environment-slices` provider lets a repository select snapshot
@@ -32,8 +34,7 @@ Provider commands use an absolute Hyperfide binary path and an empty child PATH,
 so optional Git probes cannot invoke Git. Create, edit, finish and discard do
 not depend on Git. Publication materializes the selected snapshot in a separate
 private tree and passes it, its paths and deletions to the wave publication
-service. That service owns the worktree and task 4.4's closure and push-permission
-gates. The provider never pushes or creates Git commits.
+service. The supplied service owns the worktree and publication permission checks. The provider never pushes or creates Git commits.
 
 ### Runtime integration
 
@@ -48,10 +49,10 @@ The built-in registry installs the provider alongside the worktree provider;
 the bundled package builds its server and host entries. The qualification
 script uses the canonical identity gate directly.
 
-The task 2.3 worker currently sends only the environment provider id, without
-slice inputs. It must supply a task manifest before selecting this provider.
-The task 4.4 publication service accepts Git task commits and has no snapshot
-import operation yet. The provider's snapshot export remains available through
+The managed worker currently sends only the environment provider id, without
+slice inputs. Selecting this provider requires a task manifest.
+The wave publication service accepts Git task commits and has no snapshot
+import operation. The provider's snapshot export remains available through
 `SlicesProvider.publish`, but is not wired into wave publication. The fixture
 proves export into a real Git worktree; it does not prove wave publication.
 
