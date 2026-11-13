@@ -23,8 +23,8 @@ pushes to, and the tag comes from `EXPLORER_IMAGE_TAG`:
 The workflow publishes `sha-<short commit>` for every build on the main branch
 and moves `main` and `latest` onto it, so `EXPLORER_IMAGE_TAG=latest` follows
 the branch and `EXPLORER_IMAGE_TAG=sha-<short commit>` pins one build. The same
-variable and the same four paths drive `../docker-compose.local.yml`, where it
-defaults to `latest`.
+variable and the same four paths drive `../docker-compose.local.yml`, where an
+explicit nonempty `EXPLORER_IMAGE_TAG` is required.
 
 `railway.json` has no field for an image: its schema
 (<https://railway.com/railway.schema.json>) describes a build and a deploy, not
@@ -110,12 +110,13 @@ trust roots. See the [database TLS guide](../../backend/apps/explorer/config/rep
 ## Microservices
 
 `smart-contract-verifier` and `sig-provider` run their published images, listed
-above. They listen on 8050 and take no config file, so they need no
-`railway.json` — set
-`SMART_CONTRACT_VERIFIER__SERVER__HTTP__ADDR` / `SIG_PROVIDER__SERVER__HTTP__ADDR`
-and point the backend's `MICROSERVICE_SC_VERIFIER_URL` and
-`MICROSERVICE_SIG_PROVIDER_URL` at `http://OPERATOR_HOST:8050` for each service.
-Replace `OPERATOR_HOST` with the operator-supplied hostname of the smart-contract verifier or signature provider selected by that variable.
+above. Their HTTP port defaults to 8050. Set
+`SMART_CONTRACT_VERIFIER__SERVER__HTTP__ADDR` and `SIG_PROVIDER__SERVER__HTTP__ADDR`
+for the listeners, and set the backend's `MICROSERVICE_SC_VERIFIER_URL` and
+`MICROSERVICE_SIG_PROVIDER_URL` to the corresponding service origins. Each
+service can use defaults and environment overrides without a configuration
+file, or load one through `SMART_CONTRACT_VERIFIER__CONFIG` or
+`SIG_PROVIDER__CONFIG`. The two Railway JSON files cover backend and frontend.
 
 ## Variable names
 
@@ -175,10 +176,10 @@ not retried, and a height above a lagging node's head is tried on the next node
 and then retried with a growing delay for as long as no node serves it or no node
 answers. A height whose scan fails ten times for any other reason is recorded as
 failed and scanned again when the indexer next starts. Once a minute the indexer
-drops the scanned-height rows below the height through which every block is
-scanned, and, when `PAXEER_X_PRICE_FEED_RETENTION_DAYS` is set, deletes the
-submissions older than that many days with their observations, so the tables stop
-growing with the chain.
+compacts contiguous scanned-height records in bounded batches. When
+`PAXEER_X_PRICE_FEED_RETENTION_DAYS` is set, it also expires older submissions
+and their observations in bounded batches. Retention waits for canonical
+acceptance replay and preserves source submissions needed by incomplete jobs.
 
 | Name | What it selects |
 | --- | --- |
@@ -228,7 +229,6 @@ frontend's own catalogue, `docs/explorer/ENVS.md`:
 `NEXT_PUBLIC_AD_TEXT_PROVIDER`.
 
 The frontend image validates this set on start against
-`apps/explorer/deploy/tools/envs-validator`. A name the schema does not know, or a required
-name left empty, stops the container rather than being ignored, so a typo in
-the Railway variable store surfaces as a failed deploy and not as a subtly
-wrong page.
+`apps/explorer/deploy/tools/envs-validator`. An unknown `NEXT_PUBLIC_*` name, a missing build-time placeholder, or a required
+name left empty stops startup. Other process variables are outside this
+frontend schema.

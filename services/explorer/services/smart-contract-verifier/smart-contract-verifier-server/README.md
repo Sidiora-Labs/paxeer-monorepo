@@ -6,7 +6,7 @@ caches but does not persist verification results in a database. The explorer
 supplies the bytecode and sources for local verification.
 
 For Paxeer, the network chain id is **125** (`0x7d`). Chain JSON-RPC is served at
-the root of public node hosts such as `https://api1.mainnet-beta.paxeer.network/`.
+the root path of the configured node origin.
 The verifier's routes below belong to its own HTTP listener. A successful source
 verification establishes a bytecode match; network receipt finality comes from
 committed blocks on the single Paxeer BFT network, whose kernel proposes blocks.
@@ -26,37 +26,29 @@ as declared in the parent workspace and resolved in its lockfile.
 
 [config/base.toml](config/base.toml) is a partial example. In particular, it omits
 `zksync_solidity` and `tracing`, which still receive defaults. The following
-example includes those sections and the Linux compiler-list defaults:
+example includes those sections. Listener addresses, compiler-list URLs and
+the Sourcify API URL use their defaults:
 
 ```toml
 [server.http]
 enabled = true
-addr = "0.0.0.0:8050"
 max_body_size = 2097152
 
 [server.grpc]
 enabled = false
-addr = "0.0.0.0:8051"
 
 [solidity]
 enabled = true
 compilers_dir = "/tmp/solidity-compilers"
 refresh_versions_schedule = "0 0 * * * * *"
 
-[solidity.fetcher.list]
-list_url = "https://binaries.soliditylang.org/linux-amd64/list.json"
-
 [vyper]
 enabled = true
 compilers_dir = "/tmp/vyper-compilers"
 refresh_versions_schedule = "0 0 * * * * *"
 
-[vyper.fetcher.list]
-list_url = "https://raw.githubusercontent.com/blockscout/solc-bin/main/vyper.list.json"
-
 [sourcify]
 enabled = true
-api_url = "https://sourcify.dev/server/"
 verification_attempts = 3
 request_timeout = 15
 
@@ -67,23 +59,12 @@ evm_refresh_versions_schedule = "0 0 * * * * *"
 zk_compilers_dir = "/tmp/zksync-zksolc-compilers"
 zk_refresh_versions_schedule = "0 0 * * * * *"
 
-[zksync_solidity.evm_fetcher.list]
-list_url = "https://binaries.soliditylang.org/linux-amd64/list.json"
-
-[zksync_solidity.era_evm_fetcher.list]
-list_url = "https://raw.githubusercontent.com/blockscout/solc-bin/main/era-solidity.linux-amd64.list.json"
-
-[zksync_solidity.zk_fetcher.list]
-list_url = "https://raw.githubusercontent.com/blockscout/solc-bin/main/zksolc.linux-amd64.list.json"
-
 [metrics]
 enabled = false
-addr = "0.0.0.0:6060"
 route = "/metrics"
 
 [jaeger]
 enabled = false
-agent_endpoint = "127.0.0.1:6831"
 
 [tracing]
 enabled = true
@@ -158,14 +139,18 @@ complete settings schema. The ZkSync and tracing names omitted there include:
 SMART_CONTRACT_VERIFIER__ZKSYNC_SOLIDITY__ENABLED=true
 SMART_CONTRACT_VERIFIER__ZKSYNC_SOLIDITY__EVM_COMPILERS_DIR=/tmp/zksync-solc-compilers
 SMART_CONTRACT_VERIFIER__ZKSYNC_SOLIDITY__EVM_REFRESH_VERSIONS_SCHEDULE='0 0 * * * * *'
-SMART_CONTRACT_VERIFIER__ZKSYNC_SOLIDITY__EVM_FETCHER__LIST__LIST_URL=https://binaries.soliditylang.org/linux-amd64/list.json
-SMART_CONTRACT_VERIFIER__ZKSYNC_SOLIDITY__ERA_EVM_FETCHER__LIST__LIST_URL=https://raw.githubusercontent.com/blockscout/solc-bin/main/era-solidity.linux-amd64.list.json
 SMART_CONTRACT_VERIFIER__ZKSYNC_SOLIDITY__ZK_COMPILERS_DIR=/tmp/zksync-zksolc-compilers
 SMART_CONTRACT_VERIFIER__ZKSYNC_SOLIDITY__ZK_REFRESH_VERSIONS_SCHEDULE='0 0 * * * * *'
-SMART_CONTRACT_VERIFIER__ZKSYNC_SOLIDITY__ZK_FETCHER__LIST__LIST_URL=https://raw.githubusercontent.com/blockscout/solc-bin/main/zksolc.linux-amd64.list.json
 SMART_CONTRACT_VERIFIER__TRACING__ENABLED=true
 SMART_CONTRACT_VERIFIER__TRACING__FORMAT=default
 ```
+
+Override the ZkSync compiler inventories with
+`SMART_CONTRACT_VERIFIER__ZKSYNC_SOLIDITY__EVM_FETCHER__LIST__LIST_URL`,
+`SMART_CONTRACT_VERIFIER__ZKSYNC_SOLIDITY__ERA_EVM_FETCHER__LIST__LIST_URL` and
+`SMART_CONTRACT_VERIFIER__ZKSYNC_SOLIDITY__ZK_FETCHER__LIST__LIST_URL`. Their
+defaults are `DEFAULT_SOLIDITY_COMPILER_LIST`, `DEFAULT_ERA_SOLIDITY_COMPILER_LIST`
+and `DEFAULT_ZKSOLC_COMPILER_LIST` in the compiler-list constants linked above.
 
 For S3 use the same fetcher prefix followed by `__S3__BUCKET`, `__S3__REGION`,
 `__S3__ENDPOINT`, `__S3__ACCESS_KEY` or `__S3__SECRET_KEY`, replacing its list
@@ -354,9 +339,9 @@ and solc `v0.8.17+commit.8df45f5f`. Its response family is the ZkSync
 Select the response decoder by endpoint. Solo verification, Solidity batch
 verification and ZkSync verification have distinct envelopes. The success
 examples below are valid JSON excerpts using values from the linked compiler
-fixtures; large source, bytecode and artifact fields are omitted. The regression
-test compares these fields with production response conversion and decodes both
-protobuf and HTTP JSON, without executing a compiler.
+fixtures; large source, bytecode and artifact fields are omitted. The [response tests](tests/repair_22_33_598.rs) compare these fields with
+production response conversion and decode both protobuf and HTTP JSON,
+without executing a compiler.
 
 ### Solo success
 
