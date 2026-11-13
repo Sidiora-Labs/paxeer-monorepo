@@ -129,7 +129,7 @@ the manifest itself.
 Origin-1 vectors below are regenerated for Paxeer chain `125`; origin-2
 network id `1` is a fixture value. Live signing uses chain state and governed
 configuration. The generator is
-[`generate_repair_476.py`](../evm/config/generate_repair_476.py).
+[`generate_chain_config_vectors.py`](../evm/config/generate_chain_config_vectors.py).
 
 Vector `evm-fetch` (origin 1):
 
