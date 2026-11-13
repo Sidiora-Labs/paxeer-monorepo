@@ -98,8 +98,7 @@ Refusals include `LXP_ERR_ASSET_MISMATCH`, `LXP_ERR_ASSET_PAUSED`,
 `lx_spot_module_iface()` with `lxp_kernel_register_module` during host reset.
 `Host.HostExecute` enters the registered module's validation/execution hooks
 through cgo, uses the SDK context's block time/height, and loads and commits
-module state through the host store. The separate daemon and its runtime-binding
-procedure are retired; current operation uses the integrated host.
+module state through the host store.
 
 ### Native EVM spot routes
 

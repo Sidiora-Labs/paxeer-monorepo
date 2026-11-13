@@ -1,12 +1,13 @@
 # Platform CLI contract
 
-The developer binary is **`layerx`**, declared by [tools/platform/cli](../tools/platform/cli/Cargo.toml). Its name and historical receipt types remain in the tree while LayerX functionality is merged into one Paxeer BFT network. Mainnet-beta has EVM chain ID **125** (`0x7d`); the kernel is part of the network and proposes blocks, and a receipt becomes final when its block is committed. Sub-chains are tenant domains in the database, not independently deployed chains.
+The developer binary is **`layerx`**, declared by [tools/platform/cli](../tools/platform/cli/Cargo.toml). The CLI connects to the single Paxeer BFT network and its configured application services. Mainnet-beta has EVM chain ID **125** (`0x7d`); the kernel is part of the network and proposes blocks, and a receipt becomes final when its block is committed. Sub-chains are tenant domains in the database, not independently deployed chains.
 
-Public node JSON-RPC uses the HTTPS root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, and `api-mainnet-beta.paxeer.network`. The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`, and `txpool`. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json). `node.hyperpaxeer.com` is only the build library mirror, not an RPC endpoint.
-
+Public node JSON-RPC uses HTTPS at the configured node origin's root path. The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`, and `txpool`. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
 See [explorer HTTP](explorer-http-api.md), [socket updates](explorer-ws.md), [metrics](explorer-metrics.md), and [historical header verification](kernel.md#format-batch-header). These describe different application transports on the same network.
 
-## CLI CLI commands
+<a id="cli-cli-commands"></a>
+
+## CLI commands
 
 [main.rs](../tools/platform/cli/src/main.rs) declares the command tree and dispatches to the owning modules:
 
@@ -35,9 +36,9 @@ Command registration is not proof that the selected service implements every ope
 
 Global `--rpc` and `--gateway-credential` are accepted only for wallet, chains, token, program, and `receipt get`; dispatch rejects them for other command families. An alias selects a stored gateway credential, not a literal secret to print in shell history.
 
-The pre-merge `/rpc` suffix assumption remains in CLI program/chain override validation and some wallet/chain transports; that retired path is not the public node endpoint. The implementations strip or append that suffix depending on the operation. Do not append it to a public node root to make the CLI appear configured. These code paths require transport alignment before they can be presented as working public-node integrations. Other commands use the configured environment endpoint and service-specific HTTP routes; changing a profile cannot make a node implement hosted application REST endpoints.
+[Node endpoint validation](../tools/platform/cli/src/chains.rs) accepts an HTTP(S) root origin and rejects credentials, non-root paths, queries and fragments. The [program client](../tools/platform/cli/src/programs.rs) sends JSON-RPC to that root. Configure hosted application origins separately for commands that use service-specific HTTP routes.
 
-The shared [HTTP client](../tools/platform/cli/src/http.rs) accepts HTTP only for loopback authorities (`localhost`, `127.0.0.1`, or `[::1]`); non-loopback endpoints require HTTPS. It trims trailing slashes and joins validated absolute resource paths. System root certificates and optional configured client identity are used for TLS.
+The shared [HTTP client](../tools/platform/cli/src/http.rs) accepts HTTP only for loopback authorities; non-loopback endpoints require HTTPS. It trims trailing slashes and joins validated absolute resource paths. System root certificates and optional configured client identity are used for TLS.
 
 ## CLI config keys
 
@@ -54,7 +55,7 @@ The shared [HTTP client](../tools/platform/cli/src/http.rs) accepts HTTP only fo
 | `environments.<name>.sequencer_trust_anchor` | Optional independently supplied receipt-signing anchor |
 | `keys.<name>.did`, `keys.<name>.public_key` | Public key metadata; private seeds are stored separately |
 
-Supported profile names are `emulator`, `beta`, and `production`; legacy `testnet` is canonicalized to `beta`. Loading an old `testnet` record adopts it only if a `beta` record does not already exist. New configuration defaults to the sole `emulator` profile, `http://127.0.0.1:9402`, network ID 402, and no key or anchor. That development network ID is not Paxeer mainnet's EVM chain ID.
+Supported profile names are `emulator`, `beta`, and `production`; legacy `testnet` is canonicalized to `beta`. Loading an old `testnet` record adopts it only if a `beta` record does not already exist. New configuration defaults to the sole `emulator` profile, a loopback HTTP endpoint on port 9402, network ID 402, and no key or anchor. That development network ID is not Paxeer mainnet's EVM chain ID.
 
 Loading fails for malformed JSON, unsupported versions, or a missing active environment. Saving creates an owner-only temporary file on Unix, writes/syncs it, then renames it over the configuration. There are no implicit beta/production network endpoints or trust anchors in this default.
 
@@ -116,7 +117,7 @@ The executable modules implement configuration, credentials, programs, account/p
 
 [emulator.rs](../tools/platform/cli/src/emulator.rs) provisions a random local identity under the profile's `emulator` directory as `sequencer.seed` and `sequencer.anchor`. Existing identity material is refused unless the caller deliberately selects replacement. Environment selection binds endpoint, network ID, and independently supplied signing anchor; a fetched identity is not automatically trusted.
 
-`layerx emulator up` accepts `--listen`, `--network-id`, `--protocol-version`, `--time-ms`, `--sequencer-seed-file`, and repeatable `--prefund`. The underlying [emulator](../tools/platform/emulator/src/main.rs) defaults to `127.0.0.1:9402`, network ID 402, and accepts protocol versions 2 or 3. Listening outside loopback is refused. The runtime requires an explicit nonzero 32-byte signing seed (raw bytes or 64 hexadecimal characters); it has no compiled-in signing authority. This is a local development process, not a second production chain.
+`layerx emulator up` accepts `--listen`, `--network-id`, `--protocol-version`, `--time-ms`, `--sequencer-seed-file`, and repeatable `--prefund`. The underlying [emulator](../tools/platform/emulator/src/main.rs) defaults to a loopback listener on port 9402, network ID 402, and accepts protocol versions 2 or 3. Listening outside loopback is refused. The runtime requires an explicit nonzero 32-byte signing seed (raw bytes or 64 hexadecimal characters); it has no compiled-in signing authority. This is a local development process, not a second production chain.
 
 ## Emulator HTTP routes
 

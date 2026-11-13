@@ -1,5 +1,7 @@
 # Solidity API
 
+Source: [ERC721Base.sol](../../contracts/base/ERC721Base.sol).
+
 ## ERC721Base
 
 Minimal ERC721 implementation with ERC165 introspection
@@ -57,25 +59,25 @@ error NonERC721Receiver()
 ### Transfer
 
 ```solidity
-event Transfer(address from, address to, uint256 tokenId)
+event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)
 ```
 
 ### Approval
 
 ```solidity
-event Approval(address owner, address approved, uint256 tokenId)
+event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId)
 ```
 
 ### ApprovalForAll
 
 ```solidity
-event ApprovalForAll(address owner, address operator, bool approved)
+event ApprovalForAll(address indexed owner, address indexed operator, bool approved)
 ```
 
 ### constructor
 
 ```solidity
-constructor(string _name, string _symbol) internal
+constructor(string memory _name, string memory _symbol)
 ```
 
 ### supportsInterface
@@ -137,34 +139,34 @@ function safeTransferFrom(address from, address to, uint256 tokenId) external
 ### safeTransferFrom
 
 ```solidity
-function safeTransferFrom(address from, address to, uint256 tokenId, bytes data) public
+function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data) public
 ```
 
-### _mint
+### \_mint
 
 ```solidity
 function _mint(address to, uint256 tokenId) internal virtual
 ```
 
-### _burn
+### \_burn
 
 ```solidity
 function _burn(uint256 tokenId) internal virtual
 ```
 
-### _transfer
+### \_transfer
 
 ```solidity
 function _transfer(address from, address to, uint256 tokenId) internal virtual
 ```
 
-### _isApprovedOrOwner
+### \_isApprovedOrOwner
 
 ```solidity
 function _isApprovedOrOwner(address spender, uint256 tokenId) internal view returns (bool)
 ```
 
-### _exists
+### \_exists
 
 ```solidity
 function _exists(uint256 tokenId) internal view returns (bool)
@@ -175,6 +177,5 @@ function _exists(uint256 tokenId) internal view returns (bool)
 ### onERC721Received
 
 ```solidity
-function onERC721Received(address operator, address from, uint256 tokenId, bytes data) external returns (bytes4)
+function onERC721Received( address operator, address from, uint256 tokenId, bytes calldata data ) external returns (bytes4)
 ```
-

@@ -21,13 +21,6 @@ network. The proposer executes transactions and seals a `MsgSequenceBatch`
 for validation and commitment by the chain. Early execution receipts and
 committed blocks are stages of the same network's transaction lifecycle.
 
-The pre-merge router, separate `layerxd` daemon and execution-to-settlement
-bridge are retired. The historical proof connector at `0x1012`, custody
-funding at `0x1013` and checkpoint anchoring at `0x1014` are retired
-integration guidance. Their historical ABI declarations do not define the
-current funding or finality model. Applications submit EVM transactions and
-verify committed-chain evidence.
-
 Sub-chains are tenant domains: namespaces in the database, launchable without
 new infrastructure. A tenant identifier scopes data and authority; it does
 not require a separately deployed consensus network. Services must carry the
@@ -87,9 +80,7 @@ selects that sequence in the keeper and emits `PaymentExact`. The
 gives the call order and units.
 
 A native PAX balance pays gas; a per-asset ledger balance records asset
-units. Opening an account does not mint funds. Custody deposits, forced-exit
-proofs and withdrawal delays from the pre-merge split are retired onboarding
-instructions.
+units. Opening an account does not mint funds.
 
 ## Native application precompiles
 
@@ -99,11 +90,9 @@ support from an address alone.
 
 ### Perps — `0x0000000000000000000000000000000000001015`
 
-From the v6.12.0 activation, this address serves the native perpetuals
-precompile. Its exact signatures and overloads are in
+This address serves the native perpetuals precompile. Its exact signatures and overloads are in
 `precompiles/perps/abi/abi.json`; implementation is under
-`precompiles/perps/` and `modules/perps/`. The former `layerxexchange` intent
-selectors at this address are retired.
+`precompiles/perps/` and `modules/perps/`.
 
 | Operations | Methods |
 | --- | --- |
@@ -170,20 +159,14 @@ introduce a second network or settlement stage.
 
 [SDK terminal verification](SdkTerminalVerification.md) describes verifier
 entry points and evidence. A node's `committed` label reports its view; an
-independent client checks the evidence. The old checkpoint challenge-window
-model is retired.
+independent client checks the evidence.
 
 ## Public node JSON-RPC and hosted services
 
-Public HTTPS JSON-RPC is at the root of
-`https://api-mainnet-beta.paxeer.network` and
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`. Require `eth_chainId` to return
-`"0x7d"`. The node namespace inventory is `debug`, `echo`, `eth`, `net`,
+Public HTTPS JSON-RPC uses the configured node's root path.
+Require `eth_chainId` to return `"0x7d"`. See [Public RPC](PublicRpc.md).
+The node namespace inventory is `debug`, `echo`, `eth`, `net`,
 `pax`, `px`, `test` and `txpool`; method availability depends on configuration.
-
-The old public `/rpc`, `/rpc/ws` and `/rpc/schema` paths are retired.
-`node.hyperpaxeer.com` is the hpx library mirror used by build scripts, not an RPC endpoint.
 
 The hosted gateway under `services/platform/hosted/gateway/` is an
 operator-deployed service over this network. Obtain its endpoint from the

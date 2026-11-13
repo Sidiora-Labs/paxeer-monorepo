@@ -2,7 +2,7 @@
 
 The TypeScript packages under [services/platform/middleware](../services/platform/middleware) implement seller, buyer, merchant and agent payment flows for Paxeer. Mainnet-beta is one BFT network with EVM chain ID **125** (`0x7d`), identified in payment requirements as `eip155:125`. The kernel participates in block proposal inside the network. A signed pre-commit receipt is evidence of the `receipted` stage; finality requires the block to be `committed`. Sub-chains are tenant domains in the database.
 
-Use node JSON-RPC at the HTTPS root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, or `api-mainnet-beta.paxeer.network`. SDK `px_` reads use the node root. Hosted gateway discovery follows [the gateway contract](platform-gateway.md); configure the hosted gateway URL separately from the node endpoint for `px_register` and `px_requestFunds`. These packages retain historical `LayerX` names in wire fields and exports; those names do not establish a second network. See also [hosted webhooks](platform-hosted.md#webhooks-http-routes) and [independent ramps](platform-ramps.md).
+Use node JSON-RPC at the configured HTTPS origin's root path. SDK `px_` reads use the node root. Hosted gateway discovery follows [the gateway contract](platform-gateway.md); configure the hosted gateway URL separately from the node endpoint for `px_register` and `px_requestFunds`. These packages retain historical `LayerX` names in wire fields and exports; those names do not establish a second network. See also [hosted webhooks](platform-hosted.md#webhooks-http-routes) and [independent ramps](platform-ramps.md).
 
 ## Middleware seller TS exports
 
@@ -37,7 +37,7 @@ The consumer defaults to a five-minute maximum age and a one-minute processing l
 
 [seller/src/rpc.ts](../services/platform/middleware/seller/src/rpc.ts) is a client adapter, not a listening HTTP server. `PaymentRpc` posts JSON-RPC to a root origin, restricts calls to `eth_` and `pax_`, submits raw transactions with `eth_sendRawTransaction`, reads `pax_sequencerReceipt` and checks committed transaction status with `eth_getTransactionReceipt`. Its transport bounds response size and time, rejects redirects and checks the response ID and envelope.
 
-`HostedGatewayRpc` posts to the gateway root and rejects `/rpc` endpoints. It accepts the configured gateway origin with or without a trailing slash and restricts calls to `px_` methods. Use that hosted gateway URL for discovery and hosted operations such as `px_register` and `px_requestFunds`, and the separate node endpoint with `PaymentRpc` for payment submission and receipt reads. No middleware package creates an extra public network endpoint.
+`HostedGatewayRpc` posts JSON-RPC to the configured gateway root origin. It accepts the configured gateway origin with or without a trailing slash and restricts calls to `px_` methods. Use that hosted gateway URL for discovery and hosted operations such as `px_register` and `px_requestFunds`, and the separate node endpoint with `PaymentRpc` for payment submission and receipt reads. No middleware package creates an extra public network endpoint.
 
 ## Middleware seller error codes
 
@@ -89,7 +89,7 @@ The [reference runner](../services/platform/examples/run-reference-apps.mjs) and
 
 ## Public RPC examples
 
-[public-rpc.mjs](../services/platform/middleware/examples/public-rpc.mjs) and [public_rpc.py](../services/platform/middleware/examples/public_rpc.py) contain the executable example clients. Inspect their selected transport and endpoint validation before use: compatibility clients that require a retired path need migration to the root contract. Receipt keys and commitment validators are trusted inputs, not values to accept from an untrusted payment offer. Never use `node.hyperpaxeer.com` as RPC; it is the library mirror.
+[public-rpc.mjs](../services/platform/middleware/examples/public-rpc.mjs) and [public_rpc.py](../services/platform/middleware/examples/public_rpc.py) contain the executable example clients. Inspect their selected transport and endpoint validation before use: compatibility clients that require a retired path need migration to the root contract. Receipt keys and commitment validators are trusted inputs, not values to accept from an untrusted payment offer. Configure the node endpoint independently of build-library downloads.
 
 <a id="middleware-conformance-env-vars"></a>
 <a id="middleware-conformance-environment"></a>

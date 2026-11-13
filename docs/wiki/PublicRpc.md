@@ -2,9 +2,9 @@
 
 The public JSON-RPC of Paxeer X Network is served at the root path of
 `https://api-mainnet-beta.paxeer.network` and `api1` through
-`api14.mainnet-beta.paxeer.network` (EVM chain ID `125`, hex `0x7d`). There is
-no router, no `/rpc` path and no separate LayerX interface. The proposer is the
-executor: a transaction is final once its block is committed.
+`api14.mainnet-beta.paxeer.network` (EVM chain ID `125`, hex `0x7d`).
+The former router and its `/rpc` path are retired. The kernel proposes blocks
+inside `paxd`; a transaction is final once its block is committed.
 
 See [Commitment levels](CommitmentLevels.md), [Assets](Assets.md) and the
 [Payments developer path](PaymentsQuickstart.md). The complete endpoint list,
@@ -43,7 +43,7 @@ Parameters are positional.
 | `px_resolveAccount` | `[account]` | `evm_address`, `pax_address`, `layerx_did`, `layerx_account` and `bound`; unbound references are null |
 | `px_getAccount` | `[account]` | Resolved `account` and `paxeer` with `address`, hex `balance` and `nonce`, and integer `height` |
 | `px_getBalances` | `[account]` | Resolved `account`, integer `height` and `balances` with `denom` and decimal-string `amount` |
-| `px_listAssets` | `[]` at the node; `[cursor?]` at the hosted gateway | Registered assets; the hosted gateway pages them with `next_cursor` |
+| `px_listAssets` | `[]` at the node; `[cursor?, limit?]` at the hosted gateway | Registered assets; the hosted gateway pages them with `next_cursor` |
 | `px_getNetwork` | `[]` | `network_id`, `paxeer` chain ID and head, and the consensus head |
 | `px_getHistory` | `[account, cursor?, limit?, kind?]` | Indexed transfer `items`, `next_cursor`, `indexedHeight`, `chainHeight` and `freshness` |
 | `px_getUnifiedHistory` | `[account, cursor?, limit?, kind?]` | Resolved `account`, merged `accounts` and history `items` tagged with `side` |
@@ -88,9 +88,9 @@ context. See [Protocol](Protocol.md#from-transaction-to-committed-receipt).
 ## Hosted gateway
 
 The hosted gateway is operator-deployed and accepts `POST /` at its own origin;
-obtain that origin and its credentials from the operator. The retired `/rpc`,
-`/rpc/schema`, `/rpc/ws` and `/rpc/evm/ws` paths answer HTTP 404. A WebSocket
-upgrade at the gateway root is the authenticated EVM subscription relay. The
+obtain that origin and its credentials from the operator.
+The retired paths `/rpc`, `/rpc/schema`, `/rpc/ws` and `/rpc/evm/ws` answer HTTP 404.
+A WebSocket upgrade at the gateway root is the authenticated EVM subscription relay. The
 gateway relays admitted `eth_*`, `net_*` and `web3_*` calls and
 `pax_sequencerReceipt` to its configured node pool, refuses node-side signing
 methods with `-32601`, and refuses `eth_subscribe` over HTTPS with `-32004`.

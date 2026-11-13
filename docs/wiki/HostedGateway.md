@@ -70,7 +70,7 @@ Parameters are positional; use `[]` explicitly for methods without arguments.
 | `px_resolveAccount` | `[account]` | EVM address or `did:layerx:<64 hex>` resolution through the address precompile; unbound fields are null |
 | `px_getAccount` | `[account]` | Resolution and EVM balance, nonce and height from one chain snapshot |
 | `px_getBalances` | `[account]` | Bank balances at one height; amounts are exact decimal strings in base units |
-| `px_listAssets` | `[]` | Up to 16 indexer assets, sorted by asset ID, with chain metadata at the returned height; unavailable metadata remains null |
+| `px_listAssets` | `[cursor?, limit?]` | Registered assets in registration order, with `next_cursor` and chain metadata at the returned height; unavailable metadata remains null |
 | `px_getNetwork` | `[]` | Network identifier, EVM chain ID and head, plus consensus head; missing consensus yields null with `consensus_unavailable` |
 | `px_getCommit` | `[height]` | Consensus `signedHeader` at a positive decimal-string height |
 | `px_getValidators` | `[height]` | Full validator set collected across consensus pages |
@@ -82,6 +82,10 @@ Parameters are positional; use `[]` explicitly for methods without arguments.
 | `px_getCapabilities` | `[]` | Seven precompile availability flags, their addresses, probe time and chain height |
 | `px_getRouteCatalogue` | `[]` | Authenticated product route catalogue with dependency readiness; requires `LayerX-Key` |
 | `pax_sequencerReceipt` | `[txHash]` | Node response relayed unchanged for a `0x`-prefixed 32-byte hash; unknown hashes return null |
+
+Asset-list cursors are canonical decimal strings; omit the cursor or use null
+for the first page. The optional integer limit is 1–16, default 16, and the
+response reports `order: "registration"`.
 
 History cursors are opaque indexer cursors. Holder-record cursors are 32
 lowercase hex characters; holder page size defaults to 50 and is bounded at
@@ -403,8 +407,7 @@ defines `platform-build` for platform workspaces and SDK/release checks,
 `platform-test` for workspace suites through the runtime-clock wrapper,
 `platform-hosted-smoke`, `platform-hosted-topology-check` and
 `platform-test-agent-install` for their respective integration workflows.
-These broader targets have additional prerequisites; they are not gates
-for this documentation rewrite.
+These broader targets require their declared integration dependencies.
 
 ## Version-2 module registry
 

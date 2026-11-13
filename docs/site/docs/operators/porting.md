@@ -208,16 +208,14 @@ Checks before a ported program is admitted:
    dependency lock (`programs/porting/solana/src/qualify.rs`).
 2. `build_plan` pins builder identity `LayerX/porting/solana/builder/v1`,
    toolchain and lock digests, `SOURCE_EPOCH` 1, and `BUILD_COMMAND`
-   (`programs/porting/solana/src/qualify.rs`,
-   `programs/porting/solana/src/qualify.rs`).
+   (`programs/porting/solana/src/qualify.rs`).
 3. `validated_module` runs `WasmEngine::declared()?.validate(&port.code()?)`
    (`programs/porting/solana/src/qualify.rs`).
 4. `deploy_and_verify` deploys with `ABI_VERSION` and
    `UpgradePolicy::Immutable`, journals `DeploymentRecord`, replays into the
    registry, rebuilds with `SourceVerifier::new(PortBuildRunner, REBUILD_ATTEMPTS)`
    where `REBUILD_ATTEMPTS` is 2, and refuses unless status is `Verified`
-   (`programs/porting/solana/src/qualify.rs`,
-   `programs/porting/solana/src/qualify.rs`).
+   (`programs/porting/solana/src/qualify.rs`).
 5. `PortBuildRunner::run` requires the plan command's last word as descriptor
    path, UTF-8 descriptor text, `SOURCE_PATH` equal to `ANCHOR_SOURCE`, then
    `MintLimitPort::parse` and `port.code()`
@@ -380,8 +378,7 @@ Same pipeline shape as Solana, with EVM names
 1. Archive holds `SOLIDITY_SOURCE`, descriptor, toolchain, lock
    (`programs/porting/evm/src/qualify.rs`).
 2. Builder domain `LayerX/porting/evm/builder/v1`, `REBUILD_ATTEMPTS` 2,
-   `SOURCE_EPOCH` 1 (`programs/porting/evm/src/qualify.rs`,
-   `programs/porting/evm/src/qualify.rs`).
+   `SOURCE_EPOCH` 1 (`programs/porting/evm/src/qualify.rs`).
 3. `validated_module` is `WasmEngine::declared()?.validate(&port.code()?)`
    (`programs/porting/evm/src/qualify.rs`).
 4. `deploy_and_verify` deploys immutable WASM using the runtime `ABI_VERSION`, journals, rebuilds
@@ -528,9 +525,9 @@ its namespace (`programs/porting/cosmwasm/src/storage.rs`).
 
 `shared_orderbook::OrderBook` maps the order count and order map to shared
 state and positions to `SenderIndexed`. `order_key` uses `map_key` with the
-order ID bytes. `PortRefusal::SharedState` remains an enum variant in
-`error.rs`, but the crate has no constructor path that raises it; its old
-description is not the current storage contract. The `import_state` helper
+order ID bytes. `PortRefusal::SharedState` is an enum variant in
+`error.rs`; shared state is supported by the explicit binding above. The
+`import_state` helper
 below imports sender-indexed cells into principal namespaces; do not use it
 as an implicit shared-state importer.
 
@@ -594,8 +591,7 @@ Same pipeline shape (`programs/porting/cosmwasm/src/qualify.rs`):
 1. Archive holds `COSMWASM_SOURCE`, descriptor, toolchain, lock
    (`programs/porting/cosmwasm/src/qualify.rs`).
 2. Builder domain `LayerX/porting/cosmwasm/builder/v1`, `REBUILD_ATTEMPTS` 2,
-   `SOURCE_EPOCH` 1 (`programs/porting/cosmwasm/src/qualify.rs`,
-   `programs/porting/cosmwasm/src/qualify.rs`).
+   `SOURCE_EPOCH` 1 (`programs/porting/cosmwasm/src/qualify.rs`).
 3. `validated_module` is `WasmEngine::declared()?.validate(&port.code()?)`
    (`programs/porting/cosmwasm/src/qualify.rs`).
 4. `deploy_and_verify` deploys immutable WASM using the runtime `ABI_VERSION`, journals, rebuilds

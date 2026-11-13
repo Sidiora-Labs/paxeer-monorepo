@@ -1,14 +1,14 @@
 # Concepts
 
-LayerX is a deterministic execution and accounting network. Three rules sit
-at the center ([Protocol](../protocol/index.md)):
+Paxeer mainnet-beta is one BFT network with EVM chain ID `125` (`0x7d`).
+The LayerX kernel runs inside `paxd` and participates in execution and block
+proposal. A receipt is final when its block is committed; a committed failure
+does not establish a successful payment.
 
-1. One canonical history. Every accepted or failed activity receives a global
-   sequence. State roots chain per activity.
-2. One financial doorway. `402LXP` is the only component allowed to write
-   balances.
-3. One reproducible result. Consensus-critical execution excludes floating
-   point, local clocks, and unstable iteration.
+Native ledger operations, bank transfers and EVM execution apply monetary
+effects through their respective chain state paths. Kernel execution uses
+canonical encodings and deterministic arithmetic. See
+[Protocol](../protocol/index.md) for the kernel's encoding and execution rules.
 
 | Topic | Page |
 | --- | --- |
@@ -16,8 +16,8 @@ at the center ([Protocol](../protocol/index.md)):
 | Named accounts and sequences | [Accounts](accounts.md) |
 | One secret for the EVM account and the LayerX identity | [One account](one-account.md) |
 | Assets, issuance, fees | [Assets](assets.md) |
-| Activity envelope | [Activities](activities.md) |
+| Transactions and kernel activities | [Activities](activities.md) |
 | Receipts and verification | [Receipts](receipts.md) |
-| Checkpoints and guarantors | [Checkpoints](checkpoints.md) |
-| Paxeer custody and exits | [Paxeer settlement](paxeer-settlement.md) |
-| Hosted Paxeer JSON-RPC relay | [Paxeer boundary](paxeer-boundary.md) |
+| Committed block evidence | [Checkpoints](checkpoints.md) |
+| Native payment settlement | [Paxeer settlement](paxeer-settlement.md) |
+| Node interfaces and trust | [Paxeer boundary](paxeer-boundary.md) |

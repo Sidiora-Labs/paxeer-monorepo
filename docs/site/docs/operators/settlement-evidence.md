@@ -15,8 +15,9 @@ Use a node endpoint at its root path, for example
 `https://api1.mainnet-beta.paxeer.network/`, and check `eth_chainId` is `0x7d`.
 The public node set is `api1` through `api14.mainnet-beta.paxeer.network` and
 `api-mainnet-beta.paxeer.network`. `node.hyperpaxeer.com` is a library mirror,
-not an RPC endpoint. Hosted `px_` methods are gateway methods and are not
-implied by a public node's method catalogue.
+not an RPC endpoint. The node implements chain-state `px_` reads;
+application operations such as `px_register` and `px_requestFunds` require
+the hosted gateway's identity and faucet services.
 
 For a native bank or ledger movement:
 
@@ -42,9 +43,11 @@ lookup of a token interface, not custody or balance evidence.
 
 ## Authenticate a block independently
 
-The hosted gateway's `src/chain_reads.rs` implements `px_getCommit`,
-`px_getValidators`, `px_getSequenceBatch` and `px_getReceiptKeys`; its
-`openrpc.json` declares their request and result shapes. The first three take
+The node implements `px_getCommit`, `px_getValidators` and
+`px_getSequenceBatch` in `rpc/px_kernel.go`, and `px_getReceiptKeys` in
+`rpc/sequencer_receipt.go`. The hosted gateway also exposes these methods in
+`services/platform/hosted/gateway/src/chain_reads.rs`; its `openrpc.json`
+declares their request and result shapes. The first three take
 a positional height; `px_getReceiptKeys` takes an empty parameter array and
 returns `{keys:[{keyId,publicKey,firstHeight,lastHeight}]}`. The receipt key's
 inclusive height interval is part of its authorization.

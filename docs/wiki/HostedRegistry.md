@@ -74,7 +74,7 @@ require `Content-Length`. Responses use JSON, `Cache-Control: no-store` and
 | --- | --- | --- |
 | GET | `/healthz` | Readiness verdict; success is `{"status":"ready","service":"program-registry"}` |
 | GET | `/metrics` | Authenticated event-producer counters from the listener |
-| POST | `/__registry/deployments` | Resolve a transaction hash through a committed receipt and Programs state; journal the result |
+| POST | `/__registry/deployments` | Verify canonical deployment admission, journal it and rebuild the registry projection |
 | POST | `/__registry/head` | Read a program's current native state head and refresh the journal's observed height/time |
 | POST | `/__registry/sources` | Mirror an archive and pinned build plan under the publication authority |
 | GET | `/v1/programs/registry` | List program IDs with the current verified head and freshness bound |
@@ -89,17 +89,20 @@ request and response shapes.
 
 ### Deployment and head reads
 
-Deployment ingestion accepts JSON containing only `transaction_hash` (32-byte
-hex, optionally prefixed with `0x`), or a raw 32-byte body. It fetches
-`eth_getTransactionReceipt`, requires success and a nonzero block hash/height,
-and selects exactly one consistent, non-removed `ProgramDeployed(bytes32,bytes32)`
-log emitted by Programs. It then calls `getProgram(bytes32)` at that block hash
-with `requireCanonical: true`, checking the program's code hash, ABI, version,
-policy, authority and active status against the event.
+Deployment ingestion accepts raw canonical `DeploymentProof` bytes or JSON
+containing only `admission`, an array of byte values. It verifies the historical
+deployment against configured native chain trust and a current authenticated
+protocol head, then checks the program's version history before appending the
+sealed journal unit and rebuilding the projection. It records an existing
+deployment without submitting a transaction. A transaction hash alone is not
+an admission proof.
 
-Success includes `transaction_hash`, `program_id`, `code_hash`, `abi_version`,
-`version`, `policy`, `authority`, `block_hash`, `block_number` and `state: deployed`.
-This route no longer returns an unconditional unavailable response.
+Success includes `program_id`, `code_hash`, `abi_version`, `version`,
+`transaction_hash` and `state: deployed`. The transaction hash is the verified
+activity ID. See [Registry deployment journal](RegistryDeploymentJournal.md)
+for export and replay contracts. The separate `route_chain_deployment` helper
+performs receipt/event/native-state lookups, but the service's request worker
+routes deployment ingestion through `Registrar::route`.
 
 Head ingestion accepts JSON containing only `program_id` (32-byte hex with an
 optional `0x` prefix). It reads `eth_blockNumber`, `eth_getBlockByNumber`,
@@ -133,7 +136,7 @@ is `unpublished`, `verified` or `mismatch`.
 
 | Record | Durable representation / response |
 | --- | --- |
-| Chain deployment read | `{journal}/chain-deployments/{transaction_hash}.json`; stores the receipt block, program identity, code hash, ABI, version, policy, authority and active flag; a conflicting retry is refused |
+| Chain deployment read | `{journal}/chain-deployments/{transaction_hash}.json`; helper metadata requires a matching authenticated deployment envelope; a conflicting retry is refused |
 | Deployment proof unit | `{receipt_digest}.envelope`; sealed canonical deployment record and proof; complete legacy `.deployment`/`.admission` pairs can also load |
 | Observed head | `{journal}/head`: `sequence\tobserved_at\n`, both nonzero |
 | Native state cache | `{journal}/program-state/{program}.{digest}.program-state`; SHA-256 of the bytes must match the filename |
@@ -175,10 +178,9 @@ cache integrity only. Restart must obtain fresh chain evidence and current state
 it must refuse stale, inconsistent or unavailable evidence. See
 [`program_state.rs`](../../services/platform/hosted/registry/src/program_state.rs).
 
-The proof-backed projection replay and transaction-hash ingestion use distinct
-journal formats. `Registrar::rebuild` replays deployment envelopes; it does not
-import `chain-deployments/*.json` into that projection. A successful transaction
-lookup therefore does not by itself establish that every registry read is ready.
+Proof-backed projection replay and the chain transaction lookup helper use
+distinct journal formats. `Registrar::rebuild` replays deployment envelopes;
+`chain-deployments/*.json` metadata cannot independently authorize the projection.
 
 Source-verification idempotency is durable across workers and restart. Opening
 the registrar reconciles request records and resumes pending publications.
@@ -213,7 +215,7 @@ literal `retry` field.
 | 404 | `not_found`, `interface_absent`, `source_not_mirrored` | Missing route, program, interface or archive |
 | 405 | `method_not_allowed` | Unsupported method |
 | 409 | `idempotency_conflict`, `source_mismatch`, `deployment_changed` | Conflicting request, differing artifact or deployment changed during rebuild |
-| 422 | `deployment_proof_refused` | Receipt/event/native record was not an acceptable deployment |
+| 422 | `deployment_proof_refused` | Canonical deployment proof or version history was refused |
 | 422 | `source_unverifiable`, `build_failed`, `build_not_reproducible` | Source plan or rebuild refused |
 | 502 | `unverified_read`, `interface_registry_mismatch`, `balance_registry_mismatch` | Evidence disagrees with the derived registry |
 | 503 | `deployment_proof_unavailable`, `protocol_state_unavailable`, `journal_unavailable` | Chain read/configuration or deployment-journal failure |
@@ -329,7 +331,6 @@ and native chain-trust deployment verification in
 [`tests/journal_chain_trust.rs`](../../services/platform/hosted/registry/tests/journal_chain_trust.rs).
 [`tests/journal.rs`](../../services/platform/hosted/registry/tests/journal.rs)
 covers interrupted writes, envelope replay and quarantine.
-These are coverage references, not a claim that those suites ran for this page.
 
 ---
 

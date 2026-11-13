@@ -6,7 +6,7 @@ This page documents the launchpad web and mobile clients and their SDK boundarie
 
 Paxeer mainnet-beta is one BFT network with EVM chain ID **125** (`0x7d`). Its kernel runs inside `paxd` and participates in block proposal. A transaction receipt is final when its block is committed. Submission and a signed pre-commit receipt must not be displayed as committed execution. Sub-chains are tenant domains in the database, not separately deployed chains.
 
-Public node JSON-RPC uses the HTTPS root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, or `api-mainnet-beta.paxeer.network`. For example, use `https://api5.mainnet-beta.paxeer.network`. The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json). `node.hyperpaxeer.com` is the build library mirror, not an RPC endpoint.
+Node JSON-RPC uses HTTPS at the configured node’s root path. See [node transport and served methods](evm-rpc.md). Node-state `px_*` methods are distinct from the hosted identity and faucet operations in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
 
 ## Launchpad web app
 
@@ -25,7 +25,7 @@ The Next.js app lives in [apps/launchpad/web](../apps/launchpad/web). Its [works
 
 `NEXT_PUBLIC_STATS_API_URL` and `NEXT_PUBLIC_LIVESTREAM_API_URL` are optional. `NEXT_PUBLIC_STREAM_ORIGIN` selects the public WebSocket origin; absent an override it is the WebSocket form of the data API origin. Private API and stream overrides use `NEXT_PUBLIC_PRIVATE_API_ORIGIN` and `NEXT_PUBLIC_PRIVATE_STREAM_ORIGIN`; absent overrides, those clients use the page origin. Missing or malformed required values produce a configuration error state. Production backend URLs require HTTPS/WSS and reject credentials, queries and fragments.
 
-[rpc.ts](../apps/launchpad/web/src/core/rpc.ts) builds the deduplicated node RPC list in this order: `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_RPC_URL_FALLBACK`, `NEXT_PUBLIC_PAXEER_RPC_URL`. If none is usable it selects the api5 root above. This RPC list is separate from the launchpad REST origins.
+[rpc.ts](../apps/launchpad/web/src/core/rpc.ts) builds the deduplicated node RPC list in this order: `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_RPC_URL_FALLBACK`, `NEXT_PUBLIC_PAXEER_RPC_URL`. When all three variables are unset it selects the built-in mainnet-beta root endpoint. A configured malformed value raises `RpcConfigurationError`; production requires HTTPS and a root URL without credentials, query or fragment. This RPC list is separate from the launchpad REST origins.
 
 ### Same-origin routes
 
@@ -34,7 +34,7 @@ The Next.js app lives in [apps/launchpad/web](../apps/launchpad/web). Its [works
 | Variable | Paths forwarded by the web server |
 | --- | --- |
 | `WEB_GATEWAY_UPSTREAM` | `/v2/auth/*`, `/v2/stream/tickets`, `/v2/control/*` |
-| `WEB_API_UPSTREAM` | `/v2/network/authority`, `/v2/preflight/*`, `/v2/snapshots` |
+| `WEB_API_UPSTREAM` | `/v2/network/authority`, `/v2/preflight/*`, `/v2/snapshots`, `/v2/pools/:pool/candles` |
 | `WEB_SOCKETS_UPSTREAM` | `/v2/stream`, `/v2/stream/sse` |
 | `WEB_CHARTS_UPSTREAM` | `/v2/udf/config`, `/v2/udf/symbols`, `/v2/udf/history`, `/v2/udf/time` |
 
@@ -50,7 +50,7 @@ WalletConnect is enabled by `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`. The embedded
 
 [service-client.ts](../apps/launchpad/mobile/src/runtime/service-client.ts) validates a release `PublicConfiguration` before constructing its service client. API, identity and media origins must equal the approved HTTPS `canonicalOrigin`. The manifest URL must share that origin, and `manifestDigest` must be 64 lowercase hex characters. The configuration also carries an approved identity URI, stream origins, explicit chat/live feature flags and playback origins. Native account operations use [operation-authority.ts](../apps/launchpad/mobile/src/runtime/operation-authority.ts); a displayed account address alone does not authorize an operation.
 
-## Launchpad SDK SDK
+## Launchpad SDK
 
 The main package is [`@kindle/sdk`](../sdk/launchpad/packages/sdk/package.json). Its [transport](../sdk/launchpad/packages/sdk/src/transport.ts) exports `SdkClient`, `TransportConfig`, `HttpError`, `CapabilityUnavailableError` and `StreamTransportError`. Configure API, identity, media and approved stream origins explicitly. Production accepts HTTPS/WSS public origins; transport origins cannot include a path prefix, credentials, query or fragment. Cookie sessions require the application origin to equal the API origin; bearer sessions supply a token callback.
 
@@ -60,7 +60,7 @@ Operation timeouts default to the greater of the generated budget and 8 seconds 
 
 [`browserStreamTransportV2`](../sdk/launchpad/packages/sdk/src/browser-stream.ts) reads `/v2/snapshots` and connects to `/v2/stream` with subprotocol `sidiora.v2`. Authenticated connections obtain a fresh ticket from `/v2/stream/tickets`, bound to origin, topics, schema major, filter digest and endpoint. Public streams refuse private topics. The client sends a ping every 4 seconds by default. [`SnapshotStreamV2`](../sdk/launchpad/packages/sdk/src/stream.ts) applies the snapshot and watermarks before replay. Keep monetary values and sequence values in their declared decimal-string/BigInt representations; PAX has 18 decimals and USDL has 6.
 
-## Launchpad SDK SDK v2
+## Launchpad SDK v2
 
 [`@kindle/sdk-v2`](../sdk/launchpad/packages/sdk-v2/package.json) publishes generated v2 [types](../sdk/launchpad/packages/sdk-v2/src/types.gen.ts) and [schemas](../sdk/launchpad/packages/sdk-v2/src/schemas.gen.json). The main SDK uses these through `decodeV2Contract` and generated operations. This package supplies wire definitions, not a separate network connection.
 
@@ -72,27 +72,27 @@ Operation timeouts default to the greater of the generated budget and 8 seconds 
 
 [`@kindle/production-contracts-v2`](../sdk/launchpad/packages/production-contracts-v2/package.json) publishes generated [v2 types](../sdk/launchpad/packages/production-contracts-v2/src/types.gen.ts) and [schemas](../sdk/launchpad/packages/production-contracts-v2/src/schemas.gen.json). Match the producer's schema version and field set; a similarly named v1 DTO is not an interchangeable decoder.
 
-## Launchpad SDK candles SDK
+## Launchpad candles SDK
 
 [`CandlesClient`](../sdk/launchpad/packages/candles-sdk/src/index.ts) implements TradingView UDF config, symbol, history and time reads. Configure its base URL to the UDF prefix, such as the same-origin `/v2/udf`; it appends the individual resource names. `HistoryResponse` distinguishes bars from `{s: 'no_data', nextTime?}`. `CandlesHttpError` represents HTTP failure and `UdfResponseError` a UDF error response. See [trading charts](services.md#launchpad-trading-charts).
 
-## Launchpad SDK indexer SDK
+## Launchpad indexer SDK
 
 [`HttpClient`](../sdk/launchpad/packages/indexer-sdk/src/index.ts) requires `baseUrl` before use. `getRecentTrades(poolAddress)` requests `/stats/{poolAddress}/transactions`, validates `transactions`, then returns `{pool, trades}`. Amounts, prices and fees remain strings. This is a compatibility data API call, not an indexer operational-status call. The production API has removed the unversioned `/stats/*` family; use the versioned trade operation there. See [API](services.md#launchpad-api) and [indexer](services.md#launchpad-indexer).
 
-## Launchpad SDK metadata SDK
+## Launchpad metadata SDK
 
 [`createMetadataClient`](../sdk/launchpad/packages/metadata-sdk/src/index.ts) exposes the compatibility metadata DTO with snake-case fields, nullable display fields and string `total_supply`. Its error types distinguish HTTP, malformed responses and upload failure. The retained upload method does not imply that production serves legacy multipart uploads; use the [metadata service's](services.md#launchpad-metadata) authenticated asset and publication routes for current writes.
 
-## Launchpad SDK ranking algo SDK
+## Launchpad ranking SDK
 
 [`RankingHttpClient`](../sdk/launchpad/packages/ranking-algo-sdk/src/index.ts) reads `/rankings/{category}` from its configured base URL, preserving snapshot freshness and watermark information. Categories are `trending`, `breakout`, `volume`, `gainers`, `losers`, `movers`, `unusual` and `new`; query options include limit, cursor and cancellation. See [ranking](services.md#launchpad-ranking-algo).
 
-## Launchpad SDK stats SDK
+## Launchpad stats SDK
 
 [`StatsHttpClient`](../sdk/launchpad/packages/stats-sdk/src/index.ts) reads `/stats/{poolAddress}` and `/stats/batch?pools=...` from a configured compatibility service base. It validates stats and distinguishes `StatsHttpError` from `StatsResponseError`. Production API registration has removed these unversioned routes; use the declared v2 stats operations for that producer.
 
-## Launchpad SDK users SDK
+## Launchpad users SDK
 
 [`UsersHttpClient`](../sdk/launchpad/packages/users-sdk/src/index.ts) serves the compatibility `/users/{wallet}` family, including signed profile/watchlist changes and image uploads. Responses retain their snake-case fields. This is a distinct contract from the current authenticated `/v2/me/*` account routes in the [user service](services.md#launchpad-user); do not substitute one response shape for the other.
 

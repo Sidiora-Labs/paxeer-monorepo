@@ -268,8 +268,5 @@ standalone-daemon boundary harness. Relevant sources include:
 - [signer.rs](../../services/platform/hosted/core/tests/signer.rs): treasury signer
   transport and refusal coverage.
 
-These source references describe coverage; deployment readiness requires its own
-recorded qualification result.
-
 [Hosted gateway](HostedGateway.md) · [Hosted node](HostedNode.md) ·
 [Public JSON-RPC](PublicRpc.md) · [Home](Home.md)

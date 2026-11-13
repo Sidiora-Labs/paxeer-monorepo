@@ -28,7 +28,8 @@ Recovered signers must be strictly ascending, current attestors, and meet
 the configured threshold. The inbound nullifier is
 `(chainId, txHash, logIndex)`. The inbound recipient is a nonzero EVM address
 in the low 20 bytes of a 32-byte word, with its high 12 bytes zero.
-Amounts are asset base units, not display decimals.
+Amounts are asset base units. Solana custody amounts must also fit uint64,
+even though the shared preimage encodes the amount as uint256.
 
 ## Chain config
 

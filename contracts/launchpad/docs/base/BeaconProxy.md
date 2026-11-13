@@ -1,11 +1,13 @@
 # Solidity API
 
+Source: [BeaconProxy.sol](../../contracts/base/BeaconProxy.sol).
+
 ## BeaconProxy
 
 Proxy that reads its implementation from a beacon contract
 
-_Multiple BeaconProxy instances share one UpgradeableBeacon.
-     Upgrading the beacon upgrades all proxies atomically._
+_Multiple BeaconProxy instances share one UpgradeableBeacon. Upgrading the beacon upgrades all
+proxies atomically._
 
 ### BeaconCallFailed
 
@@ -16,25 +18,25 @@ error BeaconCallFailed()
 ### constructor
 
 ```solidity
-constructor(address beacon, bytes data) public
+constructor(address beacon, bytes memory data)
 ```
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| beacon | address | The UpgradeableBeacon address |
-| data | bytes | Optional initialization calldata |
+| Name   | Type    | Description                      |
+| ------ | ------- | -------------------------------- |
+| beacon | address | The UpgradeableBeacon address    |
+| data   | bytes   | Optional initialization calldata |
 
-### _implementation
+### \_implementation
 
 ```solidity
-function _implementation() internal view returns (address)
+function _implementation() internal view override returns (address)
 ```
 
 Returns the current implementation by querying the beacon
 
-### _getBeaconImplementation
+### \_getBeaconImplementation
 
 ```solidity
 function _getBeaconImplementation(address beacon) internal view returns (address impl)
@@ -42,3 +44,11 @@ function _getBeaconImplementation(address beacon) internal view returns (address
 
 _Reads the implementation() function from the beacon_
 
+### BeaconInitializationFailed
+
+```solidity
+error BeaconInitializationFailed()
+```
+
+Returned when initialization delegatecall fails without revert data; nonempty revert data is
+propagated.

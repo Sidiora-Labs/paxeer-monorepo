@@ -11,6 +11,14 @@ require an independent rollback authority; this tree supplies its client
 contract, but no production authority server
 (`services/interop/crates/layerx-migrate/README.md`).
 
+The hosted interop service exposes `POST /v2/migration/accounts`,
+`/v2/migration/assets`, `/v2/migration/history` and `/v2/migration/history/read`.
+Those routes use the optional migration-v2 profile loaded from
+`LAYERX_INTEROP_MIGRATION_V2_CONFIG`; an unconfigured profile returns
+`503` with `migration_v2_unconfigured`. The library types below also include
+retained v1 contracts; they are not the hosted v2 request schema. See
+[Interop](Interop.md) for the active HTTP contract and external provenance.
+
 [Programs porting](Porting.md) is a different crate and topic.
 
 ---

@@ -55,7 +55,7 @@ Use each entry point's checked-in ABI and module rules. These addresses are nati
 
 ## Settlement suite
 
-The former `deploy-contracts.sh bootstrap` instructions, `GuarantorBond`, `CheckpointRegistry`, vault deployment, and Blueprint activation are retired as prerequisites for merged-network execution or finality. The historical runner remains at `services/platform/hosted/paxeer/deploy-contracts.sh`; its presence does not make its settlement workflow a mainnet-beta installation procedure.
+The former `deploy-contracts.sh bootstrap` instructions, `GuarantorBond`, `CheckpointRegistry`, vault deployment, and Blueprint activation are retired as prerequisites for merged-network execution or finality.
 
 The merge upgrade is implemented in `node/upgrades.go`. It retires the anchor and invokes `LayerXCustodyKeeper.ReleaseRetired`, which releases custody balances to the configured authority and cancels pending claims. The release is restricted to the running merge plan, not a client operation to repeat after migration (`modules/layerxcustody/keeper/release.go`).
 

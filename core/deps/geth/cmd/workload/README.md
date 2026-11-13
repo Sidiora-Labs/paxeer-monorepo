@@ -1,7 +1,12 @@
 ## Workload Testing Tool
 
 This tool performs RPC calls against a live node. It has tests for the Sepolia testnet and
-Mainnet. Note the tests require a fully synced node.
+Mainnet. Note the tests require a fully synced node. Build the binary and run
+the examples from `core/deps/geth/cmd/workload`:
+
+```shell
+go build -o workload .
+```
 
 To run the tests against a Sepolia node, use:
 

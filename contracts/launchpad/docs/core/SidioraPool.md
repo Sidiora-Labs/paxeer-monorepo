@@ -1,5 +1,7 @@
 # Solidity API
 
+Source: [SidioraPool.sol](../../contracts/core/SidioraPool.sol).
+
 ## IOpticalMinimal
 
 _Minimal interface for optical hooks used by pool_
@@ -26,15 +28,9 @@ function getFlags() external view returns (uint8)
 
 Core AMM engine. Constant product with virtual reserves and dynamic fees.
 
-_Beacon proxy instances. Deliberately focused on AMM math + state transitions only.
-
-     FEE MODEL: Fees are always paid in the INPUT token.
-       BUY  (USDL → Token): fee in USDL → sent to FeeAccumulator for strategy distribution
-       SELL (Token → USDL): fee in Token → stays in pool, deepens token-side liquidity
-
-     VIRTUAL RESERVE FLOOR: virtualUsdlReserve (10,000 USDL) is pricing-only.
-       realUsdlBalance can never go below 0. The pool cannot pay out virtual USDL.
-       On sells, amountOut is bounded by realUsdlBalance (defense-in-depth)._
+Beacon proxy instances hold per-pool reserves. Fees are charged in the input asset: buy fees go to
+FeeAccumulator in USDL, while sell fees remain in the pool as tokens. The initialized virtual USDL
+reserve provides pricing depth; sell output is bounded by real USDL.
 
 ### VirtualFloorBreached
 
@@ -155,13 +151,13 @@ uint256 accumulatedTokenFees
 ### constructor
 
 ```solidity
-constructor() public
+constructor()
 ```
 
 ### initialize
 
 ```solidity
-function initialize(address _tokenAddress, address _usdlAddress, address _opticalAddress, address _feeAccumulator, address _eventEmitter, address _protocolConfig, address _guardian, uint256 _virtualUsdlReserve, uint256 _tokenReserve) external
+function initialize( address _tokenAddress, address _usdlAddress, address _opticalAddress, address _feeAccumulator, address _eventEmitter, address _protocolConfig, address _guardian, uint256 _virtualUsdlReserve, uint256 _tokenReserve ) external override initializer
 ```
 
 Initialize pool state (called once by factory via beacon proxy)
@@ -169,41 +165,41 @@ Initialize pool state (called once by factory via beacon proxy)
 ### swap
 
 ```solidity
-function swap(uint256 amountIn, uint256 minAmountOut, bool isBuy, address recipient, uint256 deadline) external returns (uint256 amountOut)
+function swap( uint256 amountIn, uint256 minAmountOut, bool isBuy, address recipient, uint256 deadline ) external override nonReentrant whenNotPaused returns (uint256 amountOut)
 ```
 
 Execute a swap
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| amountIn | uint256 | Amount of input token |
-| minAmountOut | uint256 | Minimum output (slippage protection) |
-| isBuy | bool | True = USDL→Token, False = Token→USDL |
-| recipient | address | Address to receive output tokens |
-| deadline | uint256 | Transaction deadline timestamp |
+| Name         | Type    | Description                           |
+| ------------ | ------- | ------------------------------------- |
+| amountIn     | uint256 | Amount of input token                 |
+| minAmountOut | uint256 | Minimum output (slippage protection)  |
+| isBuy        | bool    | True = USDL→Token, False = Token→USDL |
+| recipient    | address | Address to receive output tokens      |
+| deadline     | uint256 | Transaction deadline timestamp        |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name      | Type    | Description          |
+| --------- | ------- | -------------------- |
 | amountOut | uint256 | Actual output amount |
 
 ### syncReserves
 
 ```solidity
-function syncReserves() external returns (uint256 usdlBal, uint256 tokenBal)
+function syncReserves() external override nonReentrant returns (uint256 usdlBal, uint256 tokenBal)
 ```
 
 Re-read actual token balances (used by LP_REWARDS strategy)
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| usdlBal | uint256 |  |
-| tokenBal | uint256 |  |
+| Name     | Type    | Description               |
+| -------- | ------- | ------------------------- |
+| usdlBal  | uint256 | Actual USDL balance       |
+| tokenBal | uint256 | Actual pool-token balance |
 
 ### pause
 
@@ -226,7 +222,7 @@ function paused() external view returns (bool)
 ### getReserves
 
 ```solidity
-function getReserves() external view returns (uint256 virtualUsdl, uint256 realUsdl, uint256 tokenRes)
+function getReserves() external view override returns ( uint256 virtualUsdl, uint256 realUsdl, uint256 tokenRes )
 ```
 
 Get current reserves
@@ -234,7 +230,7 @@ Get current reserves
 ### getEffectiveReserves
 
 ```solidity
-function getEffectiveReserves() external view returns (uint256 effectiveUsdl, uint256 tokenRes)
+function getEffectiveReserves() external view override returns ( uint256 effectiveUsdl, uint256 tokenRes )
 ```
 
 Get effective reserves (virtual + real USDL, token)
@@ -242,7 +238,7 @@ Get effective reserves (virtual + real USDL, token)
 ### getPrice
 
 ```solidity
-function getPrice() external view returns (uint256)
+function getPrice() external view override returns (uint256)
 ```
 
 Get current token price in USDL (Q128 fixed-point)
@@ -250,7 +246,7 @@ Get current token price in USDL (Q128 fixed-point)
 ### getPoolInfo
 
 ```solidity
-function getPoolInfo() external view returns (struct ISidioraPool.PoolInfo)
+function getPoolInfo() external view override returns (PoolInfo memory)
 ```
 
 Get full pool info struct
@@ -258,32 +254,64 @@ Get full pool info struct
 ### getPriceSnapshots
 
 ```solidity
-function getPriceSnapshots() external view returns (uint256[8])
+function getPriceSnapshots() external view override returns (uint256[8] memory)
 ```
 
 Get price snapshots for volatility calculation
 
-### _calculateFee
+### \_calculateFee
 
 ```solidity
 function _calculateFee() internal view returns (uint256)
 ```
 
-### _currentPrice
+### \_currentPrice
 
 ```solidity
 function _currentPrice() internal view returns (uint256)
 ```
 
-### _updatePriceSnapshot
+### \_updatePriceSnapshot
 
 ```solidity
-function _updatePriceSnapshot() internal
+function _updatePriceSnapshot(uint256 price, uint256 usdlVolume) internal
 ```
 
-### _getBalance
+### \_getBalance
 
 ```solidity
 function _getBalance(address token) internal view returns (uint256)
 ```
 
+### swapFor
+
+```solidity
+function swapFor(uint256 amountIn, uint256 minAmountOut, bool isBuy, address trader, address recipient, uint256 deadline) external override nonReentrant whenNotPaused returns (uint256)
+```
+
+Requires the factory’s `ROUTER_ROLE` and preserves trader identity separately from the output
+recipient.
+
+### currentFeeBps
+
+```solidity
+function currentFeeBps() external view override returns (uint256)
+```
+
+Returns the current dynamic fee in basis points.
+
+### transferGuardian
+
+```solidity
+function transferGuardian(address nextGuardian) external
+```
+
+The current guardian proposes a nonzero successor.
+
+### acceptGuardian
+
+```solidity
+function acceptGuardian() external
+```
+
+Only the pending guardian accepts the transfer.

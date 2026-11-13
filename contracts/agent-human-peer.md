@@ -11,7 +11,6 @@ the [Agent API](agent-api.md) and [Rust modules](agent-rust-api.md#agentd).
 The runtime operates on one Paxeer BFT network, chain ID 125 on mainnet-beta.
 The kernel participates in that network and proposes blocks; committed blocks
 establish receipt finality. Tenant domains are storage namespaces on the network.
-There is no separate LayerX interface or sequencer service to connect to.
 
 ## Authentication
 
@@ -55,8 +54,10 @@ an economic action from display text after restart.
 Native preview/envelope operations bind the authenticated credential, current
 owner, exact canonical bytes, session generation, expiry, capability and signed
 purpose. Local grant consent and signing the protocol activity are separate
-authorizations. Send-specific selectors 66/67 use the distinct native Send purpose;
-they do not relabel the existing selectors 63/65. Approval material and budget
+authorizations. Send-specific selectors 66/67 carry the version-2 native Send
+purpose, binding the owner DID, consent key, recovered EVM sender, type-2
+transaction and chain ID 125. Their selector constants retain the `_V1` suffix;
+the purpose version is encoded independently. Approval material and budget
 facts must be fetched from their versioned owner operations before a decision.
 Unknown writes keep their reservation until evidence allows settlement.
 
@@ -200,18 +201,16 @@ The API dispatcher consumes the frame and verifies all of these bindings:
   is reported below the request until verified evidence establishes it.
 
 The [API contract](agent-api.md) specifies the complete `program.receipt` JSON
-projection. The integration proof carries node-produced canonical receipt bytes
-through durable storage, this codec, a loopback TLS HTTP peer, the production
-API dispatcher and the real SDK, checking every projected field. It also checks
-Absent and Submitted, and refuses altered hashes, keys, roots, heights and bytes.
+projection. Node-produced canonical receipt bytes pass through durable storage,
+this codec and the API dispatcher to the SDK. Each consumer retains the receipt bindings
+and the explicit Absent, Submitted or Found result.
 
 ## Restart behavior
 
 On restart the owner reopens its Store and restores the outbox by transaction
 hash. Receipt bytes, indexes and finality records remain durable; cache readiness
-and process-local connection generations do not. The proof stops and reopens
-these components and checks that the receipt answer is byte-for-byte unchanged.
-Unknown submissions retain exact bytes and require authenticated resolution.
+and process-local connection generations do not. Unknown submissions retain
+exact bytes and require authenticated resolution.
 
 Health and authority credentials are separate: loopback `/healthz` uses
 `LAYERX_AGENT_PROGRAM_BEARER_TOKEN`; outbound registry calls use

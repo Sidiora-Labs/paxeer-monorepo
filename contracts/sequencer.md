@@ -3,8 +3,7 @@
 Sequencing is an execution role inside `paxd` on the merged Paxeer network.
 The kernel is part of that network and proposes blocks. Mainnet-beta uses
 EVM chain ID 125 (`0x7d`), and a receipt is final when its block is committed.
-The pre-merge separate sequencer service and guarantor finality model are
-retired. [Consensus fork](consensus-fork.md) documents the consensus transport,
+[Consensus fork](consensus-fork.md) documents the consensus transport,
 wire types and RPC behavior.
 
 Sub-chains are tenant domains represented by database namespaces, launchable
@@ -19,14 +18,10 @@ application settings, including the execution-role `[sequencer]` section.
 The declarations in [`app_config.go`](../daemon/paxd/cmd/app_config.go) and
 [`consensus/config/config.go`](../consensus/config/config.go) are authoritative.
 
-Public Ethereum JSON-RPC uses HTTPS at the root path of
-`api1.mainnet-beta.paxeer.network` through
-`api14.mainnet-beta.paxeer.network`, and
-`api-mainnet-beta.paxeer.network`. The node namespaces are `debug`, `echo`,
+Public node JSON-RPC uses HTTPS at the configured node origin's root path. The node namespaces are `debug`, `echo`,
 `eth`, `net`, `pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and
 `px_requestFunds` are operations of the hosted identity and faucet
 services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
-`node.hyperpaxeer.com` is the build library mirror, never an RPC endpoint.
 See [consensus RPC routes](consensus-fork.md#rpc-routes) for the separate local
 consensus listener.
 
@@ -46,6 +41,11 @@ start flags. These are the application keys:
 | `receipt-forward-url` | empty | Must be empty when enabled; used for receipt forwarding by a node with sequencing disabled. |
 | `standby-address` | empty | When supplied, must be `host:port`: a primary's destination or a standby's listen address. |
 | `replication-timeout` | `0s` | Cannot be negative; must be positive with `standby-address`. |
+| `replication-tls-cert` | empty | Certificate file required for replication. |
+| `replication-tls-key` | empty | Private key file required for replication. |
+| `replication-tls-ca` | empty | PEM trust roots required for replication. |
+| `replication-peer-name` | empty | Required peer certificate DNS identity. |
+| `replication-peer-spki` | empty | Required hex-encoded SHA-256 digest of the peer certificate's SubjectPublicKeyInfo. |
 | `lease-duration` | three times `replication-timeout` when omitted | Must be positive. |
 | `wal-retain-blocks` | `2` | Must be positive. |
 | `nonce-queue-max-per-sender` | `0` | Must be positive. |
@@ -56,6 +56,11 @@ start flags. These are the application keys:
 The disabled defaults are not a ready-to-activate primary configuration.
 Queue limits, timing, keys and replication topology must be chosen for the
 activation. `ReadConfig` rejects invalid conversions and combinations.
+
+Replication uses mutual TLS 1.3 or later. Both roles validate the peer's trust
+chain, DNS identity and pinned public key before exchanging WAL data or
+acknowledgements. [`dial.go`](../node/sequencer/dial.go) defines these checks;
+node construction requires the TLS inputs when replication is configured.
 
 `[consensus.sequencer]` in `config.toml` is a different section. Its
 `enable` defaults to false. Its timeout defaults are `timeout-propose = "1s"`,
@@ -296,7 +301,7 @@ in-memory receipt source used for open-block responses.
 
 [`admin/config.go`](../admin/config.go) defines
 `admin_server.admin_enabled` (false) and `admin_server.admin_address`
-(`127.0.0.1:9095`). When enabled, the address must contain a loopback IP literal.
+(loopback on port 9095). When enabled, the address must contain a loopback IP literal.
 The gRPC service in [`admin/service.go`](../admin/service.go) provides
 `SetLogLevel`, `GetLogLevel` and `ListLoggers`. Invalid inputs return
 `InvalidArgument`; unmatched logger lookups or patterns return `NotFound`.

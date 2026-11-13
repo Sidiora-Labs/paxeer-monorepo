@@ -1,0 +1,199 @@
+[manifest]
+task = "22.41.8"
+pages = 65
+
+[record.1]
+path = "core/deps/cosmwasm/CHANGELOG-pre-1.0.0.md"
+
+[record.2]
+path = "core/deps/cosmwasm/CHANGELOG.md"
+
+[record.3]
+path = "core/deps/cosmwasm/IBC.md"
+
+[record.4]
+path = "core/deps/cosmwasm/MIGRATING.md"
+
+[record.5]
+path = "core/deps/cosmwasm/README.md"
+
+[record.6]
+path = "core/deps/cosmwasm/SECURITY.md"
+
+[record.7]
+path = "core/deps/cosmwasm/SEMANTICS.md"
+
+[record.8]
+path = "core/deps/cosmwasm/contracts/README.md"
+
+[record.9]
+path = "core/deps/cosmwasm/contracts/burner/README.md"
+
+[record.10]
+path = "core/deps/cosmwasm/contracts/crypto-verify/README.md"
+
+[record.11]
+path = "core/deps/cosmwasm/contracts/empty/README.md"
+
+[record.12]
+path = "core/deps/cosmwasm/contracts/floaty/README.md"
+
+[record.13]
+path = "core/deps/cosmwasm/contracts/ibc-callbacks/README.md"
+
+[record.14]
+path = "core/deps/cosmwasm/contracts/ibc-reflect-send/README.md"
+
+[record.15]
+path = "core/deps/cosmwasm/contracts/ibc-reflect/README.md"
+
+[record.16]
+path = "core/deps/cosmwasm/contracts/nested-contracts/README.md"
+
+[record.17]
+path = "core/deps/cosmwasm/contracts/reflect/README.md"
+
+[record.18]
+path = "core/deps/cosmwasm/contracts/staking/README.md"
+
+[record.19]
+path = "core/deps/cosmwasm/contracts/virus/README.md"
+
+[record.20]
+path = "core/deps/cosmwasm/docs/CAPABILITIES-BUILT-IN.md"
+
+[record.21]
+path = "core/deps/cosmwasm/docs/CAPABILITIES.md"
+
+[record.22]
+path = "core/deps/cosmwasm/docs/ERROR_HANDLING.md"
+
+[record.23]
+path = "core/deps/cosmwasm/docs/FEATURES.md"
+
+[record.24]
+path = "core/deps/cosmwasm/docs/GAS.md"
+
+[record.25]
+path = "core/deps/cosmwasm/docs/IDL.md"
+
+[record.26]
+path = "core/deps/cosmwasm/docs/MESSAGE_TYPES.md"
+
+[record.27]
+path = "core/deps/cosmwasm/docs/PINNING.md"
+
+[record.28]
+path = "core/deps/cosmwasm/docs/STORAGE_KEYS.md"
+
+[record.29]
+path = "core/deps/cosmwasm/docs/USING_COSMWASM_STD.md"
+
+[record.30]
+path = "core/deps/cosmwasm/packages/check/README.md"
+
+[record.31]
+path = "core/deps/cosmwasm/packages/core/README.md"
+
+[record.32]
+path = "core/deps/cosmwasm/packages/crypto/README.md"
+
+[record.33]
+path = "core/deps/cosmwasm/packages/derive/README.md"
+
+[record.34]
+path = "core/deps/cosmwasm/packages/go-gen/README.md"
+
+[record.35]
+path = "core/deps/cosmwasm/packages/schema-derive/README.md"
+
+[record.36]
+path = "core/deps/cosmwasm/packages/schema/README.md"
+
+[record.37]
+path = "core/deps/cosmwasm/packages/std/README.md"
+
+[record.38]
+path = "core/deps/cosmwasm/packages/vm/README.md"
+
+[record.39]
+path = "core/deps/db-backend/CHANGELOG.md"
+
+[record.40]
+path = "core/deps/db-backend/CONTRIBUTING.md"
+
+[record.41]
+path = "core/deps/db-backend/README.md"
+
+[record.42]
+path = "core/deps/db-backend/docs/how_to_release.md"
+
+[record.43]
+path = "core/deps/geth/.github/CONTRIBUTING.md"
+
+[record.44]
+path = "core/deps/geth/.github/ISSUE_TEMPLATE/bug.md"
+
+[record.45]
+path = "core/deps/geth/.github/ISSUE_TEMPLATE/feature.md"
+
+[record.46]
+path = "core/deps/geth/.github/ISSUE_TEMPLATE/question.md"
+
+[record.47]
+path = "core/deps/geth/README.md"
+
+[record.48]
+path = "core/deps/geth/SECURITY.md"
+
+[record.49]
+path = "core/deps/geth/accounts/scwallet/README.md"
+
+[record.50]
+path = "core/deps/geth/build/ci-notes.md"
+
+[record.51]
+path = "core/deps/geth/cmd/clef/README.md"
+
+[record.52]
+path = "core/deps/geth/cmd/clef/datatypes.md"
+
+[record.53]
+path = "core/deps/geth/cmd/clef/docs/setup.md"
+
+[record.54]
+path = "core/deps/geth/cmd/clef/extapi_changelog.md"
+
+[record.55]
+path = "core/deps/geth/cmd/clef/intapi_changelog.md"
+
+[record.56]
+path = "core/deps/geth/cmd/clef/rules.md"
+
+[record.57]
+path = "core/deps/geth/cmd/clef/tutorial.md"
+
+[record.58]
+path = "core/deps/geth/cmd/devp2p/README.md"
+
+[record.59]
+path = "core/deps/geth/cmd/ethkey/README.md"
+
+[record.60]
+path = "core/deps/geth/cmd/evm/README.md"
+
+[record.61]
+path = "core/deps/geth/cmd/workload/README.md"
+
+[record.62]
+path = "core/deps/geth/core/tracing/CHANGELOG.md"
+
+[record.63]
+path = "core/deps/geth/core/vm/program/readme.md"
+
+[record.64]
+path = "core/deps/geth/crypto/secp256k1/libsecp256k1/CHANGELOG.md"
+
+[page.1]
+path = "contracts/verifier-http.md"
+status = "corrected"

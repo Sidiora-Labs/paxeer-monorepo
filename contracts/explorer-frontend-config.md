@@ -71,15 +71,9 @@ features in their respective configuration modules.
 | `NEXT_PUBLIC_NETWORK_TOKEN_STANDARD_NAME` | defaults to `ERC` |
 | `NEXT_PUBLIC_NETWORK_MULTIPLE_GAS_CURRENCIES` | exact `true` enables the flag |
 
-Set node URLs to [root JSON-RPC endpoints](evm-rpc.md#http-endpoint), such as
-`https://api1.mainnet-beta.paxeer.network/`. The public pool consists of
-`api1` through `api14.mainnet-beta.paxeer.network` and
-`api-mainnet-beta.paxeer.network`. The tracked preset does not set
-`NEXT_PUBLIC_NETWORK_RPC_URL`; a deployment wanting contract write interaction
-must supply it alongside the other required wallet settings.
-`node.hyperpaxeer.com` is a library mirror, not an RPC endpoint.
-The pre-merge router and its /rpc, /rpc/ws and /rpc/schema paths are retired.
-There is no separate LayerX interface or separate sequencer service to expose.
+Set `NEXT_PUBLIC_NETWORK_RPC_URL` to the configured
+[node root endpoint](evm-rpc.md#http-endpoint). The tracked preset leaves it
+unset; contract write interaction requires it alongside the other wallet settings.
 
 Rollup-specific frontend modules support other upstream chain types; enabling
 them is not a representation of Paxeer's merged network. Tenant sub-chains
@@ -102,8 +96,7 @@ API only when `NEXT_PUBLIC_API_HOST` is provided:
 
 The general API endpoint is `protocol://host[:port]`; its socket endpoint is
 `websocketProtocol://host[:port]`. The API base path is independent of the
-frontend's `/explorer` path. The preset names `api.paxscan.io` as the API host;
-it is an explorer backend, not a public node endpoint.
+frontend's `/explorer` path. Configure the explorer backend independently from the node endpoint.
 
 Optional service variables such as `NEXT_PUBLIC_STATS_API_HOST`,
 `NEXT_PUBLIC_METADATA_SERVICE_API_HOST`, `NEXT_PUBLIC_CONTRACT_INFO_API_HOST`,
@@ -180,11 +173,9 @@ not substitutes for this explorer configuration.
 
 ## Registry source index
 
-These link targets preserve interface-registry references. Each row points
-to the current source owner for its declaration, ABI, message, configuration
-family or helper. It does not assert that a method is registered, a feature
-is enabled, or a contract is deployed. Rows marked retired identify source
-references absent from this tree and must not be used as deployment targets.
+The following entries link declarations and configuration families to their
+source files. Method availability and enabled features follow server registration
+and runtime configuration.
 
 | Link targets | Source owner |
 | --- | --- |

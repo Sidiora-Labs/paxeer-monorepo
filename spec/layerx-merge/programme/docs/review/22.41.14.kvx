@@ -1,0 +1,159 @@
+[manifest]
+task = "22.41.14"
+pages = 39
+
+[page.1]
+path = "docs/site/docs/agents/sdk-verification.md"
+status = "corrected"
+
+[page.2]
+path = "docs/site/docs/agents/sdks.md"
+status = "corrected"
+
+[page.3]
+path = "docs/site/docs/concepts/accounts.md"
+status = "reviewed"
+
+[page.4]
+path = "docs/site/docs/concepts/activities.md"
+status = "reviewed"
+
+[page.5]
+path = "docs/site/docs/concepts/assets.md"
+status = "corrected"
+
+[page.6]
+path = "docs/site/docs/concepts/checkpoints.md"
+status = "reviewed"
+
+[page.7]
+path = "docs/site/docs/concepts/identity.md"
+status = "reviewed"
+
+[page.8]
+path = "docs/site/docs/concepts/index.md"
+status = "corrected"
+
+[page.9]
+path = "docs/site/docs/concepts/one-account.md"
+status = "reviewed"
+
+[page.10]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "corrected"
+
+[page.11]
+path = "docs/site/docs/concepts/paxeer-settlement.md"
+status = "reviewed"
+
+[page.12]
+path = "docs/site/docs/concepts/receipts.md"
+status = "corrected"
+
+[page.13]
+path = "docs/site/docs/human/custody.md"
+status = "reviewed"
+
+[page.14]
+path = "docs/site/docs/human/hosted.md"
+status = "corrected"
+
+[page.15]
+path = "docs/site/docs/human/index.md"
+status = "corrected"
+
+[page.16]
+path = "docs/site/docs/human/journeys.md"
+status = "reviewed"
+
+[page.17]
+path = "docs/site/docs/human/owner-registration-details.md"
+status = "corrected"
+
+[page.18]
+path = "docs/site/docs/human/owner-registration.md"
+status = "corrected"
+
+[page.19]
+path = "docs/site/docs/human/web-app.md"
+status = "corrected"
+
+[page.20]
+path = "docs/site/docs/index.md"
+status = "reviewed"
+
+[page.21]
+path = "docs/site/docs/interop/ap2.md"
+status = "reviewed"
+
+[page.22]
+path = "docs/site/docs/interop/index.md"
+status = "reviewed"
+
+[page.23]
+path = "docs/site/docs/interop/mirrors.md"
+status = "reviewed"
+
+[page.24]
+path = "docs/site/docs/interop/portable-receipts.md"
+status = "corrected"
+
+[page.25]
+path = "docs/site/docs/interop/ramps.md"
+status = "corrected"
+
+[page.26]
+path = "docs/site/docs/interop/ucp.md"
+status = "corrected"
+
+[page.27]
+path = "docs/site/docs/interop/visa-tap.md"
+status = "reviewed"
+
+[page.28]
+path = "docs/site/docs/interop/x402.md"
+status = "corrected"
+
+[page.29]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "corrected"
+
+[page.30]
+path = "docs/site/docs/operators/beta-control.md"
+status = "corrected"
+
+[page.31]
+path = "docs/site/docs/operators/guarantor.md"
+status = "reviewed"
+
+[page.32]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "corrected"
+
+[page.33]
+path = "docs/site/docs/operators/index.md"
+status = "corrected"
+
+[page.34]
+path = "docs/site/docs/operators/porting.md"
+status = "corrected"
+
+[page.35]
+path = "docs/site/docs/operators/qualification.md"
+status = "corrected"
+
+[page.36]
+path = "docs/site/docs/operators/settlement-evidence.md"
+status = "corrected"
+
+[page.37]
+path = "docs/site/docs/overview/getting-started.md"
+status = "reviewed"
+
+[page.38]
+path = "docs/site/docs/overview/i18n/de.md"
+status = "corrected"
+
+[page.39]
+path = "docs/site/docs/overview/i18n/es.md"
+status = "corrected"

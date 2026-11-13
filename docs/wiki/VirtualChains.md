@@ -4,7 +4,7 @@ A virtual chain is one record in Paxeer's `layerxchains` registry. Creating one 
 
 **Isolation:** EVM state is shared. A chain is a namespace for identity, fees and block space, not a trust boundary. Contracts, account state and balances are shared; choosing a chain RPC path does not create private storage or an independent execution environment.
 
-This guide describes the feature-20 contract. Runtime and client availability follow the individual tasks in [the programme specification](../../spec/layerx-merge/spec.kvx); these instructions do not establish that a particular deployment has enabled the feature. The [normative contract](../../spec/layerx-merge/contracts/virtual-chains.md) defines the integration requirements.
+The [virtual-chain contract](../../spec/layerx-merge/contracts/virtual-chains.md) defines the integration requirements. Availability depends on the deployment's registry and RPC configuration.
 
 ## Launch a market and chain
 
@@ -55,15 +55,15 @@ Paused records remain readable on their chain RPC path. An unknown or retired re
 The following declarations are the `ILayerXChains` interface. Tuple ordering and integer widths are part of the contract.
 
 ```solidity
-function createChain(string name,uint64 gasAllowance,uint64 byteAllowance,uint16 feeShareBps) external payable returns (uint32 id);
+function createChain(string calldata name,uint64 gasAllowance,uint64 byteAllowance,uint16 feeShareBps) external payable returns (uint32 id);
 function fundChain(uint32 id) external payable;
 function pauseChain(uint32 id) external;
 function resumeChain(uint32 id) external;
 function retireChain(uint32 id) external;
 function governancePause(uint32 id,bool paused) external;
 function setOperator(uint32 id,address operator) external;
-function getChain(uint32 id) external view returns (uint32 id,string name,address operator,uint8 status,uint64 chainId,uint64 gasAllowance,uint64 byteAllowance,uint16 feeShareBps,uint256 bond,uint256 baseFeePerGas,uint64 createdHeight);
-function chainByName(string name) external view returns (uint32);
+function getChain(uint32 chain) external view returns (uint32 id,string memory name,address operator,uint8 status,uint64 chainId,uint64 gasAllowance,uint64 byteAllowance,uint16 feeShareBps,uint256 bond,uint256 baseFeePerGas,uint64 createdHeight);
+function chainByName(string calldata name) external view returns (uint32);
 function chainCount() external view returns (uint32);
 function chainIdOf(uint32 id) external pure returns (uint64);
 function params() external view returns (address authority,uint256 minBond,uint256 creationFee,uint64 minGasAllowance,uint64 maxGasAllowance,uint64 totalGasAllowanceLeft,uint32 maxChains);
@@ -88,7 +88,7 @@ At end of block the operator receives the truncated share of base fees:
 operator share = floor(baseFeePerGas * gasUsed * feeShareBps / 10000)
 ```
 
-The calculation uses the chain's fee before the next-block adjustment and transfers from the fee collector in the base denomination. A share of `100` basis points is 1%; zero pays no share. The default maximum is `5000` basis points. The launch draft accepts 0 to 5000; live module parameters also constrain creation. This share concerns base fees, not the creation fee or a promise of revenue from unused allowance.
+The calculation uses the chain's fee before the next-block adjustment and transfers from the fee collector in the base denomination. A share of `100` basis points is 1%; zero pays no share. The default maximum is `5000` basis points. The launch form accepts 0 to 5000; live module parameters also constrain creation. This share concerns base fees, not the creation fee or a promise of revenue from unused allowance.
 
 ## RPC scope
 
@@ -129,7 +129,7 @@ The launchpad and explorer call EIP-3085 `wallet_addEthereumChain` with the hexa
 
 The wallet network switcher in settings keeps the root network and up to 32 saved virtual networks. Add by registry ID or explorer chain URL, switch networks, or remove a saved entry. The wallet checks the endpoint's `eth_chainId` and rejects a mismatch. `wallet_switchEthereumChain` selects a saved network; the active network supplies the RPC URL and transfer explorer links. Saved custom network URLs must use HTTPS.
 
-Feature 20 supplies the following SDK modules (repository paths):
+The following SDK modules provide virtual-chain helpers:
 
 | SDK | Entry point | Helpers |
 | --- | --- | --- |

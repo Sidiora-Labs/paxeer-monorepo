@@ -42,8 +42,10 @@ stream_id32 || stream_account32 || recipient32 || asset_id32
 ```
 
 Metered mode requires a non-empty, strictly increasing authority list. Time
-mode requires count 0. Zero ids, zero rate, zero funding, or
-`stream_account == recipient` are `LXP_ERR_NON_CANONICAL`.
+mode requires count 0. Zero ids, rate, rate unit, start timestamp, total cap,
+or initial funding are `LXP_ERR_NON_CANONICAL`, as is
+`stream_account == recipient`. A nonzero end timestamp must exceed the start.
+All integer fields in these payloads use big-endian encoding.
 
 ---
 

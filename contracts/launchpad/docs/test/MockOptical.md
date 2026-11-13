@@ -1,5 +1,7 @@
 # Solidity API
 
+Source: [MockOptical.sol](../../contracts/test/MockOptical.sol).
+
 ## MockOptical
 
 Test mock that inherits BaseOptical with configurable behavior
@@ -124,15 +126,14 @@ function getFlags() external view returns (uint8)
 
 Returns a bitmap of active hooks for this optical.
 
-_Bit 0: beforeSwap, Bit 1: afterSwap,
-     Bit 2: beforeFeeDistribution, Bit 3: afterFeeDistribution
-     Pool checks this to skip unused callbacks (gas optimization)._
+_Bit 0: beforeSwap, Bit 1: afterSwap, Bit 2: beforeFeeDistribution, Bit 3: afterFeeDistribution Pool
+checks this to skip unused callbacks (gas optimization)._
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | uint8 |  |
+| Name | Type  | Description |
+| ---- | ----- | ----------- |
+| [0]  | uint8 |             |
 
 ### beforeSwap
 
@@ -160,7 +161,8 @@ function afterFeeDistribution(address pool, uint256 feeAmount) external returns 
 
 ## MockRevertingOptical
 
-An optical that reverts on any hook call
+An optical whose `beforeSwap` and `afterSwap` hooks revert. Fee-distribution hooks inherit the
+behavior of `BaseOptical`.
 
 ### constructor
 
@@ -176,15 +178,14 @@ function getFlags() external view returns (uint8)
 
 Returns a bitmap of active hooks for this optical.
 
-_Bit 0: beforeSwap, Bit 1: afterSwap,
-     Bit 2: beforeFeeDistribution, Bit 3: afterFeeDistribution
-     Pool checks this to skip unused callbacks (gas optimization)._
+_Bit 0: beforeSwap, Bit 1: afterSwap, Bit 2: beforeFeeDistribution, Bit 3: afterFeeDistribution Pool
+checks this to skip unused callbacks (gas optimization)._
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | uint8 |  |
+| Name | Type  | Description |
+| ---- | ----- | ----------- |
+| [0]  | uint8 |             |
 
 ### beforeSwap
 
@@ -196,19 +197,19 @@ Called before a swap executes in the pool.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-|  | address |  |
-|  | address |  |
-|  | bool |  |
-|  | uint256 |  |
+| Name | Type    | Description |
+| ---- | ------- | ----------- |
+|      | address |             |
+|      | address |             |
+|      | bool    |             |
+|      | uint256 |             |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | bool |  |
-| [1] | int256 |  |
+| Name | Type   | Description |
+| ---- | ------ | ----------- |
+| [0]  | bool   |             |
+| [1]  | int256 |             |
 
 ### afterSwap
 
@@ -220,17 +221,16 @@ Called after a swap completes in the pool.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-|  | address |  |
-|  | address |  |
-|  | bool |  |
-|  | uint256 |  |
-|  | uint256 |  |
+| Name | Type    | Description |
+| ---- | ------- | ----------- |
+|      | address |             |
+|      | address |             |
+|      | bool    |             |
+|      | uint256 |             |
+|      | uint256 |             |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | bytes4 | selector The function selector to confirm execution (bytes4) |
-
+| Name | Type   | Description                                                  |
+| ---- | ------ | ------------------------------------------------------------ |
+| [0]  | bytes4 | selector The function selector to confirm execution (bytes4) |

@@ -1,5 +1,7 @@
 # Solidity API
 
+Source: [MockProxy.sol](../../contracts/test/MockProxy.sol).
+
 ## MockERC1967Proxy
 
 ### constructor
@@ -8,7 +10,7 @@
 constructor(address implementation, bytes data) public
 ```
 
-### _implementation
+### \_implementation
 
 ```solidity
 function _implementation() internal view returns (address)
@@ -111,4 +113,3 @@ function getAdmin() external view returns (address)
 ```solidity
 function setAdmin(address admin) external
 ```
-

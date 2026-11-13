@@ -9,10 +9,7 @@ service progress, not a second finality stage.
 
 The [perps client](perps-client.md) uses the data gateway for REST, GraphQL and
 subscriptions, and node JSON-RPC for chain reads and transaction submission.
-Public JSON-RPC is HTTPS at the root of `api1.mainnet-beta.paxeer.network`
-through `api14.mainnet-beta.paxeer.network`, and
-`api-mainnet-beta.paxeer.network`.
-`node.hyperpaxeer.com` is the hpx library mirror, not an RPC endpoint.
+Configure node JSON-RPC with HTTPS origins using the root path.
 Sub-chains are tenant domains in the database;
 `PERPS_CHAIN_ID` identifies this service's chain, not a new consensus network.
 
@@ -45,7 +42,7 @@ port or database default.
 
 | Variable | Consumers | Contract |
 | --- | --- | --- |
-| `PERPS_CHAIN_ID` | All | Nonzero decimal uint64; use `125` for mainnet-beta |
+| `PERPS_CHAIN_ID` | All | Decimal uint64; must equal `125`, the only supported network |
 | `PERPS_RPC_URLS` | Indexer, gateway, replay | Nonempty comma-separated HTTP(S) node URLs |
 | `PERPS_COMET_URLS` | Indexer, replay | Nonempty comma-separated HTTP(S) Comet URLs; configure the actual Comet listener separately from EVM JSON-RPC |
 | `DATABASE_URL` | Indexer, gateway, explorer, replay | Required Postgres connection string |
@@ -53,8 +50,8 @@ port or database default.
 | `PORT` | Indexer, gateway, explorer, portal | Integer from 1 to 65535 |
 | `PERPS_START_HEIGHT` | Indexer | Explicit first indexed height, at least 1; mainnet uses the native-market activation height |
 | `PERPS_AUTH_SECRET` | Gateway | At least 32 bytes; server-side HS256 signing secret |
-| `PERPS_EXPLORER_TX_BASE` | Explorer, portal | Optional HTTP(S) transaction-link base |
-| `PERPS_GATEWAY_URL` | Portal, loadtest | Required HTTP(S) or WS(S) gateway URL |
+| `PERPS_EXPLORER_TX_BASE` | Explorer, portal | HTTP(S) transaction-link base; required for portal, optional for explorer |
+| `PERPS_GATEWAY_URL` | Portal, loadtest | Required gateway URL; portal accepts HTTP(S), loadtest also accepts WS(S) |
 | `PERPS_TRUSTED_PROXY_CIDRS` | Gateway, explorer | Valid proxy CIDRs for forwarded client identity |
 
 `Config.String`, `GoString` and structured logging redact the database URL,

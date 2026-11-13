@@ -6,23 +6,17 @@ once its block is committed. The node API is implemented under [rpc](../rpc/).
 
 ## HTTP endpoint
 
-Public JSON-RPC uses HTTPS at the **root path** of
-`api1.mainnet-beta.paxeer.network` through
-`api14.mainnet-beta.paxeer.network`, and
-`api-mainnet-beta.paxeer.network`. For example:
+Public JSON-RPC uses HTTPS at the configured node's **root path**.
+Set `PAXEER_RPC_URL` to the selected endpoint before this request:
 
 ```sh
-curl --fail-with-body https://api1.mainnet-beta.paxeer.network/ \
+curl --fail-with-body "$PAXEER_RPC_URL" \
   -H 'Content-Type: application/json' \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
 
-The expected chain ID result is `"0x7d"`. This is an integration example, not
-a claim that a live request was executed. Compare block heights when choosing
-among nodes; one node's available history and head can differ from another's.
-`node.hyperpaxeer.com` is a library mirror, not an RPC endpoint.
-The pre-merge router and its /rpc, /rpc/ws and /rpc/schema paths are retired.
-There is no separate LayerX interface or separate sequencer service to configure.
+The expected chain ID result is `"0x7d"`. Compare block heights when choosing
+among nodes; available history and head height can differ between nodes.
 
 [rpcstack.go](../rpc/rpcstack.go) checks the root path when the configured
 prefix is empty. It also resolves `/chain/<domain-id>` through a domain
@@ -33,11 +27,10 @@ change the public mainnet root endpoint above.
 
 ## Served methods
 
-The public node namespaces recorded for mainnet-beta are `debug`, `echo`,
-`eth`, `net`, `pax`, `px`, `test`, and `txpool`. Availability of individual methods
-depends on the binary, transport, activation and configuration. The source
-[server.go](../rpc/server.go) additionally registers `web3` and legacy `pax2`;
-their presence in source is not a guarantee that every public node exposes them.
+The HTTP registrations in [server.go](../rpc/server.go) include `debug`,
+`echo`, `eth`, `net`, `pax`, `pax2`, `px`, `txpool`, and `web3`; `test` is
+conditional. WebSocket registrations differ. Availability of individual methods
+depends on the binary, transport, activation and configuration.
 The `px` namespace answers from node state; `px_register` and `px_requestFunds`
 answer `-32004` with data code `hosted_gateway_service_required` because
 registration and funding are hosted service operations.
@@ -82,18 +75,18 @@ The `pax2` source has block views, block receipts, counts and trace-failure
 variants with bank transfers included; it has no independent transaction or
 filter service. Use `eth_*` and `debug_*` for new Ethereum integrations.
 
-#<a id="sequencer-options"></a>
+<a id="sequencer-options"></a>
 
-## Retired receipt options
+## Receipt options
 
-`SequencerOption`, `SequencerForwardOption`, and `SequencerReceiptOption`
-remain compatibility types in [server.go](../rpc/server.go),
-[server_options.go](../rpc/server_options.go), and
-[sequencer_receipt.go](../rpc/sequencer_receipt.go). They are not instructions
-to deploy a separate sequencer service; that pre-merge topology is retired.
-The compatibility `pax_sequencerReceipt` and `px_getReceiptKeys` handlers
-return a typed `-32000` error without a configured source/forwarder.
-Their historical receipt rungs do not replace committed-block finality.
+`SequencerOption`, `SequencerForwardOption`, and `SequencerReceiptOption` in
+[server.go](../rpc/server.go), [server_options.go](../rpc/server_options.go), and
+[sequencer_receipt.go](../rpc/sequencer_receipt.go) select an in-process receipt
+source or forwarding. `pax_sequencerReceipt` returns `-32000` without a source
+or forwarder. `px_getReceiptKeys` reads governed keys through the configured
+keeper and returns `-32003` with data code `receipt_keys_unavailable` when those
+keys cannot be read. A signed pre-commit receipt does not replace committed-block
+finality.
 
 <a id="ws-transport"></a>
 
@@ -127,11 +120,13 @@ They are node settings, separate from
 
 | Keys | Source defaults / interpretation |
 | --- | --- |
-| `http_enabled`, `http_address`, `http_port` | `true`, `0.0.0.0`, 8545; address input must be a literal IP |
+| `http_enabled`, `http_address`, `http_port` | enabled on all IPv4 interfaces, port 8545; address input must be a literal IP |
 | `ws_enabled`, `ws_port` | `true`, 8546 |
 | `cors_origins`, `ws_origins` | `"*"`, `"*"`; comma-separated origin strings |
 | `batch_request_limit`, `batch_response_max_size` | 1,000 requests, 25,000,000 response bytes |
 | `send_raw_tx_sync_timeout` | `2s` |
+| `px_indexer_url` | empty; asset and history reads require an indexer |
+| `px_inference_program`, `px_inference_reader` | empty; inference reads require a configured program and reader |
 | `read_timeout`, `read_header_timeout`, `write_timeout`, `idle_timeout` | inherited from the linked Geth `rpc.DefaultHTTPTimeouts` |
 | `simulation_gas_limit`, `simulation_evm_timeout` | 10,000,000 gas, `60s` |
 | `max_concurrent_simulation_calls` | number of CPUs; 0 permits unlimited calls |
@@ -160,7 +155,8 @@ history available. Public transaction submission should use client-signed
 | Code / transport | Meaning and owner |
 | --- | --- |
 | `-32601` | missing method or disabled legacy Pax method; inspect the message and legacy error data |
-| `-32000` | explicitly unsupported EVM operation (`ErrEVMNotSupported` in [rpc_unsupported.go](../rpc/rpc_unsupported.go)); also used by unavailable compatibility receipt handlers |
+| `-32000` | explicitly unsupported EVM operation (`ErrEVMNotSupported` in [rpc_unsupported.go](../rpc/rpc_unsupported.go)); also used by an unconfigured `pax_sequencerReceipt` handler |
+| `-32003` | unavailable chain reads, including unavailable governed receipt keys |
 | `3` | execution revert in [simulate.go](../rpc/simulate.go), with revert bytes in error data |
 | `4` | synchronous submission not yet included; error data is the transaction hash in [send_sync.go](../rpc/send_sync.go) |
 | HTTP 429, JSON-RPC `-32005` | per-IP limit exceeded in [rpcstack.go](../rpc/rpcstack.go) |
@@ -186,11 +182,9 @@ Bridge consumers use [deployment records](bridge-deploy.md) and
 
 ## Registry source index
 
-These link targets preserve interface-registry references. Each row points
-to the current source owner for its declaration, ABI, message, configuration
-family or helper. It does not assert that a method is registered, a feature
-is enabled, or a contract is deployed. Rows marked retired identify source
-references absent from this tree and must not be used as deployment targets.
+The following entries link declarations and configuration families to their
+source files. Method availability and enabled features follow server registration
+and runtime configuration.
 
 | Link targets | Source owner |
 | --- | --- |

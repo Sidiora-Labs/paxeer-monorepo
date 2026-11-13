@@ -1,10 +1,10 @@
 # Solidity API
 
+Source: [MockOpticalRegistry.sol](../../contracts/test/MockOpticalRegistry.sol).
+
 ## MockOpticalRegistry
 
-Minimal stand-in for IOpticalRegistry used by EventEmitter v2
-        auth-mesh tests. Exposes the `isApproved(address)` selector the
-        EventEmitter expects without spinning up the full registry.
+Test helper with configurable optical approval returned by `isApproved(address)`.
 
 ### setApproved
 
@@ -17,4 +17,3 @@ function setApproved(address optical, bool approved) external
 ```solidity
 function isApproved(address optical) external view returns (bool)
 ```
-

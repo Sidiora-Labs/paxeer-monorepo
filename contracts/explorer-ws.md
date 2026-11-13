@@ -61,7 +61,6 @@ The feed channel replies with `{"reason":"invalid market id"}` for a malformed m
 | Block indexing topics | `index_status` | Indexing progress, including `finished` and `ratio` |
 | `transactions:new_transaction` | `transaction` | `{transaction: count}`; not a transaction object |
 | `transactions:new_pending_transaction` | `pending_transaction` | `{pending_transaction: count}` |
-| `transactions:<hash>` | `raw_trace` | The notifier attempts `{raw_trace: rendered_trace}`; see the limitation below |
 | `addresses:<hash>` | `transaction`, `pending_transaction` | Transaction arrays under `transactions` |
 | `addresses:<hash>` | `token_transfer` | Transfers under `token_transfers` |
 | `addresses:<hash>` | `balance`, `current_coin_balance`, `coin_balance`, `token_balance` | Balance value/history or invalidation data specific to the event |
@@ -75,9 +74,13 @@ The feed channel replies with `{"reason":"invalid market id"}` for a malformed m
 
 Feed publication iterates submissions oldest first; market pushes require a successful submission (`status == 1`) and an accepted observation. The overall feed includes failed submissions too. Feed items use the same rendering as [HTTP reads](explorer-http-api.md#api-v2-paxeer-x), including the native submission type 127. Do not parse decimal-string prices or amounts through JavaScript floating-point numbers.
 
-### Raw trace limitation
+<a id="raw-trace-limitation"></a>
 
-The on-demand internal-transaction notification builds a `raw_trace` wrapper, but passes `internal_transactions` to [TransactionView](../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/transaction_view.ex), whose `raw_trace.json` clause expects `raw_traces`. Additionally, [TxRawTrace](../apps/explorer/ui/tx/TxRawTrace.tsx) and [socket types](../apps/explorer/lib/socket/types.ts) consume a bare `RawTracesResponse` array. The current producer, renderer, and consumer therefore do not form a reliable trace push path. Use `GET /api/v2/transactions/:hash/raw-trace` after indexing for the trace array, accounting for the [HTTP pending-branch and fetch-error limits](explorer-http-api.md#api-v2-transactions); do not assume an empty or missing push means there are no traces.
+### Raw trace reads
+
+Read `GET /api/v2/transactions/:hash/raw-trace` after indexing for the trace array.
+Treat socket notifications as prompts to refresh HTTP data. An empty or missing
+push does not establish that a transaction has no traces.
 
 ### Transaction commitment
 
@@ -89,7 +92,11 @@ These channel joins carry no durable replay cursor or missed-event log. After di
 
 The frontend [SocketProvider](../apps/explorer/lib/socket/context.tsx) owns the Phoenix connection and disconnects on unmount. [useSocketChannel](../apps/explorer/lib/socket/useSocketChannel.tsx) shares channels by topic with subscriber counts; the last subscriber leaves and removes the registry entry. It installs close/error callbacks when provided. [useSocketMessage](../apps/explorer/lib/socket/useSocketMessage.tsx) removes its event handler on cleanup.
 
-The initial `channel.join().receive('ok')` callback is not a durable reconnect/reconciliation contract. Components that need fresh state after every reconnection must arrange a refetch. [useFeedSocket](../apps/explorer/ui/paxeerX/feed/useFeedSocket.ts) marks the feed down on close/error and uses a five-second HTTP fallback while unjoined; overview/history buffers are bounded at 200/50. Its join callback is attached through the shared hook, so successful automatic Phoenix rejoin alone should not be assumed to clear every consumer's stale state. Transaction-status reads also need refresh after new blocks or recovery; the current status query does not implement a universal polling loop.
+Components reconcile state through HTTP reads after reconnection.
+[useFeedSocket](../apps/explorer/ui/paxeerX/feed/useFeedSocket.ts) marks the feed
+down on close/error and uses a five-second HTTP fallback while unjoined;
+overview/history buffers are bounded at 200/50. Refresh transaction status after
+new blocks or recovery.
 
 ## GraphQL subscription
 

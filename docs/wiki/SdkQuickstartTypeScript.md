@@ -8,11 +8,9 @@ human-plane client is `ProductionClient` in `src/production.ts`.
 
 Paxeer mainnet-beta is one BFT network. Its kernel participates in the
 network and proposes blocks; a receipt is final when its block is committed.
-The public node JSON-RPC endpoints are the root of
-`https://api-mainnet-beta.paxeer.network` and `https://api1.mainnet-beta.paxeer.network`
-through `https://api14.mainnet-beta.paxeer.network`, with EVM chain ID
-`125` (`0x7d`). Hosted onboarding and payment APIs require an operator-provided
-deployment; the node origins are not hosted service origins.
+Public node JSON-RPC uses the configured node's HTTPS root, with EVM chain ID
+`125` (`0x7d`). See [Public RPC](PublicRpc.md) for node access. Hosted onboarding
+and payment APIs require an operator-provided deployment; the node origins are not hosted service origins.
 
 ---
 
@@ -40,9 +38,8 @@ for the registration implementation.
 
 ## Fund from faucet
 
-`JsonRpcClient` has no `requestFunds` method. The old `"faucet.claim"`
-operation is retired (`RETIRED_OPERATION_NAMES` in `src/production.ts`);
-`AgentHttpTransport` refuses it with `unavailable-capability`.
+`JsonRpcClient` has no `requestFunds` method. Hosted faucet requests use the
+configured faucet service.
 
 Use [Hosted faucet](HostedFaucet.md) `POST /v1/faucet/claims` with a
 Bearer session, an `Idempotency-Key`, and JSON `did` and `public_key` fields
@@ -56,8 +53,7 @@ establish that the public nodes offer a faucet.
 
 The current `JsonRpcClient` exposes `sendRawTransaction(raw)` for signed EVM
 transaction bytes and `sequencerReceipt(txHash)` for `pax_sequencerReceipt`.
-It has no `sendActivity`, `getReceipt`, `getActivityStatus`, or `getCheckpoint`
-method. Its `Commitment` type is `"submitted" | "receipted" | "committed"`.
+Its `Commitment` type is `"submitted" | "receipted" | "committed"`.
 Other exposed methods include `getAccount`, `getBalance`, `getBalances`,
 `getSequence`, `getIdentitySequence`, `getBatchHeader`, `getNodeInfo`,
 `listAssets`, `listAssetsPage`, `getAsset`, `estimateFee`, `getProof`,
@@ -73,11 +69,11 @@ chain ID 125 and returns its submission hash:
 ```ts
 import { Buffer } from "node:buffer";
 
-export async function send(raw: Uint8Array): Promise<string> {
+export async function send(nodeRoot: string, raw: Uint8Array): Promise<string> {
   if (raw.length === 0 || raw.length > 524288) {
     throw new Error("Invalid transaction length");
   }
-  const response = await fetch("https://api1.mainnet-beta.paxeer.network/", {
+  const response = await fetch(nodeRoot, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     signal: AbortSignal.timeout(30_000),
@@ -191,11 +187,14 @@ do not trust a validator set merely because it accompanies a proof.
 The evidence's `inclusion` contains `batchTransaction`, `batchProof`
 (`total`, `index`, `aunts`), and the ordered `activityIds`. The verifier binds
 the header hash to the block ID and the trusted validator set to the header,
-checks batch inclusion against the header's data hash, verifies the signed
-sequence batch and the receipt's position in its state-root progression,
-and requires valid commit signatures representing strictly more than
-two-thirds of total voting power. The landing height must be at least the
-receipt height. A commit object without the header and inclusion proof is
+verifies the sequence-batch and wrapped EVM transaction proofs against the
+execution header's data hash, and verifies the result proof against the
+successor header's last-results hash. The evidence also requires
+`executionHeader`, `successorHeader`, `executionCommit`, `executionValidators`,
+`transaction`, `transactionProof`, `result` and `resultProof`. The verifier binds
+the batch and receipt's sequence position and requires valid commit signatures
+representing strictly more than two-thirds of total voting power. The landing
+height must be at least the receipt height. A commit object without the header and inclusion proof is
 insufficient, even though the broader `CommittedReceiptEvidence` type exists.
 Supply decoded evidence from the network; this SDK does not automatically
 fetch or assemble it for this function.
@@ -209,11 +208,10 @@ execution: inspect `verified.receipt.receipt.resultCode` on the returned
 committed failure. Both verification stages can throw
 `SequencerReceiptVerificationError` with `code: "verification-failure"`;
 its `check` distinguishes `unpinned_key`, `key_out_of_range`, `bad_signature`,
-`hash_mismatch`, `height_regression`, and `insufficient_power`.
+`hash_mismatch`, `height_regression`, `insufficient_power`, and
+`inclusion_mismatch`.
 
-The old `verifyReceipt` and `verifyReceiptOutcome` functions are removed.
-The retained `AuthorizedReceiptBatch` type is not the input to the current
-verification flow. See
+See
 [`src/verifier.ts`](../../services/agent/sdk/typescript/src/verifier.ts)
 for the exact evidence types and checks.
 

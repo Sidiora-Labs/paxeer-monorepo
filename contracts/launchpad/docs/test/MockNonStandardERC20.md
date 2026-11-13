@@ -1,9 +1,11 @@
 # Solidity API
 
+Source: [MockNonStandardERC20.sol](../../contracts/test/MockNonStandardERC20.sol).
+
 ## MockNonStandardERC20
 
-ERC20 that does NOT return bool on transfer/transferFrom/approve
-Used to test TransferHelper's handling of non-standard tokens (like USDT)
+ERC20 that does NOT return bool on transfer/transferFrom/approve Used to test TransferHelper's
+handling of non-standard tokens (like USDT)
 
 ### name
 
@@ -82,4 +84,3 @@ function transfer(address to, uint256 amount) external
 ```solidity
 function transferFrom(address from, address to, uint256 amount) external
 ```
-

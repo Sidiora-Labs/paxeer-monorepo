@@ -74,15 +74,15 @@ transaction hash and payment facts on every read, and requires negotiated
 order support. The unconfigured `read_order` convenience method uses an empty
 configuration and refuses with `CurrencyBindingRequired`.
 
-## What this page does not document
+## Service integration
 
 Merchant discovery and shopping REST endpoints belong to the merchant's
 pinned UCP contract. The interop service registers the adapter wrapper
 `POST /v1/http/ucp/checkouts/complete`; it does not register a public UCP
-discovery or order-read endpoint. Its current `UcpServicePlane` does not
-override `service_config`, so that wrapper cannot complete checkout until
-the service supplies the required merchant currency binding. The adapter
-crate supports configured embedding through the API above.
+discovery or order-read endpoint. The wrapper uses `UcpServicePlane`
+with the default empty service configuration and returns
+`CurrencyBindingRequired`. Configured embeddings use
+`UcpServiceConfig::bind_plane` with the merchant currency binding above.
 
 No public merchant origin is established by this crate. Deployment inputs
 and trust configuration are described in
