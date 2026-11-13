@@ -606,7 +606,7 @@ fn resource_info_with_all_fields_is_preserved() {
     assert_eq!(resource.tags, required.resource.tags);
 }
 
-#[path = "support/repair_22_33_105.rs"]
+#[path = "support/native_settlement_support.rs"]
 mod repair_path;
 
 #[test]

@@ -16,7 +16,7 @@ import (
 )
 
 func TestProvenanceHeaderDigestRecordedCreation(t *testing.T) {
-	raw, err := os.ReadFile("../processor/testdata/repair_m1000_batches.json")
+	raw, err := os.ReadFile("../processor/testdata/native_accounting_batches.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +94,7 @@ func TestProvenanceHeaderDigestRecordedCreation(t *testing.T) {
 }
 
 func TestHistoricalProvenanceRecordedCodecs(t *testing.T) {
-	input := repair53InputsFromProducer(t)
+	input := receiptReplayInputsFromProducer(t)
 	var market DiscoveredMarket
 	for _, candidate := range input.Markets {
 		if candidate.Height == 33963716 {
@@ -131,7 +131,7 @@ func TestHistoricalProvenanceRecordedCodecs(t *testing.T) {
 			}
 			persisted.Creation.Provenance = recorded.provenance
 			for restart := 0; restart < 2; restart++ {
-				authority, closeClient := repair53Open(t, ctx, input)
+				authority, closeClient := receiptReplayOpen(t, ctx, input)
 				if err = authority.Rehydrate(ctx, []DiscoveredMarket{persisted}); err != nil {
 					closeClient()
 					t.Fatalf("rehydrate recorded creation after restart %d: %v", restart, err)

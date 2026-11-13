@@ -105,7 +105,7 @@ Keep `data_dir` on durable storage. The relay keeps watcher state under
   Restarting after signing reuses the identical answer and collected signatures
   even if the index changes. See the
   [pre-quorum restart proof](tests/proof_x_websearch_program_requests.rs) and
-  [documentation recovery/retirement test](tests/repair_22_33_120.rs).
+  [documentation recovery/retirement test](tests/websearch_documented_recovery.rs).
 - Pending submission or quorum alone does not retire an answer. After completed
   submission (fulfilled, already fulfilled, refunded or reorged), or a durably
   recorded terminal request refusal, the relay retires watcher work and calls

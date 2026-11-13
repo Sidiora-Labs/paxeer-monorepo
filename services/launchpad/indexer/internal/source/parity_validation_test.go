@@ -29,7 +29,7 @@ func copyParityInput(t *testing.T, input ParityInput) ParityInput {
 func TestParityRejectsIncompleteAndMalformedSourceInputs(t *testing.T) {
 	node := newCapacityChain(t)
 	node.head.Store(102)
-	live := repair997Open(t, fopts(node.server.URL))
+	live := sourceRecoveryOpen(t, fopts(node.server.URL))
 	result, err := live.FetchCommitted(context.Background(), FetchOptions{FromBlock: 100, ToBlock: 102}, false, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -86,7 +86,7 @@ func TestParityRejectsIncompleteAndMalformedSourceInputs(t *testing.T) {
 func TestParityRetainsBoundedDisputesAndHistoricalMergeIdentity(t *testing.T) {
 	node := newCapacityChain(t)
 	node.head.Store(102)
-	live := repair997Open(t, fopts(node.server.URL))
+	live := sourceRecoveryOpen(t, fopts(node.server.URL))
 	result, err := live.FetchCommitted(context.Background(), FetchOptions{FromBlock: 100, ToBlock: 102}, false, nil)
 	if err != nil {
 		t.Fatal(err)

@@ -28,7 +28,7 @@ Enable the desired Supabase sign-in providers (Google, X/Twitter, GitHub, email 
 
 The configured origin must serve the authenticated `/v1/wallet/*` routes. The panel also constructs its node JSON-RPC URL as `<origin>/`; deployment must provide that root endpoint for forwarded RPC calls. The wallet gateway's `buildApp()` in `../gateway/src/index.ts` registers HTTP wallet routes, but does not register a root JSON-RPC handler. Starting that gateway alone does not supply every endpoint the panel assumes. See the [wallet workspace guide](../README.md) for gateway configuration.
 
-Public node JSON-RPC uses the root path of the configured node origin. See [public RPC endpoints](../../../docs/site/docs/reference/public-rpc.md). These node endpoints do not supply the authenticated wallet HTTP API, so they are not substitutes for `NEXT_PUBLIC_PAXEER_WALLET_API`.
+Public node JSON-RPC uses the root path of the configured node origin. See [public RPC endpoints](../../../docs/readme/PUBLIC-RPC.md). These node endpoints do not supply the authenticated wallet HTTP API, so they are not substitutes for `NEXT_PUBLIC_PAXEER_WALLET_API`.
 
 Other package commands, from `services/wallet`:
 

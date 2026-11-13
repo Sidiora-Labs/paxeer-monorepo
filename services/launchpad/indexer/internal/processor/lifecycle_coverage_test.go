@@ -92,7 +92,7 @@ func newLifecycleCoverageHarness(t *testing.T) lifecycleCoverageHarness {
 }
 func (h lifecycleCoverageHarness) spec(t *testing.T) IngestMeasurementSpec {
 	t.Helper()
-	spec := repairM1000MeasurementSpec(t)
+	spec := nativeAccountingMeasurementSpec(t)
 	var database string
 	if err := h.Pool.QueryRow(context.Background(), `SELECT current_database()`).Scan(&database); err != nil {
 		t.Fatal(err)
@@ -516,7 +516,7 @@ func TestProcessorValueAndInputBounds(t *testing.T) {
 }
 
 func TestTopologyAndCheckpointInputsAreStrict(t *testing.T) {
-	spec := repairM1000MeasurementSpec(t)
+	spec := nativeAccountingMeasurementSpec(t)
 	for _, tc := range []struct {
 		name string
 		body []byte

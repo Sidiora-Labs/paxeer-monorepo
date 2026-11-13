@@ -13,7 +13,7 @@ import (
 )
 
 func TestReplayProposalBoundsAndStableIdentity(t *testing.T) {
-	env := repairM1020EnvironmentFor(t, nil)
+	env := workflowRecoveryEnvironmentFor(t, nil)
 	ctx := context.Background()
 	credential := env.credentials["infrastructure"]
 	proposal := ReplayProposal{Key: "bounded-replay", Scope: "service", Reason: "restore projection", Expires: time.Now().Add(time.Hour), Payload: ReplayPayload{ChainID: "125", FromHeight: "1", ToHeight: "2", Projection: "candles", DryRun: true}}
@@ -179,7 +179,7 @@ func TestOwnerBudgetPolicyAndRecommendationTransitions(t *testing.T) {
 }
 
 func TestBountyDraftStatesAndFundingAuthority(t *testing.T) {
-	env := repairM1020EnvironmentFor(t, nil)
+	env := workflowRecoveryEnvironmentFor(t, nil)
 	ctx := context.Background()
 	credential := env.credentials["finance"]
 	b := bounty("coverage-bounty", usdl, "1000")
@@ -269,7 +269,7 @@ func TestProviderRequestsBindAuthorityAndResponse(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	transport := repairM1020Transport(server)
+	transport := workflowRecoveryTransport(server)
 	revocation, err := NewRevocationProvider(server.URL, credential, transport)
 	if err != nil {
 		t.Fatal(err)

@@ -949,7 +949,7 @@ fn human_primary_rotation_uses_the_same_protocol_challenge_path_without_agent_au
     let _ = fs::remove_dir_all(root);
 }
 
-#[path = "support/repair_22_33_63_rotation.rs"]
+#[path = "support/rotation_custody_fixture.rs"]
 mod current_rotation_path;
 
 #[test]
