@@ -1,6 +1,6 @@
 # Chain launchpad contract
 
-The launchpad at `0x0000000000000000000000000000000000001017` launches a market and a virtual chain in one root-network transaction. The chain registry at `0x000000000000000000000000000000000000101E` remains the registry of record; its direct `createChain` call continues to create a chain without a launchpad binding. A virtual chain shares network state and validators and uses PAX for gas. This contract covers decisions 3316, 3317 and 3318.
+The launchpad at `0x0000000000000000000000000000000000001017` launches a market and a virtual chain in one root-network transaction. The chain registry at `0x000000000000000000000000000000000000101E` remains the registry of record; its direct `createChain` call continues to create a chain without a launchpad binding. A virtual chain shares network state and validators and uses PAX for gas. The ABI is declared in [Launchpad.sol](../../../precompiles/launchpad/Launchpad.sol) and dispatched by [chainlaunch.go](../../../precompiles/launchpad/chainlaunch.go).
 
 ## abi
 
@@ -34,7 +34,7 @@ error NothingToDistribute();
 error AlreadyClaimed();
 ```
 
-`AlreadyClaimed` is shared with the existing airdrop ABI. An absent launch record reads as zero from `launchedChainOfPool` and `homeChainOf`; `launchedChain`, epoch and claim reads of an unknown chain have no record. Writes requiring a launch record refuse with `NotLaunchedChain`.
+`AlreadyClaimed` is shared with the existing airdrop ABI. An absent launch record reads as zero from `launchedChainOfPool` and `homeChainOf`; `launchedChain` and `chainRevenueEpoch` refuse missing records with `NotLaunchedChain`; `chainRevenueClaimable` requires a launch record. Writes requiring a launch record also refuse with `NotLaunchedChain`.
 
 ## launch
 
@@ -69,14 +69,14 @@ For example, an epoch of 10 PAX with eligible balances 1, 1 and 1 has eligible s
 
 ## api
 
-The launchpad API serves these reads from indexed launch and revenue events. `ID` is the decimal registry number, never the derived chain ID. Responses use the existing v2 response envelope. Amounts are decimal strings; chain, epoch, block, status and allowance fields use JSON numbers. A missing launched chain returns the API's 404 error body.
+The launchpad API serves these reads from indexed launch and revenue events. `ID` is the decimal registry number, never the derived chain ID. Responses use the v2 response envelope, with `data` and envelope-level `nextCursor`. Chain numbers, derived chain IDs, NFT IDs, block heights, epoch numbers, amounts and supply values are decimal strings. Chain status is `active` or `retired`. The [HTTP handlers](../../../services/launchpad/api/internal/rest/chains.go) and [store rows](../../../services/launchpad/api/internal/store/chain_reads.go) define the response shapes. A missing launched chain returns the API's 404 error body.
 
 | Route | Data fields |
 | --- | --- |
-| `GET /v2/chains` | A newest-first cursor page with `items` and `nextCursor`. Each item has `chain`, `chainId`, `pool`, `token`, `nftId`, `creator`, `blockNumber`, `status`. The cursor follows the other v2 list routes. |
-| `GET /v2/chains/ID` | One item with `chain`, `chainId`, `pool`, `token`, `nftId`, `creator`, `blockNumber`, `status`, plus registry `name`, `gasAllowance`, `byteAllowance`, `feeShareBps`, `bond` and `revenueAccount`. |
-| `GET /v2/chains/ID/revenue` | Newest-first epochs, each with `chain`, `epoch`, `epochAmount`, `snapshotBlock`, `eligibleSupply`, `claimedTotal`, `openedAt`, and `nextCursor`. With `holder`, each epoch also has that holder's `claimable` amount and `claimed` state. |
+| `GET /v2/chains` | `data.items` is a newest-first cursor page. Each item has `chain`, `chainId`, `pool`, `token`, `nftId`, `creator`, `blockNumber`, `status`. The cursor follows the other v2 list routes. |
+| `GET /v2/chains/ID` | `data.chain` contains one item with `chain`, `chainId`, `pool`, `token`, `nftId`, `creator`, `blockNumber` and `status`. |
+| `GET /v2/chains/ID/revenue` | `data` contains `chain` and newest-first `epochs`; each epoch has `epoch`, `epochAmount`, `snapshotBlock` and `eligibleSupply`. With `holder`, `data` also contains `holder` and `claims`, whose entries have `epoch`, `holder`, `amount` and `blockNumber`. |
 
-The v2 pool detail includes `homeChain`, zero for a root-home market. The [virtual chains contract](virtual-chains.md) defines registry IDs, chain status and scoped RPC behavior. The [chain launch guide](../../../docs/launchpad/chain-launch.md) explains the wallet flow, trading path and revenue claims.
+The v2 pool detail includes `homeChain`, a decimal string with `"0"` for a root-home market. The [virtual chains contract](virtual-chains.md) defines registry IDs, chain status and scoped RPC behavior. The [chain launch guide](../../../docs/launchpad/chain-launch.md) explains the wallet flow, trading path and revenue claims.
 
 The TypeScript SDK exposes these reads as `Chains.list`, `Chains.get` and `Chains.revenue`.

@@ -108,7 +108,7 @@ Source paths are relative to the repository root. Declaration tables identify th
 
 | Field | Rule |
 |---|---|
-| interface | Offline consensus CLI commands of consensus/cmd/tendermint/commands: reset blockchain, reindex-event, inspect, and the LoadTendermintState and RollbackStateToTargetHeight functions of consensus/cmd/tendermint/commands/rollback.go and :32 |
+| interface | Offline consensus CLI commands of consensus/cmd/tendermint/commands: reset blockchain, reindex-event, inspect, and the LoadTendermintState and RollbackStateToTargetHeight functions of consensus/cmd/tendermint/commands/rollback.go |
 | storage | data/autobahn is the default Autobahn persistent state directory (consensus/cmd/tendermint/commands/gen_autobahn_config.go); CometBFT stores under data/ and data/tendermint/ |
 | errors | ErrAutobahnOfflineStore when autobahn-config-file is set |
 | events | None |
@@ -1267,7 +1267,7 @@ Source paths are relative to the repository root. Declaration tables identify th
 
 | Field | Rule |
 |---|---|
-| interface | Offline consensus CLI commands of consensus/cmd/tendermint/commands: reset blockchain, reindex-event, inspect, and the LoadTendermintState and RollbackStateToTargetHeight functions of consensus/cmd/tendermint/commands/rollback.go and :32 |
+| interface | Offline consensus CLI commands of consensus/cmd/tendermint/commands: reset blockchain, reindex-event, inspect, and the LoadTendermintState and RollbackStateToTargetHeight functions of consensus/cmd/tendermint/commands/rollback.go |
 | storage | data/autobahn is the default Autobahn persistent state directory (consensus/cmd/tendermint/commands/gen_autobahn_config.go); CometBFT stores under data/ and data/tendermint/ |
 | errors | ErrAutobahnOfflineStore when autobahn-config-file is set |
 | events | None |
@@ -1281,54 +1281,34 @@ Source paths are relative to the repository root. Declaration tables identify th
 
 | Interface | Kind | Source | Declaration |
 | --- | --- | --- | --- |
-| <code>interface.15.mk-consensus-all-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>all: check build test install</code> |
-| <code>interface.15.mk-consensus-build-c-amazonlinux-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>build_c-amazonlinux:</code> |
-| <code>interface.15.mk-consensus-build-contract-tests-hooks-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>build-contract-tests-hooks:</code> |
-| <code>interface.15.mk-consensus-build-docker-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>build-docker:</code> |
-| <code>interface.15.mk-consensus-build-docker-localnode-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>build-docker-localnode:</code> |
-| <code>interface.15.mk-consensus-build-docs-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>build-docs:</code> |
+| <code>interface.15.mk-consensus-all-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>all: build test install</code> |
 | <code>interface.15.mk-consensus-build-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>build: $(BUILDDIR)/</code> |
 | <code>interface.15.mk-consensus-build-linux-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>build-linux:</code> |
 | <code>interface.15.mk-consensus-build-privval-server-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>build_privval_server:</code> |
-| <code>interface.15.mk-consensus-build-reproducible-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>build-reproducible:</code> |
 | <code>interface.15.mk-consensus-clean-certs-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>clean_certs:</code> |
 | <code>interface.15.mk-consensus-clean-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>clean:</code> |
-| <code>interface.15.mk-consensus-contract-tests-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>contract-tests:</code> |
-| <code>interface.15.mk-consensus-dist-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>dist:</code> |
-| <code>interface.15.mk-consensus-draw-deps-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>draw_deps:</code> |
 | <code>interface.15.mk-consensus-format-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>format:</code> |
 | <code>interface.15.mk-consensus-gen-certs-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>gen_certs: clean_certs</code> |
 | <code>interface.15.mk-consensus-generate-test-cert-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>generate_test_cert:</code> |
-| <code>interface.15.mk-consensus-get-deps-bin-size-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>get_deps_bin_size:</code> |
-| <code>interface.15.mk-consensus-go-mod-cache-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>go-mod-cache: go.sum</code> |
-| <code>interface.15.mk-consensus-go-sum-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>go.sum: go.mod</code> |
 | <code>interface.15.mk-consensus-install-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>install:</code> |
-| <code>interface.15.mk-consensus-lint-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>lint:</code> |
-| <code>interface.15.mk-consensus-localnet-start-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>localnet-start: localnet-stop build-docker-localnode</code> |
-| <code>interface.15.mk-consensus-localnet-stop-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>localnet-stop:</code> |
 | <code>interface.15.mk-consensus-metrics-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>metrics: testdata-metrics</code> |
 | <code>interface.15.mk-consensus-mockery-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>mockery:</code> |
 | <code>interface.15.mk-consensus-split-test-packages-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>split-test-packages:$(BUILDDIR)/packages.txt</code> |
-| <code>interface.15.mk-consensus-test-build-docker-test-image-j57</code> | <code>makefile_target</code> | <code>consensus/test/Makefile</code> | <code>build_docker_test_image:</code> |
 | <code>interface.15.mk-consensus-test-group-pct-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>test-group-%:split-test-packages</code> |
-| <code>interface.15.mk-consensus-test-test-abci-apps-j57</code> | <code>makefile_target</code> | <code>consensus/test/Makefile</code> | <code>test_abci_apps:</code> |
-| <code>interface.15.mk-consensus-test-test-cover-j57</code> | <code>makefile_target</code> | <code>consensus/test/Makefile</code> | <code>test_cover:</code> |
-| <code>interface.15.mk-consensus-test-test-integrations-j57</code> | <code>makefile_target</code> | <code>consensus/test/Makefile</code> | <code>test_integrations:</code> |
 | <code>interface.15.mk-consensus-test-test-j57</code> | <code>makefile_target</code> | <code>consensus/test/Makefile</code> | <code>test:</code> |
 | <code>interface.15.mk-consensus-test-test-race-j57</code> | <code>makefile_target</code> | <code>consensus/test/Makefile</code> | <code>test_race:</code> |
 | <code>interface.15.mk-consensus-test-test-release-j57</code> | <code>makefile_target</code> | <code>consensus/test/Makefile</code> | <code>test_release:</code> |
-| <code>interface.15.mk-consensus-test-test100-j57</code> | <code>makefile_target</code> | <code>consensus/test/Makefile</code> | <code>test100:</code> |
 | <code>interface.15.mk-consensus-testdata-metrics-j57</code> | <code>makefile_target</code> | <code>consensus/Makefile</code> | <code>testdata-metrics:</code> |
 
 | Field | Rule |
 |---|---|
-| interface | Make targets of consensus/Makefile and consensus/test/Makefile kept or retired by the fork |
+| interface | Make targets declared in consensus/Makefile and consensus/test/Makefile |
 | storage | No storage |
-| errors | make exits non-zero with No rule to make target for a retired target |
+| errors | Undefined target names produce a nonzero make exit status. |
 | events | None |
 | gas | Not applicable |
-| activation | Kept targets: all, build, install, build_privval_server, format, test and the targets not listed as retired |
-| invariants | make -n of every kept target resolves inside the monorepo; LD_FLAGS and goimports -local name the fork module path |
+| activation | The all target runs build, test and install; build_privval_server and format are separate targets. |
+| invariants | LD_FLAGS sets the fork consensus/version.TMVersion; goimports -local uses the repository module path. |
 | pause | No pause |
 
 
@@ -1675,41 +1655,41 @@ Source paths are relative to the repository root. Declaration tables identify th
 | Interface | Kind | Source | Declaration |
 | --- | --- | --- | --- |
 | <code>interface.15.go-consensus-rpc-coretypes-err-commit-not-available-j57</code> | <code>go_exported</code> | <code>consensus/rpc/coretypes/responses.go</code> | <code>ErrCommitNotAvailable = errors.New("commit is not available under autobahn consensus")</code> |
-| <code>interface.15.rpc-consensus-abci-info-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"abci_info": rpc.NewRPCFunc(svc.ABCIInfo)</code> |
-| <code>interface.15.rpc-consensus-abci-query-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"abci_query": rpc.NewRPCFunc(svc.ABCIQuery)</code> |
-| <code>interface.15.rpc-consensus-block-by-hash-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"block_by_hash": rpc.NewRPCFunc(svc.BlockByHash)</code> |
-| <code>interface.15.rpc-consensus-block-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"block": rpc.NewRPCFunc(svc.Block)</code> |
-| <code>interface.15.rpc-consensus-block-results-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"block_results": rpc.NewRPCFunc(svc.BlockResults)</code> |
-| <code>interface.15.rpc-consensus-block-search-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"block_search": rpc.NewRPCFunc(svc.BlockSearch)</code> |
-| <code>interface.15.rpc-consensus-blockchain-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"blockchain": rpc.NewRPCFunc(svc.BlockchainInfo)</code> |
-| <code>interface.15.rpc-consensus-broadcast-evidence-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"broadcast_evidence": rpc.NewRPCFunc(svc.BroadcastEvidence)</code> |
-| <code>interface.15.rpc-consensus-broadcast-tx-async-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"broadcast_tx_async": rpc.NewRPCFunc(svc.BroadcastTxAsync)</code> |
-| <code>interface.15.rpc-consensus-broadcast-tx-commit-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"broadcast_tx_commit": rpc.NewRPCFunc(svc.BroadcastTxCommit)</code> |
-| <code>interface.15.rpc-consensus-broadcast-tx-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"broadcast_tx": rpc.NewRPCFunc(svc.BroadcastTx)</code> |
-| <code>interface.15.rpc-consensus-broadcast-tx-sync-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"broadcast_tx_sync": rpc.NewRPCFunc(svc.BroadcastTx)</code> |
-| <code>interface.15.rpc-consensus-check-tx-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"check_tx": rpc.NewRPCFunc(svc.CheckTx)</code> |
-| <code>interface.15.rpc-consensus-commit-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"commit": rpc.NewRPCFunc(svc.Commit)</code> |
-| <code>interface.15.rpc-consensus-consensus-params-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"consensus_params": rpc.NewRPCFunc(svc.ConsensusParams)</code> |
-| <code>interface.15.rpc-consensus-consensus-state-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"consensus_state": rpc.NewRPCFunc(svc.GetConsensusState)</code> |
-| <code>interface.15.rpc-consensus-dump-consensus-state-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"dump_consensus_state": rpc.NewRPCFunc(svc.DumpConsensusState)</code> |
-| <code>interface.15.rpc-consensus-events-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"events": rpc.NewRPCFunc(svc.Events).Timeout(0)</code> |
-| <code>interface.15.rpc-consensus-genesis-chunked-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"genesis_chunked": rpc.NewRPCFunc(svc.GenesisChunked)</code> |
-| <code>interface.15.rpc-consensus-genesis-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"genesis": rpc.NewRPCFunc(svc.Genesis)</code> |
-| <code>interface.15.rpc-consensus-header-by-hash-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"header_by_hash": rpc.NewRPCFunc(svc.HeaderByHash)</code> |
-| <code>interface.15.rpc-consensus-header-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"header": rpc.NewRPCFunc(svc.Header)</code> |
-| <code>interface.15.rpc-consensus-health-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"health": rpc.NewRPCFunc(svc.Health)</code> |
-| <code>interface.15.rpc-consensus-lag-status-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"lag_status": rpc.NewRPCFunc(svc.LagStatus)</code> |
-| <code>interface.15.rpc-consensus-net-info-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"net_info": rpc.NewRPCFunc(svc.NetInfo)</code> |
-| <code>interface.15.rpc-consensus-num-unconfirmed-txs-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"num_unconfirmed_txs": rpc.NewRPCFunc(svc.NumUnconfirmedTxs)</code> |
-| <code>interface.15.rpc-consensus-status-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"status": rpc.NewRPCFunc(svc.Status)</code> |
+| <code>interface.15.rpc-consensus-abci-info-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"abci_info": NewRPCFunc(svc.ABCIInfo)</code> |
+| <code>interface.15.rpc-consensus-abci-query-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"abci_query": NewRPCFunc(svc.ABCIQuery)</code> |
+| <code>interface.15.rpc-consensus-block-by-hash-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"block_by_hash": NewRPCFunc(svc.BlockByHash)</code> |
+| <code>interface.15.rpc-consensus-block-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"block": NewRPCFunc(svc.Block)</code> |
+| <code>interface.15.rpc-consensus-block-results-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"block_results": NewRPCFunc(svc.BlockResults)</code> |
+| <code>interface.15.rpc-consensus-block-search-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"block_search": NewRPCFunc(svc.BlockSearch)</code> |
+| <code>interface.15.rpc-consensus-blockchain-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"blockchain": NewRPCFunc(svc.BlockchainInfo)</code> |
+| <code>interface.15.rpc-consensus-broadcast-evidence-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"broadcast_evidence": NewRPCFunc(svc.BroadcastEvidence)</code> |
+| <code>interface.15.rpc-consensus-broadcast-tx-async-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"broadcast_tx_async": NewRPCFunc(svc.BroadcastTxAsync)</code> |
+| <code>interface.15.rpc-consensus-broadcast-tx-commit-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"broadcast_tx_commit": NewRPCFunc(svc.BroadcastTxCommit)</code> |
+| <code>interface.15.rpc-consensus-broadcast-tx-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"broadcast_tx": NewRPCFunc(svc.BroadcastTx)</code> |
+| <code>interface.15.rpc-consensus-broadcast-tx-sync-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"broadcast_tx_sync": NewRPCFunc(svc.BroadcastTx)</code> |
+| <code>interface.15.rpc-consensus-check-tx-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"check_tx": NewRPCFunc(svc.CheckTx)</code> |
+| <code>interface.15.rpc-consensus-commit-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"commit": NewRPCFunc(svc.Commit)</code> |
+| <code>interface.15.rpc-consensus-consensus-params-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"consensus_params": NewRPCFunc(svc.ConsensusParams)</code> |
+| <code>interface.15.rpc-consensus-consensus-state-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"consensus_state": NewRPCFunc(svc.GetConsensusState)</code> |
+| <code>interface.15.rpc-consensus-dump-consensus-state-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"dump_consensus_state": NewRPCFunc(svc.DumpConsensusState)</code> |
+| <code>interface.15.rpc-consensus-events-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"events": NewRPCFunc(svc.Events).Timeout(0)</code> |
+| <code>interface.15.rpc-consensus-genesis-chunked-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"genesis_chunked": NewRPCFunc(svc.GenesisChunked)</code> |
+| <code>interface.15.rpc-consensus-genesis-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"genesis": NewRPCFunc(svc.Genesis)</code> |
+| <code>interface.15.rpc-consensus-header-by-hash-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"header_by_hash": NewRPCFunc(svc.HeaderByHash)</code> |
+| <code>interface.15.rpc-consensus-header-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"header": NewRPCFunc(svc.Header)</code> |
+| <code>interface.15.rpc-consensus-health-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"health": NewRPCFunc(svc.Health)</code> |
+| <code>interface.15.rpc-consensus-lag-status-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"lag_status": NewRPCFunc(svc.LagStatus)</code> |
+| <code>interface.15.rpc-consensus-net-info-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"net_info": NewRPCFunc(svc.NetInfo)</code> |
+| <code>interface.15.rpc-consensus-num-unconfirmed-txs-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"num_unconfirmed_txs": NewRPCFunc(svc.NumUnconfirmedTxs)</code> |
+| <code>interface.15.rpc-consensus-status-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"status": NewRPCFunc(svc.Status)</code> |
 | <code>interface.15.rpc-consensus-subscribe-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"subscribe": rpc.NewWSRPCFunc(svc.Subscribe)</code> |
-| <code>interface.15.rpc-consensus-tx-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"tx": rpc.NewRPCFunc(svc.Tx)</code> |
-| <code>interface.15.rpc-consensus-tx-search-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"tx_search": rpc.NewRPCFunc(svc.TxSearch)</code> |
-| <code>interface.15.rpc-consensus-unconfirmed-txs-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"unconfirmed_txs": rpc.NewRPCFunc(svc.UnconfirmedTxs)</code> |
-| <code>interface.15.rpc-consensus-unsafe-flush-mempool-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>out["unsafe_flush_mempool"] = rpc.NewRPCFunc(u.UnsafeFlushMempool)</code> |
+| <code>interface.15.rpc-consensus-tx-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"tx": NewRPCFunc(svc.Tx)</code> |
+| <code>interface.15.rpc-consensus-tx-search-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"tx_search": NewRPCFunc(svc.TxSearch)</code> |
+| <code>interface.15.rpc-consensus-unconfirmed-txs-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"unconfirmed_txs": NewRPCFunc(svc.UnconfirmedTxs)</code> |
+| <code>interface.15.rpc-consensus-unsafe-flush-mempool-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>out["unsafe_flush_mempool"] = NewRPCFunc(u.UnsafeFlushMempool)</code> |
 | <code>interface.15.rpc-consensus-unsubscribe-all-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"unsubscribe_all": rpc.NewWSRPCFunc(svc.UnsubscribeAll)</code> |
 | <code>interface.15.rpc-consensus-unsubscribe-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"unsubscribe": rpc.NewWSRPCFunc(svc.Unsubscribe)</code> |
-| <code>interface.15.rpc-consensus-validators-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"validators": rpc.NewRPCFunc(svc.Validators)</code> |
+| <code>interface.15.rpc-consensus-validators-j57</code> | <code>jsonrpc_method</code> | <code>consensus/internal/rpc/core/routes.go</code> | <code>"validators": NewRPCFunc(svc.Validators)</code> |
 
 | Field | Rule |
 |---|---|
@@ -1743,13 +1723,13 @@ Source paths are relative to the repository root. Declaration tables identify th
 
 | Field | Rule |
 |---|---|
-| interface | Make targets of consensus/Makefile and consensus/test/Makefile kept or retired by the fork |
+| interface | Make targets declared in consensus/Makefile and consensus/test/Makefile |
 | storage | No storage |
-| errors | make exits non-zero with No rule to make target for a retired target |
+| errors | Undefined target names produce a nonzero make exit status. |
 | events | None |
 | gas | Not applicable |
-| activation | Kept targets: all, build, install, build_privval_server, format, test and the targets not listed as retired |
-| invariants | make -n of every kept target resolves inside the monorepo; LD_FLAGS and goimports -local name the fork module path |
+| activation | The all target runs build, test and install; build_privval_server and format are separate targets. |
+| invariants | LD_FLAGS sets the fork consensus/version.TMVersion; goimports -local uses the repository module path. |
 | pause | No pause |
 
 | Requirement | Behavior |

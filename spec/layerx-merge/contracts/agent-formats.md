@@ -2,7 +2,7 @@
 
 This inventory describes agent API schemas, application framing and durable records. Source links identify each implementation.
 
-Paxeer mainnet-beta is one BFT network with EVM chain id **125** (`0x7d`). Its kernel participates in the network and proposes blocks. A receipt is final when its block is committed. Public node JSON-RPC uses HTTPS at the root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, and `api-mainnet-beta.paxeer.network`. Agent operation envelopes and local durable records below are application formats, not additional public node endpoints. Tenant domains are database namespaces, without a new chain deployment for each tenant. See the [network audit brief](../programme/audit/BRIEF.kvx) and [public RPC reference](../../../docs/site/docs/reference/public-rpc.md).
+Paxeer mainnet-beta is one BFT network with EVM chain id **125** (`0x7d`). Its kernel participates in the network and proposes blocks. A receipt is final when its block is committed. Public node JSON-RPC uses HTTPS at the configured node origin's root path. Agent operation envelopes and local durable records below are application formats, not additional public node endpoints. Tenant domains are database namespaces, without a new chain deployment for each tenant. See the [network audit brief](../programme/audit/BRIEF.kvx) and [public RPC reference](../../../docs/site/docs/reference/public-rpc.md).
 
 ## agent-api-golden
 
@@ -14,7 +14,7 @@ The [request golden](../../../services/agent/schema/agent-api/golden/version-req
 
 Interface: `interface.9.fmt-agent-api-request-frame`.
 
-The `[encoding]` declaration in [v1.kvx](../../../services/agent/schema/agent-api/v1.kvx) is `contract_major:u16be contract_minor:u16be request_id:u64be operation:utf8 payload:canonical-map`. The filename is retained; its top-level contract version is **2.0**.
+The `[encoding]` declaration in [v1.kvx](../../../services/agent/schema/agent-api/v1.kvx) is `contract_major:u16be contract_minor:u16be request_id:u64be operation:utf8 payload:canonical-map`. Its top-level contract version is **2.0**.
 
 The HTTP operation representation implemented by [agent_rpc.rs](../../../services/agent/crates/layerx-agentd/src/agent_rpc.rs) is a JSON object with `version`, `request_id`, `operation`, `request`, `credential`, and an optional `idempotency_key`. Envelope version is **1**, independent of contract major 2. Request ids and credential generations use canonical decimal strings. Credential coordinates are `tenant`, `session_id`, `token_id`, `generation`. The body bound is **1,048,576 bytes**. Unknown fields, incompatible envelope versions and malformed coordinates are refused before dispatch; session authorization controls access to owner operations.
 
@@ -62,7 +62,7 @@ Interface: `interface.9.fmt-agent-api-schema-read`.
 
 [read.kvx](../../../services/agent/schema/agent-api/read.kvx) declares read freshness, proof bundles, availability, projections and offline export. [read.rs](../../../services/agent/crates/layerx-agent-api/src/read.rs) defines the Rust types and JSON codecs, re-exported through namespaces in [lib.rs](../../../services/agent/crates/layerx-agent-api/src/lib.rs).
 
-The live offline-export response contains `facts`, `bundles`, `height`. [golden/read.kvx](../../../services/agent/schema/agent-api/golden/read.kvx) still contains the earlier `facts`, `receipts`, `proofs`, `certificates`, `headers` declaration. It is a compatibility baseline, not the current export shape. See [offline-export](#offline-export).
+The offline-export response contains `facts`, `bundles`, `height`. See [offline-export](#offline-export) for its representation and bounds.
 
 ## agent-api-schema-stream
 
@@ -105,7 +105,7 @@ Interface: `interface.9.fmt-agentd-startup-config`.
 
 Interface: `interface.9.fmt-agentd-store`.
 
-[store/mod.rs](../../../services/agent/crates/layerx-agentd/src/store/mod.rs) persists `store.bin` with magic `LXAS` and schema version **3**. [store/migrate.rs](../../../services/agent/crates/layerx-agentd/src/store/migrate.rs) supports migration from version 1. `TenantKey` combines tenant, object kind and object id; receipt and retained-export keys below remain tenant-scoped.
+[store/mod.rs](../../../services/agent/crates/layerx-agentd/src/store/mod.rs) persists `store.bin` with magic `LXAS` and schema version **4**. [store/migrate.rs](../../../services/agent/crates/layerx-agentd/src/store/migrate.rs) migrates supported stores from versions 1, 2 and 3 to version 4. `TenantKey` combines tenant, object kind and object id; receipt and retained-export keys below remain tenant-scoped.
 
 ## audit-log
 
@@ -199,7 +199,7 @@ Each bundle includes `format`, `verificationLevel`, `rawTransaction`, `signedRec
 
 The verifier binds raw transaction hash, signed receipt, receipt key and interval, receipt inclusion, logs, header and CometBFT commit to one block. It checks account proof when the fact requires it. Receipt keys and validator-set context are independently supplied through `ExportTrustSource`; a returned key or claimed rung alone is not trust. The response reports committed rung and block-relative freshness for the verified height.
 
-The older certificate/header vector layout is superseded in the live Rust mirror. The [golden read baseline](../../../services/agent/schema/agent-api/golden/read.kvx) still preserves that earlier declaration; do not send it as the current export. The portable proof format version is also distinct from the LXRE durable receipt-evidence version [below](#receipt-evidence).
+The portable proof format version is distinct from the LXRE durable receipt-evidence version [below](#receipt-evidence).
 
 Coverage references: [export_v2.rs](../../../services/agent/crates/layerx-agentd/tests/export_v2.rs), `offline_export_verifies_with_only_receipt_keys_and_validator_set`; [export_offline_bounds.rs](../../../services/agent/crates/layerx-agentd/tests/export_offline_bounds.rs), `export_frame_is_bounded_at_exactly_one_mebibyte` and `export_response_must_answer_every_requested_fact_at_the_requested_rung`.
 
