@@ -21715,3 +21715,8 @@ fix = "A task that renames a file names in its manifest every reader that git gr
 title = "The target agent-test of the Makefile reaches the node build"
 symptom = "The target agent-test of the Makefile runs the target agent-test-native-prerequisites first, and that target builds the node binary with the target paxeer-build. The build of the node reads its Go modules from the module cache. The target agent-build does not fill that cache."
 fix = "The build command of a task whose verification runs make agent-test runs go mod download first, as the build command of task 22.39.499 does for the human service. The build command of task 22.39.498 does."
+
+[gotcha.4379]
+title = "One library test of the agent daemon runs a Python file that imports cryptography"
+symptom = "The library test receipt_reference_reaches_recovery_consumer of services/agent/crates/layerx-agentd runs tools/qualification/paxeer-x/mcp_daemon_revocation.py with python3. That file imports the package cryptography. The target agent-build of the Makefile installs no Python package."
+fix = "The build command of a task whose verification runs make agent-test installs the packages of tests/bridge/requirements.txt with pip first; that file names cryptography. The build command of task 22.39.498 does."
