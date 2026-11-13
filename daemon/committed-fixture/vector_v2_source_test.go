@@ -46,7 +46,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepair_174_FixtureV2SourceContract(t *testing.T) {
+func TestVectorV2SourceContract(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	oldOCC := app.EnableOCC
@@ -237,7 +237,7 @@ func TestRepair_174_FixtureV2SourceContract(t *testing.T) {
 	}
 }
 
-func TestRepair_174_HistoricalSourceEquality(t *testing.T) {
+func TestVectorV2HistoricalSourceEquality(t *testing.T) {
 	var v vectorV2
 	require.NoError(t, readJSON("vectors/"+vectorV2Name+".json", &v))
 	require.NoError(t, verifyVectorV2(&v))
@@ -263,7 +263,7 @@ func TestRepair_174_HistoricalSourceEquality(t *testing.T) {
 	require.Equal(t, 1, matches)
 }
 
-func TestRepair_174_MergedBootstrap(t *testing.T) {
+func TestVectorV2MergedBootstrap(t *testing.T) {
 	executable, err := os.Executable()
 	require.NoError(t, err)
 	t.Setenv("COMMITTED_FIXTURE_EXEC_PAXD", "1")

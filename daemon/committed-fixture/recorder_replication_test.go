@@ -59,7 +59,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repairM1092Runtime struct {
+type recorderRuntime struct {
 	node    *node
 	payer   *ecdsa.PrivateKey
 	pins    seqkeeper.ReceiptKeys
@@ -68,12 +68,12 @@ type repairM1092Runtime struct {
 	backup  *app.App
 }
 
-func repairM1092Recorder(t *testing.T, programs bool) *repairM1092Runtime {
+func startRecorder(t *testing.T, programs bool) *recorderRuntime {
 	t.Helper()
-	return repairM1092PrepareRecorder(t, programs)()
+	return prepareRecorder(t, programs)()
 }
 
-func repairM1092PrepareRecorder(t *testing.T, programs bool, configure ...func(sdk.Context, *app.App, *ecdsa.PrivateKey)) func() *repairM1092Runtime {
+func prepareRecorder(t *testing.T, programs bool, configure ...func(sdk.Context, *app.App, *ecdsa.PrivateKey)) func() *recorderRuntime {
 	t.Helper()
 	oldOCC := app.EnableOCC
 	app.EnableOCC = false
@@ -125,7 +125,7 @@ func repairM1092PrepareRecorder(t *testing.T, programs bool, configure ...func(s
 		ReceiptKeys: []seqtypes.ReceiptKey{{KeyId: standbyID, PublicKey: [32]byte(standbyPublic), FirstHeight: 1, LastHeight: 1000}, {KeyId: keyID, PublicKey: [32]byte(public), FirstHeight: 1, LastHeight: 1000}},
 	}))
 	if programs {
-		repairM1092SeedPrograms(t, wrapper.Ctx, a, payer)
+		seedRecorderPrograms(t, wrapper.Ctx, a, payer)
 	}
 	for _, seed := range configure {
 		seed(wrapper.Ctx, a, payer)
@@ -188,9 +188,9 @@ func repairM1092PrepareRecorder(t *testing.T, programs bool, configure ...func(s
 	}
 	standbySeedPath := filepath.Join(t.TempDir(), "receipt.hex")
 	require.NoError(t, os.WriteFile(standbySeedPath, []byte(hex.EncodeToString(standbySeed[:])), 0600))
-	primaryTLS, standbyTLS := repairM1092TLS(t)
-	return func() *repairM1092Runtime {
-		host := fmt.Sprintf("127.0.1.%d", repairM1092StandbyHost.Add(1))
+	primaryTLS, standbyTLS := recorderReplicationTLS(t)
+	return func() *recorderRuntime {
+		host := fmt.Sprintf("127.0.1.%d", recorderStandbyHost.Add(1))
 		standby, err := sequencer.StartStandby(ctx, sequencer.Config{
 			Role: sequencer.RoleStandby, ReplicationTLS: standbyTLS, WALDir: filepath.Join(t.TempDir(), "standby-wal"),
 			ReceiptKeyFile: standbySeedPath, StandbyAddress: host + ":0", ReplicationTimeout: 5 * time.Second,
@@ -236,7 +236,7 @@ func repairM1092PrepareRecorder(t *testing.T, programs bool, configure ...func(s
 			return err == nil && block != nil && block.Block != nil && block.Block.Height == firstHeight
 		}, 5*time.Second, 10*time.Millisecond, "the gas-price history must have a committed first block")
 		rpcCfg := rpcconfig.DefaultConfig
-		rpcCfg.HTTPAddress = fmt.Sprintf("127.0.2.%d", repairM1092EVMHost.Add(1))
+		rpcCfg.HTTPAddress = fmt.Sprintf("127.0.2.%d", recorderEVMHost.Add(1))
 		rpcCfg.HTTPPort = 0
 		rpcCfg.WorkerPoolSize = 1
 		rpcCfg.WorkerQueueSize = 8
@@ -259,11 +259,11 @@ func repairM1092PrepareRecorder(t *testing.T, programs bool, configure ...func(s
 		genesis, err := json.Marshal(map[string]any{"chain_id": "pax-test", "app_state": map[string]any{"sequencer": map[string]any{"receipt_keys": pins}}})
 		require.NoError(t, err)
 		require.NoError(t, os.WriteFile(filepath.Join(home, "config", "genesis.json"), genesis, 0600))
-		return &repairM1092Runtime{n, payer, pins, primary, a, backup}
+		return &recorderRuntime{n, payer, pins, primary, a, backup}
 	}
 }
 
-func repairM1092SeedPrograms(t *testing.T, ctx sdk.Context, a *app.App, payer *ecdsa.PrivateKey) {
+func seedRecorderPrograms(t *testing.T, ctx sdk.Context, a *app.App, payer *ecdsa.PrivateKey) {
 	t.Helper()
 	host := a.LayerXHost
 	key := a.GetKey(app.LayerXHostStoreKey)
@@ -385,19 +385,19 @@ func repairM1092SeedPrograms(t *testing.T, ctx sdk.Context, a *app.App, payer *e
 
 }
 
-func repairM1092TLS(t *testing.T) (sequencer.ReplicationTLSConfig, sequencer.ReplicationTLSConfig) {
+func recorderReplicationTLS(t *testing.T) (sequencer.ReplicationTLSConfig, sequencer.ReplicationTLSConfig) {
 	t.Helper()
 	primary, standby, err := fixtureReplicationTLS(t.TempDir())
 	require.NoError(t, err)
 	return primary, standby
 }
 
-func TestRepairM_1092_ConcurrentRecorderEndpoints(t *testing.T) {
+func TestConcurrentRecorderEndpoints(t *testing.T) {
 	// Prepare application stores serially; start both complete network stacks together.
-	firstStart := repairM1092PrepareRecorder(t, false)
-	secondStart := repairM1092PrepareRecorder(t, false)
+	firstStart := prepareRecorder(t, false)
+	secondStart := prepareRecorder(t, false)
 	type result struct {
-		runtime *repairM1092Runtime
+		runtime *recorderRuntime
 		vector  any
 		err     error
 	}
@@ -405,8 +405,8 @@ func TestRepairM_1092_ConcurrentRecorderEndpoints(t *testing.T) {
 	var starters sync.WaitGroup
 	starters.Add(2)
 	startTogether := make(chan struct{})
-	for _, start := range []func() *repairM1092Runtime{firstStart, secondStart} {
-		go func(start func() *repairM1092Runtime) {
+	for _, start := range []func() *recorderRuntime{firstStart, secondStart} {
+		go func(start func() *recorderRuntime) {
 			defer starters.Done()
 			<-startTogether
 			runtime := start()
@@ -418,7 +418,7 @@ func TestRepairM_1092_ConcurrentRecorderEndpoints(t *testing.T) {
 	starters.Wait()
 	close(results)
 	hashes := map[common.Hash]bool{}
-	var runtimes []*repairM1092Runtime
+	var runtimes []*recorderRuntime
 	for recorded := range results {
 		require.NoError(t, recorded.err)
 		runtimes = append(runtimes, recorded.runtime)
@@ -448,8 +448,8 @@ func TestRepairM_1092_ConcurrentRecorderEndpoints(t *testing.T) {
 	}
 }
 
-func TestRepairM_1092_V2RetainsStandbyPins(t *testing.T) {
-	runtime := repairM1092Recorder(t, false)
+func TestVectorV2RetainsStandbyPins(t *testing.T) {
+	runtime := startRecorder(t, false)
 	value, err := recordV2FromHome(runtime.node, "4299cb15eced23eb9a839162acd11e9a937edd05")
 	require.NoError(t, err)
 	v := value.(*vectorV2)
@@ -476,12 +476,12 @@ func TestRepairM_1092_V2RetainsStandbyPins(t *testing.T) {
 	require.Error(t, err, "an unused standby pin must still be validated")
 }
 
-func TestRepairM_1092_V2RecorderStrictConsumers(t *testing.T) {
-	runtime := repairM1092Recorder(t, false)
+func TestVectorV2RecorderStrictConsumers(t *testing.T) {
+	runtime := startRecorder(t, false)
 	value, err := recordV2FromHome(runtime.node, "4299cb15eced23eb9a839162acd11e9a937edd05")
 	require.NoError(t, err)
 	v := value.(*vectorV2)
-	repairM1092VerifyV2Copies(t, v)
+	verifyVectorV2Copies(t, v)
 	signed, err := verify.ReceiptSignature(v.Receipt.Receipt, [32]byte(v.Receipt.SigningKey))
 	require.NoError(t, err)
 	require.Equal(t, int32(1), signed.Receipt.ResultCode)
@@ -498,11 +498,11 @@ func TestRepairM_1092_V2RecorderStrictConsumers(t *testing.T) {
 	require.Equal(t, send.Receipt, []byte(v.Receipt.Receipt))
 }
 
-func TestRepairM_1092_V1ProgramsProducer(t *testing.T) {
+func TestVectorV1ProgramsProducer(t *testing.T) {
 	TestVectorV1ProgramsRecorder(t)
 }
 
-func repairM1092VerifyV2Copies(t *testing.T, v *vectorV2) {
+func verifyVectorV2Copies(t *testing.T, v *vectorV2) {
 	t.Helper()
 	require.NoError(t, verifyVectorV2(v))
 	out := t.TempDir()
@@ -554,6 +554,6 @@ func repairM1092VerifyV2Copies(t *testing.T, v *vectorV2) {
 	}
 }
 
-var repairM1092StandbyHost atomic.Uint32
+var recorderStandbyHost atomic.Uint32
 
-var repairM1092EVMHost atomic.Uint32
+var recorderEVMHost atomic.Uint32

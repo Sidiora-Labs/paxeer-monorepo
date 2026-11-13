@@ -29,7 +29,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1093_ReplayProfilerLoopbackAndCancellation(t *testing.T) {
+func TestReplayProfilerLoopbackAndCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	profiler, err := startReplayProfiler(ctx, 0)
@@ -85,7 +85,7 @@ func TestRepairM_1093_ReplayProfilerLoopbackAndCancellation(t *testing.T) {
 	require.Nil(t, closed)
 }
 
-func TestRepairM_1093_ReplayProfilerClose(t *testing.T) {
+func TestReplayProfilerClose(t *testing.T) {
 	profiler, err := startReplayProfiler(t.Context(), 0)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, profiler.Close()) })
@@ -107,7 +107,7 @@ func TestRepairM_1093_ReplayProfilerClose(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestRepairM_1093_MixedKeyringGenesisAccount(t *testing.T) {
+func TestMixedKeyringGenesisAccount(t *testing.T) {
 	for _, selection := range []string{"address", "name"} {
 		t.Run(selection, func(t *testing.T) {
 			home := t.TempDir()
