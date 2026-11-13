@@ -1,0 +1,360 @@
+[manifest]
+task = "22.43.128"
+records_moved = 43
+files_renamed = 0
+
+[file.1]
+from = "services/agent/crates/layerx-agentd/src/approval/repair_22_31_225.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/approval/repair_22_31_225.kvx"
+
+[file.2]
+from = "services/agent/crates/layerx-agentd/src/approval/repair_22_33_1550.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/approval/repair_22_33_1550.kvx"
+
+[file.3]
+from = "services/agent/crates/layerx-agentd/src/approval/repair_22_39_122.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/approval/repair_22_39_122.kvx"
+
+[file.4]
+from = "services/agent/crates/layerx-agentd/src/audit/repair_22_31_365.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/audit/repair_22_31_365.kvx"
+
+[file.5]
+from = "services/agent/crates/layerx-agentd/src/audit/repair_22_33_1512.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/audit/repair_22_33_1512.kvx"
+
+[file.6]
+from = "services/agent/crates/layerx-agentd/src/budget/repair_22_31_217.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/budget/repair_22_31_217.kvx"
+
+[file.7]
+from = "services/agent/crates/layerx-agentd/src/capability/repair_22_33_13.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/capability/repair_22_33_13.kvx"
+
+[file.8]
+from = "services/agent/crates/layerx-agentd/src/events/repair_22_31_215.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/events/repair_22_31_215.kvx"
+
+[file.9]
+from = "services/agent/crates/layerx-agentd/src/events/repair_22_33_1506.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/events/repair_22_33_1506.kvx"
+
+[file.10]
+from = "services/agent/crates/layerx-agentd/src/events/repair_22_39_171.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/events/repair_22_39_171.kvx"
+
+[file.11]
+from = "services/agent/crates/layerx-agentd/src/human_runtime/repair_22_31_366.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/human_runtime/repair_22_31_366.kvx"
+
+[file.12]
+from = "services/agent/crates/layerx-agentd/src/human_runtime/subject/repair_22_33_1514.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/human_runtime/subject/repair_22_33_1514.kvx"
+
+[file.13]
+from = "services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-347.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-347.kvx"
+
+[file.14]
+from = "services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-353.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-353.kvx"
+
+[file.15]
+from = "services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-362.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-362.kvx"
+
+[file.16]
+from = "services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-371.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-371.kvx"
+
+[file.17]
+from = "services/agent/crates/layerx-agentd/src/limits/repair_22_33_1526.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/limits/repair_22_33_1526.kvx"
+
+[file.18]
+from = "services/agent/crates/layerx-agentd/src/ops/repair_22_33_1527.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/ops/repair_22_33_1527.kvx"
+
+[file.19]
+from = "services/agent/crates/layerx-agentd/src/outbound_tls/repair_22_33_1531.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/outbound_tls/repair_22_33_1531.kvx"
+
+[file.20]
+from = "services/agent/crates/layerx-agentd/src/outbox/repair_22_31_367.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/outbox/repair_22_31_367.kvx"
+
+[file.21]
+from = "services/agent/crates/layerx-agentd/src/policy/repair_22_31_216.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/policy/repair_22_31_216.kvx"
+
+[file.22]
+from = "services/agent/crates/layerx-agentd/src/policy/repair_22_33_1507.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/policy/repair_22_33_1507.kvx"
+
+[file.23]
+from = "services/agent/crates/layerx-agentd/src/prepare/repair_22_33_1543.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/prepare/repair_22_33_1543.kvx"
+
+[file.24]
+from = "services/agent/crates/layerx-agentd/src/prepare/repair_9_35_24.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/prepare/repair_9_35_24.kvx"
+
+[file.25]
+from = "services/agent/crates/layerx-agentd/src/read/repair_22_31_218.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/read/repair_22_31_218.kvx"
+
+[file.26]
+from = "services/agent/crates/layerx-agentd/src/read/repair_22_39_172.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/read/repair_22_39_172.kvx"
+
+[file.27]
+from = "services/agent/crates/layerx-agentd/src/repair_22_31_219.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/repair_22_31_219.kvx"
+
+[file.28]
+from = "services/agent/crates/layerx-agentd/src/repair_22_31_220.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/repair_22_31_220.kvx"
+
+[file.29]
+from = "services/agent/crates/layerx-agentd/src/repair_22_31_364.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/repair_22_31_364.kvx"
+
+[file.30]
+from = "services/agent/crates/layerx-agentd/src/repair_22_31_368.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/repair_22_31_368.kvx"
+
+[file.31]
+from = "services/agent/crates/layerx-agentd/src/repair_22_33_1508.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/repair_22_33_1508.kvx"
+
+[file.32]
+from = "services/agent/crates/layerx-agentd/src/repair_22_33_1513.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/repair_22_33_1513.kvx"
+
+[file.33]
+from = "services/agent/crates/layerx-agentd/src/repair_22_39_209.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/repair_22_39_209.kvx"
+
+[file.34]
+from = "services/agent/crates/layerx-agentd/src/repair_22_39_222.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/repair_22_39_222.kvx"
+
+[file.35]
+from = "services/agent/crates/layerx-agentd/src/repair_22_39_348.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/repair_22_39_348.kvx"
+
+[file.36]
+from = "services/agent/crates/layerx-agentd/src/repair_22_39_380.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/repair_22_39_380.kvx"
+
+[file.37]
+from = "services/agent/crates/layerx-agentd/src/repair_22_39_381.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/repair_22_39_381.kvx"
+
+[file.38]
+from = "services/agent/crates/layerx-agentd/src/repair_22_39_382.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/repair_22_39_382.kvx"
+
+[file.39]
+from = "services/agent/crates/layerx-agentd/src/repair_22_39_383.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/repair_22_39_383.kvx"
+
+[file.40]
+from = "services/agent/crates/layerx-agentd/src/repair_22_39_384.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/repair_22_39_384.kvx"
+
+[file.41]
+from = "services/agent/crates/layerx-agentd/src/repair_22_39_385.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/repair_22_39_385.kvx"
+
+[file.42]
+from = "services/agent/crates/layerx-agentd/src/store/repair_22_33_1516.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/store/repair_22_33_1516.kvx"
+
+[file.43]
+from = "services/agent/crates/layerx-agentd/src/tenant/repair_22_33_1517.kvx"
+to = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/tenant/repair_22_33_1517.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "repair_22_31_217.kvx"
+
+[reference.2]
+file = "services/agent/crates/layerx-agentd/tests/audit_append_recovery.rs"
+name = "repair_22_33_1512.kvx"
+
+[reference.3]
+file = "services/agent/crates/layerx-agentd/tests/audit_binding_receipt_recovery.rs"
+name = "repair_22_31_364.kvx"
+
+[reference.4]
+file = "services/agent/crates/layerx-agentd/tests/enrolment_receipt_observability.rs"
+name = "repair_22_33_1513.kvx"
+
+[reference.5]
+file = "services/agent/crates/layerx-agentd/tests/mcp_history_working_set.rs"
+name = "repair_22_33_1508.kvx"
+
+[reference.6]
+file = "services/agent/crates/layerx-agentd/tests/node_lifecycle_recovery.rs"
+name = "repair_22_31_219.kvx"
+
+[reference.7]
+file = "services/agent/crates/layerx-agentd/tests/preparation_retention_recovery.rs"
+name = "repair_22_33_1543.kvx"
+
+[reference.8]
+file = "spec/layerx-merge/programme/issues/input/1923.md"
+name = "repair_22_39_222.kvx"
+
+[reference.9]
+file = "spec/layerx-merge/programme/records/renames/22.43.129.kvx"
+name = "repair_22_31_216.kvx"
+
+[reference.10]
+file = "spec/layerx-merge/programme/records/renames/22.43.129.kvx"
+name = "repair_22_31_217.kvx"
+
+[reference.11]
+file = "spec/layerx-merge/programme/records/renames/22.43.129.kvx"
+name = "repair_22_31_219.kvx"
+
+[reference.12]
+file = "spec/layerx-merge/programme/records/renames/22.43.129.kvx"
+name = "repair_22_31_365.kvx"
+
+[reference.13]
+file = "spec/layerx-merge/programme/records/renames/22.43.129.kvx"
+name = "repair_22_31_367.kvx"
+
+[reference.14]
+file = "spec/layerx-merge/programme/records/renames/22.43.129.kvx"
+name = "repair_22_33_13.kvx"
+
+[reference.15]
+file = "spec/layerx-merge/programme/records/renames/22.43.129.kvx"
+name = "repair_22_33_1507.kvx"
+
+[reference.16]
+file = "spec/layerx-merge/programme/records/renames/22.43.129.kvx"
+name = "repair_22_33_1513.kvx"
+
+[reference.17]
+file = "spec/layerx-merge/programme/records/renames/22.43.129.kvx"
+name = "repair_22_33_1514.kvx"
+
+[reference.18]
+file = "spec/layerx-merge/programme/records/renames/22.43.129.kvx"
+name = "repair_22_33_1526.kvx"
+
+[reference.19]
+file = "spec/layerx-merge/programme/records/renames/22.43.129.kvx"
+name = "repair_22_33_1531.kvx"
+
+[reference.20]
+file = "spec/layerx-merge/programme/records/renames/22.43.129.kvx"
+name = "repair_22_39_171.kvx"
+
+[reference.21]
+file = "spec/layerx-merge/programme/records/renames/22.43.129.kvx"
+name = "repair_22_39_172.kvx"
+
+[reference.22]
+file = "spec/layerx-merge/programme/records/renames/22.43.129.kvx"
+name = "repair_22_39_222.kvx"
+
+[reference.23]
+file = "spec/layerx-merge/programme/records/renames/22.43.129.kvx"
+name = "repair_9_35_24.kvx"
+
+[reference.24]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_9_35_24.kvx"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-39-347.kvx"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-39-353.kvx"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-39-362.kvx"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-39-371.kvx"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_217.kvx"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_13.kvx"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1513.kvx"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1543.kvx"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1550.kvx"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_122.kvx"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_171.kvx"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_172.kvx"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_209.kvx"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_222.kvx"
+
+[reference.39]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_348.kvx"
+
+[reference.40]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_380.kvx"
+
+[reference.41]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_381.kvx"
+
+[reference.42]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_382.kvx"
+
+[reference.43]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_383.kvx"
+
+[reference.44]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_384.kvx"
+
+[reference.45]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_385.kvx"
+
+[reference.46]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_9_35_24.kvx"

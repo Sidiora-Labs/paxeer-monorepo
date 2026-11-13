@@ -16,7 +16,7 @@ outside_scope_defects = "None found."
 
 [qualification]
 build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host && cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --all-targets"
-verify_command = "test -s services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-353.kvx && cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_deals --test inference_signal"
+verify_command = "test -s spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-353.kvx && cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_deals --test inference_signal"
 tests = "Existing inference_deals and inference_signal integration tests execute unchanged through hf-done."
 result = "The authoritative result and verified candidate revision are the build and verify entries in the private gate ledger /out/run/gates.jsonl; qualification requires both exit codes zero at the same revision."
 build_log = "/out/logs/build-1.log"

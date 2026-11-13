@@ -245,7 +245,7 @@ producer = "compile emits the signed SEND payload; PrecompileCall::ledger_transf
 
 [finding.attempt3_scope]
 task = "9.35.24"
-file = "services/agent/crates/layerx-agentd/src/prepare/repair_9_35_24.kvx"
+file = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/prepare/repair_9_35_24.kvx"
 symbol = "continuation.attempt3"
 observed = "The task forbids changing GOTCHA.kvx and spec files; the continuation and downstream consumer resolution are recorded in this in-scope task record."
 assumption = "The bounded gate ledger is the authoritative final evidence reference and records the candidate without changing its source revision."
@@ -480,7 +480,7 @@ severity = "suspect"
 
 [finding.attempt5_scope]
 task = "9.35.24"
-file = "services/agent/crates/layerx-agentd/src/prepare/repair_9_35_24.kvx"
+file = "spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/prepare/repair_9_35_24.kvx"
 symbol = "continuation.attempt5"
 observed = "The task forbids editing GOTCHA.kvx and spec files; source-inspection corrections and the required suspect finding are recorded here within scope instead."
 assumption = "The runner owns task qualification and publishing, so no manual spec mutation, commit or push is performed."
