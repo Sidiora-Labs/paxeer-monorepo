@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
 
-function repair_22_31_480_installed_binaries_are_untracked() {
+function installed_binaries_are_untracked() {
   const result = spawnSync("git", ["ls-files", "apps/perps/node_modules"], {
     cwd: repositoryRoot,
     encoding: "utf8",
@@ -15,7 +15,7 @@ function repair_22_31_480_installed_binaries_are_untracked() {
   assert.equal(result.stdout, "", "Installed dependencies must leave the index");
 }
 
-function repair_22_31_480_installed_webpack_is_ignored() {
+function installed_webpack_is_ignored() {
   const result = spawnSync(
     "git",
     ["check-ignore", "-q", "apps/perps/node_modules/.bin/webpack"],
@@ -25,7 +25,7 @@ function repair_22_31_480_installed_webpack_is_ignored() {
   assert.equal(result.status, 0, result.stderr || "webpack must be ignored");
 }
 
-function repair_22_31_480_generated_dependency_files_are_untracked_and_ignored() {
+function generated_dependency_files_are_untracked_and_ignored() {
   const paths = ["apps/perps/node_modules", "apps/perps/tsconfig.tsbuildinfo"];
   const tracked = spawnSync("git", ["ls-files", "--", ...paths], {
     cwd: repositoryRoot,
@@ -58,6 +58,6 @@ function repair_22_31_480_generated_dependency_files_are_untracked_and_ignored()
   }
 }
 
-test(repair_22_31_480_installed_binaries_are_untracked);
-test(repair_22_31_480_installed_webpack_is_ignored);
-test(repair_22_31_480_generated_dependency_files_are_untracked_and_ignored);
+test(installed_binaries_are_untracked);
+test(installed_webpack_is_ignored);
+test(generated_dependency_files_are_untracked_and_ignored);

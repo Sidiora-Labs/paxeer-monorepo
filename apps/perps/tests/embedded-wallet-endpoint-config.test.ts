@@ -22,7 +22,7 @@ async function withBrowserConfiguration(run: () => void | Promise<void>) {
   });
   delete process.env.NEXT_PUBLIC_PAXEER_WALLET_API;
   process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "repair-22-31-603";
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "embedded-wallet-endpoint-config";
   try {
     await run();
   } finally {

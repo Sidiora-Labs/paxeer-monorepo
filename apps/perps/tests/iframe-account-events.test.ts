@@ -13,7 +13,7 @@ import { build } from "esbuild";
 import type { Hex } from "viem";
 
 async function iframeAccountEventReachesInjectedConnector(t: TestContext) {
-  const directory = await mkdtemp(join(tmpdir(), "repair-22-31-5-"));
+  const directory = await mkdtemp(join(tmpdir(), "iframe-account-events-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const require = createRequire(import.meta.url);
   const wagmiRequire = createRequire(require.resolve("wagmi"));
@@ -26,7 +26,7 @@ async function iframeAccountEventReachesInjectedConnector(t: TestContext) {
   const bundle = await build({
     stdin: {
       resolveDir: dirname(fileURLToPath(import.meta.url)),
-      sourcefile: "repair-22-31-5.browser.js",
+      sourcefile: "iframe-account-events.browser.js",
       contents: `
 import { injected } from "wagmi";
 import { mainnet } from "wagmi/chains";
@@ -37,7 +37,7 @@ import {
 } from "../src/core/wallet/postMessageEip1193";
 
 const origin = window.location.origin;
-const diagnosticType = "repair-22-31-5";
+const diagnosticType = "iframe-account-events";
 
 function check(condition, message) {
   if (!condition) throw new Error(message);
@@ -49,7 +49,7 @@ async function runChild() {
   check(installPostMessageEip1193Provider() === provider, "installation reuses the bridge");
   const calls = [];
   provider.on("accountsChanged", (...args) => calls.push(args));
-  const emitter = createEmitter("repair-22-31-5");
+  const emitter = createEmitter("iframe-account-events");
   const report = (event, accounts) => window.parent.postMessage({
     type: diagnosticType, event, accounts, arguments: calls.shift(),
   }, origin);

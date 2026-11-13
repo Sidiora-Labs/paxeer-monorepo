@@ -32,7 +32,7 @@ observed = "Unrelated sdk/wallet/src/provider.ts:10 cannot resolve viem (TS2307)
 assumption = "No out-of-scope SDK dependency changes are authorized; hf-done requires a passing build and has not run."
 
 [fixtures]
-file = "apps/perps/src/hooks/perps/repair-22-31-20-fixtures.json"
+file = "apps/perps/src/hooks/perps/indexer-wire-fixtures.json"
 provenance = "Production perps-data responses recorded from PostgreSQL, NewSchema, SQL resolvers, subTime, TransportWS and relay.Handler during fixture authoring; no Go helper project, binary or cache is carried by the candidate."
 gate = "The test starts its own loopback HTTP/WebSocket transcript peer; no externally supplied configuration, live service, native artifact or subprocess toolchain is required. Only the session subscription id is remapped, and queries/variables are matched to the captured requests."
 assertions = "All inherited behavior assertions are retained; additional checks cover every SDL-nullable event field, exact uint256 strings, nanosecond DateTimes, unavailable tier state and the tiers-only path."

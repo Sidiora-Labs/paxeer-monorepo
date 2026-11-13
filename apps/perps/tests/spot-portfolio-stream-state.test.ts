@@ -40,7 +40,7 @@ const repairRecord = {
   "spot-user-frame-selection": "spotUserFrameSelection",
 };
 
-// Use the installed React reconciler with an in-memory host, as repair-22-33-11 does.
+// Use the installed React reconciler with an in-memory host, as dialog-access-and-settings does.
 // The components and their effects, state and query provider are the production code.
 const localRequire = createRequire(import.meta.url);
 const rendererRequire = createRequire(
