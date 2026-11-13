@@ -1,11 +1,11 @@
 // Task 22.33.1495 repair record. The task's do_16 correction replaces the
-// generated Go gate with repair_22_33_1495.rs; no Go subprocess runs in that gate.
+// generated Go gate with mcp_submission_and_credentials.rs; no Go subprocess runs in that gate.
 package cli_test
 
-const repairM1495Gate = "cargo test --locked --manifest-path tools/platform/cli/Cargo.toml --test repair_22_33_1495"
+const mcpSubmissionGate = "cargo test --locked --manifest-path tools/platform/cli/Cargo.toml --test mcp_submission_and_credentials"
 
 // Each entry names the finding and its executable Rust proving test.
-var repairM1495Findings = map[string]string{
+var mcpSubmissionTests = map[string]string{
 	"test_retired_endpoint_chains":     "test_retired_endpoint_chains",
 	"credential_profile_collision_gap": "credential_profile_collision_gap",
 	"test_retired_endpoint_faucet":     "test_retired_endpoint_faucet",

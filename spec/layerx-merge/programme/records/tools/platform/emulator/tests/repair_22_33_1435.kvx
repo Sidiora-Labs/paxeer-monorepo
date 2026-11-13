@@ -2,17 +2,17 @@
 base_revision = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
 acceptance = "22998.1"
 disposition = "Use both findings' explicit retirement alternative: the supported merged emulator is an inspection/control listener, not a local merged-node transaction executor. Retire the obsolete local transfer/head-proof and lifecycle-echo promises; preserve the existing negative regressions without weakening them."
-baseline = "No baseline gate ran and no pre-existing failing test is claimed: repair_22_33_1435.rs was absent on the unchanged tree, and the explicit implementation/build/verify order prohibits the conflicting do_6 request to verify before implementation."
+baseline = "No baseline gate ran and no pre-existing failing test is claimed: head_and_program_retirement.rs was absent on the unchanged tree, and the explicit implementation/build/verify order prohibits the conflicting do_6 request to verify before implementation."
 evidence = "The runner's private hf-build/hf-done ledger is the qualification record and names the exact verified candidate revision, command, exit code and log; no source record can embed its own candidate hash. Qualification is claimed only if hf-done passes on the built candidate."
 
 [finding.emulator-head-proof-coverage]
-test = "tools/platform/emulator/tests/repair_22_33_1435.rs::emulator_head_proof_coverage_retires_local_transfer_promise_without_fabricating_head"
+test = "tools/platform/emulator/tests/head_and_program_retirement.rs::emulator_head_proof_coverage_retires_local_transfer_promise_without_fabricating_head"
 disposition = "Acceptance 8544.2's local positive transfer-to-head promise is obsolete after ingress retirement, not satisfied by a 503. The public run/run_until listener and GET /v1/surface expose no supported transfer producer; the residual native execution bridge is not merged-node transaction ingress. No successful committed transfer or real-verifier positive proof is claimed."
 proof = "For both protocol profiles, start the real listener/core, pin its Ed25519 public identity, prefund and inspect both balances, refuse retired transfer endpoints and a recorded real merged-node payment transaction, and assert unchanged state, absent receipt and unavailable head. Export a production snapshot, stop and destroy the listener/core, reopen and import, then assert recovered balances, identity and retirement with no fabricated proof."
 preserved = "tools/platform/emulator/tests/core_linkage.rs::head_read_without_a_sealed_batch_is_refused remains unchanged."
 
 [finding.emulator-program-path-coverage]
-test = "tools/platform/emulator/tests/repair_22_33_1435.rs::emulator_program_path_coverage_retires_local_lifecycle_echo_and_keeps_8323_refusals"
+test = "tools/platform/emulator/tests/head_and_program_retirement.rs::emulator_program_path_coverage_retires_local_lifecycle_echo_and_keeps_8323_refusals"
 disposition = "Acceptance 8969.1's local lifecycle-echo promise is obsolete on the supported inspection/control surface; retained native runtime linkage and historical snapshot metadata do not supply a public deploy/call transaction path. Keep 8323.1's retirement. Merged-node program execution remains owned by the node/program domains, not emulated here."
 proof = "For both protocol profiles, consume real discovery, require all advertised writes to be emulator controls, drive deploy/call/upgrade/wind-down/simulation/registry/receipt routes over real HTTP and require 404 not_found without success payloads. Refuse a recorded real merged-node program-call transaction at local RPC ingress, then assert no receipt, no state change, unavailable head and continuing health."
 preserved = "tools/platform/emulator/tests/gateway.rs::retired_kernel_routes_answer_not_found remains unchanged."

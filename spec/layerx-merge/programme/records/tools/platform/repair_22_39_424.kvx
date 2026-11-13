@@ -12,25 +12,25 @@ files = ["tools/platform/emulator/src/main.rs"]
 files = ["tools/platform/emulator/src/main.rs"]
 
 [member.layerx-platform-emulator.needless_raw_string_hashes]
-files = ["tools/platform/emulator/tests/repair_22_31_200.rs"]
+files = ["tools/platform/emulator/tests/settlement_retirement_and_restart.rs"]
 
 [member.layerx-platform-emulator.doc_markdown]
-files = ["tools/platform/emulator/tests/repair_22_33_1435.rs"]
+files = ["tools/platform/emulator/tests/head_and_program_retirement.rs"]
 
 [member.layerx-platform-emulator.format_collect]
-files = ["tools/platform/emulator/tests/repair_22_33_1435.rs"]
+files = ["tools/platform/emulator/tests/head_and_program_retirement.rs"]
 
 [member.layerx-platform-release]
 manifest = "tools/platform/Cargo.toml"
 
 [member.layerx-platform-release.too_many_lines]
-files = ["tools/platform/release/src/fetch.rs", "tools/platform/release/tests/repair_22_33_1436.rs"]
+files = ["tools/platform/release/src/fetch.rs", "tools/platform/release/tests/go_archive_publication.rs"]
 
 [member.layerx-platform-release.unwrap_used]
-files = ["tools/platform/release/src/fetch.rs", "tools/platform/release/tests/repair_22_33_1437.rs"]
+files = ["tools/platform/release/src/fetch.rs", "tools/platform/release/tests/git_fetch_bounds.rs"]
 
 [member.layerx-platform-release.expect_used]
-files = ["services/platform/tests/support/tls_boundary.rs", "tools/platform/release/tests/repair_22_33_1436.rs", "tools/platform/release/tests/registries.rs", "tools/platform/release/tests/support/go_fixture.rs", "tools/platform/release/tests/support/manifest_fixture.rs"]
+files = ["services/platform/tests/support/tls_boundary.rs", "tools/platform/release/tests/go_archive_publication.rs", "tools/platform/release/tests/registries.rs", "tools/platform/release/tests/support/go_fixture.rs", "tools/platform/release/tests/support/manifest_fixture.rs"]
 
 [member.layerx-platform-release.dead_code]
 files = ["tools/platform/release/tests/support/go_fixture.rs", "tools/platform/release/tests/support/manifest_fixture.rs"]
@@ -39,7 +39,7 @@ files = ["tools/platform/release/tests/support/go_fixture.rs", "tools/platform/r
 files = ["tools/platform/release/tests/support/go_fixture.rs"]
 
 [member.layerx-platform-release.assigning_clones]
-files = ["tools/platform/release/tests/repair_22_33_1436.rs"]
+files = ["tools/platform/release/tests/go_archive_publication.rs"]
 
 [member.layerx-platform-sdkgen]
 manifest = "sdk/platform/generators/Cargo.toml"

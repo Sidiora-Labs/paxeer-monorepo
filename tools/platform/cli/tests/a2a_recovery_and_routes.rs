@@ -20,7 +20,7 @@
 //! the optional explicit faucet endpoint and receipt policy in installed runtime arguments.
 //! Wiring request: spec/layerx-merge/spec.kvx, workflow owner: copy this mapping and gate evidence
 //! into the task record; the worker is explicitly forbidden to edit spec files.
-//! The MCP peer below is the committed enrollment/TLS peer from `repair_22_31_213.rs`.
+//! The MCP peer below is the committed enrollment/TLS peer from `mcp_enrollment_contract.rs`.
 
 #[path = "../src/a2a.rs"]
 #[allow(dead_code)]

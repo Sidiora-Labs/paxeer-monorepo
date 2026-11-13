@@ -97,7 +97,7 @@ exit = 1
 log = "/out/logs/verify-1.log"
 
 [repair.root_workspace_install]
-file = "tools/platform/emulator/tests/repair_22_31_200.rs:121"
+file = "tools/platform/emulator/tests/settlement_retirement_and_restart.rs:121"
 symbol = "emulator_settlement_v2_retirement_and_current_authority_survive_restart"
 change = "The declared build command runs npm ci --ignore-scripts --no-audit --no-fund at the repository root before cargo build, installing the TypeScript SDK workspace dependencies used by the emulator middleware subprocess in make platform-test-tooling."
 producer = "Gotchas 3615 and 3619 and decision 2856 identify the missing root workspace install in the previous attempts; no source change under services/platform or the SDK is required."

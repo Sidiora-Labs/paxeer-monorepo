@@ -5,11 +5,11 @@ baseline = "No baseline test ran: the repair target did not exist on the unchang
 evidence = "Exact verified candidate revision, command, exit code and private evidence path are recorded by the runner in the hf-build/hf-done ledger; this record does not claim a gate passed."
 
 [finding.emulator-settlement-receipt-wiring]
-test = "tools/platform/emulator/tests/repair_22_33_1433.rs::emulator_settlement_receipt_wiring_declares_retirement_after_payment_attempt_and_reopen"
+test = "tools/platform/emulator/tests/settlement_receipt_retirement.rs::emulator_settlement_receipt_wiring_declares_retirement_after_payment_attempt_and_reopen"
 disposition = "The allowed retirement alternative applies: an actual recorded merged-node payment transaction is refused as unsupported local execution, settlement remains terminal 410, and real state snapshot export, stop, reopen and import preserve that disposition without producing a receipt or claiming finality. No fresh local payment success is promised or claimed."
 
 [finding.emulator-retired-route-registry]
-test = "tools/platform/emulator/tests/repair_22_33_1433.rs::emulator_retired_route_registry_publishes_only_supported_inspection_routes"
+test = "tools/platform/emulator/tests/settlement_receipt_retirement.rs::emulator_retired_route_registry_publishes_only_supported_inspection_routes"
 disposition = "The runtime catalogue excludes all retired writers; real HTTP requests preserve their 404 responses for both protocol profiles. Replacement guidance names merged-node eth_sendRawTransaction and pax_sequencerReceipt, with current receipt authority and independent block-commit verification."
 
 [wiring.registry]
