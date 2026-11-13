@@ -13,7 +13,9 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PAGE = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PAGE.read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1077.kvx"
 
 
@@ -49,13 +51,14 @@ def test_embedded_paxd_embedded_paxd_is_one_block_committing_network():
         "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "C17 kernel in `src/` and `include/` runs inside `paxd`",
-        "through [`modules/lxphost`](modules/lxphost/)",
+        "through [`modules/lxphost`](../../modules/lxphost/)",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
-        "no router and no separate LayerX interface",
         "outside consensus",
     ):
         assert fact in overview, fact
+    assert "The former unified router and its prefixed RPC routes are retired" in PUBLIC_RPC
+    assert "The node serves the `px` namespace at the root path, answering from node state" in PUBLIC_RPC
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
     assert 'import "C"' in source("modules/lxphost/host.go")
     assert "var _ tmtypes.SequencerSource = (*ConsensusSource)(nil)" in source(
@@ -75,12 +78,17 @@ def test_embedded_paxd_embedded_paxd_is_one_block_committing_network():
 
 def test_embedded_paxd_root_rpc_hosts_and_chain_probe_are_unambiguous():
     quickstart = section("Quick start: connect to chain 125")
-    assert "root path of these hosts, without a route suffix" in quickstart
-    assert "`https://api1.mainnet-beta.paxeer.network` through " in quickstart
-    assert "`https://api14.mainnet-beta.paxeer.network`" in quickstart
-    assert "node.hyperpaxeer.com` is only the hpx library mirror" in quickstart
-    assert "never a JSON-RPC endpoint" in quickstart
-    urls = re.findall(r"https?://[^\s`<>)]+", README)
+    for fact in (
+        "Use `api1` through `api14.mainnet-beta.paxeer.network` or",
+        "`api-mainnet-beta.paxeer.network`, all at the root path",
+        "node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint",
+    ):
+        assert fact in PUBLIC_RPC, fact
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
+    assert "Set `PAXEER_RPC_URL` to a node root URL" in quickstart
+    assert "The hpx library mirror distributes\nbuild libraries and does not serve chain RPC" in source("docs/system/rpc.md")
+    assert "never a JSON-RPC endpoint" in PUBLIC_RPC
+    urls = re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC)
     rpc_urls = [urlsplit(url) for url in urls if "mainnet-beta.paxeer.network" in url]
     assert rpc_urls
     for url in rpc_urls:
@@ -97,9 +105,7 @@ def test_embedded_paxd_root_rpc_hosts_and_chain_probe_are_unambiguous():
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert argv[argv.index("-sS") + 1] == "$PAXEER_RPC_URL"
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
