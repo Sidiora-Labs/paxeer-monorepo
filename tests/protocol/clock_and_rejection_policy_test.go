@@ -34,7 +34,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func clockTree730(t *testing.T) string {
+func clockSourceTree(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
 	for _, name := range qualification.ClockRoots {
@@ -45,9 +45,9 @@ func clockTree730(t *testing.T) string {
 	return root
 }
 
-func TestRepairM_730_ClockPrerequisites(t *testing.T) {
+func TestClockScanPrerequisites(t *testing.T) {
 	t.Run("exhaustive_clean_inputs", func(t *testing.T) {
-		require.NoError(t, qualification.ScanClockSources(clockTree730(t)))
+		require.NoError(t, qualification.ScanClockSources(clockSourceTree(t)))
 	})
 	t.Run("unavailable_rg", func(t *testing.T) {
 		_, err := qualification.FindRG(t.TempDir())
@@ -63,14 +63,14 @@ func TestRepairM_730_ClockPrerequisites(t *testing.T) {
 	})
 	for _, name := range qualification.ClockRoots {
 		t.Run("missing_"+name, func(t *testing.T) {
-			root := clockTree730(t)
+			root := clockSourceTree(t)
 			require.NoError(t, os.RemoveAll(filepath.Join(root, name)))
 			require.ErrorContains(t, qualification.ScanClockSources(root), name)
 		})
 	}
 	for _, fixture := range []string{"unreadable_root", "unsearchable_root", "unreadable_nested", "unreadable_source", "file_as_root", "source_symlink"} {
 		t.Run(fixture, func(t *testing.T) {
-			root := clockTree730(t)
+			root := clockSourceTree(t)
 			directory := filepath.Join(root, qualification.ClockRoots[0])
 			source := filepath.Join(directory, "transition.c")
 			switch fixture {
@@ -97,7 +97,7 @@ func TestRepairM_730_ClockPrerequisites(t *testing.T) {
 	}
 }
 
-func TestRepairM_730_ClockScanResults(t *testing.T) {
+func TestClockScanResults(t *testing.T) {
 	require.NoError(t, qualification.CheckRGExit(1, ""))
 	for _, status := range []int{0, 2, 126, 127, -1} {
 		require.Error(t, qualification.CheckRGExit(status, "scan diagnostic"), "rg status %d must refuse", status)
@@ -105,26 +105,26 @@ func TestRepairM_730_ClockScanResults(t *testing.T) {
 	require.Error(t, qualification.CheckRGExit(1, "an input could not be read"))
 	for _, forbidden := range []string{"time(NULL)", "gettimeofday (&now, 0)", "clock_gettime(CLOCK_REALTIME, &now)", "rand()", "# include < time.h >"} {
 		t.Run(forbidden, func(t *testing.T) {
-			root := clockTree730(t)
+			root := clockSourceTree(t)
 			path := filepath.Join(root, qualification.ClockRoots[3], ".hidden", "clock.c")
 			require.NoError(t, os.MkdirAll(filepath.Dir(path), 0755))
 			require.NoError(t, os.WriteFile(path, []byte(forbidden), 0644))
 			require.ErrorContains(t, qualification.ScanClockSources(root), "forbidden")
 		})
 	}
-	root := clockTree730(t)
+	root := clockSourceTree(t)
 	path := filepath.Join(root, qualification.ClockRoots[0], "transition.c")
 	require.NoError(t, os.WriteFile(path, []byte("int runtime(void); int my_rand(void); int clock_gettime_ns(void);"), 0644))
 	require.NoError(t, qualification.ScanClockSources(root))
 }
 
-const policyRevision730 = "264615cba89456c37eeb19535cb16b81846f6a68"
-const policyChain730 = "pax-test"
-const policyPrice730 = int64(500_000_000_000)
+const policySourceRevision = "264615cba89456c37eeb19535cb16b81846f6a68"
+const policyChainID = "pax-test"
+const policyGasPrice = int64(500_000_000_000)
 
 // Every observation below is read from the retained App, FeeFloor, Executor,
 // sequencer keeper and committed EVM receipt. No RPC or executable is involved.
-type policyHarness730 struct {
+type retainedNodePolicyHarness struct {
 	app       *app.App
 	exec      *sequencer.FeeFloor
 	sender    utils.TestAcct
@@ -135,7 +135,7 @@ type policyHarness730 struct {
 	keyID     [32]byte
 }
 
-func newPolicyHarness730(t *testing.T, sender utils.TestAcct, recipient common.Address, funded bool) *policyHarness730 {
+func newRetainedNodePolicyHarness(t *testing.T, sender utils.TestAcct, recipient common.Address, funded bool) *retainedNodePolicyHarness {
 	t.Helper()
 	tm := time.Unix(1700000000, 0).UTC()
 	validator := sdked25519.GenPrivKeyFromSecret([]byte("repair m730 retained node"))
@@ -162,27 +162,27 @@ func newPolicyHarness730(t *testing.T, sender utils.TestAcct, recipient common.A
 	}}))
 	require.NoError(t, a.SequencerKeeper.SetActivationHeight(wrapper.Ctx, 2))
 	a.UpgradeKeeper.SetDone(wrapper.Ctx.WithBlockHeight(1), app.MergeUpgrade)
-	_, err := a.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{Header: &tmproto.Header{ChainID: policyChain730, Height: 1}})
+	_, err := a.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{Header: &tmproto.Header{ChainID: policyChainID, Height: 1}})
 	require.NoError(t, err)
 	a.SetDeliverStateToCommit()
 	_, err = a.Commit(context.Background())
 	require.NoError(t, err)
-	exec, err := sequencer.NewExecutor(a, sequencer.Options{ChainID: policyChain730, ProposerAddress: validator.PubKey().Address().Bytes()})
+	exec, err := sequencer.NewExecutor(a, sequencer.Options{ChainID: policyChainID, ProposerAddress: validator.PubKey().Address().Bytes()})
 	require.NoError(t, err)
 	floor, err := sequencer.NewFeeFloor(exec, a, "0.01uhpx", a.ParamsKeeper, a.OracleKeeper, a.PricefeedKeeper, &a.EvmKeeper)
 	require.NoError(t, err)
 	require.NoError(t, floor.Open(2, tm.Add(time.Second).UnixMilli()))
-	return &policyHarness730{a, floor, sender, recipient, contract, tm.Add(time.Second), key, keyID}
+	return &retainedNodePolicyHarness{a, floor, sender, recipient, contract, tm.Add(time.Second), key, keyID}
 }
 
-func (h *policyHarness730) snapshot(t *testing.T) sdk.Context {
+func (h *retainedNodePolicyHarness) snapshot(t *testing.T) sdk.Context {
 	t.Helper()
 	ctx, err := h.exec.Snapshot()
 	require.NoError(t, err)
 	return ctx
 }
 
-func (h *policyHarness730) observe(ctx sdk.Context, sequence uint64) qualification.PolicyState {
+func (h *retainedNodePolicyHarness) observe(ctx sdk.Context, sequence uint64) qualification.PolicyState {
 	balance := func(address common.Address) string {
 		return h.app.EvmKeeper.GetBalance(ctx, h.app.EvmKeeper.GetPaxAddressOrDefault(ctx, address)).String()
 	}
@@ -191,7 +191,7 @@ func (h *policyHarness730) observe(ctx sdk.Context, sequence uint64) qualificati
 		Payer: balance(h.sender.EvmAddress), Recipient: balance(h.to), Storage: hex.EncodeToString(storage[:])}
 }
 
-func policyTransaction730(t *testing.T, sender utils.TestAcct, to common.Address, chain int64, nonce uint64, price int64, gas uint64, invalidSignature bool) (*ethtypes.Transaction, []byte) {
+func signedPolicyTransaction(t *testing.T, sender utils.TestAcct, to common.Address, chain int64, nonce uint64, price int64, gas uint64, invalidSignature bool) (*ethtypes.Transaction, []byte) {
 	t.Helper()
 	signer := ethtypes.LatestSignerForChainID(big.NewInt(chain))
 	unsigned := ethtypes.NewTx(&ethtypes.LegacyTx{Nonce: nonce, GasPrice: big.NewInt(price), Gas: gas, To: &to, Value: big.NewInt(1)})
@@ -216,14 +216,14 @@ func policyTransaction730(t *testing.T, sender utils.TestAcct, to common.Address
 	return signed, encoded
 }
 
-func (h *policyHarness730) commit(t *testing.T) (*sequencer.Batch, sdk.Context, *abci.ResponseFinalizeBlock) {
+func (h *retainedNodePolicyHarness) commit(t *testing.T) (*sequencer.Batch, sdk.Context, *abci.ResponseFinalizeBlock) {
 	t.Helper()
 	batch, err := h.exec.Seal(2)
 	require.NoError(t, err)
 	fields := sequencer.BatchFields(batch)
 	msg := seqtypes.MsgSequenceBatch{Height: fields.Height, FromSeq: fields.FromSeq, ToSeq: fields.ToSeq,
 		PrevSeqHash: fields.PrevSeqHash[:], LastSeqHash: fields.LastSeqHash[:], TxRoot: fields.TxRoot[:], KeyId: h.keyID[:]}
-	digest, err := msg.SignBytes(policyChain730)
+	digest, err := msg.SignBytes(policyChainID)
 	require.NoError(t, err)
 	msg.Sig = ed25519.Sign(h.key, digest[:])
 	tx0, err := app.EncodeSequenceBatch(msg)
@@ -232,7 +232,7 @@ func (h *policyHarness730) commit(t *testing.T) (*sequencer.Batch, sdk.Context, 
 	// FinalizeBlock replays the real encoded batch and signed transaction bytes
 	// through normal consensus execution, then Commit persists the result.
 	result, err := h.app.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
-		Txs: txs, Header: &tmproto.Header{ChainID: policyChain730, Height: 2, Time: h.timestamp},
+		Txs: txs, Header: &tmproto.Header{ChainID: policyChainID, Height: 2, Time: h.timestamp},
 	})
 	require.NoError(t, err)
 	require.Len(t, result.TxResults, len(txs))
@@ -240,14 +240,14 @@ func (h *policyHarness730) commit(t *testing.T) (*sequencer.Batch, sdk.Context, 
 	h.app.SetDeliverStateToCommit()
 	_, err = h.app.Commit(context.Background())
 	require.NoError(t, err)
-	ctx := sdk.NewContext(h.app.CommitMultiStore().CacheMultiStore(), tmproto.Header{ChainID: policyChain730, Height: 2}, false)
+	ctx := sdk.NewContext(h.app.CommitMultiStore().CacheMultiStore(), tmproto.Header{ChainID: policyChainID, Height: 2}, false)
 	return batch, ctx, result
 }
 
-func producePolicyCase730(t *testing.T, name string, sender utils.TestAcct, to common.Address) qualification.PolicyCase {
+func produceRetainedNodePolicyCase(t *testing.T, name string, sender utils.TestAcct, to common.Address) qualification.PolicyCase {
 	t.Helper()
-	h := newPolicyHarness730(t, sender, to, name != "fee_unpayable")
-	nonce, chain, price, gas := uint64(0), int64(config.DefaultChainID), policyPrice730, uint64(21000)
+	h := newRetainedNodePolicyHarness(t, sender, to, name != "fee_unpayable")
+	nonce, chain, price, gas := uint64(0), int64(config.DefaultChainID), policyGasPrice, uint64(21000)
 	if name == "sequence_gap" {
 		nonce = 1
 	}
@@ -261,7 +261,7 @@ func producePolicyCase730(t *testing.T, name string, sender utils.TestAcct, to c
 		h.to = h.contract
 		gas = 100000
 	}
-	signed, tx := policyTransaction730(t, sender, h.to, chain, nonce, price, gas, name == "bad_signature")
+	signed, tx := signedPolicyTransaction(t, sender, h.to, chain, nonce, price, gas, name == "bad_signature")
 	if name == "malformed" {
 		tx = []byte{0xff}
 	}
@@ -329,22 +329,22 @@ func producePolicyCase730(t *testing.T, name string, sender utils.TestAcct, to c
 	return row
 }
 
-func TestRepairM_730_RetainedNodePolicy(t *testing.T) {
+func TestRetainedNodeRejectionPolicy(t *testing.T) {
 	previousOCC := app.EnableOCC
 	app.EnableOCC = false
 	t.Cleanup(func() { app.EnableOCC = previousOCC })
 	sender := utils.NewSigner()
 	to := common.HexToAddress("0x730001")
-	evidence := qualification.PolicyEvidence{Schema: qualification.EvidenceSchema, Revision: policyRevision730}
+	evidence := qualification.PolicyEvidence{Schema: qualification.EvidenceSchema, Revision: policySourceRevision}
 	for _, name := range qualification.PolicyCases {
 		t.Run(name, func(t *testing.T) {
-			evidence.Cases = append(evidence.Cases, producePolicyCase730(t, name, sender, to))
+			evidence.Cases = append(evidence.Cases, produceRetainedNodePolicyCase(t, name, sender, to))
 		})
 	}
 	require.Len(t, evidence.Cases, len(qualification.PolicyCases))
 	encoded, err := json.Marshal(evidence)
 	require.NoError(t, err)
-	decoded, err := qualification.ReadPolicyEvidence(bytes.NewReader(encoded), policyRevision730)
+	decoded, err := qualification.ReadPolicyEvidence(bytes.NewReader(encoded), policySourceRevision)
 	require.NoError(t, err)
 	require.Equal(t, evidence, *decoded)
 	// Persist the real producer document alongside the private gate log. This
@@ -391,7 +391,7 @@ func TestRepairM_730_RetainedNodePolicy(t *testing.T) {
 			if mutation == "trailing_document" {
 				invalid = append(invalid, []byte(" {}")...)
 			}
-			_, err = qualification.ReadPolicyEvidence(bytes.NewReader(invalid), policyRevision730)
+			_, err = qualification.ReadPolicyEvidence(bytes.NewReader(invalid), policySourceRevision)
 			require.Error(t, err)
 		})
 	}
