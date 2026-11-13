@@ -42,7 +42,7 @@ fn port(price: u64, asset: [u8; 32], recipient: [u8; 32]) -> SharedSupplyPort {
 fn reopen(storage: Storage) -> Storage {
     static NEXT: AtomicU64 = AtomicU64::new(0);
     let path = std::env::temp_dir().join(format!(
-        "repair_22_33_234-{}-{}",
+        "migration-abi-paid-supply-{}-{}",
         std::process::id(),
         NEXT.fetch_add(1, Ordering::Relaxed)
     ));

@@ -41,7 +41,7 @@ struct DurableState(PathBuf);
 impl DurableState {
     fn stop(storage: Storage) -> Self {
         let path = std::env::temp_dir().join(format!(
-            "cosmwasm-repair-22-33-235-{}-{}",
+            "cosmwasm-json-migration-orderbook-{}-{}",
             std::process::id(),
             NEXT_FILE.fetch_add(1, Ordering::Relaxed),
         ));

@@ -19,7 +19,7 @@ Transfers and delegated transfers require the corresponding spend authority;
 delegated transfers also consume an allowance. Refused guest operations preserve
 storage and discard staged effects.
 
-The [integration tests](tests/repair_22_33_241.rs) exercise custody grants,
+The [integration tests](tests/custody_crypto_lxt20_guide.rs) exercise custody grants,
 guest crypto imports, initialization, all token exports, allowance revocation
 and atomic refusal behavior. They execute the committed token fixture through
 authenticated runtime calls. Native registration and settlement are separate

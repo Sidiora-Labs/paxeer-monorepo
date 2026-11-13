@@ -2,7 +2,7 @@
 member = "layerx-porting-cosmwasm"
 guest_member = "layerx-porting-cosmwasm-guest"
 guest_lint_locations = 0
-sources = ["src/shared_orderbook.rs", "tests/repair_22_33_235.rs", "tests/repair_22_33_240.rs"]
+sources = ["src/shared_orderbook.rs", "tests/json_migration_orderbook.rs", "tests/storage_custody_guide.rs"]
 wildcard_imports = 1
 too_many_lines = 5
 cast_possible_truncation = 2

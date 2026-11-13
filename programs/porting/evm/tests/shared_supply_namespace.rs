@@ -126,7 +126,7 @@ impl Checkpoint {
     fn new() -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let directory = std::env::temp_dir().join(format!(
-            "repair_22_31_263-{}-{}",
+            "shared-supply-namespace-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed),
         ));

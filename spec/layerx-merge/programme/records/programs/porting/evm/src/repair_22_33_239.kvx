@@ -1,7 +1,7 @@
 [repair.22.33.239]
 audit = "22.30.128"
 base_revision = "0e1d5eb94cabe89e2260279a849b7154911ef8ee"
-tests = "programs/porting/evm/tests/repair_22_33_239.rs"
+tests = "programs/porting/evm/tests/custody_lxt20_guide.rs"
 evm-custody-guide = ["evm_custody_guide_registered_later_payout"]
 evm-lxt20-guide = ["evm_lxt20_guide_complete_codec_and_native_interface", "evm_lxt20_guide_initialize_authority_and_refusal_rollback"]
 implementation = "Document registered custody preparation and a bounded later payout; enumerate eight exports with the separate initialize encoding, funding authority, refused paths and committed PAY5 lifecycle."
