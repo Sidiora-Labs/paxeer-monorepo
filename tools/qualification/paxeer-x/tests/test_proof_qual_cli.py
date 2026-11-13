@@ -59,8 +59,15 @@ PRODUCERS = (
 )
 # Deliberately constructed locally: no operator URL, path, configuration name,
 # credential or service is inherited from the environment.
+CARGO = shutil.which("cargo")
+CARGO_BIN_DIRS = (str(Path(CARGO).parent),) if CARGO else ()
 ENV = {
-    "PATH": os.pathsep.join((str(Path(sys.executable).parent), str(Path(shutil.which("go") or "/usr/bin/go").parent), "/root/.cargo/bin", os.defpath)),
+    "PATH": os.pathsep.join((
+        str(Path(sys.executable).parent),
+        str(Path(shutil.which("go") or "/usr/bin/go").parent),
+        *CARGO_BIN_DIRS,
+        os.defpath,
+    )),
     "GOCACHE": str(Path.home() / ".cache/go-build"),
     "GOPATH": str(Path.home() / "go"),
     "LC_ALL": "C.UTF-8",
