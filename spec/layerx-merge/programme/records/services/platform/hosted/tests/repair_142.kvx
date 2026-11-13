@@ -1,6 +1,6 @@
 [repair.22.31.142]
 finding = "gateway-receipt-key-provisioning"
-proof = "TestRepair_142_GatewayReceiptKeyProvisioning; TestRepair_142_RefusesMalformedReceiptKeys; TestRepair_142_WebhookContract"
+proof = "TestGatewayReceiptKeyProvisioning; TestRefusesMalformedReceiptKeys; TestWebhookContract"
 path = "Real sequencer keeper export -> atomic ReceiptKeyList provisioning -> Kubernetes Secret data and rendered volume/env projection -> gateway ReceiptKeyList parser and receipt verifier, fed receipts emitted by the real node ReceiptKey signer."
 recovery = "Stop the consumer, rotate governed pins, restart, then stop and reopen from retained material with the original export removed; primary and rotated receipts remain verifiable inside their inclusive windows."
 source = "Fresh beta material requires LAYERX_BETA_RECEIPT_KEYS_FILE, an owner-supplied JSON export of governed ReceiptKeys, with base64 key_id/public_key and integer first_height/last_height. The gateway format's camelCase aliases are also accepted. Rotate with sequencer-pins.py --gateway SOURCE SECRETS_DIR/receipt-keys.json, republish the secret and restart gateway pods."

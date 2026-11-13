@@ -16,7 +16,7 @@ mod boundary;
 pub mod encoding;
 // Compile the exact hosted engine and route source into this integration target
 // so its private dependency wiring can point at committed in-process peers.
-#[path = "../src/repair_22_33_1328_authority.rs"]
+#[path = "../src/authority_receipt_support.rs"]
 mod authority_path_support;
 #[path = "../src/hosted.rs"]
 pub mod hosted;

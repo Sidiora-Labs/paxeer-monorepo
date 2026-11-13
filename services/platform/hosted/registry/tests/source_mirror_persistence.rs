@@ -1,7 +1,7 @@
 //! Registry integration cases preserve source bindings and deployment responses across restart.
 
 #[allow(dead_code)]
-#[path = "support/repair_22_33_1468_chain.rs"]
+#[path = "support/source_mirror_chain.rs"]
 mod chain;
 
 use chain::ChainFixture;
@@ -291,7 +291,7 @@ fn wind_down_ops(chain: &ChainFixture) -> Vec<layerx_programs::chain_proof::deco
 
 fn admission_abi(version: usize, abi: u16) -> Admission {
     let producer = transcript();
-    let abi_five: Value = serde_json::from_str(include_str!("../src/repair_22_31_206_abi5.json"))
+    let abi_five: Value = serde_json::from_str(include_str!("../src/deployment_abi5.json"))
         .unwrap_or_else(|error| panic!("{error:?}"));
     let five_tx = hex::decode(
         abi_five["transaction_hex"]

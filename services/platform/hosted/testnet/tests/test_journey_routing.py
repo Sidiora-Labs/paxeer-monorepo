@@ -137,7 +137,7 @@ def caller_arguments(environment):
     return shlex.split(Template(block.replace('\\\n', '')).substitute(environment))
 
 
-def test_TestRepairM_1447_smoke_removed_option(material, tls, tmp_path, capsys):
+def test_smoke_removed_option(material, tls, tmp_path, capsys):
     directory, document, _, _, _ = material
     # Invoke the exact producer entry point used by beta-cluster, then expand the real caller.
     smoke_accounts.main(["env", str(directory)])
@@ -182,7 +182,7 @@ def test_TestRepairM_1447_smoke_removed_option(material, tls, tmp_path, capsys):
     assert "--encoder" not in (HERE / "hosted-smoke.sh").read_text()
 
 
-def test_TestRepairM_1447_journey_router_path(material, tls, tmp_path):
+def test_journey_router_path(material, tls, tmp_path):
     directory, document, gateway_auth, source_auth, destination_auth = material
     output = tmp_path / "routing"
     output.mkdir()
@@ -242,12 +242,12 @@ def test_TestRepairM_1447_journey_router_path(material, tls, tmp_path):
     "https://localhost/rpc", "https://localhost/?token=x", "https://user:secret@localhost",
     "https://localhost/#fragment", "http://localhost/",
 ])
-def test_TestRepairM_1447_retired_endpoints_are_rejected(endpoint):
+def test_retired_endpoints_are_rejected(endpoint):
     with pytest.raises(AssertionError, match="HTTPS root endpoints"):
         root_endpoint(endpoint)
 
 
-def test_TestRepairM_1447_smoke_signer_asset(material, tls, tmp_path):
+def test_smoke_signer_asset(material, tls, tmp_path):
     directory, document, gateway_auth, source_auth, destination_auth = material
     environment = smoke_accounts.smoke_environment(directory)
     key, source = payment.load_payment_signer(Path(environment["LAYERX_TEST_SOURCE_EVM_KEY_FILE"]))
@@ -336,7 +336,7 @@ def test_TestRepairM_1447_smoke_signer_asset(material, tls, tmp_path):
     {"funded": True, "funding_id": "id", "transaction_id": "", "amount": "100"},
     {"funded": True, "funding_id": "id", "transaction_id": "tx", "amount": "0"},
 ])
-def test_TestRepairM_1447_funding_assertions_are_enforced(material, tls, tmp_path, funding):
+def test_funding_assertions_are_enforced(material, tls, tmp_path, funding):
     directory, document, gateway_auth, source_auth, _ = material
     output = tmp_path / "refused-funding"
     output.mkdir()
@@ -348,7 +348,7 @@ def test_TestRepairM_1447_funding_assertions_are_enforced(material, tls, tmp_pat
         assert len(requests) == 1
 
 
-def test_TestRepairM_1447_wallet_router_fixture(tls, material, tmp_path):
+def test_wallet_router_fixture(tls, material, tmp_path):
     _, _, auth, _, _ = material
     recorded = json.loads((ROOT / "daemon/committed-fixture/vectors/vector-v4-committed.json").read_text())
     receipt = recorded["settlement"]["receipt"]

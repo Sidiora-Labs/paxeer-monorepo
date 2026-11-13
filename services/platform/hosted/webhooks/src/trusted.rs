@@ -816,7 +816,7 @@ fn session_cookie(header: &str) -> Result<&str, WebhookError> {
 }
 
 #[cfg(test)]
-#[path = "repair_22_33_1328_authority.rs"]
+#[path = "authority_receipt_support.rs"]
 mod authority_path_support;
 
 #[cfg(test)]

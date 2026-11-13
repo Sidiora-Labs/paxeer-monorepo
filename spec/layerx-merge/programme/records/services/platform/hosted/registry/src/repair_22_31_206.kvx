@@ -32,7 +32,7 @@ test = "upgrade_journal_schema_deploy_upgrade_restart"
 repair = "Preserve the predecessor authenticated by the existing execution verifier; additionally bind claimed projection keys and contiguous predecessor versions, order hosted replay by committed sequence, and apply the predecessor-aware registry upgrade transition."
 
 [fixtures]
-abi_five = "repair_22_31_206_abi5.json: a signed ABI-five Programs deployment emitted by the repository's sdk/js LegacyTx, MsgEVMTransaction, TxBody and TxRaw encoders using precompiles/layerxprograms/abi.json and ethers 6.15.0."
+abi_five = "deployment_abi5.json: a signed ABI-five Programs deployment emitted by the repository's sdk/js LegacyTx, MsgEVMTransaction, TxBody and TxRaw encoders using precompiles/layerxprograms/abi.json and ethers 6.15.0."
 consensus = "Existing signed in-memory ChainFixture stores commit the recorded transactions and actual runtime-produced program records; the deploy and upgrade headers form one contiguous history."
 source = "The actual recorded module output passes through ReproducibleBuild::from_output, the source mirror, VerifiedSourceStore, registry verification and restart replay; the compiler boundary is not executed by this gate."
 transport = "Loopback TLS serves the same committed-head route mounted by authority/main.rs; authenticated loopback replica fixtures feed it unchanged; the real NodeProgramStateSource verifies both current and historical proofs."
