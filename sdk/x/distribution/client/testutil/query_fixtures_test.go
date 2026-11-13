@@ -37,7 +37,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func TestRepairM_673_TestConfig(t *testing.T) {
+func TestDistributionCLITestConfig(t *testing.T) {
 	// Exercise the producer with the same argument as the norace entry point.
 	cfg := network.DefaultConfig(t)
 	cfg.NumValidators = 1
@@ -51,11 +51,11 @@ func TestRepairM_673_TestConfig(t *testing.T) {
 	require.Equal(t, types.DefaultParams(), genesis.Params)
 	// The configuration feeds real keepers, RPC transport and the existing CLI
 	// suite assertions; no application constructor substitute is used.
-	repairM673Suite(t, cfg).TestGetCmdQueryParams()
+	distributionCLISuite(t, cfg).TestGetCmdQueryParams()
 }
 
-func TestRepairM_673_DefaultFixture(t *testing.T) {
-	s := repairM673Suite(t, network.DefaultConfig(t))
+func TestDistributionCLIDefaultFixture(t *testing.T) {
+	s := distributionCLISuite(t, network.DefaultConfig(t))
 	response, err := types.NewQueryClient(s.network.Validators[0].ClientCtx).Params(context.Background(), &types.QueryParamsRequest{})
 	require.NoError(t, err)
 	defaults := types.DefaultParams()
@@ -66,12 +66,12 @@ func TestRepairM_673_DefaultFixture(t *testing.T) {
 	s.TestGetCmdQueryParams()
 }
 
-func TestRepairM_673_OutputDenom(t *testing.T) {
+func TestDistributionCLIOutputDenom(t *testing.T) {
 	for _, denom := range []string{sdk.DefaultBondDenom, "um673"} {
 		t.Run(denom, func(t *testing.T) {
 			cfg := network.DefaultConfig(t)
 			cfg.BondDenom = denom
-			s := repairM673Suite(t, cfg)
+			s := distributionCLISuite(t, cfg)
 			query := types.NewQueryClient(s.network.Validators[0].ClientCtx.WithHeight(3))
 			val := sdk.ValAddress(s.network.Validators[0].Address).String()
 			outstanding, err := query.ValidatorOutstandingRewards(context.Background(), &types.QueryValidatorOutstandingRewardsRequest{ValidatorAddress: val})
@@ -98,10 +98,10 @@ func TestRepairM_673_OutputDenom(t *testing.T) {
 	}
 }
 
-// repairM673Suite serves real, committed in-memory keeper state over loopback
+// distributionCLISuite serves real, committed in-memory keeper state over loopback
 // JSON-RPC. It uses the production RPC server/client and ABCI query router so
 // the existing CLI tests exercise their complete query and printing path.
-func repairM673Suite(t *testing.T, cfg network.Config) *IntegrationTestSuite {
+func distributionCLISuite(t *testing.T, cfg network.Config) *IntegrationTestSuite {
 	t.Helper()
 	cfg.NumValidators = 1
 	cfg, err := distributionQueryGenesis(cfg)
@@ -161,7 +161,7 @@ func repairM673Suite(t *testing.T, cfg network.Config) *IntegrationTestSuite {
 		distribution.BeginBlocker(ctx, votes, dk)
 		require.Equal(t, height, cms.Commit(true).Version)
 		headers[height] = header
-		committed[height] = repairM673CommittedStore(t, db, keys, transient)
+		committed[height] = distributionCLICommittedStore(t, db, keys, transient)
 		require.Equal(t, height, committed[height].LastCommitID().Version)
 	}
 	require.True(t, bk.GetAllBalances(ctx, ak.GetModuleAddress(authtypes.FeeCollectorName)).IsZero())
@@ -218,7 +218,7 @@ func repairM673Suite(t *testing.T, cfg network.Config) *IntegrationTestSuite {
 // The legacy store cannot read past versions. Retain each block's real database
 // bytes before the next BeginBlock mutates them, and reopen those committed
 // fixtures with the production store loader for height-specific queries.
-func repairM673CommittedStore(t *testing.T, source dbm.DB, keys map[string]*storetypes.KVStoreKey, transient *storetypes.TransientStoreKey) storetypes.CommitMultiStore {
+func distributionCLICommittedStore(t *testing.T, source dbm.DB, keys map[string]*storetypes.KVStoreKey, transient *storetypes.TransientStoreKey) storetypes.CommitMultiStore {
 	t.Helper()
 	db := dbm.NewMemDB()
 	iterator, err := source.Iterator(nil, nil)

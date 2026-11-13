@@ -16,7 +16,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repairM606Store struct {
+type capabilityGenesisStore struct {
 	store  storetypes.CommitMultiStore
 	ctx    sdk.Context
 	cdc    *codec.ProtoCodec
@@ -25,12 +25,12 @@ type repairM606Store struct {
 	closed bool
 }
 
-func repairM606Open(t *testing.T, dir string) *repairM606Store {
+func capabilityGenesisOpen(t *testing.T, dir string) *capabilityGenesisStore {
 	t.Helper()
 	db, err := dbm.NewGoLevelDB("capability", dir)
 	require.NoError(t, err)
 	ms := store.NewCommitMultiStore(db)
-	h := &repairM606Store{store: ms}
+	h := &capabilityGenesisStore{store: ms}
 	t.Cleanup(func() { h.close(t) })
 	key := storetypes.NewKVStoreKey(types.StoreKey)
 	memKey := storetypes.NewMemoryStoreKey(types.MemStoreKey)
@@ -48,7 +48,7 @@ func repairM606Open(t *testing.T, dir string) *repairM606Store {
 	return h
 }
 
-func (h *repairM606Store) close(t *testing.T) {
+func (h *capabilityGenesisStore) close(t *testing.T) {
 	t.Helper()
 	if !h.closed {
 		require.NoError(t, h.store.Close())
@@ -56,9 +56,9 @@ func (h *repairM606Store) close(t *testing.T) {
 	}
 }
 
-func repairM606Export(t *testing.T) (*types.GenesisState, *codec.ProtoCodec) {
+func capabilityGenesisExport(t *testing.T) (*types.GenesisState, *codec.ProtoCodec) {
 	t.Helper()
-	h := repairM606Open(t, t.TempDir())
+	h := capabilityGenesisOpen(t, t.TempDir())
 	capability.InitGenesis(h.ctx, *h.keeper, *types.DefaultGenesis())
 	bank, ibc, transfer := h.scopes["bank"], h.scopes["ibc"], h.scopes["transfer"]
 	first, err := bank.NewCapability(h.ctx, "ports/transfer")
@@ -77,8 +77,8 @@ func repairM606Export(t *testing.T) (*types.GenesisState, *codec.ProtoCodec) {
 	return genesis, h.cdc
 }
 
-func TestRepairM_606_RejectConflictingGenesis(t *testing.T) {
-	genesis, cdc := repairM606Export(t)
+func TestCapabilityGenesisRejectConflictingGenesis(t *testing.T) {
+	genesis, cdc := capabilityGenesisExport(t)
 	validJSON := cdc.MustMarshalJSON(genesis)
 	cases := []struct {
 		name    string
@@ -130,14 +130,14 @@ func TestRepairM_606_RejectConflictingGenesis(t *testing.T) {
 	}
 }
 
-func TestRepairM_606_ImportRestartAuthenticateRelease(t *testing.T) {
-	genesis, cdc := repairM606Export(t)
+func TestCapabilityGenesisImportRestartAuthenticateRelease(t *testing.T) {
+	genesis, cdc := capabilityGenesisExport(t)
 	raw := cdc.MustMarshalJSON(genesis)
 	// This is the production JSON validation and import path, using fresh storage.
 	basic := capability.NewAppModuleBasic(cdc)
 	require.NoError(t, basic.ValidateGenesis(cdc, nil, raw))
 	dir := t.TempDir()
-	h := repairM606Open(t, dir)
+	h := capabilityGenesisOpen(t, dir)
 	module := capability.NewAppModule(h.cdc, *h.keeper)
 	module.InitGenesis(h.ctx, h.cdc, raw)
 	require.True(t, h.keeper.IsInitialized(h.ctx))
@@ -149,7 +149,7 @@ func TestRepairM_606_ImportRestartAuthenticateRelease(t *testing.T) {
 	require.Equal(t, int64(1), h.store.Commit(true).Version)
 	h.close(t)
 
-	h = repairM606Open(t, dir)
+	h = capabilityGenesisOpen(t, dir)
 	require.Equal(t, int64(1), h.store.LastCommitID().Version)
 	require.False(t, h.keeper.IsInitialized(h.ctx))
 	bank, ibc, transfer := h.scopes["bank"], h.scopes["ibc"], h.scopes["transfer"]
@@ -207,7 +207,7 @@ func TestRepairM_606_ImportRestartAuthenticateRelease(t *testing.T) {
 	h.close(t)
 
 	// A second restart must not resurrect released bindings or damage other indices.
-	h = repairM606Open(t, dir)
+	h = capabilityGenesisOpen(t, dir)
 	require.False(t, h.keeper.IsInitialized(h.ctx))
 	h.keeper.InitMemStore(h.ctx)
 	for _, owner := range genesis.Owners[0].IndexOwners.Owners {
@@ -229,7 +229,7 @@ func TestRepairM_606_ImportRestartAuthenticateRelease(t *testing.T) {
 	require.NoError(t, capability.ExportGenesis(h.ctx, *h.keeper).Validate())
 }
 
-func TestRepairM_606_OwnerKeyOrdering(t *testing.T) {
+func TestCapabilityGenesisOwnerKeyOrdering(t *testing.T) {
 	owners := types.NewCapabilityOwners()
 	for _, owner := range []types.Owner{{Module: "a", Name: "port"}, {Module: "a-", Name: "port"}} {
 		require.NoError(t, owners.Set(owner))

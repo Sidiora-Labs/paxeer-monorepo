@@ -17,7 +17,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repairM609Store struct {
+type capabilityLifecycleStore struct {
 	store         storetypes.CommitMultiStore
 	ctx           sdk.Context
 	cdc           *codec.ProtoCodec
@@ -27,11 +27,11 @@ type repairM609Store struct {
 	closed        bool
 }
 
-func repairM609Open(t *testing.T, dir string) *repairM609Store {
+func capabilityLifecycleOpen(t *testing.T, dir string) *capabilityLifecycleStore {
 	t.Helper()
 	db, err := dbm.NewGoLevelDB("capability", dir)
 	require.NoError(t, err)
-	h := &repairM609Store{store: store.NewCommitMultiStore(db)}
+	h := &capabilityLifecycleStore{store: store.NewCommitMultiStore(db)}
 	t.Cleanup(func() { h.close(t) })
 	key := storetypes.NewKVStoreKey(types.StoreKey)
 	memKey := storetypes.NewMemoryStoreKey(types.MemStoreKey)
@@ -48,7 +48,7 @@ func repairM609Open(t *testing.T, dir string) *repairM609Store {
 	return h
 }
 
-func (h *repairM609Store) close(t *testing.T) {
+func (h *capabilityLifecycleStore) close(t *testing.T) {
 	t.Helper()
 	if !h.closed {
 		require.NoError(t, h.store.Close())
@@ -56,8 +56,8 @@ func (h *repairM609Store) close(t *testing.T) {
 	}
 }
 
-func TestRepairM_609_GenesisAndRestartLifecycle(t *testing.T) {
-	source := repairM609Open(t, t.TempDir())
+func TestCapabilityLifecycleGenesisAndRestartLifecycle(t *testing.T) {
+	source := capabilityLifecycleOpen(t, t.TempDir())
 	require.False(t, source.keeper.IsInitialized(source.ctx), "construction has no context to initialize memory")
 	defaults := source.module.DefaultGenesis(source.cdc)
 	require.NoError(t, source.module.ValidateGenesis(source.cdc, nil, defaults))
@@ -84,7 +84,7 @@ func TestRepairM_609_GenesisAndRestartLifecycle(t *testing.T) {
 	}}}}, genesis.Owners)
 
 	dir := t.TempDir()
-	imported := repairM609Open(t, dir)
+	imported := capabilityLifecycleOpen(t, dir)
 	require.NoError(t, imported.module.ValidateGenesis(imported.cdc, nil, exported))
 	require.Empty(t, imported.module.InitGenesis(imported.ctx, imported.cdc, exported))
 	require.True(t, imported.keeper.IsInitialized(imported.ctx))
@@ -102,7 +102,7 @@ func TestRepairM_609_GenesisAndRestartLifecycle(t *testing.T) {
 	require.Equal(t, int64(1), commit.Version)
 	imported.close(t)
 
-	restarted := repairM609Open(t, dir)
+	restarted := capabilityLifecycleOpen(t, dir)
 	require.Equal(t, commit, restarted.store.LastCommitID())
 	require.False(t, restarted.keeper.IsInitialized(restarted.ctx))
 	require.Equal(t, genesis.Index, restarted.keeper.GetLatestIndex(restarted.ctx))
@@ -138,7 +138,7 @@ func TestRepairM_609_GenesisAndRestartLifecycle(t *testing.T) {
 	require.Equal(t, genesis.Index, next.Index, "recovery preserves the next allocation index")
 }
 
-func TestRepairM_609_OverviewLifecycleContract(t *testing.T) {
+func TestCapabilityLifecycleOverviewLifecycleContract(t *testing.T) {
 	text, err := os.ReadFile("spec/README.md")
 	require.NoError(t, err)
 	for _, contract := range []string{

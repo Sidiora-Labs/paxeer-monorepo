@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_671_NegativeChunks(t *testing.T) {
+func TestWithdrawRewardsNegativeChunks(t *testing.T) {
 	del := sdk.AccAddress(bytes.Repeat([]byte{1}, 20))
 	val := sdk.ValAddress(bytes.Repeat([]byte{2}, 20))
 	for _, chunkSize := range []int{-1, -int(^uint(0)>>1) - 1} {
@@ -43,7 +43,7 @@ func TestRepairM_671_NegativeChunks(t *testing.T) {
 	}
 }
 
-func TestRepairM_671_WithdrawAllRewards(t *testing.T) {
+func TestWithdrawRewardsWithdrawAllRewards(t *testing.T) {
 	del := sdk.AccAddress(bytes.Repeat([]byte{1}, 20))
 	validators := []string{
 		sdk.ValAddress(bytes.Repeat([]byte{2}, 20)).String(),

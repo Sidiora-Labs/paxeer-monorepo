@@ -22,7 +22,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types/proposal"
 )
 
-type repairM687Fixture struct {
+type distributionParamsFixture struct {
 	ctx       sdk.Context
 	keeper    distrkeeper.Keeper
 	space     paramtypes.Subspace
@@ -32,7 +32,7 @@ type repairM687Fixture struct {
 	handler   govtypes.Handler
 }
 
-func repairM687Setup(t *testing.T, initial types.Params) repairM687Fixture {
+func distributionParamsSetup(t *testing.T, initial types.Params) distributionParamsFixture {
 	t.Helper()
 	db := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
@@ -61,23 +61,23 @@ func repairM687Setup(t *testing.T, initial types.Params) repairM687Fixture {
 	authParams := authtypes.DefaultParams()
 	authSpace.SetParamSet(ctx, &authParams)
 	cms.Commit(true)
-	return repairM687Fixture{ctx, k, space, authSpace, cdc, amino,
+	return distributionParamsFixture{ctx, k, space, authSpace, cdc, amino,
 		k.ParamChangeProposalHandler(params.NewParamChangeProposalHandler(pk))}
 }
 
-func (f repairM687Fixture) change(t *testing.T, key []byte, value interface{}) proposal.ParamChange {
+func (f distributionParamsFixture) change(t *testing.T, key []byte, value interface{}) proposal.ParamChange {
 	t.Helper()
 	return f.changeInSubspace(t, types.ModuleName, key, value)
 }
 
-func (f repairM687Fixture) changeInSubspace(t *testing.T, subspace string, key []byte, value interface{}) proposal.ParamChange {
+func (f distributionParamsFixture) changeInSubspace(t *testing.T, subspace string, key []byte, value interface{}) proposal.ParamChange {
 	t.Helper()
 	bz, err := f.amino.MarshalAsJSON(value)
 	require.NoError(t, err)
 	return proposal.NewParamChange(subspace, string(key), string(bz))
 }
 
-func (f repairM687Fixture) content(t *testing.T, changes ...proposal.ParamChange) govtypes.Content {
+func (f distributionParamsFixture) content(t *testing.T, changes ...proposal.ParamChange) govtypes.Content {
 	t.Helper()
 	p := proposal.NewParameterChangeProposal("Distribution allocation budget", "Validate the complete prospective parameter set", changes, false)
 	require.NoError(t, p.ValidateBasic())
@@ -90,7 +90,7 @@ func (f repairM687Fixture) content(t *testing.T, changes ...proposal.ParamChange
 	return decoded
 }
 
-func repairM687Rates(tax, base, bonus string) types.Params {
+func distributionParamsRates(tax, base, bonus string) types.Params {
 	return types.Params{
 		CommunityTax:        sdk.MustNewDecFromStr(tax),
 		BaseProposerReward:  sdk.MustNewDecFromStr(base),
@@ -99,7 +99,7 @@ func repairM687Rates(tax, base, bonus string) types.Params {
 	}
 }
 
-func (f repairM687Fixture) unchanged(t *testing.T, before types.Params) {
+func (f distributionParamsFixture) unchanged(t *testing.T, before types.Params) {
 	t.Helper()
 	require.Equal(t, before, f.keeper.GetParams(f.ctx))
 	for _, pair := range before.ParamSetPairs() {
@@ -110,13 +110,13 @@ func (f repairM687Fixture) unchanged(t *testing.T, before types.Params) {
 	}
 }
 
-func TestRepairM_687_KeeperRejectsInvalidSet(t *testing.T) {
-	initial := repairM687Rates("0.1", "0.2", "0.3")
+func TestDistributionParamsKeeperRejectsInvalidSet(t *testing.T) {
+	initial := distributionParamsRates("0.1", "0.2", "0.3")
 	cases := map[string]types.Params{
-		"combined rates":        repairM687Rates("0", "0.8", "0.8"),
-		"tax in combined bound": repairM687Rates("0.3", "0.4", "0.4"),
-		"negative late field":   repairM687Rates("0.2", "0.3", "-0.1"),
-		"individual bound":      repairM687Rates("0", "0", "1.1"),
+		"combined rates":        distributionParamsRates("0", "0.8", "0.8"),
+		"tax in combined bound": distributionParamsRates("0.3", "0.4", "0.4"),
+		"negative late field":   distributionParamsRates("0.2", "0.3", "-0.1"),
+		"individual bound":      distributionParamsRates("0", "0", "1.1"),
 	}
 	for _, field := range []string{"tax", "base", "bonus"} {
 		p := initial
@@ -132,7 +132,7 @@ func TestRepairM_687_KeeperRejectsInvalidSet(t *testing.T) {
 	}
 	for name, invalid := range cases {
 		t.Run(name, func(t *testing.T) {
-			f := repairM687Setup(t, initial)
+			f := distributionParamsSetup(t, initial)
 			require.Error(t, invalid.ValidateBasic())
 			require.Panics(t, func() { f.keeper.SetParams(f.ctx, invalid) })
 			f.unchanged(t, initial)
@@ -140,20 +140,20 @@ func TestRepairM_687_KeeperRejectsInvalidSet(t *testing.T) {
 	}
 }
 
-func TestRepairM_687_ProposalRejectsCombinedRates(t *testing.T) {
+func TestDistributionParamsProposalRejectsCombinedRates(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		initial types.Params
 		key     []byte
 		value   string
 	}{
-		{"base", repairM687Rates("0.1", "0.2", "0.3"), types.ParamStoreKeyBaseProposerReward, "0.8"},
-		{"bonus", repairM687Rates("0.1", "0.3", "0.2"), types.ParamStoreKeyBonusProposerReward, "0.8"},
-		{"tax", repairM687Rates("0.1", "0.4", "0.4"), types.ParamStoreKeyCommunityTax, "0.3"},
-		{"smallest excess", repairM687Rates("0.1", "0.4", "0.4"), types.ParamStoreKeyCommunityTax, "0.200000000000000001"},
+		{"base", distributionParamsRates("0.1", "0.2", "0.3"), types.ParamStoreKeyBaseProposerReward, "0.8"},
+		{"bonus", distributionParamsRates("0.1", "0.3", "0.2"), types.ParamStoreKeyBonusProposerReward, "0.8"},
+		{"tax", distributionParamsRates("0.1", "0.4", "0.4"), types.ParamStoreKeyCommunityTax, "0.3"},
+		{"smallest excess", distributionParamsRates("0.1", "0.4", "0.4"), types.ParamStoreKeyCommunityTax, "0.200000000000000001"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := repairM687Setup(t, tc.initial)
+			f := distributionParamsSetup(t, tc.initial)
 			p := f.content(t, f.change(t, tc.key, sdk.MustNewDecFromStr(tc.value)))
 			require.ErrorContains(t, f.handler(f.ctx, p), "sum of base, bonus proposer rewards, and community tax")
 			f.unchanged(t, tc.initial)
@@ -161,9 +161,9 @@ func TestRepairM_687_ProposalRejectsCombinedRates(t *testing.T) {
 	}
 }
 
-func TestRepairM_687_ProposalRollsBackAllChanges(t *testing.T) {
+func TestDistributionParamsProposalRollsBackAllChanges(t *testing.T) {
 	initial := types.DefaultParams()
-	f := repairM687Setup(t, initial)
+	f := distributionParamsSetup(t, initial)
 	p := f.content(t,
 		f.changeInSubspace(t, authtypes.ModuleName, authtypes.KeyMaxMemoCharacters, uint64(42)),
 		f.change(t, types.ParamStoreKeyWithdrawAddrEnabled, false),
@@ -178,14 +178,14 @@ func TestRepairM_687_ProposalRollsBackAllChanges(t *testing.T) {
 	require.False(t, f.authSpace.Modified(f.ctx, authtypes.KeyMaxMemoCharacters))
 }
 
-func TestRepairM_687_ProposalAcceptsFinalSet(t *testing.T) {
+func TestDistributionParamsProposalAcceptsFinalSet(t *testing.T) {
 	for _, reverse := range []bool{false, true} {
 		name := "increase first"
 		if reverse {
 			name = "decrease first"
 		}
 		t.Run(name, func(t *testing.T) {
-			f := repairM687Setup(t, repairM687Rates("0.1", "0.2", "0.7"))
+			f := distributionParamsSetup(t, distributionParamsRates("0.1", "0.2", "0.7"))
 			changes := []proposal.ParamChange{
 				f.change(t, types.ParamStoreKeyBaseProposerReward, sdk.MustNewDecFromStr("0.8")),
 				f.change(t, types.ParamStoreKeyBonusProposerReward, sdk.MustNewDecFromStr("0.1")),
@@ -195,7 +195,7 @@ func TestRepairM_687_ProposalAcceptsFinalSet(t *testing.T) {
 			}
 			changes = append(changes, f.change(t, types.ParamStoreKeyWithdrawAddrEnabled, false))
 			require.NoError(t, f.handler(f.ctx, f.content(t, changes...)))
-			expected := repairM687Rates("0.1", "0.8", "0.1")
+			expected := distributionParamsRates("0.1", "0.8", "0.1")
 			expected.WithdrawAddrEnabled = false
 			require.Equal(t, expected, f.keeper.GetParams(f.ctx))
 			require.NoError(t, f.keeper.GetParams(f.ctx).ValidateBasic())
@@ -207,18 +207,18 @@ func TestRepairM_687_ProposalAcceptsFinalSet(t *testing.T) {
 			}
 		})
 	}
-	for _, p := range []types.Params{types.DefaultParams(), repairM687Rates("1", "0", "0"), repairM687Rates("0", "1", "0"), repairM687Rates("0", "0", "1")} {
-		f := repairM687Setup(t, types.DefaultParams())
+	for _, p := range []types.Params{types.DefaultParams(), distributionParamsRates("1", "0", "0"), distributionParamsRates("0", "1", "0"), distributionParamsRates("0", "0", "1")} {
+		f := distributionParamsSetup(t, types.DefaultParams())
 		require.NotPanics(t, func() { f.keeper.SetParams(f.ctx, p) })
 		require.Equal(t, p, f.keeper.GetParams(f.ctx))
 	}
 }
 
-func TestRepairM_687_ProposalPreservesIndividualValidation(t *testing.T) {
+func TestDistributionParamsProposalPreservesIndividualValidation(t *testing.T) {
 	for _, value := range []string{"-0.1", "1.1"} {
 		t.Run(value, func(t *testing.T) {
 			initial := types.DefaultParams()
-			f := repairM687Setup(t, initial)
+			f := distributionParamsSetup(t, initial)
 			p := f.content(t,
 				f.change(t, types.ParamStoreKeyCommunityTax, sdk.MustNewDecFromStr("0.1")),
 				f.change(t, types.ParamStoreKeyBonusProposerReward, sdk.MustNewDecFromStr(value)),
@@ -229,8 +229,8 @@ func TestRepairM_687_ProposalPreservesIndividualValidation(t *testing.T) {
 	}
 }
 
-func TestRepairM_687_ProposalPreservesOtherSubspaces(t *testing.T) {
-	f := repairM687Setup(t, types.DefaultParams())
+func TestDistributionParamsProposalPreservesOtherSubspaces(t *testing.T) {
+	f := distributionParamsSetup(t, types.DefaultParams())
 	change := f.changeInSubspace(t, authtypes.ModuleName, authtypes.KeyMaxMemoCharacters, uint64(42))
 	require.NoError(t, f.handler(f.ctx, f.content(t, change)))
 	var memo uint64
