@@ -9,11 +9,11 @@ export default function PaxeerAndLayerX() {
     <DocsLayout>
       <div className="page-header">
         <h1 className="page-title">Paxeer X and LayerX</h1>
-        <p className="page-description">One BFT network combines EVM smart contracts, autonomous agent execution, and programmable finance, with finality at block commit.</p>
+        <p className="page-description">The LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. EVM smart contracts, autonomous agent execution, and programmable finance share the sequence, with finality at block commit.</p>
       </div>
 
       <h2>One Network, Kernel In-Process</h2>
-      <p>Paxeer X is one BFT network with EVM chain ID <code>125</code>. <code>paxd</code> supplies the Cosmos SDK chain and native EVM. The LayerX kernel is embedded in the node through <code>modules/lxphost</code> and participates in block proposal and deterministic execution. <code>node/sequencer</code> supplies execution ordering within the node. Applications compose both through native EVM precompiles and protocol receipts.</p>
+      <p>Paxeer X uses EVM chain ID <code>125</code>. <code>paxd</code> supplies the Cosmos SDK chain and native EVM. The LayerX kernel runs inside the node through <code>modules/lxphost</code>, executes and orders each transaction and builds each block; validators check and commit it. <code>node/sequencer</code> supplies execution ordering within the node. Applications compose both through native EVM precompiles and protocol receipts.</p>
       <p>The kernel runs inside <code>paxd</code>. Native wallet payments submit signed EVM transactions to the ledger precompile; protocol activity authorization binds the payment terms. Kernel state changes commit with the rest of the node&apos;s transaction state. A receipt is final once its block is committed. There is no later checkpoint or settlement step.</p>
 
       <table>

@@ -7,8 +7,8 @@ export const metadata = metadataFor('/guarantors')
 export default function Guarantors() {
   return <DocsLayout>
     <h1>Validators and commitment</h1>
-    <p className="page-description">BFT block commitment, signed execution receipts, and independent evidence verification.</p>
-    <p>Paxeer validators commit blocks on one network. The kernel participates in block production. Applications verify execution receipts and the committed blocks covering them; finality comes from BFT commitment.</p>
+    <p className="page-description">The LayerX kernel executes and orders transactions and builds blocks; validators check and commit them. Verify execution receipts and commitment evidence.</p>
+    <p>The LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. Paxeer validators commit blocks on one network. Applications verify execution receipts and the committed blocks covering them; finality comes from BFT commitment.</p>
     <h2>Verify the execution outcome</h2>
     <ol><li>Confirm the chain ID and retain the signed transaction.</li><li>Retrieve the transaction receipt and its progress rung.</li><li>Obtain the governed receipt keys and check their authorized height ranges.</li><li>Verify the receipt signature, decoded fields, and output digests.</li><li>Verify the committed block covering the receipt sequence.</li></ol>
     <p>A receipt signature authenticates execution only when its signing key is authorized for the receipt height. The node exposes the governed key ranges through <code>px_getReceiptKeys</code>, implemented in <code>rpc/sequencer_receipt.go</code>.</p>
