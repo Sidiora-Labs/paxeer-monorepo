@@ -67,7 +67,7 @@ revision = "03886b7bd0158966d2a58bad78a8da93e259dea5"
 command = "python3 -m pytest -q tests/ci/test_interop_workspace_tests_wired.py && make interop-test"
 exit = 2
 log = "/out/logs/verify-2.log"
-failed_targets = ["--test loops", "--test operator_config", "--test operator_cosign_contract", "--test paxeer_rpc", "--test proof_bridge_relayer", "--test repair_22_31_160", "--test repair_22_33_68", "--test sequencer_receipt"]
+failed_targets = ["--test loops", "--test operator_config", "--test operator_cosign_contract", "--test paxeer_rpc", "--test proof_bridge_relayer", "--test destination_policy_and_consumers", "--test attestation_policy_and_transport", "--test sequencer_receipt"]
 disposition = "Observed failure; member sources and tests are outside scope and remain unchanged. No passing verified revision exists for this member in this task."
 
 [member.layerx-committed-proof]
@@ -75,7 +75,7 @@ revision = "03886b7bd0158966d2a58bad78a8da93e259dea5"
 command = "python3 -m pytest -q tests/ci/test_interop_workspace_tests_wired.py && make interop-test"
 exit = 2
 log = "/out/logs/verify-2.log"
-failed_targets = ["--test committed_vectors", "--test proof_rs_committed_proof_crate", "--test receipted", "--test repair_22_33_90"]
+failed_targets = ["--test committed_vectors", "--test proof_rs_committed_proof_crate", "--test receipted", "--test namespace_registry"]
 disposition = "Observed failure; member sources and tests are outside scope and remain unchanged. No passing verified revision exists for this member in this task."
 
 [member.layerx-fiat]
