@@ -23,14 +23,14 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repairM1178Command struct {
+type benchmarkCommandCase struct {
 	name       string
 	newCommand func() *cobra.Command
 	dimensions []string
 }
 
-func repairM1178Commands() []repairM1178Command {
-	return []repairM1178Command{
+func benchmarkCommandCases() []benchmarkCommandCase {
+	return []benchmarkCommandCase{
 		{"write", benchmark.DBWriteCmd, []string{"concurrency", "num-versions", "batch-size"}},
 		{"read", benchmark.DBRandomReadCmd, []string{"concurrency", "num-versions", "max-operations"}},
 		{"forward", benchmark.DBIterationCmd, []string{"concurrency", "num-versions", "max-operations", "iteration-steps"}},
@@ -38,7 +38,7 @@ func repairM1178Commands() []repairM1178Command {
 	}
 }
 
-func repairM1178CLI(t *testing.T, command repairM1178Command, input, home string, flags ...string) (string, any) {
+func executeBenchmarkCommand(t *testing.T, command benchmarkCommandCase, input, home string, flags ...string) (string, any) {
 	t.Helper()
 	cmd := command.newCommand()
 	args := []string{"--db-backend=pebbledb", "--raw-kv-input-dir=" + input, "--output-dir=" + home}
@@ -46,14 +46,14 @@ func repairM1178CLI(t *testing.T, command repairM1178Command, input, home string
 		args = append(args, "--"+dimension+"=1")
 	}
 	cmd.SetArgs(append(args, flags...))
-	return repairM1178Capture(t, func() {
+	return captureBenchmarkOutput(t, func() {
 		if err := cmd.Execute(); err != nil {
 			panic(err)
 		}
 	})
 }
 
-func repairM1178Capture(t *testing.T, run func()) (string, any) {
+func captureBenchmarkOutput(t *testing.T, run func()) (string, any) {
 	t.Helper()
 	reader, writer, err := os.Pipe()
 	if err != nil {
@@ -84,7 +84,7 @@ func repairM1178Capture(t *testing.T, run func()) (string, any) {
 	return result, failure
 }
 
-func repairM1178RawInput(t *testing.T, keys ...string) string {
+func writeBenchmarkInput(t *testing.T, keys ...string) string {
 	t.Helper()
 	dir := t.TempDir()
 	file, err := utils.CreateFile(dir, "fixture.kv")
@@ -107,7 +107,7 @@ func repairM1178RawInput(t *testing.T, keys ...string) string {
 	return dir
 }
 
-func repairM1178Open(t *testing.T, home string) types.StateStore {
+func openBenchmarkStore(t *testing.T, home string) types.StateStore {
 	t.Helper()
 	cfg := config.DefaultStateStoreConfig()
 	cfg.KeepRecent = 0
@@ -123,20 +123,20 @@ func repairM1178Open(t *testing.T, home string) types.StateStore {
 	return db
 }
 
-func repairM1178Key(key string) string {
+func benchmarkStoreKey(key string) string {
 	return fmt.Sprintf(mvcc.StorePrefixTpl, "") + key
 }
 
-func repairM1178Seed(t *testing.T) string {
+func seedBenchmarkStore(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
 	keys := make([]string, 64)
 	for i := range keys {
-		keys[i] = repairM1178Key(fmt.Sprintf("key-%03d", i))
+		keys[i] = benchmarkStoreKey(fmt.Sprintf("key-%03d", i))
 	}
-	input := repairM1178RawInput(t, keys...)
-	db := repairM1178Open(t, home)
-	output, failure := repairM1178Capture(t, func() {
+	input := writeBenchmarkInput(t, keys...)
+	db := openBenchmarkStore(t, home)
+	output, failure := captureBenchmarkOutput(t, func() {
 		bench.BenchmarkDBWrite(db, input, 1, 3, 5)
 	})
 	if failure != nil {
@@ -148,41 +148,41 @@ func repairM1178Seed(t *testing.T) string {
 	return home
 }
 
-func repairM1178RequireError(t *testing.T, failure any, message string) {
+func requireBenchmarkError(t *testing.T, failure any, message string) {
 	t.Helper()
 	if _, ok := failure.(error); !ok || !strings.Contains(fmt.Sprint(failure), message) {
 		t.Fatalf("expected explicit operator error %q, got %#v", message, failure)
 	}
 }
 
-func TestRepairM_1178_UncheckedDimensionsCLI(t *testing.T) {
-	input := repairM1178RawInput(t, repairM1178Key("key-032"))
-	for _, command := range repairM1178Commands() {
+func TestBenchmarkCommandsRejectInvalidDimensions(t *testing.T) {
+	input := writeBenchmarkInput(t, benchmarkStoreKey("key-032"))
+	for _, command := range benchmarkCommandCases() {
 		for _, dimension := range command.dimensions {
 			for _, value := range []int{0, -1} {
 				t.Run(fmt.Sprintf("%s/%s/%d", command.name, dimension, value), func(t *testing.T) {
-					_, failure := repairM1178CLI(t, command, input, t.TempDir(), "--"+dimension+"="+strconv.Itoa(value))
-					repairM1178RequireError(t, failure, "benchmark: "+dimension+" must be positive")
+					_, failure := executeBenchmarkCommand(t, command, input, t.TempDir(), "--"+dimension+"="+strconv.Itoa(value))
+					requireBenchmarkError(t, failure, "benchmark: "+dimension+" must be positive")
 				})
 			}
 		}
 	}
 }
 
-func TestRepairM_1178_EmptyInput(t *testing.T) {
-	for _, input := range []string{t.TempDir(), repairM1178RawInput(t)} {
-		for _, command := range repairM1178Commands() {
+func TestBenchmarkCommandsRejectEmptyInput(t *testing.T) {
+	for _, input := range []string{t.TempDir(), writeBenchmarkInput(t)} {
+		for _, command := range benchmarkCommandCases() {
 			t.Run(command.name+"/"+filepath.Base(input), func(t *testing.T) {
-				_, failure := repairM1178CLI(t, command, input, t.TempDir())
-				repairM1178RequireError(t, failure, "benchmark: input dataset is empty")
+				_, failure := executeBenchmarkCommand(t, command, input, t.TempDir())
+				requireBenchmarkError(t, failure, "benchmark: input dataset is empty")
 			})
 		}
 	}
 }
 
-func TestRepairM_1178_SharedEntryPoints(t *testing.T) {
-	db := repairM1178Open(t, t.TempDir())
-	input := repairM1178RawInput(t, repairM1178Key("key-032"))
+func TestBenchmarkEntryPointsRejectInvalidDimensions(t *testing.T) {
+	db := openBenchmarkStore(t, t.TempDir())
+	input := writeBenchmarkInput(t, benchmarkStoreKey("key-032"))
 	for _, value := range []int{0, -1} {
 		cases := []struct {
 			name      string
@@ -206,8 +206,8 @@ func TestRepairM_1178_SharedEntryPoints(t *testing.T) {
 		}
 		for _, tc := range cases {
 			t.Run(fmt.Sprintf("%s/%d", tc.name, value), func(t *testing.T) {
-				_, failure := repairM1178Capture(t, tc.run)
-				repairM1178RequireError(t, failure, "benchmark: "+tc.dimension+" must be positive")
+				_, failure := captureBenchmarkOutput(t, tc.run)
+				requireBenchmarkError(t, failure, "benchmark: "+tc.dimension+" must be positive")
 			})
 		}
 	}
@@ -216,13 +216,13 @@ func TestRepairM_1178_SharedEntryPoints(t *testing.T) {
 	}
 }
 
-func TestRepairM_1178_IterationBoundsCLI(t *testing.T) {
-	input := repairM1178RawInput(t, repairM1178Key("key-032"))
-	for _, command := range repairM1178Commands()[2:] {
+func TestBenchmarkCommandsRespectIterationBounds(t *testing.T) {
+	input := writeBenchmarkInput(t, benchmarkStoreKey("key-032"))
+	for _, command := range benchmarkCommandCases()[2:] {
 		for _, bound := range []int{1, 3} {
 			t.Run(fmt.Sprintf("%s/%d", command.name, bound), func(t *testing.T) {
-				home := repairM1178Seed(t)
-				output, failure := repairM1178CLI(t, command, input, home,
+				home := seedBenchmarkStore(t)
+				output, failure := executeBenchmarkCommand(t, command, input, home,
 					"--max-operations=9", "--concurrency=3", "--iteration-steps="+strconv.Itoa(bound))
 				if failure != nil {
 					t.Fatalf("benchmark command failed: %v\n%s", failure, output)
@@ -235,9 +235,9 @@ func TestRepairM_1178_IterationBoundsCLI(t *testing.T) {
 					t.Fatalf("expected exactly %d real database steps:\n%s", 9*bound, output)
 				}
 				// The command released its database lock as well as its iterators.
-				db := repairM1178Open(t, home)
-				value, err := db.Get("", 1, []byte(repairM1178Key("key-032")))
-				if err != nil || string(value) != "value-"+repairM1178Key("key-032") {
+				db := openBenchmarkStore(t, home)
+				value, err := db.Get("", 1, []byte(benchmarkStoreKey("key-032")))
+				if err != nil || string(value) != "value-"+benchmarkStoreKey("key-032") {
 					t.Fatalf("stored fixture changed: value=%q error=%v", value, err)
 				}
 			})
@@ -247,7 +247,7 @@ func TestRepairM_1178_IterationBoundsCLI(t *testing.T) {
 
 // These observers delegate every operation to the real StateStore/iterator.
 // They measure lifetime and traversal without substituting storage behavior.
-type repairM1178ObservedStore struct {
+type iteratorLifetimeStore struct {
 	types.StateStore
 	mu                              sync.Mutex
 	active, maximum, opened, closed int
@@ -255,13 +255,13 @@ type repairM1178ObservedStore struct {
 	stepsAtClose                    []int
 }
 
-type repairM1178ObservedIterator struct {
+type lifetimeObservedIterator struct {
 	dbm.Iterator
-	store *repairM1178ObservedStore
+	store *iteratorLifetimeStore
 	steps int
 }
 
-func (db *repairM1178ObservedStore) ReverseIterator(storeKey string, version int64, start, end []byte) (dbm.Iterator, error) {
+func (db *iteratorLifetimeStore) ReverseIterator(storeKey string, version int64, start, end []byte) (dbm.Iterator, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	db.activeBeforeOpen = append(db.activeBeforeOpen, db.active)
@@ -274,15 +274,15 @@ func (db *repairM1178ObservedStore) ReverseIterator(storeKey string, version int
 	if db.active > db.maximum {
 		db.maximum = db.active
 	}
-	return &repairM1178ObservedIterator{Iterator: it, store: db}, nil
+	return &lifetimeObservedIterator{Iterator: it, store: db}, nil
 }
 
-func (it *repairM1178ObservedIterator) Next() {
+func (it *lifetimeObservedIterator) Next() {
 	it.Iterator.Next()
 	it.steps++
 }
 
-func (it *repairM1178ObservedIterator) Close() error {
+func (it *lifetimeObservedIterator) Close() error {
 	err := it.Iterator.Close()
 	it.store.mu.Lock()
 	defer it.store.mu.Unlock()
@@ -292,12 +292,12 @@ func (it *repairM1178ObservedIterator) Close() error {
 	return err
 }
 
-func TestRepairM_1178_ReverseIteratorLifetime(t *testing.T) {
-	input := repairM1178RawInput(t, repairM1178Key("key-032"))
+func TestBenchmarkReverseIteratorLifetime(t *testing.T) {
+	input := writeBenchmarkInput(t, benchmarkStoreKey("key-032"))
 	for _, concurrency := range []int{1, 4} {
 		t.Run(strconv.Itoa(concurrency), func(t *testing.T) {
-			db := &repairM1178ObservedStore{StateStore: repairM1178Open(t, repairM1178Seed(t))}
-			output, failure := repairM1178Capture(t, func() {
+			db := &iteratorLifetimeStore{StateStore: openBenchmarkStore(t, seedBenchmarkStore(t))}
+			output, failure := captureBenchmarkOutput(t, func() {
 				bench.BenchmarkDBReverseIteration(db, input, 1, concurrency, 48, 3)
 			})
 			if failure != nil {
@@ -329,14 +329,14 @@ func TestRepairM_1178_ReverseIteratorLifetime(t *testing.T) {
 	}
 }
 
-func TestRepairM_1178_EmptySummaries(t *testing.T) {
-	input := repairM1178RawInput(t, repairM1178Key("key-032"))
+func TestBenchmarkEmptyTraversalSummaries(t *testing.T) {
+	input := writeBenchmarkInput(t, benchmarkStoreKey("key-032"))
 	for _, populated := range []bool{false, true} {
 		home := t.TempDir()
 		if populated {
-			home = repairM1178Seed(t)
+			home = seedBenchmarkStore(t)
 		}
-		db := repairM1178Open(t, home)
+		db := openBenchmarkStore(t, home)
 		// A version below the retained boundary produces a real empty iterator,
 		// including on backends whose unbounded empty namespace hits metadata.
 		if err := db.SetEarliestVersion(2, true); err != nil {
@@ -350,9 +350,9 @@ func TestRepairM_1178_EmptySummaries(t *testing.T) {
 					if reverse {
 						key = "aaa"
 					}
-					seekInput = repairM1178RawInput(t, repairM1178Key(key))
+					seekInput = writeBenchmarkInput(t, benchmarkStoreKey(key))
 				}
-				output, failure := repairM1178Capture(t, func() {
+				output, failure := captureBenchmarkOutput(t, func() {
 					if reverse {
 						bench.BenchmarkDBReverseIteration(db, seekInput, 1, 2, 5, 3)
 					} else {
@@ -368,11 +368,11 @@ func TestRepairM_1178_EmptySummaries(t *testing.T) {
 	}
 }
 
-func TestRepairM_1178_WriteReadRoundTrip(t *testing.T) {
+func TestBenchmarkWriteReadRoundTrip(t *testing.T) {
 	keys := []string{"key-001", "key-002", "key-003", "key-004", "key-005", "key-006", "key-007"}
-	input := repairM1178RawInput(t, keys...)
-	db := repairM1178Open(t, t.TempDir())
-	output, failure := repairM1178Capture(t, func() {
+	input := writeBenchmarkInput(t, keys...)
+	db := openBenchmarkStore(t, t.TempDir())
+	output, failure := captureBenchmarkOutput(t, func() {
 		bench.BenchmarkDBWrite(db, input, 2, 3, 2)
 		bench.BenchmarkDBRead(db, input, 2, 3, 17)
 	})

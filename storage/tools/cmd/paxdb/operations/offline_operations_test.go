@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM1177OpenStore(t *testing.T, dir string) types.StateStore {
+func openOfflineTestStore(t *testing.T, dir string) types.StateStore {
 	t.Helper()
 	cfg := config.DefaultStateStoreConfig()
 	cfg.DBDirectory = dir
@@ -36,22 +36,22 @@ func repairM1177OpenStore(t *testing.T, dir string) types.StateStore {
 	return store
 }
 
-func repairM1177Changes(name, key, value string) []*proto.NamedChangeSet {
+func offlineStoreChanges(name, key, value string) []*proto.NamedChangeSet {
 	return []*proto.NamedChangeSet{{Name: name, Changeset: proto.ChangeSet{
 		Pairs: []*proto.KVPair{{Key: []byte(key), Value: []byte(value)}},
 	}}}
 }
 
-func repairM1177Populate(t *testing.T, dir, value string) {
+func populateOfflineTestStore(t *testing.T, dir, value string) {
 	t.Helper()
-	store := repairM1177OpenStore(t, dir)
+	store := openOfflineTestStore(t, dir)
 	for version := int64(1); version <= 4; version++ {
-		require.NoError(t, store.ApplyChangesetSync(version, repairM1177Changes("sequencer", "key", fmt.Sprintf("%s-%d", value, version))))
+		require.NoError(t, store.ApplyChangesetSync(version, offlineStoreChanges("sequencer", "key", fmt.Sprintf("%s-%d", value, version))))
 	}
 	require.NoError(t, store.Close())
 }
 
-func repairM1177Execute(cmd *cobra.Command, args ...string) (string, error) {
+func executeOfflineCommand(cmd *cobra.Command, args ...string) (string, error) {
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
@@ -60,11 +60,11 @@ func repairM1177Execute(cmd *cobra.Command, args ...string) (string, error) {
 	return out.String(), err
 }
 
-func TestRepairM_1177_DumpSource(t *testing.T) {
+func TestDumpDBUsesNamedSource(t *testing.T) {
 	source, output := filepath.Join(t.TempDir(), "source"), filepath.Join(t.TempDir(), "output")
-	repairM1177Populate(t, source, "source")
-	repairM1177Populate(t, output, "sentinel")
-	_, err := repairM1177Execute(DumpDbCmd(), "--db-backend", "pebbledb", "--db-dir", source, "--output-dir", output, "--module", "sequencer")
+	populateOfflineTestStore(t, source, "source")
+	populateOfflineTestStore(t, output, "sentinel")
+	_, err := executeOfflineCommand(DumpDbCmd(), "--db-backend", "pebbledb", "--db-dir", source, "--output-dir", output, "--module", "sequencer")
 	require.NoError(t, err)
 	data, err := os.ReadFile(filepath.Join(output, outputFileName))
 	require.NoError(t, err)
@@ -74,10 +74,10 @@ func TestRepairM_1177_DumpSource(t *testing.T) {
 	require.Len(t, strings.Split(strings.TrimSpace(string(data)), "\n"), 4)
 	require.NotContains(t, string(data), fmt.Sprintf("%X", "sentinel"))
 	// Immediate reopen proves the command released its real backend handle.
-	store := repairM1177OpenStore(t, source)
+	store := openOfflineTestStore(t, source)
 	require.Equal(t, int64(4), store.GetLatestVersion())
 	require.NoError(t, store.Close())
-	sentinel := repairM1177OpenStore(t, output)
+	sentinel := openOfflineTestStore(t, output)
 	value, err := sentinel.Get("sequencer", 4, []byte("key"))
 	require.NoError(t, err)
 	require.Equal(t, []byte("sentinel-4"), value)
@@ -85,7 +85,7 @@ func TestRepairM_1177_DumpSource(t *testing.T) {
 	require.NoDirExists(t, filepath.Join(output, "data"))
 }
 
-func TestRepairM_1177_MissingSource(t *testing.T) {
+func TestOfflineOperationsRejectMissingSource(t *testing.T) {
 	root := t.TempDir()
 	for _, source := range []string{filepath.Join(root, "missing"), t.TempDir()} {
 		output := filepath.Join(root, "export")
@@ -98,7 +98,7 @@ func TestRepairM_1177_MissingSource(t *testing.T) {
 	require.NoDirExists(t, filepath.Join(root, "missing"))
 }
 
-func repairM1177IAVL(t *testing.T, names []string, largeValue bool) string {
+func seedOfflineIAVLStores(t *testing.T, names []string, largeValue bool) string {
 	t.Helper()
 	dir := t.TempDir()
 	db, err := memiavl.OpenDB(0, memiavl.Options{Dir: dir, CreateIfMissing: true, InitialStores: names})
@@ -120,7 +120,7 @@ func repairM1177IAVL(t *testing.T, names []string, largeValue bool) string {
 	return dir
 }
 
-func repairM1177Stdout(t *testing.T, run func() error) (string, error) {
+func captureOfflineStdout(t *testing.T, run func() error) (string, error) {
 	t.Helper()
 	file, err := os.CreateTemp(t.TempDir(), "stdout")
 	require.NoError(t, err)
@@ -135,11 +135,11 @@ func repairM1177Stdout(t *testing.T, run func() error) (string, error) {
 	return string(data), runErr
 }
 
-func TestRepairM_1177_ModuleInventory(t *testing.T) {
+func TestOfflineOperationsDiscoverModuleInventory(t *testing.T) {
 	names := []string{"sequencer", "lxphost", "custom-store"}
-	dir := repairM1177IAVL(t, names, false)
+	dir := seedOfflineIAVLStores(t, names, false)
 	output := t.TempDir()
-	_, err := repairM1177Execute(DumpIAVLCmd(), "--db-dir", dir, "--output-dir", output)
+	_, err := executeOfflineCommand(DumpIAVLCmd(), "--db-dir", dir, "--output-dir", output)
 	require.NoError(t, err)
 	for _, name := range names {
 		data, err := os.ReadFile(filepath.Join(output, name))
@@ -148,8 +148,8 @@ func TestRepairM_1177_ModuleInventory(t *testing.T) {
 		require.Contains(t, string(data), fmt.Sprintf("Key: %X, Value: %X", "a", name+"-value"))
 		require.Contains(t, string(data), fmt.Sprintf("Key: %X, Value: %X", "z", name+"-last"))
 	}
-	report, err := repairM1177Stdout(t, func() error {
-		_, err := repairM1177Execute(StateSizeCmd(), "--db-dir", dir)
+	report, err := captureOfflineStdout(t, func() error {
+		_, err := executeOfflineCommand(StateSizeCmd(), "--db-dir", dir)
 		return err
 	})
 	require.NoError(t, err)
@@ -158,14 +158,14 @@ func TestRepairM_1177_ModuleInventory(t *testing.T) {
 		require.Contains(t, report, fmt.Sprintf("Module %s total numKeys:2, total keySize:2, total valueSize:%d, totalSize:%d", name, size-2, size))
 	}
 	filtered := t.TempDir()
-	_, err = repairM1177Execute(DumpIAVLCmd(), "--db-dir", dir, "--output-dir", filtered, "--module", "lxphost")
+	_, err = executeOfflineCommand(DumpIAVLCmd(), "--db-dir", dir, "--output-dir", filtered, "--module", "lxphost")
 	require.NoError(t, err)
 	files, err := os.ReadDir(filtered)
 	require.NoError(t, err)
 	require.Len(t, files, 1)
 	require.Equal(t, "lxphost", files[0].Name())
-	report, err = repairM1177Stdout(t, func() error {
-		_, err := repairM1177Execute(StateSizeCmd(), "--db-dir", dir, "--module", "lxphost")
+	report, err = captureOfflineStdout(t, func() error {
+		_, err := executeOfflineCommand(StateSizeCmd(), "--db-dir", dir, "--module", "lxphost")
 		return err
 	})
 	require.NoError(t, err)
@@ -283,7 +283,7 @@ func TestStateSizeFullScan(t *testing.T) {
 						PrefixBreakdown: analysis.PrefixBreakdown, ContractBreakdown: analysis.ContractBreakdown,
 					}, analysis)
 				}
-				output, err := repairM1177Stdout(t, func() error {
+				output, err := captureOfflineStdout(t, func() error {
 					printResultsToConsole(results)
 					return nil
 				})
@@ -318,8 +318,8 @@ func TestStateSizeFullScan(t *testing.T) {
 			names = []string{selection}
 			args = append(args, "--module", selection)
 		}
-		output, err := repairM1177Stdout(t, func() error {
-			_, err := repairM1177Execute(StateSizeCmd(), args...)
+		output, err := captureOfflineStdout(t, func() error {
+			_, err := executeOfflineCommand(StateSizeCmd(), args...)
 			return err
 		})
 		require.NoError(t, err)
@@ -329,8 +329,8 @@ func TestStateSizeFullScan(t *testing.T) {
 	}
 }
 
-func TestRepairM_1177_IAVLFailures(t *testing.T) {
-	dir := repairM1177IAVL(t, []string{"sequencer"}, true)
+func TestDumpIAVLPropagatesOutputErrors(t *testing.T) {
+	dir := seedOfflineIAVLStores(t, []string{"sequencer"}, true)
 	db, err := memiavl.OpenDB(0, memiavl.Options{Dir: dir})
 	require.NoError(t, err)
 	defer func() { require.NoError(t, db.Close()) }()
@@ -375,7 +375,7 @@ func TestRepairM_1177_IAVLFailures(t *testing.T) {
 		require.NoError(t, os.Mkdir(filepath.Join(output, "sequencer"), 0o755))
 		sentinel := filepath.Join(output, "sequencer", "previous-backup")
 		require.NoError(t, os.WriteFile(sentinel, []byte("preserved"), 0o600))
-		report, err := repairM1177Stdout(t, func() error { return DumpIAVLData("sequencer", db, output) })
+		report, err := captureOfflineStdout(t, func() error { return DumpIAVLData("sequencer", db, output) })
 		require.Error(t, err)
 		require.NotContains(t, report, "Finished dumping")
 		data, err := os.ReadFile(sentinel)
@@ -388,16 +388,16 @@ func TestRepairM_1177_IAVLFailures(t *testing.T) {
 	})
 }
 
-func TestRepairM_1177_PruneNamedSource(t *testing.T) {
+func TestPruneUsesNamedSource(t *testing.T) {
 	source := filepath.Join(t.TempDir(), "source")
-	repairM1177Populate(t, source, "source")
+	populateOfflineTestStore(t, source, "source")
 	// This is precisely the unintended home-relative path used by the old command.
 	sentinelDir := filepath.Join(source, "data", "state_store", "cosmos", "pebbledb")
-	repairM1177Populate(t, sentinelDir, "sentinel")
-	_, err := repairM1177Execute(PruneCmd(), "--db-backend", "pebbledb", "--db-dir", source, "--version", "2")
+	populateOfflineTestStore(t, sentinelDir, "sentinel")
+	_, err := executeOfflineCommand(PruneCmd(), "--db-backend", "pebbledb", "--db-dir", source, "--version", "2")
 	require.NoError(t, err)
 	for _, dir := range []string{source, sentinelDir} {
-		store := repairM1177OpenStore(t, dir)
+		store := openOfflineTestStore(t, dir)
 		var versions []int64
 		_, err := store.RawIterate("sequencer", func(key, value []byte, version int64) bool {
 			versions = append(versions, version)
@@ -423,31 +423,31 @@ func TestRepairM_1177_PruneNamedSource(t *testing.T) {
 	for _, version := range []int64{-1, 0, 1, 4, 5} {
 		require.Error(t, PruneDB("pebbledb", source, version))
 	}
-	store := repairM1177OpenStore(t, source)
+	store := openOfflineTestStore(t, source)
 	require.Equal(t, int64(3), store.GetEarliestVersion())
 	require.Equal(t, int64(4), store.GetLatestVersion())
 	require.NoError(t, store.Close())
 }
 
-func TestRepairM_1177_ReplayBounds(t *testing.T) {
+func TestReplayChangelogRespectsOffsetBounds(t *testing.T) {
 	dir := t.TempDir()
-	store := repairM1177OpenStore(t, dir)
+	store := openOfflineTestStore(t, dir)
 	require.NoError(t, store.Close())
 	stream, err := wal.NewChangelogWAL(filepath.Join(dir, "changelog"), wal.Config{})
 	require.NoError(t, err)
 	for i := 1; i <= 5; i++ {
-		require.NoError(t, stream.Write(proto.ChangelogEntry{Version: int64(100 + i), Changesets: repairM1177Changes("sequencer", fmt.Sprintf("key-%d", i), fmt.Sprintf("value-%d", i))}))
+		require.NoError(t, stream.Write(proto.ChangelogEntry{Version: int64(100 + i), Changesets: offlineStoreChanges("sequencer", fmt.Sprintf("key-%d", i), fmt.Sprintf("value-%d", i))}))
 	}
 	require.NoError(t, stream.Close())
 	args := []string{"--db-dir", dir, "--start-offset", "2", "--end-offset", "4"}
 	expected := "Offset: 2, Height: 102\nOffset: 3, Height: 103\nOffset: 4, Height: 104\n"
-	output, err := repairM1177Execute(ReplayChangelogCmd(), args...)
+	output, err := executeOfflineCommand(ReplayChangelogCmd(), args...)
 	require.NoError(t, err)
 	require.Equal(t, expected, output)
-	store = repairM1177OpenStore(t, dir)
+	store = openOfflineTestStore(t, dir)
 	require.Equal(t, int64(0), store.GetLatestVersion(), "dry run mutated the DB")
 	require.NoError(t, store.Close())
-	output, err = repairM1177Execute(ReplayChangelogCmd(), append(args, "--no-dry-run")...)
+	output, err = executeOfflineCommand(ReplayChangelogCmd(), append(args, "--no-dry-run")...)
 	require.NoError(t, err)
 	for i := 1; i <= 5; i++ {
 		if i >= 2 && i <= 4 {
@@ -458,7 +458,7 @@ func TestRepairM_1177_ReplayBounds(t *testing.T) {
 	}
 	// Reopen the actual MVCC consumer; automatic composite WAL recovery is not
 	// part of bounded CLI replay and would deliberately recover the other entries.
-	store = repairM1177OpenStore(t, dir)
+	store = openOfflineTestStore(t, dir)
 	require.Equal(t, int64(104), store.GetLatestVersion())
 	for i := 1; i <= 5; i++ {
 		value, err := store.Get("sequencer", 104, []byte(fmt.Sprintf("key-%d", i)))
@@ -471,7 +471,7 @@ func TestRepairM_1177_ReplayBounds(t *testing.T) {
 	}
 	require.NoError(t, store.Close())
 	// A subsequent command has no stale process-global store from the apply run.
-	output, err = repairM1177Execute(ReplayChangelogCmd(), args...)
+	output, err = executeOfflineCommand(ReplayChangelogCmd(), args...)
 	require.NoError(t, err)
 	require.Equal(t, expected, output)
 	for _, bounds := range [][]string{
@@ -481,10 +481,10 @@ func TestRepairM_1177_ReplayBounds(t *testing.T) {
 		{"--start-offset", "2", "--end-offset", "6"},
 		{"--start-offset", "18446744073709551615"},
 	} {
-		_, err := repairM1177Execute(ReplayChangelogCmd(), append([]string{"--db-dir", dir, "--no-dry-run"}, bounds...)...)
+		_, err := executeOfflineCommand(ReplayChangelogCmd(), append([]string{"--db-dir", dir, "--no-dry-run"}, bounds...)...)
 		require.Error(t, err)
 	}
-	output, err = repairM1177Execute(ReplayChangelogCmd(), "--db-dir", dir, "--start-offset", "5", "--end-offset", "5")
+	output, err = executeOfflineCommand(ReplayChangelogCmd(), "--db-dir", dir, "--start-offset", "5", "--end-offset", "5")
 	require.NoError(t, err)
 	require.Equal(t, "Offset: 5, Height: 105\n", output)
 	// Every run closed the WAL; a real producer can immediately reopen it.
@@ -494,25 +494,25 @@ func TestRepairM_1177_ReplayBounds(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(5), last)
 	require.NoError(t, stream.Close())
-	store = repairM1177OpenStore(t, dir)
+	store = openOfflineTestStore(t, dir)
 	require.Equal(t, int64(104), store.GetLatestVersion(), "invalid bounds mutated the DB")
 	require.NoError(t, store.Close())
 }
 
-func TestRepairM_1177_PruneStoreInventory(t *testing.T) {
+func TestPruneDiscoversPersistedStoreInventory(t *testing.T) {
 	dir := t.TempDir()
 	names := []string{"sequencer", "lxphost", "custom-store", "x"}
-	store := repairM1177OpenStore(t, dir)
+	store := openOfflineTestStore(t, dir)
 	for version := int64(1); version <= 5; version++ {
 		for _, name := range names {
-			require.NoError(t, store.ApplyChangesetSync(version, repairM1177Changes(name, "key", fmt.Sprintf("%s-%d", name, version))))
+			require.NoError(t, store.ApplyChangesetSync(version, offlineStoreChanges(name, "key", fmt.Sprintf("%s-%d", name, version))))
 		}
 	}
 	require.NoError(t, store.Close())
 	for _, height := range []int64{2, 3} {
-		_, err := repairM1177Execute(PruneCmd(), "--db-backend", "pebbledb", "--db-dir", dir, "--version", fmt.Sprint(height))
+		_, err := executeOfflineCommand(PruneCmd(), "--db-backend", "pebbledb", "--db-dir", dir, "--version", fmt.Sprint(height))
 		require.NoError(t, err)
-		store = repairM1177OpenStore(t, dir)
+		store = openOfflineTestStore(t, dir)
 		require.Equal(t, height+1, store.GetEarliestVersion())
 		require.Equal(t, int64(5), store.GetLatestVersion())
 		for _, name := range names {

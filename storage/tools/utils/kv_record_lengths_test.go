@@ -13,13 +13,13 @@ import (
 	"testing"
 )
 
-func repairM1179Length(length uint32) []byte {
+func encodeKVRecordLength(length uint32) []byte {
 	var prefix [4]byte
 	binary.LittleEndian.PutUint32(prefix[:], length)
 	return prefix[:]
 }
 
-func repairM1179File(t *testing.T, data []byte) string {
+func writeKVRecordFile(t *testing.T, data []byte) string {
 	t.Helper()
 	name := filepath.Join(t.TempDir(), "input.kv")
 	if err := os.WriteFile(name, data, 0600); err != nil {
@@ -28,7 +28,7 @@ func repairM1179File(t *testing.T, data []byte) string {
 	return name
 }
 
-func repairM1179AssertError(t *testing.T, name, field string, cause error, length, limit uint32) *KVRecordLengthError {
+func assertKVRecordLengthError(t *testing.T, name, field string, cause error, length, limit uint32) *KVRecordLengthError {
 	t.Helper()
 	pairs, err := ReadKVEntriesFromFile(name)
 	if pairs != nil {
@@ -47,7 +47,7 @@ func repairM1179AssertError(t *testing.T, name, field string, cause error, lengt
 	return lengthErr
 }
 
-func TestRepairM_1179_OversizedLengths(t *testing.T) {
+func TestKVRecordRejectsOversizedLengths(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		field  string
@@ -57,17 +57,17 @@ func TestRepairM_1179_OversizedLengths(t *testing.T) {
 	}{
 		{"key_limit_plus_one", "key", MaxKVKeySize + 1, MaxKVKeySize, nil},
 		{"key_uint32_max", "key", math.MaxUint32, MaxKVKeySize, nil},
-		{"value_limit_plus_one", "value", MaxKVValueSize + 1, MaxKVValueSize, repairM1179Length(0)},
-		{"value_uint32_max", "value", math.MaxUint32, MaxKVValueSize, repairM1179Length(0)},
+		{"value_limit_plus_one", "value", MaxKVValueSize + 1, MaxKVValueSize, encodeKVRecordLength(0)},
+		{"value_uint32_max", "value", math.MaxUint32, MaxKVValueSize, encodeKVRecordLength(0)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			name := repairM1179File(t, append(tc.prefix, repairM1179Length(tc.length)...))
-			repairM1179AssertError(t, name, tc.field, ErrKVRecordTooLarge, tc.length, tc.limit)
+			name := writeKVRecordFile(t, append(tc.prefix, encodeKVRecordLength(tc.length)...))
+			assertKVRecordLengthError(t, name, tc.field, ErrKVRecordTooLarge, tc.length, tc.limit)
 		})
 	}
 }
 
-func TestRepairM_1179_OversizedCompletePayloads(t *testing.T) {
+func TestKVRecordRejectsOversizedCompletePayloads(t *testing.T) {
 	for _, tc := range []struct {
 		field string
 		limit uint32
@@ -78,22 +78,22 @@ func TestRepairM_1179_OversizedCompletePayloads(t *testing.T) {
 		t.Run(tc.field, func(t *testing.T) {
 			var data []byte
 			if tc.field == "value" {
-				data = repairM1179Length(0)
+				data = encodeKVRecordLength(0)
 			}
-			data = append(data, repairM1179Length(tc.limit+1)...)
-			name := repairM1179File(t, data)
+			data = append(data, encodeKVRecordLength(tc.limit+1)...)
+			name := writeKVRecordFile(t, data)
 			// A real sparse file supplies the entire oversized payload without
 			// allocating it in the test. The supported bound must still win.
 			if err := os.Truncate(name, int64(len(data))+int64(tc.limit)+1); err != nil {
 				t.Fatal(err)
 			}
-			repairM1179AssertError(t, name, tc.field, ErrKVRecordTooLarge, tc.limit+1, tc.limit)
+			assertKVRecordLengthError(t, name, tc.field, ErrKVRecordTooLarge, tc.limit+1, tc.limit)
 		})
 	}
 }
 
-func TestRepairM_1179_TruncatedFiles(t *testing.T) {
-	validEntry := append(repairM1179Length(0), repairM1179Length(0)...)
+func TestKVRecordRejectsTruncatedFiles(t *testing.T) {
+	validEntry := append(encodeKVRecordLength(0), encodeKVRecordLength(0)...)
 	for _, tc := range []struct {
 		name      string
 		data      []byte
@@ -105,19 +105,19 @@ func TestRepairM_1179_TruncatedFiles(t *testing.T) {
 		{"partial_key_header_one", []byte{1}, "key", 0, MaxKVKeySize, -1},
 		{"partial_key_header_two", []byte{1, 0}, "key", 0, MaxKVKeySize, -1},
 		{"partial_key_header_three", []byte{1, 0, 0}, "key", 0, MaxKVKeySize, -1},
-		{"missing_key_payload", repairM1179Length(1), "key", 1, MaxKVKeySize, 0},
-		{"short_key_payload", append(repairM1179Length(3), 'k', 'v'), "key", 3, MaxKVKeySize, 2},
-		{"missing_value_header", repairM1179Length(0), "value", 0, MaxKVValueSize, 0},
-		{"partial_value_header_one", append(repairM1179Length(0), 1), "value", 0, MaxKVValueSize, -1},
-		{"partial_value_header_two", append(repairM1179Length(0), 1, 0), "value", 0, MaxKVValueSize, -1},
-		{"partial_value_header_three", append(repairM1179Length(0), 1, 0, 0), "value", 0, MaxKVValueSize, -1},
-		{"missing_value_payload", append(repairM1179Length(0), repairM1179Length(1)...), "value", 1, MaxKVValueSize, 0},
-		{"short_value_payload", append(append(repairM1179Length(0), repairM1179Length(3)...), 'v'), "value", 3, MaxKVValueSize, 1},
+		{"missing_key_payload", encodeKVRecordLength(1), "key", 1, MaxKVKeySize, 0},
+		{"short_key_payload", append(encodeKVRecordLength(3), 'k', 'v'), "key", 3, MaxKVKeySize, 2},
+		{"missing_value_header", encodeKVRecordLength(0), "value", 0, MaxKVValueSize, 0},
+		{"partial_value_header_one", append(encodeKVRecordLength(0), 1), "value", 0, MaxKVValueSize, -1},
+		{"partial_value_header_two", append(encodeKVRecordLength(0), 1, 0), "value", 0, MaxKVValueSize, -1},
+		{"partial_value_header_three", append(encodeKVRecordLength(0), 1, 0, 0), "value", 0, MaxKVValueSize, -1},
+		{"missing_value_payload", append(encodeKVRecordLength(0), encodeKVRecordLength(1)...), "value", 1, MaxKVValueSize, 0},
+		{"short_value_payload", append(append(encodeKVRecordLength(0), encodeKVRecordLength(3)...), 'v'), "value", 3, MaxKVValueSize, 1},
 		{"partial_header_after_valid_entry", append(validEntry, 1), "key", 0, MaxKVKeySize, -1},
-		{"missing_value_after_valid_entry", append(validEntry, repairM1179Length(0)...), "value", 0, MaxKVValueSize, 0},
+		{"missing_value_after_valid_entry", append(validEntry, encodeKVRecordLength(0)...), "value", 0, MaxKVValueSize, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			err := repairM1179AssertError(t, repairM1179File(t, tc.data), tc.field, io.ErrUnexpectedEOF, tc.length, tc.limit)
+			err := assertKVRecordLengthError(t, writeKVRecordFile(t, tc.data), tc.field, io.ErrUnexpectedEOF, tc.length, tc.limit)
 			if err.Remaining != tc.remaining {
 				t.Fatalf("remaining = %d, want %d", err.Remaining, tc.remaining)
 			}
@@ -125,14 +125,14 @@ func TestRepairM_1179_TruncatedFiles(t *testing.T) {
 	}
 }
 
-func TestRepairM_1179_TruncationBeforeAllocation(t *testing.T) {
+func TestKVRecordChecksTruncationBeforeAllocation(t *testing.T) {
 	// The declared value fits the supported limit, but only one byte remains.
-	data := append(repairM1179Length(0), repairM1179Length(MaxKVValueSize)...)
-	name := repairM1179File(t, append(data, 'v'))
+	data := append(encodeKVRecordLength(0), encodeKVRecordLength(MaxKVValueSize)...)
+	name := writeKVRecordFile(t, append(data, 'v'))
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
 	for i := 0; i < 4; i++ {
-		err := repairM1179AssertError(t, name, "value", io.ErrUnexpectedEOF, MaxKVValueSize, MaxKVValueSize)
+		err := assertKVRecordLengthError(t, name, "value", io.ErrUnexpectedEOF, MaxKVValueSize, MaxKVValueSize)
 		if err.Remaining != 1 {
 			t.Fatalf("remaining = %d, want 1", err.Remaining)
 		}
@@ -159,7 +159,7 @@ func TestRepairM_1179_TruncationBeforeAllocation(t *testing.T) {
 	}
 }
 
-func TestRepairM_1179_BoundaryEntries(t *testing.T) {
+func TestKVRecordBoundaryEntriesRoundTrip(t *testing.T) {
 	key := bytes.Repeat([]byte{0xa5}, int(MaxKVKeySize))
 	value := bytes.Repeat([]byte{0x5a}, int(MaxKVValueSize))
 	want := []KeyValuePair{
@@ -197,13 +197,13 @@ func TestRepairM_1179_BoundaryEntries(t *testing.T) {
 			t.Fatalf("entry %d did not round trip", i)
 		}
 	}
-	got, err = ReadKVEntriesFromFile(repairM1179File(t, nil))
+	got, err = ReadKVEntriesFromFile(writeKVRecordFile(t, nil))
 	if err != nil || len(got) != 0 {
 		t.Fatalf("empty file = %v, %v", got, err)
 	}
 }
 
-func TestRepairM_1179_StreamLengths(t *testing.T) {
+func TestKVRecordValidatesStreamLengths(t *testing.T) {
 	// Readers without a known file size still enforce the limit and report
 	// truncated payloads with the same error type.
 	for _, tc := range []struct {
@@ -211,9 +211,9 @@ func TestRepairM_1179_StreamLengths(t *testing.T) {
 		data  []byte
 		cause error
 	}{
-		{"oversized", repairM1179Length(math.MaxUint32), ErrKVRecordTooLarge},
-		{"missing", repairM1179Length(1), io.ErrUnexpectedEOF},
-		{"short", append(repairM1179Length(2), 'v'), io.ErrUnexpectedEOF},
+		{"oversized", encodeKVRecordLength(math.MaxUint32), ErrKVRecordTooLarge},
+		{"missing", encodeKVRecordLength(1), io.ErrUnexpectedEOF},
+		{"short", append(encodeKVRecordLength(2), 'v'), io.ErrUnexpectedEOF},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			data, err := readByteSlice(bytes.NewBuffer(tc.data), MaxKVValueSize)
@@ -225,11 +225,11 @@ func TestRepairM_1179_StreamLengths(t *testing.T) {
 	}
 }
 
-func TestRepairM_1179_LoadConsumer(t *testing.T) {
+func TestLoadAndShuffleReadsKVRecords(t *testing.T) {
 	dir := t.TempDir()
 	for _, key := range []byte{'a', 'b'} {
-		data := append(repairM1179Length(1), key)
-		data = append(data, repairM1179Length(1)...)
+		data := append(encodeKVRecordLength(1), key)
+		data = append(data, encodeKVRecordLength(1)...)
 		data = append(data, key+1)
 		if err := os.WriteFile(filepath.Join(dir, string(key)+".kv"), data, 0600); err != nil {
 			t.Fatal(err)
