@@ -42,7 +42,7 @@ fn policy() -> UpgradePolicy {
     UpgradePolicy::Authority([0x51; 32])
 }
 fn transcript() -> BTreeMap<String, Vec<u8>> {
-    let text = include_str!("../src/repair_22_31_256.hex");
+    let text = include_str!("../src/deployment_transcripts.hex");
     assert_eq!(
         layerx_programs::hex::encode(&hash(text.as_bytes())),
         "5798c9304ce5dd774f153da4f4f3208f1205f4cbfd1854732a49636dc9d76c6e"

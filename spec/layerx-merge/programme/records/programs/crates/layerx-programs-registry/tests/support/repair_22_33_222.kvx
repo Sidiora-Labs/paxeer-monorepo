@@ -7,7 +7,7 @@ baseline = "No prior task gate ledger or repair test existed on entry; no baseli
 [finding.deployment-support-producer]
 tests = ["deployment_support_producer_transports_original_admission", "deployment_support_producer_recovers_original_admission", "deployment_support_producer_refuses_synthetic_and_cross_wired_evidence", "deployment_support_producer_uses_consumer_trust"]
 repair = "Separate documented primitive constructors from an integration fixture that only decodes an exported canonical admission and verifies it with caller-owned production chain trust; preserve original signed TxRaw, indexed TxResult, H predecessor and H+1 state/interface witnesses without rebuilding any of them."
-producer = "Reuse the pinned committed node TxRaw/EVM/ABI and ResponseDeliverTx serializer transcript from repair_22_31_256.hex; the real runtime deploy/upgrade receipts supply expected state transitions."
+producer = "Reuse the pinned committed node TxRaw/EVM/ABI and ResponseDeliverTx serializer transcript from deployment_transcripts.hex; the real runtime deploy/upgrade receipts supply expected state transitions."
 boundary = "The regression's consensus peer is an in-memory signed chain/store fixture, not a running node or host; its proof export exercises the production admission codec and verifier. No full node/host admission export exists in the committed transcript, so host execution provenance is not claimed by this gate."
 
 [wiring.node-host-export]

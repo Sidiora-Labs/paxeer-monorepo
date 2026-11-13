@@ -34,7 +34,7 @@ use support::{chain::ChainFixture, node_deployment_fixture, program, AUTHORITY};
 
 const CHAIN: &str = "deployment-support-producer";
 const SEEDS: [[u8; 32]; 4] = [[1; 32], [2; 32], [3; 32], [4; 32]];
-const TRANSCRIPT: &str = include_str!("../src/repair_22_31_256.hex");
+const TRANSCRIPT: &str = include_str!("../src/deployment_transcripts.hex");
 
 fn hash(bytes: &[u8]) -> [u8; 32] {
     Sha256::digest(bytes).into()
@@ -143,7 +143,7 @@ struct PeerExport {
 
 // Replay original node serializer bytes into an in-memory consensus/store peer.
 // A full host-executed admission export is an explicit out-of-path wiring request
-// in support/repair_22_33_222.kvx; this peer does not claim to execute the Go host.
+// in spec/layerx-merge/programme/records/programs/crates/layerx-programs-registry/tests/support/repair_22_33_222.kvx; this peer does not claim to execute the Go host.
 fn peer_records(source: &BTreeMap<String, Vec<u8>>) -> Vec<DeploymentRecord> {
     let policy = UpgradePolicy::Authority(AUTHORITY);
     let mut runtime = Lifecycle::declared().unwrap_or_else(|error| panic!("{error:?}"));

@@ -475,11 +475,20 @@ fn clock_peer(root: &Path) -> (Arc<RuntimeClock>, Peer) {
 }
 
 struct OwnerFixture {
-    #[allow(dead_code, reason = "read by the including target repair_22_31_549")]
+    #[allow(
+        dead_code,
+        reason = "read by the including target bound_owner_identity_levels"
+    )]
     peer: HumanPeer,
-    #[allow(dead_code, reason = "read by the including target repair_22_31_549")]
+    #[allow(
+        dead_code,
+        reason = "read by the including target bound_owner_identity_levels"
+    )]
     labels: Arc<Mutex<ServedLabels>>,
-    #[allow(dead_code, reason = "read by the including target repair_22_31_549")]
+    #[allow(
+        dead_code,
+        reason = "read by the including target bound_owner_identity_levels"
+    )]
     credential: layerx_agentd::session::SessionCredential,
     owner: SharedAgentOwner<RemoteHumanAuthority>,
     retained: Arc<Mutex<Store>>,

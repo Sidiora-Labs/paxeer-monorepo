@@ -14,11 +14,11 @@ observed = "The new fixture's reduced unit price disagreed with the fixed ten-un
 repair = "Restore the original unit price and use a genuine shorter integer execution whose measured CPU bill, including the inflated case, fits the funded lease."
 
 [finding.billing-unbound]
-test = "tests/repair_22_31_260.rs::billing_unbound -> execute::market_tests::repair_22_31_260_billing_unbound"
+test = "tests/runtime_billing_challenges.rs::billing_unbound -> execute::market_tests::repair_22_31_260_billing_unbound"
 proof = "A genuine low-work trace and its measured usage/output defend an honest bill; inflating each of the six dimensions within profile limits or changing its output digest loses the terminal challenge with escrow, bond and capacity settled. Memory uses peak bytes times the authorized interval; ingress is the canonical integer argument encoding; egress is the terminal meter's output bytes."
 
 [finding.challenge-account-overlap]
-test = "tests/repair_22_31_260.rs::challenge_account_overlap -> execute::market_tests::repair_22_31_260_challenge_account_overlap"
+test = "tests/runtime_billing_challenges.rs::challenge_account_overlap -> execute::market_tests::repair_22_31_260_challenge_account_overlap"
 proof = "Both public overlapping account seeds are refused through the compiled guest with unchanged storage and no funding effects. A distinct funded challenge is serialized, its storage dropped and reopened, and its timeout settles exactly once with conserved transfers and released capacity."
 
 [continuation]

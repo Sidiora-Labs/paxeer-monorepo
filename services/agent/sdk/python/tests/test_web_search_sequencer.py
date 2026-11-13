@@ -299,7 +299,7 @@ def test_web_search_refuses_other_receipt_operations(scheme, module_id, operatio
 
 @pytest.mark.parametrize("bad_key", (False, True))
 def test_web_search_public_exact_exchange_replays_server_offer_and_pending(bad_key):
-    from test_repair_22_31_147 import http_server, rotated_receipt_key
+    from test_committed_receipt_consumers import http_server, rotated_receipt_key
     fixtures = ROOT / "services/interop/crates/x-websearch/tests/fixtures"
     exchange = json.loads((fixtures / "client-exchange.json").read_text())["exchange"]
     recording = json.loads((fixtures / "gateway/exact.json").read_text())
@@ -364,7 +364,7 @@ def test_web_search_public_exact_exchange_replays_server_offer_and_pending(bad_k
 
 @pytest.mark.parametrize("registered_did", (False, True))
 def test_web_search_public_metered_offer_binds_payer_and_refuses_retired_payment(registered_did):
-    from test_repair_22_31_147 import http_server, rotated_receipt_key
+    from test_committed_receipt_consumers import http_server, rotated_receipt_key
     fixtures = ROOT / "services/interop/crates/x-websearch/tests/fixtures"
     exchange = json.loads((fixtures / "client-exchange.json").read_text())["exchange"]
     gateway = json.loads((fixtures / "gateway/metered.json").read_text())
@@ -459,7 +459,7 @@ def test_web_search_public_metered_offer_binds_payer_and_refuses_retired_payment
 
 
 def test_web_search_recorded_producer_digest_is_the_authenticated_unsigned_receipt():
-    from test_repair_22_31_147 import rotated_receipt_key
+    from test_committed_receipt_consumers import rotated_receipt_key
     fixtures = ROOT / "services/interop/crates/x-websearch/tests/fixtures"
     exchange = json.loads((fixtures / "client-exchange.json").read_text())["exchange"]
     exact = json.loads((fixtures / "gateway/exact.json").read_text())

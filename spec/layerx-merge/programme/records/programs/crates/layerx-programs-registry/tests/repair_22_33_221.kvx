@@ -2,9 +2,9 @@
 mode = "BUILD"
 acceptance = "22998.1"
 baseline_revision = "0ba7cfa54c7f07b37201b1f12fcc2f1dd7ed0ed7"
-baseline = "No prior gate ledger or repair_22_33_221.rs exists in this checkout. The earlier attempt's dependent-crate build failure is recorded by do_14; no baseline test failures are claimed. The explicit implementation-first, hf-build then hf-done order supersedes do_11's historical instruction to run verify by hand."
+baseline = "No prior gate ledger or chain_deployment_recovery.rs exists in this checkout. The earlier attempt's dependent-crate build failure is recorded by do_14; no baseline test failures are claimed. The explicit implementation-first, hf-build then hf-done order supersedes do_11's historical instruction to run verify by hand."
 qualification = "hf-build then hf-done on the unchanged candidate; the runner's private gate ledger records the exact candidate revision, command, exit code and log location."
-producer = "Pinned committed repair_22_31_256.hex node TxRaw, EVM ABI, deterministic TxResult, ctx.go export/restore, descriptor and migration-accounting bytes; bootstrap_headers.json Go consensus header/commit vectors."
+producer = "Pinned committed deployment_transcripts.hex node TxRaw, EVM ABI, deterministic TxResult, ctx.go export/restore, descriptor and migration-accounting bytes; bootstrap_headers.json Go consensus header/commit vectors."
 transport = "Production LXCP, DeploymentExecutionProof, DeploymentProof, DeploymentEnvelope, DeploymentJournalEntry and TrustRoot codecs; committed in-process IAVL/multistore peer supplies membership and absence operations for exact exported rows."
 
 [finding.chain-upgrade-restart-test]
