@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type repair1284Harness struct {
+type cw721ClaimPaginationHarness struct {
 	ctx        sdk.Context
 	key        cryptotypes.PrivKey
 	sender     sdk.AccAddress
@@ -34,7 +34,7 @@ type repair1284Harness struct {
 	wasm       *wasmkeeper.PermissionedKeeper
 }
 
-func newRepair1284Harness(t *testing.T) *repair1284Harness {
+func newCW721ClaimPaginationHarness(t *testing.T) *cw721ClaimPaginationHarness {
 	t.Helper()
 	app := testkeeper.EVMTestApp
 	ctx, _ := app.GetContextForDeliverTx(nil).CacheContext()
@@ -48,11 +48,11 @@ func newRepair1284Harness(t *testing.T) *repair1284Harness {
 	app.AccountKeeper.SetAccount(ctx, authtypes.NewBaseAccount(recipient, nil, 11, 0))
 	precompile, err := solo.NewPrecompile(app.GetPrecompileKeepers())
 	require.NoError(t, err)
-	return &repair1284Harness{ctx, key, sender, caller, recipient, precompile,
+	return &cw721ClaimPaginationHarness{ctx, key, sender, caller, recipient, precompile,
 		wasmkeeper.NewDefaultPermissionKeeper(app.WasmKeeper)}
 }
 
-func (h *repair1284Harness) nft(t *testing.T, fixture string, count int) sdk.AccAddress {
+func (h *cw721ClaimPaginationHarness) nft(t *testing.T, fixture string, count int) sdk.AccAddress {
 	t.Helper()
 	var code []byte
 	var err error
@@ -82,14 +82,14 @@ func (h *repair1284Harness) nft(t *testing.T, fixture string, count int) sdk.Acc
 	return contract
 }
 
-func (h *repair1284Harness) payload(t *testing.T, assets ...*evmtypes.Asset) []byte {
+func (h *cw721ClaimPaginationHarness) payload(t *testing.T, assets ...*evmtypes.Asset) []byte {
 	t.Helper()
 	account := testkeeper.EVMTestApp.AccountKeeper.GetAccount(h.ctx, h.sender)
 	return signClaimMsg(t, evmtypes.NewMsgClaimSpecific(h.sender, h.caller, assets...),
 		h.sender, h.caller, account, h.key)
 }
 
-func (h *repair1284Harness) run(t *testing.T, payload []byte) ([]byte, uint64, error) {
+func (h *cw721ClaimPaginationHarness) run(t *testing.T, payload []byte) ([]byte, uint64, error) {
 	t.Helper()
 	input, err := h.precompile.GetABI().Pack(solo.ClaimSpecificMethod, payload)
 	require.NoError(t, err)
@@ -110,11 +110,11 @@ func (h *repair1284Harness) run(t *testing.T, payload []byte) ([]byte, uint64, e
 	return ret, remaining, nil
 }
 
-func repair1284NFTAsset(contract sdk.AccAddress, token string) *evmtypes.Asset {
+func cw721ClaimAsset(contract sdk.AccAddress, token string) *evmtypes.Asset {
 	return &evmtypes.Asset{AssetType: evmtypes.AssetType_TYPECW721, ContractAddress: contract.String(), Denom: token}
 }
 
-func (h *repair1284Harness) owners(t *testing.T, contract sdk.AccAddress, count int, owner sdk.AccAddress) {
+func (h *cw721ClaimPaginationHarness) owners(t *testing.T, contract sdk.AccAddress, count int, owner sdk.AccAddress) {
 	t.Helper()
 	for i := 0; i < count; i++ {
 		require.Equal(t, owner.String(), queryCW721Owner(h.ctx, testkeeper.EVMTestApp.WasmKeeper,
@@ -122,7 +122,7 @@ func (h *repair1284Harness) owners(t *testing.T, contract sdk.AccAddress, count 
 	}
 }
 
-func (h *repair1284Harness) page(t *testing.T, contract sdk.AccAddress, cursor string) []string {
+func (h *cw721ClaimPaginationHarness) page(t *testing.T, contract sdk.AccAddress, cursor string) []string {
 	t.Helper()
 	response, err := testkeeper.EVMTestApp.WasmKeeper.QuerySmartSafe(h.ctx, contract,
 		solo.CW721TokensQueryPayload(h.sender, cursor))
@@ -132,8 +132,8 @@ func (h *repair1284Harness) page(t *testing.T, contract sdk.AccAddress, cursor s
 	return tokens
 }
 
-func TestRepairM_1284_RepeatedPageAtomic(t *testing.T) {
-	h := newRepair1284Harness(t)
+func TestCW721ClaimRepeatedPageAtomic(t *testing.T) {
+	h := newCW721ClaimPaginationHarness(t)
 	repeated := h.nft(t, "repeat", 15)
 	honest := h.nft(t, "base", 2)
 	cw20 := setupCW20Contract(h.ctx, h.key, *h.wasm)
@@ -146,7 +146,7 @@ func TestRepairM_1284_RepeatedPageAtomic(t *testing.T) {
 	payload := h.payload(t,
 		&evmtypes.Asset{AssetType: evmtypes.AssetType_TYPENATIVE, Denom: "repair1284"},
 		&evmtypes.Asset{AssetType: evmtypes.AssetType_TYPECW20, ContractAddress: cw20.String()},
-		repair1284NFTAsset(honest, "0000"), repair1284NFTAsset(repeated, ""))
+		cw721ClaimAsset(honest, "0000"), cw721ClaimAsset(repeated, ""))
 	var refusal string
 	for attempt := 0; attempt < 2; attempt++ {
 		ret, remaining, err := h.run(t, payload)
@@ -169,7 +169,7 @@ func TestRepairM_1284_RepeatedPageAtomic(t *testing.T) {
 	}
 }
 
-func TestRepairM_1284_MalformedPagination(t *testing.T) {
+func TestCW721ClaimMalformedPagination(t *testing.T) {
 	for _, tc := range []struct{ fixture, refusal string }{
 		{"duplicate", `CW721 claim-all contains duplicate token id "0000"`},
 		{"backwards", `CW721 claim-all has nonadvancing token id "0000" after "0001"`},
@@ -177,13 +177,13 @@ func TestRepairM_1284_MalformedPagination(t *testing.T) {
 		{"oversized", fmt.Sprintf("CW721 claim-all exceeds %d tokens; use claimSpecific with a token denom", solo.MaxCW721ClaimTokens)},
 	} {
 		t.Run(tc.fixture, func(t *testing.T) {
-			h := newRepair1284Harness(t)
+			h := newCW721ClaimPaginationHarness(t)
 			count := 2
 			if tc.fixture == "oversized" {
 				count = solo.MaxCW721ClaimTokens + 1
 			}
 			contract := h.nft(t, tc.fixture, count)
-			_, _, err := h.run(t, h.payload(t, repair1284NFTAsset(contract, "")))
+			_, _, err := h.run(t, h.payload(t, cw721ClaimAsset(contract, "")))
 			require.EqualError(t, err, tc.refusal)
 			h.owners(t, contract, count, h.sender)
 			require.Zero(t, testkeeper.EVMTestApp.AccountKeeper.GetAccount(h.ctx, h.sender).GetSequence())
@@ -191,16 +191,16 @@ func TestRepairM_1284_MalformedPagination(t *testing.T) {
 	}
 }
 
-func TestRepairM_1284_TokenBoundAndSpecificRoute(t *testing.T) {
-	h := newRepair1284Harness(t)
+func TestCW721ClaimTokenBoundAndSpecificRoute(t *testing.T) {
+	h := newCW721ClaimPaginationHarness(t)
 	count := solo.MaxCW721ClaimTokens + 1
 	contract := h.nft(t, "base", count)
-	_, _, err := h.run(t, h.payload(t, repair1284NFTAsset(contract, "")))
+	_, _, err := h.run(t, h.payload(t, cw721ClaimAsset(contract, "")))
 	require.EqualError(t, err, fmt.Sprintf("CW721 claim-all exceeds %d tokens; use claimSpecific with a token denom", solo.MaxCW721ClaimTokens))
 	h.owners(t, contract, count, h.sender)
 	require.Zero(t, testkeeper.EVMTestApp.AccountKeeper.GetAccount(h.ctx, h.sender).GetSequence())
 	token := fmt.Sprintf("%04d", count-1)
-	payload := h.payload(t, repair1284NFTAsset(contract, token))
+	payload := h.payload(t, cw721ClaimAsset(contract, token))
 	_, _, err = h.run(t, payload)
 	require.NoError(t, err)
 	h.owners(t, contract, count-1, h.sender)
@@ -210,21 +210,21 @@ func TestRepairM_1284_TokenBoundAndSpecificRoute(t *testing.T) {
 	require.ErrorContains(t, err, "account sequence mismatch")
 }
 
-func TestRepairM_1284_PageBound(t *testing.T) {
-	h := newRepair1284Harness(t)
+func TestCW721ClaimPageBound(t *testing.T) {
+	h := newCW721ClaimPaginationHarness(t)
 	contract := h.nft(t, "single", solo.MaxCW721ClaimPages)
 	require.Equal(t, []string{"0000"}, h.page(t, contract, ""))
 	require.Equal(t, []string{"0001"}, h.page(t, contract, "0000"))
-	_, _, err := h.run(t, h.payload(t, repair1284NFTAsset(contract, "")))
+	_, _, err := h.run(t, h.payload(t, cw721ClaimAsset(contract, "")))
 	require.EqualError(t, err, fmt.Sprintf("CW721 claim-all exceeds %d query pages; use claimSpecific with a token denom", solo.MaxCW721ClaimPages))
 	h.owners(t, contract, solo.MaxCW721ClaimPages, h.sender)
 	require.Zero(t, testkeeper.EVMTestApp.AccountKeeper.GetAccount(h.ctx, h.sender).GetSequence())
-	_, _, err = h.run(t, h.payload(t, repair1284NFTAsset(contract, "0000")))
+	_, _, err = h.run(t, h.payload(t, cw721ClaimAsset(contract, "0000")))
 	require.NoError(t, err)
 	require.Equal(t, h.recipient.String(), queryCW721Owner(h.ctx, testkeeper.EVMTestApp.WasmKeeper, contract, "0000"))
 }
 
-func TestRepairM_1284_FiniteEnumeration(t *testing.T) {
+func TestCW721ClaimFiniteEnumeration(t *testing.T) {
 	for _, tc := range []struct {
 		name, fixture string
 		count         int
@@ -235,9 +235,9 @@ func TestRepairM_1284_FiniteEnumeration(t *testing.T) {
 		{"terminal_page_at_bound", "single", solo.MaxCW721ClaimPages - 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			h := newRepair1284Harness(t)
+			h := newCW721ClaimPaginationHarness(t)
 			contract := h.nft(t, tc.fixture, tc.count)
-			_, _, err := h.run(t, h.payload(t, repair1284NFTAsset(contract, "")))
+			_, _, err := h.run(t, h.payload(t, cw721ClaimAsset(contract, "")))
 			require.NoError(t, err)
 			h.owners(t, contract, tc.count, h.recipient)
 			require.Empty(t, h.page(t, contract, ""))
