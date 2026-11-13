@@ -1,0 +1,69 @@
+[manifest]
+task = "22.43.107"
+records_moved = 0
+files_renamed = 15
+directories_renamed = 1
+
+[file.1]
+from = "sdk/ics23/repair_m1359.kvx"
+to = "sdk/ics23/proof_verification.kvx"
+
+[file.2]
+from = "sdk/ics23/repair_m1359_test.go"
+to = "sdk/ics23/proof_verification_test.go"
+
+[file.3]
+from = "sdk/ics23/testdata/repair_m1359/README.md"
+to = "sdk/ics23/testdata/producer_vectors/README.md"
+
+[file.4]
+from = "sdk/ics23/testdata/repair_m1359/iavl/exist_left.json"
+to = "sdk/ics23/testdata/producer_vectors/iavl/exist_left.json"
+
+[file.5]
+from = "sdk/ics23/testdata/repair_m1359/iavl/exist_middle.json"
+to = "sdk/ics23/testdata/producer_vectors/iavl/exist_middle.json"
+
+[file.6]
+from = "sdk/ics23/testdata/repair_m1359/iavl/exist_right.json"
+to = "sdk/ics23/testdata/producer_vectors/iavl/exist_right.json"
+
+[file.7]
+from = "sdk/ics23/testdata/repair_m1359/iavl/nonexist_left.json"
+to = "sdk/ics23/testdata/producer_vectors/iavl/nonexist_left.json"
+
+[file.8]
+from = "sdk/ics23/testdata/repair_m1359/iavl/nonexist_middle.json"
+to = "sdk/ics23/testdata/producer_vectors/iavl/nonexist_middle.json"
+
+[file.9]
+from = "sdk/ics23/testdata/repair_m1359/iavl/nonexist_right.json"
+to = "sdk/ics23/testdata/producer_vectors/iavl/nonexist_right.json"
+
+[file.10]
+from = "sdk/ics23/testdata/repair_m1359/tendermint/exist_left.json"
+to = "sdk/ics23/testdata/producer_vectors/tendermint/exist_left.json"
+
+[file.11]
+from = "sdk/ics23/testdata/repair_m1359/tendermint/exist_middle.json"
+to = "sdk/ics23/testdata/producer_vectors/tendermint/exist_middle.json"
+
+[file.12]
+from = "sdk/ics23/testdata/repair_m1359/tendermint/exist_right.json"
+to = "sdk/ics23/testdata/producer_vectors/tendermint/exist_right.json"
+
+[file.13]
+from = "sdk/ics23/testdata/repair_m1359/tendermint/nonexist_left.json"
+to = "sdk/ics23/testdata/producer_vectors/tendermint/nonexist_left.json"
+
+[file.14]
+from = "sdk/ics23/testdata/repair_m1359/tendermint/nonexist_middle.json"
+to = "sdk/ics23/testdata/producer_vectors/tendermint/nonexist_middle.json"
+
+[file.15]
+from = "sdk/ics23/testdata/repair_m1359/tendermint/nonexist_right.json"
+to = "sdk/ics23/testdata/producer_vectors/tendermint/nonexist_right.json"
+
+[file.16]
+from = "sdk/ics23/testdata/repair_m1359"
+to = "sdk/ics23/testdata/producer_vectors"
