@@ -1,0 +1,61 @@
+[repair]
+task = "22.33.19"
+base_revision = "39bdf7bceaa86b05bbba7248df1e01f4f36022e3"
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_python_sdk_test_discovery.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "hf-build and hf-done record the exact same candidate revision, command, exit code and private log in /out/run/gates.jsonl. The final response copies the last hf-done evidence line, which supplies the verified revision without a self-referential revision embedded in its own source tree."
+implementation = "Append tests to the existing pytest testpaths, preserve the central suite and pythonpath, add an executable collection contract to the owning SDK suite and document the default unfiltered gate. No existing test file or assertion changes."
+source_proof = "The repair gate parses the real TOML manifest, invokes the local SDK contract against pytest's real Config parser from the package working directory, asserts both default roots and discovery patterns without ignore/deselect/addopts, inventories both source trees, and checks byte-for-byte SHA256 preservation of every previous local and central test module."
+review_only = "SDK suite collection/import and runtime assertions are not executed by this focused gate. The contract proves pytest's selection of both default roots, not successful import or execution of every module. Native C receipt producers, generated-output checks, local EVM cases, integration inputs, live restart behavior and separately owned CI jobs require the owning full SDK gate; no green full-suite result or live recovery proof is claimed."
+
+[baseline]
+verification_run = false
+reason = "The explicit task order requires complete implementation before formatting, building or testing and forbids a manual verify before hf-done. It overrides the embedded unchanged-tree verify request; no baseline gate or baseline test failure is claimed."
+observed_failing_tests = []
+initial_state = "Only runner-owned .cgignore and spec task-start changes existed. gate.json reported zero build and verify runs; gates.jsonl and both repair deliverables were absent. Preserve runner setup without editing it."
+discovery_extensions = ["test_x402_rpc_surface.py"]
+central_module_count = 44
+central_sha256 = "723cd6f2fc936674db3b8f3dc1b97db469dbe172e1578f3f5f9fdf629b5e9c31"
+
+[baseline.local_sha256]
+"test_ai_market_commit.py" = "08d8040bf478c8e44ec991a2901c263fc194555ccaddcf210fb89a2200c2833d"
+"test_px_commit.py" = "58dec34db20ff5190e6679315ac3168b93fe561bf14caae5b161ad69ef5ce5ee"
+"test_receipt_generated_current.py" = "3f438666460c17baf14cc2a1938e99581e621ab95531f894bca64b0e23e15e82"
+"test_retired_kernel_receipts.py" = "a708465a766c939b042310cacb709ccf0621011960c940ce4092cdd6831be841"
+"test_revert_retryable.py" = "5b03a8179beccf9f6ce8dc7f883b372eb46d6067faa0383d75b21f50a1815615"
+"test_sequencer_receipt.py" = "9d664e5adf8eb4e9ec0d858dbbb195970887e6821009aec0ef0ff668b03da52a"
+"test_spot_call.py" = "320cd8e62db028df964fd7ac833f73616efb696155f852b19788f46d3de86ef7"
+"test_web_search_sequencer.py" = "af9dca5051db70c4929502d23c5387944fb888029189ebc587c6adf666a64a62"
+"test_x402_draw_sequencer.py" = "263666bb8dcc61d7faded9da5f39fb3091e14d05c7f928c51b5e9613e5a5b8d3"
+"test_x402_http_sequencer.py" = "abadb985246296a2a7746cc6bceba5abd4a7f9188a983053caf932212c8f1e7c"
+"test_x402_rpc_surface.py" = "d7ca4dc716b5f35748e415e469aeea59eec6854dbe55371e12936594d3bce229"
+
+[finding.local-test-discovery]
+audit = "22.30.100"
+file = "services/agent/sdk/python/pyproject.toml"
+class = "test-gap"
+severity = "medium"
+repair = "Default testpaths now include central and local suites; the local collection contract and TESTING.md define the owning unfiltered SDK gate."
+tests = ["test_manifest_includes_both_suites_without_filtering", "test_pytest_consumes_the_owning_sdk_collection_contract", "test_existing_receipt_restart_and_rejection_suites_are_preserved", "test_documented_gate_covers_the_complete_discovery_inventory", "test_record_maps_the_finding_and_limits_the_claimed_evidence"]
+
+[wiring]
+requests = ["spec/layerx-merge/spec.kvx task 22.9.11 — Domain 9 SDK owner: wire the owning SDK gate to cd services/agent/sdk/python && python3 -m pytest -q, covering both roots without the currently explicit tests argument and deselections; resolve existing failures in their owning tasks without weakening assertions.", ".github/workflows/xweb-test.yml — Domain 9 SDK/CI owner: wire the full default Python SDK invocation and both source roots into the owning SDK CI job with pytest, cryptography and existing native/integration prerequisites; the current targeted web-search job proves only its explicitly named central module."]
+
+[gotchas]
+ordering = "The audit template asks for an unchanged-tree verify, but explicit task order forbids it; preserve gate budget and record no invented baseline result."
+scope = "GOTCHA.kvx and spec files are outside scope. Record observations here and leave initial runner changes intact."
+collection = "Explicit pytest directory arguments override testpaths. Adding the local path to the manifest cannot by itself expand out-of-path task 22.9.11 or the targeted CI command."
+
+[qualification_pin_22_31_623]
+source_revision = "eee2ef99eb572a186ffe9da5475a359f8d9c8f39"
+policy = "Refresh the retained full-content fingerprint from the live producer after authorized task repairs; original audit metadata remains historical. This is a source pin, not a claim that qualification passed."
+
+[qualification_pin_22_31_623.continuation_5]
+producer_commit = "a7d39f7f680edfb7e6e92a49468618bd1341cb30"
+policy = "Retain all content fingerprints; extend the automatic-discovery inventory with the hosted RPC surface module introduced by task 22.39.137. The documentation lists the ten original modules and expressly includes future test modules automatically."
+
+[qualification_pin_22_31_623.continuation_5_repair]
+producer_commit = "5247adc56b93433fa7d8ad18a98455124a7e19df"
+source_revision = "1d8f18989ce7fac0f6cfba1a6c2bc4898a0ff22b"
+policy = "Refresh every retained fingerprint from the complete live local and central source inventories after the merged SDK payment repair 22.39.120 and this task native-binding recording; retain exact full-content equality for every module."
