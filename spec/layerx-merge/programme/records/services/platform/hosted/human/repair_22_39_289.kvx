@@ -4,7 +4,7 @@ decision = "3126"
 gotcha = "3989"
 mode = "BUILD"
 baseline_revision = "2860cad02046d39225295bf26281b61e9b59c124"
-scope = ["services/platform/hosted/human/repair_22_39_289.kvx", "services/platform/hosted/human/test_material.py", "services/platform/hosted/human/test_provision.py", "services/platform/hosted/human/test_owner_request.py"]
+scope = ["spec/layerx-merge/programme/records/services/platform/hosted/human/repair_22_39_289.kvx", "services/platform/hosted/human/test_material.py", "services/platform/hosted/human/test_provision.py", "services/platform/hosted/human/test_owner_request.py"]
 qualification = "The final verify row in /out/run/gates.jsonl records the verified revision, exact command, exit code and private log; qualification requires exit zero and a successful build row at that same revision. The runner records the candidate revision externally because embedding its own commit hash would change this record and invalidate the build. No pre-change test run or unexecuted gate is claimed."
 verified_revision_source = "/out/run/gates.jsonl: last kind=verify row, revision field"
 build = "hf-build"
