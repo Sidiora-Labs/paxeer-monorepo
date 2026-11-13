@@ -374366,7 +374366,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.318]
 title = "State on the HTTP transport conformance page which cases are for review only"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
