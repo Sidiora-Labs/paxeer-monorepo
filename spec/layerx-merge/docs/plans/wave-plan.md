@@ -42,9 +42,12 @@ that commitment before executing a sequenced proposal.
 
 ## Services and clients
 
-The node JSON-RPC and hosted gateway APIs have distinct method sets. Node
-namespaces include `eth` and `pax`; `px_` methods are declared by the hosted
-[gateway contract](../../../../services/platform/hosted/gateway/openrpc.json).
+The node JSON-RPC and hosted gateway each register their own method sets.
+[Node registration](../../../../rpc/server.go) includes `eth`, `pax` and `px`
+handlers; the node's `px_` methods include chain reads and explicit refusals for
+hosted service operations. The hosted
+[gateway contract](../../../../services/platform/hosted/gateway/openrpc.json)
+declares its methods separately.
 The explorer frontend lives in `apps/explorer`, and its backend and indexer live
 in `services/explorer/backend`. Wallet, agent and platform packages have separate
 manifests and dependency boundaries.

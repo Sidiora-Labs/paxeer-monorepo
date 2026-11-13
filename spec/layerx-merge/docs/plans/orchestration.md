@@ -51,9 +51,15 @@ order.
 
 ## Node and hosted APIs
 
-The public node serves JSON-RPC at its root path. Its namespaces are `debug`,
-`echo`, `eth`, `net`, `pax`, `test` and `txpool`. The `px_` methods belong to the
-hosted gateway; its method contract is
+The node serves JSON-RPC at its root path. The HTTP
+[server registration](../../../../rpc/server.go) includes `debug`, `echo`, `eth`,
+`net`, `pax`, `pax2`, `px`, `txpool` and `web3`. The `test` namespace is added
+only when enabled on a non-live chain ID. The WebSocket registration includes
+`echo`, `eth`, `net`, `pax`, `px`, `txpool` and `web3`.
+
+The node's `px_` handlers provide account, history, consensus and receipt-key
+reads, with explicit refusals for operations requiring hosted services. The
+hosted gateway publishes its own method contract in
 [openrpc.json](../../../../services/platform/hosted/gateway/openrpc.json).
 Node RPC implementations live in [rpc](../../../../rpc).
 
