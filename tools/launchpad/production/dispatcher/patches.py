@@ -37,8 +37,8 @@ def _reserved(path):
     # Reviewed lane-owned leaf artifacts; these never bypass ownership checks.
     owned_manifest = path in {'sdk/launchpad/packages/sdk/package.json', 'apps/launchpad/mobile/package.json'}
     owned_generated = path == 'sdk/launchpad/packages/sdk/src/types.gen.ts'
-    lane_handoff = re.fullmatch(r'tools/launchpad/production/dispatcher/tests/fixtures/repair_22_33_915/handoffs/L(?:0[1-9]|[1-4][0-9]|50)/.+', path) is not None
-    fixture_root = 'tools/launchpad/production/dispatcher/tests/fixtures/repair_22_33_915'
+    lane_handoff = re.fullmatch(r'tools/launchpad/production/dispatcher/tests/fixtures/fifty_lane_graph/handoffs/L(?:0[1-9]|[1-4][0-9]|50)/.+', path) is not None
+    fixture_root = 'tools/launchpad/production/dispatcher/tests/fixtures/fifty_lane_graph'
     return (path == fixture_root or (path.startswith(fixture_root + '/') and not lane_handoff) or
             path == 'spec' or (path.startswith('spec/') and not lane_handoff) or
             path == 'launchpad/spec' or (path.startswith('launchpad/spec/') and not lane_handoff) or

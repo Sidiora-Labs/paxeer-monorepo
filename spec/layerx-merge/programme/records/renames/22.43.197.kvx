@@ -1,0 +1,12 @@
+[manifest]
+task = "22.43.197"
+records_moved = 0
+files_renamed = 2
+
+[file.1]
+from = "tests/occ/repair_m790.kvx"
+to = "tests/occ/comparison.kvx"
+
+[file.2]
+from = "tests/occ/repair_m790_test.go"
+to = "tests/occ/comparison_test.go"

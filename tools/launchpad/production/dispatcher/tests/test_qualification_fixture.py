@@ -8,7 +8,7 @@ from dispatcher.graph import Graph, GraphError
 from dispatcher.qualification_fixture import normalize_fixture
 
 class FixtureTests(unittest.TestCase):
- root = Path(os.environ.get('PRODUCTION_DISPATCHER_SPEC_ROOT',Path(__file__).resolve().parent/'fixtures/repair_22_33_915'))
+ root = Path(os.environ.get('PRODUCTION_DISPATCHER_SPEC_ROOT',Path(__file__).resolve().parent/'fixtures/fifty_lane_graph'))
  def test_live_status_variants_are_private_and_projection_consistent(self):
   root=self.root
   original=(root/'spec.kvx').read_text()
