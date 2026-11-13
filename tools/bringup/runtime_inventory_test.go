@@ -25,7 +25,7 @@ import (
 	"time"
 )
 
-func repairM792Read(t *testing.T, path string) []byte {
+func runtimeInventoryRead(t *testing.T, path string) []byte {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -34,16 +34,16 @@ func repairM792Read(t *testing.T, path string) []byte {
 	return data
 }
 
-func repairM792Inspect(t *testing.T, args []string, input []byte) (string, error) {
+func runtimeInventoryInspect(t *testing.T, args []string, input []byte) (string, error) {
 	t.Helper()
 	var output bytes.Buffer
 	err := RunInspector(context.Background(), args, bytes.NewReader(input), &output)
 	return output.String(), err
 }
 
-func repairM792Inventory(t *testing.T) PublicInventory {
+func runtimePublicInventory(t *testing.T) PublicInventory {
 	t.Helper()
-	data := repairM792Read(t, "../../docs/site/docs/reference/public-rpc.md")
+	data := runtimeInventoryRead(t, "../../docs/site/docs/reference/public-rpc.md")
 	inventory, err := ReadPublicInventory(bytes.NewReader(data))
 	if err != nil {
 		t.Fatal(err)
@@ -51,7 +51,7 @@ func repairM792Inventory(t *testing.T) PublicInventory {
 	return inventory
 }
 
-func repairM792Bundle(t *testing.T, generation string) (string, IdentityBundle) {
+func runtimeInventoryBundle(t *testing.T, generation string) (string, IdentityBundle) {
 	t.Helper()
 	directory := t.TempDir()
 	if err := os.Chmod(directory, 0700); err != nil {
@@ -59,7 +59,7 @@ func repairM792Bundle(t *testing.T, generation string) (string, IdentityBundle) 
 	}
 	bundle := IdentityBundle{}
 	for _, file := range identityFiles {
-		data := repairM792Read(t, filepath.Join("tests/fixtures/repair_m792", generation, file.File))
+		data := runtimeInventoryRead(t, filepath.Join("tests/fixtures/ca_renewal", generation, file.File))
 		bundle[file.File] = data
 		if err := os.WriteFile(filepath.Join(directory, file.File), data, 0600); err != nil {
 			t.Fatal(err)
@@ -68,7 +68,7 @@ func repairM792Bundle(t *testing.T, generation string) (string, IdentityBundle) 
 	return directory, bundle
 }
 
-func repairM792Railway(t *testing.T, bundle IdentityBundle, list bool) []byte {
+func runtimeInventoryRailway(t *testing.T, bundle IdentityBundle, list bool) []byte {
 	t.Helper()
 	values := map[string]string{}
 	for _, file := range identityFiles {
@@ -91,10 +91,10 @@ func repairM792Railway(t *testing.T, bundle IdentityBundle, list bool) []byte {
 	return data
 }
 
-func TestRepairM_792_FoundationWrapperRetiredTarget(t *testing.T) {
+func TestFoundationWrapperRetiredTarget(t *testing.T) {
 	// The installed producer and qualification consumer exchange the actual
 	// merged plan. Neither native artifacts nor a build tool are prerequisites.
-	wire, err := repairM792Inspect(t, []string{"runtime-plan"}, nil)
+	wire, err := runtimeInventoryInspect(t, []string{"runtime-plan"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +103,7 @@ func TestRepairM_792_FoundationWrapperRetiredTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	var producer RuntimePlan
-	if err := json.Unmarshal(repairM792Read(t, "runtime-bundle.json"), &producer); err != nil {
+	if err := json.Unmarshal(runtimeInventoryRead(t, "runtime-bundle.json"), &producer); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(plan, producer) || !reflect.DeepEqual(plan.Names, []string{"paxd", "attestor", "bringup-inspect"}) {
@@ -118,8 +118,8 @@ func TestRepairM_792_FoundationWrapperRetiredTarget(t *testing.T) {
 			t.Fatalf("missing merged dependency %s", required)
 		}
 	}
-	wrapper := string(repairM792Read(t, "build-foundation-artifacts.sh"))
-	producerSource := string(repairM792Read(t, "tests/foundation-artifacts.py"))
+	wrapper := string(runtimeInventoryRead(t, "build-foundation-artifacts.sh"))
+	producerSource := string(runtimeInventoryRead(t, "tests/foundation-artifacts.py"))
 	for _, required := range []string{"--build --bundle merged-runtime", "\"$@\""} {
 		if !strings.Contains(wrapper, required) {
 			t.Fatalf("wrapper lost explicit build contract: %s", required)
@@ -136,7 +136,7 @@ func TestRepairM_792_FoundationWrapperRetiredTarget(t *testing.T) {
 		}
 	}
 	for _, consumer := range []string{"tests/paxeer-x-fixture-foundation.py"} {
-		if !strings.Contains(string(repairM792Read(t, consumer)), "ART.validate(") {
+		if !strings.Contains(string(runtimeInventoryRead(t, consumer)), "ART.validate(") {
 			t.Fatal("real fixture no longer validates producer manifest")
 		}
 	}
@@ -164,8 +164,8 @@ func TestRepairM_792_FoundationWrapperRetiredTarget(t *testing.T) {
 	}
 }
 
-func TestRepairM_792_CARetiredAuthorityAndRouter(t *testing.T) {
-	wire, err := repairM792Inspect(t, []string{"services", "ca-services.tsv"}, nil)
+func TestCARetiredAuthorityAndRouter(t *testing.T) {
+	wire, err := runtimeInventoryInspect(t, []string{"services", "ca-services.tsv"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +177,7 @@ func TestRepairM_792_CARetiredAuthorityAndRouter(t *testing.T) {
 		t.Fatalf("want all 30 live identities, got %d", len(rows))
 	}
 	names := map[string]bool{}
-	scanner := strings.Split(string(repairM792Read(t, "railway-names.env")), "\n")
+	scanner := strings.Split(string(runtimeInventoryRead(t, "railway-names.env")), "\n")
 	for _, line := range scanner {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
@@ -205,16 +205,16 @@ func TestRepairM_792_CARetiredAuthorityAndRouter(t *testing.T) {
 	if len(names) != 0 || !foundGateway || !foundRedis {
 		t.Fatalf("roster/name ownership mismatch: extras=%v gateway=%t redis=%t", names, foundGateway, foundRedis)
 	}
-	if !strings.Contains(string(repairM792Read(t, "ca.sh")), `cat "$repo_root/tools/bringup/ca-services.tsv"`) {
+	if !strings.Contains(string(runtimeInventoryRead(t, "ca.sh")), `cat "$repo_root/tools/bringup/ca-services.tsv"`) {
 		t.Fatal("shell issuer bypasses shared roster")
 	}
-	if strings.Contains(string(repairM792Read(t, "railway-names.env")), "redis-router") {
+	if strings.Contains(string(runtimeInventoryRead(t, "railway-names.env")), "redis-router") {
 		t.Fatal("retired Redis SAN retained")
 	}
 }
 
-func TestRepairM_792_CAExpiredRenewalRecovery(t *testing.T) {
-	directory, original := repairM792Bundle(t, "expired")
+func TestCAExpiredRenewalRecovery(t *testing.T) {
+	directory, original := runtimeInventoryBundle(t, "expired")
 	leaf, err := parsePEMCertificate(original["cert.pem"])
 	if err != nil {
 		t.Fatal(err)
@@ -248,7 +248,7 @@ func TestRepairM_792_CAExpiredRenewalRecovery(t *testing.T) {
 	}
 	// The recorded renewal was emitted by ca.sh sign + derive_cmd under the
 	// retained issuer and key; reopen custody only after the handoff is stored.
-	_, renewed := repairM792Bundle(t, "renewed")
+	_, renewed := runtimeInventoryBundle(t, "renewed")
 	if !bytes.Equal(original["key.pem"], renewed["key.pem"]) || !bytes.Equal(original["ca.pem"], renewed["ca.pem"]) {
 		t.Fatal("renewal replaced the established key or authority")
 	}
@@ -297,15 +297,15 @@ func TestRepairM_792_CAExpiredRenewalRecovery(t *testing.T) {
 	}
 }
 
-func TestRepairM_792_CABundleConsistency(t *testing.T) {
-	_, valid := repairM792Bundle(t, "renewed")
+func TestCABundleConsistency(t *testing.T) {
+	_, valid := runtimeInventoryBundle(t, "renewed")
 	if err := BundleConsistent(valid); err != nil {
 		t.Fatalf("real ca.sh output rejected: %v", err)
 	}
-	_, old := repairM792Bundle(t, "expired")
+	_, old := runtimeInventoryBundle(t, "expired")
 	for _, fault := range []string{"none", "key.pem", "key.der", "cert.der", "ca.der", "ca.pem", "identity.p12", "password", "missing"} {
 		t.Run(fault, func(t *testing.T) {
-			directory, bundle := repairM792Bundle(t, "renewed")
+			directory, bundle := runtimeInventoryBundle(t, "renewed")
 			switch fault {
 			case "none":
 			case "key.pem", "key.der":
@@ -341,12 +341,12 @@ func TestRepairM_792_CABundleConsistency(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			box, err := repairM792Inspect(t, []string{"bundle-local", directory}, nil)
+			box, err := runtimeInventoryInspect(t, []string{"bundle-local", directory}, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
 			for _, list := range []bool{false, true} {
-				railway, err := repairM792Inspect(t, []string{"bundle-railway", "IDENTITY_TLS"}, repairM792Railway(t, bundle, list))
+				railway, err := runtimeInventoryInspect(t, []string{"bundle-railway", "IDENTITY_TLS"}, runtimeInventoryRailway(t, bundle, list))
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -372,7 +372,7 @@ func TestRepairM_792_CABundleConsistency(t *testing.T) {
 				if _, err := IdentityAction(state.State, state.Days, 30); err == nil {
 					t.Fatalf("%s allowed reuse or silent replacement", fault)
 				}
-				retained := repairM792Read(t, filepath.Join(directory, "cert.pem"))
+				retained := runtimeInventoryRead(t, filepath.Join(directory, "cert.pem"))
 				if !bytes.Equal(retained, valid["cert.pem"]) {
 					t.Fatal("inventory replaced established identity")
 				}
@@ -381,7 +381,7 @@ func TestRepairM_792_CABundleConsistency(t *testing.T) {
 	}
 	for _, fault := range []string{"permissions", "symlink", "hardlink"} {
 		t.Run(fault, func(t *testing.T) {
-			directory, _ := repairM792Bundle(t, "renewed")
+			directory, _ := runtimeInventoryBundle(t, "renewed")
 			target := filepath.Join(directory, "key.der")
 			switch fault {
 			case "permissions":
@@ -400,7 +400,7 @@ func TestRepairM_792_CABundleConsistency(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			output, err := repairM792Inspect(t, []string{"bundle-local", directory}, nil)
+			output, err := runtimeInventoryInspect(t, []string{"bundle-local", directory}, nil)
 			if err == nil || output != "" {
 				t.Fatalf("unprotected custody accepted or leaked: %q %v", output, err)
 			}
@@ -408,12 +408,12 @@ func TestRepairM_792_CABundleConsistency(t *testing.T) {
 	}
 }
 
-func TestRepairM_792_RPCRoster(t *testing.T) {
-	inventory := repairM792Inventory(t)
+func TestRPCRoster(t *testing.T) {
+	inventory := runtimePublicInventory(t)
 	if len(inventory.Nodes) != 14 || len(inventory.Endpoints()) != 15 || inventory.Canonical != "https://api-mainnet-beta.paxeer.network" {
 		t.Fatalf("wrong public roster %+v", inventory)
 	}
-	wire, err := repairM792Inspect(t, []string{"rpc-names", "../../docs/site/docs/reference/public-rpc.md"}, nil)
+	wire, err := runtimeInventoryInspect(t, []string{"rpc-names", "../../docs/site/docs/reference/public-rpc.md"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -434,23 +434,23 @@ func TestRepairM_792_RPCRoster(t *testing.T) {
 			t.Fatalf("retired endpoint admitted: %s", bad)
 		}
 	}
-	source := string(repairM792Read(t, "check-live.sh"))
+	source := string(runtimeInventoryRead(t, "check-live.sh"))
 	if strings.Contains(source, "api{1..16}") || strings.Contains(source, "-le 16") || strings.Contains(source, "rpc_name_count=16") {
 		t.Fatal("fleet consumer retains sixteen-node loop")
 	}
-	if !strings.Contains(source, "RPC_COUNT=%s") || !strings.Contains(source, "canonical chain_id=125") || !strings.Contains(string(repairM792Read(t, "search-front.sh")), "load_rpc_inventory") {
+	if !strings.Contains(source, "RPC_COUNT=%s") || !strings.Contains(source, "canonical chain_id=125") || !strings.Contains(string(runtimeInventoryRead(t, "search-front.sh")), "load_rpc_inventory") {
 		t.Fatal("fleet consumer bypasses maintained inventory")
 	}
 }
 
-func TestRepairM_792_GasRPCRoute(t *testing.T) {
-	inventory := repairM792Inventory(t)
+func TestGasRPCRoute(t *testing.T) {
+	inventory := runtimePublicInventory(t)
 	config := map[string]any{"chain_id": 125, "token": "0x21f7b20a555199fa73A238B1a91FD0f549068fEe", "endpoints": []string{inventory.Canonical, inventory.Nodes[0], inventory.Nodes[13]}}
 	raw, err := json.Marshal(config)
 	if err != nil {
 		t.Fatal(err)
 	}
-	endpoint, err := repairM792Inspect(t, []string{"gas-config", "../../docs/site/docs/reference/public-rpc.md"}, raw)
+	endpoint, err := runtimeInventoryInspect(t, []string{"gas-config", "../../docs/site/docs/reference/public-rpc.md"}, raw)
 	if err != nil || strings.TrimSpace(endpoint) != inventory.Canonical {
 		t.Fatalf("gas config not consumed: %q %v", endpoint, err)
 	}
@@ -466,16 +466,16 @@ func TestRepairM_792_GasRPCRoute(t *testing.T) {
 	}
 	// Exercise the repaired gas_rpc consumer over real HTTP into geth's real
 	// signing, transaction pool, execution and committed receipt path.
-	chain := repair143NewChain(t)
-	transaction, encoded := repair143Signed(t, chain.key, chain.chainID, 0, chain.recipient)
+	chain := valueLoopNewChain(t)
+	transaction, encoded := valueLoopSigned(t, chain.key, chain.chainID, 0, chain.recipient)
 	params, _ := json.Marshal([]string{fmt.Sprintf("0x%x", encoded)})
-	hash, err := repairM792Inspect(t, []string{"rpc", chain.url, "eth_sendRawTransaction", string(params)}, nil)
+	hash, err := runtimeInventoryInspect(t, []string{"rpc", chain.url, "eth_sendRawTransaction", string(params)}, nil)
 	if err != nil || strings.TrimSpace(hash) != transaction.Hash().Hex() {
 		t.Fatalf("real node submission failed: %s %v", hash, err)
 	}
-	repair143ObservePayment(t, chain, transaction)
+	valueLoopObservePayment(t, chain, transaction)
 	params, _ = json.Marshal([]string{transaction.Hash().Hex()})
-	receipt, err := repairM792Inspect(t, []string{"rpc", chain.url, "eth_getTransactionReceipt", string(params)}, nil)
+	receipt, err := runtimeInventoryInspect(t, []string{"rpc", chain.url, "eth_getTransactionReceipt", string(params)}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -487,7 +487,7 @@ func TestRepairM_792_GasRPCRoute(t *testing.T) {
 	if json.Unmarshal([]byte(receipt), &committed) != nil || committed.Status != "0x1" || committed.Hash != transaction.Hash().Hex() || committed.Block == "" {
 		t.Fatalf("receipt path incomplete: %s", receipt)
 	}
-	source := string(repairM792Read(t, "check-live.sh"))
+	source := string(runtimeInventoryRead(t, "check-live.sh"))
 	for _, required := range []string{`gas_rpc_url="${CHECK_LIVE_GAS_RPC:-${node_endpoints[0]}}"`, `bringup_inspect gas-config`, "gas_post /quote", "SponsoredBatch(", "executeSponsored(", "gas_post /submit", "gas_rpc eth_getTransactionReceipt", "gas_transfer_topic"} {
 		if !strings.Contains(source, required) {
 			t.Fatalf("gas journey lost %s", required)
@@ -495,11 +495,11 @@ func TestRepairM_792_GasRPCRoute(t *testing.T) {
 	}
 }
 
-func TestRepairM_792_WalletDeletedSpec(t *testing.T) {
+func TestWalletDeletedSpec(t *testing.T) {
 	spec := "../../spec/layerx-merge/spec.kvx"
-	actual := repairM792Read(t, spec)
+	actual := runtimeInventoryRead(t, spec)
 	name, err := WalletName(bytes.NewReader(actual))
-	cli, cliErr := repairM792Inspect(t, []string{"wallet-name", spec}, nil)
+	cli, cliErr := runtimeInventoryInspect(t, []string{"wallet-name", spec}, nil)
 	if err != nil {
 		if !strings.Contains(err.Error(), "wallet_endpoint missing from ["+PublicNamesSection+"]") || cliErr == nil || cli != "" {
 			t.Fatalf("missing repository declaration was not explicit: %q %v %v", cli, err, cliErr)
@@ -507,7 +507,7 @@ func TestRepairM_792_WalletDeletedSpec(t *testing.T) {
 	} else if cliErr != nil || strings.TrimSpace(cli) != name || name == "" {
 		t.Fatalf("repository wallet declaration lost: %q %v", cli, cliErr)
 	}
-	source := string(repairM792Read(t, "check-live.sh"))
+	source := string(runtimeInventoryRead(t, "check-live.sh"))
 	if !strings.Contains(source, "local spec=spec/layerx-merge/spec.kvx") || !strings.Contains(source, `bringup_inspect wallet-name "$repo_root/$spec"`) || strings.Contains(source, "spec/paxeer-x-bringup/spec.kvx") {
 		t.Fatal("wallet consumer does not read active repository declaration")
 	}
@@ -516,7 +516,7 @@ func TestRepairM_792_WalletDeletedSpec(t *testing.T) {
 	}
 }
 
-func TestRepairM_792_RouterRetiredProtocol(t *testing.T) {
+func TestRouterRetiredProtocol(t *testing.T) {
 	account := "0x1111111111111111111111111111111111111111"
 	var mu sync.Mutex
 	var calls []string
@@ -576,7 +576,7 @@ func TestRepairM_792_RouterRetiredProtocol(t *testing.T) {
 		json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": 1, "result": result})
 	}))
 	defer gateway.Close()
-	inventory := repairM792Inventory(t)
+	inventory := runtimePublicInventory(t)
 	inventory.Canonical = node.URL
 	var output bytes.Buffer
 	if err := ProbeRoutes(context.Background(), node.Client(), inventory, gateway.URL+"/hosted", account, "fixture-credential", &output); err != nil {
@@ -590,7 +590,7 @@ func TestRepairM_792_RouterRetiredProtocol(t *testing.T) {
 	if err := ProbeRoutes(context.Background(), node.Client(), inventory, gateway.URL+"/hosted", account, "fixture-credential", &output); err == nil || !strings.Contains(output.String(), "fail px_getNetwork") {
 		t.Fatal("catching-up gateway passed")
 	}
-	public := repairM792Inventory(t)
+	public := runtimePublicInventory(t)
 	pool := map[string]any{"components": map[string]any{"rpc_pool": map[string]any{"state": "up", "healthy": 2, "endpoints": []map[string]string{{"url": public.Canonical}, {"url": public.Nodes[0]}}}}}
 	raw, err := json.Marshal(pool)
 	if err != nil {
@@ -615,7 +615,7 @@ func TestRepairM_792_RouterRetiredProtocol(t *testing.T) {
 	if err := ValidateGatewayReadiness(bytes.NewReader(raw), now.Add(31*time.Second)); err == nil {
 		t.Fatal("stale gateway readiness passed")
 	}
-	source := string(repairM792Read(t, "check-live.sh"))
+	source := string(runtimeInventoryRead(t, "check-live.sh"))
 	start := strings.Index(source, "check_router() {")
 	end := strings.Index(source[start:], "# check_kernel_boundaries:")
 	routeSource := source[start : start+end]

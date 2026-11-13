@@ -31,7 +31,7 @@ import (
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func m795Read(t *testing.T, path string) []byte {
+func serviceRecoveryRead(t *testing.T, path string) []byte {
 	t.Helper()
 	b, e := os.ReadFile(path)
 	if e != nil {
@@ -39,7 +39,7 @@ func m795Read(t *testing.T, path string) []byte {
 	}
 	return b
 }
-func m795Write(t *testing.T, path string, b []byte) {
+func serviceRecoveryWrite(t *testing.T, path string, b []byte) {
 	t.Helper()
 	if e := os.MkdirAll(filepath.Dir(path), 0700); e != nil {
 		t.Fatal(e)
@@ -48,7 +48,7 @@ func m795Write(t *testing.T, path string, b []byte) {
 		t.Fatal(e)
 	}
 }
-func m795Private(t *testing.T) string {
+func serviceRecoveryPrivate(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	if e := os.Chmod(dir, 0700); e != nil {
@@ -56,7 +56,7 @@ func m795Private(t *testing.T) string {
 	}
 	return dir
 }
-func m795JSON(t *testing.T, v any) []byte {
+func serviceRecoveryJSON(t *testing.T, v any) []byte {
 	t.Helper()
 	b, e := json.Marshal(v)
 	if e != nil {
@@ -64,22 +64,22 @@ func m795JSON(t *testing.T, v any) []byte {
 	}
 	return b
 }
-func m795Inventory(t *testing.T) PublicInventory {
+func serviceRecoveryInventory(t *testing.T) PublicInventory {
 	t.Helper()
-	i, e := ReadPublicInventory(bytes.NewReader(m795Read(t, "../../docs/site/docs/reference/public-rpc.md")))
+	i, e := ReadPublicInventory(bytes.NewReader(serviceRecoveryRead(t, "../../docs/site/docs/reference/public-rpc.md")))
 	if e != nil {
 		t.Fatal(e)
 	}
 	return i
 }
-func m795CLI(args []string, input []byte) (string, error) {
+func serviceRecoveryCLI(args []string, input []byte) (string, error) {
 	var out bytes.Buffer
 	e := RunInspector(context.Background(), args, bytes.NewReader(input), &out)
 	return out.String(), e
 }
-func m795Wire(t *testing.T, path string, terms ...string) {
+func serviceRecoveryWire(t *testing.T, path string, terms ...string) {
 	t.Helper()
-	source := string(m795Read(t, path))
+	source := string(serviceRecoveryRead(t, path))
 	for _, term := range terms {
 		if !strings.Contains(source, term) {
 			t.Fatalf("%s does not wire %q", path, term)
@@ -90,7 +90,7 @@ func m795Wire(t *testing.T, path string, terms ...string) {
 // Execute the production transaction primitives used by the shell writers.
 // The renderer emits both the durable site and its manifest row; the consumer
 // validates their binding before accepting a reload acknowledgement.
-func m795EdgeRender(t *testing.T, s *EdgeState, rows []EdgeRoute, pool, down []string) error {
+func serviceRecoveryEdgeRender(t *testing.T, s *EdgeState, rows []EdgeRoute, pool, down []string) error {
 	t.Helper()
 	var manifest strings.Builder
 	for _, row := range rows {
@@ -131,8 +131,8 @@ func m795EdgeRender(t *testing.T, s *EdgeState, rows []EdgeRoute, pool, down []s
 	return nil
 }
 
-func TestRepairM_795_EdgeConcurrentStateMutation(t *testing.T) {
-	root := m795Private(t)
+func TestEdgeConcurrentStateMutation(t *testing.T) {
+	root := serviceRecoveryPrivate(t)
 	pool := []string{"api1.mainnet-beta.paxeer.network", "api2.mainnet-beta.paxeer.network"}
 	rpc := EdgeRoute{Name: "api-mainnet-beta.paxeer.network", Mode: "rpc", Upstream: "-", Port: "443", Kind: "rpc", SNI: "-"}
 	route, e := EdgeMapLine("search.paxeer.network", "railway", "search-front.up.railway.app:443", "-")
@@ -147,7 +147,7 @@ func TestRepairM_795_EdgeConcurrentStateMutation(t *testing.T) {
 		if e := s.Begin(); e != nil {
 			return e
 		}
-		if e := m795EdgeRender(t, s, []EdgeRoute{rpc}, pool, nil); e != nil {
+		if e := serviceRecoveryEdgeRender(t, s, []EdgeRoute{rpc}, pool, nil); e != nil {
 			return e
 		}
 		return s.ReloadResult(0, 0)
@@ -181,7 +181,7 @@ func TestRepairM_795_EdgeConcurrentStateMutation(t *testing.T) {
 			if e != nil {
 				return e
 			}
-			if e = m795EdgeRender(t, health, rows, pool, []string{pool[1]}); e != nil {
+			if e = serviceRecoveryEdgeRender(t, health, rows, pool, []string{pool[1]}); e != nil {
 				return e
 			}
 			return health.ReloadResult(0, 0)
@@ -207,12 +207,12 @@ func TestRepairM_795_EdgeConcurrentStateMutation(t *testing.T) {
 			if e != nil {
 				return e
 			}
-			down := strings.Fields(string(m795Read(t, filepath.Join(root, "edge/rpc-down"))))
+			down := strings.Fields(string(serviceRecoveryRead(t, filepath.Join(root, "edge/rpc-down"))))
 			if e = writer.Begin(); e != nil {
 				return e
 			}
 			rows = append(rows, route)
-			if e = m795EdgeRender(t, writer, rows, pool, down); e != nil {
+			if e = serviceRecoveryEdgeRender(t, writer, rows, pool, down); e != nil {
 				return e
 			}
 			return writer.ReloadResult(0, 0)
@@ -235,7 +235,7 @@ func TestRepairM_795_EdgeConcurrentStateMutation(t *testing.T) {
 		if e := s.Begin(); e != nil {
 			return e
 		}
-		if e := m795EdgeRender(t, s, []EdgeRoute{rpc}, pool, nil); e != nil {
+		if e := serviceRecoveryEdgeRender(t, s, []EdgeRoute{rpc}, pool, nil); e != nil {
 			return e
 		}
 		if e := s.ReloadResult(1, -1); e == nil {
@@ -256,30 +256,30 @@ func TestRepairM_795_EdgeConcurrentStateMutation(t *testing.T) {
 	if e = s.Recover(); e != nil {
 		t.Fatal(e)
 	}
-	rows, e := ReadEdgeManifest(bytes.NewReader(m795Read(t, filepath.Join(root, "edge/manifest"))), false)
+	rows, e := ReadEdgeManifest(bytes.NewReader(serviceRecoveryRead(t, filepath.Join(root, "edge/manifest"))), false)
 	if e != nil || len(rows) != 2 {
 		t.Fatalf("accepted route lost: %+v %v", rows, e)
 	}
-	if string(m795Read(t, filepath.Join(root, "edge/rpc-down"))) != pool[1] {
+	if string(serviceRecoveryRead(t, filepath.Join(root, "edge/rpc-down"))) != pool[1] {
 		t.Fatal("accepted pool health lost")
 	}
-	if _, e = EdgeRouteContract(route, string(m795Read(t, filepath.Join(root, "sites-available/search.paxeer.network.conf")))); e != nil {
+	if _, e = EdgeRouteContract(route, string(serviceRecoveryRead(t, filepath.Join(root, "sites-available/search.paxeer.network.conf")))); e != nil {
 		t.Fatal(e)
 	}
 	after, e := os.Stat(filepath.Join(root, ".edge-operation.lock"))
 	if e != nil || !os.SameFile(inode, after) {
 		t.Fatal("mutation lock inode replaced by state rollback")
 	}
-	m795Wire(t, "edge.sh", `exec 8>"$nginx_dir/.edge-operation.lock"`, `flock -x 8`, `cmd_set() {`+"\n\tedge_recover", `cmd_rpc_health() {`+"\n\tedge_recover", `cmd_rerender()`, "inherited mutation lock")
-	if strings.Contains(string(m795Read(t, "edge.sh")), "rpc-health.lock") {
+	serviceRecoveryWire(t, "edge.sh", `exec 8>"$nginx_dir/.edge-operation.lock"`, `flock -x 8`, `cmd_set() {`+"\n\tedge_recover", `cmd_rpc_health() {`+"\n\tedge_recover", `cmd_rerender()`, "inherited mutation lock")
+	if strings.Contains(string(serviceRecoveryRead(t, "edge.sh")), "rpc-health.lock") {
 		t.Fatal("cron still has a separate mutation lock")
 	}
-	m795Wire(t, "edge-sync.sh", `flock -x 8`, `8>%q`)
+	serviceRecoveryWire(t, "edge-sync.sh", `flock -x 8`, `8>%q`)
 }
 
-func TestRepairM_795_ArchiveUnpublishedNames(t *testing.T) {
-	i := m795Inventory(t)
-	names, e := m795CLI([]string{"rpc-names", "../../docs/site/docs/reference/public-rpc.md"}, nil)
+func TestArchiveUnpublishedNames(t *testing.T) {
+	i := serviceRecoveryInventory(t)
+	names, e := serviceRecoveryCLI([]string{"rpc-names", "../../docs/site/docs/reference/public-rpc.md"}, nil)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -287,7 +287,7 @@ func TestRepairM_795_ArchiveUnpublishedNames(t *testing.T) {
 		t.Fatal("unexpected maintained node inventory")
 	}
 	for _, name := range strings.Fields(names) {
-		if _, e = m795CLI([]string{"archive-name", "../../docs/site/docs/reference/public-rpc.md", name}, nil); e != nil {
+		if _, e = serviceRecoveryCLI([]string{"archive-name", "../../docs/site/docs/reference/public-rpc.md", name}, nil); e != nil {
 			t.Fatalf("published node %s refused: %v", name, e)
 		}
 	}
@@ -296,11 +296,11 @@ func TestRepairM_795_ArchiveUnpublishedNames(t *testing.T) {
 			t.Fatalf("unpublished archive identity accepted: %q", name)
 		}
 	}
-	m795Wire(t, "install-archive.sh", `archive-name "$inventory" "$name"`, "BRINGUP_RPC_INVENTORY")
-	m795Wire(t, "docs-names.sh", "docs/site/docs/reference/public-rpc.md")
+	serviceRecoveryWire(t, "install-archive.sh", `archive-name "$inventory" "$name"`, "BRINGUP_RPC_INVENTORY")
+	serviceRecoveryWire(t, "docs-names.sh", "docs/site/docs/reference/public-rpc.md")
 }
 
-func m795TLSIdentity(t *testing.T, name string) (tls.Certificate, []byte, []byte) {
+func serviceRecoveryTLSIdentity(t *testing.T, name string) (tls.Certificate, []byte, []byte) {
 	t.Helper()
 	pub, key, e := ed25519.GenerateKey(rand.Reader)
 	if e != nil {
@@ -322,7 +322,7 @@ func m795TLSIdentity(t *testing.T, name string) (tls.Certificate, []byte, []byte
 	}
 	return pair, certPEM, keyPEM
 }
-func m795NamedTLSClient(t *testing.T, server *httptest.Server, pemBytes []byte) *http.Client {
+func serviceRecoveryNamedTLSClient(t *testing.T, server *httptest.Server, pemBytes []byte) *http.Client {
 	t.Helper()
 	roots := x509.NewCertPool()
 	if !roots.AppendCertsFromPEM(pemBytes) {
@@ -334,11 +334,11 @@ func m795NamedTLSClient(t *testing.T, server *httptest.Server, pemBytes []byte) 
 	t.Cleanup(transport.CloseIdleConnections)
 	return &http.Client{Transport: transport, Timeout: time.Second}
 }
-func TestRepairM_795_ArchiveTLSResume(t *testing.T) {
-	root := m795Private(t)
-	name := strings.TrimPrefix(m795Inventory(t).Nodes[0], "https://")
+func TestArchiveTLSResume(t *testing.T) {
+	root := serviceRecoveryPrivate(t)
+	name := strings.TrimPrefix(serviceRecoveryInventory(t).Nodes[0], "https://")
 	args := []string{"archive-reconcile", "../../docs/site/docs/reference/public-rpc.md", filepath.Join(root, "nginx"), filepath.Join(root, "certs"), filepath.Join(root, "webroot"), name, "v1"}
-	out, e := m795CLI(args, nil)
+	out, e := serviceRecoveryCLI(args, nil)
 	if e != nil || out != "certificate changed\n" {
 		t.Fatalf("initial HTTP reconciliation: %q %v", out, e)
 	}
@@ -347,28 +347,28 @@ func TestRepairM_795_ArchiveTLSResume(t *testing.T) {
 	if _, e = os.Readlink(enabled); e != nil {
 		t.Fatal(e)
 	}
-	if strings.Contains(string(m795Read(t, available)), "listen 443") {
+	if strings.Contains(string(serviceRecoveryRead(t, available)), "listen 443") {
 		t.Fatal("TLS before a certificate exists")
 	}
 	// A failed ACME invocation has no certificate to publish. A new CLI instance
 	// must revisit issuance even though the enabled symlink survived shutdown.
-	out, e = m795CLI(args, nil)
+	out, e = serviceRecoveryCLI(args, nil)
 	if e != nil || out != "certificate unchanged\n" {
 		t.Fatalf("reopen after failed ACME skipped issuance: %q %v", out, e)
 	}
-	pair, cert, key := m795TLSIdentity(t, name)
-	m795Write(t, filepath.Join(root, "certs", name, "fullchain.pem"), cert)
-	m795Write(t, filepath.Join(root, "certs", name, "privkey.pem"), []byte("partial issuance"))
-	out, e = m795CLI(args, nil)
+	pair, cert, key := serviceRecoveryTLSIdentity(t, name)
+	serviceRecoveryWrite(t, filepath.Join(root, "certs", name, "fullchain.pem"), cert)
+	serviceRecoveryWrite(t, filepath.Join(root, "certs", name, "privkey.pem"), []byte("partial issuance"))
+	out, e = serviceRecoveryCLI(args, nil)
 	if e != nil || !strings.HasPrefix(out, "certificate ") {
 		t.Fatalf("partial certificate admitted: %q %v", out, e)
 	}
-	m795Write(t, filepath.Join(root, "certs", name, "privkey.pem"), key)
-	out, e = m795CLI(args, nil)
+	serviceRecoveryWrite(t, filepath.Join(root, "certs", name, "privkey.pem"), key)
+	out, e = serviceRecoveryCLI(args, nil)
 	if e != nil || out != "tls changed\n" {
 		t.Fatalf("resumed TLS reconciliation: %q %v", out, e)
 	}
-	if !strings.Contains(string(m795Read(t, available)), "listen 443 ssl") {
+	if !strings.Contains(string(serviceRecoveryRead(t, available)), "listen 443 ssl") {
 		t.Fatal("resumed site still HTTP only")
 	}
 	ready := true
@@ -385,7 +385,7 @@ func TestRepairM_795_ArchiveTLSResume(t *testing.T) {
 	server.TLS = &tls.Config{Certificates: []tls.Certificate{pair}, MinVersion: tls.VersionTLS12}
 	server.StartTLS()
 	defer server.Close()
-	client := m795NamedTLSClient(t, server, cert)
+	client := serviceRecoveryNamedTLSClient(t, server, cert)
 	if e = ProbeArchiveHTTPS(context.Background(), client, "https://"+name); e != nil {
 		t.Fatal(e)
 	}
@@ -395,25 +395,25 @@ func TestRepairM_795_ArchiveTLSResume(t *testing.T) {
 	}
 	ready = true
 	// Existing operator TLS configuration is kept byte-for-byte.
-	custom := append(m795Read(t, available), []byte("\n# operator connection limits\n")...)
-	m795Write(t, available, custom)
-	out, e = m795CLI(args, nil)
-	if e != nil || out != "tls unchanged\n" || !bytes.Equal(custom, m795Read(t, available)) {
+	custom := append(serviceRecoveryRead(t, available), []byte("\n# operator connection limits\n")...)
+	serviceRecoveryWrite(t, available, custom)
+	out, e = serviceRecoveryCLI(args, nil)
+	if e != nil || out != "tls unchanged\n" || !bytes.Equal(custom, serviceRecoveryRead(t, available)) {
 		t.Fatalf("operator TLS configuration overwritten: %q %v", out, e)
 	}
-	m795Write(t, available, []byte("# operator HTTP server\nserver { listen 80; }\n"))
-	before := m795Read(t, available)
-	if _, e = m795CLI(args, nil); e == nil || !bytes.Equal(before, m795Read(t, available)) {
+	serviceRecoveryWrite(t, available, []byte("# operator HTTP server\nserver { listen 80; }\n"))
+	before := serviceRecoveryRead(t, available)
+	if _, e = serviceRecoveryCLI(args, nil); e == nil || !bytes.Equal(before, serviceRecoveryRead(t, available)) {
 		t.Fatal("incomplete operator site overwritten or admitted")
 	}
-	m795Wire(t, "install-archive.sh", `state="$(archive_reconcile)"`, `[[ "$state" = certificate* ]]`, `archive-health "https://$name"`)
+	serviceRecoveryWire(t, "install-archive.sh", `state="$(archive_reconcile)"`, `[[ "$state" = certificate* ]]`, `archive-health "https://$name"`)
 }
 
-func TestRepairM_795_GenesisRetiredNetworkBoundary(t *testing.T) {
-	home := m795Private(t)
-	m795Write(t, filepath.Join(home, "config/config.toml"), []byte("node-key-file = \"config/node_key.json\"\ngenesis-file = \"config/genesis.json\"\n[priv-validator]\nkey-file = \"config/priv_validator_key.json\"\nstate-file = \"data/priv_validator_state.json\"\n"))
-	m795Write(t, filepath.Join(home, "config/app.toml"), []byte("[sequencer]\nenable = true\nreceipt-key-file = \"config/receipt.hex\"\n"))
-	m795Write(t, filepath.Join(home, "config/receipt.hex"), []byte(strings.Repeat("ab", 32)+"\n"))
+func TestGenesisRetiredNetworkBoundary(t *testing.T) {
+	home := serviceRecoveryPrivate(t)
+	serviceRecoveryWrite(t, filepath.Join(home, "config/config.toml"), []byte("node-key-file = \"config/node_key.json\"\ngenesis-file = \"config/genesis.json\"\n[priv-validator]\nkey-file = \"config/priv_validator_key.json\"\nstate-file = \"data/priv_validator_state.json\"\n"))
+	serviceRecoveryWrite(t, filepath.Join(home, "config/app.toml"), []byte("[sequencer]\nenable = true\nreceipt-key-file = \"config/receipt.hex\"\n"))
+	serviceRecoveryWrite(t, filepath.Join(home, "config/receipt.hex"), []byte(strings.Repeat("ab", 32)+"\n"))
 	key := tmtypes.GenNodeKey()
 	if e := key.SaveAs(filepath.Join(home, "config/node_key.json")); e != nil {
 		t.Fatal(e)
@@ -430,7 +430,7 @@ func TestRepairM_795_GenesisRetiredNetworkBoundary(t *testing.T) {
 	}
 	// This committed fixture is a native paxd-produced genesis, decoded and
 	// emitted again through its actual consensus codec rather than an LXGB blob.
-	doc, e := tmtypes.GenesisDocFromJSON(m795Read(t, "../../services/platform/hosted/node/tests/fixtures/repair_22_31_355/genesis.json"))
+	doc, e := tmtypes.GenesisDocFromJSON(serviceRecoveryRead(t, "../../services/platform/hosted/node/tests/fixtures/repair_22_31_355/genesis.json"))
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -438,7 +438,7 @@ func TestRepairM_795_GenesisRetiredNetworkBoundary(t *testing.T) {
 	if e = doc.SaveAs(genesisPath); e != nil {
 		t.Fatal(e)
 	}
-	genesis := m795Read(t, genesisPath)
+	genesis := serviceRecoveryRead(t, genesisPath)
 	sum := sha256.Sum256(genesis)
 	if e = CheckPaxdGenesis(genesisPath, doc.ChainID, hex.EncodeToString(sum[:])); e != nil {
 		t.Fatal(e)
@@ -453,12 +453,12 @@ func TestRepairM_795_GenesisRetiredNetworkBoundary(t *testing.T) {
 	if len(identity.Files) != 4 || identity.Files[filepath.Join(home, "config/receipt.hex")] == "" {
 		t.Fatal("native validator or sequencer receipt identity not retained")
 	}
-	record := m795Read(t, filepath.Join(home, "identity/paxd.json"))
+	record := serviceRecoveryRead(t, filepath.Join(home, "identity/paxd.json"))
 	pv.LastSignState.Height = 7
 	if e = pv.Save(); e != nil {
 		t.Fatal(e)
 	}
-	out, e := m795CLI([]string{"paxd-identity", "check", home, doc.ChainID}, nil)
+	out, e := serviceRecoveryCLI([]string{"paxd-identity", "check", home, doc.ChainID}, nil)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -470,14 +470,14 @@ func TestRepairM_795_GenesisRetiredNetworkBoundary(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if !bytes.Equal(record, m795Read(t, filepath.Join(home, "identity/paxd.json"))) || retainedPV.LastSignState.Height != 7 {
+	if !bytes.Equal(record, serviceRecoveryRead(t, filepath.Join(home, "identity/paxd.json"))) || retainedPV.LastSignState.Height != 7 {
 		t.Fatal("reopen reset signing state or rewrote retention record")
 	}
-	m795Write(t, filepath.Join(home, "config/receipt.hex"), []byte(strings.Repeat("cd", 32)+"\n"))
+	serviceRecoveryWrite(t, filepath.Join(home, "config/receipt.hex"), []byte(strings.Repeat("cd", 32)+"\n"))
 	if _, e = RetainPaxdIdentity(home, doc.ChainID, false); e == nil {
 		t.Fatal("receipt key rotation silently adopted")
 	}
-	m795Write(t, filepath.Join(home, "config/receipt.hex"), []byte(strings.Repeat("ab", 32)+"\n"))
+	serviceRecoveryWrite(t, filepath.Join(home, "config/receipt.hex"), []byte(strings.Repeat("ab", 32)+"\n"))
 	replacement := tmtypes.GenNodeKey()
 	if e = replacement.SaveAs(filepath.Join(home, "config/node_key.json")); e != nil {
 		t.Fatal(e)
@@ -485,7 +485,7 @@ func TestRepairM_795_GenesisRetiredNetworkBoundary(t *testing.T) {
 	if _, e = RetainPaxdIdentity(home, doc.ChainID, true); e == nil {
 		t.Fatal("adopt silently replaced a retained identity")
 	}
-	if !bytes.Equal(record, m795Read(t, filepath.Join(home, "identity/paxd.json"))) {
+	if !bytes.Equal(record, serviceRecoveryRead(t, filepath.Join(home, "identity/paxd.json"))) {
 		t.Fatal("refused rotation changed retention record")
 	}
 	if e = ValidatePaxdInit(home, "node", doc.ChainID, "full"); e == nil {
@@ -494,24 +494,24 @@ func TestRepairM_795_GenesisRetiredNetworkBoundary(t *testing.T) {
 	if e = ValidatePaxdInit(filepath.Join(t.TempDir(), "new"), "node", doc.ChainID, "archive"); e != nil {
 		t.Fatal(e)
 	}
-	source := string(m795Read(t, "kernel-genesis.sh"))
+	source := string(serviceRecoveryRead(t, "kernel-genesis.sh"))
 	for _, retired := range []string{"18545", "0x0000000000000000000000000000000000001013", "kernel-init", "replica-id", "checkpoint-authority", "layerxcustody governance"} {
 		if strings.Contains(source, retired) {
 			t.Fatalf("live workflow retains %s", retired)
 		}
 	}
-	m795Wire(t, "kernel-genesis.sh", `"${PAXD:-paxd}" init`, "paxd-genesis-check", "paxd-identity", "offline-render)", "retired live workflow")
+	serviceRecoveryWire(t, "kernel-genesis.sh", `"${PAXD:-paxd}" init`, "paxd-genesis-check", "paxd-identity", "offline-render)", "retired live workflow")
 }
 
-func m795TokenPlan(t *testing.T, retained string) SecretPlan {
+func serviceRecoveryTokenPlan(t *testing.T, retained string) SecretPlan {
 	t.Helper()
-	plan, e := NewSecretPlan(bytes.NewReader(m795Read(t, "../../deploy/rollout.kvx")), bytes.NewReader(m795Read(t, "../../services/wallet/deploy/human.toml")), m795Read(t, "../../services/interop/deploy/gateway/module-registry.example.json"), retained)
+	plan, e := NewSecretPlan(bytes.NewReader(serviceRecoveryRead(t, "../../deploy/rollout.kvx")), bytes.NewReader(serviceRecoveryRead(t, "../../services/wallet/deploy/human.toml")), serviceRecoveryRead(t, "../../services/interop/deploy/gateway/module-registry.example.json"), retained)
 	if e != nil {
 		t.Fatal(e)
 	}
 	return plan
 }
-func m795CopyTree(t *testing.T, source, dest string) {
+func serviceRecoveryCopyTree(t *testing.T, source, dest string) {
 	t.Helper()
 	e := filepath.WalkDir(source, func(path string, entry os.DirEntry, e error) error {
 		if e != nil {
@@ -527,16 +527,16 @@ func m795CopyTree(t *testing.T, source, dest string) {
 		if !entry.Type().IsRegular() {
 			return fmt.Errorf("nonregular fixture")
 		}
-		m795Write(t, filepath.Join(dest, rel), m795Read(t, path))
+		serviceRecoveryWrite(t, filepath.Join(dest, rel), serviceRecoveryRead(t, path))
 		return nil
 	})
 	if e != nil {
 		t.Fatal(e)
 	}
 }
-func TestRepairM_795_MintRetiredSecretTargets(t *testing.T) {
-	out := m795Private(t)
-	plan := m795TokenPlan(t, "")
+func TestMintRetiredSecretTargets(t *testing.T) {
+	out := serviceRecoveryPrivate(t)
+	plan := serviceRecoveryTokenPlan(t, "")
 	var printed bytes.Buffer
 	if e := plan.Write(out, &printed); e != nil {
 		t.Fatal(e)
@@ -603,8 +603,8 @@ func TestRepairM_795_MintRetiredSecretTargets(t *testing.T) {
 			t.Fatal("obsolete target emitted")
 		}
 	}
-	m795Wire(t, "../../services/platform/hosted/internal/env-init.sh", "INTERNAL_KMS_TOKEN", "INTERNAL_KMS_SEAL_SECRET", `"${variable}_PRODUCER_TOKEN"`)
-	m795Wire(t, "../../services/platform/hosted/webhooks/env-init.sh", "LAYERX_WEBHOOKS_IDENTITY_TOKEN_FILE", "LAYERX_WEBHOOKS_SOURCE_TRIGGER_TOKEN_FILE")
+	serviceRecoveryWire(t, "../../services/platform/hosted/internal/env-init.sh", "INTERNAL_KMS_TOKEN", "INTERNAL_KMS_SEAL_SECRET", `"${variable}_PRODUCER_TOKEN"`)
+	serviceRecoveryWire(t, "../../services/platform/hosted/webhooks/env-init.sh", "LAYERX_WEBHOOKS_IDENTITY_TOKEN_FILE", "LAYERX_WEBHOOKS_SOURCE_TRIGGER_TOKEN_FILE")
 	// File encoding/modes round-trip through the real protected secret reader.
 	for _, target := range plan.Targets {
 		info, e := os.Stat(filepath.Join(out, target.Role+"."+target.Target+".env"))
@@ -615,16 +615,16 @@ func TestRepairM_795_MintRetiredSecretTargets(t *testing.T) {
 	if e := plan.Write(out, io.Discard); e == nil {
 		t.Fatal("filled mint overwritten")
 	}
-	m795Write(t, filepath.Join(out, "bad.env"), []byte("TOKEN=not-base64\n"))
+	serviceRecoveryWrite(t, filepath.Join(out, "bad.env"), []byte("TOKEN=not-base64\n"))
 	if _, e := ReadMintSecret(filepath.Join(out, "bad.env"), "TOKEN", true); e == nil {
 		t.Fatal("malformed secret accepted")
 	}
 	// Reopen the old producer's committed public recording and perform an
 	// explicit migration. Surviving bytes are retained; obsolete outputs stay
 	// only in the untouched revocation inventory.
-	legacy := m795Private(t)
-	m795CopyTree(t, "tests/fixtures/repair_m795/legacy-mint", legacy)
-	oldGateway := m795Read(t, filepath.Join(legacy, "router.railway.env"))
+	legacy := serviceRecoveryPrivate(t)
+	serviceRecoveryCopyTree(t, "tests/fixtures/secret_migration/legacy-mint", legacy)
+	oldGateway := serviceRecoveryRead(t, filepath.Join(legacy, "router.railway.env"))
 	migrated := filepath.Join(t.TempDir(), "migrated")
 	if e := MigrateMintSecrets("../../deploy/rollout.kvx", "../../services/wallet/deploy/human.toml", legacy, migrated, io.Discard); e != nil {
 		t.Fatal(e)
@@ -637,25 +637,25 @@ func TestRepairM_795_MintRetiredSecretTargets(t *testing.T) {
 	if e != nil || before != after {
 		t.Fatal("migration rotated surviving identity token")
 	}
-	if !bytes.Equal(oldGateway, m795Read(t, filepath.Join(legacy, "router.railway.env"))) {
+	if !bytes.Equal(oldGateway, serviceRecoveryRead(t, filepath.Join(legacy, "router.railway.env"))) {
 		t.Fatal("migration changed old revocation inventory")
 	}
 	if _, e = os.Stat(filepath.Join(migrated, "router.railway.env")); !os.IsNotExist(e) {
 		t.Fatal("migration copied retired target")
 	}
-	if !bytes.Equal(m795Read(t, filepath.Join(legacy, "keys/wallet_identity_binding_key.pem")), m795Read(t, filepath.Join(migrated, "keys/wallet_identity_binding_key.pem"))) {
+	if !bytes.Equal(serviceRecoveryRead(t, filepath.Join(legacy, "keys/wallet_identity_binding_key.pem")), serviceRecoveryRead(t, filepath.Join(migrated, "keys/wallet_identity_binding_key.pem"))) {
 		t.Fatal("migration rotated wallet identity")
 	}
-	if !strings.Contains(string(m795Read(t, filepath.Join(migrated, "gateway.railway.sh"))), "--stdin --service router --environment") {
+	if !strings.Contains(string(serviceRecoveryRead(t, filepath.Join(migrated, "gateway.railway.sh"))), "--stdin --service router --environment") {
 		t.Fatal("migration ignores rollout delivery target")
 	}
-	m795Wire(t, "mint-secrets.sh", `exec "${BRINGUP_INSPECT_BIN:-bringup-inspect}" mint "$1"`, "migrate-retired", "mint-migrate")
+	serviceRecoveryWire(t, "mint-secrets.sh", `exec "${BRINGUP_INSPECT_BIN:-bringup-inspect}" mint "$1"`, "migrate-retired", "mint-migrate")
 }
 
 // A loopback Docker API peer keeps its actual created objects independently
 // from the lifecycle journal. It records engine requests and checks that the
 // recovered ID was durably published before accepting deletion.
-type m795DockerAPI struct {
+type serviceRecoveryDockerAPI struct {
 	t                  *testing.T
 	mu                 sync.Mutex
 	directory          string
@@ -667,14 +667,14 @@ type m795DockerAPI struct {
 	server             *httptest.Server
 }
 
-func m795DockerPeer(t *testing.T, directory string) *m795DockerAPI {
+func serviceRecoveryDockerPeer(t *testing.T, directory string) *serviceRecoveryDockerAPI {
 	t.Helper()
-	peer := &m795DockerAPI{t: t, directory: directory, objects: map[string]dockerContainer{}}
+	peer := &serviceRecoveryDockerAPI{t: t, directory: directory, objects: map[string]dockerContainer{}}
 	peer.server = httptest.NewServer(http.HandlerFunc(peer.serve))
 	t.Cleanup(peer.server.Close)
 	return peer
 }
-func (p *m795DockerAPI) serve(w http.ResponseWriter, r *http.Request) {
+func (p *serviceRecoveryDockerAPI) serve(w http.ResponseWriter, r *http.Request) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	path := strings.TrimPrefix(r.URL.Path, "/v1.41")
@@ -695,7 +695,7 @@ func (p *m795DockerAPI) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var state map[string]any
-		if json.Unmarshal(m795Read(p.t, filepath.Join(p.directory, "lifecycle.json")), &state) != nil {
+		if json.Unmarshal(serviceRecoveryRead(p.t, filepath.Join(p.directory, "lifecycle.json")), &state) != nil {
 			p.t.Error("journal")
 		}
 		name := r.URL.Query().Get("name")
@@ -738,7 +738,7 @@ func (p *m795DockerAPI) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var state map[string]any
-		if json.Unmarshal(m795Read(p.t, filepath.Join(p.directory, "lifecycle.json")), &state) != nil {
+		if json.Unmarshal(serviceRecoveryRead(p.t, filepath.Join(p.directory, "lifecycle.json")), &state) != nil {
 			p.t.Error("journal")
 		}
 		durable := false
@@ -763,14 +763,14 @@ func (p *m795DockerAPI) serve(w http.ResponseWriter, r *http.Request) {
 	p.t.Errorf("unexpected Docker API request %s %s", r.Method, r.URL)
 	http.NotFound(w, r)
 }
-func m795RegistryState(t *testing.T) (string, *m795DockerAPI, *RegistryLifecycle, string) {
+func serviceRecoveryRegistryState(t *testing.T) (string, *serviceRecoveryDockerAPI, *RegistryLifecycle, string) {
 	t.Helper()
-	dir := m795Private(t)
+	dir := serviceRecoveryPrivate(t)
 	// These are the retained ownership fields emitted by prepare(); the quota
 	// peer is outside this container-recovery test. Plan/Create/Cleanup below
 	// are the same production implementation used by run_job and cleanup.
-	m795Write(t, filepath.Join(dir, "lifecycle.json"), m795JSON(t, map[string]any{"schema_version": 1, "id": strings.Repeat("7", 32), "owner_uid": os.Getuid(), "directory": dir, "phase": "prepared", "containers": []any{}, "quota_root": filepath.Join(dir, "quota"), "jobs": []any{}, "mount": nil}))
-	peer := m795DockerPeer(t, dir)
+	serviceRecoveryWrite(t, filepath.Join(dir, "lifecycle.json"), serviceRecoveryJSON(t, map[string]any{"schema_version": 1, "id": strings.Repeat("7", 32), "owner_uid": os.Getuid(), "directory": dir, "phase": "prepared", "containers": []any{}, "quota_root": filepath.Join(dir, "quota"), "jobs": []any{}, "mount": nil}))
+	peer := serviceRecoveryDockerPeer(t, dir)
 	store, e := OpenRegistryLifecycle(dir, DockerPeer{peer.server.Client(), peer.server.URL + "/v1.41"})
 	if e != nil {
 		t.Fatal(e)
@@ -781,14 +781,14 @@ func m795RegistryState(t *testing.T) (string, *m795DockerAPI, *RegistryLifecycle
 	}
 	return dir, peer, store, name
 }
-func TestRepairM_795_RegistryOrphanContainerRecovery(t *testing.T) {
-	dir, peer, store, name := m795RegistryState(t)
+func TestRegistryOrphanContainerRecovery(t *testing.T) {
+	dir, peer, store, name := serviceRecoveryRegistryState(t)
 	peer.loseCreateResponse = true
-	configuration := m795JSON(t, RegistryCreateConfiguration("sha256:"+strings.Repeat("1", 64), filepath.Join(dir, name), filepath.Join(dir, "quota"), filepath.Join(dir, "builder")))
+	configuration := serviceRecoveryJSON(t, RegistryCreateConfiguration("sha256:"+strings.Repeat("1", 64), filepath.Join(dir, name), filepath.Join(dir, "quota"), filepath.Join(dir, "builder")))
 	if _, e := store.Create(context.Background(), name, configuration); e == nil {
 		t.Fatal("lost Docker create response accepted")
 	}
-	if !bytes.Contains(m795Read(t, filepath.Join(dir, "lifecycle.json")), []byte(`"id": null`)) {
+	if !bytes.Contains(serviceRecoveryRead(t, filepath.Join(dir, "lifecycle.json")), []byte(`"id": null`)) {
 		t.Fatal("test did not stop in planned-to-ID publication window")
 	}
 	store.Close()
@@ -807,7 +807,7 @@ func TestRepairM_795_RegistryOrphanContainerRecovery(t *testing.T) {
 		t.Fatalf("owned orphan survived recovery: objects=%d deletes=%d", remaining, deletes)
 	}
 	var state map[string]any
-	if json.Unmarshal(m795Read(t, filepath.Join(dir, "lifecycle.json")), &state) != nil {
+	if json.Unmarshal(serviceRecoveryRead(t, filepath.Join(dir, "lifecycle.json")), &state) != nil {
 		t.Fatal("state")
 	}
 	record := state["containers"].([]any)[0].(map[string]any)
@@ -818,7 +818,7 @@ func TestRepairM_795_RegistryOrphanContainerRecovery(t *testing.T) {
 		t.Fatal("idempotent reopen cleanup", e)
 	}
 	t.Run("foreign-labels", func(t *testing.T) {
-		_, peer, s, name := m795RegistryState(t)
+		_, peer, s, name := serviceRecoveryRegistryState(t)
 		defer s.Close()
 		if _, e := s.Create(context.Background(), name, configuration); e != nil {
 			t.Fatal(e)
@@ -836,7 +836,7 @@ func TestRepairM_795_RegistryOrphanContainerRecovery(t *testing.T) {
 		}
 	})
 	t.Run("absence-must-be-observed", func(t *testing.T) {
-		dir, peer, s, name := m795RegistryState(t)
+		dir, peer, s, name := serviceRecoveryRegistryState(t)
 		defer s.Close()
 		if _, e := s.Create(context.Background(), name, configuration); e != nil {
 			t.Fatal(e)
@@ -845,25 +845,25 @@ func TestRepairM_795_RegistryOrphanContainerRecovery(t *testing.T) {
 		if e := s.Cleanup(context.Background(), name); e == nil {
 			t.Fatal("engine reported removal while object remained")
 		}
-		if bytes.Contains(m795Read(t, filepath.Join(dir, "lifecycle.json")), []byte(`"container_absent": true`)) {
+		if bytes.Contains(serviceRecoveryRead(t, filepath.Join(dir, "lifecycle.json")), []byte(`"container_absent": true`)) {
 			t.Fatal("false absence recorded")
 		}
 	})
 	t.Run("inspection-errors-are-not-absence", func(t *testing.T) {
-		dir, peer, s, _ := m795RegistryState(t)
+		dir, peer, s, _ := serviceRecoveryRegistryState(t)
 		defer s.Close()
 		peer.inspectStatus = 500
 		if e := s.Cleanup(context.Background(), ""); e == nil {
 			t.Fatal("failed engine inspection accepted as resource absence")
 		}
-		if bytes.Contains(m795Read(t, filepath.Join(dir, "lifecycle.json")), []byte(`"container_absent": true`)) {
+		if bytes.Contains(serviceRecoveryRead(t, filepath.Join(dir, "lifecycle.json")), []byte(`"container_absent": true`)) {
 			t.Fatal("unproven absence recorded")
 		}
 	})
-	m795Wire(t, "registry-artifacts.py", "registry-container-plan", "registry-container-create", "registry-container-clean", "container_absent")
+	serviceRecoveryWire(t, "registry-artifacts.py", "registry-container-plan", "registry-container-create", "registry-container-clean", "container_absent")
 }
 
-func m795Readiness(now time.Time, ready bool) searchReadiness {
+func serviceRecoveryReadiness(now time.Time, ready bool) searchReadiness {
 	checked := uint64(now.UnixMilli())
 	state := "ready"
 	if !ready {
@@ -876,8 +876,8 @@ func m795Readiness(now time.Time, ready bool) searchReadiness {
 	}
 	return searchReadiness{1, ready, []searchRole{{"paid_delivery", state, deps, 30000, checked + 30000}}, checked, 125, 3}
 }
-func TestRepairM_795_SearchDefaultNodeDrift(t *testing.T) {
-	inventory := m795Inventory(t)
+func TestSearchDefaultNodeDrift(t *testing.T) {
+	inventory := serviceRecoveryInventory(t)
 	names := []string{}
 	for _, endpoint := range inventory.Nodes {
 		names = append(names, strings.TrimPrefix(endpoint, "https://"))
@@ -887,7 +887,7 @@ func TestRepairM_795_SearchDefaultNodeDrift(t *testing.T) {
 	if e != nil || selection.Primary != names[1] || selection.Backup != names[2] {
 		t.Fatalf("defaults did not filter/order actual serving inventory: %+v %v", selection, e)
 	}
-	cli, e := m795CLI([]string{"search-selection", "../../docs/site/docs/reference/public-rpc.md", "", ""}, []byte(listing))
+	cli, e := serviceRecoveryCLI([]string{"search-selection", "../../docs/site/docs/reference/public-rpc.md", "", ""}, []byte(listing))
 	if e != nil || cli != names[1]+" "+names[2]+"\n" {
 		t.Fatalf("CLI selector differs: %q %v", cli, e)
 	}
@@ -904,7 +904,7 @@ func TestRepairM_795_SearchDefaultNodeDrift(t *testing.T) {
 	}
 	// Both readiness peers use the actual typed codec; TLS verifies the selected
 	// inventory names. DNS alone is redirected to the disposable loopback peer.
-	pair, cert, _ := m795TLSIdentity(t, selection.Backup)
+	pair, cert, _ := serviceRecoveryTLSIdentity(t, selection.Backup)
 	var mu sync.Mutex
 	backupReady := true
 	primarySeen, backupSeen := 0, 0
@@ -917,7 +917,7 @@ func TestRepairM_795_SearchDefaultNodeDrift(t *testing.T) {
 		if r.Host == selection.Primary {
 			primarySeen++
 			w.WriteHeader(503)
-			json.NewEncoder(w).Encode(m795Readiness(time.Now(), false))
+			json.NewEncoder(w).Encode(serviceRecoveryReadiness(time.Now(), false))
 			return
 		}
 		if r.Host != selection.Backup {
@@ -927,12 +927,12 @@ func TestRepairM_795_SearchDefaultNodeDrift(t *testing.T) {
 		if !backupReady {
 			w.WriteHeader(503)
 		}
-		json.NewEncoder(w).Encode(m795Readiness(time.Now(), backupReady))
+		json.NewEncoder(w).Encode(serviceRecoveryReadiness(time.Now(), backupReady))
 	}))
 	server.TLS = &tls.Config{Certificates: []tls.Certificate{pair}, MinVersion: tls.VersionTLS12}
 	server.StartTLS()
 	defer server.Close()
-	client := m795NamedTLSClient(t, server, cert)
+	client := serviceRecoveryNamedTLSClient(t, server, cert)
 	// The primary deliberately has no valid leaf; a correct verified TLS client
 	// must refuse it and consume the current backup's typed readiness instead.
 	var rendered bytes.Buffer
@@ -959,7 +959,7 @@ func TestRepairM_795_SearchDefaultNodeDrift(t *testing.T) {
 		t.Fatal("backup readiness consumer was not driven")
 	}
 	// Reject malformed/old readiness with valid HTTPS, not just failed TLS.
-	invalid := m795Readiness(time.Now(), true)
+	invalid := serviceRecoveryReadiness(time.Now(), true)
 	invalid.Checked = uint64(time.Now().Add(-time.Minute).UnixMilli())
 	for i := range invalid.Roles[0].Dependencies {
 		last := invalid.Checked
@@ -969,14 +969,14 @@ func TestRepairM_795_SearchDefaultNodeDrift(t *testing.T) {
 	bad.TLS = &tls.Config{Certificates: []tls.Certificate{pair}}
 	bad.StartTLS()
 	defer bad.Close()
-	if e = ProbeSearchReady(context.Background(), m795NamedTLSClient(t, bad, cert), "https://"+selection.Backup, time.Now()); e == nil {
+	if e = ProbeSearchReady(context.Background(), serviceRecoveryNamedTLSClient(t, bad, cert), "https://"+selection.Backup, time.Now()); e == nil {
 		t.Fatal("stale typed readiness accepted")
 	}
-	m795Wire(t, "search-front.sh", "search_front_names", "search_front_select", "search-selection", "search-render", "search-ready")
+	serviceRecoveryWire(t, "search-front.sh", "search_front_names", "search_front_select", "search-selection", "search-render", "search-ready")
 }
 
-func TestRepairM_795_ResyncSourceInterruption(t *testing.T) {
-	journal := filepath.Join(m795Private(t), "resync.json")
+func TestResyncSourceInterruption(t *testing.T) {
+	journal := filepath.Join(serviceRecoveryPrivate(t), "resync.json")
 	source, destination := "source@node.invalid", "target@node.invalid"
 	s, e := OpenResyncState(journal)
 	if e != nil {
@@ -988,7 +988,7 @@ func TestRepairM_795_ResyncSourceInterruption(t *testing.T) {
 	// The stop side effect happens only after durable Prepare. A source stopped
 	// between preparation and copying must be recovered as well as mid-copy.
 	unitFile := filepath.Join(filepath.Dir(journal), "unit-state")
-	m795Write(t, unitFile, []byte("inactive"))
+	serviceRecoveryWrite(t, unitFile, []byte("inactive"))
 	s.Close()
 	s, e = OpenResyncState(journal)
 	if e != nil {
@@ -1004,16 +1004,16 @@ func TestRepairM_795_ResyncSourceInterruption(t *testing.T) {
 	if e = s.Phase("restoring"); e != nil {
 		t.Fatal(e)
 	}
-	if action, e := s.RecoveryAction(string(m795Read(t, unitFile))); e != nil || action != "start" {
+	if action, e := s.RecoveryAction(string(serviceRecoveryRead(t, unitFile))); e != nil || action != "start" {
 		t.Fatalf("running source recovery action: %q %v", action, e)
 	}
-	if e = s.Restored(string(m795Read(t, unitFile))); e == nil {
+	if e = s.Restored(string(serviceRecoveryRead(t, unitFile))); e == nil {
 		t.Fatal("stopped source marked recovered")
 	}
 	// The service-state peer stores the actual observable transition separately
 	// from the journal. The acknowledgement consumer requires the original state.
-	m795Write(t, unitFile, []byte("active"))
-	if e = s.Restored(string(m795Read(t, unitFile))); e != nil {
+	serviceRecoveryWrite(t, unitFile, []byte("active"))
+	if e = s.Restored(string(serviceRecoveryRead(t, unitFile))); e != nil {
 		t.Fatal(e)
 	}
 	if e = s.Prepare(source, "second@node.invalid", "active"); e != nil {
@@ -1022,7 +1022,7 @@ func TestRepairM_795_ResyncSourceInterruption(t *testing.T) {
 	if e = s.Phase("copying"); e != nil {
 		t.Fatal(e)
 	}
-	m795Write(t, unitFile, []byte("inactive"))
+	serviceRecoveryWrite(t, unitFile, []byte("inactive"))
 	s.Close()
 	s, e = OpenResyncState(journal)
 	if e != nil {
@@ -1032,7 +1032,7 @@ func TestRepairM_795_ResyncSourceInterruption(t *testing.T) {
 	if e != nil || record.Phase != "copying" {
 		t.Fatal("copy interruption phase lost")
 	}
-	if action, e := s.RecoveryAction(string(m795Read(t, unitFile))); e != nil || action != "start" {
+	if action, e := s.RecoveryAction(string(serviceRecoveryRead(t, unitFile))); e != nil || action != "start" {
 		t.Fatal("mid-copy source recovery not required")
 	}
 	// Repeated death during cleanup retains the same original source obligation.
@@ -1044,8 +1044,8 @@ func TestRepairM_795_ResyncSourceInterruption(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	m795Write(t, unitFile, []byte("active"))
-	if e = s.Restored(string(m795Read(t, unitFile))); e != nil {
+	serviceRecoveryWrite(t, unitFile, []byte("active"))
+	if e = s.Restored(string(serviceRecoveryRead(t, unitFile))); e != nil {
 		t.Fatal(e)
 	}
 	for _, original := range []string{"inactive", "failed"} {
@@ -1084,14 +1084,14 @@ func TestRepairM_795_ResyncSourceInterruption(t *testing.T) {
 		t.Fatal("unstable source state admitted")
 	}
 	s.Close()
-	m795Wire(t, "sync-fleet.sh", `resync_record prepare "$src" "$dest" "$original"`, `resync_record phase copying`, `trap resync_exit EXIT`, `trap 'exit 143' TERM`, `timeout 45s ssh`, `if [ "$action" = start ]; then`, `resync retained source recovery failed`, `resync_target "$k" "$src" || return 1`)
-	sourceCode := string(m795Read(t, "sync-fleet.sh"))
+	serviceRecoveryWire(t, "sync-fleet.sh", `resync_record prepare "$src" "$dest" "$original"`, `resync_record phase copying`, `trap resync_exit EXIT`, `trap 'exit 143' TERM`, `timeout 45s ssh`, `if [ "$action" = start ]; then`, `resync retained source recovery failed`, `resync_target "$k" "$src" || return 1`)
+	sourceCode := string(serviceRecoveryRead(t, "sync-fleet.sh"))
 	prepare := strings.Index(sourceCode, `resync_record prepare "$src"`)
 	stop := strings.Index(sourceCode, `if [ "$original" = active ] && ! remote`)
 	if prepare < 0 || stop < prepare {
 		t.Fatal("source can stop before recovery journal is durable")
 	}
-	cli, e := m795CLI([]string{"resync-journal", journal, "pending"}, nil)
+	cli, e := serviceRecoveryCLI([]string{"resync-journal", journal, "pending"}, nil)
 	if e != nil || cli != "" {
 		t.Fatalf("cleaned source obligation returned after reopen: %q %v", cli, e)
 	}

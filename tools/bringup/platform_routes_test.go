@@ -25,7 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-func m794Read(t *testing.T, path string) []byte {
+func platformRoutesRead(t *testing.T, path string) []byte {
 	t.Helper()
 	b, e := os.ReadFile(path)
 	if e != nil {
@@ -33,7 +33,7 @@ func m794Read(t *testing.T, path string) []byte {
 	}
 	return b
 }
-func m794Write(t *testing.T, path string, b []byte) {
+func platformRoutesWrite(t *testing.T, path string, b []byte) {
 	t.Helper()
 	if e := os.MkdirAll(filepath.Dir(path), 0700); e != nil {
 		t.Fatal(e)
@@ -42,22 +42,22 @@ func m794Write(t *testing.T, path string, b []byte) {
 		t.Fatal(e)
 	}
 }
-func m794CLI(t *testing.T, args []string, input []byte) (string, error) {
+func platformRoutesCLI(t *testing.T, args []string, input []byte) (string, error) {
 	t.Helper()
 	var out bytes.Buffer
 	e := RunInspector(context.Background(), args, bytes.NewReader(input), &out)
 	return out.String(), e
 }
-func m794Wire(t *testing.T, path string, terms ...string) {
+func platformRoutesWire(t *testing.T, path string, terms ...string) {
 	t.Helper()
-	s := string(m794Read(t, path))
+	s := string(platformRoutesRead(t, path))
 	for _, term := range terms {
 		if !strings.Contains(s, term) {
 			t.Fatalf("%s does not use %s", path, term)
 		}
 	}
 }
-func m794Bundle(t *testing.T, name string) (string, IdentityBundle) {
+func platformRoutesBundle(t *testing.T, name string) (string, IdentityBundle) {
 	t.Helper()
 	dir := t.TempDir()
 	if err := os.Chmod(dir, 0700); err != nil {
@@ -65,15 +65,15 @@ func m794Bundle(t *testing.T, name string) (string, IdentityBundle) {
 	}
 	b := IdentityBundle{}
 	for _, file := range identityFiles {
-		data := m794Read(t, filepath.Join("tests/fixtures/repair_m794", name, file.File))
-		m794Write(t, filepath.Join(dir, file.File), data)
+		data := platformRoutesRead(t, filepath.Join("tests/fixtures/service_identities", name, file.File))
+		platformRoutesWrite(t, filepath.Join(dir, file.File), data)
 		b[file.File] = data
 	}
 	return dir, b
 }
-func m794TLS(t *testing.T, role string, handler http.Handler) *httptest.Server {
+func platformRoutesTLS(t *testing.T, role string, handler http.Handler) *httptest.Server {
 	t.Helper()
-	_, b := m794Bundle(t, role)
+	_, b := platformRoutesBundle(t, role)
 	cert, e := tls.X509KeyPair(b["cert.pem"], b["key.pem"])
 	if e != nil {
 		t.Fatal(e)
@@ -89,7 +89,7 @@ func m794TLS(t *testing.T, role string, handler http.Handler) *httptest.Server {
 	t.Cleanup(s.Close)
 	return s
 }
-func m794ProducerPeer(t *testing.T, r *http.Request) {
+func platformRoutesProducerPeer(t *testing.T, r *http.Request) {
 	t.Helper()
 	if r.TLS == nil || len(r.TLS.VerifiedChains) == 0 || len(r.TLS.PeerCertificates) == 0 {
 		t.Error("mTLS producer was not verified")
@@ -101,12 +101,12 @@ func m794ProducerPeer(t *testing.T, r *http.Request) {
 	}
 }
 
-func TestRepairM_794_RegistryRetiredEvents(t *testing.T) {
-	row, e := ReadRolloutService(bytes.NewReader(m794Read(t, "../../deploy/rollout.kvx")), "program-registry")
+func TestRegistryRetiredEvents(t *testing.T) {
+	row, e := ReadRolloutService(bytes.NewReader(platformRoutesRead(t, "../../deploy/rollout.kvx")), "program-registry")
 	if e != nil || row.Target != "box" || row.HostKey() != "PROGRAM_REGISTRY_HOST" || row.Unit != "layerx-registry.service" {
 		t.Fatalf("actual rollout: %+v %v", row, e)
 	}
-	declaration, e := abi.JSON(bytes.NewReader(m794Read(t, "../../precompiles/layerxprograms/abi.json")))
+	declaration, e := abi.JSON(bytes.NewReader(platformRoutesRead(t, "../../precompiles/layerxprograms/abi.json")))
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -234,15 +234,15 @@ func TestRepairM_794_RegistryRetiredEvents(t *testing.T) {
 	}
 	now := time.Now()
 	publication := map[string]any{"program_id": saved.Program, "lifecycle": "active", "observed_sequence": 600, "observed_at": now.UnixMilli(), "valid_through": now.Add(time.Minute).UnixMilli(), "versions": []any{map[string]any{"code_hash": hex.EncodeToString(encoded), "source": map[string]any{"status": "verified"}}}, "receipt": map[string]string{"verification": "receipt-verified", "deployment_receipt_digest": strings.Repeat("a", 64)}}
-	registry := m794TLS(t, "registry", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		m794ProducerPeer(t, r)
+	registry := platformRoutesTLS(t, "registry", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		platformRoutesProducerPeer(t, r)
 		if r.Method != "GET" || r.URL.Path != "/v1/programs/registry/"+saved.Program || r.Header.Get("Authorization") != "Bearer registry-read-fixture" {
 			w.WriteHeader(401)
 			return
 		}
 		json.NewEncoder(w).Encode(publication)
 	}))
-	_, bundle := m794Bundle(t, "registry-event-client")
+	_, bundle := platformRoutesBundle(t, "registry-event-client")
 	client, e := BundleTLSClient(bundle)
 	if e != nil {
 		t.Fatal(e)
@@ -284,19 +284,19 @@ func TestRepairM_794_RegistryRetiredEvents(t *testing.T) {
 			}
 			if bad == "absent" {
 				var c RegistryCursor
-				if e = json.Unmarshal(m794Read(t, path), &c); e != nil || c.Next != 601 || c.Match != nil {
+				if e = json.Unmarshal(platformRoutesRead(t, path), &c); e != nil || c.Next != 601 || c.Match != nil {
 					t.Fatal("empty page lost durable progress")
 				}
 			}
 		})
 	}
 	fault = ""
-	m794Write(t, cursor, []byte(`{"Endpoint":"foreign","Program":"bad","Next":601}`))
+	platformRoutesWrite(t, cursor, []byte(`{"Endpoint":"foreign","Program":"bad","Next":601}`))
 	if _, e = ObserveRegistryEvents(context.Background(), chain.Client(), chain.URL, saved.Program, cursor); e == nil {
 		t.Fatal("foreign cursor accepted")
 	}
-	m794Wire(t, "check-live.sh", `rollout-service "$repo_root/deploy/rollout.kvx" program-registry`, `registry-observe`, `registry-health`)
-	registrySource := string(m794Read(t, "check-live.sh"))
+	platformRoutesWire(t, "check-live.sh", `rollout-service "$repo_root/deploy/rollout.kvx" program-registry`, `registry-observe`, `registry-health`)
+	registrySource := string(platformRoutesRead(t, "check-live.sh"))
 	registrySource = registrySource[strings.Index(registrySource, "check_registry() {"):strings.Index(registrySource, "check_registry_bootstrap() {")]
 	for _, retired := range []string{"lx_getProgramEvents", "fly.toml", "flyctl", "$router/rpc"} {
 		if strings.Contains(registrySource, retired) {
@@ -305,16 +305,16 @@ func TestRepairM_794_RegistryRetiredEvents(t *testing.T) {
 	}
 }
 
-func TestRepairM_794_EventsUpstreamPlatformDrift(t *testing.T) {
+func TestEventsUpstreamPlatformDrift(t *testing.T) {
 	kinds := []struct{ kind, identity string }{{"journey", "human-event-client"}, {"approval", "human-event-client"}, {"payment", "gateway-client"}, {"program", "registry-event-client"}}
 	for _, item := range kinds {
 		t.Run(item.kind, func(t *testing.T) {
-			dir, _ := m794Bundle(t, item.identity)
+			dir, _ := platformRoutesBundle(t, item.identity)
 			fault := ""
 			var calls []string
 			handler := func(role string) http.Handler {
 				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					m794ProducerPeer(t, r)
+					platformRoutesProducerPeer(t, r)
 					path := "/internal/v1/producer-readiness"
 					token := "Bearer source-fixture"
 					if role == "webhook-trigger" {
@@ -337,8 +337,8 @@ func TestRepairM_794_EventsUpstreamPlatformDrift(t *testing.T) {
 					json.NewEncoder(w).Encode(map[string]any{"schema": "layerx.event-admission.v1", "role": role, "kind": kind, "ready": ready, "generation": 7, "principals": 1, "principal_digest": true, "fresh_for_ms": 10000})
 				})
 			}
-			source := m794TLS(t, "internal-"+map[string]string{"journey": "journeys", "approval": "approvals", "payment": "payments", "program": "programs"}[item.kind], handler("source-producer"))
-			trigger := m794TLS(t, "developer", handler("webhook-trigger"))
+			source := platformRoutesTLS(t, "internal-"+map[string]string{"journey": "journeys", "approval": "approvals", "payment": "payments", "program": "programs"}[item.kind], handler("source-producer"))
+			trigger := platformRoutesTLS(t, "developer", handler("webhook-trigger"))
 			env := map[string]string{}
 			for prefix, endpoint := range map[string]string{"LAYERX_EVENTS_" + strings.ToUpper(item.kind): source.URL, "LAYERX_EVENTS_WEBHOOKS": trigger.URL} {
 				env[prefix+"_UPSTREAM_URL"] = endpoint
@@ -350,7 +350,7 @@ func TestRepairM_794_EventsUpstreamPlatformDrift(t *testing.T) {
 					token = []byte("trigger-fixture")
 				}
 				path := filepath.Join(dir, prefix+".token")
-				m794Write(t, path, token)
+				platformRoutesWrite(t, path, token)
 				env[prefix+"_UPSTREAM_TOKEN_FILE"] = path
 			}
 			var out bytes.Buffer
@@ -379,40 +379,40 @@ func TestRepairM_794_EventsUpstreamPlatformDrift(t *testing.T) {
 		})
 	}
 	deployment := []byte(`{"latestDeployment":{"id":"deploy-current","status":"SUCCESS","instances":[{"id":"replica-one","status":"RUNNING"}],"meta":{"serviceManifest":{"deploy":{"numReplicas":1}}}}}`)
-	wire, e := m794CLI(t, []string{"role-instances"}, deployment)
+	wire, e := platformRoutesCLI(t, []string{"role-instances"}, deployment)
 	if e != nil || wire != "replica-one\n" {
 		t.Fatalf("role selection: %q %v", wire, e)
 	}
 	for _, bad := range []string{strings.Replace(string(deployment), "RUNNING", "STOPPED", 1), strings.Replace(string(deployment), `"numReplicas":1`, `"numReplicas":2`, 1), strings.Replace(string(deployment), `"SUCCESS"`, `"FAILED"`, 1)} {
-		if _, e = m794CLI(t, []string{"role-instances"}, []byte(bad)); e == nil {
+		if _, e = platformRoutesCLI(t, []string{"role-instances"}, []byte(bad)); e == nil {
 			t.Fatal("stale deployment selected")
 		}
 	}
 	for _, name := range []string{"internal-journeys", "internal-approvals", "internal-payments", "internal-programs", "webhooks-ingress", "router"} {
-		row, e := ReadRolloutService(bytes.NewReader(m794Read(t, "../../deploy/rollout.kvx")), name)
+		row, e := ReadRolloutService(bytes.NewReader(platformRoutesRead(t, "../../deploy/rollout.kvx")), name)
 		if e != nil || row.Target != "railway" || row.Service != name {
 			t.Fatalf("current role lookup %s: %v", name, e)
 		}
 	}
-	m794Wire(t, "check-live.sh", `role_instances "$app"`, `railway_ssh "$app" "$command" "$instance"`, `event-handoff`, `event-role`, `event-trigger`)
+	platformRoutesWire(t, "check-live.sh", `role_instances "$app"`, `railway_ssh "$app" "$command" "$instance"`, `event-handoff`, `event-role`, `event-trigger`)
 }
 
-func TestRepairM_794_CAObsoleteRoster(t *testing.T) {
+func TestCAObsoleteRoster(t *testing.T) {
 	expected := strings.Fields("pending-core pending-core-admin agent-boundary agentd agentd-client paxeer-boundary-loopback paxeer-boundary-public human human-event-client human-attestor-client human-kms human-kms-client human-kms-executor gateway-redis gateway-client identity internal-kms internal-journeys internal-payments internal-approvals internal-programs internal-redis registry registry-event-client indexer interop-client developer developer-client dashboard-client ramp-client")
-	rows, e := ReadServiceRoster(bytes.NewReader(m794Read(t, "ca-services.tsv")))
+	rows, e := ReadServiceRoster(bytes.NewReader(platformRoutesRead(t, "ca-services.tsv")))
 	if e != nil || len(rows) != len(expected) {
 		t.Fatal("approved identity inventory differs", e)
 	}
-	approved, e := ReadServiceRoster(bytes.NewReader(m794Read(t, "tests/fixtures/repair_m794/approved-roster.tsv")))
+	approved, e := ReadServiceRoster(bytes.NewReader(platformRoutesRead(t, "tests/fixtures/service_identities/approved-roster.tsv")))
 	if e != nil {
 		t.Fatal(e)
 	}
-	_, ordinary := m794Bundle(t, "human-event-client")
+	_, ordinary := platformRoutesBundle(t, "human-event-client")
 	for i, row := range rows {
 		if row.Name != expected[i] || approved[i].Name != row.Name || approved[i].Target != row.Target || approved[i].CN != row.CN || approved[i].EKU != row.EKU {
 			t.Fatalf("unapproved row %+v", row)
 		}
-		dir, bundle := m794Bundle(t, row.Name)
+		dir, bundle := platformRoutesBundle(t, row.Name)
 		if e = BundleConsistent(bundle); e != nil {
 			t.Fatalf("real issuance %s: %v", row.Name, e)
 		}
@@ -447,7 +447,7 @@ func TestRepairM_794_CAObsoleteRoster(t *testing.T) {
 					}
 				})
 			}
-			out, e := m794CLI(t, []string{"bundle-local", dir}, nil)
+			out, e := platformRoutesCLI(t, []string{"bundle-local", dir}, nil)
 			if e != nil || !strings.HasPrefix(out, "bundle=consistent") {
 				t.Fatalf("custody transport: %s %v", out, e)
 			}
@@ -458,13 +458,13 @@ func TestRepairM_794_CAObsoleteRoster(t *testing.T) {
 			t.Fatal("retired success assumption retained")
 		}
 	}
-	m794Wire(t, "check-live.test.sh", "expected_ca_services=(pending-core", `fail human-kms target=box:KERNEL_HOST`, `target=railway:gateway`)
+	platformRoutesWire(t, "check-live.test.sh", "expected_ca_services=(pending-core", `fail human-kms target=box:KERNEL_HOST`, `target=railway:gateway`)
 }
 
-func TestRepairM_794_EdgeThirdShape(t *testing.T) {
+func TestEdgeThirdShape(t *testing.T) {
 	var manifest, sites strings.Builder
 	for _, item := range [][]string{{"ramp.paxeer.network", "railway", "ramp.up.railway.app:443", "-"}, {"hooks.paxeer.network", "box", "private.box.test:8443", "hooks.box.test"}, {"plain.paxeer.network", "box", "10.20.0.2:8080", "-"}, {"machine.paxeer.network:443", "stream", "10.20.0.3:9420", "-"}} {
-		line, e := m794CLI(t, append([]string{"edge-map"}, item...), nil)
+		line, e := platformRoutesCLI(t, append([]string{"edge-map"}, item...), nil)
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -475,14 +475,14 @@ func TestRepairM_794_EdgeThirdShape(t *testing.T) {
 		}
 		r := rows[0]
 		if r.Mode == "http" {
-			out, e := m794CLI(t, []string{"edge-http", r.Name, r.Kind, r.Upstream, r.SNI, "tls", "/var/www/certbot", "/etc/letsencrypt/live", "127.0.0.53", "1"}, nil)
+			out, e := platformRoutesCLI(t, []string{"edge-http", r.Name, r.Kind, r.Upstream, r.SNI, "tls", "/var/www/certbot", "/etc/letsencrypt/live", "127.0.0.53", "1"}, nil)
 			if e != nil {
 				t.Fatal(e)
 			}
 			sites.WriteString(out)
 		}
 	}
-	stream, e := m794CLI(t, []string{"edge-stream", "443", "127.0.0.53"}, []byte(manifest.String()))
+	stream, e := platformRoutesCLI(t, []string{"edge-stream", "443", "127.0.0.53"}, []byte(manifest.String()))
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -492,54 +492,54 @@ func TestRepairM_794_EdgeThirdShape(t *testing.T) {
 	}
 	pool := filepath.Join(t.TempDir(), "pool")
 	down := filepath.Join(t.TempDir(), "down")
-	m794Write(t, pool, []byte("api1.mainnet-beta.paxeer.network\napi2.mainnet-beta.paxeer.network\n"))
-	m794Write(t, down, []byte("api2.mainnet-beta.paxeer.network\n"))
-	rpc, e := m794CLI(t, []string{"edge-rpc", "rpc.paxeer.network", "tls", "/var/www/certbot", "/etc/letsencrypt/live", "127.0.0.53", "1", pool, down}, nil)
+	platformRoutesWrite(t, pool, []byte("api1.mainnet-beta.paxeer.network\napi2.mainnet-beta.paxeer.network\n"))
+	platformRoutesWrite(t, down, []byte("api2.mainnet-beta.paxeer.network\n"))
+	rpc, e := platformRoutesCLI(t, []string{"edge-rpc", "rpc.paxeer.network", "tls", "/var/www/certbot", "/etc/letsencrypt/live", "127.0.0.53", "1", pool, down}, nil)
 	if e != nil {
 		t.Fatal(e)
 	}
 	manifest.WriteString("rpc.paxeer.network rpc - 443 rpc -\n")
 	sites.WriteString(rpc)
 	frame := manifest.String() + "@@sites\n" + sites.String()
-	out, e := m794CLI(t, []string{"edge-contract"}, []byte(frame))
+	out, e := platformRoutesCLI(t, []string{"edge-contract"}, []byte(frame))
 	if e != nil || out != manifest.String() {
 		t.Fatalf("renderer -> transport -> real decoder: %v %s", e, out)
 	}
-	selected, e := m794CLI(t, []string{"edge-ramp", "ramp.paxeer.network"}, []byte(frame))
+	selected, e := platformRoutesCLI(t, []string{"edge-ramp", "ramp.paxeer.network"}, []byte(frame))
 	if e != nil || !strings.HasPrefix(selected, "ramp.paxeer.network http ramp.up.railway.app:443 443 railway -") {
 		t.Fatal(selected, e)
 	}
-	members, e := m794CLI(t, []string{"edge-contract", "rpc.paxeer.network", "443"}, []byte(frame))
+	members, e := platformRoutesCLI(t, []string{"edge-contract", "rpc.paxeer.network", "443"}, []byte(frame))
 	if e != nil || members != "api1.mainnet-beta.paxeer.network\n" {
 		t.Fatal(members, e)
 	}
 	for _, bad := range []string{strings.Replace(frame, "ramp.up.railway.app:443 443 railway -", "ramp-app 443", 1), manifest.String() + strings.Split(manifest.String(), "\n")[0] + "\n@@sites\n" + sites.String(), strings.Replace(frame, "proxy_ssl_verify on;", "proxy_ssl_verify off;", 1), strings.Replace(frame, "set $edge_upstream ramp.up.railway.app:443;", "set $edge_upstream unregistered.up.railway.app:443;", 1), strings.ReplaceAll(frame, "max_fails=2 fail_timeout=10s;", "max_fails=2 fail_timeout=10s down;")} {
-		if _, e = m794CLI(t, []string{"edge-contract"}, []byte(bad)); e == nil {
+		if _, e = platformRoutesCLI(t, []string{"edge-contract"}, []byte(bad)); e == nil {
 			t.Fatal("malformed or mismatched rendered route accepted")
 		}
 	}
-	if _, e = m794CLI(t, []string{"edge-ramp", "unregistered.paxeer.network"}, []byte(frame)); e == nil {
+	if _, e = platformRoutesCLI(t, []string{"edge-ramp", "unregistered.paxeer.network"}, []byte(frame)); e == nil {
 		t.Fatal("unregistered ramp admitted")
 	}
-	if _, e = m794CLI(t, []string{"edge-map", "api15.mainnet-beta.paxeer.network", "railway", "node.up.railway.app:443", "-"}, nil); e == nil {
+	if _, e = platformRoutesCLI(t, []string{"edge-map", "api15.mainnet-beta.paxeer.network", "railway", "node.up.railway.app:443", "-"}, nil); e == nil {
 		t.Fatal("independent node claimed by edge")
 	}
-	m794Wire(t, "edge.sh", "edge-map", "edge-http", "edge-stream", "edge-rpc")
-	m794Wire(t, "check-live.test.sh", `edge_fixture`, `"$root/tools/bringup/edge.sh" set`)
+	platformRoutesWire(t, "edge.sh", "edge-map", "edge-http", "edge-stream", "edge-rpc")
+	platformRoutesWire(t, "check-live.test.sh", `edge_fixture`, `"$root/tools/bringup/edge.sh" set`)
 }
 
-func TestRepairM_794_InternalPlatformShape(t *testing.T) {
-	clientDir, bundle := m794Bundle(t, "human-event-client")
+func TestInternalPlatformShape(t *testing.T) {
+	clientDir, bundle := platformRoutesBundle(t, "human-event-client")
 	calls := 0
 	for _, group := range []string{"kms", "journeys", "payments", "approvals", "programs"} {
 		t.Run(group, func(t *testing.T) {
-			row, e := ReadRolloutService(bytes.NewReader(m794Read(t, "../../deploy/rollout.kvx")), "internal-"+group)
+			row, e := ReadRolloutService(bytes.NewReader(platformRoutesRead(t, "../../deploy/rollout.kvx")), "internal-"+group)
 			if e != nil {
 				t.Fatal(e)
 			}
 			notReady := false
-			peer := m794TLS(t, "internal-"+group, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				m794ProducerPeer(t, r)
+			peer := platformRoutesTLS(t, "internal-"+group, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				platformRoutesProducerPeer(t, r)
 				if r.URL.Path != "/readyz" || r.Method != "GET" || r.Host != row.Service+".railway.internal:9443" {
 					t.Error("readiness role route drift")
 					w.WriteHeader(400)
@@ -555,15 +555,15 @@ func TestRepairM_794_InternalPlatformShape(t *testing.T) {
 			}))
 			connect := strings.TrimPrefix(peer.URL, "https://")
 			url := "https://" + row.Service + ".railway.internal:9443/readyz"
-			out, e := m794CLI(t, []string{"internal-readiness", url, clientDir, connect}, nil)
+			out, e := platformRoutesCLI(t, []string{"internal-readiness", url, clientDir, connect}, nil)
 			if e != nil || out != "pass readiness http=200 ready=true identity=human-event-client\n" {
 				t.Fatalf("real CA -> box custody -> service TLS: %s %v", out, e)
 			}
 			notReady = true
-			if out, e = m794CLI(t, []string{"internal-readiness", url, clientDir, connect}, nil); e == nil || out != "" {
+			if out, e = platformRoutesCLI(t, []string{"internal-readiness", url, clientDir, connect}, nil); e == nil || out != "" {
 				t.Fatal("unready role accepted")
 			}
-			_, wrong := m794Bundle(t, "human-attestor-client")
+			_, wrong := platformRoutesBundle(t, "human-attestor-client")
 			wrongClient, e := BundleTLSClient(wrong)
 			if e != nil {
 				t.Fatal(e)
@@ -584,7 +584,7 @@ func TestRepairM_794_InternalPlatformShape(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	peer := m794TLS(t, "internal-kms", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { t.Error("absent credential passed TLS") }))
+	peer := platformRoutesTLS(t, "internal-kms", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { t.Error("absent credential passed TLS") }))
 	if e = ProbeInternalReady(context.Background(), anonymous, peer.URL+"/readyz"); e == nil {
 		t.Fatal("absent client identity admitted")
 	}
@@ -592,23 +592,23 @@ func TestRepairM_794_InternalPlatformShape(t *testing.T) {
 	if e = os.Remove(filepath.Join(clientDir, "identity.p12")); e != nil {
 		t.Fatal(e)
 	}
-	if out, e := m794CLI(t, []string{"internal-readiness", peer.URL + "/readyz", clientDir}, nil); e == nil || out != "" {
+	if out, e := platformRoutesCLI(t, []string{"internal-readiness", peer.URL + "/readyz", clientDir}, nil); e == nil || out != "" {
 		t.Fatal("absent custody accepted")
 	}
 	if bytes.Contains(bundle["cert.pem"], []byte("PRIVATE KEY")) {
 		t.Fatal("public certificate contains private material")
 	}
-	m794Wire(t, "check-live.sh", `ssh_read "$KERNEL_HOST" "$command"`, `internal-readiness %q %q %q`)
-	m794Wire(t, "check-live.test.sh", "check_live_internal_absent_credentials", "internal-kms.railway.internal")
-	m794Wire(t, "tests/fixtures/repair_m794/peers.py", "ssl.CERT_REQUIRED")
+	platformRoutesWire(t, "check-live.sh", `ssh_read "$KERNEL_HOST" "$command"`, `internal-readiness %q %q %q`)
+	platformRoutesWire(t, "check-live.test.sh", "check_live_internal_absent_credentials", "internal-kms.railway.internal")
+	platformRoutesWire(t, "tests/fixtures/service_identities/peers.py", "ssl.CERT_REQUIRED")
 }
 
-func TestRepairM_794_DocsNamePolicy(t *testing.T) {
-	inventory, e := ReadPublicInventory(bytes.NewReader(m794Read(t, "../../docs/site/docs/reference/public-rpc.md")))
+func TestDocsNamePolicy(t *testing.T) {
+	inventory, e := ReadPublicInventory(bytes.NewReader(platformRoutesRead(t, "../../docs/site/docs/reference/public-rpc.md")))
 	if e != nil {
 		t.Fatal(e)
 	}
-	allowed, e := DocumentationNames(inventory, bytes.NewReader(m794Read(t, "../../spec/layerx-merge/spec.kvx")))
+	allowed, e := DocumentationNames(inventory, bytes.NewReader(platformRoutesRead(t, "../../spec/layerx-merge/spec.kvx")))
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -653,24 +653,24 @@ func TestRepairM_794_DocsNamePolicy(t *testing.T) {
 			t.Fatal("root slash refused", e)
 		}
 	}
-	m794Wire(t, "docs-names.sh", "docs/site/docs/reference/public-rpc.md", `docs-names "$inventory" "$spec"`)
+	platformRoutesWire(t, "docs-names.sh", "docs/site/docs/reference/public-rpc.md", `docs-names "$inventory" "$spec"`)
 }
 
-func m794Stage(t *testing.T, root string, names ...string) {
+func platformRoutesStage(t *testing.T, root string, names ...string) {
 	t.Helper()
 	var manifest strings.Builder
 	for _, name := range names {
-		line, e := m794CLI(t, []string{"edge-map", name, "railway", "app.up.railway.app:443", "-"}, nil)
+		line, e := platformRoutesCLI(t, []string{"edge-map", name, "railway", "app.up.railway.app:443", "-"}, nil)
 		if e != nil {
 			t.Fatal(e)
 		}
 		manifest.WriteString(line)
-		body, e := m794CLI(t, []string{"edge-http", name, "railway", "app.up.railway.app:443", "-", "tls", "/var/www/certbot", "/etc/letsencrypt/live", "127.0.0.53", "0"}, nil)
+		body, e := platformRoutesCLI(t, []string{"edge-http", name, "railway", "app.up.railway.app:443", "-", "tls", "/var/www/certbot", "/etc/letsencrypt/live", "127.0.0.53", "0"}, nil)
 		if e != nil {
 			t.Fatal(e)
 		}
 		available := filepath.Join(root, "sites-available", name+".conf")
-		m794Write(t, available, []byte(body))
+		platformRoutesWrite(t, available, []byte(body))
 		if e = os.MkdirAll(filepath.Join(root, "sites-enabled"), 0755); e != nil {
 			t.Fatal(e)
 		}
@@ -682,9 +682,9 @@ func m794Stage(t *testing.T, root string, names ...string) {
 			t.Fatal(e)
 		}
 	}
-	m794Write(t, filepath.Join(root, "edge/manifest"), []byte(manifest.String()))
+	platformRoutesWrite(t, filepath.Join(root, "edge/manifest"), []byte(manifest.String()))
 }
-func m794Open(t *testing.T, root string) *EdgeState {
+func platformRoutesOpen(t *testing.T, root string) *EdgeState {
 	t.Helper()
 	s, e := OpenEdgeState(root)
 	if e != nil {
@@ -695,7 +695,7 @@ func m794Open(t *testing.T, root string) *EdgeState {
 	}
 	return s
 }
-func m794Sync(t *testing.T, primary, secondary *EdgeState) bool {
+func platformRoutesSync(t *testing.T, primary, secondary *EdgeState) bool {
 	t.Helper()
 	var wire bytes.Buffer
 	if e := primary.Export(&wire); e != nil {
@@ -712,46 +712,46 @@ func m794Sync(t *testing.T, primary, secondary *EdgeState) bool {
 	}
 	return changed
 }
-func TestRepairM_794_EdgeSecondaryStaleSites(t *testing.T) {
+func TestEdgeSecondaryStaleSites(t *testing.T) {
 	primaryRoot, secondaryRoot := t.TempDir(), t.TempDir()
-	primary := m794Open(t, primaryRoot)
-	secondary := m794Open(t, secondaryRoot)
+	primary := platformRoutesOpen(t, primaryRoot)
+	secondary := platformRoutesOpen(t, secondaryRoot)
 	if e := primary.Begin(); e != nil {
 		t.Fatal(e)
 	}
-	m794Stage(t, primaryRoot, "ramp.paxeer.network", "hooks.paxeer.network")
+	platformRoutesStage(t, primaryRoot, "ramp.paxeer.network", "hooks.paxeer.network")
 	if e := primary.Finish(true); e != nil {
 		t.Fatal(e)
 	}
-	m794Write(t, filepath.Join(secondaryRoot, "sites-available/operator.conf"), []byte("# operator-owned\nserver {}\n"))
+	platformRoutesWrite(t, filepath.Join(secondaryRoot, "sites-available/operator.conf"), []byte("# operator-owned\nserver {}\n"))
 	if e := os.MkdirAll(filepath.Join(secondaryRoot, "sites-enabled"), 0755); e != nil {
 		t.Fatal(e)
 	}
 	if e := os.Symlink("../sites-available/operator.conf", filepath.Join(secondaryRoot, "sites-enabled/operator.conf")); e != nil {
 		t.Fatal(e)
 	}
-	if !m794Sync(t, primary, secondary) {
+	if !platformRoutesSync(t, primary, secondary) {
 		t.Fatal("initial route transfer unchanged")
 	}
 	first, e := EdgeGeneration(secondaryRoot)
 	if e != nil {
 		t.Fatal(e)
 	}
-	if m794Sync(t, primary, secondary) {
+	if platformRoutesSync(t, primary, secondary) {
 		t.Fatal("identical sync produced a new generation")
 	}
-	m794Write(t, filepath.Join(secondaryRoot, "edge/rpc-down"), []byte("node-a.example.org\n"))
+	platformRoutesWrite(t, filepath.Join(secondaryRoot, "edge/rpc-down"), []byte("node-a.example.org\n"))
 	if e = primary.Begin(); e != nil {
 		t.Fatal(e)
 	}
-	m794Stage(t, primaryRoot, "hooks.paxeer.network")
+	platformRoutesStage(t, primaryRoot, "hooks.paxeer.network")
 	if e = primary.Reconcile(); e != nil {
 		t.Fatal(e)
 	}
 	if e = primary.Finish(true); e != nil {
 		t.Fatal(e)
 	}
-	if !m794Sync(t, primary, secondary) {
+	if !platformRoutesSync(t, primary, secondary) {
 		t.Fatal("route revocation unchanged")
 	}
 	for _, dir := range []string{"sites-available", "sites-enabled"} {
@@ -762,33 +762,33 @@ func TestRepairM_794_EdgeSecondaryStaleSites(t *testing.T) {
 	if e = secondary.Close(); e != nil {
 		t.Fatal(e)
 	}
-	secondary = m794Open(t, secondaryRoot)
+	secondary = platformRoutesOpen(t, secondaryRoot)
 	defer secondary.Close()
 	generation, e := EdgeGeneration(secondaryRoot)
 	if e != nil || generation == first {
 		t.Fatal("revocation generation not recovered")
 	}
-	if got := string(m794Read(t, filepath.Join(secondaryRoot, "edge/manifest"))); strings.Contains(got, "ramp.paxeer.network") || !strings.Contains(got, "hooks.paxeer.network") {
+	if got := string(platformRoutesRead(t, filepath.Join(secondaryRoot, "edge/manifest"))); strings.Contains(got, "ramp.paxeer.network") || !strings.Contains(got, "hooks.paxeer.network") {
 		t.Fatal("reopen revived retired route")
 	}
-	if got := string(m794Read(t, filepath.Join(secondaryRoot, "edge/rpc-down"))); got != "node-a.example.org\n" {
+	if got := string(platformRoutesRead(t, filepath.Join(secondaryRoot, "edge/rpc-down"))); got != "node-a.example.org\n" {
 		t.Fatal("receiver health was overwritten")
 	}
-	if string(m794Read(t, filepath.Join(secondaryRoot, "sites-enabled/operator.conf"))) != "# operator-owned\nserver {}\n" {
+	if string(platformRoutesRead(t, filepath.Join(secondaryRoot, "sites-enabled/operator.conf"))) != "# operator-owned\nserver {}\n" {
 		t.Fatal("unrelated nginx site changed")
 	}
 	// The ownership receipt also revokes a dangling marker-owned link.
 	if e = secondary.Begin(); e != nil {
 		t.Fatal(e)
 	}
-	m794Stage(t, secondaryRoot, "dangling.paxeer.network")
+	platformRoutesStage(t, secondaryRoot, "dangling.paxeer.network")
 	if e = secondary.Finish(true); e != nil {
 		t.Fatal(e)
 	}
 	if e = os.Remove(filepath.Join(secondaryRoot, "sites-available/dangling.paxeer.network.conf")); e != nil {
 		t.Fatal(e)
 	}
-	m794Write(t, filepath.Join(secondaryRoot, "edge/manifest"), nil)
+	platformRoutesWrite(t, filepath.Join(secondaryRoot, "edge/manifest"), nil)
 	if e = secondary.Begin(); e != nil {
 		t.Fatal(e)
 	}
@@ -801,17 +801,17 @@ func TestRepairM_794_EdgeSecondaryStaleSites(t *testing.T) {
 	if _, e = os.Lstat(filepath.Join(secondaryRoot, "sites-enabled/dangling.paxeer.network.conf")); !os.IsNotExist(e) {
 		t.Fatal("dangling owned link survived")
 	}
-	m794Wire(t, "edge-sync.sh", "edge-export", "edge-import", "rerender --imported", ".edge-operation.lock")
+	platformRoutesWire(t, "edge-sync.sh", "edge-export", "edge-import", "rerender --imported", ".edge-operation.lock")
 }
 
-func TestRepairM_794_EdgeReloadDurableState(t *testing.T) {
+func TestEdgeReloadDurableState(t *testing.T) {
 	root := t.TempDir()
-	state := m794Open(t, root)
+	state := platformRoutesOpen(t, root)
 	if e := state.Begin(); e != nil {
 		t.Fatal(e)
 	}
-	m794Stage(t, root, "serving.paxeer.network")
-	m794Write(t, filepath.Join(root, "edge/rpc-pool"), []byte("node-a.example.org\n"))
+	platformRoutesStage(t, root, "serving.paxeer.network")
+	platformRoutesWrite(t, filepath.Join(root, "edge/rpc-pool"), []byte("node-a.example.org\n"))
 	if e := state.Finish(true); e != nil {
 		t.Fatal(e)
 	}
@@ -819,41 +819,41 @@ func TestRepairM_794_EdgeReloadDurableState(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	original := m794Read(t, filepath.Join(root, "sites-available/serving.paxeer.network.conf"))
-	m794Write(t, filepath.Join(root, "sites-available/operator.conf"), []byte("# keep me\n"))
+	original := platformRoutesRead(t, filepath.Join(root, "sites-available/serving.paxeer.network.conf"))
+	platformRoutesWrite(t, filepath.Join(root, "sites-available/operator.conf"), []byte("# keep me\n"))
 	if e = state.Begin(); e != nil {
 		t.Fatal(e)
 	}
-	m794Stage(t, root, "unacknowledged.paxeer.network")
-	m794Write(t, filepath.Join(root, "edge/rpc-pool"), []byte("node-b.example.org\n"))
+	platformRoutesStage(t, root, "unacknowledged.paxeer.network")
+	platformRoutesWrite(t, filepath.Join(root, "edge/rpc-pool"), []byte("node-b.example.org\n"))
 	if e = state.Reconcile(); e != nil {
 		t.Fatal(e)
 	}
 	// The production apply consumer maps a refused nginx reload to the real
 	// rollback operation; no reload daemon or subprocess toolchain is required.
-	if out, e := m794CLI(t, []string{"edge-reload", root, "0", "1"}, nil); e == nil || out != "" {
+	if out, e := platformRoutesCLI(t, []string{"edge-reload", root, "0", "1"}, nil); e == nil || out != "" {
 		t.Fatal("refused reload not reported", out, e)
 	}
 	if e = state.Close(); e != nil {
 		t.Fatal(e)
 	}
-	state = m794Open(t, root)
+	state = platformRoutesOpen(t, root)
 	assertServing := func() {
 		t.Helper()
 		g, e := EdgeGeneration(root)
 		if e != nil || g != generation {
 			t.Fatal("last serving generation lost")
 		}
-		if !bytes.Equal(original, m794Read(t, filepath.Join(root, "sites-enabled/serving.paxeer.network.conf"))) {
+		if !bytes.Equal(original, platformRoutesRead(t, filepath.Join(root, "sites-enabled/serving.paxeer.network.conf"))) {
 			t.Fatal("last serving route lost")
 		}
-		if string(m794Read(t, filepath.Join(root, "edge/rpc-pool"))) != "node-a.example.org\n" {
+		if string(platformRoutesRead(t, filepath.Join(root, "edge/rpc-pool"))) != "node-a.example.org\n" {
 			t.Fatal("pool rollback lost")
 		}
 		if _, e = os.Lstat(filepath.Join(root, "sites-enabled/unacknowledged.paxeer.network.conf")); !os.IsNotExist(e) {
 			t.Fatal("unacknowledged route enabled")
 		}
-		if string(m794Read(t, filepath.Join(root, "sites-available/operator.conf"))) != "# keep me\n" {
+		if string(platformRoutesRead(t, filepath.Join(root, "sites-available/operator.conf"))) != "# keep me\n" {
 			t.Fatal("unrelated file changed")
 		}
 	}
@@ -861,25 +861,25 @@ func TestRepairM_794_EdgeReloadDurableState(t *testing.T) {
 	if e = state.Begin(); e != nil {
 		t.Fatal(e)
 	}
-	m794Stage(t, root, "unacknowledged.paxeer.network")
+	platformRoutesStage(t, root, "unacknowledged.paxeer.network")
 	if e = state.Close(); e != nil {
 		t.Fatal(e)
 	}
-	state = m794Open(t, root)
+	state = platformRoutesOpen(t, root)
 	defer state.Close()
 	assertServing()
 	if e = state.Begin(); e != nil {
 		t.Fatal(e)
 	}
-	m794Stage(t, root, "unacknowledged.paxeer.network")
-	if _, e = m794CLI(t, []string{"edge-reload", root, "1", "-1"}, nil); e == nil {
+	platformRoutesStage(t, root, "unacknowledged.paxeer.network")
+	if _, e = platformRoutesCLI(t, []string{"edge-reload", root, "1", "-1"}, nil); e == nil {
 		t.Fatal("validation refusal not reported")
 	}
 	assertServing()
 	if e = state.Begin(); e != nil {
 		t.Fatal(e)
 	}
-	m794Stage(t, root, "acknowledged.paxeer.network")
+	platformRoutesStage(t, root, "acknowledged.paxeer.network")
 	if e = state.Reconcile(); e != nil {
 		t.Fatal(e)
 	}
@@ -889,15 +889,15 @@ func TestRepairM_794_EdgeReloadDurableState(t *testing.T) {
 	if e = state.Close(); e != nil {
 		t.Fatal(e)
 	}
-	state = m794Open(t, root)
+	state = platformRoutesOpen(t, root)
 	if g, e := EdgeGeneration(root); e != nil || g == generation {
 		t.Fatal("successful generation did not advance")
 	}
-	if !strings.Contains(string(m794Read(t, filepath.Join(root, "edge/manifest"))), "acknowledged.paxeer.network") {
+	if !strings.Contains(string(platformRoutesRead(t, filepath.Join(root, "edge/manifest"))), "acknowledged.paxeer.network") {
 		t.Fatal("successful routes not recovered")
 	}
 	if e = state.Close(); e != nil {
 		t.Fatal(e)
 	}
-	m794Wire(t, "edge.sh", `out="$(nginx -s reload 2>&1)" || reload=$?`, `previous generation restored`, `edge-reload "$nginx_dir" "$validation" "$reload"`, `edge-state rollback`)
+	platformRoutesWire(t, "edge.sh", `out="$(nginx -s reload 2>&1)" || reload=$?`, `previous generation restored`, `edge-reload "$nginx_dir" "$validation" "$reload"`, `edge-state rollback`)
 }

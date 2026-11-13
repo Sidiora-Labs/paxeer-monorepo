@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-func runM795Inspector(ctx context.Context, args []string, input io.Reader, output io.Writer) (bool, error) {
+func runRecoveryInspector(ctx context.Context, args []string, input io.Reader, output io.Writer) (bool, error) {
 	invalid := errors.New("invalid bringup recovery arguments")
 	inventory := func(path string) (PublicInventory, error) {
 		f, e := os.Open(path)

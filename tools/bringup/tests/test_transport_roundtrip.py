@@ -370,7 +370,7 @@ def test_search_front_roundtrip_primary_backup_and_refusals(ssh_server):
             self.answer(value, 200 if ready else 503)
 
     listing = f"serve {primary}\nserve {backup}\nvalidator {validator}\n"
-    env["BRINGUP_HOSTS_FILE"] = str(BRINGUP / "tests/fixtures/repair_22_39_164/hosts.env")
+    env["BRINGUP_HOSTS_FILE"] = str(BRINGUP / "tests/fixtures/hosted_routes/hosts.env")
     sites = {}
     mapping = directory / "rpc-apps.tsv"
     mapping.write_text("")
@@ -646,7 +646,7 @@ def test_receipt_history_rpc_refuses_malformed_envelopes():
 @pytest.fixture
 def recorded_session(tmp_path):
     """Only the SSH/DNS peers are replayed; bringup clients execute unchanged."""
-    fixture = BRINGUP / "tests/fixtures/repair_22_31_319"
+    fixture = BRINGUP / "tests/fixtures/transport_session"
     state_path = tmp_path / "session-state.json"
     state = {
         "bindings": {}, "responses": {}, "log": str(tmp_path / "session.jsonl"),

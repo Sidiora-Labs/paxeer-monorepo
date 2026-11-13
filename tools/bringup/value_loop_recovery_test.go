@@ -37,7 +37,7 @@ import (
 // The sender uses the native signing codec, the real value-loop process and
 // journal, HTTP JSON-RPC, and geth's actual transaction pool and state engine.
 // The proxy only withholds a real acceptance response to expose the crash gap.
-type repair143Chain struct {
+type valueLoopChain struct {
 	backend   *eth.Ethereum
 	beacon    *catalyst.SimulatedBeacon
 	client    *ethclient.Client
@@ -48,7 +48,7 @@ type repair143Chain struct {
 	chainID   *big.Int
 }
 
-func repair143NewChain(t *testing.T) *repair143Chain {
+func valueLoopNewChain(t *testing.T) *valueLoopChain {
 	t.Helper()
 	key, err := crypto.GenerateKey()
 	if err != nil {
@@ -110,13 +110,13 @@ func repair143NewChain(t *testing.T) *repair143Chain {
 		t.Fatal(err)
 	}
 	t.Cleanup(client.Close)
-	return &repair143Chain{backend: backend, beacon: beacon, client: client,
+	return &valueLoopChain{backend: backend, beacon: beacon, client: client,
 		url: stack.HTTPEndpoint(), key: key, sender: sender,
 		recipient: common.HexToAddress("0x3210000000000000000000000000000000000123"),
 		chainID:   genesis.Config.ChainID}
 }
 
-func repair143Signed(t *testing.T, key *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, recipient common.Address) (*types.Transaction, []byte) {
+func valueLoopSigned(t *testing.T, key *ecdsa.PrivateKey, chainID *big.Int, nonce uint64, recipient common.Address) (*types.Transaction, []byte) {
 	t.Helper()
 	transaction, err := types.SignTx(types.NewTx(&types.DynamicFeeTx{
 		ChainID: chainID, Nonce: nonce, GasTipCap: big.NewInt(2_000_000_000),
@@ -132,14 +132,14 @@ func repair143Signed(t *testing.T, key *ecdsa.PrivateKey, chainID *big.Int, nonc
 	return transaction, raw
 }
 
-func repair143Write(t *testing.T, state, name string, data []byte) {
+func valueLoopWrite(t *testing.T, state, name string, data []byte) {
 	t.Helper()
 	if err := os.WriteFile(filepath.Join(state, name), data, 0600); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func repair143Command(t *testing.T, ctx context.Context, state, endpoint, chainID, operation string, args ...string) *exec.Cmd {
+func valueLoopCommand(t *testing.T, ctx context.Context, state, endpoint, chainID, operation string, args ...string) *exec.Cmd {
 	t.Helper()
 	script, err := filepath.Abs("value-loop.sh")
 	if err != nil {
@@ -163,18 +163,18 @@ fi`, "--", script, state, endpoint, chainID, operation)
 	return command
 }
 
-func repair143Run(t *testing.T, state, endpoint, chainID, operation string, args ...string) []byte {
+func valueLoopRun(t *testing.T, state, endpoint, chainID, operation string, args ...string) []byte {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	output, err := repair143Command(t, ctx, state, endpoint, chainID, operation, args...).CombinedOutput()
+	output, err := valueLoopCommand(t, ctx, state, endpoint, chainID, operation, args...).CombinedOutput()
 	if err != nil {
 		t.Fatalf("value-loop %s: %v\n%s", operation, err, output)
 	}
 	return output
 }
 
-func repair143Journal(t *testing.T, state string, transaction *types.Transaction, raw []byte, status string) []byte {
+func valueLoopJournal(t *testing.T, state string, transaction *types.Transaction, raw []byte, status string) []byte {
 	t.Helper()
 	encoded, err := os.ReadFile(filepath.Join(state, "send.json"))
 	if err != nil {
@@ -209,7 +209,7 @@ func repair143Journal(t *testing.T, state string, transaction *types.Transaction
 	return encoded
 }
 
-func repair143ObservePayment(t *testing.T, chain *repair143Chain, transaction *types.Transaction) {
+func valueLoopObservePayment(t *testing.T, chain *valueLoopChain, transaction *types.Transaction) {
 	t.Helper()
 	if err := chain.backend.TxPool().Sync(); err != nil {
 		t.Fatal(err)
@@ -231,13 +231,13 @@ func repair143ObservePayment(t *testing.T, chain *repair143Chain, transaction *t
 	}
 }
 
-func TestRepair_143_CrashAfterAcceptance(t *testing.T) {
+func TestCrashAfterAcceptance(t *testing.T) {
 	for _, committed := range []bool{false, true} {
 		t.Run(fmt.Sprintf("committed=%t", committed), func(t *testing.T) {
-			chain := repair143NewChain(t)
-			transaction, raw := repair143Signed(t, chain.key, chain.chainID, 0, chain.recipient)
+			chain := valueLoopNewChain(t)
+			transaction, raw := valueLoopSigned(t, chain.key, chain.chainID, 0, chain.recipient)
 			state := t.TempDir()
-			repair143Write(t, state, "send.bin", raw)
+			valueLoopWrite(t, state, "send.bin", raw)
 			target, err := url.Parse(chain.url)
 			if err != nil {
 				t.Fatal(err)
@@ -295,7 +295,7 @@ func TestRepair_143_CrashAfterAcceptance(t *testing.T) {
 			})
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
-			command := repair143Command(t, ctx, state, server.URL, chain.chainID.String(), "transfer")
+			command := valueLoopCommand(t, ctx, state, server.URL, chain.chainID.String(), "transfer")
 			var output bytes.Buffer
 			command.Stdout, command.Stderr = &output, &output
 			if err := command.Start(); err != nil {
@@ -312,11 +312,11 @@ func TestRepair_143_CrashAfterAcceptance(t *testing.T) {
 				t.Fatal("node did not accept the transfer before deadline")
 			}
 			// Acceptance happened, but no acknowledgement reached the journal.
-			repair143Journal(t, state, transaction, raw, "prepared")
+			valueLoopJournal(t, state, transaction, raw, "prepared")
 			if chain.backend.TxPool().Get(transaction.Hash()) == nil {
 				t.Fatal("node has not accepted signed bytes")
 			}
-			contender, contenderErr := repair143Command(t, ctx, state, server.URL, chain.chainID.String(), "transfer").CombinedOutput()
+			contender, contenderErr := valueLoopCommand(t, ctx, state, server.URL, chain.chainID.String(), "transfer").CombinedOutput()
 			if contenderErr == nil || !strings.Contains(string(contender), "holds the journal lock") {
 				t.Fatalf("concurrent sender was not excluded: %v\n%s", contenderErr, contender)
 			}
@@ -328,59 +328,59 @@ func TestRepair_143_CrashAfterAcceptance(t *testing.T) {
 			}
 			releaseOnce.Do(func() { close(release) })
 			if committed {
-				repair143ObservePayment(t, chain, transaction)
+				valueLoopObservePayment(t, chain, transaction)
 			}
 			// A new process reopens the same on-disk journal. No producer runs.
 			for restart := 0; restart < 2; restart++ {
-				got := repair143Run(t, state, server.URL, chain.chainID.String(), "transfer")
+				got := valueLoopRun(t, state, server.URL, chain.chainID.String(), "transfer")
 				if strings.TrimSpace(string(got)) != transaction.Hash().Hex()[2:] {
 					t.Fatalf("recovered hash: %s", got)
 				}
-				repair143Journal(t, state, transaction, raw, "submitted")
+				valueLoopJournal(t, state, transaction, raw, "submitted")
 			}
 			if sends.Load() != 1 {
 				t.Fatalf("restart broadcast %d transfers, want 1", sends.Load())
 			}
-			repair143ObservePayment(t, chain, transaction)
+			valueLoopObservePayment(t, chain, transaction)
 		})
 	}
 }
 
-func TestRepair_143_RestartBeforeBroadcast(t *testing.T) {
-	chain := repair143NewChain(t)
-	transaction, raw := repair143Signed(t, chain.key, chain.chainID, 0, chain.recipient)
+func TestRestartBeforeBroadcast(t *testing.T) {
+	chain := valueLoopNewChain(t)
+	transaction, raw := valueLoopSigned(t, chain.key, chain.chainID, 0, chain.recipient)
 	state := t.TempDir()
-	repair143Write(t, state, "send.bin", raw)
+	valueLoopWrite(t, state, "send.bin", raw)
 	// This process exits after persisting the producer output, before transport.
-	repair143Run(t, state, chain.url, chain.chainID.String(), "prepare", transaction.Hash().Hex()[2:])
-	repair143Journal(t, state, transaction, raw, "prepared")
+	valueLoopRun(t, state, chain.url, chain.chainID.String(), "prepare", transaction.Hash().Hex()[2:])
+	valueLoopJournal(t, state, transaction, raw, "prepared")
 	if chain.backend.TxPool().Get(transaction.Hash()) != nil {
 		t.Fatal("prepare broadcast a transaction")
 	}
-	repair143Run(t, state, chain.url, chain.chainID.String(), "transfer")
-	repair143Journal(t, state, transaction, raw, "submitted")
-	repair143ObservePayment(t, chain, transaction)
+	valueLoopRun(t, state, chain.url, chain.chainID.String(), "transfer")
+	valueLoopJournal(t, state, transaction, raw, "submitted")
+	valueLoopObservePayment(t, chain, transaction)
 }
 
-func TestRepair_143_RejectChangedOrIncompleteIdentity(t *testing.T) {
+func TestRejectChangedOrIncompleteIdentity(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
 	chainID := big.NewInt(125)
-	transaction, raw := repair143Signed(t, key, chainID, 0, common.HexToAddress("0x1234"))
+	transaction, raw := valueLoopSigned(t, key, chainID, 0, common.HexToAddress("0x1234"))
 	for _, fault := range []string{"bytes", "nonce", "hash", "status", "activity", "missing-bytes", "truncated", "wrong-chain", "producer-hash"} {
 		t.Run(fault, func(t *testing.T) {
 			state := t.TempDir()
-			repair143Write(t, state, "send.bin", raw)
-			repair143Run(t, state, "http://127.0.0.1:1", chainID.String(), "prepare")
-			before := repair143Journal(t, state, transaction, raw, "prepared")
+			valueLoopWrite(t, state, "send.bin", raw)
+			valueLoopRun(t, state, "http://127.0.0.1:1", chainID.String(), "prepare")
+			before := valueLoopJournal(t, state, transaction, raw, "prepared")
 			operation := "transfer"
 			var arguments []string
 			switch fault {
 			case "bytes":
-				_, other := repair143Signed(t, key, chainID, 1, common.HexToAddress("0x1234"))
-				repair143Write(t, state, "send.bin", other)
+				_, other := valueLoopSigned(t, key, chainID, 1, common.HexToAddress("0x1234"))
+				valueLoopWrite(t, state, "send.bin", other)
 			case "nonce", "hash", "status":
 				var changed map[string]any
 				if err := json.Unmarshal(before, &changed); err != nil {
@@ -391,15 +391,15 @@ func TestRepair_143_RejectChangedOrIncompleteIdentity(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				repair143Write(t, state, "send.json", encoded)
+				valueLoopWrite(t, state, "send.json", encoded)
 			case "activity":
-				repair143Write(t, state, "send.activity-id", []byte(strings.Repeat("0", 64)))
+				valueLoopWrite(t, state, "send.activity-id", []byte(strings.Repeat("0", 64)))
 			case "missing-bytes":
 				if err := os.Remove(filepath.Join(state, "send.bin")); err != nil {
 					t.Fatal(err)
 				}
 			case "truncated":
-				repair143Write(t, state, "send.bin", raw[:len(raw)-1])
+				valueLoopWrite(t, state, "send.bin", raw[:len(raw)-1])
 			case "wrong-chain":
 				operation = "prepare"
 			case "producer-hash":
@@ -426,7 +426,7 @@ func TestRepair_143_RejectChangedOrIncompleteIdentity(t *testing.T) {
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			output, err := repair143Command(t, ctx, state, "http://127.0.0.1:1", network, operation, arguments...).CombinedOutput()
+			output, err := valueLoopCommand(t, ctx, state, "http://127.0.0.1:1", network, operation, arguments...).CombinedOutput()
 			if err == nil || !strings.Contains(string(output), expected) {
 				t.Fatalf("fault %s was not refused at journal boundary: %v\n%s", fault, err, output)
 			}
@@ -444,13 +444,13 @@ func TestRepair_143_RejectChangedOrIncompleteIdentity(t *testing.T) {
 	}
 }
 
-func TestRepair_143_LegacyIdentityWithoutBytes(t *testing.T) {
+func TestLegacyIdentityWithoutBytes(t *testing.T) {
 	state := t.TempDir()
 	identity := []byte(strings.Repeat("a", 64) + "\n")
-	repair143Write(t, state, "send.activity-id", identity)
+	valueLoopWrite(t, state, "send.activity-id", identity)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	output, err := repair143Command(t, ctx, state, "http://127.0.0.1:1", "125", "transfer").CombinedOutput()
+	output, err := valueLoopCommand(t, ctx, state, "http://127.0.0.1:1", "125", "transfer").CombinedOutput()
 	if err == nil || !strings.Contains(string(output), "reconcile manually") {
 		t.Fatalf("ambiguous legacy identity regenerated: %v\n%s", err, output)
 	}

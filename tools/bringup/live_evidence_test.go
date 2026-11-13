@@ -23,15 +23,15 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 )
 
-func m793Fixture(t *testing.T, name string) []byte {
+func liveEvidenceFixture(t *testing.T, name string) []byte {
 	t.Helper()
-	b, e := os.ReadFile(filepath.Join("tests", "fixtures", "repair_m793", name))
+	b, e := os.ReadFile(filepath.Join("tests", "fixtures", "live_evidence", name))
 	if e != nil {
 		t.Fatal(e)
 	}
 	return b
 }
-func m793JSON(t *testing.T, v any) []byte {
+func liveEvidenceJSON(t *testing.T, v any) []byte {
 	t.Helper()
 	b, e := json.Marshal(v)
 	if e != nil {
@@ -39,7 +39,7 @@ func m793JSON(t *testing.T, v any) []byte {
 	}
 	return b
 }
-func m793Map(t *testing.T, b []byte) map[string]any {
+func liveEvidenceMap(t *testing.T, b []byte) map[string]any {
 	t.Helper()
 	var v map[string]any
 	if e := json.Unmarshal(b, &v); e != nil {
@@ -47,7 +47,7 @@ func m793Map(t *testing.T, b []byte) map[string]any {
 	}
 	return v
 }
-func m793Source(t *testing.T, path string, terms ...string) {
+func liveEvidenceSource(t *testing.T, path string, terms ...string) {
 	t.Helper()
 	b, e := os.ReadFile(path)
 	if e != nil {
@@ -59,7 +59,7 @@ func m793Source(t *testing.T, path string, terms ...string) {
 		}
 	}
 }
-func m793Reject(t *testing.T, err error, out *bytes.Buffer) {
+func liveEvidenceReject(t *testing.T, err error, out *bytes.Buffer) {
 	t.Helper()
 	if err == nil {
 		t.Fatal("invalid evidence accepted")
@@ -69,19 +69,19 @@ func m793Reject(t *testing.T, err error, out *bytes.Buffer) {
 	}
 }
 
-func TestRepairM_793_RegionProbeSelected(t *testing.T) {
-	deployment := m793Fixture(t, "deployment.json")
+func TestRegionProbeSelected(t *testing.T) {
+	deployment := liveEvidenceFixture(t, "deployment.json")
 	d, e := ReadRegionalDeployment(bytes.NewReader(deployment))
 	if e != nil {
 		t.Fatal(e)
 	}
 	var rows []RegionalResponse
-	if e = json.Unmarshal(m793Fixture(t, "regional-responses.json"), &rows); e != nil {
+	if e = json.Unmarshal(liveEvidenceFixture(t, "regional-responses.json"), &rows); e != nil {
 		t.Fatal(e)
 	}
 	now := time.UnixMilli(1750000000001)
 	var out bytes.Buffer
-	if e = ValidateRegionalResponses(d, bytes.NewReader(m793JSON(t, rows)), now, &out); e != nil {
+	if e = ValidateRegionalResponses(d, bytes.NewReader(liveEvidenceJSON(t, rows)), now, &out); e != nil {
 		t.Fatal(e)
 	}
 	for _, row := range rows {
@@ -108,7 +108,7 @@ func TestRepairM_793_RegionProbeSelected(t *testing.T) {
 				clock = now.Add(time.Minute)
 			}
 			var output bytes.Buffer
-			m793Reject(t, ValidateRegionalResponses(d, bytes.NewReader(m793JSON(t, changed)), clock, &output), &output)
+			liveEvidenceReject(t, ValidateRegionalResponses(d, bytes.NewReader(liveEvidenceJSON(t, changed)), clock, &output), &output)
 		})
 	}
 	var selected bytes.Buffer
@@ -118,11 +118,11 @@ func TestRepairM_793_RegionProbeSelected(t *testing.T) {
 	if strings.Count(selected.String(), d.ID) != 2 {
 		t.Fatal(selected.String())
 	}
-	m793Source(t, "check-live.sh", `--deployment-instance`, `railway_ssh "$app" "python3 -" "$instance"`, `RAILWAY_REPLICA_ID`, `RAILWAY_REPLICA_REGION`, `regional-readiness`)
+	liveEvidenceSource(t, "check-live.sh", `--deployment-instance`, `railway_ssh "$app" "python3 -" "$instance"`, `RAILWAY_REPLICA_ID`, `RAILWAY_REPLICA_REGION`, `regional-readiness`)
 }
 
-func TestRepairM_793_HumanChildExit(t *testing.T) {
-	transcript := string(m793Fixture(t, "human.txt"))
+func TestHumanChildExit(t *testing.T) {
+	transcript := string(liveEvidenceFixture(t, "human.txt"))
 	var out bytes.Buffer
 	if e := RunInspector(context.Background(), []string{"human-child", "0"}, strings.NewReader(transcript), &out); e != nil {
 		t.Fatal(e)
@@ -141,11 +141,11 @@ func TestRepairM_793_HumanChildExit(t *testing.T) {
 			t.Fatalf("incomplete child accepted: %q", broken)
 		}
 	}
-	m793Source(t, "check-live.sh", `child_status=$?`, `bringup_inspect human-child "$child_status" <<<"$child_output"`)
-	m793Source(t, "../../scripts/wallet/check-live.sh", `pass human-evidence checks=live,preflight,plan`)
+	liveEvidenceSource(t, "check-live.sh", `child_status=$?`, `bringup_inspect human-child "$child_status" <<<"$child_output"`)
+	liveEvidenceSource(t, "../../scripts/wallet/check-live.sh", `pass human-evidence checks=live,preflight,plan`)
 }
 
-type m793Chain struct {
+type liveEvidenceChain struct {
 	raw                 []byte
 	native              map[string]any
 	key                 map[string]any
@@ -154,25 +154,25 @@ type m793Chain struct {
 	hash, block, height string
 }
 
-func m793RecordedChain(t *testing.T) m793Chain {
+func liveEvidenceRecordedChain(t *testing.T) liveEvidenceChain {
 	t.Helper()
-	root := m793Map(t, m793Fixture(t, "committed.json"))
+	root := liveEvidenceMap(t, liveEvidenceFixture(t, "committed.json"))
 	v := root["cases"].([]any)[0].(map[string]any)
 	native := v["receiptJson"].(map[string]any)
 	raw, e := hex.DecodeString(strings.TrimPrefix(v["rawTransaction"].(string), "0x"))
 	if e != nil {
 		t.Fatal(e)
 	}
-	return m793Chain{raw, native, v["pinnedKey"].(map[string]any), v["header"].(map[string]any), v["commit"].(map[string]any), native["txHash"].(string), native["blockHash"].(string), native["blockNumber"].(string)}
+	return liveEvidenceChain{raw, native, v["pinnedKey"].(map[string]any), v["header"].(map[string]any), v["commit"].(map[string]any), native["txHash"].(string), native["blockHash"].(string), native["blockNumber"].(string)}
 }
 
 // The loopback inclusion peer uses the unmodified chain-125 execution
 // transaction and native signature from the production RPC conformance
 // recorder. Its block/envelope are explicit in-memory peer state, not a
 // claim that the separate dev-chain Comet recording ran with chain ID 125.
-func m793Chain125Peer(t *testing.T) m793Chain {
+func liveEvidenceChain125Peer(t *testing.T) liveEvidenceChain {
 	t.Helper()
-	root := m793Map(t, m793Fixture(t, "receipted.json"))
+	root := liveEvidenceMap(t, liveEvidenceFixture(t, "receipted.json"))
 	var v map[string]any
 	for _, item := range root["cases"].([]any) {
 		candidate := item.(map[string]any)
@@ -201,10 +201,10 @@ func m793Chain125Peer(t *testing.T) m793Chain {
 	native["rung"] = "committed"
 	native["blockNumber"] = "0x" + block.Number().Text(16)
 	native["blockHash"] = block.Hash().Hex()
-	return m793Chain{raw: raw, native: native, key: v["pinnedKey"].(map[string]any), hash: tx.Hash().Hex(), block: block.Hash().Hex(), height: native["blockNumber"].(string)}
+	return liveEvidenceChain{raw: raw, native: native, key: v["pinnedKey"].(map[string]any), hash: tx.Hash().Hex(), block: block.Hash().Hex(), height: native["blockNumber"].(string)}
 }
 
-func (c m793Chain) rpc(method string, params json.RawMessage) (any, bool) {
+func (c liveEvidenceChain) rpc(method string, params json.RawMessage) (any, bool) {
 	switch method {
 	case "eth_sendRawTransaction":
 		var p []string
@@ -241,7 +241,7 @@ func (c m793Chain) rpc(method string, params json.RawMessage) (any, bool) {
 	}
 	return nil, false
 }
-func m793RPCServer(t *testing.T, c m793Chain, mutate func(string, any) any) *httptest.Server {
+func liveEvidenceRPCServer(t *testing.T, c liveEvidenceChain, mutate func(string, any) any) *httptest.Server {
 	t.Helper()
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
@@ -267,12 +267,12 @@ func m793RPCServer(t *testing.T, c m793Chain, mutate func(string, any) any) *htt
 	return s
 }
 
-func TestRepairM_793_KernelCommittedReadiness(t *testing.T) {
-	c := m793RecordedChain(t)
-	server := m793RPCServer(t, c, nil)
+func TestKernelCommittedReadiness(t *testing.T) {
+	c := liveEvidenceRecordedChain(t)
+	server := liveEvidenceRPCServer(t, c, nil)
 	process := KernelProcess{Executable: "paxd", PID: 400, UID: 4020, Owner: 4020, Home: "/data/paxd", Mounted: true, Genesis: true, State: true, Running: true, StartTicks: 900, BootID: "boot-current"}
 	var out bytes.Buffer
-	if e := RunInspector(context.Background(), []string{"kernel-node", server.URL, server.URL}, bytes.NewReader(m793JSON(t, process)), &out); e != nil {
+	if e := RunInspector(context.Background(), []string{"kernel-node", server.URL, server.URL}, bytes.NewReader(liveEvidenceJSON(t, process)), &out); e != nil {
 		t.Fatal(e)
 	}
 	if !strings.Contains(out.String(), "committed-height=11") {
@@ -296,12 +296,12 @@ func TestRepairM_793_KernelCommittedReadiness(t *testing.T) {
 				p.StartTicks = 0
 			}
 			var out bytes.Buffer
-			m793Reject(t, CheckKernelNode(context.Background(), server.Client(), server.URL, server.URL, p, &out), &out)
+			liveEvidenceReject(t, CheckKernelNode(context.Background(), server.Client(), server.URL, server.URL, p, &out), &out)
 		})
 	}
 	for _, name := range []string{"catching", "head", "commit"} {
 		t.Run(name, func(t *testing.T) {
-			s := m793RPCServer(t, c, func(method string, v any) any {
+			s := liveEvidenceRPCServer(t, c, func(method string, v any) any {
 				if name == "head" && method == "eth_blockNumber" {
 					return "0x0"
 				}
@@ -314,10 +314,10 @@ func TestRepairM_793_KernelCommittedReadiness(t *testing.T) {
 				return v
 			})
 			var out bytes.Buffer
-			m793Reject(t, CheckKernelNode(context.Background(), s.Client(), s.URL, s.URL, process, &out), &out)
+			liveEvidenceReject(t, CheckKernelNode(context.Background(), s.Client(), s.URL, s.URL, process, &out), &out)
 		})
 	}
-	source := string(m793FixtureSource(t, "check-live.sh"))
+	source := string(liveEvidenceFixtureSource(t, "check-live.sh"))
 	start := strings.Index(source, "kernel_roster() {")
 	end := strings.Index(source[start:], "\n}")
 	roster := source[start : start+end]
@@ -326,9 +326,9 @@ func TestRepairM_793_KernelCommittedReadiness(t *testing.T) {
 			t.Fatalf("retired role %s", retired)
 		}
 	}
-	m793Source(t, "check-live.sh", `printf 'paxd 4020`, `reason=unsupervised`, `no_new_privs`, `info=home.stat()`, `start_ticks`, `kernel-node "$node" "$comet"`)
+	liveEvidenceSource(t, "check-live.sh", `printf 'paxd 4020`, `reason=unsupervised`, `no_new_privs`, `info=home.stat()`, `start_ticks`, `kernel-node "$node" "$comet"`)
 }
-func m793FixtureSource(t *testing.T, path string) []byte {
+func liveEvidenceFixtureSource(t *testing.T, path string) []byte {
 	t.Helper()
 	b, e := os.ReadFile(path)
 	if e != nil {
@@ -337,16 +337,16 @@ func m793FixtureSource(t *testing.T, path string) []byte {
 	return b
 }
 
-func TestRepairM_793_ArchiveCommittedReadback(t *testing.T) {
-	recorded := m793RecordedChain(t)
+func TestArchiveCommittedReadback(t *testing.T) {
+	recorded := liveEvidenceRecordedChain(t)
 	if _, err := DecodeSignedTransaction(recorded.raw); err == nil {
 		t.Fatal("foreign dev-chain transaction accepted for chain 125")
 	}
-	if err := VerifyCommittedReceipt(m793JSON(t, recorded.native), m793JSON(t, map[string]any{"keys": []any{recorded.key}}), recorded.hash); err != nil {
+	if err := VerifyCommittedReceipt(liveEvidenceJSON(t, recorded.native), liveEvidenceJSON(t, map[string]any{"keys": []any{recorded.key}}), recorded.hash); err != nil {
 		t.Fatal(err)
 	}
-	c := m793Chain125Peer(t)
-	s := m793RPCServer(t, c, nil)
+	c := liveEvidenceChain125Peer(t)
+	s := liveEvidenceRPCServer(t, c, nil)
 	path := filepath.Join(t.TempDir(), "signed.hex")
 	if e := os.WriteFile(path, []byte("0x"+hex.EncodeToString(c.raw)), 0600); e != nil {
 		t.Fatal(e)
@@ -363,8 +363,8 @@ func TestRepairM_793_ArchiveCommittedReadback(t *testing.T) {
 	for _, name := range []string{"rung", "canonical", "inclusion", "signature", "key-range"} {
 		t.Run(name, func(t *testing.T) {
 			copy := c
-			copy.native = m793Map(t, m793JSON(t, c.native))
-			copy.key = m793Map(t, m793JSON(t, c.key))
+			copy.native = liveEvidenceMap(t, liveEvidenceJSON(t, c.native))
+			copy.key = liveEvidenceMap(t, liveEvidenceJSON(t, c.key))
 			if name == "rung" {
 				copy.native["rung"] = "receipted"
 			}
@@ -377,7 +377,7 @@ func TestRepairM_793_ArchiveCommittedReadback(t *testing.T) {
 				copy.key["firstHeight"] = 2000
 				copy.key["lastHeight"] = 3000
 			}
-			s := m793RPCServer(t, copy, func(method string, v any) any {
+			s := liveEvidenceRPCServer(t, copy, func(method string, v any) any {
 				if method == "eth_getBlockByNumber" {
 					if name == "canonical" {
 						v.(map[string]any)["hash"] = "0x" + strings.Repeat("11", 32)
@@ -397,12 +397,12 @@ func TestRepairM_793_ArchiveCommittedReadback(t *testing.T) {
 	if CheckArchiveDelivery(context.Background(), s.Client(), s.URL, []byte("not signed"), &output) == nil {
 		t.Fatal("invalid transaction submitted")
 	}
-	m793Source(t, "check-live.sh", `archive-delivery "$origin" "$transaction"`, `CHECK_LIVE_RELAY_ORIGIN`)
+	liveEvidenceSource(t, "check-live.sh", `archive-delivery "$origin" "$transaction"`, `CHECK_LIVE_RELAY_ORIGIN`)
 }
 
-func TestRepairM_793_InteropChainTransfer(t *testing.T) {
-	c := m793Chain125Peer(t)
-	node := m793RPCServer(t, c, nil)
+func TestInteropChainTransfer(t *testing.T) {
+	c := liveEvidenceChain125Peer(t)
+	node := liveEvidenceRPCServer(t, c, nil)
 	decoded, e := DecodeSignedTransaction(c.raw)
 	if e != nil {
 		t.Fatal(e)
@@ -471,7 +471,7 @@ func TestRepairM_793_InteropChainTransfer(t *testing.T) {
 					if broken == "offer" {
 						body["accepts"].([]any)[0].(map[string]any)["amount"] = "999"
 					}
-					result = map[string]any{"status": 402, "payment_required": body, "payment_required_header": base64.StdEncoding.EncodeToString(m793JSON(t, body))}
+					result = map[string]any{"status": 402, "payment_required": body, "payment_required_header": base64.StdEncoding.EncodeToString(liveEvidenceJSON(t, body))}
 				case "/v1/http/x402/buyer/build":
 					scheme := body["scheme_payload"].(map[string]any)
 					if scheme["layerxTransaction"] != "0x"+hex.EncodeToString(c.raw) || scheme["layerxIdempotencyKey"] != facts.Reference {
@@ -481,7 +481,7 @@ func TestRepairM_793_InteropChainTransfer(t *testing.T) {
 						scheme["layerxIdempotencyKey"] = strings.Repeat("0", 64)
 					}
 					payment := map[string]any{"x402Version": 2, "accepted": body["payment_required"].(map[string]any)["accepts"].([]any)[0], "payload": scheme}
-					result = map[string]any{"payment_payload": payment, "payment_header": base64.StdEncoding.EncodeToString(m793JSON(t, payment))}
+					result = map[string]any{"payment_payload": payment, "payment_header": base64.StdEncoding.EncodeToString(liveEvidenceJSON(t, payment))}
 				case "/v1/http/x402/settle":
 					signed := c.native["receipt"].(string)
 					dg := "0x" + hex.EncodeToString(digest[:])
@@ -504,7 +504,7 @@ func TestRepairM_793_InteropChainTransfer(t *testing.T) {
 			defer cancel()
 			e := CheckInteropPayment(ctx, server.Client(), server.URL, server.URL+"/gateway", node.URL, "fixture-custody", c.raw, now, &out)
 			if broken != "" {
-				m793Reject(t, e, &out)
+				liveEvidenceReject(t, e, &out)
 				return
 			}
 			if e != nil {
@@ -523,12 +523,12 @@ func TestRepairM_793_InteropChainTransfer(t *testing.T) {
 	if _, _, e = InspectPayExact(c.raw, time.UnixMilli(int64(facts.Expires)+1)); e == nil {
 		t.Fatal("expired transfer accepted")
 	}
-	m793Source(t, "check-live.sh", `interop-payment "$origin" "$gateway" "$node" "$transaction" "$key"`)
+	liveEvidenceSource(t, "check-live.sh", `interop-payment "$origin" "$gateway" "$node" "$transaction" "$key"`)
 }
 
-func TestRepairM_793_IndexerDurableCursors(t *testing.T) {
-	original := m793Fixture(t, "indexer-state.json")
-	db := m793Fixture(t, "indexer.sqlite")
+func TestIndexerDurableCursors(t *testing.T) {
+	original := liveEvidenceFixture(t, "indexer-state.json")
+	db := liveEvidenceFixture(t, "indexer.sqlite")
 	path := filepath.Join(t.TempDir(), "cursor.sqlite")
 	if e := os.WriteFile(path, db, 0600); e != nil {
 		t.Fatal(e)
@@ -552,10 +552,10 @@ func TestRepairM_793_IndexerDurableCursors(t *testing.T) {
 		if rows["cursors"].Position != 21 || rows["backfill_cursors"].Position != 20 {
 			t.Fatal(rows)
 		}
-		state := m793Map(t, original)
+		state := liveEvidenceMap(t, original)
 		state["database"] = base64.StdEncoding.EncodeToString(recovered)
 		var out bytes.Buffer
-		if e = RunInspector(context.Background(), []string{"indexer-state"}, bytes.NewReader(m793JSON(t, state)), &out); e != nil {
+		if e = RunInspector(context.Background(), []string{"indexer-state"}, bytes.NewReader(liveEvidenceJSON(t, state)), &out); e != nil {
 			t.Fatal(e)
 		}
 		if !strings.Contains(out.String(), "database=consistent") {
@@ -564,7 +564,7 @@ func TestRepairM_793_IndexerDurableCursors(t *testing.T) {
 	}
 	for _, name := range []string{"done", "cutover", "live", "backfill_hash", "retained_start", "database"} {
 		t.Run(name, func(t *testing.T) {
-			v := m793Map(t, original)
+			v := liveEvidenceMap(t, original)
 			switch name {
 			case "done":
 				v[name] = false
@@ -580,7 +580,7 @@ func TestRepairM_793_IndexerDurableCursors(t *testing.T) {
 				v[name] = base64.StdEncoding.EncodeToString([]byte("corrupt"))
 			}
 			var out bytes.Buffer
-			m793Reject(t, ValidateIndexerState(bytes.NewReader(m793JSON(t, v)), &out), &out)
+			liveEvidenceReject(t, ValidateIndexerState(bytes.NewReader(liveEvidenceJSON(t, v)), &out), &out)
 		})
 	}
 	for _, bad := range [][]byte{nil, db[:100], append([]byte("notSQLite format"), db[16:]...)} {
@@ -588,11 +588,11 @@ func TestRepairM_793_IndexerDurableCursors(t *testing.T) {
 			t.Fatal("corrupt database accepted")
 		}
 	}
-	m793Source(t, "check-live.sh", `for side in EVM COMET`, `CREATE TABLE evidence.cursors AS SELECT`, `main.backfill_cursors`, `px_getUnifiedHistory px_getHistory`, `indexer-state`)
-	m793Source(t, "../../services/platform/hosted/indexer/env-init.sh", `SELECT position FROM backfill_cursors`, `backfill-done.new`, `"$position" = "$cutover"`, `"$(cat "$state_dir/backfill-done")" = "$cutover"`)
+	liveEvidenceSource(t, "check-live.sh", `for side in EVM COMET`, `CREATE TABLE evidence.cursors AS SELECT`, `main.backfill_cursors`, `px_getUnifiedHistory px_getHistory`, `indexer-state`)
+	liveEvidenceSource(t, "../../services/platform/hosted/indexer/env-init.sh", `SELECT position FROM backfill_cursors`, `backfill-done.new`, `"$position" = "$cutover"`, `"$(cat "$state_dir/backfill-done")" = "$cutover"`)
 }
 
-func TestRepairM_793_WebhookFreshSource(t *testing.T) {
+func TestWebhookFreshSource(t *testing.T) {
 	for _, broken := range []string{"", "stale", "event", "subject", "ack", "pending"} {
 		t.Run("case-"+broken, func(t *testing.T) {
 			keys := map[string]bool{}
@@ -639,13 +639,13 @@ func TestRepairM_793_WebhookFreshSource(t *testing.T) {
 					if sources == 0 {
 						t.Error("events read before source submission")
 					}
-					b := m793Fixture(t, "events.json")
+					b := liveEvidenceFixture(t, "events.json")
 					if broken == "stale" {
 						b = bytes.ReplaceAll(b, []byte("1750000001"), []byte("1749999999"))
 					}
 					_, _ = w.Write(b)
 				case "/v1/webhooks/deliveries":
-					b := m793Fixture(t, "deliveries.json")
+					b := liveEvidenceFixture(t, "deliveries.json")
 					switch broken {
 					case "event":
 						b = bytes.ReplaceAll(b, []byte("event-current"), []byte("event-historical"))
@@ -677,7 +677,7 @@ func TestRepairM_793_WebhookFreshSource(t *testing.T) {
 				var out bytes.Buffer
 				e := CheckDevelopersDelivery(context.Background(), server.Client(), server.URL, server.URL+"/receiver", server.URL+"/v1/intents/submit", "hooks-session", "source-session", json.RawMessage(`{"signature":"recorded-authorized-intent"}`), 1, clock, &out)
 				if broken != "" {
-					m793Reject(t, e, &out)
+					liveEvidenceReject(t, e, &out)
 				} else if e != nil || !strings.Contains(out.String(), "event=event-current delivery=delivery-current") {
 					t.Fatalf("fresh delivery lost: %v %s", e, &out)
 				}
@@ -687,12 +687,12 @@ func TestRepairM_793_WebhookFreshSource(t *testing.T) {
 			}
 		})
 	}
-	m793Source(t, "check-live.sh", `developers-delivery`, `CHECK_LIVE_DEVELOPERS_SOURCE_REQUEST`, `CHECK_LIVE_DEVELOPERS_SOURCE_TOKEN_FILE`)
+	liveEvidenceSource(t, "check-live.sh", `developers-delivery`, `CHECK_LIVE_DEVELOPERS_SOURCE_REQUEST`, `CHECK_LIVE_DEVELOPERS_SOURCE_TOKEN_FILE`)
 }
 
-func TestRepairM_793_SearchHostedAssetPayment(t *testing.T) {
-	assets := m793Fixture(t, "assets.json")
-	asset := m793Map(t, assets)["assets"].([]any)[0].(map[string]any)["asset_id"].(string)
+func TestSearchHostedAssetPayment(t *testing.T) {
+	assets := liveEvidenceFixture(t, "assets.json")
+	asset := liveEvidenceMap(t, assets)["assets"].([]any)[0].(map[string]any)["asset_id"].(string)
 	for _, broken := range []string{"", "price", "asset", "decimals", "paused", "backend", "receipt"} {
 		t.Run("case-"+broken, func(t *testing.T) {
 			reads, paid := 0, 0
@@ -708,7 +708,7 @@ func TestRepairM_793_SearchHostedAssetPayment(t *testing.T) {
 						t.Errorf("retired asset API %s", req.Method)
 					}
 					reads++
-					a := m793Map(t, assets)
+					a := liveEvidenceMap(t, assets)
 					row := a["assets"].([]any)[0].(map[string]any)
 					if broken == "decimals" {
 						row["decimals"] = 6
@@ -731,7 +731,7 @@ func TestRepairM_793_SearchHostedAssetPayment(t *testing.T) {
 				}
 				w.Header().Set("X-Search-Node", "selected-node")
 				if r.Header.Get("PAYMENT-SIGNATURE") == "" {
-					w.Header().Set("PAYMENT-REQUIRED", base64.StdEncoding.EncodeToString(m793JSON(t, map[string]any{"x402Version": 2, "accepts": []any{offer}})))
+					w.Header().Set("PAYMENT-REQUIRED", base64.StdEncoding.EncodeToString(liveEvidenceJSON(t, map[string]any{"x402Version": 2, "accepts": []any{offer}})))
 					w.WriteHeader(402)
 					return
 				}
@@ -740,9 +740,9 @@ func TestRepairM_793_SearchHostedAssetPayment(t *testing.T) {
 				if e != nil {
 					t.Error(e)
 				}
-				p := m793Map(t, raw)
+				p := liveEvidenceMap(t, raw)
 				payload := p["payload"].(map[string]any)
-				if len(payload) != 2 || payload["grantId"] != grant || len(payload["idempotencyKey"].(string)) != 64 || !equalJSON(m793JSON(t, p["accepted"]), m793JSON(t, offer)) {
+				if len(payload) != 2 || payload["grantId"] != grant || len(payload["idempotencyKey"].(string)) != 64 || !equalJSON(liveEvidenceJSON(t, p["accepted"]), liveEvidenceJSON(t, offer)) {
 					t.Error("metered standing grant payment payload mismatch")
 				}
 				if broken == "backend" {
@@ -752,18 +752,18 @@ func TestRepairM_793_SearchHostedAssetPayment(t *testing.T) {
 				if broken == "receipt" {
 					transaction = "legacy-digest"
 				}
-				w.Header().Set("PAYMENT-RESPONSE", base64.StdEncoding.EncodeToString(m793JSON(t, map[string]any{"success": true, "transaction": transaction})))
+				w.Header().Set("PAYMENT-RESPONSE", base64.StdEncoding.EncodeToString(liveEvidenceJSON(t, map[string]any{"success": true, "transaction": transaction})))
 				_, _ = io.WriteString(w, `{"results":[]}`)
 			}))
 			defer server.Close()
 			var out bytes.Buffer
 			e := CheckSearchPayment(context.Background(), server.Client(), server.URL+"/search?q=repair", server.URL+"/gateway", payer, grant, "", &out)
 			if broken != "" {
-				m793Reject(t, e, &out)
+				liveEvidenceReject(t, e, &out)
 			} else if e != nil || reads != 1 || paid != 1 || !strings.Contains(out.String(), "payment-response=success") {
 				t.Fatalf("paid journey failed: %v reads=%d paid=%d %s", e, reads, paid, &out)
 			}
 		})
 	}
-	m793Source(t, "check-live.sh", `search-payment`, `CHECK_LIVE_SEARCH_PAYER`, `CHECK_LIVE_SEARCH_GRANT_ID`, `CHECK_LIVE_GATEWAY_RPC`)
+	liveEvidenceSource(t, "check-live.sh", `search-payment`, `CHECK_LIVE_SEARCH_PAYER`, `CHECK_LIVE_SEARCH_GRANT_ID`, `CHECK_LIVE_GATEWAY_RPC`)
 }
