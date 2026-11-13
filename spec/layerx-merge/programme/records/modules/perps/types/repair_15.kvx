@@ -6,19 +6,19 @@ baseline = "Not run: step 8 conflicts with the explicit implementation-first ord
 gotcha = "SDK Error.Wrapf writes context before the sentinel; existing genesis context assertions must retain all details in the SDK's order."
 
 [finding.genesis-ownership-and-counts]
-tests = ["TestRepair_15_GenesisOwnershipAndCounts", "TestRepair_15_GenesisRecoveryMarginWithdrawal"]
+tests = ["TestValidationTransportGenesisOwnershipAndCounts", "TestValidationTransportGenesisRecoveryMarginWithdrawal"]
 proof = "Actual matched partial fill and pending stop produce export JSON; the real keeper importer refuses omitted ownership, closed-order ownership, count and OI corruption without writes. Disk close/reopen and fresh-store import preserve margin and withdrawal limits."
 
 [finding.abci-type-genesis]
-tests = ["TestRepair_15_ABCITypeGenesis", "TestRepair_15_GenesisOwnershipAndCounts"]
+tests = ["TestValidationTransportABCITypeGenesis", "TestValidationTransportGenesisOwnershipAndCounts"]
 proof = "Actual invalidGenesis, parameter and market validation branches pass through ResponseDeliverTx, protobuf and ABCIError with perps/39, context, sentinel and LXP identity."
 
 [finding.abci-params]
-tests = ["TestRepair_15_ABCIParams"]
+tests = ["TestValidationTransportABCIParams"]
 proof = "Actual Params.Validate and Market.Validate pass through ResponseDeliverTx, protobuf and ABCIError with perps/2, context, sentinel and LXP identity."
 
 [finding.abci-math]
-tests = ["TestRepair_15_ABCIMath"]
+tests = ["TestValidationTransportABCIMath"]
 proof = "Both USD converters and all four MulDiv functions exercise operand/result overflow, signed bounds and ceiling overflow through ResponseDeliverTx, protobuf and ABCIError with perps/38, context, sentinel and LXP identity."
 
 [wiring]

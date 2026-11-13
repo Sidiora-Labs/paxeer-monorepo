@@ -12,17 +12,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_364_GenesisPositiveFixtureShape(t *testing.T) {
+func TestGenesisErrorContractProducedStateRoundTrip(t *testing.T) {
 	t.Run("matched_fill_export_import_reopen", TestGenesisValidateAccepts)
 	t.Run("independent_corruption_before_import", TestGenesisValidateRejectsProducedState)
 	t.Run("retained_malformed_references", TestGenesisValidateRejects)
 	t.Run("record_and_json_codecs", TestGenesisValidateRecordsRoundTrip)
 }
 
-func TestRepairM_364_ErrorProofPinsLoss(t *testing.T) {
+func TestGenesisErrorContractTransportIdentity(t *testing.T) {
 	t.Run("updated_proof", TestProofPerpsErrorsOutsideScope)
 	key := sdk.NewKVStoreKey(types.StoreKey)
-	ctx := sdktestutil.DefaultContext(key, sdk.NewTransientStoreKey("repair_m364_errors"))
+	ctx := sdktestutil.DefaultContext(key, sdk.NewTransientStoreKey("genesis_error_contract"))
 	k := keeper.NewKeeper(key, nil, nil)
 	_, unknownMarket := k.GetMarket(ctx, 987)
 	genesis := types.DefaultGenesis()

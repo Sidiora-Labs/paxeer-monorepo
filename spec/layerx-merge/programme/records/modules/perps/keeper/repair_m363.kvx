@@ -3,35 +3,35 @@ task = "22.33.363"
 audit = "22.30.14"
 mode = "BUILD"
 base_revision = "de8ab245609a7e0707cc32c502b6dcbe17ce3aca"
-baseline = "The supplied attempt-1 evidence at ae5fe956b61638507e7e35deff33081c1ee36121 reports TestRepairM_363_ADLBlockAllowanceAndContinuation failing for bounds 1 and 2, and TestRepairM_363_OpenQuoteExecution failing own_best_bid, partial_fill, fee_tier and multiple_fills; unaligned_mark passed. The original private log was not carried into this sandbox. No additional unchanged-tree verify is run because the explicit gate order forbids it."
+baseline = "The supplied attempt-1 evidence at ae5fe956b61638507e7e35deff33081c1ee36121 reports TestExecutionPolicyADLBlockAllowanceAndContinuation failing for bounds 1 and 2, and TestExecutionPolicyOpenQuoteExecution failing own_best_bid, partial_fill, fee_tier and multiple_fills; unaligned_mark passed. The original private log was not carried into this sandbox. No additional unchanged-tree verify is run because the explicit gate order forbids it."
 evidence = "/out/run/gates.jsonl and the final hf-done evidence line name the immutable candidate revision, exact command, exit and private log; qualification is recorded by the runner, without editing this record after the gate."
 
 [repair.adl-bound-test-misses-block]
-test = "modules/perps/keeper/repair_m363_test.go:TestRepairM_363_ADLBlockAllowanceAndContinuation"
+test = "modules/perps/keeper/execution_policy_test.go:TestExecutionPolicyADLBlockAllowanceAndContinuation"
 proof = "Actual EndBlock at caps 1 and 2: five deficits/backstops, insurance draw, step-8 coverage, fee-paying insurance close; count all ADLMatched logs in the real synthetic receipt and bound next-block continuation."
 
 [repair.adl-budget-renewed-in-block]
-test = "modules/perps/keeper/repair_m363_test.go:TestRepairM_363_ADLBlockAllowanceAndContinuation"
+test = "modules/perps/keeper/execution_policy_test.go:TestExecutionPolicyADLBlockAllowanceAndContinuation"
 proof = "EndBlock carries the prerequisite durable per-height allowance through its cached pass; nested ExecuteADL calls debit that same ledger only with committed work. Reopen the real keeper/store at the same height, refuse additional matches, retain debt, then resume in the next block."
 
 [repair.leverage-acceptance-conflict]
-test = "modules/perps/keeper/repair_m363_test.go:TestRepairM_363_LeverageTierPolicy"
+test = "modules/perps/keeper/execution_policy_test.go:TestExecutionPolicyLeverageTierPolicy"
 proof = "Preserve the existing fixed 1000x tier-0 safety policy. Execute actual codec/router MsgSetMarket for all six TierClasses; standalone leverage changes fail atomically with wire identity. Actual order admission demonstrates the changed Class B notional-tier limit (500x refused, 200x accepted). Spec reconciliation is requested below; no mutable-MaxLeverage policy is introduced."
 
 [repair.pause-authority-order]
-test = "modules/perps/keeper/repair_m363_test.go:TestRepairM_363_PauseAuthorityBeforeState"
+test = "modules/perps/keeper/execution_policy_test.go:TestExecutionPolicyPauseAuthorityBeforeState"
 proof = "Wrong authority is refused before SDK context unwrapping and before decoding valid/corrupt persisted parameters; the real codec/MsgServiceRouter boundary returns perps/35 without writes or events, while authorized corrupt state retains its validation refusal."
 
 [repair.refusal-test-expected-sentinel]
-test = "modules/perps/keeper/repair_m363_test.go:TestRepairM_363_ProducedOrderRefusalWireIdentity"
+test = "modules/perps/keeper/execution_policy_test.go:TestExecutionPolicyProducedOrderRefusalWireIdentity"
 proof = "Real PlaceOrder unknown-market, stale-price and margin refusals pass through ResponseDeliverTx and protobuf; received perps codes and ABCIError identity are asserted alongside errors.Is and unchanged stores. requireRefused now checks the actual produced error for all existing order tests."
 
 [repair.pause-proof-pins-wrong-refusal]
-test = "modules/perps/keeper/repair_m363_test.go:TestRepairM_363_PauseGovernanceProof"
+test = "modules/perps/keeper/execution_policy_test.go:TestExecutionPolicyPauseGovernanceProof"
 proof = "The existing governance proof now expects ErrUnauthorized and validates its received SDK wire identity for wrong-authority SetPaused over corrupt params, retaining unchanged-store/no-event assertions and the actual persisted governance execution/reopen proof."
 
 [repair.open-quote-test-bypasses-execution]
-test = "modules/perps/keeper/repair_m363_test.go:TestRepairM_363_OpenQuoteExecution"
+test = "modules/perps/keeper/execution_policy_test.go:TestExecutionPolicyOpenQuoteExecution"
 companion = "precompiles/perps/quotes_test.go:TestQuotesOpenPositionRealExecution"
 proof = "Real 0x1015 ABI quoteOpenPosition/openPosition with identical arguments and unchanged initial store/token balances: unaligned mark, caller-owned best bid, partial liquidity, volume-selected fee tier and multiple fills. Decode execution receipts and compare position, notional, fees, collateral, USDL custody, liquidation, impact, maintenance and funding with the quote."
 

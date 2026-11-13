@@ -15,9 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// repair15Transport crosses the production ABCI encoder, protobuf wire and
+// validationTransport crosses the production ABCI encoder, protobuf wire and
 // client decoder, retaining the producer's context and LXP reason as well.
-func repair15Transport(t *testing.T, produced error, root *sdkerrors.Error, code uint32, name, detail string) {
+func validationTransport(t *testing.T, produced error, root *sdkerrors.Error, code uint32, name, detail string) {
 	t.Helper()
 	require.ErrorIs(t, produced, root)
 	require.Contains(t, produced.Error(), detail)
@@ -38,7 +38,7 @@ func repair15Transport(t *testing.T, produced error, root *sdkerrors.Error, code
 	proofPerpsTransport(t, produced, root)
 }
 
-func TestRepair_15_ABCITypeGenesis(t *testing.T) {
+func TestValidationTransportABCITypeGenesis(t *testing.T) {
 	cases := []struct {
 		name, detail string
 		mutate       func(*types.GenesisState)
@@ -51,21 +51,21 @@ func TestRepair_15_ABCITypeGenesis(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			gs := types.DefaultGenesis()
 			tc.mutate(gs)
-			repair15Transport(t, types.ValidateGenesis(*gs), types.ErrInvalidGenesis, 39, "LXP_PERPS_INVALID_GENESIS", tc.detail)
+			validationTransport(t, types.ValidateGenesis(*gs), types.ErrInvalidGenesis, 39, "LXP_PERPS_INVALID_GENESIS", tc.detail)
 		})
 	}
 }
 
-func TestRepair_15_ABCIParams(t *testing.T) {
+func TestValidationTransportABCIParams(t *testing.T) {
 	p := types.DefaultParams()
 	p.CollateralToken = common.Address{}
-	repair15Transport(t, p.Validate(), types.ErrInvalidParams, 2, "LXP_PERPS_INVALID_PARAMS", "zero collateral token")
+	validationTransport(t, p.Validate(), types.ErrInvalidParams, 2, "LXP_PERPS_INVALID_PARAMS", "zero collateral token")
 	m := btcMarket()
 	m.MaxLeverage = 0
-	repair15Transport(t, m.Validate(), types.ErrInvalidParams, 2, "LXP_PERPS_INVALID_PARAMS", "market 0 max leverage")
+	validationTransport(t, m.Validate(), types.ErrInvalidParams, 2, "LXP_PERPS_INVALID_PARAMS", "market 0 max leverage")
 }
 
-func TestRepair_15_ABCIMath(t *testing.T) {
+func TestValidationTransportABCIMath(t *testing.T) {
 	maxUnsigned := sdk.NewIntFromBigInt(new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1)))
 	maxSigned := sdk.NewIntFromBigInt(new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 255), big.NewInt(1)))
 	minSigned := sdk.NewIntFromBigInt(new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), 255)))
@@ -82,7 +82,7 @@ func TestRepair_15_ABCIMath(t *testing.T) {
 	} {
 		t.Run(convert.name, func(t *testing.T) {
 			_, _, err := convert.call(oversized)
-			repair15Transport(t, err, types.ErrOverflow, 38, "LXP_PERPS_OVERFLOW", "USD amount")
+			validationTransport(t, err, types.ErrOverflow, 38, "LXP_PERPS_OVERFLOW", "USD amount")
 		})
 	}
 	for _, operation := range []struct {
@@ -99,7 +99,7 @@ func TestRepair_15_ABCIMath(t *testing.T) {
 				limit = maxSigned
 			}
 			_, err := operation.call(limit, sdk.NewInt(2), sdk.OneInt())
-			repair15Transport(t, err, types.ErrOverflow, 38, "LXP_PERPS_OVERFLOW", "result")
+			validationTransport(t, err, types.ErrOverflow, 38, "LXP_PERPS_OVERFLOW", "result")
 			for operand := 0; operand < 3; operand++ {
 				values := []sdk.Int{sdk.OneInt(), sdk.OneInt(), sdk.OneInt()}
 				values[operand] = oversized
@@ -107,14 +107,14 @@ func TestRepair_15_ABCIMath(t *testing.T) {
 					values[operand] = maxUnsigned
 				}
 				_, err := operation.call(values[0], values[1], values[2])
-				repair15Transport(t, err, types.ErrOverflow, 38, "LXP_PERPS_OVERFLOW", "operand")
+				validationTransport(t, err, types.ErrOverflow, 38, "LXP_PERPS_OVERFLOW", "operand")
 			}
 			if operation.signed {
 				_, err := operation.call(minSigned, sdk.NewInt(2), sdk.OneInt())
-				repair15Transport(t, err, types.ErrOverflow, 38, "LXP_PERPS_OVERFLOW", "result")
+				validationTransport(t, err, types.ErrOverflow, 38, "LXP_PERPS_OVERFLOW", "result")
 				belowMin := sdk.NewIntFromBigInt(new(big.Int).Sub(minSigned.BigInt(), big.NewInt(1)))
 				_, err = operation.call(belowMin, sdk.OneInt(), sdk.OneInt())
-				repair15Transport(t, err, types.ErrOverflow, 38, "LXP_PERPS_OVERFLOW", "operand")
+				validationTransport(t, err, types.ErrOverflow, 38, "LXP_PERPS_OVERFLOW", "operand")
 			}
 		})
 	}
@@ -129,11 +129,11 @@ func TestRepair_15_ABCIMath(t *testing.T) {
 		b := op.limit.SubRaw(1)
 		denominator := op.limit.SubRaw(2)
 		_, err := op.call(a, b, denominator)
-		repair15Transport(t, err, types.ErrOverflow, 38, "LXP_PERPS_OVERFLOW", "result")
+		validationTransport(t, err, types.ErrOverflow, 38, "LXP_PERPS_OVERFLOW", "result")
 	}
 }
 
-func repair15FilledExport(t *testing.T) (*proofPerpsStore, *types.GenesisState) {
+func validationFilledExport(t *testing.T) (*proofPerpsStore, *types.GenesisState) {
 	t.Helper()
 	e := newProofPerpsStore(t)
 	feeder := e.registerFeeder(t)
@@ -172,7 +172,7 @@ func repair15FilledExport(t *testing.T) (*proofPerpsStore, *types.GenesisState) 
 	return e, gs
 }
 
-func repair15Clone(t *testing.T, gs *types.GenesisState) types.GenesisState {
+func validationClone(t *testing.T, gs *types.GenesisState) types.GenesisState {
 	t.Helper()
 	wire, err := json.Marshal(gs)
 	require.NoError(t, err)
@@ -181,8 +181,8 @@ func repair15Clone(t *testing.T, gs *types.GenesisState) types.GenesisState {
 	return received
 }
 
-func TestRepair_15_GenesisOwnershipAndCounts(t *testing.T) {
-	source, exported := repair15FilledExport(t)
+func TestValidationTransportGenesisOwnershipAndCounts(t *testing.T) {
+	source, exported := validationFilledExport(t)
 	target := newProofPerpsStore(t)
 	cases := []struct {
 		name, detail string
@@ -263,11 +263,11 @@ func TestRepair_15_GenesisOwnershipAndCounts(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			corrupted := repair15Clone(t, exported)
+			corrupted := validationClone(t, exported)
 			tc.mutate(&corrupted)
-			transported := repair15Clone(t, &corrupted)
+			transported := validationClone(t, &corrupted)
 			err := keeper.ValidateGenesis(transported)
-			repair15Transport(t, err, types.ErrInvalidGenesis, 39, "LXP_PERPS_INVALID_GENESIS", tc.detail)
+			validationTransport(t, err, types.ErrInvalidGenesis, 39, "LXP_PERPS_INVALID_GENESIS", tc.detail)
 			require.PanicsWithError(t, err.Error(), func() { target.perps.InitGenesis(target.ctx, transported) })
 			iter := target.ctx.KVStore(target.keys[types.StoreKey]).Iterator(nil, nil)
 			require.False(t, iter.Valid(), "invalid recovery wrote state")
@@ -277,8 +277,8 @@ func TestRepair_15_GenesisOwnershipAndCounts(t *testing.T) {
 	require.Equal(t, exported, source.perps.ExportGenesis(source.ctx))
 }
 
-func TestRepair_15_GenesisRecoveryMarginWithdrawal(t *testing.T) {
-	source, exported := repair15FilledExport(t)
+func TestValidationTransportGenesisRecoveryMarginWithdrawal(t *testing.T) {
+	source, exported := validationFilledExport(t)
 	before, err := source.perps.AccountMargin(source.ctx, holderA)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), before.Positions)
@@ -293,7 +293,7 @@ func TestRepair_15_GenesisRecoveryMarginWithdrawal(t *testing.T) {
 	target := newProofPerpsStore(t)
 	feeder := target.registerFeeder(t)
 	target.producePrice(t, feeder, 1, 1000)
-	received := repair15Clone(t, exported)
+	received := validationClone(t, exported)
 	require.NoError(t, keeper.ValidateGenesis(received))
 	target.perps.InitGenesis(target.ctx, received)
 	target.restart(t)

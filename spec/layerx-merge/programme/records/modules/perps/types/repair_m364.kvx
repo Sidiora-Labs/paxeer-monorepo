@@ -6,11 +6,11 @@ baseline = "Not run: step 6 conflicts with the explicit implementation-first gat
 gotcha = "Task records and gotchas stay in this scoped record because the task forbids editing spec/ and GOTCHA.kvx."
 
 [finding.genesis-positive-fixture-shape]
-tests = ["TestRepairM_364_GenesisPositiveFixtureShape"]
+tests = ["TestGenesisErrorContractProducedStateRoundTrip"]
 proof = "Real pricefeed submission and aggregation, seeded markets, deposits and a matched partial fill produce the positive export. JSON import and store reopen preserve it; independent OI, account-count and ownership mutations fail types and keeper validation and import without changing pre-existing store contents. All malformed-reference and codec assertions remain in the gate."
 
 [finding.error-proof-pins-loss]
-tests = ["TestRepairM_364_ErrorProofPinsLoss"]
+tests = ["TestGenesisErrorContractTransportIdentity"]
 proof = "Actual GetMarket and ValidateGenesis refusals cross ResponseDeliverTx, ABCI protobuf and ABCIError with perps/3 and perps/39 identities; the shared transport proof retains malformed protobuf, wrong namespace, unknown code and LXP ABI checks. The historical test now requires these registered identities."
 
 [wiring]

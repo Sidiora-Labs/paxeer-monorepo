@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repair16RoundTrip(t *testing.T, produced error) abci.ResponseDeliverTx {
+func genesisTransportRoundTrip(t *testing.T, produced error) abci.ResponseDeliverTx {
 	t.Helper()
 	response := sdkerrors.ResponseDeliverTx(produced, 100, 75, false)
 	wire, err := response.Marshal()
@@ -27,13 +27,13 @@ func repair16RoundTrip(t *testing.T, produced error) abci.ResponseDeliverTx {
 	return received
 }
 
-func repair16InvalidGenesis(t *testing.T, produced error, detail string) {
+func genesisTransportInvalidGenesis(t *testing.T, produced error, detail string) {
 	t.Helper()
 	require.ErrorIs(t, produced, types.ErrInvalidGenesis)
 	require.True(t, types.ErrInvalidGenesis.Is(produced))
 	require.Contains(t, produced.Error(), "failed to unmarshal perps genesis state")
 	require.Contains(t, produced.Error(), detail)
-	received := repair16RoundTrip(t, produced)
+	received := genesisTransportRoundTrip(t, produced)
 	require.Equal(t, "perps", received.Codespace)
 	require.Equal(t, uint32(39), received.Code)
 	require.Equal(t, produced.Error(), received.Log)
@@ -53,7 +53,7 @@ func repair16InvalidGenesis(t *testing.T, produced error, detail string) {
 	require.NotErrorIs(t, sdkerrors.ABCIError(received.Codespace, 1, received.Log), types.ErrInvalidGenesis)
 }
 
-func TestRepair_16_ModuleGenesisABCI(t *testing.T) {
+func TestGenesisTransportModuleGenesisABCI(t *testing.T) {
 	am := perps.NewAppModuleBasic()
 	for _, tc := range []struct {
 		name, input, detail string
@@ -65,7 +65,7 @@ func TestRepair_16_ModuleGenesisABCI(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			produced := am.ValidateGenesis(nil, nil, json.RawMessage(tc.input))
-			repair16InvalidGenesis(t, produced, tc.detail)
+			genesisTransportInvalidGenesis(t, produced, tc.detail)
 			if tc.typeError {
 				var decodeErr *json.UnmarshalTypeError
 				require.ErrorAs(t, produced, &decodeErr)
@@ -79,23 +79,23 @@ func TestRepair_16_ModuleGenesisABCI(t *testing.T) {
 	}
 }
 
-func TestRepair_16_StreamGenesisABCI(t *testing.T) {
+func TestGenesisTransportStreamGenesisABCI(t *testing.T) {
 	am := perps.NewAppModuleBasic()
 	genesisCh := make(chan json.RawMessage, 2)
 	genesisCh <- am.DefaultGenesis(nil)
 	genesisCh <- json.RawMessage(`{"params":`)
 	close(genesisCh)
 	produced := am.ValidateGenesisStream(nil, nil, genesisCh)
-	repair16InvalidGenesis(t, produced, "unexpected end of JSON input")
+	genesisTransportInvalidGenesis(t, produced, "unexpected end of JSON input")
 	var decodeErr *json.SyntaxError
 	require.ErrorAs(t, produced, &decodeErr)
 }
 
-func TestRepair_16_InternalErrorDoesNotImpersonateGenesis(t *testing.T) {
+func TestGenesisTransportInternalErrorDoesNotImpersonateGenesis(t *testing.T) {
 	// Even the registered description in an internal error's log cannot
 	// substitute for the producer's registered codespace and numeric code.
 	produced := errors.New("internal decoder failure: LXP_PERPS_INVALID_GENESIS")
-	received := repair16RoundTrip(t, produced)
+	received := genesisTransportRoundTrip(t, produced)
 	require.Equal(t, sdkerrors.UndefinedCodespace, received.Codespace)
 	require.Equal(t, uint32(1), received.Code)
 	require.NotErrorIs(t, produced, types.ErrInvalidGenesis)
@@ -106,7 +106,7 @@ func TestRepair_16_InternalErrorDoesNotImpersonateGenesis(t *testing.T) {
 	require.Equal(t, "LXP_UNKNOWN: unknown; "+produced.Error(), reason)
 }
 
-func TestRepair_16_ValidGenesis(t *testing.T) {
+func TestGenesisTransportValidGenesis(t *testing.T) {
 	am := perps.NewAppModuleBasic()
 	genesis := am.DefaultGenesis(nil)
 	require.NoError(t, am.ValidateGenesis(nil, nil, genesis))
@@ -114,13 +114,13 @@ func TestRepair_16_ValidGenesis(t *testing.T) {
 	genesisCh <- genesis
 	close(genesisCh)
 	require.NoError(t, am.ValidateGenesisStream(nil, nil, genesisCh))
-	received := repair16RoundTrip(t, nil)
+	received := genesisTransportRoundTrip(t, nil)
 	require.Zero(t, received.Code)
 	require.Empty(t, received.Codespace)
 	require.Empty(t, received.Log)
 }
 
-func TestRepair_16_InvalidGenesisABISelector(t *testing.T) {
+func TestGenesisTransportInvalidGenesisABISelector(t *testing.T) {
 	parsed, err := perpsabi.ABI()
 	require.NoError(t, err)
 	custom, ok := parsed.Errors["PerpsInvalidGenesis"]
