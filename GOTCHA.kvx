@@ -21610,3 +21610,8 @@ fix = "Tasks 22.42.34 and later write one page for each directory of sources in 
 title = "The files of the upgrade to version 7.0.0 lie under docs/release and tools/release"
 symptom = "The pages of the upgrade lie under docs/release with the prefix 7.0.0, and the scripts that stage, swap, snapshot, roll back and verify a release lie under tools/release."
 fix = "Tasks 22.42.1 to 22.42.26 add the inventory of systems, the pages of variables, the checks before and after the upgrade height, the example proposal, the release notes, the rollback page and an index of the whole."
+
+[gotcha.4358]
+title = "A file is named after what it holds and task records lie under the programme directory"
+symptom = "Files and directories across the tree carry the word repair with a task number in their names, and task records with the extension kvx lie beside the sources."
+fix = "Tasks 22.43.1 to 22.43.247 move the task records under spec/layerx-merge/programme/records and give the other files a name that states what they hold. A new test file is named after the behaviour it covers, and a new task record is written under that directory."
