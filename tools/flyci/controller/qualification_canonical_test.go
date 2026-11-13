@@ -21,7 +21,7 @@ import (
 
 // Run the actual qualification producer and workflow consumer, including their
 // shared canonicalization and logical identity functions.
-func repair314Python(mode string, input []byte) ([]byte, error) {
+func qualificationPython(mode string, input []byte) ([]byte, error) {
 	path, err := filepath.Abs("../../qualification/paxeer_x_release.py")
 	if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ sys.stdout.buffer.write(m.canonical(v))`
 	return out, nil
 }
 
-func TestRepair_314_CanonicalNumbersAndErrors(t *testing.T) {
+func TestQualificationCanonicalNumbersAndErrors(t *testing.T) {
 	value := map[string]any{
 		"numbers": []int64{math.MinInt64, math.MinInt64 + 1, -9007199254740993, 9007199254740992, 9007199254740993, math.MaxInt64 - 1, math.MaxInt64},
 		"strings": "<>&\x7fé\u2028😀\b\f\n\r\t",
@@ -65,7 +65,7 @@ func TestRepair_314_CanonicalNumbersAndErrors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want, err := repair314Python("canonical", raw)
+	want, err := qualificationPython("canonical", raw)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +103,7 @@ func TestRepair_314_CanonicalNumbersAndErrors(t *testing.T) {
 	}
 }
 
-func TestRepair_314_SubmitReopenRouteAndVerify(t *testing.T) {
+func TestQualificationSubmitReopenRouteAndVerify(t *testing.T) {
 	values := []int64{9007199254740991, 9007199254740992, 9007199254740993, 9007199254740994, -9007199254740992, -9007199254740993, math.MinInt64, math.MinInt64 + 1, math.MaxInt64 - 1, math.MaxInt64}
 	identities := map[string]int64{}
 	for i, value := range values {
@@ -119,7 +119,7 @@ func TestRepair_314_SubmitReopenRouteAndVerify(t *testing.T) {
 			req.Manifest.Cells[0].Thresholds["accepted"] = qualificationThreshold{Operator: "eq", Value: value, Unit: "count"}
 			// Non-ASCII and HTML characters must hash identically on both sides too.
 			req.Manifest.Cells[0].Matrix["description"] = "exact <integer> é 😀"
-			producer, err := repair314Python("produce", qTestCanonical(t, req))
+			producer, err := qualificationPython("produce", qTestCanonical(t, req))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -170,7 +170,7 @@ func TestRepair_314_SubmitReopenRouteAndVerify(t *testing.T) {
 				var routed qualificationRequest
 				if err == nil {
 					var output []byte
-					output, err = repair314Python("workflow", payload)
+					output, err = qualificationPython("workflow", payload)
 					if err == nil {
 						err = qStrict(output, &routed)
 					}

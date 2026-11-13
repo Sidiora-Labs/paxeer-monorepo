@@ -17,11 +17,11 @@ import (
 	"testing"
 )
 
-func repair717Path(r *qualificationRegistry, id string, seq int64) string {
+func qualificationRecordPath(r *qualificationRegistry, id string, seq int64) string {
 	return filepath.Join(r.root, id, fmt.Sprintf("%020d.json", seq))
 }
 
-func repair717Read(t *testing.T, path string) []byte {
+func qualificationReadRecord(t *testing.T, path string) []byte {
 	t.Helper()
 	b, err := qRead(path)
 	if err != nil {
@@ -30,7 +30,7 @@ func repair717Read(t *testing.T, path string) []byte {
 	return b
 }
 
-func repair717Reopen(t *testing.T, root string) *qualificationRegistry {
+func qualificationReopenRegistry(t *testing.T, root string) *qualificationRegistry {
 	t.Helper()
 	r, err := newQualificationRegistry(root)
 	if err != nil {
@@ -42,7 +42,7 @@ func repair717Reopen(t *testing.T, root string) *qualificationRegistry {
 // Stop at the real writer's filesystem boundaries. Closing descriptors models
 // process loss without spawning a binary or running cleanup that a crash omits.
 // Payloads come from records emitted by submit/advance in a reference registry.
-func repair717Interrupt(t *testing.T, path string, payload []byte, stage string) {
+func qualificationInterruptPublication(t *testing.T, path string, payload []byte, stage string) {
 	t.Helper()
 	if stage == "before_staging" {
 		return
@@ -82,12 +82,12 @@ func repair717Interrupt(t *testing.T, path string, payload []byte, stage string)
 		if _, err = os.Lstat(path); !os.IsNotExist(err) {
 			t.Fatalf("uncommitted record became visible: %v", err)
 		}
-	} else if !bytes.Equal(repair717Read(t, path), payload) {
+	} else if !bytes.Equal(qualificationReadRecord(t, path), payload) {
 		t.Fatal("publication changed record bytes")
 	}
 }
 
-func repair717Status(t *testing.T, r *qualificationRegistry, want qualificationRecord) {
+func qualificationAssertRecoveredStatus(t *testing.T, r *qualificationRegistry, want qualificationRecord) {
 	t.Helper()
 	response := qHandle(r, qTestCanonical(t, qualificationControl{Operation: "status", LogicalID: want.Request.LogicalID}))
 	if response.Error != "" || response.Record == nil || !reflect.DeepEqual(*response.Record, want) {
@@ -102,13 +102,13 @@ func repair717Status(t *testing.T, r *qualificationRegistry, want qualificationR
 	}
 }
 
-func TestRepairM_717_InterruptedInitialPublication(t *testing.T) {
+func TestQualificationInterruptedInitialPublication(t *testing.T) {
 	reference, req := qTestRegistry(t)
 	prepared, err := reference.submit(req)
 	if err != nil {
 		t.Fatal(err)
 	}
-	payload := repair717Read(t, repair717Path(reference, req.LogicalID, 1))
+	payload := qualificationReadRecord(t, qualificationRecordPath(reference, req.LogicalID, 1))
 	for _, stage := range []string{"before_staging", "before_writing", "during_writing", "before_publication", "after_publication"} {
 		t.Run(stage, func(t *testing.T) {
 			r, _ := qTestRegistry(t)
@@ -126,10 +126,10 @@ func TestRepairM_717_InterruptedInitialPublication(t *testing.T) {
 			if err = qSyncDir(r.root); err != nil {
 				t.Fatal(err)
 			}
-			repair717Interrupt(t, repair717Path(r, req.LogicalID, 1), payload, stage)
+			qualificationInterruptPublication(t, qualificationRecordPath(r, req.LogicalID, 1), payload, stage)
 			root := r.root
 			r = nil
-			r = repair717Reopen(t, root)
+			r = qualificationReopenRegistry(t, root)
 			listed, err := r.list()
 			if err != nil {
 				t.Fatal("interrupted request blocked other requests:", err)
@@ -137,14 +137,14 @@ func TestRepairM_717_InterruptedInitialPublication(t *testing.T) {
 			wantCount := 1
 			if stage == "after_publication" {
 				wantCount = 2
-				repair717Status(t, r, prepared)
+				qualificationAssertRecoveredStatus(t, r, prepared)
 			} else if _, err = os.Lstat(dir); !os.IsNotExist(err) {
 				t.Fatalf("pre-record directory was not recovered: %v", err)
 			}
 			if len(listed) != wantCount {
 				t.Fatalf("listed %d records, want %d", len(listed), wantCount)
 			}
-			repair717Status(t, r, healthy)
+			qualificationAssertRecoveredStatus(t, r, healthy)
 			retried, err := r.submit(req)
 			if err != nil || retried.Sequence != 1 || retried.State != "prepared" {
 				t.Fatalf("submit did not recover: %+v %v", retried, err)
@@ -156,13 +156,13 @@ func TestRepairM_717_InterruptedInitialPublication(t *testing.T) {
 				t.Fatal("published first record was replaced")
 			}
 			r = nil
-			r = repair717Reopen(t, root)
-			repair717Status(t, r, retried)
+			r = qualificationReopenRegistry(t, root)
+			qualificationAssertRecoveredStatus(t, r, retried)
 		})
 	}
 }
 
-func TestRepairM_717_InterruptedTailRecovery(t *testing.T) {
+func TestQualificationInterruptedTailRecovery(t *testing.T) {
 	transitions := []struct {
 		state        string
 		run, attempt int64
@@ -195,7 +195,7 @@ func TestRepairM_717_InterruptedTailRecovery(t *testing.T) {
 						t.Fatal(err)
 					}
 				}
-				previous := repair717Read(t, repair717Path(r, req.LogicalID, before.Sequence))
+				previous := qualificationReadRecord(t, qualificationRecordPath(r, req.LogicalID, before.Sequence))
 				next := transitions[prefix]
 				after, err := reference.advance(req.LogicalID, before.State, next.state, next.run, next.attempt, "real transition")
 				if err != nil {
@@ -204,7 +204,7 @@ func TestRepairM_717_InterruptedTailRecovery(t *testing.T) {
 				// Bind the reference-produced event to this registry's actual bytes.
 				after.Previous = qHash(previous)
 				payload := qTestCanonical(t, after)
-				repair717Interrupt(t, repair717Path(r, req.LogicalID, after.Sequence), payload, stage)
+				qualificationInterruptPublication(t, qualificationRecordPath(r, req.LogicalID, after.Sequence), payload, stage)
 				// Readers see the committed prefix even with an uncommitted tail.
 				want := before
 				if stage == "after_publication" {
@@ -216,9 +216,9 @@ func TestRepairM_717_InterruptedTailRecovery(t *testing.T) {
 				}
 				root := r.root
 				r = nil
-				r = repair717Reopen(t, root)
-				repair717Status(t, r, want)
-				if !bytes.Equal(repair717Read(t, repair717Path(r, req.LogicalID, before.Sequence)), previous) {
+				r = qualificationReopenRegistry(t, root)
+				qualificationAssertRecoveredStatus(t, r, want)
+				if !bytes.Equal(qualificationReadRecord(t, qualificationRecordPath(r, req.LogicalID, before.Sequence)), previous) {
 					t.Fatal("recovery rewrote the durable prefix")
 				}
 				if want.RunID > 0 && !r.protects(want.RunID) {
@@ -232,14 +232,14 @@ func TestRepairM_717_InterruptedTailRecovery(t *testing.T) {
 					want = resumed
 				}
 				r = nil
-				r = repair717Reopen(t, root)
-				repair717Status(t, r, want)
+				r = qualificationReopenRegistry(t, root)
+				qualificationAssertRecoveredStatus(t, r, want)
 			})
 		}
 	}
 }
 
-func TestRepairM_717_RetryInitialWriteWithoutRestart(t *testing.T) {
+func TestQualificationRetryInitialWriteWithoutRestart(t *testing.T) {
 	r, req := qTestRegistry(t)
 	dir := filepath.Join(r.root, req.LogicalID)
 	if err := os.Mkdir(dir, 0700); err != nil {
@@ -249,16 +249,16 @@ func TestRepairM_717_RetryInitialWriteWithoutRestart(t *testing.T) {
 	if _, err := reference.submit(req); err != nil {
 		t.Fatal(err)
 	}
-	payload := repair717Read(t, repair717Path(reference, req.LogicalID, 1))
-	repair717Interrupt(t, repair717Path(r, req.LogicalID, 1), payload, "during_writing")
+	payload := qualificationReadRecord(t, qualificationRecordPath(reference, req.LogicalID, 1))
+	qualificationInterruptPublication(t, qualificationRecordPath(r, req.LogicalID, 1), payload, "during_writing")
 	retried, err := r.submit(req)
 	if err != nil || retried.Sequence != 1 || retried.State != "prepared" {
 		t.Fatalf("interrupted local write prevented retry: %+v %v", retried, err)
 	}
-	repair717Status(t, r, retried)
+	qualificationAssertRecoveredStatus(t, r, retried)
 }
 
-func TestRepairM_717_PublishedIntentIsNeverRedispatched(t *testing.T) {
+func TestQualificationPublishedIntentIsNeverRedispatched(t *testing.T) {
 	r, req := qTestRegistry(t)
 	if _, err := r.submit(req); err != nil {
 		t.Fatal(err)
@@ -285,12 +285,12 @@ func TestRepairM_717_PublishedIntentIsNeverRedispatched(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	next.Previous = qHash(repair717Read(t, repair717Path(r, req.LogicalID, 2)))
-	repair717Interrupt(t, repair717Path(r, req.LogicalID, 3), qTestCanonical(t, next), "during_writing")
+	next.Previous = qHash(qualificationReadRecord(t, qualificationRecordPath(r, req.LogicalID, 2)))
+	qualificationInterruptPublication(t, qualificationRecordPath(r, req.LogicalID, 3), qTestCanonical(t, next), "during_writing")
 	root := r.root
 	r = nil
-	r = repair717Reopen(t, root)
-	repair717Status(t, r, intent)
+	r = qualificationReopenRegistry(t, root)
+	qualificationAssertRecoveredStatus(t, r, intent)
 	var calls atomic.Int64
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		calls.Add(1)
@@ -315,11 +315,11 @@ func TestRepairM_717_PublishedIntentIsNeverRedispatched(t *testing.T) {
 		t.Fatal("ambiguous intent permitted redispatch")
 	}
 	r = nil
-	r = repair717Reopen(t, root)
-	repair717Status(t, r, recovered)
+	r = qualificationReopenRegistry(t, root)
+	qualificationAssertRecoveredStatus(t, r, recovered)
 }
 
-func TestRepairM_717_AtomicPublicationDoesNotReplace(t *testing.T) {
+func TestQualificationAtomicPublicationDoesNotReplace(t *testing.T) {
 	r, req := qTestRegistry(t)
 	path := filepath.Join(r.root, "publication.json")
 	const writers = 8
@@ -355,7 +355,7 @@ func TestRepairM_717_AtomicPublicationDoesNotReplace(t *testing.T) {
 			t.Fatal(result.err)
 		}
 	}
-	if winner < 0 || !bytes.Equal(repair717Read(t, path), payloads[winner]) {
+	if winner < 0 || !bytes.Equal(qualificationReadRecord(t, path), payloads[winner]) {
 		t.Fatal("published record is not the winning complete payload")
 	}
 	if err := qWrite(path, []byte("replacement")); !errors.Is(err, os.ErrExist) {
@@ -371,7 +371,7 @@ func TestRepairM_717_AtomicPublicationDoesNotReplace(t *testing.T) {
 	if err := qWrite(link, []byte("replacement")); !errors.Is(err, os.ErrExist) {
 		t.Fatalf("existing symlink was not protected: %v", err)
 	}
-	if !bytes.Equal(repair717Read(t, path), payloads[winner]) {
+	if !bytes.Equal(qualificationReadRecord(t, path), payloads[winner]) {
 		t.Fatal("publication followed or replaced an existing symlink")
 	}
 	entries, err := os.ReadDir(r.root)
@@ -385,21 +385,21 @@ func TestRepairM_717_AtomicPublicationDoesNotReplace(t *testing.T) {
 	}
 }
 
-func TestRepairM_717_RecoveryRetainsCorruptionChecks(t *testing.T) {
+func TestQualificationRecoveryRetainsCorruptionChecks(t *testing.T) {
 	for _, damage := range []string{"partial_final", "sequence_gap", "unknown_entry", "linked_staging"} {
 		t.Run(damage, func(t *testing.T) {
 			r, req := qTestRegistry(t)
 			if _, err := r.submit(req); err != nil {
 				t.Fatal(err)
 			}
-			path := repair717Path(r, req.LogicalID, 1)
-			original := repair717Read(t, path)
+			path := qualificationRecordPath(r, req.LogicalID, 1)
+			original := qualificationReadRecord(t, path)
 			var err error
 			switch damage {
 			case "partial_final":
 				err = os.WriteFile(path, original[:len(original)/2], 0600)
 			case "sequence_gap":
-				err = os.Rename(path, repair717Path(r, req.LogicalID, 2))
+				err = os.Rename(path, qualificationRecordPath(r, req.LogicalID, 2))
 			case "unknown_entry":
 				err = os.WriteFile(filepath.Join(filepath.Dir(path), "unknown.tmp"), original, 0600)
 			case "linked_staging":
@@ -415,7 +415,7 @@ func TestRepairM_717_RecoveryRetainsCorruptionChecks(t *testing.T) {
 				if err == nil {
 					t.Fatal("recovery accepted a linked staging file")
 				}
-				if !bytes.Equal(repair717Read(t, path), original) {
+				if !bytes.Equal(qualificationReadRecord(t, path), original) {
 					t.Fatal("recovery followed the staging symlink")
 				}
 				return
