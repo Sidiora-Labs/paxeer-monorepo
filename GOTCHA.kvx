@@ -21700,3 +21700,8 @@ fix = "A page that links such a file gives the full path from the repository roo
 title = "A batch of one request returns one result"
 symptom = "The client of consensus/rpc/jsonrpc decodes the answer to a batch of one request into one result. The batch section of TestProofRpcRoutes in consensus/internal/rpc/core holds the shape of that answer."
 fix = "A test of the batch path asserts for a batch of one request that Send returns no error and one result. A task that changes the shape the server writes for a batch brings the tests under consensus that hold the shape to it in the same commit."
+
+[gotcha.4376]
+title = "The inventory files under tools/workspace name each package manifest by its path"
+symptom = "The files tools/workspace/paxeer-manifest-roots.txt and tools/workspace/platform-dependency-roots.txt hold one line for each package manifest and name the test file that covers it. The scripts scripts/workspace/check-paxeer-manifests.sh and scripts/workspace/check-platform-dependencies.sh compare the lines with the manifests in the tree, and the target paxeer-manifest-lint of the Makefile runs them."
+fix = "A task that renames a directory holding a package manifest, or a test file that an inventory line names, brings the inventory line to the present path in the same commit and runs both scripts. A workflow under .github and a test under tests/ci that name the directory follow in the same commit."
