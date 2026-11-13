@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func TestRepairM_1308_ReachableServer(t *testing.T) {
+func TestServerProbeReachableServer(t *testing.T) {
 	requests := make(chan string, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests <- r.Method + " " + r.URL.RequestURI()
@@ -35,7 +35,7 @@ func TestRepairM_1308_ReachableServer(t *testing.T) {
 	}
 }
 
-func TestRepairM_1308_ResponseBodyClosed(t *testing.T) {
+func TestServerProbeResponseBodyClosed(t *testing.T) {
 	closed := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -56,7 +56,7 @@ func TestRepairM_1308_ResponseBodyClosed(t *testing.T) {
 	}
 }
 
-func TestRepairM_1308_ConnectionRefused(t *testing.T) {
+func TestServerProbeConnectionRefused(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -72,7 +72,7 @@ func TestRepairM_1308_ConnectionRefused(t *testing.T) {
 	}
 }
 
-func TestRepairM_1308_InvalidURL(t *testing.T) {
+func TestServerProbeInvalidURL(t *testing.T) {
 	for _, target := range []string{"://invalid", "ftp://127.0.0.1/", ""} {
 		t.Run(target, func(t *testing.T) {
 			err := probeTestServer(target)
@@ -84,7 +84,7 @@ func TestRepairM_1308_InvalidURL(t *testing.T) {
 	}
 }
 
-func TestRepairM_1308_DisconnectedServer(t *testing.T) {
+func TestServerProbeDisconnectedServer(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		connection, _, err := w.(http.Hijacker).Hijack()
 		if err != nil {
@@ -102,7 +102,7 @@ func TestRepairM_1308_DisconnectedServer(t *testing.T) {
 	}
 }
 
-func TestRepairM_1308_Timeout(t *testing.T) {
+func TestServerProbeTimeout(t *testing.T) {
 	started := make(chan struct{})
 	cancelled := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -136,7 +136,7 @@ func TestRepairM_1308_Timeout(t *testing.T) {
 	}
 }
 
-func TestRepairM_1308_RedirectError(t *testing.T) {
+func TestServerProbeRedirectError(t *testing.T) {
 	var requests atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests.Add(1)
