@@ -1,4 +1,6 @@
+// In-process production KMS host with the committed 22.33.27 loopback peers.
 use crate::{config, server, store, wire};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use layerx_client::runtime_clock::{ClockBinding, RuntimeClock};
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
 use layerx_human_service::custody::{
@@ -6,6 +8,7 @@ use layerx_human_service::custody::{
 };
 use layerx_human_service::frame::{Limits, MutualTlsConfig};
 use layerx_types::clock::Clock;
+use ring::signature::{Ed25519KeyPair, KeyPair};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use rustls::{
     ClientConfig, ClientConnection, RootCertStore, ServerConfig, ServerConnection, StreamOwned,
@@ -17,7 +20,7 @@ use std::future::Future;
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Wake, Waker};
@@ -26,15 +29,15 @@ use std::time::Duration;
 use zeroize::Zeroizing;
 
 pub type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
-pub const PROVIDER: &str = "repair-22-33-27";
+pub const PROVIDER: &str = "repair-22-33-1540";
 pub static SERIAL: Mutex<()> = Mutex::new(());
-const CA: &[u8] = include_bytes!("../fixtures/repair_22_33_27/ca.der");
-const SERVER: &[u8] = include_bytes!("../fixtures/repair_22_33_27/server.der");
-const SERVER_KEY: &[u8] = include_bytes!("../fixtures/repair_22_33_27/server.pk8");
-const CLIENT: &[u8] = include_bytes!("../fixtures/repair_22_33_27/client.der");
-const CLIENT_KEY: &[u8] = include_bytes!("../fixtures/repair_22_33_27/client.pk8");
-const EXECUTOR: &[u8] = include_bytes!("../fixtures/repair_22_33_27/executor.der");
-const EXECUTOR_KEY: &[u8] = include_bytes!("../fixtures/repair_22_33_27/executor.pk8");
+const CA: &[u8] = include_bytes!("../fixtures/wallet_mtls/ca.der");
+const SERVER: &[u8] = include_bytes!("../fixtures/wallet_mtls/server.der");
+const SERVER_KEY: &[u8] = include_bytes!("../fixtures/wallet_mtls/server.pk8");
+const CLIENT: &[u8] = include_bytes!("../fixtures/wallet_mtls/client.der");
+const CLIENT_KEY: &[u8] = include_bytes!("../fixtures/wallet_mtls/client.pk8");
+const EXECUTOR: &[u8] = include_bytes!("../fixtures/wallet_mtls/executor.der");
+const EXECUTOR_KEY: &[u8] = include_bytes!("../fixtures/wallet_mtls/executor.pk8");
 
 pub fn checked<T, E: std::fmt::Debug>(value: std::result::Result<T, E>) -> Result<T> {
     value.map_err(|error| format!("{error:?}").into())
@@ -193,15 +196,7 @@ impl Host {
         fs::set_permissions(&root, fs::Permissions::from_mode(0o700))?;
         let clock_service = ClockHost::new(&root)?;
         let clock: Arc<dyn Clock> = RuntimeClock::connect(clock_service.binding.clone())?;
-        for (name, bytes) in [
-            ("ca.der", CA),
-            ("client.der", CLIENT),
-            ("client.pk8", CLIENT_KEY),
-        ] {
-            let path = root.join(name);
-            fs::write(&path, bytes)?;
-            fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
-        }
+        write_tls_material(&root)?;
         let mut bindings = Vec::new();
         let mut rows = Vec::new();
         let mut peers = Vec::new();
@@ -213,6 +208,8 @@ impl Host {
                 KeyClass::HumanPrimary,
                 PROVIDER,
             )?;
+            let now = clock.sample(Duration::from_secs(1))?.unix_seconds();
+            let owner_token = owner_assertion(principal, now)?;
             let fixture_secret = [u8::try_from(index + 21)?; 32];
             let fixture_call = crate::call(0);
             let raw = fixture_call.sign(&fixture_secret)?;
@@ -227,19 +224,26 @@ impl Host {
                 let sequence = Arc::new(AtomicU64::new(0));
                 let node_id = node.clone();
                 let wallet_key = key_id.clone();
+                let assertion = owner_token.clone();
                 let worker = Worker::spawn(listener, move |tcp| {
                     // The peer uses the real EIP-1559 signing producer, with fixture-owned
                     // material independent of every KMS primary seed and seal.
-                    peer(tcp, &tls, &node_id, &wallet_key, &fixture_secret, &sequence)
-                        .unwrap_or_else(|error| {
-                            panic!("{}: {error:?}", "signing fixture transport")
-                        });
+                    peer(
+                        tcp,
+                        &tls,
+                        &node_id,
+                        &wallet_key,
+                        &fixture_secret,
+                        &sequence,
+                        &assertion,
+                    )
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "signing fixture transport"));
                 })?;
                 nodes.push(json!({"id":node,"address":worker.address}));
                 peers.push(worker);
             }
             let assertion = root.join(format!("owner-{index}.jwt"));
-            fs::write(&assertion, format!("fixture-owner-{principal}"))?;
+            fs::write(&assertion, &owner_token)?;
             fs::set_permissions(&assertion, fs::Permissions::from_mode(0o600))?;
             rows.push(json!({"binding":binding.digest(),"tenant":"tenant","principal":principal,"assertion_file":assertion,
                 "config":{"nodes":nodes,"trust_anchors":[root.join("ca.der")],"client_certificate_chain":[root.join("client.der")],
@@ -383,6 +387,25 @@ impl Host {
     }
 }
 
+fn owner_assertion(principal: &str, now: u64) -> Result<String> {
+    let key = Ed25519KeyPair::from_seed_unchecked(&[0x44; 32])
+        .map_err(|_| "fixture owner assertion key")?;
+    let header = URL_SAFE_NO_PAD.encode(br#"{"alg":"EdDSA","typ":"JWT"}"#);
+    let claims = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&json!({
+        "sub": format!("fixture-owner-{principal}"), "iat": now, "exp": now + 600,
+    }))?);
+    let message = format!("{header}.{claims}");
+    let signature = key.sign(message.as_bytes());
+    ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, key.public_key().as_ref())
+        .verify(message.as_bytes(), signature.as_ref())
+        .map_err(|_| "fixture owner assertion signature")?;
+    let assertion = format!("{message}.{}", URL_SAFE_NO_PAD.encode(signature.as_ref()));
+    let claims = crate::attestor::assertion_claims(&assertion)?;
+    assert_eq!(claims.subject, format!("fixture-owner-{principal}"));
+    claims.check(now)?;
+    Ok(assertion)
+}
+
 fn peer(
     tcp: TcpStream,
     config: &Arc<ServerConfig>,
@@ -390,6 +413,7 @@ fn peer(
     key_id: &str,
     secret: &[u8; 32],
     sequence: &AtomicU64,
+    assertion: &str,
 ) -> Result<()> {
     tcp.set_read_timeout(Some(Duration::from_secs(5)))?;
     tcp.set_write_timeout(Some(Duration::from_secs(5)))?;
@@ -405,9 +429,16 @@ fn peer(
     }
     let header = std::str::from_utf8(&header)?;
     assert!(header.starts_with("POST /v1/sign HTTP/1.1\r\n"));
-    assert!(header
-        .to_ascii_lowercase()
-        .contains("authorization: bearer fixture-owner-"));
+    let authorization = header.lines().find_map(|line| {
+        let (name, value) = line.split_once(':')?;
+        name.eq_ignore_ascii_case("authorization")
+            .then_some(value.trim())
+    });
+    assert_eq!(
+        authorization,
+        Some(format!("Bearer {assertion}").as_str()),
+        "each signing peer requires the exact signed owner assertion"
+    );
     let length = header
         .lines()
         .find_map(|line| {
@@ -462,10 +493,15 @@ fn strip_signature(transaction: &[u8]) -> Result<Vec<u8>> {
     let mut out = vec![2];
     if payload.len() < 56 {
         out.push(0xc0 + u8::try_from(payload.len())?);
-    } else if payload.len() < 256 {
-        out.extend([0xf8, u8::try_from(payload.len())?]);
     } else {
-        return Err("fixture payload bound".into());
+        let length = payload.len().to_be_bytes();
+        let first = length
+            .iter()
+            .position(|byte| *byte != 0)
+            .ok_or("empty RLP length")?;
+        let length = &length[first..];
+        out.push(0xf7 + u8::try_from(length.len())?);
+        out.extend(length);
     }
     out.extend(payload);
     Ok(out)
@@ -486,4 +522,17 @@ pub fn run<F: Future>(future: F) -> F::Output {
             Poll::Pending => thread::park(),
         }
     }
+}
+
+fn write_tls_material(root: &Path) -> Result<()> {
+    for (name, bytes) in [
+        ("ca.der", CA),
+        ("client.der", CLIENT),
+        ("client.pk8", CLIENT_KEY),
+    ] {
+        let path = root.join(name);
+        fs::write(&path, bytes)?;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+    }
+    Ok(())
 }

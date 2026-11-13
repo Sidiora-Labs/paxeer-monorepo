@@ -12,7 +12,7 @@ use layerx_human_identity_provider::provision_head::validate_account_head;
 use serde_json::{json, Value};
 
 const NOW: u64 = 1_700_000_000_000;
-const FIXTURE: &str = include_str!("../src/fixtures/repair_22_33_34.json");
+const FIXTURE: &str = include_str!("../src/fixtures/account_head.json");
 
 fn must<T, E: Debug>(result: Result<T, E>) -> T {
     result.unwrap_or_else(|error| panic!("{error:?}"))

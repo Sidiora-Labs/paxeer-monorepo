@@ -183,7 +183,7 @@ impl ChainTranscript {
 
 fn fixture() -> Result<Value> {
     Ok(serde_json::from_str(include_str!(
-        "../src/fixtures/repair_22_33_34.json"
+        "../src/fixtures/account_head.json"
     ))?)
 }
 

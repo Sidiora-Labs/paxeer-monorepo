@@ -46,7 +46,7 @@ mod server {
 }
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
 mod clock_server;
-#[path = "provider/repair_22_33_1540_host.rs"]
+#[path = "provider/onboarding_host.rs"]
 mod fixture;
 #[path = "provider/native_setup_vectors.rs"]
 mod vectors;

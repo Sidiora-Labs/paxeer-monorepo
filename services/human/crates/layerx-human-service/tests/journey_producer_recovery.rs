@@ -1677,15 +1677,15 @@ mod clock_regressions {
 
         let ca = include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../layerx-human-kms/src/fixtures/repair_22_33_25/ca.der"
+            "/../layerx-human-kms/src/fixtures/attestor_tls/ca.der"
         ));
         let cert = include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../layerx-human-kms/src/fixtures/repair_22_33_25/peer.der"
+            "/../layerx-human-kms/src/fixtures/attestor_tls/peer.der"
         ));
         let tls_key = include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../layerx-human-kms/src/fixtures/repair_22_33_25/peer.pk8"
+            "/../layerx-human-kms/src/fixtures/attestor_tls/peer.pk8"
         ));
         let mut roots = RootCertStore::empty();
         must(roots.add(CertificateDer::from(ca.to_vec())));

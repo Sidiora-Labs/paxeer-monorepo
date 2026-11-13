@@ -85,10 +85,10 @@ use std::time::Duration;
 use zeroize::Zeroizing;
 
 type Result<T = ()> = std::result::Result<T, Box<dyn Error>>;
-const CA: &[u8] = include_bytes!("../src/fixtures/repair_22_33_25/ca.der");
-const CERT: &[u8] = include_bytes!("../src/fixtures/repair_22_33_25/peer.der");
+const CA: &[u8] = include_bytes!("../src/fixtures/attestor_tls/ca.der");
+const CERT: &[u8] = include_bytes!("../src/fixtures/attestor_tls/peer.der");
 // Public test-only TLS key; it has no production authority.
-const TLS_KEY: &[u8] = include_bytes!("../src/fixtures/repair_22_33_25/peer.pk8");
+const TLS_KEY: &[u8] = include_bytes!("../src/fixtures/attestor_tls/peer.pk8");
 const SIGNERS: [&str; 3] = ["node-1", "node-2", "node-3"];
 const PROVIDER: &str = "repair-22-33-25";
 const MAX_FRAME: usize = 2_097_152;

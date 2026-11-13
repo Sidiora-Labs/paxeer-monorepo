@@ -46,7 +46,7 @@ mod server {
 }
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
 mod clock_server;
-#[path = "support/repair_22_33_27_host.rs"]
+#[path = "support/wallet_mtls_host.rs"]
 mod fixture;
 
 use fixture::{checked, Host, Result, SERIAL};

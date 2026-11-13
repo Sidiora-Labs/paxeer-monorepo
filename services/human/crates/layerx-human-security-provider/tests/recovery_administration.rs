@@ -511,7 +511,7 @@ impl Drop for Running {
 }
 
 #[test]
-fn repair_22_33_46_success_preserves_administrator_principal_through_reveal_and_restart() {
+fn success_preserves_administrator_principal_through_reveal_and_restart() {
     let transcript = transcript(Case::Recovery);
     let fixture = Fixture::new(&transcript.trust);
     fixture.ingest(&transcript.receipt).unwrap();
@@ -540,7 +540,7 @@ fn repair_22_33_46_success_preserves_administrator_principal_through_reveal_and_
 }
 
 #[test]
-fn repair_22_33_46_authenticated_failures_non_recovery_and_wrong_policy_are_refused_at_ingestion() {
+fn authenticated_failures_non_recovery_and_wrong_policy_are_refused_at_ingestion() {
     for &case in REFUSALS {
         let transcript = transcript(case);
         let fixture = Fixture::new(&transcript.trust);
@@ -553,7 +553,7 @@ fn repair_22_33_46_authenticated_failures_non_recovery_and_wrong_policy_are_refu
 }
 
 #[test]
-fn repair_22_33_46_authenticated_invalid_receipts_are_refused_at_reveal_and_replay() {
+fn authenticated_invalid_receipts_are_refused_at_reveal_and_replay() {
     let valid = transcript(Case::Recovery);
     for &case in REFUSALS {
         let invalid = transcript(case);

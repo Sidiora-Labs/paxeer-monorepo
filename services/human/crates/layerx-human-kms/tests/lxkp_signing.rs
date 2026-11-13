@@ -76,13 +76,13 @@ mod fixture {
     pub type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
     pub const PROVIDER: &str = "repair-22-33-26";
     pub static SERIAL: Mutex<()> = Mutex::new(());
-    const CA: &[u8] = include_bytes!("fixtures/repair_22_33_27/ca.der");
-    const SERVER: &[u8] = include_bytes!("fixtures/repair_22_33_27/server.der");
-    const SERVER_KEY: &[u8] = include_bytes!("fixtures/repair_22_33_27/server.pk8");
-    const CLIENT: &[u8] = include_bytes!("fixtures/repair_22_33_27/client.der");
-    const CLIENT_KEY: &[u8] = include_bytes!("fixtures/repair_22_33_27/client.pk8");
-    const EXECUTOR: &[u8] = include_bytes!("fixtures/repair_22_33_27/executor.der");
-    const EXECUTOR_KEY: &[u8] = include_bytes!("fixtures/repair_22_33_27/executor.pk8");
+    const CA: &[u8] = include_bytes!("fixtures/wallet_mtls/ca.der");
+    const SERVER: &[u8] = include_bytes!("fixtures/wallet_mtls/server.der");
+    const SERVER_KEY: &[u8] = include_bytes!("fixtures/wallet_mtls/server.pk8");
+    const CLIENT: &[u8] = include_bytes!("fixtures/wallet_mtls/client.der");
+    const CLIENT_KEY: &[u8] = include_bytes!("fixtures/wallet_mtls/client.pk8");
+    const EXECUTOR: &[u8] = include_bytes!("fixtures/wallet_mtls/executor.der");
+    const EXECUTOR_KEY: &[u8] = include_bytes!("fixtures/wallet_mtls/executor.pk8");
 
     pub fn checked<T, E: std::fmt::Debug>(value: std::result::Result<T, E>) -> Result<T> {
         value.map_err(|error| format!("{error:?}").into())
