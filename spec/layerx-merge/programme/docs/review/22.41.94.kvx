@@ -1,0 +1,47 @@
+[manifest]
+task = "22.41.94"
+pages = 11
+
+[page.1]
+path = "spec/layerx-merge/source-control/repository-baseline.md"
+status = "reviewed"
+
+[page.2]
+path = "spec/layerx-merge/source-control/repository-layout.md"
+status = "reviewed"
+
+[page.3]
+path = "spec/layerx-merge/source-control/sandbox-contracts.md"
+status = "corrected"
+
+[page.4]
+path = "spec/layerx-merge/source-control/storage.md"
+status = "corrected"
+
+[page.5]
+path = "spec/layerx-merge/source-control/traceability.md"
+status = "reviewed"
+
+[page.6]
+path = "spec/layerx-merge/source-control/verification.md"
+status = "corrected"
+
+[page.7]
+path = "spec/layerx-merge/source-control/workspaces.md"
+status = "corrected"
+
+[page.8]
+path = "spec/release-v6-12-0/contracts/README.md"
+status = "corrected"
+
+[page.9]
+path = "spec/release-v6-12-0/contracts/address-table.md"
+status = "reviewed"
+
+[page.10]
+path = "spec/release-v6-12-0/contracts/application.md"
+status = "corrected"
+
+[page.11]
+path = "spec/release-v6-12-0/contracts/data-services.md"
+status = "corrected"

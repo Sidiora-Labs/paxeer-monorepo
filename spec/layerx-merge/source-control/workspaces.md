@@ -1,6 +1,6 @@
 # Online workspaces and materialization
 
-## 1. Source baseline and replacement boundary
+## 1. Workspace services
 
 The [workspace service](../../../tools/hyperfide/core/control-plane/src/source_control/workspaces.ts) owns online workspace state and checkpoint admission. The [shared host runtime](../../../tools/hyperfide/sdk/source-control/src/host/) provides cache, materializer, journal, checkpoint and virtual-filesystem adapters. [Host-daemon integration](../../../tools/hyperfide/core/host-daemon/src/source-control/) exposes those adapters to the host.
 
@@ -17,7 +17,7 @@ The [WorkspaceDescriptor](../../../tools/hyperfide/core/control-plane/src/source
 | `authority_epoch` | Server authority epoch |
 | `base_revision_id`, `root_tree_id` | Exact immutable source input |
 | `checkpoint_revision_id` | Last acknowledged checkpoint or null |
-| `attempt_expires_at` | Bound attempt expiry or null |
+| `attempt_expires_at` | Workspace mutation deadline; an omitted deadline at open uses the current authority expiry |
 | `mode` | `API_ONLY`, `SPARSE`, `VIRTUAL` or `MATERIALIZED` |
 | `read_paths`, `write_paths` | Explicit source scopes |
 | `budgets` | `cache_bytes`, `max_cache_entries`, `max_file_bytes`, `materialized_bytes`, `dirty_bytes` |
@@ -32,11 +32,11 @@ The API supports authenticated developers and automation without a task. Task as
 | Mode | Admission behavior | Data fetched |
 |---|---|---|
 | `API_ONLY` | Creates no source directory | Requested source or metadata results only |
-| `SPARSE` | Materializes selected paths and declared build/metadata closure | Missing objects for those paths only |
+| `SPARSE` | Materializes selected paths within the admitted read scope | Missing objects for those paths only |
 | `VIRTUAL` | Presents authorized paths and paginated directory metadata through a supported filesystem adapter | File content on open/read, with bounded prefetch |
 | `MATERIALIZED` | Materializes an explicitly selected scope; the scope may be the full snapshot | All missing source objects within that selection, with no history clone |
 
-A full selection carries a reason and estimated bytes/files before transfer. Insufficient budget or unsupported host semantics returns a typed refusal or explicit alternative proposal. It must not silently convert an ordinary scoped request into a full repository download. The caller may choose a materialized sparse fallback if virtualization is unavailable. Unsupported virtualization is visible in capability discovery and the workspace detail.
+Workspace open takes explicit read paths, write paths, mode and positive resource budgets. Requested budgets may only lower the service limits. The materializer checks the selected paths and byte budget. The caller may explicitly choose `SPARSE` or `MATERIALIZED` when virtualization is unavailable; capability discovery reports the reasons.
 
 Workspace admission and filesystem readiness are separate facts. A returned descriptor records the admitted view; host readiness records availability of the requested filesystem contract. A virtual workspace becoming ready does not imply its contents were downloaded. An API-only open never produces a successful physical-checkout metric.
 
@@ -46,7 +46,7 @@ Scope resolution traverses immutable tree nodes from the pinned root, with path/
 
 A task's declared write paths, authorized read paths and materialized paths are distinct sets. Read-only shared build inputs do not grant mutation rights. Dependency closure reports its state explicitly; additional inputs require authorized widening.
 
-A widening request names an expected scope generation, requested paths and reason. The authority validates the new scope and returns a new manifest at the same base revision. Existing dirty files remain unchanged. Read authorization may be widened without widening write authority. A dependency discovered by a compiler does not itself grant access to a private project.
+A widening request carries `workspace_id`, `operation_id`, optional `idempotency_key`, `expected_workspace_generation`, `expected_scope_generation`, `read_paths` and `write_paths`. Both path lists must contain their existing scopes, and writes must remain within reads. A changed scope increments both generations and returns the workspace descriptor at the same base revision. Read scope may widen while write scope stays unchanged.
 
 ## 5. Bounded content cache and materializer
 
@@ -80,10 +80,10 @@ The [virtual host profile](../../../tools/hyperfide/sdk/source-control/src/host/
 
 Cancellation, timeouts, object unavailability and authorization expiry map to stable I/O errors with diagnostic context. A missing network object never becomes a zero-length successful read. Memory mapping, executable loading, file locking and build-tool watchers receive explicit compatibility cases. Hydration tasks coalesce per object within a security domain, bound outstanding work and do not hold a metadata transaction while waiting for S3. Host/daemon restart reconciles open mount state and overlay journals before declaring readiness. A stale mount cannot submit under a new workspace generation.
 
-## 9. Qualification obligations
+## 9. Host configuration
 
-Task 2.2 owns materialization and cache behavior; task 3.2 owns the virtual adapter. Their cases cover scope absence versus deletion, two writable workspaces sharing cached content, executable and symlink round trips, hostile path/type transitions, case collisions, canceled transfers, corrupted objects, watcher overflow, concurrent saves, lost checkpoint acknowledgments, cache pressure and restart. Task 4.2 proves attempt fencing and handoff with the real source service. Admission load, physical materialization and large-build downloads remain distinct cases in [verification.md](verification.md). A mocked mount, fixture object server or successful directory listing cannot certify the real virtual or S3 path.
+The [host provider](../../../tools/hyperfide/sdk/source-control/src/host/provider.ts) reads `HYPERFIDE_VIRTUAL_HOST_CONFIG` for pinned virtual mount configuration. Capability discovery checks the platform, architecture, FUSE device, mount capability and executable digests before mounting. The [materializer](../../../tools/hyperfide/sdk/source-control/src/host/materializer.ts) and [checkpoint adapter](../../../tools/hyperfide/sdk/source-control/src/host/checkpoint.ts) keep installed source, dirty tracking and captured checkpoint bytes associated with the admitted workspace.
 
 ## Sandbox bootstrap and environment installation
 
-The [sandbox contracts](sandbox-contracts.md) apply to every fleet sandbox. `.neron` configures its source provider and scope; `package.kvx` declares the needed environment. The installer uses source APIs to materialize the pinned subset or establish the selected virtual view, then prepares locked dependencies/configuration and validates selected interfaces. Its readiness receipt binds the source workspace generation to the installed environment generation; neither receipt substitutes for task assignment or acceptance evidence. Shared immutable caches remain separate from isolated worker writes. The earlier fleet prerequisite uses an explicit existing-source adapter; native source adoption changes that adapter through a qualified transition.
+The [sandbox contracts](sandbox-contracts.md) define fleet source and environment inputs. `.neron` configures the source backend and scope; `package.kvx` declares the environment. Source preparation, dependencies, configuration and selected interfaces contribute to the readiness receipt. The source manifest identifies the selected `git` or `native` backend and pinned revision. Shared immutable caches remain separate from isolated worker writes.
