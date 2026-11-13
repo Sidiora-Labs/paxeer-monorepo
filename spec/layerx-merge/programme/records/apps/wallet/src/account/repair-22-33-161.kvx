@@ -1,6 +1,6 @@
 [repair.22.33.161]
 base_revision = "2b502183a86af3a2498748de6572b1bde20e4768"
-test_file = "apps/wallet/src/account/repair-22-33-161.test.ts"
+test_file = "apps/wallet/src/account/receipt-ladder-and-assets.test.ts"
 asset-tests-retired-shape = "asset_list_renders_gateway_bank_rows_without_balance_sides; asset_list_shows_one_bank_balance_per_denom; asset_rows_decode_numeric_heights_and_nullable_metadata; AssetList unavailable-node case"
 plan-tests-retired-shape = "kernel_plan_presents_and_submits_the_merged_chain_plan; kernel_plan_binds_legs_with_the_pending_nonce_of_the_wallet_address; KernelPlan service-refusal and consensus-unavailable/catching-up cases"
 plan-two-domain-presentation = "kernel_plan_presents_and_submits_the_merged_chain_plan; legBindings consumes one pending nonce for every chain transaction independent of the retained domain label"

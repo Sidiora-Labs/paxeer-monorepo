@@ -23,7 +23,7 @@ let routes: typeof import('./route');
 let store: typeof import('@/server/push-store');
 
 beforeAll(async () => {
-  directory = await mkdtemp(path.join(os.tmpdir(), 'repair-22-33-166-'));
+  directory = await mkdtemp(path.join(os.tmpdir(), 'push-unsubscribe-'));
   process.env.PUSH_DATA_DIR = directory;
   routes = await import('./route');
   store = await import('@/server/push-store');

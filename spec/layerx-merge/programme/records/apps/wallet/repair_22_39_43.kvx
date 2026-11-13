@@ -8,18 +8,18 @@ state = "Implementation complete; qualification is determined only by the bounde
 verified_revision = "The exact candidate revision in the last hf-done receipt and matching build/verify rows of /out/run/gates.jsonl; this pointer does not claim a passing result before qualification."
 evidence_ledger = "/out/run/gates.jsonl"
 build_command = "cd apps/wallet && corepack enable && pnpm install --frozen-lockfile && cd ../.. && python3 -m py_compile tests/ci/test_wallet_repair_suites_listed.py"
-verify_command = "python3 -m pytest -q tests/ci/test_wallet_repair_suites_listed.py && cd apps/wallet && corepack enable && pnpm exec vitest run src/widgets/txDetail/repair-22-33-141.test.ts src/lib/data/ src/lib/portfolio-api/repair-22-31-235.test.ts src/widgets/swap/repair-22-33-139.test.ts src/widgets/portfolio/repair-22-33-137.test.ts src/widgets/send/repair-22-33-136.test.ts src/widgets/tokenDetail/repair-22-33-140.test.ts src/app/api/push/subscribe/repair-22-33-166.test.ts src/lib/swap/executor.test.ts src/account/AccountView.test.tsx src/app/api/wallet/"
+verify_command = "python3 -m pytest -q tests/ci/test_wallet_repair_suites_listed.py && cd apps/wallet && corepack enable && pnpm exec vitest run src/widgets/txDetail/repair-22-33-141.test.ts src/lib/data/ src/lib/portfolio-api/repair-22-31-235.test.ts src/widgets/swap/repair-22-33-139.test.ts src/widgets/portfolio/repair-22-33-137.test.ts src/widgets/send/repair-22-33-136.test.ts src/widgets/tokenDetail/repair-22-33-140.test.ts src/app/api/push/subscribe/unsubscribe-ownership.test.ts src/lib/swap/executor.test.ts src/account/AccountView.test.tsx src/app/api/wallet/"
 baseline = "No pre-change tests ran: the ordered task requires complete implementation before hf-build and hf-done. The initial working tree contained only runner-owned .cgignore and spec task-state changes, and no previous gate ledger."
 
 [decision.account]
 path = "apps/wallet/src/account/AccountView.test.tsx"
-authority = "repair-22-33-161.kvx and current sdk/wallet chain-account and consensus decoders"
+authority = "spec/layerx-merge/programme/records/apps/wallet/src/account/repair-22-33-161.kvx and current sdk/wallet chain-account and consensus decoders"
 wrong_side = "The test replayed the retired available-network recording without consensus or account height, asserted a nonce absent from that recording, and registered the chain-account regression without a callback."
 change = "Use the existing chain recording with consensus and numeric height, assert its exact 0x3 nonce, retain every identity/transport/error assertion, execute the named regression, and assert the consensus-unavailable notice for the three scenarios the peer now translates into that state."
 
 [decision.push]
-path = "apps/wallet/src/app/api/push/subscribe/repair-22-33-166.test.ts"
-authority = "repair-22-33-166.kvx: exact endpoint/current stored owner/time/operation binding; current push-store provider/key validation and immutable ownership"
+path = "apps/wallet/src/app/api/push/subscribe/unsubscribe-ownership.test.ts"
+authority = "spec/layerx-merge/programme/records/apps/wallet/src/app/api/push/subscribe/repair-22-33-166.kvx: exact endpoint/current stored owner/time/operation binding; current push-store provider/key validation and immutable ownership"
 wrong_side = "The test supplied forbidden arbitrary push origins, invalid P-256/auth key bytes, and attempted to overwrite an existing endpoint owner."
 change = "Generate real P-256 and 16-byte auth key material, use an admitted FCM origin, prove an attempted takeover leaves storage unchanged, then relinquish and resubscribe through real signed routes before asserting the old owner's proof is refused. All original signature, time, operation, endpoint, persistence and successful-removal assertions remain."
 
@@ -139,7 +139,7 @@ remaining = "The whole wallet suite is not passing; no completion or same-revisi
 seed_revision = "cc9ee73d4a2c1958dcb804c2c13fd0a72ce52e3e"
 prior_evidence = "The qualification sections above describe attempt 1 and its private receipts, not this continuation's results; this runner starts with no build or verification runs."
 implementation = "Retain all eleven seeded test repairs and their assertions. Resolve repository-relative, wallet-relative and bare suite references in every wallet source repair record; bare nonlocal names must identify exactly one existing source suite. Require a colocated suite even for records without explicit paths."
-account_mapping = "apps/wallet/src/account/test/repair-22-33-162.kvx resolves to the existing apps/wallet/src/account/test/repair-22-33-162.test.ts; both inventory checks explicitly retain this regression. No source repair record path correction is needed on this base."
+account_mapping = "spec/layerx-merge/programme/records/apps/wallet/src/account/test/repair-22-33-162.kvx resolves to the existing apps/wallet/src/account/test/endpoint-wire-contract.test.ts; both inventory checks explicitly retain this regression. No source repair record path correction is needed on this base."
 workflow_mapping = "Expand each actual include pattern from apps/wallet/vitest.config.ts with recursive Path.glob, and map every inventoried suite to at least one pattern. Require nonempty patterns and preserve the unconditional public workflow and no-exclusion checks."
 additional_references = "Include ordinary bare suite names as well as repair suites: privacy/page.test.ts, server/atomic-json-store.test.ts and the uniquely resolved src/proof_wallet_app.test.ts are referenced by existing records."
 build_evidence = "The final build row of /out/run/gates.jsonl records the exact candidate revision, build command, exit code and private log."

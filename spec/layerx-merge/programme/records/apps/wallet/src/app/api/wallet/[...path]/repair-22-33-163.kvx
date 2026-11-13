@@ -1,7 +1,7 @@
 [repair.22.33.163]
 audit = "22.30.118"
 base_revision = "2b502183a86af3a2498748de6572b1bde20e4768"
-test_file = "apps/wallet/src/app/api/wallet/[...path]/repair-22-33-163.test.ts"
+test_file = "apps/wallet/src/app/api/wallet/[...path]/proxy-cache.test.ts"
 qualification = "The runner's hf-build and hf-done ledger records the final candidate revision, commands, exits and private evidence locations."
 baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done and forbids running verify_cmd separately; no baseline failures are claimed."
 wiring_requests = []

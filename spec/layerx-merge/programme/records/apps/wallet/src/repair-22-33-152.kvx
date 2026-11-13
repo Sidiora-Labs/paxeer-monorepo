@@ -3,13 +3,13 @@ audit = "spec/layerx-merge/programme/audit/records/22.30.116.kvx"
 base_revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
 previous_attempt_base = "caa8b41ee668274ee1e5c1df6691288455c46278"
 status = "implemented-awaiting-qualification"
-baseline = "Attempt 1 already ran cg spec done 22.33.152 -f layerx-merge --root /work/paxeer-monorepo at 5b3b809cb539c7d5503032c3208f11250166282f: exit 1, No test files found for src/repair-22-33-152.test.ts. No individual test ran. Attempt 2 follows the ruling to record during implementation and run the bounded build and verify only on the final candidate."
+baseline = "Attempt 1 already ran cg spec done 22.33.152 -f layerx-merge --root /work/paxeer-monorepo at 5b3b809cb539c7d5503032c3208f11250166282f: exit 1, No test files found for src/hosted-intent-recovery.test.ts. No individual test ran. Attempt 2 follows the ruling to record during implementation and run the bounded build and verify only on the final candidate."
 qualification = "Use hf-build and hf-done only; their private ledger records the exact candidate revision, command, exit code and log."
 
 [finding.proof-positive-transport]
 status = "implemented-awaiting-qualification"
-required_test = "apps/wallet/src/repair-22-33-152.test.ts::wallet_app_hosted_intent_plan_survives_producer_store_reopen"
-proving_tests = ["apps/wallet/src/repair-22-33-152.test.ts::wallet_app_hosted_intent_plan_survives_producer_store_reopen", "apps/wallet/src/proof_wallet_app.test.ts::wallet_app_hosted_intent_plan_survives_producer_store_reopen"]
+required_test = "apps/wallet/src/hosted-intent-recovery.test.ts::wallet_app_hosted_intent_plan_survives_producer_store_reopen"
+proving_tests = ["apps/wallet/src/hosted-intent-recovery.test.ts::wallet_app_hosted_intent_plan_survives_producer_store_reopen", "apps/wallet/src/proof_wallet_app.test.ts::wallet_app_hosted_intent_plan_survives_producer_store_reopen"]
 observed = "The production planner is Rust execute_intent_plan in services/human/crates/layerx-human-service/src/server/production_components.rs; its persisted observation is written through PrincipalStore in src/store/mod.rs. No in-process TypeScript binding to that producer/store exists."
 existing_proof = "apps/wallet/src/proof_wallet_app.test.ts constructs its positive plan locally; account/test/endpoint.ts replays schema golden JSON; app/api/wallet/[...path]/route.ts POST returns HTTP 405 because it is a read-only Blockscout proxy. None proves the requested hosted producer/store success and reopen path."
 wiring_request = "Human service domain: services/human/crates/layerx-human-service/tests/support/production_fixture.rs remains the owner of production producer/store startup and reopen; wallet imports it only for implementation-time recording, with no out-of-scope service changes."

@@ -7,11 +7,11 @@ baseline = "Not run: the controlling ordered instructions prohibit testing befor
 proof = "The tests mount production SlippageDrawer, SwapConfirmDialog and WhatsNewModal with real React state and the actual announcement repository. A real executor prepares and ABI-decodes transaction calldata without sending it. Tailwind compiles the actual modal markup in-process for computed stacking assertions. No mocks, external endpoint, credential, device or subprocess is required."
 
 [finding.40]
-tests = ["finding40_invalid_custom_input_never_reaches_confirmation", "finding40_canonical_boundaries_and_preset_values_are_executable", "finding40_drawer_confirmation_and_executor_preserve_basis_points"]
+tests = ["slippage_invalid_custom_input_never_reaches_confirmation", "slippage_canonical_boundaries_and_preset_values_are_executable", "slippage_drawer_confirmation_and_executor_preserve_basis_points"]
 repair = "Import canonical slippage bounds and validator; reject malformed, fractional-basis-point and out-of-range custom values before onChange; explain errors accessibly and disable Done until corrected. Preserve exact integer basis points through state, the real confirmation display and the executor's encoded final minimum."
 
 [finding.38]
-tests = ["finding38_first_launch_sheet_stacks_above_backdrop_and_close_recovers", "finding38_backdrop_and_get_started_dismiss_and_persist"]
+tests = ["announcement_first_launch_sheet_stacks_above_backdrop_and_close_recovers", "announcement_backdrop_and_get_started_dismiss_and_persist"]
 repair = "Isolate the existing modal stacking context; assign backdrop z-0 and sheet z-10. Verify first-launch content and real close, backdrop and Get Started events, then unmount and reopen against the persisted announcement version."
 
 [wiring.swap-approval]

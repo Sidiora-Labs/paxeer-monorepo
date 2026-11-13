@@ -122,7 +122,7 @@ function doneButton(view: Mounted): HTMLButtonElement {
   return button;
 }
 
-async function finding40_invalid_custom_input_never_reaches_confirmation() {
+async function slippage_invalid_custom_input_never_reaches_confirmation() {
   const { view, record } = await flow();
   expect(doneButton(view).disabled).toBe(false);
   for (const invalid of [
@@ -168,7 +168,7 @@ async function finding40_invalid_custom_input_never_reaches_confirmation() {
   expect(doneButton(view).disabled).toBe(false);
 }
 
-async function finding40_canonical_boundaries_and_preset_values_are_executable() {
+async function slippage_canonical_boundaries_and_preset_values_are_executable() {
   const { view, record } = await flow();
   for (const [value, bps] of [
     ['0.01', MIN_SWAP_SLIPPAGE_BPS],
@@ -199,7 +199,7 @@ async function finding40_canonical_boundaries_and_preset_values_are_executable()
   }
 }
 
-async function finding40_drawer_confirmation_and_executor_preserve_basis_points() {
+async function slippage_drawer_confirmation_and_executor_preserve_basis_points() {
   const { view, record } = await flow();
   await view.type('input', '1.37');
   expect(record.changes).toEqual([137]);
@@ -238,7 +238,7 @@ async function announcement() {
   return view;
 }
 
-async function finding38_first_launch_sheet_stacks_above_backdrop_and_close_recovers() {
+async function announcement_first_launch_sheet_stacks_above_backdrop_and_close_recovers() {
   expect(announcementRepository.read()).toBeNull();
   const view = await announcement();
   const sheet = view.query<HTMLElement>('[role="dialog"]')!;
@@ -285,7 +285,7 @@ async function finding38_first_launch_sheet_stacks_above_backdrop_and_close_reco
   expect(reopened.query('[role="dialog"]')).toBeNull();
 }
 
-async function finding38_backdrop_and_get_started_dismiss_and_persist() {
+async function announcement_backdrop_and_get_started_dismiss_and_persist() {
   for (const action of ['backdrop', 'get-started']) {
     announcementRepository.remove();
     const view = await announcement();
@@ -309,22 +309,22 @@ async function finding38_backdrop_and_get_started_dismiss_and_persist() {
 }
 
 test(
-  finding40_invalid_custom_input_never_reaches_confirmation.name,
-  finding40_invalid_custom_input_never_reaches_confirmation
+  slippage_invalid_custom_input_never_reaches_confirmation.name,
+  slippage_invalid_custom_input_never_reaches_confirmation
 );
 test(
-  finding40_canonical_boundaries_and_preset_values_are_executable.name,
-  finding40_canonical_boundaries_and_preset_values_are_executable
+  slippage_canonical_boundaries_and_preset_values_are_executable.name,
+  slippage_canonical_boundaries_and_preset_values_are_executable
 );
 test(
-  finding40_drawer_confirmation_and_executor_preserve_basis_points.name,
-  finding40_drawer_confirmation_and_executor_preserve_basis_points
+  slippage_drawer_confirmation_and_executor_preserve_basis_points.name,
+  slippage_drawer_confirmation_and_executor_preserve_basis_points
 );
 test(
-  finding38_first_launch_sheet_stacks_above_backdrop_and_close_recovers.name,
-  finding38_first_launch_sheet_stacks_above_backdrop_and_close_recovers
+  announcement_first_launch_sheet_stacks_above_backdrop_and_close_recovers.name,
+  announcement_first_launch_sheet_stacks_above_backdrop_and_close_recovers
 );
 test(
-  finding38_backdrop_and_get_started_dismiss_and_persist.name,
-  finding38_backdrop_and_get_started_dismiss_and_persist
+  announcement_backdrop_and_get_started_dismiss_and_persist.name,
+  announcement_backdrop_and_get_started_dismiss_and_persist
 );

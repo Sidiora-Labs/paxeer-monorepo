@@ -106,7 +106,7 @@ async function assertHead(response: Response): Promise<void> {
 }
 
 beforeAll(async () => {
-  directory = await mkdtemp(path.join(tmpdir(), 'wallet-repair-22-33-163-'));
+  directory = await mkdtemp(path.join(tmpdir(), 'wallet-proxy-cache-'));
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const address = server.address();
