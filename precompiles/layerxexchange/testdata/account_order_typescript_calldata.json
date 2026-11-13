@@ -1,7 +1,7 @@
 {
   "producer": "services/agent/sdk/typescript/src/exchange.ts#exchangePlaceOrderCall",
   "sourceSha256": "ad63a0335b41c9985c538158cbb4670e5c85397f278cb065dd3222685a2e3a88",
-  "generate": "node precompiles/layerxexchange/testdata/repair_459_generate.mjs",
+  "generate": "node precompiles/layerxexchange/testdata/generate_account_order_calldata.mjs",
   "signature": "placeOrder(bytes32,bytes32,uint8,uint256,uint256,uint8)",
   "pythonCaller": "services/agent/sdk/python/layerx_sdk/exchange.py#exchange_place_order_call",
   "marketId": "0x6d01000000000000000000000000000000000000000000000000000000000000",
