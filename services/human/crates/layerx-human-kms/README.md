@@ -68,10 +68,11 @@ address and EVM key id must each be unique across bindings. `config` is the
 | `timeout_seconds` | 1–60 |
 
 `assertion_file` supplies the owner assertion sent with EVM signing requests.
-The file is read and trimmed when the store opens; the running process does not
-refresh it. Renew the assertion through its issuer and restart the provider to
-load it. Provision a replacement assertion before its expiry, install it as a
-provider-owned private regular file, then restart with the same state and seal.
+The file is read and trimmed when the store opens and reread before relevant
+EVM wallet, authorization and signing operations. Renew the assertion through
+its issuer and install it as a provider-owned private regular file. Refresh
+requires the same assertion subject and an accepted validity window; a changed
+subject is refused. Renewal for that subject does not require a provider restart.
 An empty or unreadable assertion, or an invalid configured credential, prevents
 the store from opening. The standalone `EVM_ASSERTION_FILE` variable is not a
 source for this principal-bound store: use each binding's `assertion_file`.
@@ -84,7 +85,7 @@ assertions or substitute a local EVM key.
 
 Requests and responses have a four-byte big-endian body length prefix. The body
 starts with `LXKP`, a big-endian u16 version and a u8 operation. Requests then
-carry a length-prefixed provider reference. Except for probes, the common
+carry a length-prefixed provider reference. Except for the readiness and executor probes, the common
 custody fields are binding (32 bytes), network (u32), key class (u8) and a
 length-prefixed opaque reference. Class 1 is the human primary key; class 2 is
 an agent primary key. Create requires an empty reference; other custody
@@ -181,7 +182,7 @@ The exported [`attestor`](src/attestor.rs) library also implements pinned-TLS
 quorum signing, generation, wallet lookup and native consent operations. Those
 client APIs are separate from the LXKP version/operation table above.
 
-## Client examples and qualification
+## Client examples
 
 These fragments use the Human service's `RemoteKmsProvider` with its service
 mTLS identity, `KmsProvider` in scope, and an existing principal `binding` and

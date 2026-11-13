@@ -16,8 +16,10 @@ Build from the repository root:
 cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-identity-provider
 ```
 
-Binary: `services/human/target/debug/layerx-human-identity-provider` (release builds use
-`services/human/target/release/layerx-human-identity-provider`). It takes at most one
+With the default Cargo target directory, the binary is
+`services/human/target/debug/layerx-human-identity-provider` (release builds use
+`services/human/target/release/layerx-human-identity-provider`). A configured
+`CARGO_TARGET_DIR` changes those output paths. It takes at most one
 command:
 
 | Command | Effect |
@@ -191,7 +193,8 @@ Before publishing an owner configuration, require all of these observations:
 
 Success emits the exact fields `schema` (`layerx.human.account-head.v1`),
 `chain_id`, `owner_did`, `account`, `asset_id`, `committed_height`, `block_hash`,
-`state_root`, `observed_at` (Unix milliseconds), `balance` (decimal string) and
+`state_root`, `observed_at` (the committed block timestamp in Unix milliseconds),
+`balance` (decimal string) and
 `consumed` (zero). The hosted consumer retains the full observation, binds it
 to the registration/deployment inputs and projects the verified `consumed`
 value into its existing assembler input. Retain the full evidence when

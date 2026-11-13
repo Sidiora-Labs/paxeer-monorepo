@@ -1,8 +1,9 @@
 # Local deployment checks
 
-`docker-compose.local.yml` publishes PostgreSQL only on `127.0.0.1`, at
-`${POSTGRES_PUBLISHED_PORT:-7432}`. Containers still reach `db:5432` on the
-Compose network. The local `blockscout` credentials are development examples.
+`docker-compose.local.yml` publishes PostgreSQL only on the loopback interface,
+at `${POSTGRES_PUBLISHED_PORT:-7432}`. Containers reach the `db` service on
+port 5432 through the Compose network. The local file supplies development
+credentials; configure deployment credentials through the environment.
 
 For remote database access, use Compose 2.24.4 or later and explicitly add
 `docker-compose.remote-db.yml`. Set `POSTGRES_BIND_ADDRESS` to the host's private

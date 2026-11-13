@@ -38,28 +38,14 @@ concurrent index operations; run only one migrator against the database.
 `ALTER TABLE ... SET (...)` on the six tables above, plus the TOAST relations of
 `transactions`, `logs` and `internal_transactions`.
 
-* **`fillfactor`** — at the default of 100 a page has no free space, so every update writes
-  the new row version to a different page and therefore has to add an entry to *every* index
-  on that row. Below 100 the update can stay on its page and be HOT, and the index trees stop
-  bloating. `transactions` gets 85 and `address_coin_balances` 80 because both are updated
-  after insertion — transactions get their block assignment and receipt fields, coin balances
-  get `value` and `value_fetched_at`. The append-mostly tables get 90.
-* **`autovacuum_*_scale_factor = 0.0` with absolute thresholds** — the defaults are
-  proportional: 20% dead tuples to vacuum, 10% to analyze. On a table holding a billion rows
-  that is 200 million dead tuples, so autovacuum and, worse, autoanalyze never fire; the
-  planner's block-number statistics go stale by days and range queries start choosing the
-  wrong index. Absolute thresholds trigger on a fixed amount of churn whatever the table size.
-* **`autovacuum_vacuum_insert_*`** — append-only tables produce no dead tuples, so the
-  dead-tuple trigger alone never marks pages all-visible. Without that, index-only scans fall
-  back to heap fetches and the anti-wraparound vacuum arrives as one enormous stall instead of
-  a stream of small ones. The insert-based trigger (PostgreSQL 13+) keeps the visibility map
-  current.
-* **`autovacuum_vacuum_cost_limit`** — the default budget of 200 amounts to a few MB/s of
-  vacuum throughput, far below this write rate; a pass over the largest tables would never
-  finish.
-* **`vacuum_truncate = false`** — truncating trailing empty pages needs a brief
-  `ACCESS EXCLUSIVE` lock on the table. On append-only tables there is nothing to reclaim, so
-  the only effect is a periodic lock spike against both the indexer and the API.
+* `fillfactor` is 85 for `transactions`, 80 for `address_coin_balances`, and
+  90 for `blocks`, `logs`, `token_transfers` and `internal_transactions`.
+* Vacuum, insert-vacuum and analyze scale factors are zero. Absolute thresholds
+  vary by table; the migration lists each value.
+* Heap vacuum cost limits are 4000 or 6000, depending on the table, and
+  `vacuum_truncate` is false on all six heaps.
+* The three TOAST relations receive vacuum and insert-vacuum thresholds,
+  zero scale factors and a vacuum cost limit of 4000 or 6000.
 
 ### `..._internal_transactions_block_number_brin_index`
 
@@ -67,29 +53,21 @@ The migration creates a BRIN access path on `internal_transactions.block_number`
 for block-range queries, including reorganization cleanup, the internal-transaction
 delete queue and trace refetching.
 
-BRIN is the right shape here rather than a btree. Rows arrive in block order, so the physical
-correlation is close to 1 and a summary of a few hundred kilobytes covers a table of hundreds
-of gigabytes. More to the point at this write rate, BRIN costs almost nothing on insert,
-whereas a btree on `block_number` would add a page write to every trace inserted.
-`pages_per_range = 128` trades some scan precision for a smaller index; `autosummarize = on`
-summarizes new ranges without waiting for a manual `brin_summarize_new_values`.
+The index uses `pages_per_range = 128` and `autosummarize = on`.
 
 The index is built `CONCURRENTLY` outside a migration transaction, avoiding a
 writer-blocking lock for the full duration of the index build. If the build is interrupted,
 rerunning the migration drops an invalid index with this name before rebuilding
 it and checks that the resulting index is valid.
 
-No BRIN index is added on `logs`, `token_transfers`, `transactions` or `blocks` — each already
-has a btree covering the block number, and a second overlapping access path would buy nothing
-and cost write amplification on the tables that can least afford it.
+This migration adds no BRIN index to `logs`, `token_transfers`, `transactions`
+or `blocks`.
 
 ### `..._hot_tables_block_number_statistics`
 
-`ALTER COLUMN ... SET STATISTICS 1000` on the six block-number columns and on
-`blocks.timestamp`. Block number only ever increases, so with the default 100 histogram
-buckets the newest bucket spans days of chain history and the planner badly misjudges the
-selectivity of "the last N blocks" — the single most common shape of query the explorer runs.
-A larger histogram costs a slower `ANALYZE` and nothing else.
+The migration applies `ALTER COLUMN ... SET STATISTICS 1000` to the six
+block-number columns and `blocks.timestamp`. It changes the statistics targets;
+PostgreSQL collects statistics during `ANALYZE`.
 
 ### Rolling back
 
@@ -223,7 +201,7 @@ exclude other migrators for the entire operation.
 
 ## 3. Table keys and range partitioning
 
-Moving either table to `PARTITION BY RANGE (block_number)` is not possible without changing
+Moving `logs` or `token_transfers` to `PARTITION BY RANGE (block_number)` is not possible without changing
 application code: the ORM and the existing unique constraints do not allow it. The blockers are
 structural.
 
@@ -277,10 +255,9 @@ DETAIL:  Partition key of the failing row contains (block_number) = (null).
 The alternative — a permanent `DEFAULT` partition — silently collects those rows and defeats
 partition pruning for every query that does not constrain `block_number`.
 
-**E. Nothing creates partitions.** `mix ecto.migrate` runs once per deployment; partitions have
-to keep appearing ahead of the chain head forever. At 500k blocks per day a 10-million-block
-partition is used up in under three weeks. That needs a scheduled maintenance job (pg_partman
-or an application-side task), which this deployment does not have and which is code as well.
+**E. The deployment does not schedule partition creation.** The current migrations
+create ordinary tables. Range partitioning would also need partition lifecycle
+management as block heights increase.
 
 The storage migrations in section 2 do not create range partitions. The current
 schemas and importers use the keys described above.
@@ -299,10 +276,10 @@ schemas and importers use the keys described above.
   `Repo.replica()` call sites in the Etherscan-compatible and API v2 read paths resolve to the
   same module.
 * `Explorer.Utility.ReplicaAccessibilityManager` starts only when the variable is set. Every
-  ten seconds it reads `pg_is_in_recovery()` and the replay lag; if the lag exceeds
+  ten seconds it reads `pg_is_in_recovery()` and the replay lag; if a recovering replica's lag exceeds
   `REPLICA_MAX_LAG` (`config/runtime.exs`, default five minutes) it sets
   `:replica_inaccessible?`, which makes `Explorer.Repo.replica/0` fall back to the primary
-  until the replica catches up.
+  until the replica catches up. A query failure also selects the primary.
 
 Size `POOL_SIZE_API` against the replica's own `max_connections` rather than the primary's —
 the two pools are independent.
@@ -318,7 +295,11 @@ and `DST_DATABASE_URL` and from nowhere else, and it prints neither.
 Before the first table is read the run pins two cuts, and every table is copied and counted
 under one of them.
 
-The first is a **block ceiling**: the highest block number the source has marked `consensus`
+The tool retains one repeatable-read source snapshot throughout copying and
+verification. Its destination session holds an advisory lock across staging,
+copying and progress commits. Losing either database session stops the run.
+
+The first cut is a **block ceiling**: the highest block number the source has marked `consensus`
 at that moment. Every table that carries a block number is bounded by it on both sides of the
 comparison.
 
@@ -326,13 +307,14 @@ The second is an **insert cut**: the source's own clock, read in UTC at the same
 bounds the tables that carry no block number at all — `addresses`, `tokens`,
 `contract_methods` — through the `inserted_at` column Blockscout stamps on every row and the
 copy carries across unchanged. Both sides are compared as epoch seconds, so neither session's
-`TimeZone` can shift the comparison. Without the insert cut, a source that keeps writing
-addresses while the copy runs would be counted as rows the copy had lost.
+`TimeZone` can shift the comparison.
 
-So a source that keeps indexing cannot be read as a missing row: what it grows by is above the
-cut on both sides of the comparison. Both cuts are printed at the start of the run and
-repeated in the summary. A table with neither a block number nor an `inserted_at` on both
-sides has no cut to apply; it is copied whole and counted whole, and the summary names it.
+The retained snapshot supplies the same source rows for copying and verification,
+including when the source continues indexing or backfilling below a cut. Both
+cuts are printed at the start of the run and repeated in the summary. A table
+with neither a block number nor a timestamp-compatible `inserted_at` on both
+sides is copied and compared whole within the retained snapshot; the summary
+names it as unbounded.
 
 A row whose block number is null — a pending transaction, a log the indexer has not yet
 assigned — is below no ceiling and is not copied. The same predicate excludes it from both
@@ -353,33 +335,39 @@ half copied. That statement also advances the table's row in
 | `highest_key` | the highest block number the tool has copied, including ranges that held no row |
 | `rows_copied` | rows inserted across every run |
 | `updated_at` | when that last changed |
+| `snapshot_id` | retained boundary snapshot identifier |
+| `source_fingerprint` | selected column list, row count and SHA-256 of projected source content |
 
 A later run continues each table above the greater of that record and the table's own highest
 copied block, and inserts with `ON CONFLICT DO NOTHING`, so a row that is already there keeps
 the values it has and a rerun with nothing to do writes nothing. An interrupted copy is
-resumed by running the same command again.
+resumed by running the same command again. The tool retains the original cuts,
+source identity and table list in `public.paxeer_x_copy_run` for an interrupted
+boundary. A completed boundary permits a new cut. On resume, the new
+source snapshot must match each retained table fingerprint before that table
+can copy more rows. Changes to the source connection identity, table list or
+previously selected source content are refused.
 
 Tables with no block number on both sides — `addresses`, `tokens`, `contract_methods` and the
 rest — have no key to resume from. They are copied whole up to the insert cut under the same
 conflict handling, so a rerun still writes nothing.
 
 Rows land in an unlogged staging table (`public.paxeer_x_copy_stage`) first, because `COPY`
-itself has no conflict handling; the tool drops it when the table is done. Both it and the
-progress table can be dropped once the seeding is finished.
+itself has no conflict handling; the tool drops it when the table is done. The
+staging table, progress table and `public.paxeer_x_copy_run` can be removed after
+seeding is complete and no further resume is needed.
 
-### Repairing
+### Comparing copied data
 
-Continuing above the highest key already copied is an optimisation, and on its own it would be
-unsound. A source row can appear below that mark after the fact — a block range the source was
-still backfilling, or a row that had no block number when the copy passed it and was given one
-under the ceiling afterwards — and a run that only ever moves forward would never see it.
+Verification compares row counts and SHA-256 fingerprints of sorted projected
+rows from the retained source snapshot and destination. The projection includes
+the copied keys and content, using the destination column names and any trace
+address derivation. Equal row counts alone do not establish a match.
 
-The verification is what decides. When a table comes up short under its cut, the run rescans
-that table's whole range under the cut, which `ON CONFLICT DO NOTHING` makes free for every
-row already in the destination, and counts it again. The summary names every table it rescanned
-and how many rows the rescan added. A table that is still short afterwards, or that holds more
-rows than the source does under the cut, is reported and the run ends `3`: this tool never
-deletes a row to make a count agree.
+A destination with fewer rows is rescanned across its whole selected range,
+using `ON CONFLICT DO NOTHING`, then compared again. Existing values remain
+unchanged. Missing, extra or different copied content returns exit code 3;
+the tool neither overwrites existing rows nor deletes them to make a match.
 
 ### The destination guard
 
@@ -407,11 +395,12 @@ source row that does carry a trace address keeps the one it has.
 
 ### Verifying
 
-After the last table the tool counts both sides under each table's cut and prints one line per
-table, rescans any table that came up short and counts it again, and then prints the summary.
-It exits `0` when every table matches, `1` on a usage or precondition failure, `2` when a copy
-was refused or failed — naming the table it stopped on — and `3` when the copy finished but at
-least one table's counts still differ, naming every such table with both counts.
+After copying, the tool compares both sides under each table's cut, rescans
+short tables and prints a summary. It exits `0` when all processed tables match,
+`1` on a usage or initial precondition refusal, `2` when copying or comparison
+cannot finish, and `3` when copied keys or content differ. The summary names
+each mismatching table and both row counts, including equal counts when content
+differs.
 
 `DRY_RUN=1` pins and prints both cuts, plans each table and reports the column differences
 without writing anything at all, including the progress table.
@@ -425,4 +414,6 @@ row counts across a dry run, a full copy, a rerun, a copy interrupted part way t
 table, its resume, a source that grows in both a block table and a block-less one after the
 cuts are pinned, the non-empty destination guard, a source row that appears under the ceiling
 after the copy has passed it, and a destination holding a row the source does not. It removes
-both containers on every exit path and needs `docker` and `psql` on the path.
+both containers on exit and needs Bash, Python 3, `docker` and `psql` on the path.
+It also covers equal-count content differences, destination lock ownership and
+source-content checks when resuming an interrupted boundary.

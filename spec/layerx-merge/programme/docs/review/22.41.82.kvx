@@ -1,0 +1,79 @@
+[manifest]
+task = "22.41.82"
+pages = 19
+
+[page.1]
+path = "services/explorer/backend/apps/nft_media_handler/README.md"
+status = "corrected"
+
+[page.2]
+path = "services/explorer/backend/apps/utils/README.md"
+status = "corrected"
+
+[page.3]
+path = "services/explorer/backend/docker-compose/README.md"
+status = "corrected"
+
+[page.4]
+path = "services/explorer/backend/docker/README.md"
+status = "reviewed"
+
+[page.5]
+path = "services/explorer/deploy/README.md"
+status = "corrected"
+
+[page.6]
+path = "services/explorer/deploy/db/README.md"
+status = "corrected"
+
+[page.7]
+path = "services/explorer/deploy/railway/README.md"
+status = "corrected"
+
+[page.8]
+path = "services/explorer/services/libs/blockscout-client/README.md"
+status = "corrected"
+
+[page.9]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/README.md"
+status = "reviewed"
+
+[page.10]
+path = "services/explorer/services/libs/blockscout-db/migration/README.md"
+status = "reviewed"
+
+[page.11]
+path = "services/explorer/services/libs/env-collector/README.md"
+status = "reviewed"
+
+[page.12]
+path = "services/explorer/services/sig-provider/README.md"
+status = "corrected"
+
+[page.13]
+path = "services/explorer/services/smart-contract-verifier/README.md"
+status = "corrected"
+
+[page.14]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/README.md"
+status = "corrected"
+
+[page.15]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/README.md"
+status = "reviewed"
+
+[page.16]
+path = "services/human/README.md"
+status = "corrected"
+
+[page.17]
+path = "services/human/crates/layerx-human-identity-provider/README.md"
+status = "corrected"
+
+[page.18]
+path = "services/human/crates/layerx-human-kms/README.md"
+status = "corrected"
+
+[page.19]
+path = "services/human/crates/layerx-human-security-provider/README.md"
+status = "reviewed"
