@@ -21780,3 +21780,8 @@ fix = "The inventory takes a fourth value, retired, for the systems whose interf
 title = "Python tests under tools/qualification and tests/ci pin the text and the paths of pages as they stood when each test was written"
 symptom = "Test files under tools/qualification and tests/ci read sections and sentences of pages and the paths of files as they stood when each test was written. Later tasks shortened the front page, rewrote pages under docs, replaced the documentation site and renamed files, and the reference text of the front page lives in docs/readme/NETWORK.md since task 22.43.260."
 fix = "The tests follow the present pages and paths: tasks 22.43.264 to 22.43.289 bring them along in groups selected by position in the sorted list of each directory. A task that rewrites, moves or shortens a page searches the tests for readers first and brings them along in the same task."
+
+[gotcha.4392]
+title = "A Go file that is compiled only through an overlay lies in the package tree of the root module"
+symptom = "services/human/crates/layerx-human-security-provider/tests/support/recording/recovery.go declares package main and uses symbols of daemon/committed-fixture. The script record.py beside it adds the file to that package with the overlay option of the go command. Read as a directory of the root module the file is a package of its own whose symbols are undefined, so the lint run and go vet over the whole module stop at it, and a path exclusion of the lint configuration does not keep the package from being loaded."
+fix = "The file carries a build constraint that only the recording script sets, so the commands that walk the module skip it and the script compiles it as before. Task 22.39.511 makes the change."

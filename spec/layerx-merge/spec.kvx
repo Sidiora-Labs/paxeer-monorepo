@@ -13984,6 +13984,12 @@ value = "Tasks 22.43.264 to 22.43.289 bring the Python test files under tools/qu
 basis = "Gotcha 4391."
 affects = []
 
+[decision.3479]
+title = "Task 22.39.511 gives the overlay file of the recovery recording a build constraint"
+value = "The paths of task 22.39.511 take the directory services/human/crates/layerx-human-security-provider/tests/support/recording. The Go file of that directory takes a build constraint with a tag of its own, and record.py passes the tag to the go command together with the overlay. The recorded transcript of the directory and the code of the file stay as they are."
+basis = "Gotcha 4392."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -327837,7 +327843,7 @@ interfaces = []
 do_1 = "do_1 Gotcha 4337, decision 3418. The command make paxeer-manifest-lint passes, the root module is tidy and the module of tools/hpx/registry builds. The Go format check and the Go lint run read Go source only: the generated type fragments under core/deps/cosmwasm/packages/go-gen/tests and the C fixture files of the vendored tree under tools are left out of both, by the exclusion lists of the checks or by a file form that is not read as a Go package, and their content stays byte for byte. The support file of services/platform/hosted/gateway/tests compiles against the names that the gateway member defines at the present revision. The reward handler case under apps/launchpad/web/src/widgets/rewards imports a package that exists in this repository, or moves next to the code it tests. The files go.mod and go.sum of the root and of tools/hpx/registry are tidy without a change of a dependency version beyond what tidying requires."
 do_2 = "do_2 Record in tools/hpx/registry/repair_22_39_511.kvx the rule, the changed files and the commands. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["go.mod", "go.sum", "tools/hpx/registry", "core/deps/cosmwasm/packages/go-gen", "tools/hyperfide/tests/fixtures", "services/platform/hosted/gateway/tests", "apps/launchpad/web/src/widgets/rewards", ".golangci.yml", "Makefile", "contracts/src/xweb/examples/ApiConsumer.sol", "contracts/test/XWebConsumer.t.sol"]
+touches = ["go.mod", "go.sum", "tools/hpx/registry", "core/deps/cosmwasm/packages/go-gen", "tools/hyperfide/tests/fixtures", "services/platform/hosted/gateway/tests", "apps/launchpad/web/src/widgets/rewards", ".golangci.yml", "Makefile", "contracts/src/xweb/examples/ApiConsumer.sol", "contracts/test/XWebConsumer.t.sol", "services/human/crates/layerx-human-security-provider/tests/support/recording"]
 tests = []
 planned_paths = ["tools/hpx/registry/repair_22_39_511.kvx"]
 build_cmd = "forge --version > /dev/null && make -s paxeer-tools-install && for m in tests/fixtures/example/cosmwasm/cw1155 tests/fixtures/example/cosmwasm/cw20 tests/fixtures/example/cosmwasm/cw721 tests/fixtures/example/cosmwasm/echo tests/fixtures/example/cosmwasm/iter tools/benchmark/loadtest/contracts/jupiter tools/benchmark/loadtest/contracts/mars tools/benchmark/loadtest/contracts/saturn tools/benchmark/loadtest/contracts/venus tests/fixtures/example/cosmwasm/parallelization/bank tests/fixtures/example/cosmwasm/parallelization/staking tests/fixtures/example/cosmwasm/parallelization/wasm wasm-runtime/libwasmvm; do cargo fetch --locked --manifest-path $m/Cargo.toml || exit 1; done && for d in tools/hpx/registry sdk/cosmovisor sdk/ics23; do (cd $d && go mod download) || exit 1; done"
@@ -327854,6 +327860,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "do_3 Decision 3449, gotcha 4365. The paths of this task now hold contracts/src/xweb/examples/ApiConsumer.sol and contracts/test/XWebConsumer.t.sol. Format both with forge fmt under the configuration foundry.paxeer.toml and change nothing else in them, so that the format check of the target paxeer-manifest-lint passes; the contract build and the contract tests stay as they are. Where the format check names a further contract file, name it in the final message. Run the build once and the verification once at the final revision."
+do_4 = "do_4 Decision 3479, gotcha 4392. The paths of this task now hold services/human/crates/layerx-human-security-provider/tests/support/recording. Give recovery.go of that directory a build constraint with a tag of its own as its first line, and let record.py pass that tag to the go run command beside the overlay option. Change no other line of recovery.go and nothing in the recorded transcript. Check that go vet and go build over the whole root module no longer load the directory, and that go vet with the tag and the overlay of record.py still type-checks the file inside daemon/committed-fixture. An exclusion of the lint configuration for that directory is not needed after this; keep the configuration to what the other directories need. Record the rule in the repair file of do_2."
 
 [task.22.39.496]
 title = "Admit a call of another principal within the standing occupancy responsibility of the program owner"
