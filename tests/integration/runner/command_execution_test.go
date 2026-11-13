@@ -15,28 +15,28 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var repairM757RunFailure = flag.Bool("repair-m757-run-failure", false, "run the failing RunFile fixture in a child test process")
+var runFileFailure = flag.Bool("run-file-failure", false, "run the failing RunFile fixture in a child test process")
 
 // The already-built test executable is a command fixture. Its stdout, stderr,
 // exit and blocking behavior travel through the real OS process transport;
 // no shell, Docker daemon or additional runtime is needed by these tests.
 func TestMain(m *testing.M) {
-	if len(os.Args) == 3 && os.Args[1] == "-c" && strings.HasPrefix(os.Args[2], "repair-m757:") {
+	if len(os.Args) == 3 && os.Args[1] == "-c" && strings.HasPrefix(os.Args[2], "command-fixture:") {
 		switch os.Args[2] {
-		case "repair-m757:negative":
+		case "command-fixture:negative":
 			fmt.Fprintln(os.Stdout, " 7 ")
 			fmt.Fprintln(os.Stderr, "setup rejected")
 			os.Exit(7)
-		case "repair-m757:capture":
+		case "command-fixture:capture":
 			fmt.Fprintln(os.Stdout, os.Getenv("CAPTURE"))
-		case "repair-m757:prefix":
+		case "command-fixture:prefix":
 			fmt.Fprintln(os.Stdout, "PASS trailing output")
-		case "repair-m757:leading":
+		case "command-fixture:leading":
 			fmt.Fprintln(os.Stdout, "noise\nPASS")
-		case "repair-m757:success":
+		case "command-fixture:success":
 			fmt.Fprintln(os.Stdout, "success")
 			fmt.Fprintln(os.Stderr, "successful diagnostic")
-		case "repair-m757:block":
+		case "command-fixture:block":
 			fmt.Fprintln(os.Stdout, "started")
 			time.Sleep(10 * time.Second)
 		default:
@@ -48,7 +48,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func repairM757Options(t *testing.T) []Option {
+func commandExecutionOptions(t *testing.T) []Option {
 	t.Helper()
 	executable, err := os.Executable()
 	if err != nil {
@@ -57,13 +57,13 @@ func repairM757Options(t *testing.T) []Option {
 	return []Option{WithContainer(""), WithShell(executable), WithCommandTimeout(3 * time.Second)}
 }
 
-func TestRepairM_757_RunFileExpectedStatusAndCapture(t *testing.T) {
-	RunFile(t, filepath.Join("testdata", "repair_m757.yaml"), repairM757Options(t)...)
+func TestRunFileExpectedStatusAndCapture(t *testing.T) {
+	RunFile(t, filepath.Join("testdata", "command_execution.yaml"), commandExecutionOptions(t)...)
 }
 
-func TestRepairM_757_UnexpectedExitStatus(t *testing.T) {
-	opts := newOptions(repairM757Options(t))
-	out, err := execCmd(t, Input{Cmd: "repair-m757:negative"}, "", nil, opts)
+func TestCommandUnexpectedExitStatus(t *testing.T) {
+	opts := newOptions(commandExecutionOptions(t))
+	out, err := execCmd(t, Input{Cmd: "command-fixture:negative"}, "", nil, opts)
 	var exit *exec.ExitError
 	if out != "7" || !errors.As(err, &exit) || exit.ExitCode() != 7 {
 		t.Fatalf("output = %q, error = %v; want output 7 and exit 7", out, err)
@@ -72,16 +72,16 @@ func TestRepairM_757_UnexpectedExitStatus(t *testing.T) {
 		t.Fatalf("missing status/stderr diagnostic: %v", err)
 	}
 	for _, input := range []Input{
-		{Cmd: "repair-m757:negative", ExpectedExitCode: 8},
-		{Cmd: "repair-m757:success", ExpectedExitCode: 7},
-		{Cmd: "repair-m757:success", ExpectedExitCode: -1},
-		{Cmd: "repair-m757:success", ExpectedExitCode: 256},
+		{Cmd: "command-fixture:negative", ExpectedExitCode: 8},
+		{Cmd: "command-fixture:success", ExpectedExitCode: 7},
+		{Cmd: "command-fixture:success", ExpectedExitCode: -1},
+		{Cmd: "command-fixture:success", ExpectedExitCode: 256},
 	} {
 		if _, err := execCmd(t, input, "", nil, opts); err == nil {
 			t.Fatalf("accepted unexpected status for %+v", input)
 		}
 	}
-	out, err = execCmd(t, Input{Cmd: "repair-m757:success"}, "", nil, opts)
+	out, err = execCmd(t, Input{Cmd: "command-fixture:success"}, "", nil, opts)
 	if err != nil || out != "success" {
 		t.Fatalf("successful command = %q, %v", out, err)
 	}
@@ -91,9 +91,9 @@ func TestRepairM_757_UnexpectedExitStatus(t *testing.T) {
 	}
 }
 
-func TestRepairM_757_RunFileRejectsUnexpectedExit(t *testing.T) {
-	if *repairM757RunFailure {
-		RunFile(t, filepath.Join("testdata", "repair_m757_unexpected.yaml"), repairM757Options(t)...)
+func TestRunFileRejectsUnexpectedExit(t *testing.T) {
+	if *runFileFailure {
+		RunFile(t, filepath.Join("testdata", "unexpected_exit.yaml"), commandExecutionOptions(t)...)
 		return
 	}
 	executable, err := os.Executable()
@@ -102,7 +102,7 @@ func TestRepairM_757_RunFileRejectsUnexpectedExit(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, executable, "-test.v", "-test.run=^TestRepairM_757_RunFileRejectsUnexpectedExit$", "-repair-m757-run-failure")
+	cmd := exec.CommandContext(ctx, executable, "-test.v", "-test.run=^TestRunFileRejectsUnexpectedExit$", "-run-file-failure")
 	output, err := cmd.CombinedOutput()
 	var exit *exec.ExitError
 	if ctx.Err() != nil || !errors.As(err, &exit) || exit.ExitCode() != 1 {
@@ -115,12 +115,12 @@ func TestRepairM_757_RunFileRejectsUnexpectedExit(t *testing.T) {
 	}
 }
 
-func TestRepairM_757_CommandCancellation(t *testing.T) {
+func TestCommandCancellation(t *testing.T) {
 	t.Run("deadline cannot satisfy a negative status", func(t *testing.T) {
-		opts := newOptions(repairM757Options(t))
+		opts := newOptions(commandExecutionOptions(t))
 		opts.CommandTimeout = 100 * time.Millisecond
 		started := time.Now()
-		_, err := execCmd(t, Input{Cmd: "repair-m757:block", ExpectedExitCode: 7}, "", nil, opts)
+		_, err := execCmd(t, Input{Cmd: "command-fixture:block", ExpectedExitCode: 7}, "", nil, opts)
 		if !errors.Is(err, context.DeadlineExceeded) {
 			t.Fatalf("deadline error = %v", err)
 		}
@@ -130,12 +130,12 @@ func TestRepairM_757_CommandCancellation(t *testing.T) {
 	})
 	t.Run("caller cancellation", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(t.Context())
-		opts := newOptions(append(repairM757Options(t), WithContext(ctx)))
+		opts := newOptions(append(commandExecutionOptions(t), WithContext(ctx)))
 		timer := time.AfterFunc(100*time.Millisecond, cancel)
 		defer timer.Stop()
 		defer cancel()
 		started := time.Now()
-		_, err := execCmd(t, Input{Cmd: "repair-m757:block"}, "", nil, opts)
+		_, err := execCmd(t, Input{Cmd: "command-fixture:block"}, "", nil, opts)
 		if !errors.Is(err, context.Canceled) {
 			t.Fatalf("caller cancellation = %v", err)
 		}
@@ -144,8 +144,8 @@ func TestRepairM_757_CommandCancellation(t *testing.T) {
 		}
 	})
 	t.Run("invalid timeout", func(t *testing.T) {
-		opts := newOptions(append(repairM757Options(t), WithCommandTimeout(0)))
-		if _, err := execCmd(t, Input{Cmd: "repair-m757:success"}, "", nil, opts); err == nil {
+		opts := newOptions(append(commandExecutionOptions(t), WithCommandTimeout(0)))
+		if _, err := execCmd(t, Input{Cmd: "command-fixture:success"}, "", nil, opts); err == nil {
 			t.Fatal("accepted an unbounded command timeout")
 		}
 	})
@@ -154,8 +154,8 @@ func TestRepairM_757_CommandCancellation(t *testing.T) {
 	}
 }
 
-func TestRepairM_757_RegexPrefixTransport(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("testdata", "repair_m757_regex.yaml"))
+func TestRegexPrefixTransport(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("testdata", "regex_prefix.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +173,7 @@ func TestRepairM_757_RegexPrefixTransport(t *testing.T) {
 				t.Fatal("fixture must drive one producer and verifier")
 			}
 			input := tc.Inputs[0]
-			output, err := execCmd(t, input, "", nil, newOptions(repairM757Options(t)))
+			output, err := execCmd(t, input, "", nil, newOptions(commandExecutionOptions(t)))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -191,7 +191,7 @@ func TestRepairM_757_RegexPrefixTransport(t *testing.T) {
 	}
 }
 
-func TestRepairM_757_ExpressionPrecedence(t *testing.T) {
+func TestExpressionPrecedence(t *testing.T) {
 	TestEvalExprPrecedence(t)
 	TestEvalExprRejectsDanglingOperators(t)
 	TestEvalExprOrPropagatesEvaluationError(t)

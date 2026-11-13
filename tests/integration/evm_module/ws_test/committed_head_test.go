@@ -18,13 +18,13 @@ import (
 )
 
 // The peer fixtures use the production header codec and JSON-RPC server. The
-// component under repair is the live test's subscription and parity assertion.
-type repairM745Peer struct {
+// subscription and parity assertions check the live test's committed headers.
+type committedHeaderPeer struct {
 	head, block json.RawMessage
 	requests    chan rpc.BlockNumber
 }
 
-func (p *repairM745Peer) NewHeads(ctx context.Context) (*rpc.Subscription, error) {
+func (p *committedHeaderPeer) NewHeads(ctx context.Context) (*rpc.Subscription, error) {
 	notifier, ok := rpc.NotifierFromContext(ctx)
 	if !ok {
 		return nil, rpc.ErrNotificationsUnsupported
@@ -36,7 +36,7 @@ func (p *repairM745Peer) NewHeads(ctx context.Context) (*rpc.Subscription, error
 	return sub, nil
 }
 
-func (p *repairM745Peer) GetBlockByNumber(number rpc.BlockNumber, fullTx bool) (json.RawMessage, error) {
+func (p *committedHeaderPeer) GetBlockByNumber(number rpc.BlockNumber, fullTx bool) (json.RawMessage, error) {
 	p.requests <- number
 	if number != 42 || fullTx {
 		return nil, fmt.Errorf("want height 0x2a and fullTx=false, got %v, %v", number, fullTx)
@@ -44,7 +44,7 @@ func (p *repairM745Peer) GetBlockByNumber(number rpc.BlockNumber, fullTx bool) (
 	return p.block, nil
 }
 
-func repairM745Header() *ethtypes.Header {
+func newCommittedHeader() *ethtypes.Header {
 	withdrawals := ethtypes.EmptyWithdrawalsHash
 	beacon := common.Hash{}
 	blobGas, excess := uint64(0), uint64(0)
@@ -63,17 +63,17 @@ func repairM745Header() *ethtypes.Header {
 	return header
 }
 
-func repairM745Encode(t *testing.T, header *ethtypes.Header) json.RawMessage {
+func encodeCommittedHeader(t *testing.T, header *ethtypes.Header) json.RawMessage {
 	t.Helper()
 	raw, err := json.Marshal(header)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// The consensus hash is deliberately distinct from the RLP header hash.
-	return repairM745Field(t, raw, "hash", common.HexToHash("0xabcdef"))
+	return setCommittedHeaderField(t, raw, "hash", common.HexToHash("0xabcdef"))
 }
 
-func repairM745Field(t *testing.T, raw json.RawMessage, field string, value interface{}) json.RawMessage {
+func setCommittedHeaderField(t *testing.T, raw json.RawMessage, field string, value interface{}) json.RawMessage {
 	t.Helper()
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &fields); err != nil {
@@ -95,9 +95,9 @@ func repairM745Field(t *testing.T, raw json.RawMessage, field string, value inte
 	return out
 }
 
-func repairM745Exchange(t *testing.T, head, block json.RawMessage) (*ethtypes.Header, error, []rpc.BlockNumber) {
+func exchangeCommittedHead(t *testing.T, head, block json.RawMessage) (*ethtypes.Header, error, []rpc.BlockNumber) {
 	t.Helper()
-	peer := &repairM745Peer{head: head, block: block, requests: make(chan rpc.BlockNumber, 2)}
+	peer := &committedHeaderPeer{head: head, block: block, requests: make(chan rpc.BlockNumber, 2)}
 	server := rpc.NewServer()
 	t.Cleanup(server.Stop)
 	if err := server.RegisterName("eth", peer); err != nil {
@@ -136,12 +136,12 @@ func repairM745Exchange(t *testing.T, head, block json.RawMessage) (*ethtypes.He
 	return header, checkErr, requests
 }
 
-func TestRepairM_745_CommittedHeader(t *testing.T) {
-	header := repairM745Header()
-	raw := repairM745Encode(t, header)
+func TestCommittedHeadParity(t *testing.T) {
+	header := newCommittedHeader()
+	raw := encodeCommittedHeader(t, header)
 	// HTTP blocks also carry body fields; only their full header is compared.
-	block := repairM745Field(t, raw, "transactions", []common.Hash{common.HexToHash("0x77")})
-	decoded, err, requests := repairM745Exchange(t, raw, block)
+	block := setCommittedHeaderField(t, raw, "transactions", []common.Hash{common.HexToHash("0x77")})
+	decoded, err, requests := exchangeCommittedHead(t, raw, block)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +156,7 @@ func TestRepairM_745_CommittedHeader(t *testing.T) {
 	}
 }
 
-func TestRepairM_745_RejectsCommittedMismatch(t *testing.T) {
+func TestCommittedHeadRejectsCommittedMismatch(t *testing.T) {
 	mutations := []struct {
 		field  string
 		change func(*ethtypes.Header)
@@ -183,12 +183,12 @@ func TestRepairM_745_RejectsCommittedMismatch(t *testing.T) {
 		{"parentBeaconBlockRoot", func(h *ethtypes.Header) { h.ParentBeaconRoot[0] ^= 1 }},
 		{"requestsHash", func(h *ethtypes.Header) { v := common.HexToHash("0x99"); h.RequestsHash = &v }},
 	}
-	head := repairM745Encode(t, repairM745Header())
+	head := encodeCommittedHeader(t, newCommittedHeader())
 	for _, mutation := range mutations {
 		t.Run(mutation.field, func(t *testing.T) {
-			changed := repairM745Header()
+			changed := newCommittedHeader()
 			mutation.change(changed)
-			_, err, requests := repairM745Exchange(t, head, repairM745Encode(t, changed))
+			_, err, requests := exchangeCommittedHead(t, head, encodeCommittedHeader(t, changed))
 			if err == nil || !strings.Contains(err.Error(), mutation.field+" mismatch") {
 				t.Fatalf("must reject %s mismatch even when hash agrees, got %v", mutation.field, err)
 			}
@@ -198,16 +198,16 @@ func TestRepairM_745_RejectsCommittedMismatch(t *testing.T) {
 		})
 	}
 	t.Run("hash", func(t *testing.T) {
-		block := repairM745Field(t, head, "hash", common.HexToHash("0xfedcba"))
-		_, err, _ := repairM745Exchange(t, head, block)
+		block := setCommittedHeaderField(t, head, "hash", common.HexToHash("0xfedcba"))
+		_, err, _ := exchangeCommittedHead(t, head, block)
 		if err == nil || !strings.Contains(err.Error(), "hash mismatch") {
 			t.Fatalf("must compare the committed wire hash, got %v", err)
 		}
 	})
 }
 
-func TestRepairM_745_RejectsMissingFields(t *testing.T) {
-	raw := repairM745Encode(t, repairM745Header())
+func TestCommittedHeadRejectsMissingFields(t *testing.T) {
+	raw := encodeCommittedHeader(t, newCommittedHeader())
 	for _, side := range []string{"newHeads", "committed block"} {
 		for _, field := range committedHeadFields {
 			for _, null := range []bool{false, true} {
@@ -216,14 +216,14 @@ func TestRepairM_745_RejectsMissingFields(t *testing.T) {
 					if null {
 						value = json.RawMessage("null")
 					}
-					bad := repairM745Field(t, raw, field, value)
+					bad := setCommittedHeaderField(t, raw, field, value)
 					head, block := raw, raw
 					if side == "newHeads" {
 						head = bad
 					} else {
 						block = bad
 					}
-					_, err, _ := repairM745Exchange(t, head, block)
+					_, err, _ := exchangeCommittedHead(t, head, block)
 					if err == nil || !strings.Contains(err.Error(), side+": header missing "+field) {
 						t.Fatalf("must reject missing/null %s on %s, got %v", field, side, err)
 					}
@@ -233,8 +233,8 @@ func TestRepairM_745_RejectsMissingFields(t *testing.T) {
 	}
 }
 
-func TestRepairM_745_RejectsMalformedEncoding(t *testing.T) {
-	raw := repairM745Encode(t, repairM745Header())
+func TestCommittedHeadRejectsMalformedEncoding(t *testing.T) {
+	raw := encodeCommittedHeader(t, newCommittedHeader())
 	cases := []struct {
 		field string
 		value interface{}
@@ -250,14 +250,14 @@ func TestRepairM_745_RejectsMalformedEncoding(t *testing.T) {
 	for _, side := range []string{"newHeads", "committed block"} {
 		for i, tc := range cases {
 			t.Run(fmt.Sprintf("%s/%s/%d", side, tc.field, i), func(t *testing.T) {
-				bad := repairM745Field(t, raw, tc.field, tc.value)
+				bad := setCommittedHeaderField(t, raw, tc.field, tc.value)
 				head, block := raw, raw
 				if side == "newHeads" {
 					head = bad
 				} else {
 					block = bad
 				}
-				_, err, _ := repairM745Exchange(t, head, block)
+				_, err, _ := exchangeCommittedHead(t, head, block)
 				if err == nil || !strings.Contains(err.Error(), side+":") {
 					t.Fatalf("must reject malformed %s on %s, got %v", tc.field, side, err)
 				}
@@ -265,7 +265,7 @@ func TestRepairM_745_RejectsMalformedEncoding(t *testing.T) {
 		}
 	}
 	t.Run("unavailable block", func(t *testing.T) {
-		_, err, requests := repairM745Exchange(t, raw, json.RawMessage("null"))
+		_, err, requests := exchangeCommittedHead(t, raw, json.RawMessage("null"))
 		if err == nil || !strings.Contains(err.Error(), "committed block:") || len(requests) != 1 {
 			t.Fatalf("null committed block must fail after HTTP lookup: requests=%v err=%v", requests, err)
 		}
