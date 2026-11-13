@@ -17,7 +17,7 @@ import (
 )
 
 // These fixtures expose real persistent keepers to external ABI consumers.
-type RepairM1304World struct {
+type ServiceStreamWorld struct {
 	Keeper                      *Keeper
 	Context                     sdk.Context
 	HostKey, PayKey             sdk.StoreKey
@@ -30,19 +30,19 @@ type RepairM1304World struct {
 	stop                        func()
 }
 
-func OpenRepairM1304World(t *testing.T, streams bool) *RepairM1304World {
+func OpenServiceStreamWorld(t *testing.T, streams bool) *ServiceStreamWorld {
 	t.Helper()
 	directory := t.TempDir()
 	h, stop := proofPayKeeperOpen(t, directory)
 	h.actors = []payActor{h.registerActor(t, 1), h.registerActor(t, 2)}
-	w := &RepairM1304World{Keeper: &h.keeper, Context: h.ctx, HostKey: h.hostKey, PayKey: h.storeKey,
+	w := &ServiceStreamWorld{Keeper: &h.keeper, Context: h.ctx, HostKey: h.hostKey, PayKey: h.storeKey,
 		Provider: h.actors[0].address, Buyer: h.actors[1].address, Agreement: [32]byte{0x82}, Commitment: [32]byte{0x83}, Spec: [32]byte{0x85},
 		directory: directory, harness: h, stop: stop}
 	if streams {
 		args := payEscrowFundedArgs(t, h)
 		w.Asset = args.AssetID
 		w.Token = common.HexToAddress("0x1304")
-		require.NoError(t, h.custody.SetAsset(h.ctx, custodytypes.AssetMapping{AssetId: hex.EncodeToString(w.Asset[:]), Denom: "repair1304", Pointer: w.Token.Hex(), Enabled: true}))
+		require.NoError(t, h.custody.SetAsset(h.ctx, custodytypes.AssetMapping{AssetId: hex.EncodeToString(w.Asset[:]), Denom: "streamcoin", Pointer: w.Token.Hex(), Enabled: true}))
 		h.keeper.SetParams(h.ctx, types.Params{StreamEnabled: true})
 		gate, err := types.KernelModuleEnableKey(types.StreamModuleID)
 		require.NoError(t, err)
@@ -66,7 +66,7 @@ func OpenRepairM1304World(t *testing.T, streams bool) *RepairM1304World {
 	return w
 }
 
-func (w *RepairM1304World) Reopen(t *testing.T) {
+func (w *ServiceStreamWorld) Reopen(t *testing.T) {
 	t.Helper()
 	at, hash := w.Context.BlockTime(), w.Context.EVMTxHash()
 	w.harness.cms.Commit(true)
@@ -77,11 +77,11 @@ func (w *RepairM1304World) Reopen(t *testing.T) {
 	w.HostKey, w.PayKey = h.hostKey, h.storeKey
 }
 
-func (w *RepairM1304World) Advance(seconds int64) {
+func (w *ServiceStreamWorld) Advance(seconds int64) {
 	w.Context = w.Context.WithBlockTime(time.UnixMilli(payHarnessTimeMs + seconds*1000))
 }
 
-func ProveRepairM1304AdditionalServiceRecords(t *testing.T) {
+func ProveServiceExecutionAndDisputeReads(t *testing.T) {
 	t.Helper()
 	// Tool execution uses the production signature path, not a hand-built stored record.
 	h, agreement, commitment, _ := serviceDeliveryHarness(t)

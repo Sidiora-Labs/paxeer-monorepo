@@ -16,7 +16,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repairM1302Snapshot(h *proofViewsHarness) map[string]map[string][]byte {
+func genesisValidationSnapshot(h *proofViewsHarness) map[string]map[string][]byte {
 	snapshot := make(map[string]map[string][]byte)
 	for _, key := range []*sdk.KVStoreKey{h.key, h.payKey, h.evmKey, h.custodyKey} {
 		records := make(map[string][]byte)
@@ -30,7 +30,7 @@ func repairM1302Snapshot(h *proofViewsHarness) map[string]map[string][]byte {
 	return snapshot
 }
 
-func TestRepairM_1302_OpaqueGenesis(t *testing.T) {
+func TestGenesisOwnedRecordValidation(t *testing.T) {
 	proofViewsRun(t, func(producer *proofViewsHarness) {
 		escrow, found, err := producer.views.GetEscrow(producer.ctx, [32]byte{20})
 		require.NoError(t, err)
@@ -66,7 +66,7 @@ func TestRepairM_1302_OpaqueGenesis(t *testing.T) {
 		destination.views.SetParams(destination.ctx, types.DefaultParams())
 		destination.ctx.KVStore(destination.key).Set([]byte("existing-host"), []byte("preserve"))
 		destination.ctx.KVStore(destination.payKey).Set([]byte("existing-pay"), []byte("preserve"))
-		before := repairM1302Snapshot(destination)
+		before := genesisValidationSnapshot(destination)
 		record := func(g *types.GenesisState, module uint16, prefix string) *kv.Pair {
 			keyPrefix := types.KernelKVKey(module, []byte(prefix))
 			for i := range g.KernelRecords {
@@ -83,7 +83,7 @@ func TestRepairM_1302_OpaqueGenesis(t *testing.T) {
 			require.NoError(t, err)
 			require.ErrorIs(t, g.Validate(), types.ErrInvalidGenesis)
 			require.ErrorIs(t, destination.views.InitGenesis(destination.ctx, g), types.ErrInvalidGenesis)
-			require.Equal(t, before, repairM1302Snapshot(destination), "import changed stores before refusing the snapshot")
+			require.Equal(t, before, genesisValidationSnapshot(destination), "import changed stores before refusing the snapshot")
 			after, err := json.Marshal(g)
 			require.NoError(t, err)
 			require.Equal(t, input, after, "validation changed the recovery input")
@@ -258,6 +258,6 @@ func TestRepairM_1302_OpaqueGenesis(t *testing.T) {
 	})
 }
 
-func TestRepairM_1302_EscrowRootProof(t *testing.T) {
+func TestEscrowReceiptRootProof(t *testing.T) {
 	proofViewsRun(t, nil)
 }
