@@ -337,5 +337,8 @@ def test_mcp_profile_fixture_recorded_evidence_and_wiring():
     for row in record["wiring"].values():
         assert row["owner_domain"] == 11 and row["request"]
     readme = source(f"{SUITE}/README.md")
-    for fact in ("ProfileMismatch", "ProfileMissing", "does not", "owning-domain wiring"):
+    for fact in (
+        "ProfileMissing", "profile_refusal", "semanticExpectation",
+        "must not be submitted", "verified receipt evidence",
+    ):
         assert fact in readme
