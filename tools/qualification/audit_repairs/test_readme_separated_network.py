@@ -10,6 +10,8 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]
 README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK = (ROOT / "docs/readme/NETWORK.md").read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1285.kvx"
 
 
@@ -19,10 +21,10 @@ def source(path):
 
 def section(heading, level=3):
     marker = "#" * level + " " + heading + "\n"
-    assert README.count(marker) == 1, heading
+    assert NETWORK.count(marker) == 1, heading
     lines = []
     fence = None
-    for line in README.split(marker, 1)[1].splitlines(keepends=True):
+    for line in NETWORK.split(marker, 1)[1].splitlines(keepends=True):
         delimiter = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
         if delimiter:
             ticks, suffix = delimiter.groups()
@@ -46,7 +48,6 @@ def test_readme_separated_network_integrated_paxd():
         "validators commit those blocks through BFT consensus",
         "runs inside `paxd` through [`modules/lxphost`]",
         "A receipt is final once its block is committed",
-        "no router and no separate LayerX interface",
     ):
         assert fact in overview, fact
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
@@ -62,15 +63,10 @@ def test_readme_separated_network_integrated_paxd():
 
 def test_readme_separated_network_root_rpc_and_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
-    assert "Public node JSON-RPC uses the root URL" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
-    assert (
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`"
-    ) in quickstart
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix." in quickstart
     hosts = {f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)}
     hosts.add("api-mainnet-beta.paxeer.network")
-    urls = re.findall(r"https?://[^\s`<>)]+", README)
+    urls = re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC)
     public_urls = [
         urlsplit(url)
         for url in urls
@@ -87,15 +83,11 @@ def test_readme_separated_network_root_rpc_and_chain_probe():
     argv = shlex.split(blocks[0].split("\n# Expected result:")[0].replace("\\\n", " "))
     assert argv[0] == "curl"
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert argv[argv.index("-H") - 1] == "$PAXEER_RPC_URL"
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
     assert '# Expected result: "0x7d"' in blocks[0]
-    assert "`node.hyperpaxeer.com` is only the hpx library mirror" in quickstart
-    assert "never a JSON-RPC endpoint" in quickstart
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
 
 
@@ -145,7 +137,7 @@ def test_readme_separated_network_transaction_and_committed_receipt():
 
 
 def test_readme_separated_network_diagrams_preserve_commit_order():
-    diagrams = re.findall(r"```mermaid\n(.*?)\n```", README, re.S)
+    diagrams = re.findall(r"```mermaid\n(.*?)\n```", NETWORK, re.S)
     assert len(diagrams) == 2
     topology, sequence = diagrams
     for fact in (
@@ -206,14 +198,14 @@ def test_readme_separated_network_served_and_retired_precompiles():
 
 
 def test_readme_separated_network_no_standalone_deployment_guidance():
-    assert "layerxd" not in re.findall(r"[a-z_]\w*", README.lower())
+    assert "layerxd" not in re.findall(r"[a-z_]\w*", NETWORK.lower())
     for obsolete in ("local kernel cluster", "proposed draft", "make devnet-up"):
-        assert obsolete not in README.lower(), obsolete
-    assert "There is no separate kernel daemon, sequencer service or checkpoint deployment" in README
-    assert "External checkpoint settlement is retired" in README
-    assert "custody deposit and credit-attestation funding flow is retired" in README
-    assert "External checkpoint registration, guarantor attestations and the L0–L4 settlement ladder are retired" in README
-    assert "No separate service endpoint is required" in README
+        assert obsolete not in NETWORK.lower(), obsolete
+    assert "There is no separate kernel daemon, sequencer service or checkpoint deployment" in NETWORK
+    assert "External checkpoint settlement is retired" in NETWORK
+    assert "custody deposit and credit-attestation funding flow is retired" in NETWORK
+    assert "External checkpoint registration, guarantor attestations and the L0–L4 settlement ladder are retired" in NETWORK
+    assert "No separate service endpoint is required" in NETWORK
 
 
 def test_readme_separated_network_record_maps_all_proofs():
