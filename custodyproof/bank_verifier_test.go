@@ -15,11 +15,11 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func TestRepairM_856_NativeBankRoundtrip(t *testing.T) {
+func TestNativeBankRoundtrip(t *testing.T) {
 	nativeBankRoundtrip(t)
 }
 
-func TestRepairM_856_GenesisNativeBank(t *testing.T) {
+func TestGenesisNativeBank(t *testing.T) {
 	f := nativeBankProducer(t, 1)
 	request := nativeTransport(t, f.request)
 	request.Bundle.History = append([]LightBlock{f.pin.Block}, request.Bundle.History...)
@@ -39,7 +39,7 @@ func TestRepairM_856_GenesisNativeBank(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestRepairM_856_MatureHeightAndWorkBound(t *testing.T) {
+func TestMatureHeightAndWorkBound(t *testing.T) {
 	f := nativeBankProducer(t, MaxHistory*1000+17)
 	db := dbm.NewMemDB()
 	v, err := OpenVerifier(db, f.request.Expected, f.pin, f.now)
@@ -143,11 +143,11 @@ func nativeBankRefusals(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestRepairM_856_BadHeadersMembershipAndChain(t *testing.T) {
+func TestBadHeadersMembershipAndChain(t *testing.T) {
 	nativeBankRefusals(t)
 }
 
-func TestRepairM_856_CheckpointRefusals(t *testing.T) {
+func TestCheckpointRefusals(t *testing.T) {
 	f := nativeBankProducer(t, MaxHistory+64)
 	db := dbm.NewMemDB()
 	v, err := OpenVerifier(db, f.request.Expected, f.pin, f.now)
@@ -200,7 +200,7 @@ func TestRepairM_856_CheckpointRefusals(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestRepairM_856_ExpiredTrustCannotRefresh(t *testing.T) {
+func TestExpiredTrustCannotRefresh(t *testing.T) {
 	f := nativeBankProducer(t, MaxHistory+64)
 	for _, now := range []time.Time{f.pin.Block.Commit.Time.Add(TrustingPeriod), f.pin.Block.Commit.Time.Add(-MaxClockDrift)} {
 		db := dbm.NewMemDB()
@@ -224,7 +224,7 @@ func TestRepairM_856_ExpiredTrustCannotRefresh(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestRepairM_856_RecoveryAfterOriginalPinExpires(t *testing.T) {
+func TestRecoveryAfterOriginalPinExpires(t *testing.T) {
 	f := nativeBankProducer(t, MaxHistory+64)
 	dir := t.TempDir()
 	v, err := OpenVerifier(nativeTrustDB(t, dir), f.request.Expected, f.pin, f.now)
@@ -254,7 +254,7 @@ func TestRepairM_856_RecoveryAfterOriginalPinExpires(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestRepairM_856_CorruptTrustRefusal(t *testing.T) {
+func TestCorruptTrustRefusal(t *testing.T) {
 	f := nativeBankProducer(t, MaxHistory+64)
 	for _, encoded := range [][]byte{{}, []byte("{malformed")} {
 		db := dbm.NewMemDB()
@@ -304,7 +304,7 @@ func TestRepairM_856_CorruptTrustRefusal(t *testing.T) {
 	}
 }
 
-func TestRepairM_856_HistoricalCustodyBoundary(t *testing.T) {
+func TestHistoricalCustodyBoundary(t *testing.T) {
 	request := realRequest(t)
 	now := request.Bundle.History[len(request.Bundle.History)-1].Commit.Time.Add(time.Second)
 	original, err := Verify(request, now)
