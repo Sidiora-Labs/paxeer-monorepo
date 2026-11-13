@@ -17,17 +17,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const repairM1180Root = "data/qualification"
+const stateQualificationRoot = "data/qualification"
 
-func repairM1180Fixtures(t *testing.T) map[string]*harness.StateTestJSON {
+func stateQualificationFixtures(t *testing.T) map[string]*harness.StateTestJSON {
 	t.Helper()
-	fixtures, err := harness.LoadStateTest(filepath.Join(repairM1180Root, "transfer", "paxeerTransfer.json"))
+	fixtures, err := harness.LoadStateTest(filepath.Join(stateQualificationRoot, "transfer", "paxeerTransfer.json"))
 	require.NoError(t, err)
 	require.Len(t, fixtures, 3)
 	return fixtures
 }
 
-func repairM1180Execute(t *testing.T, fixture *harness.StateTestJSON, mode ExecutorMode) (*StateTestContext, []*abci.ExecTxResult, common.Hash) {
+func executeStateQualificationFixture(t *testing.T, fixture *harness.StateTestJSON, mode ExecutorMode) (*StateTestContext, []*abci.ExecTxResult, common.Hash) {
 	t.Helper()
 	post := fixture.Post["Cancun"][0]
 	tx, sender, err := harness.BuildTransaction(fixture, post)
@@ -47,10 +47,10 @@ func repairM1180Execute(t *testing.T, fixture *harness.StateTestJSON, mode Execu
 	return ctx, results, tx.Hash()
 }
 
-func TestRepairM_1180_RequiredSelection(t *testing.T) {
+func TestStateQualificationRequiredSelection(t *testing.T) {
 	// This is the same suite entry point as the documented real command. It
 	// loads committed fixtures, encodes transactions and drives both ProcessBlocks.
-	t.Setenv("STATE_TEST_ROOT", repairM1180Root)
+	t.Setenv("STATE_TEST_ROOT", stateQualificationRoot)
 	t.Setenv("STATE_TEST_DIR", "transfer")
 	t.Setenv("STATE_TEST_NAME", "transferValid")
 	t.Setenv("STATE_TEST_FORK", "Cancun")
@@ -60,7 +60,7 @@ func TestRepairM_1180_RequiredSelection(t *testing.T) {
 	t.Setenv("USE_REGULAR_STORE", "false")
 	TestGigaVsV2_StateTests(t)
 
-	tests, err := harness.LoadStateTestsFromDir(filepath.Join(repairM1180Root, "transfer"))
+	tests, err := harness.LoadStateTestsFromDir(filepath.Join(stateQualificationRoot, "transfer"))
 	require.NoError(t, err)
 	selection := requiredStateSelection{Directory: "transfer", Name: "transferValid", Fork: "Cancun", Count: 1}
 	cases := []struct {
@@ -85,18 +85,18 @@ func TestRepairM_1180_RequiredSelection(t *testing.T) {
 		})
 	}
 	// The oracle cannot be disabled even when calling the comparison directly.
-	fixture := repairM1180Fixtures(t)["transferValid"]
+	fixture := stateQualificationFixtures(t)["transferValid"]
 	require.False(t, runStateTestComparison(t, fixture, fixture.Post["Cancun"][0], ComparisonConfig{GigaMode: ModeGigaSequential}).Passed)
 }
 
-func TestRepairM_1180_ExceptionAgreement(t *testing.T) {
-	fixtures := repairM1180Fixtures(t)
+func TestStateQualificationExceptionAgreement(t *testing.T) {
+	fixtures := stateQualificationFixtures(t)
 	outcomes := make(map[ExecutorMode]map[string][]*abci.ExecTxResult)
 	for _, mode := range []ExecutorMode{ModeV2Sequential, ModeGigaSequential} {
 		outcomes[mode] = make(map[string][]*abci.ExecTxResult)
 		for _, name := range []string{"transferValid", "nonceRejected", "fundsRejected"} {
 			t.Run(mode.String()+"/"+name, func(t *testing.T) {
-				_, result, _ := repairM1180Execute(t, fixtures[name], mode)
+				_, result, _ := executeStateQualificationFixture(t, fixtures[name], mode)
 				outcomes[mode][name] = result
 				if name == "transferValid" {
 					require.Zero(t, result[0].Code, result[0].Log)
@@ -139,12 +139,12 @@ func TestRepairM_1180_ExceptionAgreement(t *testing.T) {
 
 }
 
-func TestRepairM_1180_IndependentOracle(t *testing.T) {
-	fixture := repairM1180Fixtures(t)["transferValid"]
+func TestStateQualificationIndependentOracle(t *testing.T) {
+	fixture := stateQualificationFixtures(t)["transferValid"]
 	expected := fixture.Post["Cancun"][0].State
 	contexts := make([]*StateTestContext, 0, 2)
 	for _, mode := range []ExecutorMode{ModeV2Sequential, ModeGigaSequential} {
-		ctx, results, _ := repairM1180Execute(t, fixture, mode)
+		ctx, results, _ := executeStateQualificationFixture(t, fixture, mode)
 		require.Zero(t, results[0].Code, results[0].Log)
 		require.Empty(t, verifyPostStateWithResult(t, ctx.Ctx, ctx.EvmKeeper(), ctx.BankKeeper(), expected, mode.String()))
 		contexts = append(contexts, ctx)
@@ -163,7 +163,7 @@ func TestRepairM_1180_IndependentOracle(t *testing.T) {
 	}
 }
 
-func TestRepairM_1180_OwnedInventory(t *testing.T) {
+func TestStateQualificationOwnedInventory(t *testing.T) {
 	skip, err := harness.LoadSkipList()
 	require.NoError(t, err)
 	var ledger struct {
@@ -281,7 +281,7 @@ func TestRepairM_1180_OwnedInventory(t *testing.T) {
 	}
 	// The production loader and selector expose an exact active inventory. No
 	// skip-list decision is involved in selecting qualification fixtures.
-	fixtures, err := harness.LoadStateTestsFromDir(filepath.Join(repairM1180Root, "transfer"))
+	fixtures, err := harness.LoadStateTestsFromDir(filepath.Join(stateQualificationRoot, "transfer"))
 	require.NoError(t, err)
 	selected, err := selectRequiredStateCases(fixtures, requiredStateSelection{Directory: "transfer", Name: "paxeerTransfer.json/", Fork: "Cancun", Count: 3})
 	require.NoError(t, err)
@@ -292,14 +292,14 @@ func TestRepairM_1180_OwnedInventory(t *testing.T) {
 	t.Logf("historical unresolved cases=%d categories=%d; no exclusions removed", len(skip.Tests), len(skip.Categories))
 }
 
-func TestRepairM_1180_Runbook(t *testing.T) {
+func TestStateQualificationRunbook(t *testing.T) {
 	contents, err := os.ReadFile("AGENTS.md")
 	require.NoError(t, err)
 	text := string(contents)
 	for _, required := range []string{"STATE_TEST_ROOT=data/qualification", "STATE_TEST_DIR=transfer", "STATE_TEST_NAME=transferValid", "STATE_TEST_FORK=Cancun", "STATE_TEST_COUNT=1", "VERIFY_ETHEREUM_SPEC=true", "IGNORE_SKIP_LIST=true", "original failure command", "executed count", "verified revision", "Never add an exclusion"} {
 		require.Contains(t, text, required)
 	}
-	fixtures, err := harness.LoadStateTestsFromDir(filepath.Join(repairM1180Root, "transfer"))
+	fixtures, err := harness.LoadStateTestsFromDir(filepath.Join(stateQualificationRoot, "transfer"))
 	require.NoError(t, err)
 	selected, err := selectRequiredStateCases(fixtures, requiredStateSelection{Directory: "transfer", Name: "transferValid", Fork: "Cancun", Count: 1})
 	require.NoError(t, err)

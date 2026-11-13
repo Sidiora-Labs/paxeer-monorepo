@@ -21,7 +21,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func newRepairM1129Keeper(t *testing.T) (*evmkeeper.Keeper, sdk.Context, *codec.ProtoCodec) {
+func newGenesisStreamKeeper(t *testing.T) (*evmkeeper.Keeper, sdk.Context, *codec.ProtoCodec) {
 	t.Helper()
 	key := sdk.NewKVStoreKey("repair_m1129")
 	authKey := sdk.NewKVStoreKey("repair_m1129_auth")
@@ -53,7 +53,7 @@ func newRepairM1129Keeper(t *testing.T) (*evmkeeper.Keeper, sdk.Context, *codec.
 	return k, ctx, cdc
 }
 
-func repairM1129WireStream(t *testing.T, cdc *codec.ProtoCodec, chunks []types.GenesisState) error {
+func validateTransportedGenesisStream(t *testing.T, cdc *codec.ProtoCodec, chunks []types.GenesisState) error {
 	t.Helper()
 	decoded := make([]types.GenesisState, len(chunks))
 	for i := range chunks {
@@ -86,8 +86,8 @@ func repairM1129WireStream(t *testing.T, cdc *codec.ProtoCodec, chunks []types.G
 	return nil
 }
 
-func TestRepairM_1129_StreamImport(t *testing.T) {
-	source, sourceCtx, cdc := newRepairM1129Keeper(t)
+func TestGenesisValidationStreamImport(t *testing.T) {
+	source, sourceCtx, cdc := newGenesisStreamKeeper(t)
 	params := types.DefaultParams()
 	params.MinimumFeePerGas = sdk.NewDec(11)
 	params.MaximumFeePerGas = sdk.NewDec(19)
@@ -127,13 +127,13 @@ func TestRepairM_1129_StreamImport(t *testing.T) {
 		{"valid_invalid_valid", []types.GenesisState{first, invalid, second}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			err := repairM1129WireStream(t, cdc, tc.chunks)
+			err := validateTransportedGenesisStream(t, cdc, tc.chunks)
 			if !tc.valid {
 				require.ErrorContains(t, err, "invalid genesis chunk")
 				return
 			}
 			require.NoError(t, err)
-			dest, destCtx, destCodec := newRepairM1129Keeper(t)
+			dest, destCtx, destCodec := newGenesisStreamKeeper(t)
 			require.NotEqual(t, params, dest.GetParams(destCtx))
 			require.NotEqual(t, evmAddr, dest.GetEVMAddressOrDefault(destCtx, paxAddr))
 			for _, chunk := range tc.chunks {
@@ -156,8 +156,8 @@ func TestRepairM_1129_StreamImport(t *testing.T) {
 	}
 }
 
-func TestRepairM_1129_StreamMalformedAddress(t *testing.T) {
-	_, _, cdc := newRepairM1129Keeper(t)
+func TestGenesisValidationStreamMalformedAddress(t *testing.T) {
+	_, _, cdc := newGenesisStreamKeeper(t)
 	valid := *types.DefaultGenesis()
 	paxAddress := authtypes.NewModuleAddress("repair_m1129_valid").String()
 	ethAddress := common.HexToAddress("0x1129").Hex()
@@ -181,7 +181,7 @@ func TestRepairM_1129_StreamMalformedAddress(t *testing.T) {
 			for _, chunks := range [][]types.GenesisState{
 				{invalid}, {valid, invalid}, {invalid, valid}, {valid, invalid, valid},
 			} {
-				require.ErrorContains(t, repairM1129WireStream(t, cdc, chunks), tc.want)
+				require.ErrorContains(t, validateTransportedGenesisStream(t, cdc, chunks), tc.want)
 			}
 		})
 	}
@@ -195,10 +195,10 @@ func TestRepairM_1129_StreamMalformedAddress(t *testing.T) {
 	require.ErrorContains(t, types.ValidateStream(stream), "missing address association")
 }
 
-func TestRepairM_1129_StreamMissingParams(t *testing.T) {
-	_, _, cdc := newRepairM1129Keeper(t)
+func TestGenesisValidationStreamMissingParams(t *testing.T) {
+	_, _, cdc := newGenesisStreamKeeper(t)
 	require.Error(t, types.ValidateStream(nil))
-	require.ErrorContains(t, repairM1129WireStream(t, cdc, nil), "empty genesis stream")
+	require.ErrorContains(t, validateTransportedGenesisStream(t, cdc, nil), "empty genesis stream")
 	valid := *types.DefaultGenesis()
 	missing := types.GenesisState{}
 	partial := valid
@@ -206,7 +206,7 @@ func TestRepairM_1129_StreamMissingParams(t *testing.T) {
 	for _, chunks := range [][]types.GenesisState{
 		{missing}, {valid, missing}, {missing, valid}, {valid, partial}, {partial, valid},
 	} {
-		require.Error(t, repairM1129WireStream(t, cdc, chunks))
+		require.Error(t, validateTransportedGenesisStream(t, cdc, chunks))
 	}
 	require.Error(t, missing.Validate())
 	for _, clear := range []func(*types.Params){
@@ -223,8 +223,8 @@ func TestRepairM_1129_StreamMissingParams(t *testing.T) {
 	}
 }
 
-func TestRepairM_1129_GasTargetGovernance(t *testing.T) {
-	k, ctx, _ := newRepairM1129Keeper(t)
+func TestGenesisValidationGasTargetGovernance(t *testing.T) {
+	k, ctx, _ := newGenesisStreamKeeper(t)
 	key := types.KeyTargetGasUsedPerBlock
 	for _, value := range []interface{}{nil, int64(1), "1", uint32(1), uint64(math.MaxInt64) + 1, uint64(math.MaxUint64)} {
 		require.Error(t, k.Paramstore.Validate(ctx, key, value), "value %v (%T)", value, value)
@@ -260,8 +260,8 @@ func TestRepairM_1129_GasTargetGovernance(t *testing.T) {
 	}
 }
 
-func TestRepairM_1129_GenesisFeeBounds(t *testing.T) {
-	_, _, cdc := newRepairM1129Keeper(t)
+func TestGenesisValidationGenesisFeeBounds(t *testing.T) {
+	_, _, cdc := newGenesisStreamKeeper(t)
 	for _, tc := range []struct {
 		min, max int64
 		valid    bool
@@ -277,13 +277,13 @@ func TestRepairM_1129_GenesisFeeBounds(t *testing.T) {
 			require.NoError(t, imported.Validate())
 		} else {
 			require.ErrorContains(t, imported.Validate(), "minimum fee cannot be higher than maximum fee")
-			require.Error(t, repairM1129WireStream(t, cdc, []types.GenesisState{*types.DefaultGenesis(), imported}))
+			require.Error(t, validateTransportedGenesisStream(t, cdc, []types.GenesisState{*types.DefaultGenesis(), imported}))
 		}
 	}
 }
 
-func TestRepairM_1129_DynamicFee(t *testing.T) {
-	k, ctx, cdc := newRepairM1129Keeper(t)
+func TestGenesisValidationDynamicFee(t *testing.T) {
+	k, ctx, cdc := newGenesisStreamKeeper(t)
 	ctx = ctx.WithConsensusParams(&tmproto.ConsensusParams{Block: &tmproto.BlockParams{MaxGas: 1000}})
 	for _, target := range []uint64{0, 1, 500, 1000, math.MaxInt64} {
 		for _, equalBounds := range []bool{false, true} {

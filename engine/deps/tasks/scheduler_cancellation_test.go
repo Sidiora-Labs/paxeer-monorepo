@@ -21,19 +21,19 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
 
-type repairM1124Spans struct {
+type cancellationSpanRecorder struct {
 	*tracetest.SpanRecorder
 	onStart func(sdktrace.ReadWriteSpan)
 }
 
-func (p *repairM1124Spans) OnStart(ctx context.Context, span sdktrace.ReadWriteSpan) {
+func (p *cancellationSpanRecorder) OnStart(ctx context.Context, span sdktrace.ReadWriteSpan) {
 	p.SpanRecorder.OnStart(ctx, span)
 	p.onStart(span)
 }
 
-func repairM1124Tracing(t *testing.T, onStart func(sdktrace.ReadWriteSpan)) *tracing.Info {
+func newCancellationTracing(t *testing.T, onStart func(sdktrace.ReadWriteSpan)) *tracing.Info {
 	t.Helper()
-	processor := &repairM1124Spans{SpanRecorder: tracetest.NewSpanRecorder(), onStart: onStart}
+	processor := &cancellationSpanRecorder{SpanRecorder: tracetest.NewSpanRecorder(), onStart: onStart}
 	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(processor))
 	t.Cleanup(func() {
 		if err := provider.Shutdown(context.Background()); err != nil {
@@ -43,7 +43,7 @@ func repairM1124Tracing(t *testing.T, onStart func(sdktrace.ReadWriteSpan)) *tra
 	return tracing.NewTracingInfo(provider.Tracer("repair-m1124"), true)
 }
 
-func repairM1124Context(t *testing.T, parent context.Context, giga bool) (sdk.Context, *storetypes.KVStoreKey) {
+func newSchedulerCancellationContext(t *testing.T, parent context.Context, giga bool) (sdk.Context, *storetypes.KVStoreKey) {
 	t.Helper()
 	backing := dbm.NewMemDB()
 	t.Cleanup(func() {
@@ -62,14 +62,14 @@ func repairM1124Context(t *testing.T, parent context.Context, giga bool) (sdk.Co
 	return sdk.NewContext(ms, tmproto.Header{Height: 1}, false).WithContext(parent), key
 }
 
-func repairM1124Store(ctx sdk.Context, key storetypes.StoreKey, giga bool) sdk.KVStore {
+func schedulerCancellationStore(ctx sdk.Context, key storetypes.StoreKey, giga bool) sdk.KVStore {
 	if giga {
 		return ctx.GigaKVStore(key)
 	}
 	return ctx.KVStore(key)
 }
 
-func repairM1124Requests(n int) []*sdk.DeliverTxEntry {
+func schedulerCancellationRequests(n int) []*sdk.DeliverTxEntry {
 	reqs := make([]*sdk.DeliverTxEntry, n)
 	for i := range reqs {
 		reqs[i] = &sdk.DeliverTxEntry{AbsoluteIndex: i, Request: abci.RequestDeliverTxV2{Tx: []byte(fmt.Sprintf("tx-%03d", i))}}
@@ -77,39 +77,39 @@ func repairM1124Requests(n int) []*sdk.DeliverTxEntry {
 	return reqs
 }
 
-type repairM1124Result struct {
+type schedulerBatchResult struct {
 	responses []abci.ResponseDeliverTx
 	err       error
 }
 
-func repairM1124Run(s Scheduler, ctx sdk.Context, reqs []*sdk.DeliverTxEntry) <-chan repairM1124Result {
-	done := make(chan repairM1124Result, 1)
+func runSchedulerBatch(s Scheduler, ctx sdk.Context, reqs []*sdk.DeliverTxEntry) <-chan schedulerBatchResult {
+	done := make(chan schedulerBatchResult, 1)
 	go func() {
 		responses, err := s.ProcessAll(ctx, reqs)
-		done <- repairM1124Result{responses: responses, err: err}
+		done <- schedulerBatchResult{responses: responses, err: err}
 	}()
 	return done
 }
 
-func repairM1124Await(t *testing.T, done <-chan repairM1124Result) repairM1124Result {
+func awaitSchedulerBatch(t *testing.T, done <-chan schedulerBatchResult) schedulerBatchResult {
 	t.Helper()
 	select {
 	case result := <-done:
 		return result
 	case <-time.After(5 * time.Second):
 		t.Fatal("ProcessAll stranded accepted work after cancellation")
-		return repairM1124Result{}
+		return schedulerBatchResult{}
 	}
 }
 
-func repairM1124Canceled(t *testing.T, result repairM1124Result, want error) {
+func assertSchedulerBatchCanceled(t *testing.T, result schedulerBatchResult, want error) {
 	t.Helper()
 	if !errors.Is(result.err, want) || result.responses != nil {
 		t.Fatalf("responses=%v error=%v; want no responses and %v", result.responses, result.err, want)
 	}
 }
 
-func repairM1124Drained(t *testing.T, s *scheduler) {
+func assertSchedulerQueuesDrained(t *testing.T, s *scheduler) {
 	t.Helper()
 	for name, ch := range map[string]chan func(){"execute": s.executeCh, "validate": s.validateCh} {
 		select {
@@ -123,7 +123,7 @@ func repairM1124Drained(t *testing.T, s *scheduler) {
 	}
 }
 
-func TestRepairM_1124_BeforeExecution(t *testing.T) {
+func TestSchedulerCancellationBeforeExecution(t *testing.T) {
 	for _, synchronous := range []bool{false, true} {
 		for _, deadline := range []bool{false, true} {
 			t.Run(fmt.Sprintf("sync=%t/deadline=%t", synchronous, deadline), func(t *testing.T) {
@@ -135,14 +135,14 @@ func TestRepairM_1124_BeforeExecution(t *testing.T) {
 					want = context.DeadlineExceeded
 				}
 				cancel()
-				ctx, _ := repairM1124Context(t, parent, false)
+				ctx, _ := newSchedulerCancellationContext(t, parent, false)
 				var calls atomic.Int32
 				s := NewScheduler(1, tracing.NewTracingInfo(nil, false), func(sdk.Context, abci.RequestDeliverTxV2, sdk.Tx, [32]byte) abci.ResponseDeliverTx {
 					calls.Add(1)
 					return abci.ResponseDeliverTx{}
 				}).(*scheduler)
 				s.synchronous = synchronous
-				repairM1124Canceled(t, repairM1124Await(t, repairM1124Run(s, ctx, repairM1124Requests(32))), want)
+				assertSchedulerBatchCanceled(t, awaitSchedulerBatch(t, runSchedulerBatch(s, ctx, schedulerCancellationRequests(32))), want)
 				if calls.Load() != 0 || s.multiVersionStores != nil {
 					t.Fatal("canceled batch initialized stores or executed a transaction")
 				}
@@ -151,7 +151,7 @@ func TestRepairM_1124_BeforeExecution(t *testing.T) {
 	}
 }
 
-func TestRepairM_1124_QueueAdmission(t *testing.T) {
+func TestSchedulerCancellationQueueAdmission(t *testing.T) {
 	for _, validation := range []bool{false, true} {
 		for _, synchronous := range []bool{false, true} {
 			t.Run(fmt.Sprintf("validate=%t/sync=%t", validation, synchronous), func(t *testing.T) {
@@ -193,12 +193,12 @@ func TestRepairM_1124_QueueAdmission(t *testing.T) {
 	}
 }
 
-func TestRepairM_1124_MidBatch(t *testing.T) {
+func TestSchedulerCancellationMidBatch(t *testing.T) {
 	for _, giga := range []bool{false, true} {
 		t.Run(fmt.Sprintf("giga=%t", giga), func(t *testing.T) {
 			parent, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			ctx, key := repairM1124Context(t, parent, giga)
+			ctx, key := newSchedulerCancellationContext(t, parent, giga)
 			started, release := make(chan struct{}), make(chan struct{})
 			var once sync.Once
 			defer once.Do(func() { close(release) })
@@ -208,11 +208,11 @@ func TestRepairM_1124_MidBatch(t *testing.T) {
 					close(started)
 					<-release
 				}
-				repairM1124Store(ctx, key, giga).Set(req.Tx, []byte("tentative"))
+				schedulerCancellationStore(ctx, key, giga).Set(req.Tx, []byte("tentative"))
 				return abci.ResponseDeliverTx{Data: req.Tx}
 			}).(*scheduler)
-			reqs := repairM1124Requests(64)
-			done := repairM1124Run(s, ctx, reqs)
+			reqs := schedulerCancellationRequests(64)
+			done := runSchedulerBatch(s, ctx, reqs)
 			select {
 			case <-started:
 			case <-time.After(5 * time.Second):
@@ -231,31 +231,31 @@ func TestRepairM_1124_MidBatch(t *testing.T) {
 			}
 			cancel()
 			once.Do(func() { close(release) })
-			repairM1124Canceled(t, repairM1124Await(t, done), context.Canceled)
+			assertSchedulerBatchCanceled(t, awaitSchedulerBatch(t, done), context.Canceled)
 			if calls.Load() != 1 {
 				t.Fatalf("executed %d transactions after cancellation; want only the running transaction", calls.Load())
 			}
 			for i, req := range reqs {
-				if repairM1124Store(ctx, key, giga).Get(req.Request.Tx) != nil {
+				if schedulerCancellationStore(ctx, key, giga).Get(req.Request.Tx) != nil {
 					t.Fatal("canceled batch published a write")
 				}
 				if i > 0 && !s.allTasks[i].IsStatus(statusPending) {
 					t.Fatalf("queued task %d executed after cancellation", i)
 				}
 			}
-			repairM1124Drained(t, s)
+			assertSchedulerQueuesDrained(t, s)
 		})
 	}
 }
 
-func TestRepairM_1124_DuringValidation(t *testing.T) {
+func TestSchedulerCancellationDuringValidation(t *testing.T) {
 	for _, phase := range []string{"SchedulerValidateAll", "SchedulerValidate"} {
 		t.Run(phase, func(t *testing.T) {
 			parent, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			ctx, key := repairM1124Context(t, parent, false)
+			ctx, key := newSchedulerCancellationContext(t, parent, false)
 			var reached atomic.Bool
-			info := repairM1124Tracing(t, func(span sdktrace.ReadWriteSpan) {
+			info := newCancellationTracing(t, func(span sdktrace.ReadWriteSpan) {
 				if span.Name() == phase {
 					reached.Store(true)
 					cancel()
@@ -267,8 +267,8 @@ func TestRepairM_1124_DuringValidation(t *testing.T) {
 				ctx.KVStore(key).Set(req.Tx, []byte("tentative"))
 				return abci.ResponseDeliverTx{Data: req.Tx}
 			}).(*scheduler)
-			reqs := repairM1124Requests(64)
-			repairM1124Canceled(t, repairM1124Await(t, repairM1124Run(s, ctx, reqs)), context.Canceled)
+			reqs := schedulerCancellationRequests(64)
+			assertSchedulerBatchCanceled(t, awaitSchedulerBatch(t, runSchedulerBatch(s, ctx, reqs)), context.Canceled)
 			if !reached.Load() || calls.Load() != int32(len(reqs)) {
 				t.Fatalf("validation reached=%t executions=%d", reached.Load(), calls.Load())
 			}
@@ -277,21 +277,21 @@ func TestRepairM_1124_DuringValidation(t *testing.T) {
 					t.Fatal("validation cancellation published a write")
 				}
 			}
-			repairM1124Drained(t, s)
+			assertSchedulerQueuesDrained(t, s)
 		})
 	}
 }
 
-func TestRepairM_1124_DuringRetryValidation(t *testing.T) {
+func TestSchedulerCancellationDuringRetryValidation(t *testing.T) {
 	parent, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	ctx, key := repairM1124Context(t, parent, false)
+	ctx, key := newSchedulerCancellationContext(t, parent, false)
 	conflictKey := []byte("shared")
 	ctx.KVStore(key).Set(conflictKey, []byte("old"))
 	read := make(chan struct{})
 	var reads atomic.Int32
 	var canceledInRetry atomic.Bool
-	info := repairM1124Tracing(t, func(span sdktrace.ReadWriteSpan) {
+	info := newCancellationTracing(t, func(span sdktrace.ReadWriteSpan) {
 		if span.Name() == "SchedulerValidate" && reads.Load() == 2 {
 			canceledInRetry.Store(true)
 			cancel()
@@ -313,40 +313,40 @@ func TestRepairM_1124_DuringRetryValidation(t *testing.T) {
 		}
 		return abci.ResponseDeliverTx{Data: value}
 	}).(*scheduler)
-	repairM1124Canceled(t, repairM1124Await(t, repairM1124Run(s, ctx, repairM1124Requests(2))), context.Canceled)
+	assertSchedulerBatchCanceled(t, awaitSchedulerBatch(t, runSchedulerBatch(s, ctx, schedulerCancellationRequests(2))), context.Canceled)
 	if !canceledInRetry.Load() || reads.Load() != 2 || s.maxIncarnation < 1 || s.metrics.retries < 1 {
 		t.Fatalf("retry cancellation=%t reads=%d incarnation=%d retries=%d", canceledInRetry.Load(), reads.Load(), s.maxIncarnation, s.metrics.retries)
 	}
 	if got := string(ctx.KVStore(key).Get(conflictKey)); got != "old" {
 		t.Fatalf("canceled retry published %q", got)
 	}
-	repairM1124Drained(t, s)
+	assertSchedulerQueuesDrained(t, s)
 }
 
-func TestRepairM_1124_CompletedBatch(t *testing.T) {
+func TestSchedulerCompletedBatchPublishesWrites(t *testing.T) {
 	for _, giga := range []bool{false, true} {
 		for _, workers := range []int{0, 1, 4} {
 			for _, synchronous := range []bool{false, true} {
 				t.Run(fmt.Sprintf("giga=%t/workers=%d/sync=%t", giga, workers, synchronous), func(t *testing.T) {
-					ctx, key := repairM1124Context(t, context.Background(), giga)
+					ctx, key := newSchedulerCancellationContext(t, context.Background(), giga)
 					var calls atomic.Int32
 					s := NewScheduler(workers, tracing.NewTracingInfo(nil, false), func(ctx sdk.Context, req abci.RequestDeliverTxV2, _ sdk.Tx, _ [32]byte) abci.ResponseDeliverTx {
 						calls.Add(1)
-						repairM1124Store(ctx, key, giga).Set(req.Tx, req.Tx)
+						schedulerCancellationStore(ctx, key, giga).Set(req.Tx, req.Tx)
 						return abci.ResponseDeliverTx{Data: req.Tx}
 					}).(*scheduler)
 					s.synchronous = synchronous
-					reqs := repairM1124Requests(16)
-					result := repairM1124Await(t, repairM1124Run(s, ctx, reqs))
+					reqs := schedulerCancellationRequests(16)
+					result := awaitSchedulerBatch(t, runSchedulerBatch(s, ctx, reqs))
 					if result.err != nil || len(result.responses) != len(reqs) || calls.Load() != int32(len(reqs)) {
 						t.Fatalf("responses=%d executions=%d error=%v", len(result.responses), calls.Load(), result.err)
 					}
 					for i, req := range reqs {
-						if string(result.responses[i].Data) != string(req.Request.Tx) || string(repairM1124Store(ctx, key, giga).Get(req.Request.Tx)) != string(req.Request.Tx) || !s.allTasks[i].IsStatus(statusValidated) {
+						if string(result.responses[i].Data) != string(req.Request.Tx) || string(schedulerCancellationStore(ctx, key, giga).Get(req.Request.Tx)) != string(req.Request.Tx) || !s.allTasks[i].IsStatus(statusValidated) {
 							t.Fatalf("task %d did not validate, preserve response order, and publish its write", i)
 						}
 					}
-					repairM1124Drained(t, s)
+					assertSchedulerQueuesDrained(t, s)
 				})
 			}
 		}
