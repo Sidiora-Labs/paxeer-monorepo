@@ -17,7 +17,7 @@ import material
 import merged_owner
 import provision
 from merged_owner import LEDGER, PAYMENT, evm
-from test_repair_22_31_348 import environment
+from test_owner_custody import environment
 
 
 def guide_sections():
@@ -137,7 +137,7 @@ def test_hosted_human_first_batch_migration_barriers(environment):
                  'LAYERX_HUMAN_MOVEMENT_PROVIDER_', 'human-movement',
                  '/run/layerx/human/movement.sock', 'HUMAN_NODE_LNI'):
         assert name in barriers
-    record = (HERE / 'repair_22_33_40.kvx').read_text()
+    record = (ROOT / 'spec/layerx-merge/programme/records/services/platform/hosted/human/repair_22_33_40.kvx').read_text()
     assert '[finding.hosted-human-first-batch]' in record
     for name in ('services/human/crates/layerx-human-identity-provider',
                  'services/agent', 'services/platform/hosted/node/deployment.yaml'):

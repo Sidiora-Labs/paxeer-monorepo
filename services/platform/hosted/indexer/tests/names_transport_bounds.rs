@@ -23,11 +23,11 @@ const OWNER: [u8; 20] = [0xab; 20];
 const OTHER: [u8; 20] = [0xcd; 20];
 const FUTURE: u64 = 4_102_444_800;
 const CERTIFICATE: &[u8] =
-    include_bytes!("../../internal/tests/fixtures/repair_22_33_1452_tls/configured-server.der");
+    include_bytes!("../../internal/tests/fixtures/tls_credentials/configured-server.der");
 const PRIVATE_KEY: &[u8] =
-    include_bytes!("../../internal/tests/fixtures/repair_22_33_1452_tls/configured-server-key.der");
+    include_bytes!("../../internal/tests/fixtures/tls_credentials/configured-server-key.der");
 const TRUST_ANCHOR: &[u8] =
-    include_bytes!("../../internal/tests/fixtures/repair_22_33_1452_tls/configured-ca.der");
+    include_bytes!("../../internal/tests/fixtures/tls_credentials/configured-ca.der");
 
 fn word(number: u64) -> [u8; 32] {
     let mut value = [0; 32];

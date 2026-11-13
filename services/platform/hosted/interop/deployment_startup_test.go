@@ -52,20 +52,20 @@ import (
 	gethrpc "github.com/ethereum/go-ethereum/rpc"
 )
 
-type repair137Env struct {
+type deploymentEnv struct {
 	Name  string `yaml:"name"`
 	Value string `yaml:"value"`
 }
-type repair137Container struct {
-	Name   string         `yaml:"name"`
-	Env    []repair137Env `yaml:"env"`
+type deploymentContainer struct {
+	Name   string          `yaml:"name"`
+	Env    []deploymentEnv `yaml:"env"`
 	Mounts []struct {
 		Name     string `yaml:"name"`
 		Path     string `yaml:"mountPath"`
 		ReadOnly bool   `yaml:"readOnly"`
 	} `yaml:"volumeMounts"`
 }
-type repair137Deployment struct {
+type deploymentDocument struct {
 	Kind     string `yaml:"kind"`
 	Metadata struct {
 		Name string `yaml:"name"`
@@ -73,7 +73,7 @@ type repair137Deployment struct {
 	Spec struct {
 		Template struct {
 			Spec struct {
-				Containers []repair137Container `yaml:"containers"`
+				Containers []deploymentContainer `yaml:"containers"`
 				Volumes    []struct {
 					Name   string `yaml:"name"`
 					Secret struct {
@@ -91,29 +91,29 @@ type repair137Deployment struct {
 		PodSelector struct {
 			Labels map[string]string `yaml:"matchLabels"`
 		} `yaml:"podSelector"`
-		Egress  []repair137Rule `yaml:"egress"`
-		Ingress []repair137Rule `yaml:"ingress"`
+		Egress  []deploymentRule `yaml:"egress"`
+		Ingress []deploymentRule `yaml:"ingress"`
 	} `yaml:"spec"`
 }
-type repair137Rule struct {
-	To    []repair137Peer `yaml:"to"`
-	From  []repair137Peer `yaml:"from"`
+type deploymentRule struct {
+	To    []deploymentPeer `yaml:"to"`
+	From  []deploymentPeer `yaml:"from"`
 	Ports []struct {
 		Protocol string `yaml:"protocol"`
 		Port     int    `yaml:"port"`
 	} `yaml:"ports"`
 }
-type repair137Peer struct {
+type deploymentPeer struct {
 	PodSelector struct {
 		Labels map[string]string `yaml:"matchLabels"`
 	} `yaml:"podSelector"`
 }
 
-func TestRepair_137_KubernetesStartupRestart(t *testing.T) {
+func TestKubernetesStartupRestart(t *testing.T) {
 	decoder := yaml.NewDecoder(bytes.NewReader(KubernetesDeployment))
-	var documents []repair137Deployment
+	var documents []deploymentDocument
 	for {
-		var document repair137Deployment
+		var document deploymentDocument
 		err := decoder.Decode(&document)
 		if err == io.EOF {
 			break
@@ -121,8 +121,8 @@ func TestRepair_137_KubernetesStartupRestart(t *testing.T) {
 		require.NoError(t, err)
 		documents = append(documents, document)
 	}
-	var deployment *repair137Deployment
-	policies := map[string]repair137Deployment{}
+	var deployment *deploymentDocument
+	policies := map[string]deploymentDocument{}
 	for i := range documents {
 		d := &documents[i]
 		if d.Kind == "Deployment" {
@@ -141,7 +141,7 @@ func TestRepair_137_KubernetesStartupRestart(t *testing.T) {
 		require.False(t, duplicate)
 		env[entry.Name] = entry.Value
 	}
-	repair137Contract(t, env, "https://layerx-node.layerx-testnet.svc.cluster.local:8545")
+	deploymentContract(t, env, "https://layerx-node.layerx-testnet.svc.cluster.local:8545")
 	require.Equal(t, "eip155-125", env["LAYERX_INTEROP_NETWORK_ID"])
 	pinPath := env["LAYERX_INTEROP_RECEIPT_KEYS_FILE"]
 	mounted := false
@@ -164,14 +164,14 @@ func TestRepair_137_KubernetesStartupRestart(t *testing.T) {
 		}
 	}
 	require.True(t, mounted, "receipt keys must be projected from a required, read-only Secret")
-	require.True(t, repair137Allows(policies["layerx-interop-gateway"].Spec.Egress, "layerx-node", true, 8545))
+	require.True(t, deploymentAllows(policies["layerx-interop-gateway"].Spec.Egress, "layerx-node", true, 8545))
 	nodeIngress := policies["layerx-node-interop-ingress"]
 	require.Equal(t, "layerx-node", nodeIngress.Spec.PodSelector.Labels["app"])
-	require.True(t, repair137Allows(nodeIngress.Spec.Ingress, "layerx-interop-gateway", false, 8545))
-	repair137StartupRestart(t, env)
+	require.True(t, deploymentAllows(nodeIngress.Spec.Ingress, "layerx-interop-gateway", false, 8545))
+	deploymentStartupRestart(t, env)
 }
 
-func TestRepair_137_FlyStartupRestart(t *testing.T) {
+func TestFlyStartupRestart(t *testing.T) {
 	var contract struct {
 		Env   map[string]string `toml:"env"`
 		Files []struct {
@@ -181,7 +181,7 @@ func TestRepair_137_FlyStartupRestart(t *testing.T) {
 	}
 	_, err := toml.Decode(string(FlyDeployment), &contract)
 	require.NoError(t, err)
-	repair137Contract(t, contract.Env, "https://paxeer-x-core.internal:8545")
+	deploymentContract(t, contract.Env, "https://paxeer-x-core.internal:8545")
 	mounted := 0
 	for _, file := range contract.Files {
 		if file.Path == contract.Env["LAYERX_INTEROP_RECEIPT_KEYS_FILE"] {
@@ -193,10 +193,10 @@ func TestRepair_137_FlyStartupRestart(t *testing.T) {
 	// These existing app secrets are intentionally not public Fly env entries.
 	contract.Env["LAYERX_INTEROP_NETWORK_ID"] = "eip155-125"
 	contract.Env["LAYERX_INTEROP_PROTOCOL_NETWORK_ID"] = "402"
-	repair137StartupRestart(t, contract.Env)
+	deploymentStartupRestart(t, contract.Env)
 }
 
-func repair137Contract(t *testing.T, env map[string]string, endpoint string) {
+func deploymentContract(t *testing.T, env map[string]string, endpoint string) {
 	t.Helper()
 	require.Equal(t, endpoint, env["LAYERX_INTEROP_SEQUENCER_URL"])
 	require.Equal(t, "/run/layerx/receipt-keys/receipt-keys.json", env["LAYERX_INTEROP_RECEIPT_KEYS_FILE"])
@@ -208,7 +208,7 @@ func repair137Contract(t *testing.T, env map[string]string, endpoint string) {
 	require.EqualValues(t, 15000, age)
 }
 
-func repair137Allows(rules []repair137Rule, app string, egress bool, port int) bool {
+func deploymentAllows(rules []deploymentRule, app string, egress bool, port int) bool {
 	for _, rule := range rules {
 		peers := rule.From
 		if egress {
@@ -227,21 +227,21 @@ func repair137Allows(rules []repair137Rule, app string, egress bool, port int) b
 	return false
 }
 
-var repair137Build struct {
+var deploymentBuild struct {
 	sync.Once
 	binary string
 	err    error
 	output []byte
 }
 
-func repair137Binary(t *testing.T, root string) string {
+func deploymentBinary(t *testing.T, root string) string {
 	t.Helper()
-	repair137Build.Do(func() {
+	deploymentBuild.Do(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 7*time.Minute)
 		defer cancel()
 		command := exec.CommandContext(ctx, "cargo", "build", "--locked", "--manifest-path", filepath.Join(root, "services/interop/Cargo.toml"), "-p", "layerx-interop-service", "--bin", "layerx-interop-gateway")
 		command.Dir = root
-		repair137Build.output, repair137Build.err = command.CombinedOutput()
+		deploymentBuild.output, deploymentBuild.err = command.CombinedOutput()
 		target := os.Getenv("CARGO_TARGET_DIR")
 		if target == "" {
 			target = filepath.Join(root, "services/interop/target")
@@ -249,13 +249,13 @@ func repair137Binary(t *testing.T, root string) string {
 		if !filepath.IsAbs(target) {
 			target = filepath.Join(root, target)
 		}
-		repair137Build.binary = filepath.Join(target, "debug/layerx-interop-gateway")
+		deploymentBuild.binary = filepath.Join(target, "debug/layerx-interop-gateway")
 	})
-	require.NoError(t, repair137Build.err, "real interop binary build: %s", repair137Build.output)
-	return repair137Build.binary
+	require.NoError(t, deploymentBuild.err, "real interop binary build: %s", deploymentBuild.output)
+	return deploymentBuild.binary
 }
 
-func repair137FreeAddress(t *testing.T) string {
+func deploymentFreeAddress(t *testing.T) string {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
@@ -264,11 +264,11 @@ func repair137FreeAddress(t *testing.T) string {
 	return address
 }
 
-func repair137StartupRestart(t *testing.T, deploymentEnv map[string]string) {
+func deploymentStartupRestart(t *testing.T, deploymentEnv map[string]string) {
 	t.Helper()
 	root, err := filepath.Abs("../../../..")
 	require.NoError(t, err)
-	binary := repair137Binary(t, root)
+	binary := deploymentBinary(t, root)
 	dir := t.TempDir()
 	// Independent operator trust input; the RPC response is never used to mint pins.
 	public, _, err := ed25519.GenerateKey(rand.Reader)
@@ -288,7 +288,7 @@ func repair137StartupRestart(t *testing.T, deploymentEnv map[string]string) {
 	require.NoError(t, err)
 	cfg.Mode = tmconfig.ModeFull
 	cfg.RPC.ListenAddress = ""
-	cfg.P2P.ListenAddress = "tcp://" + repair137FreeAddress(t)
+	cfg.P2P.ListenAddress = "tcp://" + deploymentFreeAddress(t)
 	consensusApp := kvstore.NewApplication()
 	genesis, err := tmtypes.GenesisDocFromFile(cfg.GenesisFile())
 	require.NoError(t, err)
@@ -299,7 +299,7 @@ func repair137StartupRestart(t *testing.T, deploymentEnv map[string]string) {
 	t.Cleanup(func() { tmService.Stop(); tmService.Wait() })
 	localClient, err := local.New(tmService)
 	require.NoError(t, err)
-	rpcAddress := repair137FreeAddress(t)
+	rpcAddress := deploymentFreeAddress(t)
 	_, rpcPort, err := net.SplitHostPort(rpcAddress)
 	require.NoError(t, err)
 	rpcConfig := rpcconfig.DefaultConfig
@@ -378,9 +378,9 @@ func repair137StartupRestart(t *testing.T, deploymentEnv map[string]string) {
 		env[key] = value
 	}
 	env["LAYERX_INTEROP_SEQUENCER_URL"] = nodeURL
-	env["LAYERX_INTEROP_LISTEN"] = repair137FreeAddress(t)
+	env["LAYERX_INTEROP_LISTEN"] = deploymentFreeAddress(t)
 	env["LAYERX_INTEROP_REDIS_URL"] = "rediss://127.0.0.1:1"
-	repair137Material(t, root, dir, env, pinFile, public, nodeRoot)
+	deploymentMaterial(t, root, dir, env, pinFile, public, nodeRoot)
 
 	start := func() (*exec.Cmd, *bytes.Buffer, <-chan error) {
 		command := exec.Command(binary)
@@ -408,7 +408,7 @@ func repair137StartupRestart(t *testing.T, deploymentEnv map[string]string) {
 				<-done
 			}
 		})
-		transport := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: repair137Roots(t, dir), MinVersion: tls.VersionTLS12}}
+		transport := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: deploymentRoots(t, dir), MinVersion: tls.VersionTLS12}}
 		httpClient := &http.Client{Transport: transport, Timeout: time.Second}
 		scheme := "https"
 		if env["LAYERX_INTEROP_LISTENER"] == "plain" {
@@ -485,7 +485,7 @@ func repair137StartupRestart(t *testing.T, deploymentEnv map[string]string) {
 	require.Greater(t, keyReads.Load(), before)
 }
 
-func repair137Roots(t *testing.T, dir string) *x509.CertPool {
+func deploymentRoots(t *testing.T, dir string) *x509.CertPool {
 	t.Helper()
 	der, err := os.ReadFile(filepath.Join(dir, "server.crt.der"))
 	require.NoError(t, err)
@@ -496,7 +496,7 @@ func repair137Roots(t *testing.T, dir string) *x509.CertPool {
 	return roots
 }
 
-func repair137Material(t *testing.T, root, dir string, env map[string]string, pinFile string, public ed25519.PublicKey, rpcCA *x509.Certificate) {
+func deploymentMaterial(t *testing.T, root, dir string, env map[string]string, pinFile string, public ed25519.PublicKey, rpcCA *x509.Certificate) {
 	t.Helper()
 	write := func(name string, content []byte) string {
 		path := filepath.Join(dir, name)

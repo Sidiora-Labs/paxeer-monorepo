@@ -12,12 +12,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestRepairM_1350_KubernetesRetiredAuthority(t *testing.T) {
+func TestKubernetesRetiredAuthority(t *testing.T) {
 	// Decode the production embedded manifest, including every YAML document.
 	decoder := yaml.NewDecoder(bytes.NewReader(KubernetesDeployment))
-	var deployments []repair137Deployment
+	var deployments []deploymentDocument
 	for {
-		var document repair137Deployment
+		var document deploymentDocument
 		err := decoder.Decode(&document)
 		if err == io.EOF {
 			break
@@ -36,7 +36,7 @@ func TestRepairM_1350_KubernetesRetiredAuthority(t *testing.T) {
 		require.NotContains(t, env, entry.Name, "duplicate environment input")
 		env[entry.Name] = entry.Value
 	}
-	repairM1350CurrentInputs(t, env, "https://layerx-node.layerx-testnet.svc.cluster.local:8545")
+	assertCurrentDeploymentInputs(t, env, "https://layerx-node.layerx-testnet.svc.cluster.local:8545")
 
 	secrets := map[string]string{}
 	for _, volume := range pod.Volumes {
@@ -87,7 +87,7 @@ func TestRepairM_1350_KubernetesRetiredAuthority(t *testing.T) {
 	require.NotContains(t, string(KubernetesDeployment), "layerx-receipt-authority")
 }
 
-func TestRepairM_1350_FlyRetiredAuthority(t *testing.T) {
+func TestFlyRetiredAuthority(t *testing.T) {
 	var deployment struct {
 		Env   map[string]string `toml:"env"`
 		Files []struct {
@@ -97,7 +97,7 @@ func TestRepairM_1350_FlyRetiredAuthority(t *testing.T) {
 	}
 	_, err := toml.Decode(string(FlyDeployment), &deployment)
 	require.NoError(t, err)
-	repairM1350CurrentInputs(t, deployment.Env, "https://paxeer-x-core.internal:8545")
+	assertCurrentDeploymentInputs(t, deployment.Env, "https://paxeer-x-core.internal:8545")
 	files := map[string]string{}
 	for _, file := range deployment.Files {
 		require.NotEmpty(t, file.Secret)
@@ -137,7 +137,7 @@ func TestRepairM_1350_FlyRetiredAuthority(t *testing.T) {
 	require.Contains(t, string(FlyDeployment), "Never derive these pins from the queried endpoint")
 }
 
-func repairM1350CurrentInputs(t *testing.T, env map[string]string, endpoint string) {
+func assertCurrentDeploymentInputs(t *testing.T, env map[string]string, endpoint string) {
 	t.Helper()
 	for name := range env {
 		require.False(t, strings.HasPrefix(name, "LAYERX_INTEROP_RECEIPT_AUTHORITY_"), name)
