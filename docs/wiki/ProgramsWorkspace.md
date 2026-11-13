@@ -159,7 +159,8 @@ FFI/lifecycle references to qualification-only APIs.
 The checked ABI inventory is `balance`, `capability`, `codec`, `context`,
 `event_tests`, `host_state`, `manifest`, `mod`, `response` and `storage_ops`.
 The host inventory is `balance`, `calls`, `context`, `crypto`, `events`,
-`memory`, `mod`, `oracle`, `scan`, `signature`, `storage`, `transfer` and `web`.
+`market`, `memory`, `mod`, `oracle`, `scan`, `scan_tests`, `signature`, `storage`,
+`transfer` and `web`.
 Host families must reach execution state through `RuntimeState`; the script
 rejects sibling-family imports, forbidden parent aliases and direct access
 to the ABI, composition, storage or meter state.

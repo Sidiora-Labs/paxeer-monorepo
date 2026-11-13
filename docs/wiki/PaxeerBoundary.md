@@ -114,9 +114,9 @@ The following errors belong to the harness adapter, not to the public node's ent
 | `400` | `batch_not_supported` | EVM request body is not an object |
 | `413` | `body_too_large` | Request exceeds the route's size limit |
 | `404` | `not_found` | Unknown route, or unconfigured Comet route |
-| `502` | `node_response_invalid` | Invalid upstream EVM reply; retry after 5 seconds |
+| `502` | `node_response_invalid` | Invalid upstream EVM reply or forwarding chain-ID reply; retry after 5 seconds |
 | `503` | `node_unavailable` | Upstream node I/O failure; retry after 5 seconds |
-| `503` | `chain_id_mismatch` | Readiness chain-ID mismatch; retry after 10 seconds |
+| `503` | `chain_id_mismatch` | Chain-ID mismatch during readiness or EVM forwarding; retry after 10 seconds |
 | `503` | `node_response_invalid` | Invalid upstream chain-ID reply during readiness; retry after 5 seconds |
 
 EVM envelope errors use JSON-RPC `-32600` (`invalid request`); denied or unknown EVM methods use `-32601` (`method is not relayed by the boundary`), both with HTTP `200`. Genesis and Comet forwarding have their own response checks in `src/genesis.rs` and `src/comet.rs` of the same crate. Configuration or listen failure exits the adapter with code `2`.
@@ -144,17 +144,17 @@ The harness overrides some native defaults as described above. Its TLS adapter u
 | Variable | Role |
 | --- | --- |
 | `LAYERX_PAXEER_BOUNDARY_LISTEN` | TLS bind; default `0.0.0.0:9443` |
-| `LAYERX_PAXEER_CHAIN_ID` | Required positive `u64`; harness value `125`, checked by readiness |
+| `LAYERX_PAXEER_CHAIN_ID` | Required positive `u64`; harness value `125`, checked by readiness and EVM forwarding |
 | `LAYERX_PAXEER_NODE_URL` | Required literal loopback HTTP endpoint; harness value `http://127.0.0.1:8545` |
 | `LAYERX_PAXEER_COMET_URL` | Optional literal loopback HTTP origin at `/`; harness value `http://127.0.0.1:26657` |
 | `LAYERX_PAXEER_BOUNDARY_TLS_CERT_DER` | Server certificate file |
 | `LAYERX_PAXEER_BOUNDARY_TLS_KEY_DER` | PKCS#8 private-key file |
 
-The adapter accepts any positive configured chain ID; the harness manifest separately sets `125`. An EVM forwarding request does not repeat the readiness chain-ID comparison, so clients still need their own expected-chain check.
+The adapter accepts any positive configured chain ID; the harness manifest separately sets `125`. Before forwarding each admitted EVM request, the adapter checks the upstream chain ID on the same connection against its configured value. Clients should also check their expected chain before signing.
 
 ## Egress and admitted edges
 
-The harness NetworkPolicy selects `app: paxeer`. It admits TCP `9443` from same-namespace `layerx-testnet-control`, `layerx-node`, and `layerx-gateway` pods, plus pods labelled `layerx-plane: human` in any namespace. Egress permits kube-dns UDP/TCP `53`; the adapter's node and Comet upstreams are loopback (`services/platform/hosted/paxeer/deployment.yaml`). This policy describes that local harness and is not a list of public network participants.
+The harness NetworkPolicy selects `app: paxeer`. It admits TCP `9443` and `9444` from same-namespace `layerx-testnet-control` and `layerx-node` pods, `layerx-gateway` pods in namespace `layerx-mainnet-beta`, and pods labelled `layerx-plane: human` in any namespace. Egress permits kube-dns UDP/TCP `53`; the adapter's node and Comet upstreams are loopback (`services/platform/hosted/paxeer/deployment.yaml`). This policy describes that local harness and is not a list of public network participants.
 
 ## Tests
 

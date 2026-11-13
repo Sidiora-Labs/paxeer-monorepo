@@ -2,9 +2,10 @@
 
 The Solana, EVM, and CosmWasm porting kits translate selected account, storage,
 message, and value-flow patterns to the network's deterministic Programs ABI.
-They target `layerx_v2`, ABI version 2. They are not general compilers for
-arbitrary source-chain programs or a way to deploy source-chain bytecode
-unchanged.
+Their guest helpers and `reference-v2` programs target `layerx_v2`, ABI version
+2. The separate reference qualification builders use the runtime's default
+`ABI_VERSION`, currently 4. The kits translate selected patterns rather than
+compile arbitrary source-chain programs or deploy source-chain bytecode unchanged.
 
 Programs run in the merged Paxeer network: the kernel is part of `paxd`, and
 BFT block commitment supplies transaction finality. A port does not create
@@ -291,7 +292,7 @@ kernel transfer and receipt-oracle boundaries.
 2. `build_plan` pins the build inputs and epoch. `REBUILD_ATTEMPTS` is 2 and
    `SOURCE_EPOCH` is 1 in each kit.
 3. `validated_module` validates emitted WASM through `WasmEngine::declared`.
-4. `deploy_and_verify` deploys with `ABI_VERSION` and `UpgradePolicy::Immutable`,
+4. `deploy_and_verify` deploys with runtime `ABI_VERSION` (4) and `UpgradePolicy::Immutable`,
    journals a `DeploymentRecord`, replays it into the registry, and reproduces
    the artifact. A source status other than `Verified` yields `UnverifiedSource`.
 5. Execution entry points return an `AuthorizedExecutionRecord` with explicit
