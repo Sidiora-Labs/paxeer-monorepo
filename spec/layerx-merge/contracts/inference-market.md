@@ -41,7 +41,7 @@ The pooled inference market uses native program state and payment streams. The c
 
 ## manifest-v2
 
-**Participant manifest v2.** The v1 manifest followed by runtime digest, model digest, device class, memory bytes, bandwidth class and price quote, signed under a v2 metadata domain so v1 manifests stay valid.
+**Participant manifest v2.** The version-2 manifest extends the version-1 fields with `CapabilityFields`: accelerator and system memory in MiB, bandwidth class, region code, attestation family and runtime kind. The capability extension occupies 13 bytes. Metadata digests use the domain for the declared version; the decoder accepts versions 1 and 2.
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
@@ -65,7 +65,7 @@ The pooled inference market uses native program state and payment streams. The c
 
 ## canary
 
-**Canary challenges.** Commit-reveal challenges on lap receipts with fixed-point logit tolerance; a failed reveal slashes the peer bond after the challenge window.
+**Canary challenges.** Commit-reveal challenges on lap receipts compare fixed-point logits under the room’s relative tolerance. A resolved miss records a peer fault that can be used as bond-slashing evidence.
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
@@ -81,7 +81,7 @@ The pooled inference market uses native program state and payment streams. The c
 
 ## bonds
 
-**Peer bonds.** A peer locks a bond at enrolment; a failed canary slashes it; closing a room with no open challenge refunds it.
+**Peer bonds.** A peer locks a bond for its room bid. Slashing requires recorded peer-fault evidence. RefundBond returns the remaining bond after the room is closed, its challenge window has elapsed, involved deals are settled and relevant challenges are resolved.
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
@@ -127,7 +127,7 @@ Availability checks independently verify the node header at the gateway publicat
 
 The committed-header RPC validates the chain identifier from the initialized node context on each request.
 
-The signalling client uses node RPC independently of the gateway snapshot client. Its header, room and peer reads use the verified availability height; `px_getInferenceRoomAt` and `px_getInferencePeerAt` accept a positive committed height and apply the same program and peer-binding decoders as current-height reads. Native peers retry `chain_unavailable` admission responses at most seven times, 250 ms apart, within a twenty-second admission deadline.
+The signalling client uses node RPC independently of the gateway snapshot client. Its header, room and peer reads use the verified availability height; `px_getInferenceRoomAt` and `px_getInferencePeerAt` accept a positive committed height and apply the same program and peer-binding decoders as current-height reads. The isolated-chain room driver’s native peers retry `chain_unavailable` admission responses at most seven times, 250 ms apart, within a twenty-second admission deadline.
 
 Human-session node readiness uses the consensus chain identifier of the configured trust root and separately requires EVM chain 125.
 
@@ -200,9 +200,9 @@ CPU layer planning uses the manifest's system memory; accelerator layer planning
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.22.cli-inference-peer-join</code> | <code>cli_command</code> | [apps/inference-peer/bin/inference-peer.mjs](../../../apps/inference-peer/bin/inference-peer.mjs) | <code>'join &lt;host&gt; &lt;room&gt;' -- join a room, optionally with an attestation envelope file</code> |
-| <code>interface.22.cli-inference-peer-serve</code> | <code>cli_command</code> | [apps/inference-peer/bin/inference-peer.mjs](../../../apps/inference-peer/bin/inference-peer.mjs) | <code>'serve' -- local OpenAI-compatible route forwarding to the host completion route</code> |
-| <code>interface.22.cli-inference-peer-status</code> | <code>cli_command</code> | [apps/inference-peer/bin/inference-peer.mjs](../../../apps/inference-peer/bin/inference-peer.mjs) | <code>'status' -- print the joined room, layer range and lap counters</code> |
+| <code>interface.22.cli-inference-peer-join</code> | <code>cli_command</code> | [apps/inference-peer/bin/inference-peer.mjs](../../../apps/inference-peer/bin/inference-peer.mjs) | <code>join &lt;host&gt; &lt;room&gt; --manifest &lt;v2-file&gt; [--enrolment &lt;signed-json-file&gt;] [--attestation &lt;PXVE-file&gt;]</code> |
+| <code>interface.22.cli-inference-peer-serve</code> | <code>cli_command</code> | [apps/inference-peer/bin/inference-peer.mjs](../../../apps/inference-peer/bin/inference-peer.mjs) | <code>serve --host &lt;host&gt; --ask-bearer &lt;bearer&gt; (the bearer may instead come from PAXAI_ASK_BEARER)</code> |
+| <code>interface.22.cli-inference-peer-status</code> | <code>cli_command</code> | [apps/inference-peer/bin/inference-peer.mjs](../../../apps/inference-peer/bin/inference-peer.mjs) | <code>status [--port &lt;port&gt;] -- print the room, peer key, connection state, backend, layer range and activation count</code> |
 
 ## sdks
 
@@ -211,15 +211,15 @@ CPU layer planning uses the manifest's system memory; accelerator layer planning
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
 | <code>interface.22.ts-sdk-inference-market</code> | <code>ts_export</code> | [services/agent/sdk/typescript/src/inference_market.ts](../../../services/agent/sdk/typescript/src/inference_market.ts) | <code>export openRoom, postAsk, fundAsk, recordDeal, settleLaps, getInferenceRooms</code> |
-| <code>interface.22.rs-sdk-inference-market</code> | <code>rust_pub_item</code> | [services/agent/crates/layerx-sdk/src/inference_market.rs](../../../services/agent/crates/layerx-sdk/src/inference_market.rs) | <code>pub struct InferenceMarket with open_room, post_ask, get_inference_rooms</code> |
+| <code>interface.22.rs-sdk-inference-market</code> | <code>rust_pub_item</code> | [services/agent/crates/layerx-sdk/src/inference_market.rs](../../../services/agent/crates/layerx-sdk/src/inference_market.rs) | <code>pub struct InferenceMarket; associated read constructor: pub fn get_inference_rooms() -&gt; InferenceRead</code> |
 
 ## explorer
 
-**Explorer surface.** A server route in the shape of the assistant route calls the px_ reads on the configured node root; the page lists rooms, deals and receipt batches.
+**Explorer surface.** The POST-only inference handler calls the px_ reads on the node root configured by `EXPLORER_INFERENCE_NODE_URL`; the page lists rooms, deals and receipt batches. The route below is relative to the frontend’s `/explorer` base path and is also available through `/explorer/node-api/inference`.
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.22.http-explorer-api-inference</code> | <code>http_route</code> | [apps/explorer/pages/api/inference.ts](../../../apps/explorer/pages/api/inference.ts) | <code>ANY /api/inference</code> |
+| <code>interface.22.http-explorer-api-inference</code> | <code>http_route</code> | [apps/explorer/pages/api/inference.ts](../../../apps/explorer/pages/api/inference.ts) | <code>POST /api/inference</code> |
 | <code>interface.22.ts-explorer-paxeerxinference</code> | <code>ts_export</code> | [apps/explorer/ui/pages/PaxeerXInference.tsx](../../../apps/explorer/ui/pages/PaxeerXInference.tsx) | <code>export default function PaxeerXInference()</code> |
 
 ## wallet
@@ -228,7 +228,7 @@ CPU layer planning uses the manifest's system memory; accelerator layer planning
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.22.ts-wallet-inferenceview</code> | <code>ts_export</code> | [apps/wallet/src/surfaces/InferenceView.tsx](../../../apps/wallet/src/surfaces/InferenceView.tsx) | <code>export function InferenceView()</code> |
+| <code>interface.22.ts-wallet-inferenceview</code> | <code>ts_export</code> | [apps/wallet/src/surfaces/InferenceView.tsx](../../../apps/wallet/src/surfaces/InferenceView.tsx) | <code>export function InferenceView({ sidRate = null, rewardSource }: { readonly sidRate?: string &#124; null; readonly rewardSource?: InferenceRewardSource &#124; null; })</code> |
 
 ## qualification
 

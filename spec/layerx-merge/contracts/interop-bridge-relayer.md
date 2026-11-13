@@ -342,7 +342,7 @@ The [bridge relayer](../../../services/interop/crates/layerx-bridge-relayer/src/
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.cfg-relayer-receipt-keys</code> | <code>config_key</code> | [services/interop/crates/layerx-bridge-relayer/src/config.rs](../../../services/interop/crates/layerx-bridge-relayer/src/config.rs) | <code>relayer config receipt_keys: [{sequencer_id, public_key, first_height, last_height}] (public keys only)</code> |
+| <code>interface.11.cfg-relayer-receipt-keys</code> | <code>config_key</code> | [services/interop/crates/layerx-bridge-relayer/src/config.rs](../../../services/interop/crates/layerx-bridge-relayer/src/config.rs) | <code>relayer paxeer receipt_keys: Vec&lt;ReceiptKeyConfig&gt; with sequencer_id, public_key, first_height and last_height (required; public keys only)</code> |
 
 | Field | Rule |
 |---|---|
@@ -351,7 +351,7 @@ The [bridge relayer](../../../services/interop/crates/layerx-bridge-relayer/src/
 | errors | RelayerError variants for transport, chain id mismatch, malformed receipt and unverified receipt. |
 | events | Reads bridge precompile deposit and out events by topic. |
 | gas | Release transactions carry the configured gas limit; no gas is spent on reads. |
-| activation | Starts when the operator config names receipt_keys. |
+| activation | Starts from the configured journal, signer and chains; Paxeer receipt keys are supplied in paxeer.receipt_keys. |
 | invariants | A release is submitted only after its source receipt verifies under a configured key window. |
 | pause | none |
 
@@ -1538,7 +1538,7 @@ The [bridge relayer](../../../services/interop/crates/layerx-bridge-relayer/src/
 | errors | RelayerError variants for transport, chain id mismatch, malformed receipt and unverified receipt. |
 | events | Reads bridge precompile deposit and out events by topic. |
 | gas | Release transactions carry the configured gas limit; no gas is spent on reads. |
-| activation | Starts when the operator config names receipt_keys. |
+| activation | Starts from the configured journal, signer and chains; Paxeer receipt keys are supplied in paxeer.receipt_keys. |
 | invariants | A release is submitted only after its source receipt verifies under a configured key window. |
 | pause | none |
 
@@ -1831,7 +1831,7 @@ The [bridge relayer](../../../services/interop/crates/layerx-bridge-relayer/src/
 | errors | RelayerError variants for transport, chain id mismatch, malformed receipt and unverified receipt. |
 | events | Reads bridge precompile deposit and out events by topic. |
 | gas | Release transactions carry the configured gas limit; no gas is spent on reads. |
-| activation | Starts when the operator config names receipt_keys. |
+| activation | Starts from the configured journal, signer and chains; Paxeer receipt keys are supplied in paxeer.receipt_keys. |
 | invariants | A release is submitted only after its source receipt verifies under a configured key window. |
 | pause | none |
 
@@ -1848,7 +1848,7 @@ The [bridge relayer](../../../services/interop/crates/layerx-bridge-relayer/src/
 | errors | RelayerError variants for transport, chain id mismatch, malformed receipt and unverified receipt. |
 | events | Reads bridge precompile deposit and out events by topic. |
 | gas | Release transactions carry the configured gas limit; no gas is spent on reads. |
-| activation | Starts when the operator config names receipt_keys. |
+| activation | Starts from the configured journal, signer and chains; Paxeer receipt keys are supplied in paxeer.receipt_keys. |
 | invariants | A release is submitted only after its source receipt verifies under a configured key window. |
 | pause | none |
 
@@ -1973,7 +1973,7 @@ The [bridge relayer](../../../services/interop/crates/layerx-bridge-relayer/src/
 | errors | RelayerError variants for transport, chain id mismatch, malformed receipt and unverified receipt. |
 | events | Reads bridge precompile deposit and out events by topic. |
 | gas | Release transactions carry the configured gas limit; no gas is spent on reads. |
-| activation | Starts when the operator config names receipt_keys. |
+| activation | Starts from the configured journal, signer and chains; Paxeer receipt keys are supplied in paxeer.receipt_keys. |
 | invariants | A release is submitted only after its source receipt verifies under a configured key window. |
 | pause | none |
 
@@ -1996,7 +1996,7 @@ The [bridge relayer](../../../services/interop/crates/layerx-bridge-relayer/src/
 | errors | RelayerError variants for transport, chain id mismatch, malformed receipt and unverified receipt. |
 | events | Reads bridge precompile deposit and out events by topic. |
 | gas | Release transactions carry the configured gas limit; no gas is spent on reads. |
-| activation | Starts when the operator config names receipt_keys. |
+| activation | Starts from the configured journal, signer and chains; Paxeer receipt keys are supplied in paxeer.receipt_keys. |
 | invariants | A release is submitted only after its source receipt verifies under a configured key window. |
 | pause | none |
 
@@ -2019,7 +2019,7 @@ The [bridge relayer](../../../services/interop/crates/layerx-bridge-relayer/src/
 | errors | RelayerError variants for transport, chain id mismatch, malformed receipt and unverified receipt. |
 | events | Reads bridge precompile deposit and out events by topic. |
 | gas | Release transactions carry the configured gas limit; no gas is spent on reads. |
-| activation | Starts when the operator config names receipt_keys. |
+| activation | Starts from the configured journal, signer and chains; Paxeer receipt keys are supplied in paxeer.receipt_keys. |
 | invariants | A release is submitted only after its source receipt verifies under a configured key window. |
 | pause | none |
 
@@ -2036,7 +2036,7 @@ The [bridge relayer](../../../services/interop/crates/layerx-bridge-relayer/src/
 | errors | RelayerError variants for transport, chain id mismatch, malformed receipt and unverified receipt. |
 | events | Reads bridge precompile deposit and out events by topic. |
 | gas | Release transactions carry the configured gas limit; no gas is spent on reads. |
-| activation | Starts when the operator config names receipt_keys. |
+| activation | Starts from the configured journal, signer and chains; Paxeer receipt keys are supplied in paxeer.receipt_keys. |
 | invariants | A release is submitted only after its source receipt verifies under a configured key window. |
 | pause | none |
 
@@ -2077,7 +2077,7 @@ The [bridge relayer](../../../services/interop/crates/layerx-bridge-relayer/src/
 | errors | RelayerError variants for transport, chain id mismatch, malformed receipt and unverified receipt. |
 | events | Reads bridge precompile deposit and out events by topic. |
 | gas | Release transactions carry the configured gas limit; no gas is spent on reads. |
-| activation | Starts when the operator config names receipt_keys. |
+| activation | Starts from the configured journal, signer and chains; Paxeer receipt keys are supplied in paxeer.receipt_keys. |
 | invariants | A release is submitted only after its source receipt verifies under a configured key window. |
 | pause | none |
 
@@ -2436,7 +2436,7 @@ The [bridge relayer](../../../services/interop/crates/layerx-bridge-relayer/src/
 | errors | RelayerError variants for transport, chain id mismatch, malformed receipt and unverified receipt. |
 | events | Reads bridge precompile deposit and out events by topic. |
 | gas | Release transactions carry the configured gas limit; no gas is spent on reads. |
-| activation | Starts when the operator config names receipt_keys. |
+| activation | Starts from the configured journal, signer and chains; Paxeer receipt keys are supplied in paxeer.receipt_keys. |
 | invariants | A release is submitted only after its source receipt verifies under a configured key window. |
 | pause | none |
 
