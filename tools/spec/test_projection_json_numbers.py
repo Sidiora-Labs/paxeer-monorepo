@@ -27,7 +27,7 @@ requires = []
 touches = ["tools/spec"]
 reqs = ["1.1"]
 build_cmd = "python3 -m py_compile tools/spec/hyperfide_projection.py"
-verify_cmd = "python3 -m pytest -q tools/spec/test_repair_22_33_781.py"
+verify_cmd = "python3 -m pytest -q tools/spec/test_projection_json_numbers.py"
 time_limit_minutes = 1
 '''
 
