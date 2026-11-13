@@ -39,7 +39,7 @@ The `scripts/` directory contains operational utilities, generators, diagnostics
 - `protoc.sh` — generates protobuf and Swagger sources.
 - `qualify-mirror-live.sh` — qualifies a live mirror publisher.
 - `qualify-mirror-verification-live.sh` — qualifies live mirror verification and failover paths.
-- `repair_m802_test.go` — Go tests for maintenance operations, state exports, and local configuration.
+- `maintenance_operations_test.go` — Go tests for maintenance operations, state exports, and local configuration.
 - `run-sha256sum.sh` — publishes checksums through `maintenance.sh`.
 - `run_blocktests.sh` — runs node block tests with isolated CI homes.
 - `run_snapshot.sh` — coordinates a halted-height snapshot cycle.
@@ -52,7 +52,7 @@ The `scripts/` directory contains operational utilities, generators, diagnostics
 - `stress_config.go` — validates and renders local stress configuration.
 - `swagger_assets.py` — validates and publishes embedded Swagger assets.
 - `test_paxd_native_digest.py` — tests native archive digest checking and its build integrations.
-- `test_repair_22_31_320.py` — tests maintenance, recovery, and configuration contracts.
+- `test_maintenance_workflows.py` — tests maintenance, recovery, and configuration contracts.
 - `update-swagger-ui-statik.sh` — regenerates or embeds the node Swagger UI.
 
 ## Build and test

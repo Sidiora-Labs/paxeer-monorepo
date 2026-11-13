@@ -96,7 +96,7 @@ fn main() {
 }
 
 #[cfg(test)]
-mod repair_m109 {
+mod receipt_key_windows {
     use super::{bytes, verify_sequencer_signature, ReceiptCheck, Value};
     use layerx_proof::inclusion::SequencerAuthorization;
 

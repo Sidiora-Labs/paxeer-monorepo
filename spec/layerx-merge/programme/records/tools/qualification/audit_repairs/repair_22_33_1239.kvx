@@ -31,7 +31,7 @@ assessment = "No required README fact is missing on this checkout. README.md is 
 
 [qualification]
 build_cmd = "python3 --version"
-verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_readme_retired_daemon.py"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1239.py"
 build_gate = "hf-build"
 verify_gate = "hf-done"
 evidence_ledger = "/out/run/gates.jsonl"

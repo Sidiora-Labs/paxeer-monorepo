@@ -1,5 +1,5 @@
 #[allow(dead_code)]
-mod repair_22_33_1470;
+mod committed_program_transport;
 
 use std::fs;
 use std::net::TcpListener;
@@ -92,7 +92,7 @@ fn registry_reads_program_state_through_eth_call() {
         )));
     let journal =
         FileProgramStateJournal::open(root.0.clone()).unwrap_or_else(|error| panic!("{error:?}"));
-    let program = repair_22_33_1470::program();
+    let program = committed_program_transport::program();
     let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{error:?}"));
     listener
         .set_nonblocking(true)
@@ -127,9 +127,9 @@ fn registry_reads_program_state_through_eth_call() {
         ProgramStateCursor::default()
     );
 
-    let encoded = repair_22_33_1470::storage_head_abi();
+    let encoded = committed_program_transport::storage_head_abi();
     let state = encoded[64..102].to_vec();
-    let peer = repair_22_33_1470::state_rpc(32);
+    let peer = committed_program_transport::state_rpc(32);
     assert_eq!(
         journal
             .store(
@@ -251,5 +251,5 @@ fn assert_program_state_refusals(
 
 #[test]
 fn registry_program_state_root_committed_height_hash_and_reopen() {
-    repair_22_33_1470::program_state_root_transport_persists_committed_head();
+    committed_program_transport::program_state_root_transport_persists_committed_head();
 }

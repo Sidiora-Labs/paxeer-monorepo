@@ -172,7 +172,7 @@ func TestDriverReleasesNextOpenAcrossStandbyCommit(t *testing.T) {
 	}
 	installPV(primary, "primary")
 	installPV(backup, "standby")
-	primaryTLS, standbyTLS := sequencer.Repair103TLSFixture(t)
+	primaryTLS, standbyTLS := sequencer.ReplicationTLSFixture(t)
 	l := listen(t)
 	address := l.Addr().String()
 	require.NoError(t, l.Close())

@@ -1,0 +1,296 @@
+[manifest]
+task = "22.43.176"
+records_moved = 22
+files_renamed = 19
+
+[file.1]
+from = "services/wallet/attestor/cmd/attestor/repair_m170_test.go"
+to = "services/wallet/attestor/cmd/attestor/jwt_refresh_test.go"
+
+[file.2]
+from = "services/wallet/attestor/cmd/loadtest/repair_m172_test.go"
+to = "services/wallet/attestor/cmd/loadtest/inventory_lifecycle_test.go"
+
+[file.3]
+from = "services/wallet/attestor/internal/auth/agent/repair_m171_test.go"
+to = "services/wallet/attestor/internal/auth/agent/authority_retry_test.go"
+
+[file.4]
+from = "services/wallet/attestor/internal/auth/jwt/repair_m169_test.go"
+to = "services/wallet/attestor/internal/auth/jwt/jwks_refresh_test.go"
+
+[file.5]
+from = "services/wallet/attestor/internal/backup/repair_m147_test.go"
+to = "services/wallet/attestor/internal/backup/shipped_snapshot_recovery_test.go"
+
+[file.6]
+from = "services/wallet/attestor/internal/lxwire/repair_241_test.go"
+to = "services/wallet/attestor/internal/lxwire/native_account_names_test.go"
+
+[file.7]
+from = "services/wallet/attestor/internal/lxwire/repair_m145_test.go"
+to = "services/wallet/attestor/internal/lxwire/account_parity_test.go"
+
+[file.8]
+from = "services/wallet/attestor/internal/policy/lx/repair_242_test.go"
+to = "services/wallet/attestor/internal/policy/lx/send_debit_test.go"
+
+[file.9]
+from = "services/wallet/attestor/internal/policy/repair_22_38_36_test.go"
+to = "services/wallet/attestor/internal/policy/room_policy_test.go"
+
+[file.10]
+from = "services/wallet/attestor/internal/policy/repair_244_test.go"
+to = "services/wallet/attestor/internal/policy/construct_effects_test.go"
+
+[file.11]
+from = "services/wallet/attestor/internal/policy/repair_m156_test.go"
+to = "services/wallet/attestor/internal/policy/debit_accounting_test.go"
+
+[file.12]
+from = "services/wallet/attestor/internal/replica/repair_m148_test.go"
+to = "services/wallet/attestor/internal/replica/replica_durability_test.go"
+
+[file.13]
+from = "services/wallet/attestor/internal/server/repair_243_test.go"
+to = "services/wallet/attestor/internal/server/signing_recovery_test.go"
+
+[file.14]
+from = "services/wallet/attestor/internal/server/repair_m157_test.go"
+to = "services/wallet/attestor/internal/server/signing_session_test.go"
+
+[file.15]
+from = "services/wallet/attestor/internal/store/repair_240_test.go"
+to = "services/wallet/attestor/internal/store/snapshot_recovery_test.go"
+
+[file.16]
+from = "services/wallet/attestor/internal/store/repair_m146_test.go"
+to = "services/wallet/attestor/internal/store/snapshot_restore_test.go"
+
+[file.17]
+from = "services/wallet/attestor/internal/tss/ecdsa/repair_m129_test.go"
+to = "services/wallet/attestor/internal/tss/ecdsa/dkg_transcript_test.go"
+
+[file.18]
+from = "services/wallet/attestor/internal/tss/eddsa/repair_m128_test.go"
+to = "services/wallet/attestor/internal/tss/eddsa/imported_share_test.go"
+
+[file.19]
+from = "services/wallet/attestor/internal/tss/refresh/repair_m130_test.go"
+to = "services/wallet/attestor/internal/tss/refresh/share_cleanup_test.go"
+
+[file.20]
+from = "services/wallet/attestor/cmd/attestor/repair_m170.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/attestor/cmd/attestor/repair_m170.kvx"
+
+[file.21]
+from = "services/wallet/attestor/cmd/loadtest/repair_m172.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/attestor/cmd/loadtest/repair_m172.kvx"
+
+[file.22]
+from = "services/wallet/attestor/internal/auth/agent/repair_m171.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/attestor/internal/auth/agent/repair_m171.kvx"
+
+[file.23]
+from = "services/wallet/attestor/internal/auth/jwt/repair_m169.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/attestor/internal/auth/jwt/repair_m169.kvx"
+
+[file.24]
+from = "services/wallet/attestor/internal/backup/repair_m147.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/attestor/internal/backup/repair_m147.kvx"
+
+[file.25]
+from = "services/wallet/attestor/internal/lxwire/repair_241.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/attestor/internal/lxwire/repair_241.kvx"
+
+[file.26]
+from = "services/wallet/attestor/internal/lxwire/repair_m145.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/attestor/internal/lxwire/repair_m145.kvx"
+
+[file.27]
+from = "services/wallet/attestor/internal/policy/lx/repair_242.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/attestor/internal/policy/lx/repair_242.kvx"
+
+[file.28]
+from = "services/wallet/attestor/internal/policy/repair_22_38_36.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/attestor/internal/policy/repair_22_38_36.kvx"
+
+[file.29]
+from = "services/wallet/attestor/internal/policy/repair_244.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/attestor/internal/policy/repair_244.kvx"
+
+[file.30]
+from = "services/wallet/attestor/internal/policy/repair_m156.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/attestor/internal/policy/repair_m156.kvx"
+
+[file.31]
+from = "services/wallet/attestor/internal/replica/repair_m148.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/attestor/internal/replica/repair_m148.kvx"
+
+[file.32]
+from = "services/wallet/attestor/internal/server/repair_243.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/attestor/internal/server/repair_243.kvx"
+
+[file.33]
+from = "services/wallet/attestor/internal/server/repair_m157.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/attestor/internal/server/repair_m157.kvx"
+
+[file.34]
+from = "services/wallet/attestor/internal/store/repair_240.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/attestor/internal/store/repair_240.kvx"
+
+[file.35]
+from = "services/wallet/attestor/internal/store/repair_m146.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/attestor/internal/store/repair_m146.kvx"
+
+[file.36]
+from = "services/wallet/attestor/internal/tss/ecdsa/repair_m129.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/attestor/internal/tss/ecdsa/repair_m129.kvx"
+
+[file.37]
+from = "services/wallet/attestor/internal/tss/eddsa/repair_m128.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/attestor/internal/tss/eddsa/repair_m128.kvx"
+
+[file.38]
+from = "services/wallet/attestor/internal/tss/refresh/repair_m130.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/attestor/internal/tss/refresh/repair_m130.kvx"
+
+[file.39]
+from = "services/wallet/attestor/repair_22_31_506.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/attestor/repair_22_31_506.kvx"
+
+[file.40]
+from = "services/wallet/attestor/repair_22_31_598.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/attestor/repair_22_31_598.kvx"
+
+[file.41]
+from = "services/wallet/attestor/repair_22_39_8.kvx"
+to = "spec/layerx-merge/programme/records/services/wallet/attestor/repair_22_39_8.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "repair_22_31_598.kvx"
+
+[reference.2]
+file = "spec/layerx-merge/programme/issues/1614.kvx"
+name = "services/wallet/attestor/internal/policy/repair_244_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/programme/issues/1629.kvx"
+name = "services/wallet/attestor/internal/backup/repair_m147_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/programme/issues/1629.kvx"
+name = "services/wallet/attestor/internal/replica/repair_m148_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/programme/issues/input/1629.md"
+name = "services/wallet/attestor/internal/replica/repair_m148_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/programme/issues/input/1796.md"
+name = "repair_m156_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/programme/issues/input/1796.md"
+name = "services/wallet/attestor/internal/policy/repair_244_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/programme/records/renames/22.43.233.kvx"
+name = "services/wallet/attestor/repair_22_31_506.kvx"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/attestor/cmd/attestor/repair_m170_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/attestor/cmd/loadtest/repair_m172_test.go"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/attestor/internal/auth/agent/repair_m171_test.go"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/attestor/internal/auth/jwt/repair_m169_test.go"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/attestor/internal/backup/repair_m147_test.go"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/attestor/internal/lxwire/repair_241_test.go"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/attestor/internal/lxwire/repair_m145_test.go"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/attestor/internal/policy/lx/repair_242_test.go"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/attestor/internal/policy/repair_22_38_36.kvx"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/attestor/internal/policy/repair_22_38_36_test.go"
+
+[reference.19]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/attestor/internal/policy/repair_244_test.go"
+
+[reference.20]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/attestor/internal/policy/repair_m156_test.go"
+
+[reference.21]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/attestor/internal/replica/repair_m148_test.go"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/attestor/internal/server/repair_243_test.go"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/attestor/internal/server/repair_m157_test.go"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/attestor/internal/store/repair_240_test.go"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/attestor/internal/store/repair_m146_test.go"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/attestor/internal/tss/ecdsa/repair_m129_test.go"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/attestor/internal/tss/eddsa/repair_m128_test.go"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/attestor/internal/tss/refresh/repair_m130_test.go"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/attestor/repair_22_31_506.kvx"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/attestor/repair_22_31_598.kvx"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/wallet/attestor/repair_22_39_8.kvx"
+
+[reference.32]
+file = "tools/qualification/audit_repairs/test_wallet_go_workflow.py"
+name = "services/wallet/attestor/repair_22_31_506.kvx"

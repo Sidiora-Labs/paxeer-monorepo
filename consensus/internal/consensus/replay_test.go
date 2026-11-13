@@ -1144,7 +1144,7 @@ func (ica *initChainApp) InitChain(_ context.Context, req *abci.RequestInitChain
 	return &abci.ResponseInitChain{Validators: ica.vals}, nil
 }
 
-func testRepairM1082WALRecovery(t *testing.T) {
+func testConsensusNetworkWALRecovery(t *testing.T) {
 	t.Helper()
 	for _, tc := range []struct {
 		name   string
@@ -1155,12 +1155,12 @@ func testRepairM1082WALRecovery(t *testing.T) {
 		{"late_receive_clock", 2*time.Second + time.Nanosecond, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := newRepair80Fixture(t)
+			f := newProposalReplayFixture(t)
 			if tc.offset != 0 {
 				f.messages[0].ReceiveTime = f.proposal.Timestamp.Add(tc.offset)
 			}
 			received := f.messages[0].ReceiveTime
-			live := repair80State(t, f, f.signer)
+			live := proposalReplayState(t, f, f.signer)
 			for _, mi := range f.messages {
 				require.NoError(t, live.wal.Append(NewWALMessage(mi)))
 			}
@@ -1168,16 +1168,16 @@ func testRepairM1082WALRecovery(t *testing.T) {
 			for _, mi := range f.messages {
 				live.handleMsg(t.Context(), mi, false)
 			}
-			before := repair80Prevote(t, live, f, tc.timely)
+			before := proposalReplayPrevote(t, live, f, tc.timely)
 			require.True(t, received.Equal(live.GetRoundState().ProposalReceiveTime))
 			live.wal.Close()
 			live.blockExec.Stop()
 			signer, err := privval.LoadFilePV(f.keyFile, f.stateFile)
 			require.NoError(t, err)
-			recovered := repair80State(t, f, signer)
+			recovered := proposalReplayState(t, f, signer)
 			require.NoError(t, recovered.catchupReplay(t.Context(), 1))
 			require.True(t, received.Equal(recovered.GetRoundState().ProposalReceiveTime))
-			after := repair80Prevote(t, recovered, f, tc.timely)
+			after := proposalReplayPrevote(t, recovered, f, tc.timely)
 			require.True(t, before.BlockID.Equals(after.BlockID))
 			require.Equal(t, before.ToProto().Signature, after.ToProto().Signature)
 			require.True(t, before.Timestamp.Equal(after.Timestamp))
@@ -1186,5 +1186,5 @@ func testRepairM1082WALRecovery(t *testing.T) {
 }
 
 func TestWALTimedProposalRecovery(t *testing.T) {
-	testRepairM1082WALRecovery(t)
+	testConsensusNetworkWALRecovery(t)
 }

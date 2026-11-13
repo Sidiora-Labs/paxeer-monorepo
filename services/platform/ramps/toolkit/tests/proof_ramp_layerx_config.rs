@@ -43,18 +43,18 @@ impl ClientFiles {
         // Committed test-only identity; no subprocess or installed TLS tool is needed.
         fs::write(
             files.0.join("ca.pem"),
-            include_bytes!("fixtures/repair_22_33_1486/ca.pem"),
+            include_bytes!("fixtures/tls/ca.pem"),
         )
         .required("value");
         fs::write(
             files.0.join("ca-0.der"),
-            include_bytes!("fixtures/repair_22_33_1486/ca.der"),
+            include_bytes!("fixtures/tls/ca.der"),
         )
         .required("value");
         fs::copy(files.0.join("ca-0.der"), files.0.join("ca-1.der")).required("value");
         fs::write(
             files.0.join("identity.p12"),
-            include_bytes!("fixtures/repair_22_33_1486/identity.p12"),
+            include_bytes!("fixtures/tls/identity.p12"),
         )
         .required("value");
         fs::set_permissions(

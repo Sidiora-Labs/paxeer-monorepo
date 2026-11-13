@@ -1,0 +1,240 @@
+[manifest]
+task = "22.43.17"
+records_moved = 39
+files_renamed = 1
+
+[file.1]
+from = "apps/perps/src/app/modals/repair-22-31-2.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/app/modals/repair-22-31-2.kvx"
+
+[file.2]
+from = "apps/perps/src/app/modals/repair-22-33-10.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/app/modals/repair-22-33-10.kvx"
+
+[file.3]
+from = "apps/perps/src/app/modals/repair-22-33-11.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/app/modals/repair-22-33-11.kvx"
+
+[file.4]
+from = "apps/perps/src/app/shell/repair-22-33-12.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/app/shell/repair-22-33-12.kvx"
+
+[file.5]
+from = "apps/perps/src/core/errors/repair-22-33-80.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/core/errors/repair-22-33-80.kvx"
+
+[file.6]
+from = "apps/perps/src/core/graphql/repair-22-33-77.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/core/graphql/repair-22-33-77.kvx"
+
+[file.7]
+from = "apps/perps/src/core/paxscan/socket/repair-22-33-82.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/core/paxscan/socket/repair-22-33-82.kvx"
+
+[file.8]
+from = "apps/perps/src/core/perps/repair-22-33-81.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/core/perps/repair-22-33-81.kvx"
+
+[file.9]
+from = "apps/perps/src/core/repair-22-33-78.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/core/repair-22-33-78.kvx"
+
+[file.10]
+from = "apps/perps/src/core/wallet/embedded/repair-22-31-4.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/core/wallet/embedded/repair-22-31-4.kvx"
+
+[file.11]
+from = "apps/perps/src/core/wallet/embedded/repair-22-33-75.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/core/wallet/embedded/repair-22-33-75.kvx"
+
+[file.12]
+from = "apps/perps/src/core/wallet/repair-22-31-5.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/core/wallet/repair-22-31-5.kvx"
+
+[file.13]
+from = "apps/perps/src/core/wallet/repair-22-33-76.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/core/wallet/repair-22-33-76.kvx"
+
+[file.14]
+from = "apps/perps/src/hooks/chain/repair-22-33-715.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/hooks/chain/repair-22-33-715.kvx"
+
+[file.15]
+from = "apps/perps/src/hooks/perps/repair-22-31-20-fixtures.json"
+to = "apps/perps/src/hooks/perps/indexer-wire-fixtures.json"
+
+[file.16]
+from = "apps/perps/src/hooks/perps/repair-22-31-20.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/hooks/perps/repair-22-31-20.kvx"
+
+[file.17]
+from = "apps/perps/src/hooks/perps/repair-22-33-709.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/hooks/perps/repair-22-33-709.kvx"
+
+[file.18]
+from = "apps/perps/src/hooks/perps/repair-22-33-710.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/hooks/perps/repair-22-33-710.kvx"
+
+[file.19]
+from = "apps/perps/src/hooks/perps/repair-22-33-711.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/hooks/perps/repair-22-33-711.kvx"
+
+[file.20]
+from = "apps/perps/src/lib/repair-22-33-199.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/lib/repair-22-33-199.kvx"
+
+[file.21]
+from = "apps/perps/src/page-modules/block-detail/repair-22-33-575.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/page-modules/block-detail/repair-22-33-575.kvx"
+
+[file.22]
+from = "apps/perps/src/page-modules/explorer/repair-22-33-577.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/page-modules/explorer/repair-22-33-577.kvx"
+
+[file.23]
+from = "apps/perps/src/page-modules/legal/repair-22-33-580.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/page-modules/legal/repair-22-33-580.kvx"
+
+[file.24]
+from = "apps/perps/src/page-modules/portfolio/repair-22-33-578.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/page-modules/portfolio/repair-22-33-578.kvx"
+
+[file.25]
+from = "apps/perps/src/page-modules/tx-detail/repair-22-33-576.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/page-modules/tx-detail/repair-22-33-576.kvx"
+
+[file.26]
+from = "apps/perps/src/pages/api/candle/repair-22-33-189.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/pages/api/candle/repair-22-33-189.kvx"
+
+[file.27]
+from = "apps/perps/src/pages/api/repair-22-33-190.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/pages/api/repair-22-33-190.kvx"
+
+[file.28]
+from = "apps/perps/src/pages/auth/repair-22-33-191.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/pages/auth/repair-22-33-191.kvx"
+
+[file.29]
+from = "apps/perps/src/repair-22-33-194.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/repair-22-33-194.kvx"
+
+[file.30]
+from = "apps/perps/src/widgets/analytics/repair-22-33-192.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/widgets/analytics/repair-22-33-192.kvx"
+
+[file.31]
+from = "apps/perps/src/widgets/errors/repair-22-33-199.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/widgets/errors/repair-22-33-199.kvx"
+
+[file.32]
+from = "apps/perps/src/widgets/explorer/repair-22-33-193.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/widgets/explorer/repair-22-33-193.kvx"
+
+[file.33]
+from = "apps/perps/src/widgets/network-pill/repair-22-33-200.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/widgets/network-pill/repair-22-33-200.kvx"
+
+[file.34]
+from = "apps/perps/src/widgets/portfolio/repair-22-31-8.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/widgets/portfolio/repair-22-31-8.kvx"
+
+[file.35]
+from = "apps/perps/src/widgets/portfolio/repair-22-33-198.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/widgets/portfolio/repair-22-33-198.kvx"
+
+[file.36]
+from = "apps/perps/src/widgets/spot/repair-22-31-9.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/widgets/spot/repair-22-31-9.kvx"
+
+[file.37]
+from = "apps/perps/src/widgets/spot/repair-22-33-194.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/widgets/spot/repair-22-33-194.kvx"
+
+[file.38]
+from = "apps/perps/src/widgets/trading/modals/repair-22-33-195.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/widgets/trading/modals/repair-22-33-195.kvx"
+
+[file.39]
+from = "apps/perps/src/widgets/trading/repair-22-33-196.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/widgets/trading/repair-22-33-196.kvx"
+
+[file.40]
+from = "apps/perps/src/widgets/trading/repair-22-33-197.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/src/widgets/trading/repair-22-33-197.kvx"
+
+[reference.1]
+file = "apps/perps/tests/repair-22-31-20.test.ts"
+name = "../src/hooks/perps/repair-22-31-20-fixtures.json"
+
+[reference.2]
+file = "apps/perps/tests/repair-22-33-11.test.ts"
+name = "../src/app/modals/repair-22-33-11.kvx"
+
+[reference.3]
+file = "apps/perps/tests/repair-22-33-709.test.ts"
+name = "../src/hooks/perps/repair-22-31-20-fixtures.json"
+
+[reference.4]
+file = "spec/layerx-merge/programme/issues/1656.kvx"
+name = "apps/perps/src/widgets/analytics/repair-22-33-192.kvx"
+
+[reference.5]
+file = "spec/layerx-merge/programme/issues/1805.kvx"
+name = "apps/perps/src/hooks/perps/repair-22-33-711.kvx"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/perps/src/core/repair-22-33-78.kvx"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/perps/src/lib/repair-22-33-199.kvx"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/perps/src/pages/api/repair-22-33-190.kvx"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/perps/src/repair-22-33-194.kvx"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/perps/src/widgets/analytics/repair-22-33-192.kvx"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/perps/src/widgets/errors/repair-22-33-199.kvx"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/perps/src/widgets/explorer/repair-22-33-193.kvx"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/perps/src/widgets/network-pill/repair-22-33-200.kvx"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/perps/src/widgets/portfolio/repair-22-33-198.kvx"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/perps/src/widgets/spot/repair-22-33-194.kvx"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/perps/src/widgets/trading/modals/repair-22-33-195.kvx"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/perps/src/widgets/trading/repair-22-33-196.kvx"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-196.kvx"
+
+[reference.19]
+file = "tools/qualification/audit_repairs/repair_22_36_5.kvx"
+name = "apps/perps/src/core/repair-22-33-78.kvx"

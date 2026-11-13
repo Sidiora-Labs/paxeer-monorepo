@@ -193,6 +193,6 @@ func TestConvertDERtoBER(t *testing.T) {
 	result, err := convertDERtoBER(sig64)
 	require.NoError(t, err)
 	require.Equal(t, sig64, result)
-	t.Run("DER", repairM1348DERConversion)
-	t.Run("malformed DER", repairM1348MalformedDER)
+	t.Run("DER", checkLedgerDERConversion)
+	t.Run("malformed DER", checkLedgerMalformedDER)
 }

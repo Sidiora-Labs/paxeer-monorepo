@@ -7,7 +7,7 @@ import {
   store_migration_and_insertion_serialize_in_separate_processes,
   store_publication_crash_boundaries_reopen_with_verified_generations,
   store_live_holder_dead_takeover_and_late_release_keep_ownership,
-} from './repair-22-33-167.store-fixture';
+} from './atomic-json-store-fixture';
 import { AtomicJsonStore, DurableStoreCorruptError } from './atomic-json-store';
 
 interface CounterState {

@@ -247,7 +247,7 @@ ALTER TABLE attributes ADD UNIQUE (event_id, key);`)
 			_, err := db.ExecContext(t.Context(), "SELECT setval(pg_get_serial_sequence($1, 'rowid'), $2)", table, int64(1<<32-1))
 			require.NoError(t, err)
 		}
-		repair82RoundTrip(t, func() *EventSink {
+		assertEventStorageRoundTrip(t, func() *EventSink {
 			sink, err := NewEventSink(testConn, t.Name())
 			require.NoError(t, err)
 			t.Cleanup(func() { require.NoError(t, sink.Stop()) })

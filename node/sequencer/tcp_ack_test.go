@@ -70,7 +70,7 @@ func TestReceiptOverTCPWaitsForStandbyAck(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	primaryTLS, standbyTLS := sequencer.Repair103TLSFixture(t)
+	primaryTLS, standbyTLS := sequencer.ReplicationTLSFixture(t)
 	standbyListener := listen(t)
 	standbyAddress := standbyListener.Addr().String()
 	require.NoError(t, standbyListener.Close())

@@ -103,10 +103,10 @@ See the [governance window kit](../gov/README.md) for the `v6.12.0` plan rendere
 
 ## Tests
 
-[`test_repair_22_31_429.py`](test_repair_22_31_429.py) exercises the current
+[`test_snapshot_reconciliation.py`](test_snapshot_reconciliation.py) exercises the current
 exporter with CSVs and an in-process JSON-RPC server. Its focused command from
 the repository root is
-`python3 -m pytest -q tools/paxeer-x/sid-snapshot/test_repair_22_31_429.py`.
+`python3 -m pytest -q tools/paxeer-x/sid-snapshot/test_snapshot_reconciliation.py`.
 
 [`test.sh`](test.sh) runs [`contract_test.py`](contract_test.py) against the real
 SID contract at the fixed address, on a disposable loopback paxd chain with chain

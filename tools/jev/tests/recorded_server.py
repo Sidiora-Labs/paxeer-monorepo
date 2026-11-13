@@ -14,7 +14,7 @@ from typing import Iterator
 from tools.jev.client import DEFAULT_MODEL, JevClient, canonical_request
 
 
-FIXTURES = Path(__file__).parent / "fixtures" / "repair_22_33_705"
+FIXTURES = Path(__file__).parent / "fixtures" / "decision_transcripts"
 LOOPBACK_TOKEN = "jev-loopback-transcript"
 
 

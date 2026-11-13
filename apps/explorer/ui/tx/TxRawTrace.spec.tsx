@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, test } from 'vitest';
 
 import {
   TxRawTrace, renderTransaction, rawTraceOnDemandCompletionReachesPanel, rawTraceEmptyCompletionReachesPanel,
-} from './repair-22-33-519.fixtures';
+} from './txDetailsRpcAndTrace.fixtures';
 import type { TxQuery } from './useTxQuery';
 
 const buildTxQuery = (data: typeof txMock.base | undefined, overrides: Partial<TxQuery> = {}): TxQuery => ({

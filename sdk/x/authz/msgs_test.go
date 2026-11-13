@@ -118,5 +118,5 @@ func TestMsgGrantGetAuthorization(t *testing.T) {
 
 // Construction and ValidateBasic cannot decide expiration without chain time.
 func TestMsgGrantExpiredExecution(t *testing.T) {
-	repair691AssertExpiredExecution(t)
+	assertExpiredGrantExecution(t)
 }

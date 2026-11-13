@@ -1,0 +1,280 @@
+[manifest]
+task = "22.43.120"
+records_moved = 9
+files_renamed = 12
+
+[file.10]
+from = "sdk/types/repair_293_test.go"
+to = "sdk/types/canonical_json_genesis_test.go"
+
+[file.11]
+from = "sdk/types/repair_m645_test.go"
+to = "sdk/types/encoding_events_coins_test.go"
+
+[file.12]
+from = "sdk/types/repair_m646_internal_test.go"
+to = "sdk/types/store_trace_uint_internal_test.go"
+
+[file.13]
+from = "sdk/types/repair_m646_test.go"
+to = "sdk/types/store_trace_uint_test.go"
+
+[file.14]
+from = "sdk/types/errors/repair_m647_test.go"
+to = "sdk/types/errors/error_response_redaction_test.go"
+
+[file.15]
+from = "sdk/types/genesis/repair_294_test.go"
+to = "sdk/types/genesis/genesis_stream_test.go"
+
+[file.16]
+from = "sdk/types/module/repair_295_test.go"
+to = "sdk/types/module/genesis_import_test.go"
+
+[file.17]
+from = "sdk/types/module/repair_m648_test.go"
+to = "sdk/types/module/module_migrations_stream_test.go"
+
+[file.18]
+from = "sdk/types/query/repair_296_test.go"
+to = "sdk/types/query/sparse_pagination_test.go"
+
+[file.19]
+from = "sdk/types/query/repair_m649_test.go"
+to = "sdk/types/query/reverse_pagination_test.go"
+
+[file.20]
+from = "sdk/types/rest/repair_297_test.go"
+to = "sdk/types/rest/request_sanitization_timeout_test.go"
+
+[file.21]
+from = "sdk/types/rest/repair_m650_test.go"
+to = "sdk/types/rest/bounded_request_fees_test.go"
+
+[file.1]
+from = "sdk/types/errors/repair_m647.kvx"
+to = "spec/layerx-merge/programme/records/sdk/types/errors/repair_m647.kvx"
+
+[file.2]
+from = "sdk/types/genesis/repair_294.kvx"
+to = "spec/layerx-merge/programme/records/sdk/types/genesis/repair_294.kvx"
+
+[file.3]
+from = "sdk/types/query/repair_296.kvx"
+to = "spec/layerx-merge/programme/records/sdk/types/query/repair_296.kvx"
+
+[file.4]
+from = "sdk/types/query/repair_m649.kvx"
+to = "spec/layerx-merge/programme/records/sdk/types/query/repair_m649.kvx"
+
+[file.5]
+from = "sdk/types/repair_293.kvx"
+to = "spec/layerx-merge/programme/records/sdk/types/repair_293.kvx"
+
+[file.6]
+from = "sdk/types/repair_m645.kvx"
+to = "spec/layerx-merge/programme/records/sdk/types/repair_m645.kvx"
+
+[file.7]
+from = "sdk/types/repair_m646.kvx"
+to = "spec/layerx-merge/programme/records/sdk/types/repair_m646.kvx"
+
+[file.8]
+from = "sdk/types/rest/repair_297.kvx"
+to = "spec/layerx-merge/programme/records/sdk/types/rest/repair_297.kvx"
+
+[file.9]
+from = "sdk/types/rest/repair_m650.kvx"
+to = "spec/layerx-merge/programme/records/sdk/types/rest/repair_m650.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "sdk/types/repair_m646_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/programme/issues/1678.kvx"
+name = "sdk/types/errors/repair_m647.kvx"
+
+[reference.3]
+file = "spec/layerx-merge/programme/issues/1678.kvx"
+name = "sdk/types/errors/repair_m647_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/programme/issues/1680.kvx"
+name = "TestRepairM_650_BoundedRead"
+
+[reference.5]
+file = "spec/layerx-merge/programme/issues/1680.kvx"
+name = "TestRepairM_650_StreamedBodyLimit"
+
+[reference.6]
+file = "spec/layerx-merge/programme/issues/1680.kvx"
+name = "repairM650Handler"
+
+[reference.7]
+file = "spec/layerx-merge/programme/issues/1680.kvx"
+name = "sdk/types/rest/repair_m650_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/programme/issues/input/1678.md"
+name = "sdk/types/errors/repair_m647.kvx"
+
+[reference.9]
+file = "spec/layerx-merge/programme/issues/input/1678.md"
+name = "sdk/types/errors/repair_m647_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m646_test.go"
+
+[reference.11]
+file = "spec/layerx-merge/qualification.kvx"
+name = "sdk/types/repair_m646_test.go"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_645_"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_646_"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_647_"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_648_"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_649_"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_650_"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_650_BoundedRead"
+
+[reference.19]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_650_StreamedBodyLimit"
+
+[reference.20]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_293_"
+
+[reference.21]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_294_"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_295_"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_295_RejectCorruptionAtomically"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_296_"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_297_"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "repairM650Handler"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_293_test.go"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_294_test.go"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_295_test.go"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_296_test.go"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_297_test.go"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m645_test.go"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m646_test.go"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m647_test.go"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m648_test.go"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m649_test.go"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m650_test.go"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/types/errors/repair_m647_test.go"
+
+[reference.39]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/types/genesis/repair_294_test.go"
+
+[reference.40]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/types/module/repair_295_test.go"
+
+[reference.41]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/types/module/repair_m648_test.go"
+
+[reference.42]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/types/query/repair_296_test.go"
+
+[reference.43]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/types/query/repair_m649_test.go"
+
+[reference.44]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/types/repair_293_test.go"
+
+[reference.45]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/types/repair_m645_test.go"
+
+[reference.46]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/types/repair_m646_test.go"
+
+[reference.47]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/types/rest/repair_297_test.go"
+
+[reference.48]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/types/rest/repair_m650_test.go"
