@@ -1,4 +1,4 @@
-"""Keep planned ask-stream declarations aligned with the native pay ABI."""
+"""Keep ask-stream declarations aligned with the native pay ABI."""
 
 import json
 import re
@@ -70,7 +70,6 @@ def test_ask_stream_documentation_matches_abi():
             f"{path}: {event_name} types or indexing differ from the ABI"
         )
 
-    assert "Every row is status new at the revision" in catalogue
     rows = [
         [cell.strip() for cell in line.strip("|").split("|")]
         for line in catalogue.splitlines()
@@ -78,14 +77,30 @@ def test_ask_stream_documentation_matches_abi():
     ]
     for name in (*methods, event_name):
         matches = [
-            row for row in rows if len(row) == 6 and re.match(rf"{name}\s*\(", row[3])
+            row
+            for row in rows
+            if len(row) == 4 and re.match(rf"<code>{name}\s*\(", row[3])
         ]
-        assert len(matches) == 1, f"Expected one planned catalogue row for {name}"
+        assert len(matches) == 1, f"Expected one catalogue row for {name}"
         row = matches[0]
-        assert row[2].endswith("(planned)"), f"{name} implementation must stay planned"
-        assert row[3].endswith("(planned)"), f"{name} signature must stay planned"
-        assert row[5] == "new", f"{name} catalogue status must stay new"
+        kind = "precompile_event" if name == event_name else "precompile_method"
+        assert row[1] == f"<code>{kind}</code>"
+        source = "events.go" if name == event_name else "stream.go"
+        link = re.fullmatch(r"\[([^]]+)\]\(([^)]+)\)", row[2])
+        assert link is not None, f"{name} must link its implementation"
+        expected = ROOT / "precompiles/layerxpay" / source
+        assert link[1] == expected.relative_to(ROOT).as_posix()
+        assert (CATALOGUE.parent / link[2]).resolve() == expected
+        assert expected.is_file()
+        assert row[3].startswith(f"<code>{name}(")
+        assert row[3].endswith("</code>")
 
-    assert "The inference market is not yet available." in protocol
-    assert "This page describes the planned F11" in protocol
-    assert "The planned pay methods at `0x101B` are:" in protocol
+    assert (
+        "The ai-market program implements the F11 interface described here." in protocol
+    )
+    assert (
+        "[availability](README.md#availability) on the target network before use."
+        in protocol
+    )
+    assert (PROTOCOL.parent / "README.md").is_file()
+    assert "The pay methods at `0x101B` include:" in protocol
