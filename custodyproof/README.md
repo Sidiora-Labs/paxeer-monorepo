@@ -7,8 +7,8 @@ This directory holds the Go library for verifying native bank balances and histo
 - `decode.go` — bounded JSON request decoding with duplicate and unknown field checks.
 - `verify.go` — proof types, genesis and checkpoint verification, state membership checks and durable trust storage.
 - `verify_test.go` — custody fixture checks and native bank proof production, transport and recovery tests.
-- `repair_m856_test.go` — bank proof, checkpoint, trust persistence and historical custody compatibility tests.
-- `repair_m856.kvx` — proof producer, trust and compatibility metadata.
+- `bank_verifier_test.go` — bank proof, checkpoint, trust persistence and historical custody compatibility tests.
+- [Proof producer, trust and compatibility metadata](../spec/layerx-merge/programme/records/custodyproof/repair_m856.kvx).
 
 ## Build and test
 

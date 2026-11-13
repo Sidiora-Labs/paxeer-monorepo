@@ -1029,7 +1029,7 @@ func testLatestExportRoundTrip(t *testing.T) {
 	commitMixedState(t, src, 1)
 	commitMixedState(t, src, 2)
 	height := src.Version()
-	rows := repair124Rows(t, src)
+	rows := collectRawGlobalRows(t, src)
 	require.NotEmpty(t, rows)
 	root := src.CommittedRootHash()
 	perDB := fullScanPerDBLtHash(t, src)
@@ -1059,7 +1059,7 @@ func testLatestExportRoundTrip(t *testing.T) {
 	reopened := reopenTestStore(t, cfg)
 	defer func() { require.NoError(t, reopened.Close()) }()
 	require.Equal(t, height, reopened.Version())
-	require.Equal(t, rows, repair124Rows(t, reopened))
+	require.Equal(t, rows, collectRawGlobalRows(t, reopened))
 	for _, round := range []byte{1, 2} {
 		addr := addrN(round)
 		for _, pair := range []*proto.KVPair{

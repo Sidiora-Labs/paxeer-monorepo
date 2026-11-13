@@ -1,0 +1,180 @@
+[manifest]
+task = "22.43.63"
+records_moved = 7
+files_renamed = 7
+
+[file.1]
+from = "modules/layerxpay/keeper/repair_131_test.go"
+to = "modules/layerxpay/keeper/pay_recovery_economics_test.go"
+
+[file.2]
+from = "modules/layerxpay/keeper/repair_131_precompile_test.go"
+to = "modules/layerxpay/keeper/budget_revoke_precompile_test.go"
+
+[file.3]
+from = "modules/layerxpay/keeper/repair_m1303_fixture_test.go"
+to = "modules/layerxpay/keeper/keeper_contract_fixture_test.go"
+
+[file.4]
+from = "modules/layerxpay/keeper/repair_m1303_test.go"
+to = "modules/layerxpay/keeper/keeper_contract_test.go"
+
+[file.5]
+from = "modules/layerxpay/keeper/repair_m1304_fixture_test.go"
+to = "modules/layerxpay/keeper/service_stream_fixture_test.go"
+
+[file.6]
+from = "modules/layerxpay/keeper/repair_m1304_test.go"
+to = "modules/layerxpay/keeper/service_stream_contract_test.go"
+
+[file.7]
+from = "modules/layerxpay/types/repair_m1302_test.go"
+to = "modules/layerxpay/types/genesis_record_validation_test.go"
+
+[file.8]
+from = "modules/layerxpay/keeper/repair_131.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxpay/keeper/repair_131.kvx"
+
+[file.9]
+from = "modules/layerxpay/keeper/repair_22_39_231.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxpay/keeper/repair_22_39_231.kvx"
+
+[file.10]
+from = "modules/layerxpay/keeper/repair_m1303.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxpay/keeper/repair_m1303.kvx"
+
+[file.11]
+from = "modules/layerxpay/keeper/repair_m1304.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxpay/keeper/repair_m1304.kvx"
+
+[file.12]
+from = "modules/layerxpay/repair_22_39_291.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxpay/repair_22_39_291.kvx"
+
+[file.13]
+from = "modules/layerxpay/repair_22_39_298.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxpay/repair_22_39_298.kvx"
+
+[file.14]
+from = "modules/layerxpay/types/repair_m1302.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxpay/types/repair_m1302.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "repair_131_test.go"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "repair_m1304_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "modules/layerxpay/keeper/repair_131_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "modules/layerxpay/keeper/repair_m1303_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "modules/layerxpay/types/repair_m1302_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/programme/issues/1627.kvx"
+name = "modules/layerxpay/keeper/repair_131_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/qualification.kvx"
+name = "TestRepairM_1304_GenesisProofGap"
+
+[reference.8]
+file = "spec/layerx-merge/qualification.kvx"
+name = "TestRepair_131_SnapshotGrowth"
+
+[reference.9]
+file = "spec/layerx-merge/qualification.kvx"
+name = "modules/layerxpay/keeper/repair_131_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/qualification.kvx"
+name = "modules/layerxpay/keeper/repair_m1303_test.go"
+
+[reference.11]
+file = "spec/layerx-merge/qualification.kvx"
+name = "modules/layerxpay/types/repair_m1302_test.go"
+
+[reference.12]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_131_test.go"
+
+[reference.13]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1302_test.go"
+
+[reference.14]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1303_test.go"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1302_"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1303_"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1304_"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_131_"
+
+[reference.19]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_131_EscrowReceiptBinding"
+
+[reference.20]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/layerxpay/keeper/repair_131_test.go"
+
+[reference.21]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/layerxpay/keeper/repair_22_39_231.kvx"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/layerxpay/keeper/repair_m1303_test.go"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/layerxpay/keeper/repair_m1304_test.go"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/layerxpay/repair_22_39_291.kvx"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/layerxpay/repair_22_39_298.kvx"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/layerxpay/types/repair_m1302_test.go"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_131_test.go"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1302_test.go"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1303_test.go"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1304_test.go"

@@ -1,0 +1,112 @@
+[manifest]
+task = "22.43.101"
+records_moved = 5
+files_renamed = 11
+
+[file.1]
+from = "sdk/chainflow/go/repair_m1306_test.go"
+to = "sdk/chainflow/go/consumer_examples_test.go"
+
+[file.2]
+from = "sdk/chainflow/go/internal/apijson/repair_m1307_test.go"
+to = "sdk/chainflow/go/internal/apijson/decoder_validation_test.go"
+
+[file.3]
+from = "sdk/chainflow/go/internal/testutil/repair_m1308_test.go"
+to = "sdk/chainflow/go/internal/testutil/server_probe_test.go"
+
+[file.4]
+from = "sdk/chainflow/go/testdata/repair_m1306_consumer/go.mod"
+to = "sdk/chainflow/go/testdata/consumer_example/go.mod"
+
+[file.5]
+from = "sdk/chainflow/go/testdata/repair_m1306_consumer/health.go"
+to = "sdk/chainflow/go/testdata/consumer_example/health.go"
+
+[file.6]
+from = "sdk/chainflow/go/testdata/repair_m1306_consumer/websocket.go"
+to = "sdk/chainflow/go/testdata/consumer_example/websocket.go"
+
+[file.7]
+from = "sdk/chainflow/python/tests/test_repair_22_31_341.py"
+to = "sdk/chainflow/python/tests/test_operation_credentials.py"
+
+[file.8]
+from = "sdk/chainflow/python/tests/test_repair_22_33_1326.py"
+to = "sdk/chainflow/python/tests/test_client_credentials_logging_and_send_queue.py"
+
+[file.9]
+from = "sdk/chainflow/python/tests/test_repair_22_33_1327.py"
+to = "sdk/chainflow/python/tests/test_websocket_log_redaction.py"
+
+[file.10]
+from = "sdk/chainflow/python/tests/test_repair_22_33_1330.py"
+to = "sdk/chainflow/python/tests/test_scoped_feed_reconnect.py"
+
+[file.11]
+from = "sdk/chainflow/rust/tests/repair_22_31_133.rs"
+to = "sdk/chainflow/rust/tests/credential_selection.rs"
+
+[file.12]
+from = "sdk/chainflow/go/internal/apijson/repair_m1307.kvx"
+to = "spec/layerx-merge/programme/records/sdk/chainflow/go/internal/apijson/repair_m1307.kvx"
+
+[file.13]
+from = "sdk/chainflow/go/internal/testutil/repair_m1308.kvx"
+to = "spec/layerx-merge/programme/records/sdk/chainflow/go/internal/testutil/repair_m1308.kvx"
+
+[file.14]
+from = "sdk/chainflow/go/repair_m1306.kvx"
+to = "spec/layerx-merge/programme/records/sdk/chainflow/go/repair_m1306.kvx"
+
+[file.15]
+from = "sdk/chainflow/python/src/chainflow_data_gateway/resources/web_sockets/repair_22_33_1327.kvx"
+to = "spec/layerx-merge/programme/records/sdk/chainflow/python/src/chainflow_data_gateway/resources/web_sockets/repair_22_33_1327.kvx"
+
+[file.16]
+from = "sdk/chainflow/rust/src/repair_133.kvx"
+to = "spec/layerx-merge/programme/records/sdk/chainflow/rust/src/repair_133.kvx"
+
+[reference.1]
+file = "scripts/workspace/check-paxeer-manifests-test.sh"
+name = "repair_m1306_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_133.rs"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1306_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1307_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1308_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_31_341.py"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_1326.py"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_1327.py"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_1330.py"
+
+[reference.10]
+file = "tools/workspace/paxeer-manifest-roots.txt"
+name = "repair_m1306_consumer"
+
+[reference.11]
+file = "tools/workspace/paxeer-manifest-roots.txt"
+name = "repair_m1306_test.go"

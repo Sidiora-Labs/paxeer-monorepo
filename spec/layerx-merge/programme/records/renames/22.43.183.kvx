@@ -1,0 +1,88 @@
+[manifest]
+task = "22.43.183"
+records_moved = 4
+files_renamed = 5
+
+[file.1]
+from = "storage/ledger_db/block/block_db_test/repair_m1159_test.go"
+to = "storage/ledger_db/block/block_db_test/memory_reopen_test.go"
+
+[file.2]
+from = "storage/ledger_db/block/blocksim/repair_m1160_test.go"
+to = "storage/ledger_db/block/blocksim/lifecycle_test.go"
+
+[file.3]
+from = "storage/ledger_db/receipt/repair_104_test.go"
+to = "storage/ledger_db/receipt/wal_restart_test.go"
+
+[file.4]
+from = "storage/ledger_db/receipt/repair_22_39_367_test.go"
+to = "storage/ledger_db/receipt/idle_close_test.go"
+
+[file.5]
+from = "storage/ledger_db/receipt/repair_m1146_test.go"
+to = "storage/ledger_db/receipt/recovery_lifecycle_test.go"
+
+[file.6]
+from = "storage/ledger_db/block/block_db_test/repair_m1159.kvx"
+to = "spec/layerx-merge/programme/records/storage/ledger_db/block/block_db_test/repair_m1159.kvx"
+
+[file.7]
+from = "storage/ledger_db/block/blocksim/repair_m1160.kvx"
+to = "spec/layerx-merge/programme/records/storage/ledger_db/block/blocksim/repair_m1160.kvx"
+
+[file.8]
+from = "storage/ledger_db/receipt/repair_104.kvx"
+to = "spec/layerx-merge/programme/records/storage/ledger_db/receipt/repair_104.kvx"
+
+[file.9]
+from = "storage/ledger_db/receipt/repair_m1146.kvx"
+to = "spec/layerx-merge/programme/records/storage/ledger_db/receipt/repair_m1146.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/programme/issues/1700.kvx"
+name = "TestIssue1700SingleDiagnostic"
+
+[reference.2]
+file = "spec/layerx-merge/programme/issues/1700.kvx"
+name = "storage/ledger_db/block/blocksim/repair_m1160_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestIssue1700SingleDiagnostic"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_104_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1146_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1159_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1160_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "storage/ledger_db/block/block_db_test/repair_m1159_test.go"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "storage/ledger_db/block/blocksim/repair_m1160_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "storage/ledger_db/receipt/repair_104_test.go"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "storage/ledger_db/receipt/repair_m1146_test.go"
+
+[reference.12]
+file = "tests/ci/repair_22_39_367.kvx"
+name = "TestRepair2239367CloseIdleReceiptStore"

@@ -309,7 +309,7 @@ func proofBoundsRunProfileCLI(t *testing.T, disable bool) {
 	require.NoError(t, err)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	args := []string{"-test.run=^TestRepairM_816_ProfileCLI$", "--", "--config", profilePath,
+	args := []string{"-test.run=^TestBoundsAndGasProfileCLI$", "--", "--config", profilePath,
 		"--dry-run", "--tps=0.1", "--stats-interval=1s", "--metricsListenAddr=127.0.0.1:0", "--report-path", reportPath}
 	if disable {
 		args = append(args, "--min-tps=0", "--max-p99-latency=0s", "--min-total-txs=0")

@@ -55,7 +55,7 @@ func TestTxsWriter_Flush(t *testing.T) {
 	require.Equal(t, uint64(2), writer.nextHeight)
 	require.Zero(t, writer.bufferGas)
 	require.Empty(t, writer.txBuffer)
-	repair324ReadBatch(t, writer.batchPath(1), txs[0], txs[1])
+	writerRPCReadBatch(t, writer.batchPath(1), txs[0], txs[1])
 	require.NoError(t, writer.Flush())
 	files, err := filepath.Glob(filepath.Join(writer.txsDir, "*_txs.json"))
 	require.NoError(t, err)
@@ -64,5 +64,5 @@ func TestTxsWriter_Flush(t *testing.T) {
 }
 
 func TestTxsWriter_DurablePublication(t *testing.T) {
-	TestRepairM_821_WriterDurability(t)
+	TestSenderWriterDurability(t)
 }

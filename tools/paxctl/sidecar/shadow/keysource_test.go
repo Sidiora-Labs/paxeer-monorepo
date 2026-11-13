@@ -9,7 +9,7 @@ import (
 )
 
 // Synthetic diff results used only to exercise deterministic union and sorting.
-// Real producer coverage is exercised by repair_328_test.go.
+// Real producer coverage is exercised by trace_coverage_test.go.
 const samplePrestateJSON = `[
   {"result": {
     "pre": {

@@ -133,7 +133,7 @@ the `SingleSignatureData` object or just the raw signature. The verifier decodes
 it through [`UnmarshalSignatureData`](../types/codec.go).
 
 The executable example in
-[`TestRepairM_1234_DocumentedProofRoundTrip`](../repair_m1234_test.go) compiles
+[`TestSoloMachineDocumentedProofRoundTrip`](../proof_encoding_contract_test.go) compiles
 this helper and passes its wrapper bytes to `ClientState.VerifyClientState`,
 then checks the sequence and timestamp persisted by the verifier. The companion
 rejection test covers a changed wrapper timestamp and raw signature bytes in

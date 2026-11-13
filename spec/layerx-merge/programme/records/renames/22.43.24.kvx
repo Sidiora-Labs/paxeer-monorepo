@@ -1,0 +1,36 @@
+[manifest]
+task = "22.43.24"
+records_moved = 2
+files_renamed = 2
+
+[file.1]
+from = "cmd/layerxctl/src/repair_22_33_1078.kvx"
+to = "spec/layerx-merge/programme/records/cmd/layerxctl/src/repair_22_33_1078.kvx"
+
+[file.2]
+from = "cmd/layerxctl/tests/repair_22_33_1068.kvx"
+to = "spec/layerx-merge/programme/records/cmd/layerxctl/tests/repair_22_33_1068.kvx"
+
+[file.3]
+from = "cmd/layerxctl/tests/repair_22_33_1068.rs"
+to = "cmd/layerxctl/tests/submit_receipts.rs"
+
+[file.4]
+from = "cmd/layerxctl/tests/repair_22_33_1078.rs"
+to = "cmd/layerxctl/tests/cli_contract.rs"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1068"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1078"
+
+[reference.3]
+file = "spec/layerx-merge/programme/issues/1593.kvx"
+name = "repair_22_33_1078.rs"
+
+[reference.4]
+file = "spec/layerx-merge/programme/audit/records/22.30.43.kvx"
+name = "repair_22_33_1078.rs"

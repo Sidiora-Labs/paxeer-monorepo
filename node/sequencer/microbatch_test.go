@@ -252,5 +252,5 @@ func requireSameAccepted(t *testing.T, want, got *sequencer.Accepted) {
 }
 
 func TestMicroBatchConcurrentPublicSends(t *testing.T) {
-	sequencer.RepairM1144LiveSerialization(t)
+	sequencer.CheckMicrobatchLiveSerialization(t)
 }

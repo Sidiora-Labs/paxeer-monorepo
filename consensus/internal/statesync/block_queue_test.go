@@ -313,5 +313,5 @@ loop:
 }
 
 func TestBlockQueueCloseWaiters(t *testing.T) {
-	testRepairM1183BlockQueueClose(t)
+	assertBlockQueueShutdown(t)
 }

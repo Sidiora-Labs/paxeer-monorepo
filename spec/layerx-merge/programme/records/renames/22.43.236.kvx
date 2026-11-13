@@ -1,7 +1,7 @@
 [manifest]
 task = "22.43.236"
 records_moved = 20
-files_renamed = 20
+files_renamed = 18
 
 [file.1]
 from = "tools/qualification/audit_repairs/repair_22_33_311.kvx"
@@ -24,142 +24,134 @@ from = "tools/qualification/audit_repairs/repair_22_33_313.kvx"
 to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_313.kvx"
 
 [file.6]
-from = "tools/qualification/audit_repairs/test_repair_22_33_313.py"
-to = "tools/qualification/audit_repairs/test_readme_network_model.py"
-
-[file.7]
 from = "tools/qualification/audit_repairs/repair_22_33_317.kvx"
 to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_317.kvx"
 
-[file.8]
+[file.7]
 from = "tools/qualification/audit_repairs/test_repair_22_33_317.py"
 to = "tools/qualification/audit_repairs/test_readme_daemon_topology.py"
 
-[file.9]
+[file.8]
 from = "tools/qualification/audit_repairs/repair_22_33_335.kvx"
 to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_335.kvx"
 
-[file.10]
+[file.9]
 from = "tools/qualification/audit_repairs/test_repair_22_33_335.py"
 to = "tools/qualification/audit_repairs/test_readme_kernel_topology.py"
 
-[file.11]
+[file.10]
 from = "tools/qualification/audit_repairs/repair_22_33_358.kvx"
 to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_358.kvx"
 
-[file.12]
+[file.11]
 from = "tools/qualification/audit_repairs/test_repair_22_33_358.py"
 to = "tools/qualification/audit_repairs/test_openapi_health_overlay_contract.py"
 
-[file.13]
+[file.12]
 from = "tools/qualification/audit_repairs/repair_22_33_359.kvx"
 to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_359.kvx"
 
-[file.14]
+[file.13]
 from = "tools/qualification/audit_repairs/test_repair_22_33_359.py"
 to = "tools/qualification/audit_repairs/test_readme_component_boundaries.py"
 
-[file.15]
+[file.14]
 from = "tools/qualification/audit_repairs/repair_22_33_360.kvx"
 to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_360.kvx"
 
-[file.16]
+[file.15]
 from = "tools/qualification/audit_repairs/test_repair_22_33_360.py"
 to = "tools/qualification/audit_repairs/test_health_client_documentation.py"
 
-[file.17]
+[file.16]
 from = "tools/qualification/audit_repairs/repair_22_33_372.kvx"
 to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_372.kvx"
 
-[file.18]
+[file.17]
 from = "tools/qualification/audit_repairs/test_repair_22_33_372.py"
 to = "tools/qualification/audit_repairs/test_registry_sdk_documentation.py"
 
-[file.19]
+[file.18]
 from = "tools/qualification/audit_repairs/repair_22_33_380.kvx"
 to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_380.kvx"
 
-[file.20]
-from = "tools/qualification/audit_repairs/test_repair_22_33_380.py"
-to = "tools/qualification/audit_repairs/test_readme_retired_daemon.py"
-
-[file.21]
+[file.19]
 from = "tools/qualification/audit_repairs/repair_22_33_388.kvx"
 to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_388.kvx"
 
-[file.22]
+[file.20]
 from = "tools/qualification/audit_repairs/test_repair_22_33_388.py"
 to = "tools/qualification/audit_repairs/test_playwright_affected_selection.py"
 
-[file.23]
+[file.21]
 from = "tools/qualification/audit_repairs/repair_22_33_392.kvx"
 to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_392.kvx"
 
-[file.24]
+[file.22]
 from = "tools/qualification/audit_repairs/test_repair_22_33_392.py"
 to = "tools/qualification/audit_repairs/test_readme_embedded_kernel.py"
 
-[file.25]
+[file.23]
 from = "tools/qualification/audit_repairs/repair_22_33_404.kvx"
 to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_404.kvx"
 
-[file.26]
+[file.24]
 from = "tools/qualification/audit_repairs/test_repair_22_33_404.py"
 to = "tools/qualification/audit_repairs/test_readme_network_architecture.py"
 
-[file.27]
+[file.25]
 from = "tools/qualification/audit_repairs/repair_22_33_406.kvx"
 to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_406.kvx"
 
-[file.28]
+[file.26]
 from = "tools/qualification/audit_repairs/test_repair_22_33_406.py"
 to = "tools/qualification/audit_repairs/test_bridge_deployment_journal.py"
 
-[file.29]
+[file.27]
 from = "tools/qualification/audit_repairs/repair_22_33_414.kvx"
 to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_414.kvx"
 
-[file.30]
+[file.28]
 from = "tools/qualification/audit_repairs/test_repair_22_33_414.py"
 to = "tools/qualification/audit_repairs/test_readme_node_operations.py"
 
-[file.31]
+[file.29]
 from = "tools/qualification/audit_repairs/repair_22_33_418.kvx"
 to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_418.kvx"
 
-[file.32]
+[file.30]
 from = "tools/qualification/audit_repairs/test_repair_22_33_418.py"
 to = "tools/qualification/audit_repairs/test_readme_execution_domains.py"
 
-[file.33]
+[file.31]
 from = "tools/qualification/audit_repairs/repair_22_33_420.kvx"
 to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_420.kvx"
 
-[file.34]
+[file.32]
 from = "tools/qualification/audit_repairs/test_repair_22_33_420.py"
 to = "tools/qualification/audit_repairs/test_bridge_relayer_cli_contract.py"
 
-[file.35]
+[file.33]
 from = "tools/qualification/audit_repairs/repair_22_33_421.kvx"
 to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_421.kvx"
 
-[file.36]
+[file.34]
 from = "tools/qualification/audit_repairs/test_repair_22_33_421.py"
 to = "tools/qualification/audit_repairs/test_explorer_deployment_contract.py"
 
-[file.37]
+[file.35]
 from = "tools/qualification/audit_repairs/repair_22_33_425.kvx"
 to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_425.kvx"
 
-[file.38]
+[file.36]
 from = "tools/qualification/audit_repairs/test_repair_22_33_425.py"
 to = "tools/qualification/audit_repairs/test_readme_kernel_integration.py"
 
-[file.39]
+[file.37]
 from = "tools/qualification/audit_repairs/repair_22_33_429.kvx"
 to = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_429.kvx"
 
-[file.40]
+[file.38]
 from = "tools/qualification/audit_repairs/test_repair_22_33_429.py"
 to = "tools/qualification/audit_repairs/test_readme_root_architecture.py"
 

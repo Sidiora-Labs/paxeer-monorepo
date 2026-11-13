@@ -6,4 +6,4 @@ Clients must set the transaction or CALL value to zero. Contracts can use zero-v
 
 Historical replay retains these exact semantics. The current distribution executor rejects nonzero rewards value from the recorded `v7.0` completed upgrade height, inclusive; a scheduled plan or the current binary version alone does not activate that refusal. Historical tracing selects the executor recorded at the requested height, while ordinary execution uses the current executor with its height gate. Clients should continue to send zero value at every height.
 
-[Routing and value tests](repair_m1260_test.go) cover historical transfers, current routing and rollback at the activation boundary, and zero-value CALL/STATICCALL results against in-memory keepers and stores. Their heights 10 and 20 are test fixtures, not network activation heights.
+[Routing and value tests](rewards_value_test.go) cover historical transfers, current routing and rollback at the activation boundary, and zero-value CALL/STATICCALL results against in-memory keepers and stores. Their heights 10 and 20 are test fixtures, not network activation heights.

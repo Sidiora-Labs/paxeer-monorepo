@@ -1,0 +1,24 @@
+[manifest]
+task = "22.43.11"
+records_moved = 2
+files_renamed = 0
+
+[file.1]
+from = "apps/inference-peer/repair-22-39-355.kvx"
+to = "spec/layerx-merge/programme/records/apps/inference-peer/repair-22-39-355.kvx"
+
+[file.2]
+from = "apps/inference-peer/repair-22-39-370.kvx"
+to = "spec/layerx-merge/programme/records/apps/inference-peer/repair-22-39-370.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "apps/inference-peer/repair-22-39-355.kvx"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/inference-peer/repair-22-39-355.kvx"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "apps/inference-peer/repair-22-39-370.kvx"

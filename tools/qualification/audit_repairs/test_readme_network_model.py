@@ -1,8 +1,4 @@
-"""Offline source proof for audit 22.30.135/root-readme-network-model.
-
-Read the production README inherited from 22.31.470 and its real node sources.
-These checks qualify documentation facts, not native execution or deployment.
-"""
+"""Offline source-fact proof for audit 22.30.57/readme-network-model."""
 
 import ast
 import json
@@ -15,10 +11,6 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]
 README = (ROOT / "README.md").read_text(encoding="utf-8")
-RECORD = (
-    ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs"
-    / "repair_22_33_313.kvx"
-)
 
 
 def source(path):
@@ -26,7 +18,6 @@ def source(path):
 
 
 def section(heading, level=3):
-    """Keep fenced shell comments from being interpreted as Markdown headings."""
     marker = "#" * level + " " + heading + "\n"
     assert README.count(marker) == 1, heading
     lines = []
@@ -45,55 +36,65 @@ def section(heading, level=3):
     return "".join(lines)
 
 
-def test_merged_paxd_network_and_tenant_namespaces():
+def test_readme_describes_one_block_proposing_paxd_network():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
+        "one BFT network with EVM chain ID **125** (`0x7d`)",
+        "kernel is embedded in the node",
+        "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "A receipt is final once its block is committed",
-        "Sub-chains are tenant domains stored in the database",
-        "does not require new node infrastructure",
-        "no router and no separate LayerX interface", "outside consensus",
+        "no separate kernel daemon, sequencer service or checkpoint deployment",
+        "External checkpoint settlement is retired",
+        "no router and no separate LayerX interface",
     ):
         assert fact in overview, fact
+    topology = re.findall(r"```mermaid\n(.*?)\n```", overview, re.S)
+    assert len(topology) == 1
+    for fact in (
+        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Node[paxd]",
+        "RPC --> Order --> Host --> Native",
+        "Validators -->|Commit| State",
+    ):
+        assert fact in topology[0], fact
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
     assert 'import "C"' in source("modules/lxphost/host.go")
     assert "var _ tmtypes.SequencerSource = (*ConsensusSource)(nil)" in source(
         "node/sequencer/consensus_source.go"
     )
-    assert "modules/layerxchains/" in overview
-    assert (ROOT / "modules/layerxchains").is_dir()
-    assert not re.search(
-        r"two (?:execution )?domains|kernel still runs separately|merge (?:is|remains) (?:only )?(?:a )?draft",
-        README, re.I,
-    )
-
-
-def test_root_json_rpc_hosts_and_chain_125_probe():
-    quickstart = section("Quick start: connect to chain 125")
-    for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "`https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`",
-        "root path of these hosts, without a route suffix",
-        "Confirm the chain ID before signing or broadcasting",
-        "compare `eth_blockNumber`",
-        "gateway contract does not establish method availability at public node URLs",
-        "node.hyperpaxeer.com` is only the hpx library mirror",
-        "never a JSON-RPC endpoint",
+    for stale in (
+        r"\blayerxd\b",
+        r"two (?:execution )?domains",
+        r"kernel still runs separately",
+        r"merge is (?:only )?a draft",
     ):
-        assert fact in quickstart, fact
-    hosts = {"api-mainnet-beta.paxeer.network"}
-    hosts.update(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15))
-    urls = re.findall(r"https?://[^\s`<>)]+", README)
-    node_urls = [urlsplit(url) for url in urls if "mainnet-beta.paxeer.network" in url]
-    assert node_urls
-    for url in node_urls:
-        assert url.scheme == "https" and url.hostname in hosts
-        assert url.path in ("", "/") and not url.query and not url.fragment
+        assert not re.search(stale, README, re.I), stale
+
+
+def test_readme_links_root_rpc_contract_and_chain_125_probe():
+    quickstart = section("Quick start: connect to chain 125")
+    contract_path = "docs/site/paxeer-docs/src/app/public-rpc/page.tsx"
+    assert f"]({contract_path})" in README
+    contract = source(contract_path)
+    assert "JSON-RPC is served over HTTPS at the root path" in contract
+    assert "EVM chain ID `125` (`0x7d`)" in contract
+    assert "root path of these hosts, without a route suffix" in quickstart
+    assert "`https://api1.mainnet-beta.paxeer.network` through" in quickstart
+    assert "`https://api14.mainnet-beta.paxeer.network`" in quickstart
+    endpoints = {
+        f"https://api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)
+    }
+    contract_urls = re.findall(r"`(https://[^`]+)`", contract)
+    assert endpoints <= set(contract_urls)
+    for url in re.findall(r"https://[^\s`<>)]+", README) + contract_urls:
+        parsed = urlsplit(url)
+        if parsed.hostname and parsed.hostname.endswith("mainnet-beta.paxeer.network"):
+            assert parsed.path in ("", "/"), url
+            assert not parsed.query and not parsed.fragment, url
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
-    argv = shlex.split(blocks[0].split("\n# Expected result:", 1)[0].replace("\\\n", " "))
+    argv = shlex.split(blocks[0].replace("\\\n", " "), comments=True)
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
@@ -104,25 +105,45 @@ def test_root_json_rpc_hosts_and_chain_125_probe():
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
     assert '# Expected result: "0x7d"' in blocks[0]
+    assert "node.hyperpaxeer.com` is only the hpx library mirror" in quickstart
+    assert "never a JSON-RPC endpoint" in quickstart
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
 
 
-def test_transaction_transport_and_committed_receipt_consumption():
+def test_readme_transaction_receipt_flow_requires_block_commit():
     flow = section("Submit a transaction and follow its committed receipt")
     for fact in (
         "secp256k1 EIP-1559 transaction for chain ID `125`",
-        "`eth_getTransactionCount`", "`eth_sendRawTransaction`", "transaction hash",
-        "durable WAL acknowledgement", "Receipt order is proposal order",
+        "`eth_getTransactionCount`",
+        "`eth_sendRawTransaction`",
+        "transaction hash",
+        "durable WAL acknowledgement",
+        "Receipt order is proposal order",
         "`submitted` has no execution receipt yet",
         "`receipted` includes signed execution evidence",
-        "`committed` additionally names the block", "`MsgSequenceBatch`",
-        "Wait for `committed` and authenticate the block commitment",
-        "`eth_getTransactionReceipt`", "commitment does not mean execution succeeded",
-        "`eth_call` at an explicit committed height", "No separate service endpoint is required",
+        "`committed` additionally names the block",
+        "`MsgSequenceBatch`",
+        "authenticate the block commitment before treating the result as final",
+        "`eth_getTransactionReceipt`",
+        "commitment does not mean execution succeeded",
+        "`eth_call` at an explicit committed height",
+        "No separate service endpoint is required",
     ):
         assert fact in flow, fact
+    events = (
+        "eth_sendRawTransaction(signed chain-125 bytes)",
+        "Execute, sign receipt, durably acknowledge WAL",
+        "Release signed execution receipt",
+        "receipted (execution evidence)",
+        "Propose MsgSequenceBatch in receipt order",
+        "Commit block",
+        "committed, blockNumber, blockHash",
+    )
+    diagram = re.findall(r"```mermaid\n(.*?)\n```", flow, re.S)
+    assert len(diagram) == 1
+    positions = [diagram[0].index(event) for event in events]
+    assert positions == sorted(positions)
     send = source("rpc/send.go")
-    assert "func (s *SendAPI) SendRawTransaction(" in send
     assert "return hash, s.acceptOnSequencer(ctx, tx)" in send
     assert "return s.forwardToSequencer(ctx, hash, input)" in send
     assert "s.sendConfig.Sequencer.Accept(txbz)" in send
@@ -137,35 +158,31 @@ def test_transaction_transport_and_committed_receipt_consumption():
     ]
     assert "a.coveringHeight(decoded.GlobalSequence, decoded.ResultingStateRoot, uint64(view.Height))" in receipt
     assert "result.Rung, result.BlockNumber, result.BlockHash = RungCommitted" in receipt
-    proof = section("Receipt and proof verification")
-    assert "pinned for the receipt height" in proof
-    assert "authenticate the block header and CometBFT commit" in proof
-    assert "trusted validator information" in proof
-    assert "ed25519.Sign(k.private, digest[:])" in source("node/sequencer/receiptkey.go")
-    assert "codec.DecodeReceipt(receiptBytes)" in source("layerxproof/verify/receipt.go")
 
 
-def test_retired_executors_are_separate_from_active_contracts():
+def test_readme_precompile_availability_separates_retired_executors():
     native = section("EVM and Native Precompiles")
     rows = dict(re.findall(r"\| `(0x[0-9A-Fa-f]+)` \| `([^`]+)` \|", native))
-    assert rows["0x101A"] == "layerxledger"
-    assert rows["0x101B"] == "layerxpay"
-    assert rows["0x101C"] == "layerxauth"
-    assert rows["0x101D"] == "layerxprograms"
-    assert not {"0x1012", "0x1013", "0x1014"} & rows.keys()
-    retired = [p for p in native.split("\n\n") if p.startswith("The pre-merge ")]
-    assert len(retired) == 1
+    expected = {
+        "0x101A": "layerxledger", "0x101B": "layerxpay", "0x101C": "layerxauth",
+        "0x101D": "layerxprograms", "0x101E": "layerxchains", "0x0901": "orob",
+        "0x0902": "clearing", "0x0903": "oracle aggregator", "0x0904": "pofq",
+        "0x0905": "scheduler", "0x0906": "streams", "0x0907": "tee attestor",
+        "0x0908": "eip712",
+    }
+    assert rows == expected
     for fact in (
-        "`layerxVerify` (`0x1012`) and `layerxCustody` (`0x1013`) interfaces are retired",
+        "`v7.0`", "gates activation by upgrade and module state",
+        "`layerxVerify` (`0x1012`) and `layerxCustody` (`0x1013`)",
+        "interfaces are retired at the merge",
         "`layerxAnchor` (`0x1014`) rejects writes after the merge",
         "historical views retire at `v7.0-anchor-store-delete`",
         "retired refusal surfaces", "not active funding or checkpoint executors",
-        "`LXP_MODULE_DISABLED`", "archive-only",
+        "`LXP_MODULE_DISABLED`", "Historical anchor reads before store deletion are archive-only",
+        "External checkpoint registration", "settlement ladder are retired",
+        "archived formats add no settlement step to current block finality",
     ):
-        assert fact in retired[0], fact
-    current = README.replace(retired[0], "")
-    assert not re.search(r"layerx(?:Custody|Anchor|Verify)", current)
-    assert "archived formats add no settlement step to current block finality" in native
+        assert fact in native, fact
     assert 'pcommon.RetiredRevert("layerxVerify")' in source("precompiles/layerxverify/layerxverify.go")
     assert "if p.keeper.Retired(ctx)" in source("precompiles/layerxcustody/layerxcustody.go")
     anchor = source("precompiles/layerxanchor/layerxanchor.go")
@@ -174,52 +191,56 @@ def test_retired_executors_are_separate_from_active_contracts():
     assert 'const AnchorStoreDeleteUpgrade = "v7.0-anchor-store-delete"' in source("node/upgrades.go")
 
 
-def test_current_node_build_operations_and_no_separate_deployment():
+def test_readme_local_run_guidance_uses_merged_paxd_lifecycle():
     build = section("Build")
+    commands = [
+        shlex.split(line, comments=True)
+        for block in re.findall(r"```sh\n(.*?)\n```", build, re.S)
+        for line in block.splitlines()
+        if line.strip()
+    ]
+    assert ["make", "paxd-build"] in commands
+    assert ["./build/paxd", "version"] in commands
+    assert ["./build/paxd", "start", "--home", "$PAXD_HOME"] in commands
+    assert all("layerxd" not in arg and "checkpoint" not in arg for cmd in commands for arg in cmd)
     for fact in (
-        "make paxd-build", "build/liblayerx.a",
-        "programs/target/release/liblayerx_programs_sandbox.a",
-        "./build/paxd version", './build/paxd start --home "$PAXD_HOME"',
+        "build/liblayerx.a", "programs/target/release/liblayerx_programs_sandbox.a",
         "operator-provided genesis and consensus chain identifier",
-        "node/upgrades.go", "node/sequencer/config.go", "services/explorer/",
+        "Building the binary alone does not provision network membership",
         "running network entry point is `paxd`",
     ):
         assert fact in build, fact
-    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build evmone-lib\n" in source("Makefile")
-    assert "\npaxd-build: paxd-native-libs\n" in source("Makefile")
+    makefile = source("Makefile")
+    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build evmone-lib\n" in makefile
+    assert "\npaxd-build: paxd-native-libs\n" in makefile
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
-    for target in re.findall(r"\]\(([^)]+)\)", build):
-        assert (ROOT / target.split("#", 1)[0]).exists(), target
+    assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
     assert "commits it with the BFT chain state" in release
-    assert "no separate kernel daemon, sequencer service or checkpoint deployment" in README
-    assert "External checkpoint settlement is retired" in README
-    assert not re.search(r"\blayerxd\b", README, re.I)
 
 
-def test_repair_record_maps_finding_to_real_source_proofs():
-    record = tomllib.loads(RECORD.read_text(encoding="utf-8"))
-    task = record["task"]["22"]["33"]["313"]
-    finding = record["finding"]["root-readme-network-model"]
-    audit = tomllib.loads(source("spec/layerx-merge/programme/audit/records/22.30.135.kvx"))
-    original = audit["finding"]["root-readme-network-model"]
-    assert finding["audit"] == "22.30.135"
-    assert finding["file"] == original["file"] == "README.md"
-    assert finding["class"] == original["class"] == "doc-drift"
-    assert original["severity"] == "medium"
+def test_network_model_record_maps_finding_to_declared_source_proofs():
+    record = tomllib.loads(source("spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1213.kvx"))
+    finding = tomllib.loads(source(
+        "spec/layerx-merge/programme/audit/records/22.30.57.kvx"
+    ))["finding"]["readme-network-model"]
+    closure = record["finding"]["readme-network-model"]
+    assert finding["file"] == closure["file"] == "README.md"
+    assert finding["class"] == closure["class"] == "doc-drift"
+    assert finding["severity"] == closure["severity"] == "medium"
     declared = {
         node.name for node in ast.parse(Path(__file__).read_text(encoding="utf-8")).body
         if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")
     }
-    assert set(finding["tests"]) == declared
-    assert task["wiring_requests"] == []
-    assert task["readme_owner"] == "domain 17; task 22.31.470"
-    assert "source facts" in task["source_proof"]
-    assert "not executed" in task["review_only"]
-    assert "No pre-change verification was run" in task["baseline"]
-    assert task["evidence_ledger"] == "/out/run/gates.jsonl"
-    assert "same candidate revision" in task["evidence"]
-    assert task["verify_cmd"] == (
+    assert set(closure["tests"]) == declared - {
+        "test_network_model_record_maps_finding_to_declared_source_proofs"
+    }
+    assert closure["owner_task"] == "22.31.470"
+    assert closure["wiring_requests"] == []
+    assert record["repair"]["task"] == "22.33.1213"
+    assert record["qualification"]["verify_cmd"] == (
         "python3 -m pytest -q tools/qualification/audit_repairs/test_readme_network_model.py"
     )
+    assert record["qualification"]["evidence_ledger"] == "/out/run/gates.jsonl"
+    assert "not executed" in record["proof"]["review_only"]

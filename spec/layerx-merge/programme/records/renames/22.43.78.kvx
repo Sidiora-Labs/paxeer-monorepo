@@ -1,0 +1,52 @@
+[manifest]
+task = "22.43.78"
+records_moved = 3
+files_renamed = 2
+
+[file.1]
+from = "precompiles/launchpad/repair_36_test.go"
+to = "precompiles/launchpad/surface_multicall_safety_test.go"
+
+[file.2]
+from = "precompiles/launchpad/repair_m947_test.go"
+to = "precompiles/launchpad/abort_replay_registry_test.go"
+
+[file.3]
+from = "precompiles/launchpad/repair_22_39_325.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/launchpad/repair_22_39_325.kvx"
+
+[file.4]
+from = "precompiles/launchpad/repair_36.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/launchpad/repair_36.kvx"
+
+[file.5]
+from = "precompiles/launchpad/repair_m947.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/launchpad/repair_m947.kvx"
+
+[reference.1]
+file = "modules/launchpad/keeper/repair_22_39_315.kvx"
+name = "precompiles/launchpad/repair_36.kvx"
+
+[reference.2]
+file = "modules/launchpad/keeper/repair_22_39_315.kvx"
+name = "repair_36.kvx"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/launchpad/repair_22_39_325.kvx"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/launchpad/repair_36_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/launchpad/repair_m947_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_36_"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_947_"
