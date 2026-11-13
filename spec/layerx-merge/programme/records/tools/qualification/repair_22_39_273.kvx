@@ -96,7 +96,7 @@ line = 144
 component = "layerxctl-port"
 symbol = "LNI"
 status = "missing_external_interface"
-repair = "The fixture imports removed tests/daemon/paxeer_x_runtime_fixture.py and drives wire capability snapshots; the retained paxd discovery producer and committed budget/cursor cases are requested by test_repair_22_33_876.py and are not present in this scope."
+repair = "The fixture imports removed tests/daemon/paxeer_x_runtime_fixture.py and drives wire capability snapshots; the retained paxd discovery producer and committed budget/cursor cases are requested by test_native_manifest_contracts.py and are not present in this scope."
 
 [finding.12]
 path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
@@ -104,7 +104,7 @@ line = 144
 component = "lni"
 symbol = "LNI"
 status = "missing_external_interface"
-repair = "The fixture imports removed tests/daemon/paxeer_x_runtime_fixture.py and drives wire capability snapshots; the retained paxd discovery producer and committed budget/cursor cases are requested by test_repair_22_33_876.py and are not present in this scope."
+repair = "The fixture imports removed tests/daemon/paxeer_x_runtime_fixture.py and drives wire capability snapshots; the retained paxd discovery producer and committed budget/cursor cases are requested by test_native_manifest_contracts.py and are not present in this scope."
 
 [finding.13]
 path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
@@ -112,7 +112,7 @@ line = 145
 component = "layerxctl-port"
 symbol = "LNI"
 status = "missing_external_interface"
-repair = "The fixture imports removed tests/daemon/paxeer_x_runtime_fixture.py and drives wire capability snapshots; the retained paxd discovery producer and committed budget/cursor cases are requested by test_repair_22_33_876.py and are not present in this scope."
+repair = "The fixture imports removed tests/daemon/paxeer_x_runtime_fixture.py and drives wire capability snapshots; the retained paxd discovery producer and committed budget/cursor cases are requested by test_native_manifest_contracts.py and are not present in this scope."
 
 [finding.14]
 path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
@@ -120,7 +120,7 @@ line = 145
 component = "lni"
 symbol = "LNI"
 status = "missing_external_interface"
-repair = "The fixture imports removed tests/daemon/paxeer_x_runtime_fixture.py and drives wire capability snapshots; the retained paxd discovery producer and committed budget/cursor cases are requested by test_repair_22_33_876.py and are not present in this scope."
+repair = "The fixture imports removed tests/daemon/paxeer_x_runtime_fixture.py and drives wire capability snapshots; the retained paxd discovery producer and committed budget/cursor cases are requested by test_native_manifest_contracts.py and are not present in this scope."
 
 [finding.15]
 path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
@@ -272,7 +272,7 @@ line = 528
 component = "custody-deposit"
 symbol = "CUSTODY_PRECOMPILE"
 status = "missing_external_interface"
-repair = "The retired custody constant is absent from the real material producer; native bank movement material must be provisioned by its owner as already requested in test_repair_22_33_861.py, without weakening the KMS assembly cases."
+repair = "The retired custody constant is absent from the real material producer; native bank movement material must be provisioned by its owner as already requested in test_native_movement_program_ramp_identity.py, without weakening the KMS assembly cases."
 
 [finding.34]
 path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
@@ -280,7 +280,7 @@ line = 529
 component = "custody-deposit"
 symbol = "CUSTODY_PRECOMPILE"
 status = "missing_external_interface"
-repair = "The retired custody constant is absent from the real material producer; native bank movement material must be provisioned by its owner as already requested in test_repair_22_33_861.py, without weakening the KMS assembly cases."
+repair = "The retired custody constant is absent from the real material producer; native bank movement material must be provisioned by its owner as already requested in test_native_movement_program_ramp_identity.py, without weakening the KMS assembly cases."
 
 [finding.35]
 path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
@@ -288,7 +288,7 @@ line = 530
 component = "custody-deposit"
 symbol = "CUSTODY_PRECOMPILE"
 status = "missing_external_interface"
-repair = "The retired custody constant is absent from the real material producer; native bank movement material must be provisioned by its owner as already requested in test_repair_22_33_861.py, without weakening the KMS assembly cases."
+repair = "The retired custody constant is absent from the real material producer; native bank movement material must be provisioned by its owner as already requested in test_native_movement_program_ramp_identity.py, without weakening the KMS assembly cases."
 
 [finding.36]
 path = "tools/qualification/paxeer-x/paid-web-contract.py"
@@ -387,7 +387,7 @@ status = "allowed_reference"
 repair = "Retain the still-shipping native and Rust governed fee test paths, executables and selectors through the tools/qualification/paxeer-x fee_governance allowance."
 
 [finding.48]
-path = "tools/qualification/paxeer-x/repair-22.31.330.kvx"
+path = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.31.330.kvx"
 line = 34
 component = "batch-seal"
 symbol = "batch_wal"
@@ -395,7 +395,7 @@ status = "allowed_reference"
 repair = "Retain the exact historical record line through the tools/qualification/paxeer-x lines allowance; the repair-*.kvx filename is outside the repair_*.kvx documentation pattern and is not a production caller."
 
 [finding.49]
-path = "tools/qualification/paxeer-x/repair-22.31.330.kvx"
+path = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.31.330.kvx"
 line = 34
 component = "feed-store"
 symbol = "feed_store"
@@ -403,7 +403,7 @@ status = "allowed_reference"
 repair = "Retain the exact historical record line through the tools/qualification/paxeer-x lines allowance; the repair-*.kvx filename is outside the repair_*.kvx documentation pattern and is not a production caller."
 
 [finding.50]
-path = "tools/qualification/paxeer-x/repair-22.33.765.kvx"
+path = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.33.765.kvx"
 line = 11
 component = "layerxctl-port"
 symbol = "LNI"
@@ -411,7 +411,7 @@ status = "allowed_reference"
 repair = "Retain the exact historical record line through the tools/qualification/paxeer-x lines allowance; the repair-*.kvx filename is outside the repair_*.kvx documentation pattern and is not a production caller."
 
 [finding.51]
-path = "tools/qualification/paxeer-x/repair-22.33.765.kvx"
+path = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.33.765.kvx"
 line = 11
 component = "lni"
 symbol = "LNI"
@@ -840,7 +840,7 @@ status = "allowed_reference"
 repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
 
 [continuation.finding.29]
-path = "tools/qualification/paxeer-x/repair-22.31.330.kvx"
+path = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.31.330.kvx"
 line = 34
 component = "batch-seal"
 symbol = "batch_wal"
@@ -848,7 +848,7 @@ status = "allowed_reference"
 repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
 
 [continuation.finding.30]
-path = "tools/qualification/paxeer-x/repair-22.31.330.kvx"
+path = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.31.330.kvx"
 line = 34
 component = "feed-store"
 symbol = "feed_store"
@@ -856,7 +856,7 @@ status = "allowed_reference"
 repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
 
 [continuation.finding.31]
-path = "tools/qualification/paxeer-x/repair-22.33.765.kvx"
+path = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.33.765.kvx"
 line = 11
 component = "layerxctl-port"
 symbol = "LNI"
@@ -864,7 +864,7 @@ status = "allowed_reference"
 repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
 
 [continuation.finding.32]
-path = "tools/qualification/paxeer-x/repair-22.33.765.kvx"
+path = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.33.765.kvx"
 line = 11
 component = "lni"
 symbol = "LNI"
@@ -1034,7 +1034,7 @@ status = "missing_external_interface"
 repair = "The existing finding.28 through finding.32 still applies: the provider crate was deleted; the retained KMS identity, readiness and recovery assertions cannot be satisfied by a replacement name."
 
 [attempt4.finding.15]
-path = "tools/qualification/paxeer-x/repair-22.31.330.kvx"
+path = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.31.330.kvx"
 line = 34
 component = "batch-seal"
 symbol = "batch_wal"
@@ -1042,7 +1042,7 @@ status = "allowed_reference"
 repair = "Move the exact historical line allowance from a directory path to this file path, as required by the scanner allowed() contract; retain the record byte for byte."
 
 [attempt4.finding.16]
-path = "tools/qualification/paxeer-x/repair-22.31.330.kvx"
+path = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.31.330.kvx"
 line = 34
 component = "feed-store"
 symbol = "feed_store"
@@ -1050,7 +1050,7 @@ status = "allowed_reference"
 repair = "Move the exact historical line allowance from a directory path to this file path, as required by the scanner allowed() contract; retain the record byte for byte."
 
 [attempt4.finding.17]
-path = "tools/qualification/paxeer-x/repair-22.33.765.kvx"
+path = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.33.765.kvx"
 line = 11
 component = "layerxctl-port"
 symbol = "LNI"
@@ -1058,7 +1058,7 @@ status = "allowed_reference"
 repair = "Move the exact historical line allowance from a directory path to this file path, as required by the scanner allowed() contract; retain the record byte for byte."
 
 [attempt4.finding.18]
-path = "tools/qualification/paxeer-x/repair-22.33.765.kvx"
+path = "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.33.765.kvx"
 line = 11
 component = "lni"
 symbol = "LNI"
@@ -1242,7 +1242,7 @@ repair = "Remove the assembly subclass and --case movement-kms dispatch; other b
 
 [attempt5.removed_gate.kms_provenance]
 component = "human-two-domain"
-path = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+path = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py"
 absent_path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
 repair = "Remove source_tree, test_kms_provenance_paths_exist_in_repository, test_kms_provenance_binds_real_moved_tree_and_artifact_revision and test_kms_every_missing_provenance_path_refuses_before_producers, their loader and unused archive imports; all independent client and receipt cases remain."
 

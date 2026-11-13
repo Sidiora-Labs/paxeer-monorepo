@@ -20,7 +20,7 @@ deleted_cases = []
 new_skipped_cases = ["tools/qualification/audit_repairs/test_repair_22_33_372.py::test_registry_sdk_package_exports_and_typesversions (absent published SDK distribution)", "tools/qualification/audit_repairs/test_repair_22_33_372.py::test_sdk_examples_codec_and_registry_match_production (absent published SDK distribution)", "tools/qualification/audit_repairs/test_repair_22_33_372.py::test_sdk_examples_rest_transport_matches_production (absent published SDK distribution)", "tools/qualification/audit_repairs/test_repair_22_33_885.py::test_f040_real_renderer_transports_only_node_configuration (absent chain125 service)", "tools/qualification/audit_repairs/test_repair_22_33_885.py::test_f040_bootstrap_restart_preserves_publisher_inputs (absent chain125 service)", "tools/qualification/localnode/tests/test_merge_precompiles_served.py::test_merge_precompiles_served (absent paxd executable only)", "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py::test_native_genesis_crossing_reopens_real_request_and_preserves_known_refusal (absent native genesis executable)", "tools/qualification/test_beta_driver.py::BetaDriverTests::test_adoption_inventory_executes_against_the_local_paxd_stack (absent layerx executable only)"]
 ignored_modules = []
 expected_failures = []
-baseline_log_origin = "baseline_log is the historical task 22.31.621 path at baseline_revision, not the current sandbox log with the same spelling; its original observations are retained in repair_22_31_621.kvx."
+baseline_log_origin = "baseline_log is the historical task 22.31.621 path at baseline_revision, not the current sandbox log with the same spelling; its original observations are retained in spec/layerx-merge/programme/records/tools/qualification/repair_22_31_621.kvx."
 seed_revision = "3d7128cbbf39b658ab142c6e3e9e0efa3bbbadc5"
 continuation_revision = "9b83f21f491479d82d7d1de7c91e401994361540"
 
@@ -2520,9 +2520,9 @@ settlement = "Use real registry init prepare-material and CA init/issue-local wi
 verification_ref = "evidence.full_suite"
 
 [case.157]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_program_call_signed_evm_round_trip"
+case = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py::test_program_call_signed_evm_round_trip"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+module = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py"
 test_name = "test_program_call_signed_evm_round_trip"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2535,9 +2535,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.158]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_program_receipt_reopens_and_retries"
+case = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py::test_program_receipt_reopens_and_retries"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+module = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py"
 test_name = "test_program_receipt_reopens_and_retries"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2550,9 +2550,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.159]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_node_json_must_match_signed_bytes[signingKey]"
+case = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py::test_node_json_must_match_signed_bytes[signingKey]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+module = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py"
 test_name = "test_node_json_must_match_signed_bytes[signingKey]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2565,9 +2565,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.160]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_node_json_must_match_signed_bytes[keyId]"
+case = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py::test_node_json_must_match_signed_bytes[keyId]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+module = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py"
 test_name = "test_node_json_must_match_signed_bytes[keyId]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2580,9 +2580,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.161]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_node_json_must_match_signed_bytes[status]"
+case = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py::test_node_json_must_match_signed_bytes[status]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+module = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py"
 test_name = "test_node_json_must_match_signed_bytes[status]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2595,9 +2595,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.162]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_node_json_must_match_signed_bytes[nonce]"
+case = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py::test_node_json_must_match_signed_bytes[nonce]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+module = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py"
 test_name = "test_node_json_must_match_signed_bytes[nonce]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2610,9 +2610,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.163]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_node_json_must_match_signed_bytes[returnData]"
+case = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py::test_node_json_must_match_signed_bytes[returnData]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+module = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py"
 test_name = "test_node_json_must_match_signed_bytes[returnData]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2625,9 +2625,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.164]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_node_json_must_match_signed_bytes[gasUsed]"
+case = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py::test_node_json_must_match_signed_bytes[gasUsed]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+module = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py"
 test_name = "test_node_json_must_match_signed_bytes[gasUsed]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2640,9 +2640,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.165]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_node_json_must_match_signed_bytes[feeAmount]"
+case = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py::test_node_json_must_match_signed_bytes[feeAmount]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+module = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py"
 test_name = "test_node_json_must_match_signed_bytes[feeAmount]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2655,9 +2655,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.166]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_node_json_must_match_signed_bytes[vmError]"
+case = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py::test_node_json_must_match_signed_bytes[vmError]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+module = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py"
 test_name = "test_node_json_must_match_signed_bytes[vmError]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2670,9 +2670,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.167]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_node_json_must_match_signed_bytes[paymentDenom]"
+case = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py::test_node_json_must_match_signed_bytes[paymentDenom]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+module = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py"
 test_name = "test_node_json_must_match_signed_bytes[paymentDenom]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2685,9 +2685,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.168]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_recorded_tampered_log_refused"
+case = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py::test_recorded_tampered_log_refused"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+module = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py"
 test_name = "test_recorded_tampered_log_refused"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2700,9 +2700,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.169]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_reverted_execution_uses_declared_result"
+case = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py::test_reverted_execution_uses_declared_result"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+module = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py"
 test_name = "test_reverted_execution_uses_declared_result"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2715,9 +2715,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.170]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_deploy_and_web_encodings"
+case = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py::test_deploy_and_web_encodings"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+module = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py"
 test_name = "test_deploy_and_web_encodings"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2730,9 +2730,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.171]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_operational_observation_rejects_foreign_execution"
+case = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py::test_operational_observation_rejects_foreign_execution"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+module = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py"
 test_name = "test_operational_observation_rejects_foreign_execution"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2745,9 +2745,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.172]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_paid_success_reopens"
+case = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py::test_paid_success_reopens"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+module = "tools/qualification/paxeer-x/tests/test_paid_web_contract.py"
 test_name = "test_paid_success_reopens"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2760,43 +2760,43 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.173]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_31_330.py::test_f011_untouched_producer_manifest_admitted"
+case = "tools/qualification/paxeer-x/tests/test_native_artifact_publication.py::test_f011_untouched_producer_manifest_admitted"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_31_330.py"
+module = "tools/qualification/paxeer-x/tests/test_native_artifact_publication.py"
 test_name = "test_f011_untouched_producer_manifest_admitted"
 outcome = "failed"
 reason = "AssertionError: assert ['make', '-j3...ability', ...] == ['make', '-j3...ability', ...]"
-source = "tools/qualification/paxeer-x/tests/test_repair_22_31_330.py:220"
+source = "tools/qualification/paxeer-x/tests/test_native_artifact_publication.py:220"
 reason_family = "source_or_snapshot_pin"
 status = "settled"
-live_rule_source = "tools/qualification/paxeer-x/tests/test_repair_22_31_330.py"
+live_rule_source = "tools/qualification/paxeer-x/tests/test_native_artifact_publication.py"
 producer_module = "tools/qualification/paxeer-x/storage-recovery.py"
 settlement = "Follow retained rebuild target and mutation instead of retired WAL target; retain real native corruption/refusal checks."
 verification_ref = "evidence.full_suite"
 
 [case.174]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_31_330.py::test_f011_retained_artifact_mutation_refused"
+case = "tools/qualification/paxeer-x/tests/test_native_artifact_publication.py::test_f011_retained_artifact_mutation_refused"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_31_330.py"
+module = "tools/qualification/paxeer-x/tests/test_native_artifact_publication.py"
 test_name = "test_f011_retained_artifact_mutation_refused"
 outcome = "failed"
 reason = "Failed: DID NOT RAISE ValueError"
-source = "tools/qualification/paxeer-x/tests/test_repair_22_31_330.py:265"
+source = "tools/qualification/paxeer-x/tests/test_native_artifact_publication.py:265"
 reason_family = "recorded_assertion"
 status = "settled"
-live_rule_source = "tools/qualification/paxeer-x/tests/test_repair_22_31_330.py"
+live_rule_source = "tools/qualification/paxeer-x/tests/test_native_artifact_publication.py"
 producer_module = "tools/qualification/paxeer-x/storage-recovery.py"
 settlement = "Follow retained rebuild target and mutation instead of retired WAL target; retain real native corruption/refusal checks."
 verification_ref = "evidence.full_suite"
 
 [case.175]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_31_332.py::test_binding_web_authority_producer_consumer_contract"
+case = "tools/qualification/paxeer-x/tests/test_mcp_binding_authority.py::test_binding_web_authority_producer_consumer_contract"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_31_332.py"
+module = "tools/qualification/paxeer-x/tests/test_mcp_binding_authority.py"
 test_name = "test_binding_web_authority_producer_consumer_contract"
 outcome = "failed"
 reason = "assert 'Some(&self.document(&enrolment)?)' in '\\n /// Validates the binding directory, the daemon records it names, and the limit it declares.\\n ///\\n /// ...e_json::to_value(document)\\n .map_err(|_| EnrolmentError::Encoding(\"the binding cannot be encoded\"))\\n }'"
-source = "tools/qualification/paxeer-x/tests/test_repair_22_31_332.py:215"
+source = "tools/qualification/paxeer-x/tests/test_mcp_binding_authority.py:215"
 reason_family = "source_or_snapshot_pin"
 status = "settled"
 live_rule_source = "tools/qualification/paxeer-x/human_native_custody.py"
@@ -2805,9 +2805,9 @@ settlement = "Pin BindingPublisher current local-document readback equality whil
 verification_ref = "evidence.full_suite"
 
 [case.176]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_tenant_readiness_committed_write_cross_tenant_refusal_and_reopen"
+case = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py::test_tenant_readiness_committed_write_cross_tenant_refusal_and_reopen"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+module = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py"
 test_name = "test_tenant_readiness_committed_write_cross_tenant_refusal_and_reopen"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2820,9 +2820,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.177]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_committed_receipt_requires_matching_node_block_and_standard_receipt[block-hash]"
+case = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py::test_committed_receipt_requires_matching_node_block_and_standard_receipt[block-hash]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+module = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py"
 test_name = "test_committed_receipt_requires_matching_node_block_and_standard_receipt[block-hash]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2835,9 +2835,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.178]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_committed_receipt_requires_matching_node_block_and_standard_receipt[block-number]"
+case = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py::test_committed_receipt_requires_matching_node_block_and_standard_receipt[block-number]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+module = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py"
 test_name = "test_committed_receipt_requires_matching_node_block_and_standard_receipt[block-number]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2850,9 +2850,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.179]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_committed_receipt_requires_matching_node_block_and_standard_receipt[block-membership]"
+case = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py::test_committed_receipt_requires_matching_node_block_and_standard_receipt[block-membership]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+module = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py"
 test_name = "test_committed_receipt_requires_matching_node_block_and_standard_receipt[block-membership]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2865,9 +2865,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.180]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_committed_receipt_requires_matching_node_block_and_standard_receipt[logs]"
+case = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py::test_committed_receipt_requires_matching_node_block_and_standard_receipt[logs]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+module = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py"
 test_name = "test_committed_receipt_requires_matching_node_block_and_standard_receipt[logs]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2880,9 +2880,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.181]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_committed_receipt_requires_matching_node_block_and_standard_receipt[index]"
+case = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py::test_committed_receipt_requires_matching_node_block_and_standard_receipt[index]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+module = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py"
 test_name = "test_committed_receipt_requires_matching_node_block_and_standard_receipt[index]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2895,9 +2895,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.182]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_tenant_receipt_rejects_foreign_payer_and_canonical_receipt"
+case = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py::test_tenant_receipt_rejects_foreign_payer_and_canonical_receipt"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+module = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py"
 test_name = "test_tenant_receipt_rejects_foreign_payer_and_canonical_receipt"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2910,9 +2910,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.183]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_mcp_payer_exact_offer_committed_evidence_and_deduplicated_reopen"
+case = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py::test_mcp_payer_exact_offer_committed_evidence_and_deduplicated_reopen"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+module = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py"
 test_name = "test_mcp_payer_exact_offer_committed_evidence_and_deduplicated_reopen"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2925,9 +2925,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.184]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_mcp_payer_refuses_changed_offer_or_commitment[blockHash]"
+case = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py::test_mcp_payer_refuses_changed_offer_or_commitment[blockHash]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+module = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py"
 test_name = "test_mcp_payer_refuses_changed_offer_or_commitment[blockHash]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2940,9 +2940,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.185]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_mcp_payer_refuses_changed_offer_or_commitment[blockNumber]"
+case = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py::test_mcp_payer_refuses_changed_offer_or_commitment[blockNumber]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+module = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py"
 test_name = "test_mcp_payer_refuses_changed_offer_or_commitment[blockNumber]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2955,9 +2955,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.186]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_mcp_payer_refuses_changed_offer_or_commitment[receiptDigest]"
+case = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py::test_mcp_payer_refuses_changed_offer_or_commitment[receiptDigest]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+module = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py"
 test_name = "test_mcp_payer_refuses_changed_offer_or_commitment[receiptDigest]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2970,9 +2970,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.187]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_mcp_payer_claimed_offer_must_also_match_signed_transaction[payer]"
+case = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py::test_mcp_payer_claimed_offer_must_also_match_signed_transaction[payer]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+module = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py"
 test_name = "test_mcp_payer_claimed_offer_must_also_match_signed_transaction[payer]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -2985,9 +2985,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.188]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_mcp_payer_claimed_offer_must_also_match_signed_transaction[payTo]"
+case = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py::test_mcp_payer_claimed_offer_must_also_match_signed_transaction[payTo]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+module = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py"
 test_name = "test_mcp_payer_claimed_offer_must_also_match_signed_transaction[payTo]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3000,9 +3000,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.189]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_mcp_payer_claimed_offer_must_also_match_signed_transaction[asset]"
+case = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py::test_mcp_payer_claimed_offer_must_also_match_signed_transaction[asset]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+module = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py"
 test_name = "test_mcp_payer_claimed_offer_must_also_match_signed_transaction[asset]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3015,9 +3015,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.190]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_mcp_payer_claimed_offer_must_also_match_signed_transaction[amount]"
+case = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py::test_mcp_payer_claimed_offer_must_also_match_signed_transaction[amount]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+module = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py"
 test_name = "test_mcp_payer_claimed_offer_must_also_match_signed_transaction[amount]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3030,9 +3030,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.191]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_programs_winddown_merged_send_receipt_conservation_and_restart"
+case = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py::test_programs_winddown_merged_send_receipt_conservation_and_restart"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+module = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py"
 test_name = "test_programs_winddown_merged_send_receipt_conservation_and_restart"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3045,9 +3045,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.192]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py::test_typed_programs_call_simulation_and_committed_recovery"
+case = "tools/qualification/paxeer-x/tests/test_program_router_wallet_contracts.py::test_typed_programs_call_simulation_and_committed_recovery"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py"
+module = "tools/qualification/paxeer-x/tests/test_program_router_wallet_contracts.py"
 test_name = "test_typed_programs_call_simulation_and_committed_recovery"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3060,9 +3060,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.193]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py::test_router_current_producer_transport_consumer_and_restart"
+case = "tools/qualification/paxeer-x/tests/test_program_router_wallet_contracts.py::test_router_current_producer_transport_consumer_and_restart"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py"
+module = "tools/qualification/paxeer-x/tests/test_program_router_wallet_contracts.py"
 test_name = "test_router_current_producer_transport_consumer_and_restart"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3075,9 +3075,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.194]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py::test_router_each_current_backend_outage_and_recovery[paxeer_chain]"
+case = "tools/qualification/paxeer-x/tests/test_program_router_wallet_contracts.py::test_router_each_current_backend_outage_and_recovery[paxeer_chain]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py"
+module = "tools/qualification/paxeer-x/tests/test_program_router_wallet_contracts.py"
 test_name = "test_router_each_current_backend_outage_and_recovery[paxeer_chain]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3090,9 +3090,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.195]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py::test_router_each_current_backend_outage_and_recovery[consensus]"
+case = "tools/qualification/paxeer-x/tests/test_program_router_wallet_contracts.py::test_router_each_current_backend_outage_and_recovery[consensus]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py"
+module = "tools/qualification/paxeer-x/tests/test_program_router_wallet_contracts.py"
 test_name = "test_router_each_current_backend_outage_and_recovery[consensus]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3105,9 +3105,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.196]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py::test_router_each_current_backend_outage_and_recovery[durable_store]"
+case = "tools/qualification/paxeer-x/tests/test_program_router_wallet_contracts.py::test_router_each_current_backend_outage_and_recovery[durable_store]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py"
+module = "tools/qualification/paxeer-x/tests/test_program_router_wallet_contracts.py"
 test_name = "test_router_each_current_backend_outage_and_recovery[durable_store]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3120,9 +3120,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.197]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py::test_router_never_accepts_uncommitted_or_substituted_receipt[block]"
+case = "tools/qualification/paxeer-x/tests/test_program_router_wallet_contracts.py::test_router_never_accepts_uncommitted_or_substituted_receipt[block]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py"
+module = "tools/qualification/paxeer-x/tests/test_program_router_wallet_contracts.py"
 test_name = "test_router_never_accepts_uncommitted_or_substituted_receipt[block]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3135,9 +3135,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.198]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py::test_wallet_payment_binds_custody_action_fee_and_committed_receipt"
+case = "tools/qualification/paxeer-x/tests/test_program_router_wallet_contracts.py::test_wallet_payment_binds_custody_action_fee_and_committed_receipt"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py"
+module = "tools/qualification/paxeer-x/tests/test_program_router_wallet_contracts.py"
 test_name = "test_wallet_payment_binds_custody_action_fee_and_committed_receipt"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3150,9 +3150,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.199]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_791.py::test_paxd_signed_receipt_transport_and_exact_retry_survive_reopen"
+case = "tools/qualification/paxeer-x/tests/test_event_delivery_source_bindings.py::test_paxd_signed_receipt_transport_and_exact_retry_survive_reopen"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_791.py"
+module = "tools/qualification/paxeer-x/tests/test_event_delivery_source_bindings.py"
 test_name = "test_paxd_signed_receipt_transport_and_exact_retry_survive_reopen"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3165,9 +3165,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.200]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_791.py::test_paxd_event_receipt_refuses_substitution[json]"
+case = "tools/qualification/paxeer-x/tests/test_event_delivery_source_bindings.py::test_paxd_event_receipt_refuses_substitution[json]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_791.py"
+module = "tools/qualification/paxeer-x/tests/test_event_delivery_source_bindings.py"
 test_name = "test_paxd_event_receipt_refuses_substitution[json]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3180,9 +3180,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.201]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f48_native_registry_discovery_and_reopen[1]"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f48_native_registry_discovery_and_reopen[1]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f48_native_registry_discovery_and_reopen[1]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3195,9 +3195,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.202]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f48_native_registry_discovery_and_reopen[2]"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f48_native_registry_discovery_and_reopen[2]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f48_native_registry_discovery_and_reopen[2]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3210,9 +3210,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.203]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f48_native_registry_discovery_and_reopen[3]"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f48_native_registry_discovery_and_reopen[3]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f48_native_registry_discovery_and_reopen[3]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3225,9 +3225,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.204]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f48_native_registry_discovery_and_reopen[4]"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f48_native_registry_discovery_and_reopen[4]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f48_native_registry_discovery_and_reopen[4]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3240,9 +3240,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.205]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f48_registry_publication_authentication_idempotency_and_restart"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f48_registry_publication_authentication_idempotency_and_restart"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f48_registry_publication_authentication_idempotency_and_restart"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3255,9 +3255,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.206]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f50_direct_bootstrap_stages_consumers_and_recovery"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f50_direct_bootstrap_stages_consumers_and_recovery"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f50_direct_bootstrap_stages_consumers_and_recovery"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3270,9 +3270,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.207]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f50_activation_refusals_retain_state_and_identity"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f50_activation_refusals_retain_state_and_identity"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f50_activation_refusals_retain_state_and_identity"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3285,9 +3285,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.208]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_committed_v4_producer_transport_consumers_and_reopen"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f49_committed_v4_producer_transport_consumers_and_reopen"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f49_committed_v4_producer_transport_consumers_and_reopen"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3300,9 +3300,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.209]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_mirror_corruption_identity_and_finality_refused[chain]"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f49_mirror_corruption_identity_and_finality_refused[chain]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f49_mirror_corruption_identity_and_finality_refused[chain]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3315,9 +3315,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.210]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_mirror_corruption_identity_and_finality_refused[code]"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f49_mirror_corruption_identity_and_finality_refused[code]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f49_mirror_corruption_identity_and_finality_refused[code]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3330,9 +3330,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.211]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_mirror_corruption_identity_and_finality_refused[publisher]"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f49_mirror_corruption_identity_and_finality_refused[publisher]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f49_mirror_corruption_identity_and_finality_refused[publisher]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3345,9 +3345,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.212]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_mirror_corruption_identity_and_finality_refused[unfinalized]"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f49_mirror_corruption_identity_and_finality_refused[unfinalized]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f49_mirror_corruption_identity_and_finality_refused[unfinalized]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3360,9 +3360,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.213]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_mirror_corruption_identity_and_finality_refused[length]"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f49_mirror_corruption_identity_and_finality_refused[length]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f49_mirror_corruption_identity_and_finality_refused[length]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3375,9 +3375,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.214]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_mirror_corruption_identity_and_finality_refused[chunks]"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f49_mirror_corruption_identity_and_finality_refused[chunks]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f49_mirror_corruption_identity_and_finality_refused[chunks]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3390,9 +3390,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.215]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_mirror_corruption_identity_and_finality_refused[corrupt]"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f49_mirror_corruption_identity_and_finality_refused[corrupt]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f49_mirror_corruption_identity_and_finality_refused[corrupt]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3405,9 +3405,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.216]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_mirror_corruption_identity_and_finality_refused[reorg]"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f49_mirror_corruption_identity_and_finality_refused[reorg]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f49_mirror_corruption_identity_and_finality_refused[reorg]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3420,9 +3420,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.217]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_independent_native_acquisition_refusals[divergent]"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f49_independent_native_acquisition_refusals[divergent]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f49_independent_native_acquisition_refusals[divergent]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3435,9 +3435,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.218]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_independent_native_acquisition_refusals[signature]"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f49_independent_native_acquisition_refusals[signature]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f49_independent_native_acquisition_refusals[signature]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3450,9 +3450,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.219]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_independent_native_acquisition_refusals[uncommitted]"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f49_independent_native_acquisition_refusals[uncommitted]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f49_independent_native_acquisition_refusals[uncommitted]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3465,9 +3465,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.220]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_independent_native_acquisition_refusals[wrong-block]"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f49_independent_native_acquisition_refusals[wrong-block]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f49_independent_native_acquisition_refusals[wrong-block]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3480,9 +3480,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.221]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_independent_native_acquisition_refusals[head-behind]"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f49_independent_native_acquisition_refusals[head-behind]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f49_independent_native_acquisition_refusals[head-behind]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3495,9 +3495,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.222]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_independent_native_acquisition_refusals[wrong-genesis]"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f49_independent_native_acquisition_refusals[wrong-genesis]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f49_independent_native_acquisition_refusals[wrong-genesis]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3510,9 +3510,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.223]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f50_negative_gateway_activation_never_publishes_success[programs-unavailable]"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f50_negative_gateway_activation_never_publishes_success[programs-unavailable]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f50_negative_gateway_activation_never_publishes_success[programs-unavailable]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3525,9 +3525,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.224]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f50_negative_gateway_activation_never_publishes_success[gateway-id]"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f50_negative_gateway_activation_never_publishes_success[gateway-id]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f50_negative_gateway_activation_never_publishes_success[gateway-id]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3540,9 +3540,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.225]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f50_negative_gateway_activation_never_publishes_success[wrong-address]"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f50_negative_gateway_activation_never_publishes_success[wrong-address]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f50_negative_gateway_activation_never_publishes_success[wrong-address]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3555,9 +3555,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.226]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f50_negative_gateway_activation_never_publishes_success[uncommitted-receipt]"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f50_negative_gateway_activation_never_publishes_success[uncommitted-receipt]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f50_negative_gateway_activation_never_publishes_success[uncommitted-receipt]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3570,9 +3570,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.227]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f48_qualify_restart_uses_current_native_and_registry_consumers"
+case = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py::test_f48_qualify_restart_uses_current_native_and_registry_consumers"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 test_name = "test_f48_qualify_restart_uses_current_native_and_registry_consumers"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3585,9 +3585,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.228]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_860.py::test_human_projection_finality"
+case = "tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py::test_human_projection_finality"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_860.py"
+module = "tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py"
 test_name = "test_human_projection_finality"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3600,9 +3600,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.229]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_860.py::test_native_journey_history_recovery"
+case = "tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py::test_native_journey_history_recovery"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_860.py"
+module = "tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py"
 test_name = "test_native_journey_history_recovery"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3615,9 +3615,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.230]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_860.py::test_funded_operator_committed_destination"
+case = "tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py::test_funded_operator_committed_destination"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_860.py"
+module = "tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py"
 test_name = "test_funded_operator_committed_destination"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3630,9 +3630,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.231]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_860.py::test_connected_migration_destination[ethereum:1-20]"
+case = "tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py::test_connected_migration_destination[ethereum:1-20]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_860.py"
+module = "tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py"
 test_name = "test_connected_migration_destination[ethereum:1-20]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3645,9 +3645,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.232]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_860.py::test_connected_migration_destination[solana:6868686868686868686868686868686868686868686868686868686868686868-32]"
+case = "tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py::test_connected_migration_destination[solana:6868686868686868686868686868686868686868686868686868686868686868-32]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_860.py"
+module = "tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py"
 test_name = "test_connected_migration_destination[solana:6868686868686868686868686868686868686868686868686868686868686868-32]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3660,9 +3660,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.233]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_movement_bank_proof_survives_stop_reopen"
+case = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py::test_movement_bank_proof_survives_stop_reopen"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+module = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py"
 test_name = "test_movement_bank_proof_survives_stop_reopen"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3675,9 +3675,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.234]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_movement_refuses_authority_substitution[chain_id-126]"
+case = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py::test_movement_refuses_authority_substitution[chain_id-126]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+module = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py"
 test_name = "test_movement_refuses_authority_substitution[chain_id-126]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3690,9 +3690,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.235]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_movement_refuses_authority_substitution[module-custody]"
+case = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py::test_movement_refuses_authority_substitution[module-custody]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+module = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py"
 test_name = "test_movement_refuses_authority_substitution[module-custody]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3705,9 +3705,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.236]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_movement_refuses_authority_substitution[asset-foreign]"
+case = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py::test_movement_refuses_authority_substitution[asset-foreign]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+module = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py"
 test_name = "test_movement_refuses_authority_substitution[asset-foreign]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3720,9 +3720,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.237]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_movement_refuses_authority_substitution[genesis_hash-0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc]"
+case = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py::test_movement_refuses_authority_substitution[genesis_hash-0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+module = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py"
 test_name = "test_movement_refuses_authority_substitution[genesis_hash-0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3735,9 +3735,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.238]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_movement_refuses_authority_substitution[owner-0x1111111111111111111111111111111111111111]"
+case = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py::test_movement_refuses_authority_substitution[owner-0x1111111111111111111111111111111111111111]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+module = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py"
 test_name = "test_movement_refuses_authority_substitution[owner-0x1111111111111111111111111111111111111111]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3750,9 +3750,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.239]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_movement_refuses_authority_substitution[receipt_keys-value5]"
+case = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py::test_movement_refuses_authority_substitution[receipt_keys-value5]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+module = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py"
 test_name = "test_movement_refuses_authority_substitution[receipt_keys-value5]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3765,9 +3765,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.240]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_movement_refuses_uncommitted_or_forged[block]"
+case = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py::test_movement_refuses_uncommitted_or_forged[block]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+module = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py"
 test_name = "test_movement_refuses_uncommitted_or_forged[block]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3780,9 +3780,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.241]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_movement_refuses_uncommitted_or_forged[non-owner]"
+case = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py::test_movement_refuses_uncommitted_or_forged[non-owner]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+module = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py"
 test_name = "test_movement_refuses_uncommitted_or_forged[non-owner]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3795,9 +3795,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.242]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_ramp_committed_destination_and_recovery"
+case = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py::test_ramp_committed_destination_and_recovery"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+module = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py"
 test_name = "test_ramp_committed_destination_and_recovery"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3810,9 +3810,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.243]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_ramp_refuses_wrong_order_bindings[order_digest]"
+case = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py::test_ramp_refuses_wrong_order_bindings[order_digest]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+module = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py"
 test_name = "test_ramp_refuses_wrong_order_bindings[order_digest]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3825,9 +3825,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.244]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_ramp_refuses_wrong_order_bindings[from]"
+case = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py::test_ramp_refuses_wrong_order_bindings[from]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+module = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py"
 test_name = "test_ramp_refuses_wrong_order_bindings[from]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3840,9 +3840,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.245]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_ramp_refuses_wrong_order_bindings[to]"
+case = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py::test_ramp_refuses_wrong_order_bindings[to]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+module = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py"
 test_name = "test_ramp_refuses_wrong_order_bindings[to]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3855,9 +3855,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.246]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_ramp_refuses_wrong_order_bindings[asset]"
+case = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py::test_ramp_refuses_wrong_order_bindings[asset]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+module = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py"
 test_name = "test_ramp_refuses_wrong_order_bindings[asset]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3870,9 +3870,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.247]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_ramp_refuses_wrong_order_bindings[amount]"
+case = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py::test_ramp_refuses_wrong_order_bindings[amount]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+module = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py"
 test_name = "test_ramp_refuses_wrong_order_bindings[amount]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3885,9 +3885,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.248]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_ramp_refuses_wrong_order_bindings[expires_at]"
+case = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py::test_ramp_refuses_wrong_order_bindings[expires_at]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+module = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py"
 test_name = "test_ramp_refuses_wrong_order_bindings[expires_at]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3900,9 +3900,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.249]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_ramp_refuses_forged_authority[log]"
+case = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py::test_ramp_refuses_forged_authority[log]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+module = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py"
 test_name = "test_ramp_refuses_forged_authority[log]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3915,9 +3915,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.250]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_ramp_refuses_forged_authority[standard-block]"
+case = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py::test_ramp_refuses_forged_authority[standard-block]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+module = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py"
 test_name = "test_ramp_refuses_forged_authority[standard-block]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3930,9 +3930,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.251]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_movement_committed_proof_pin_refuses_changed_recovery"
+case = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py::test_movement_committed_proof_pin_refuses_changed_recovery"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+module = "tools/qualification/paxeer-x/tests/test_native_movement_program_ramp_identity.py"
 test_name = "test_movement_committed_proof_pin_refuses_changed_recovery"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3945,9 +3945,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.252]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py::test_f016_committed_receipt_transport_terminal_digest_and_all_four_roles"
+case = "tools/qualification/paxeer-x/tests/test_runtime_custody_manifest_contracts.py::test_f016_committed_receipt_transport_terminal_digest_and_all_four_roles"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py"
+module = "tools/qualification/paxeer-x/tests/test_runtime_custody_manifest_contracts.py"
 test_name = "test_f016_committed_receipt_transport_terminal_digest_and_all_four_roles"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3960,9 +3960,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.253]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py::test_f016_refuses_uncommitted_substituted_or_corrupt_evidence[block]"
+case = "tools/qualification/paxeer-x/tests/test_runtime_custody_manifest_contracts.py::test_f016_refuses_uncommitted_substituted_or_corrupt_evidence[block]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py"
+module = "tools/qualification/paxeer-x/tests/test_runtime_custody_manifest_contracts.py"
 test_name = "test_f016_refuses_uncommitted_substituted_or_corrupt_evidence[block]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3975,9 +3975,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.254]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py::test_f016_refuses_uncommitted_substituted_or_corrupt_evidence[transaction]"
+case = "tools/qualification/paxeer-x/tests/test_runtime_custody_manifest_contracts.py::test_f016_refuses_uncommitted_substituted_or_corrupt_evidence[transaction]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py"
+module = "tools/qualification/paxeer-x/tests/test_runtime_custody_manifest_contracts.py"
 test_name = "test_f016_refuses_uncommitted_substituted_or_corrupt_evidence[transaction]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -3990,9 +3990,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.255]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py::test_f016_refuses_uncommitted_substituted_or_corrupt_evidence[return-data]"
+case = "tools/qualification/paxeer-x/tests/test_runtime_custody_manifest_contracts.py::test_f016_refuses_uncommitted_substituted_or_corrupt_evidence[return-data]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py"
+module = "tools/qualification/paxeer-x/tests/test_runtime_custody_manifest_contracts.py"
 test_name = "test_f016_refuses_uncommitted_substituted_or_corrupt_evidence[return-data]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -4005,9 +4005,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.256]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py::test_f016_refuses_uncommitted_substituted_or_corrupt_evidence[logs]"
+case = "tools/qualification/paxeer-x/tests/test_runtime_custody_manifest_contracts.py::test_f016_refuses_uncommitted_substituted_or_corrupt_evidence[logs]"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py"
+module = "tools/qualification/paxeer-x/tests/test_runtime_custody_manifest_contracts.py"
 test_name = "test_f016_refuses_uncommitted_substituted_or_corrupt_evidence[logs]"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -4020,9 +4020,9 @@ settlement = "Retain all native signed envelope and receipt tests unchanged; ins
 verification_ref = "evidence.full_suite"
 
 [case.257]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py::test_f016_rejects_missing_role_and_changed_saved_capture"
+case = "tools/qualification/paxeer-x/tests/test_runtime_custody_manifest_contracts.py::test_f016_rejects_missing_role_and_changed_saved_capture"
 module_family = "paxeer-x"
-module = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py"
+module = "tools/qualification/paxeer-x/tests/test_runtime_custody_manifest_contracts.py"
 test_name = "test_f016_rejects_missing_role_and_changed_saved_capture"
 outcome = "failed"
 reason = "ModuleNotFoundError: No module named 'Crypto'"
@@ -4187,13 +4187,13 @@ settlement = "Pin actual retained native node/rpc/precompiles/core/programs/modu
 verification_ref = "evidence.full_suite"
 
 [case.268]
-case = "tools/qualification/tests/test_repair_22_33_809.py::test_f45_verification_fails_closed[native-wrapper]"
+case = "tools/qualification/tests/test_beta_driver_committed_evidence.py::test_f45_verification_fails_closed[native-wrapper]"
 module_family = "tests"
-module = "tools/qualification/tests/test_repair_22_33_809.py"
+module = "tools/qualification/tests/test_beta_driver_committed_evidence.py"
 test_name = "test_f45_verification_fails_closed[native-wrapper]"
 outcome = "error"
 reason = "AssertionError: [AssertionError(\"assert b'\\\\n\\\\xb8\\\\x03\\\\n\\\\xb5\\\\x03\\\\n+/paxprotocol.paxchain.evm.MsgEVMTransaction\\\\x12\\\\x85\\\\x03\\\\n\\\\x82\\\\x03\\\\n&/paxprotocol.paxchain.eth...8b \\\\x02M\\\\xe6\\\\xf5\\\\x08C\\\\xe0\\\\xa2)\\\\x0b\\\\x84 \\\\x0c\\\\\\\\\\\\x87\\\\xd0\\\\xd4c\\\\x89\\\\x85\\\\xbf\\\\xce\\\\xe1\\\\xbc\\\\xdf\\\\xc7]\\\\x8akz\\\\xceU\\\\x12\\\\x02\\\\x12\\..."
-source = "tools/qualification/tests/test_repair_22_33_809.py:199"
+source = "tools/qualification/tests/test_beta_driver_committed_evidence.py:199"
 reason_family = "recorded_transaction_envelope"
 status = "settled"
 live_rule_source = "rpc/sequencer_receipt_vectors_test.go"
@@ -4920,7 +4920,7 @@ producer_commit = "ebcb1902878aecc2e853b28466a3a2c61aa5a5e7"
 case = "tools/qualification/audit_repairs/test_repair_22_36_1.py::test_tracked_candidate_has_no_old_directory_references"
 module_family = "audit_repairs"
 reason_family = "source-pin-retired"
-producer_module = "tools/qualification/repair_22_31_623.kvx"
+producer_module = "spec/layerx-merge/programme/records/tools/qualification/repair_22_31_623.kvx"
 status = "settled"
 settlement = "Remove the retired directory prefix from task-record restoration prose. Preserve the exhaustive tracked-candidate reference scan and all relocation checks."
 observed_evidence_ref = "qualification.continuation3_verify1"
@@ -4957,7 +4957,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.60]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_committed_recording_is_the_real_producers_signed_receipt"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_committed_recording_is_the_real_producers_signed_receipt"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -4967,7 +4967,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.61]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_unknown_recovers_committed_receipt_across_stop_and_reopen"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_unknown_recovers_committed_receipt_across_stop_and_reopen"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -4977,7 +4977,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.62]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_pending_restart_preserves_unknown_without_receipt_or_transmission"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_pending_restart_preserves_unknown_without_receipt_or_transmission"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -4987,7 +4987,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.63]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_verified_rpc_accepts_current_committed_rung"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_verified_rpc_accepts_current_committed_rung"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -4997,7 +4997,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.64]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_verified_rpc_rejects_retired_pending_and_unverified_rungs[verification0]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_verified_rpc_rejects_retired_pending_and_unverified_rungs[verification0]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5007,7 +5007,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.65]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_verified_rpc_rejects_retired_pending_and_unverified_rungs[verification1]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_verified_rpc_rejects_retired_pending_and_unverified_rungs[verification1]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5017,7 +5017,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.66]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_verified_rpc_rejects_retired_pending_and_unverified_rungs[verification2]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_verified_rpc_rejects_retired_pending_and_unverified_rungs[verification2]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5027,7 +5027,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.67]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_verified_rpc_rejects_retired_pending_and_unverified_rungs[verification3]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_verified_rpc_rejects_retired_pending_and_unverified_rungs[verification3]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5037,7 +5037,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.68]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_verified_rpc_rejects_retired_pending_and_unverified_rungs[verification4]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_verified_rpc_rejects_retired_pending_and_unverified_rungs[verification4]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5047,7 +5047,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.69]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_verified_rpc_rejects_retired_pending_and_unverified_rungs[verification5]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_verified_rpc_rejects_retired_pending_and_unverified_rungs[verification5]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5057,7 +5057,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.70]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_verified_rpc_rejects_retired_pending_and_unverified_rungs[verification6]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_verified_rpc_rejects_retired_pending_and_unverified_rungs[verification6]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5067,7 +5067,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.71]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_verified_rpc_rejects_retired_pending_and_unverified_rungs[verification7]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_verified_rpc_rejects_retired_pending_and_unverified_rungs[verification7]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5077,7 +5077,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.72]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_verified_rpc_rejects_retired_pending_and_unverified_rungs[None]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_verified_rpc_rejects_retired_pending_and_unverified_rungs[None]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5087,7 +5087,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.73]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_receipt_lookup_keeps_every_credential_coordinate[tenant]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_receipt_lookup_keeps_every_credential_coordinate[tenant]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5097,7 +5097,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.74]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_receipt_lookup_keeps_every_credential_coordinate[session_id]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_receipt_lookup_keeps_every_credential_coordinate[session_id]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5107,7 +5107,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.75]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_receipt_lookup_keeps_every_credential_coordinate[token_id]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_receipt_lookup_keeps_every_credential_coordinate[token_id]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5117,7 +5117,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.76]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_receipt_lookup_keeps_every_credential_coordinate[generation]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_receipt_lookup_keeps_every_credential_coordinate[generation]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5127,7 +5127,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.77]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_restart_rejects_misbound_submission[transaction]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_restart_rejects_misbound_submission[transaction]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5137,7 +5137,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.78]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_restart_rejects_misbound_submission[reference]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_restart_rejects_misbound_submission[reference]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5147,7 +5147,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.79]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_restart_rejects_misbound_submission[digest]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_restart_rejects_misbound_submission[digest]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5157,7 +5157,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.80]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_restart_rejects_misbound_submission[missing-digest]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_restart_rejects_misbound_submission[missing-digest]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5167,7 +5167,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.81]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_restart_rejects_misbound_submission[rung]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_restart_rejects_misbound_submission[rung]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5177,7 +5177,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.82]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_restart_rejects_misbound_submission[state]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_restart_rejects_misbound_submission[state]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5187,7 +5187,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.83]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_restart_rejects_misbound_submission[request-id]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_restart_rejects_misbound_submission[request-id]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5197,7 +5197,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.84]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[missing]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[missing]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5207,7 +5207,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.85]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[transaction]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[transaction]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5217,7 +5217,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.86]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[canonical-identity]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[canonical-identity]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5227,7 +5227,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.87]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[truncated]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[truncated]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5237,7 +5237,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.88]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[receipt-rung]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[receipt-rung]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5247,7 +5247,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.89]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[status-rung]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[status-rung]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5257,7 +5257,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.90]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[retired-level]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[retired-level]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5267,7 +5267,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.91]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[retired-receipt-level]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[retired-receipt-level]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5277,7 +5277,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.92]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[header-missing]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[header-missing]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5287,7 +5287,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.93]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[header-before]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[header-before]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5297,7 +5297,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.94]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[header-after]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[header-after]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5307,7 +5307,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.95]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[header-key]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[header-key]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5317,7 +5317,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.96]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[header-batch]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[header-batch]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5327,7 +5327,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.97]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[header-asset]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[header-asset]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5337,7 +5337,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.98]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[request-id]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[request-id]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5347,7 +5347,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.99]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[signature-framing]"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_recovery_rejects_missing_or_misbound_receipt_and_header[signature-framing]"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5357,7 +5357,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.100]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_703.py::test_real_http_transport_refuses_cross_tenant_tracking"
+case = "tools/qualification/paxeer-x/tests/test_mcp_daemon_revocation.py::test_real_http_transport_refuses_cross_tenant_tracking"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5367,7 +5367,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.101]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_agent_dispatch_producer_recording_uses_authenticated_gateway_route"
+case = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py::test_agent_dispatch_producer_recording_uses_authenticated_gateway_route"
 module_family = "paxeer-x"
 reason_family = "live-producer-shape"
 producer_module = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
@@ -5377,7 +5377,7 @@ observed_evidence_ref = "qualification.continuation3_verify1"
 verification_ref = "evidence.final_gate"
 
 [continuation3_case.102]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py::test_f018_separate_real_hosted_schema_and_node_root_dispatch"
+case = "tools/qualification/paxeer-x/tests/test_runtime_custody_manifest_contracts.py::test_f018_separate_real_hosted_schema_and_node_root_dispatch"
 module_family = "paxeer-x"
 reason_family = "blocked-scope"
 producer_module = "services/human/schema/human-api/identity.kvx"
@@ -5559,7 +5559,7 @@ status = "settled"
 verification_ref = "evidence.full_suite"
 
 [continuation_4.case.22]
-case = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py::test_f018_separate_real_hosted_schema_and_node_root_dispatch"
+case = "tools/qualification/paxeer-x/tests/test_runtime_custody_manifest_contracts.py::test_f018_separate_real_hosted_schema_and_node_root_dispatch"
 live_rule_source = "services/platform/hosted/gateway/openrpc.json"
 settlement = "Extend the qualification producer with the five exact node inference contracts. Require exact union equality with the 17 hosted names; retain duplicate, missing, foreign-node and malformed-shape rejection tests and separate native transport dispatch checks."
 status = "settled"

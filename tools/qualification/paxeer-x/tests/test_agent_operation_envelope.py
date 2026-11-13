@@ -12,7 +12,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[4]
 SOURCE = ROOT / 'tools/qualification/paxeer-x/agent_operation_envelope.py'
-SPEC = importlib.util.spec_from_file_location('repair_22_31_316_envelope', SOURCE)
+SPEC = importlib.util.spec_from_file_location('agent_operation_envelope_contract', SOURCE)
 ENVELOPE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(ENVELOPE)
 

@@ -2,7 +2,7 @@
 task = "22.33.791"
 audit = "spec/layerx-merge/programme/audit/records/22.30.176.kvx"
 base = "33e39ac9e249303769aad2d7f4de272148932e12"
-tests = "tools/qualification/paxeer-x/tests/test_repair_22_33_791.py"
+tests = "tools/qualification/paxeer-x/tests/test_event_delivery_source_bindings.py"
 verified_revision = "The exact built and verified candidate revision, command, exit and private log are retained by hf-build and hf-done in /out/run/gates.jsonl; only hf-done passing at the built revision qualifies the repair."
 baseline = "Not run: the explicit implementation-first and hf-done-only gate order forbids the contradictory unchanged-tree verification in step 7; no pre-change test failures are claimed."
 format = "No Python formatter is configured for these qualification paths; retain the existing four-space and newline conventions."

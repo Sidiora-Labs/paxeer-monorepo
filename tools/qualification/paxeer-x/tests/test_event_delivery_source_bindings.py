@@ -32,7 +32,7 @@ sys.path.insert(0, str(ROOT / 'services/agent/sdk/python'))
 
 
 def load(name):
-    spec = importlib.util.spec_from_file_location('repair_791_' + name.replace('-', '_'), QUAL / (name + '.py'))
+    spec = importlib.util.spec_from_file_location('event_delivery_source_binding_' + name.replace('-', '_'), QUAL / (name + '.py'))
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

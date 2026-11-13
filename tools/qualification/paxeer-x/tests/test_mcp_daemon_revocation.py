@@ -32,7 +32,7 @@ from layerx_sdk.verifier import ReceiptKey, verify_sequencer_receipt
 @pytest.fixture(scope="module")
 def qualifier():
     spec = importlib.util.spec_from_file_location(
-        "repair_22_33_703_qualifier", QUAL / "mcp_daemon_revocation.py"
+        "mcp_daemon_revocation_contract", QUAL / "mcp_daemon_revocation.py"
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

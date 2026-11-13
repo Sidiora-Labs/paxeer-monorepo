@@ -2,13 +2,13 @@
 task = "22.33.810"
 audit = "spec/layerx-merge/programme/audit/records/22.30.178.kvx"
 base_revision = "7988614413df79a83ae525988b7636ae368938a2"
-test_module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_module = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 verified_revision_record = "/out/run/gates.jsonl: final hf-done entry records the exact candidate revision, command, exit and private log"
 
 [baseline]
 attempt = 4
 revision = "331a7504612ead0cff83a83ff0fc772aa8351f87"
-command = "python3 -m pytest -q tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+command = "python3 -m pytest -q tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
 exit = 2
 observed = "Collection failed with ModuleNotFoundError: native_evidence; no tests executed. Continuing the supplied tree without repeating the recorded unchanged gate."
 

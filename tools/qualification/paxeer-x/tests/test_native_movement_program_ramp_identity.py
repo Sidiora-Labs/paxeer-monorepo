@@ -85,7 +85,7 @@ from layerx_sdk.verifier import SequencerReceiptVerificationError
 
 
 def load(name):
-    spec = importlib.util.spec_from_file_location('repair_861_' + name.replace('-', '_'), QUAL / (name + '.py'))
+    spec = importlib.util.spec_from_file_location('native_movement_program_ramp_identity_' + name.replace('-', '_'), QUAL / (name + '.py'))
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
