@@ -1,8 +1,63 @@
-name: LayerX Network feature request
-description: Propose a non-security change with a requirement or spec task.
+name: Paxeer X Network feature request
+description: Propose a change to a repository component.
 title: "feat: "
 labels: [enhancement]
 body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Select the repository path most closely related to this issue.
+      options:
+        - admin
+        - api
+        - apps/bridge
+        - apps/explorer
+        - apps/inference-peer
+        - apps/launchpad
+        - apps/names
+        - apps/perps
+        - apps/wallet
+        - apps/web
+        - cmd
+        - consensus
+        - contracts
+        - core
+        - custodyproof
+        - daemon
+        - deploy
+        - docker
+        - docs
+        - engine
+        - include
+        - interchain
+        - layerxproof
+        - migrations
+        - modules
+        - node
+        - precompiles
+        - programs
+        - rpc
+        - scripts
+        - sdk
+        - services/agent
+        - services/bridge
+        - services/explorer
+        - services/human
+        - services/interop
+        - services/launchpad
+        - services/platform
+        - services/wallet
+        - spec
+        - src
+        - storage
+        - tests
+        - tools
+        - utils
+        - wasm
+        - wasm-runtime
+    validations:
+      required: true
   - type: markdown
     attributes:
       value: Do not disclose vulnerabilities here. Use the private process in SECURITY.md.
@@ -22,12 +77,6 @@ body:
     attributes:
       label: Proposed change
       description: The smallest change that would close the gap.
-    validations:
-      required: true
-  - type: input
-    attributes:
-      label: Spec task or requirement
-      description: spec.kvx task id, requirement clause, or "none yet".
     validations:
       required: true
   - type: textarea

@@ -26,16 +26,40 @@ area:programs:
 area:human:
   - changed-files:
       - any-glob-to-any-file:
-          - services/wallet/**
           - services/human/**
-          - apps/perps/**
           - apps/web/**
 
 area:wallet:
   - changed-files:
       - any-glob-to-any-file:
+          - services/wallet/**
           - apps/wallet/**
           - sdk/wallet/**
+
+area:apps:
+  - changed-files:
+      - any-glob-to-any-file: apps/**
+
+area:services:
+  - changed-files:
+      - any-glob-to-any-file: services/**
+
+area:sdk:
+  - changed-files:
+      - any-glob-to-any-file: sdk/**
+
+area:tools:
+  - changed-files:
+      - any-glob-to-any-file:
+          - tools/**
+          - scripts/**
+
+area:deployment:
+  - changed-files:
+      - any-glob-to-any-file:
+          - deploy/**
+          - docker/**
+          - .devcontainer/**
 
 area:ci:
   - changed-files:
@@ -50,6 +74,7 @@ area:contracts:
       - any-glob-to-any-file:
           - contracts/**
           - foundry.toml
+          - foundry.paxeer.toml
 
 area:paxeer:
   - changed-files:
@@ -57,61 +82,28 @@ area:paxeer:
           - go.mod
           - go.sum
           - chain.mk
-          - docker/layerx/Dockerfile
-          - docker/layerx/Dockerfile.dockerignore
-          - foundry.paxeer.toml
           - buf.gen.yaml
           - buf.lock
           - buf.yaml
-          - .github/codecov.yml
           - .golangci.yml
-          - tools/repotest/gen.go
-          - tools/repotest/link_directives_test.go
-          - tools/repotest/mod_test.go
-          - scripts/run_blocktests.sh
-          - tools/release/version.json
           - admin/**
           - api/**
-          - tools/benchmark/**
           - consensus/**
+          - core/**
           - custodyproof/**
           - daemon/**
-          - docker/**
           - engine/**
-          - tests/fixtures/example/**
-          - tools/hpx/**
-          - tests/integration/**
           - interchain/**
+          - layerxproof/**
+          - migrations/**
           - modules/**
           - node/**
-          - tests/occ/**
           - precompiles/**
           - rpc/**
-          - sdk/**
           - storage/**
-          - tests/testutil/**
           - utils/**
           - wasm/**
           - wasm-runtime/**
-          - contracts/src/**
-          - contracts/test/**
-          - contracts/scripts/**
-          - contracts/wasm/**
-          - docs/swagger/**
-          - docs/swagger-ui/**
-          - tests/chain/**
-          - tools/chain/**
-          - tools/tx-scanner/**
-          - tools/utils/**
-          - contracts/config/client.toml
-          - contracts/hardhat.config.js
-          - contracts/package.json
-          - contracts/package-lock.json
-          - contracts/tsconfig.json
-          - docs/evm_jsonrpc_unsupported.md
-          - docs/paxeer-network.md
-          - docs/paxeer-chain-docs.md
-          - scripts/**
 
 area:spec:
   - changed-files:

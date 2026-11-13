@@ -1,5 +1,3 @@
-# Manual PR labels: app-hash-breaking, non-app-hash-breaking.
-# Maintainers select the app-hash impact; release categories use area labels.
 changelog:
   exclude:
     labels:
@@ -26,9 +24,24 @@ changelog:
     - title: Wallet
       labels:
         - area:wallet
-    - title: Paxeer Network
+    - title: Paxeer X Network
       labels:
         - area:paxeer
+    - title: Applications
+      labels:
+        - area:apps
+    - title: Services
+      labels:
+        - area:services
+    - title: SDKs
+      labels:
+        - area:sdk
+    - title: Tools and scripts
+      labels:
+        - area:tools
+    - title: Deployment
+      labels:
+        - area:deployment
     - title: Specification
       labels:
         - area:spec
