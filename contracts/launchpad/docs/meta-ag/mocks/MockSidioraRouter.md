@@ -7,10 +7,12 @@ Source: [MockSidioraRouter.sol](../../../contracts/meta-ag/mocks/MockSidioraRout
 Configurable swap responses for `SidioraAdapter` tests. Implements `buy`, `sell` and
 `swapTokenForToken`, with the latter returning `(amountOut, intermediateUsdl)`.
 
-Records call arguments, call counts and observed allowances. When `skipTransfers` is false, calls
-pull the input token from the caller and transfer the configured output amount back to the caller.
-Set `usdl`, `buyTokenOut` or `sellTokenIn` as required and fund the output balance before swapping.
-When `skipTransfers` is true, both inbound and outbound token transfers are skipped.
+Records call arguments, call counts and observed allowances. When `skipTransfers` is false, buys
+pull `usdl`, sells pull `sellTokenIn` when it is nonzero, and multihop swaps pull `tokenIn` from the
+caller. Each path transfers a positive configured output amount back to the caller. Set `usdl`,
+`buyTokenOut` and `sellTokenIn` as required and fund the output balance before swapping.
+When `skipTransfers` is true, both inbound and outbound token transfers are skipped. Sell allowance
+recording occurs only when `skipTransfers` is false and `sellTokenIn` is nonzero; otherwise it is zero.
 
 ### LastBuy
 

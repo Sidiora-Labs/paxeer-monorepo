@@ -135,11 +135,17 @@ function batchQuote(struct IMetaAGQuoter.QuoteRequest[] requests) external view 
 function getLiquidityInfo(address token) external view returns (uint256 available, uint256 tokenPrice, bool isStale)
 ```
 
+Returns recorded reserves from `vault.getReserves`. Oracle read errors return a zero price and
+`isStale=true`. Swap quotes use `vault.getAvailableReserves` for spendable liquidity.
+
 ### getAllLiquidityInfo
 
 ```solidity
 function getAllLiquidityInfo() external view returns (address[] tokens, uint256[] reserves, uint256[] prices, bool[] stale)
 ```
+
+Returns registered tokens and their recorded reserves. Each failed oracle price read produces a
+zero price and a true stale flag. Vault read errors propagate.
 
 ### getTokenPrice
 
@@ -201,5 +207,6 @@ Computes the input required at the given prices and token decimals, rounding up.
 function quoteChecked(address tokenIn, address tokenOut, uint256 amount, bool isExactIn) external view returns (struct IMetaAGQuoter.QuoteResult result)
 ```
 
-Builds a quote from oracle, vault and optional engine reads. Unlike the public quote wrappers, this
-method propagates failures from those reads and calculations.
+Builds a quote from oracle, vault and optional engine reads. Oracle price read errors become zero
+prices with stale flags through `_safeGetPrice`. Vault, engine and arithmetic errors propagate;
+`_buildQuote` catches them for the public quote wrappers.

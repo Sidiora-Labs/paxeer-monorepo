@@ -7,7 +7,7 @@ Source: [MetaAGRouter.sol](../../../contracts/meta-ag/router/MetaAGRouter.sol).
 UUPS-upgradeable router that selects the highest-output quote from active `IProtocolAdapter`
 contracts, supports explicit adapter selection and executes paths of two to five hops.
 
-Swaps enforce deadlines, slippage and exact input transfers. Output amounts are measured from
+Swaps enforce nonzero deadlines, slippage and exact input transfers. Output amounts are measured from
 recipient balance changes. Adapter allowances are reset to zero before approval and after execution.
 Each hop is quoted using the actual intermediate output.
 
@@ -161,6 +161,8 @@ Master toggle for the oracle sanity check.
 ```solidity
 modifier ensure(uint256 deadline)
 ```
+
+Reverts with `DeadlineExpired` when a nonzero deadline is earlier than the current block timestamp.
 
 ### constructor
 

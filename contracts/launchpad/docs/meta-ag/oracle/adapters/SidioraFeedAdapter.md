@@ -16,8 +16,10 @@ Successful feeds use the current block timestamp and these confidence bands:
 | Real USDL reserves                        | Confidence |
 | ----------------------------------------- | ---------- |
 | At least `minLiquidityThreshold`          | 7000       |
-| At least one quarter of the threshold     | 4000       |
-| Below one quarter, or reserves read fails | 1500       |
+| At least `minLiquidityThreshold / 4`       | 4000       |
+| Below that value, or reserves read fails  | 1500       |
+
+The quarter-threshold calculation uses integer division.
 
 The adapter is not upgradeable. `getSupportedTokens` enumerates the administrator-maintained
 known-token list; `supportsToken` checks for a pool in the configured registry.
@@ -156,13 +158,13 @@ Check whether this adapter supports a given token
 function getSupportedTokens() external view returns (address[] tokens)
 ```
 
-Get all tokens this adapter currently supports
+Returns the administrator-maintained known-token list.
 
 #### Return Values
 
 | Name   | Type      | Description                        |
 | ------ | --------- | ---------------------------------- |
-| tokens | address[] | Array of supported token addresses |
+| tokens | address[] | Array of known token addresses     |
 
 ### getFeedPrice
 
