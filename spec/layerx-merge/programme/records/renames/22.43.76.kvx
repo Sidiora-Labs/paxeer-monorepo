@@ -1,0 +1,28 @@
+[manifest]
+task = "22.43.76"
+records_moved = 1
+files_renamed = 1
+
+[file.1]
+from = "precompiles/gov/repair_m1267.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/gov/repair_m1267.kvx"
+
+[file.2]
+from = "precompiles/gov/repair_m1267_test.go"
+to = "precompiles/gov/proposal_submission_test.go"
+
+[reference.1]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/gov/repair_m1267_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "precompiles/gov/repair_m1267_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/gov/repair_m1267_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1267_"

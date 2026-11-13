@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const repairM1267ParameterProposalJSON = `{
+const parameterChangeProposalJSON = `{
 	"title": "Gov Param Change",
 	"description": "Update quorum to 0.45",
 	"type": "ParameterChange",
@@ -41,29 +41,29 @@ const repairM1267ParameterProposalJSON = `{
 	"is_expedited": false
 }`
 
-const repairM1267EmptyTypeProposalJSON = `{
+const emptyTypeProposalJSON = `{
 	"title": "Default Text Proposal",
 	"description": "An empty type defaults to Text even when changes are supplied",
 	"type": "",
 	"changes": [{"subspace": "gov", "key": "tallyparams", "value": {"quorum": "0.45"}}]
 }`
 
-func TestRepairM_1267_ParameterChange(t *testing.T) {
-	ctx, proposalID := submitRepairM1267Proposal(t, repairM1267ParameterProposalJSON)
-	assertRepairM1267ParameterChange(t, ctx, proposalID)
+func TestGovSubmitProposalParameterChange(t *testing.T) {
+	ctx, proposalID := submitGovProposalTransaction(t, parameterChangeProposalJSON)
+	assertGovParameterChangeProposal(t, ctx, proposalID)
 }
 
-func TestRepairM_1267_EmptyTypeTextDefault(t *testing.T) {
-	ctx, proposalID := submitRepairM1267Proposal(t, repairM1267EmptyTypeProposalJSON)
-	assertRepairM1267TextDefault(t, ctx, proposalID)
+func TestGovSubmitProposalEmptyTypeTextDefault(t *testing.T) {
+	ctx, proposalID := submitGovProposalTransaction(t, emptyTypeProposalJSON)
+	assertGovTextProposalDefault(t, ctx, proposalID)
 }
 
-func TestRepairM_1267_OmittedTypeTextDefault(t *testing.T) {
-	ctx, proposalID := submitRepairM1267Proposal(t, strings.Replace(repairM1267EmptyTypeProposalJSON, `"type": "",`, "", 1))
-	assertRepairM1267TextDefault(t, ctx, proposalID)
+func TestGovSubmitProposalOmittedTypeTextDefault(t *testing.T) {
+	ctx, proposalID := submitGovProposalTransaction(t, strings.Replace(emptyTypeProposalJSON, `"type": "",`, "", 1))
+	assertGovTextProposalDefault(t, ctx, proposalID)
 }
 
-func submitRepairM1267Proposal(t *testing.T, proposalJSON string) (sdk.Context, uint64) {
+func submitGovProposalTransaction(t *testing.T, proposalJSON string) (sdk.Context, uint64) {
 	t.Helper()
 	testApp := testkeeper.EVMTestApp
 	ctx, _ := testApp.NewContext(false, tmtypes.Header{}).WithBlockHeight(3).CacheContext()
@@ -110,7 +110,7 @@ func submitRepairM1267Proposal(t *testing.T, proposalJSON string) (sdk.Context, 
 	return ctx, proposalID
 }
 
-func assertRepairM1267ParameterChange(t *testing.T, ctx sdk.Context, proposalID uint64) {
+func assertGovParameterChangeProposal(t *testing.T, ctx sdk.Context, proposalID uint64) {
 	t.Helper()
 	k := testkeeper.EVMTestApp.GovKeeper
 	stored, found := k.GetProposal(ctx, proposalID)
@@ -134,7 +134,7 @@ func assertRepairM1267ParameterChange(t *testing.T, ctx sdk.Context, proposalID 
 	require.True(t, before.Equal(k.GetTallyParams(ctx)), "execution fixture must remain isolated")
 }
 
-func assertRepairM1267TextDefault(t *testing.T, ctx sdk.Context, proposalID uint64) {
+func assertGovTextProposalDefault(t *testing.T, ctx sdk.Context, proposalID uint64) {
 	t.Helper()
 	k := testkeeper.EVMTestApp.GovKeeper
 	stored, found := k.GetProposal(ctx, proposalID)
