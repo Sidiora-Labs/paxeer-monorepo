@@ -170854,7 +170854,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.4]
 title = "Move the task records and name the files after what they hold in apps/explorer/nextjs and 3 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239828,7 +239828,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.118]
 title = "Move the task records and name the files after what they hold in sdk/telemetry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240147,7 +240147,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.105]
 title = "Move the task records and name the files after what they hold in sdk/cosmovisor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240211,7 +240211,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.102]
 title = "Move the task records and name the files after what they hold in sdk/client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240275,7 +240275,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.100]
 title = "Move the task records and name the files after what they hold in sdk/baseapp"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378893,7 +378893,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.30]
 title = "Bring the translated front pages in line with the front page of the repository"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.42.29"]
@@ -449343,7 +449343,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.137]
 title = "Move the task records and name the files after what they hold in services/explorer/backend/apps/block_scout_web"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

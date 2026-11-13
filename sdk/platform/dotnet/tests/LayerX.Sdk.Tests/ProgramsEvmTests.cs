@@ -10,7 +10,7 @@ namespace LayerX.Sdk.Tests;
 
 public sealed class ProgramsEvmTests
 {
-    private const string Sender = RepairM1369Native.Sender;
+    private const string Sender = NativeProgramTestVectors.Sender;
 
     [Fact]
     public void ProgramCallBuildsLayerxprogramsCallTransaction()
@@ -89,12 +89,12 @@ public sealed class ProgramsEvmTests
     [Fact]
     public async Task ProgramSimulateDecodesRecordedNativeProducerOutput()
     {
-        using var fixture = RepairM1369Native.RecordedVector();
-        var vector = RepairM1369Native.ProgramsVector(fixture);
-        var (native, fee) = RepairM1369Native.RecordedCall();
+        using var fixture = NativeProgramTestVectors.RecordedVector();
+        var vector = NativeProgramTestVectors.ProgramsVector(fixture);
+        var (native, fee) = NativeProgramTestVectors.RecordedCall();
         var call = new ProgramCall(native, fee);
-        var output = RepairM1369Native.Hex(vector.GetProperty("receiptJson"), "returnData");
-        await using var server = new RepairM1368Http();
+        var output = NativeProgramTestVectors.Hex(vector.GetProperty("receiptJson"), "returnData");
+        await using var server = new JsonRpcTestServer();
         using var rpc = new Programs(server.Endpoint);
         var programs = new ProgramsClient(rpc);
         var simulation = programs.SimulateAsync(call, Sender);
@@ -108,7 +108,7 @@ public sealed class ProgramsEvmTests
             Assert.Equal(Sender, parameters[0].GetProperty("from").GetString());
             Assert.Equal("0x" + Convert.ToHexString(call.EncodeCalldata(simulate: true)).ToLowerInvariant(),
                 parameters[0].GetProperty("data").GetString());
-            return RepairM1369Native.Reply(request, vector.GetProperty("receiptJson").GetProperty("returnData").GetString());
+            return NativeProgramTestVectors.Reply(request, vector.GetProperty("receiptJson").GetProperty("returnData").GetString());
         });
         var result = await simulation;
         Assert.Equal(0, result.TerminalResult);
@@ -123,11 +123,11 @@ public sealed class ProgramsEvmTests
     [Fact]
     public async Task ProgramSimulateRefusesMalformedNativeOutput()
     {
-        using var fixture = RepairM1369Native.RecordedVector();
-        var vector = RepairM1369Native.ProgramsVector(fixture);
-        var (native, fee) = RepairM1369Native.RecordedCall();
+        using var fixture = NativeProgramTestVectors.RecordedVector();
+        var vector = NativeProgramTestVectors.ProgramsVector(fixture);
+        var (native, fee) = NativeProgramTestVectors.RecordedCall();
         var call = new ProgramCall(native, fee);
-        var output = RepairM1369Native.Hex(vector.GetProperty("receiptJson"), "returnData");
+        var output = NativeProgramTestVectors.Hex(vector.GetProperty("receiptJson"), "returnData");
         foreach (var mutation in new[] { "truncated", "offset", "padding", "length", "kind", "result" })
         {
             var malformed = output.ToArray();
@@ -140,11 +140,11 @@ public sealed class ProgramsEvmTests
                 case "kind": malformed[63] = 0; break;
                 case "result": malformed[27] = 1; break;
             }
-            await using var server = new RepairM1368Http();
+            await using var server = new JsonRpcTestServer();
             using var rpc = new Programs(server.Endpoint);
             var programs = new ProgramsClient(rpc);
             var simulation = programs.SimulateAsync(call);
-            await server.Exchange(request => RepairM1369Native.Reply(request,
+            await server.Exchange(request => NativeProgramTestVectors.Reply(request,
                 "0x" + Convert.ToHexString(malformed).ToLowerInvariant()));
             if (mutation is "kind" or "result")
             {
@@ -364,7 +364,7 @@ public sealed class ProgramsEvmTests
         Assert.Equal(new BigInteger(100), transaction.MaxFeePerGas);
         Assert.Equal(new BigInteger(2), transaction.MaxPriorityFeePerGas);
 
-        var signed = RepairM1369Native.Sign(transaction);
+        var signed = NativeProgramTestVectors.Sign(transaction);
         var key = new IdempotencyKey(Convert.ToHexString(Programs.TransactionHash(signed)).ToLowerInvariant());
         var submission = programs.UpgradeAsync(upgrade, feeLimit, signed, key, timeout.Token);
         using var sendRequest = await ReceiveRequestAsync("eth_sendRawTransaction");
@@ -403,7 +403,7 @@ public sealed class ProgramsEvmTests
     }
 
     internal static JsonDocument DiscoveryFixture([System.Runtime.CompilerServices.CallerFilePath] string source = "") =>
-        JsonDocument.Parse(File.ReadAllBytes(Path.Combine(Path.GetDirectoryName(source)!, "Fixtures/repair-m1369-discovery-abi.json")));
+        JsonDocument.Parse(File.ReadAllBytes(Path.Combine(Path.GetDirectoryName(source)!, "Fixtures/native-program-discovery-abi.json")));
 
     private static byte[] Hex(JsonElement value, string field) => Convert.FromHexString(value.GetProperty(field).GetString()!);
     private static JsonDocument Fixture(string name)
