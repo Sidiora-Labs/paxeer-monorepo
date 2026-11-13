@@ -240600,7 +240600,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.53]
 title = "Move the task records and name the files after what they hold in modules/launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240696,7 +240696,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.47]
 title = "Move the task records and name the files after what they hold in engine"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326975,7 +326975,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.50]
 title = "Move the task records and name the files after what they hold in layerxproof"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378863,7 +378863,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.29]
 title = "Write the front page of the repository"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.42.28", "22.42.34", "22.42.35", "22.42.36", "22.42.37", "22.42.38", "22.42.39", "22.42.40", "22.42.41", "22.42.42", "22.42.43", "22.42.44", "22.42.45", "22.42.46", "22.42.47", "22.42.48", "22.42.49", "22.42.50", "22.42.51", "22.42.52", "22.42.53", "22.42.54", "22.42.55", "22.42.56", "22.42.57", "22.42.58", "22.42.59", "22.42.60", "22.42.61", "22.42.62", "22.42.63"]
