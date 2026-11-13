@@ -170230,7 +170230,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.133]
 title = "Move the task records and name the files after what they hold in services/agent/crates/layerx-wire and 3 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205563,7 +205563,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.96]
 title = "Move the task records and name the files after what they hold in programs/sdk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238661,7 +238661,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.43.249]
 title = "Bring the inventory files under tools/workspace and the readers of four test data directories to the present paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
