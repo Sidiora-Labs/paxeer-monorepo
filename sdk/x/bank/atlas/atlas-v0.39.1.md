@@ -10,7 +10,9 @@ with particular kinds of accounts.
 
    ```go
    import (
-       "github.com/cosmos/cosmos-sdk/x/bank"
+       "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank"
+       bankkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/keeper"
+       banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
    )
    ```
 
@@ -20,8 +22,8 @@ with particular kinds of accounts.
     var (
       ModuleBasics = module.NewBasicManager(
         // ...
-        bank.AppModuleBasic{},
-      }
+        bank.NewAppModuleBasic(appCodec),
+      )
     )
     ```
 
@@ -30,7 +32,7 @@ with particular kinds of accounts.
    ```go
    func NewApp(...) *App {
      // ...
-     app.subspaces[bank.ModuleName] = app.ParamsKeeper.Subspace(bank.DefaultParamspace)
+     app.ParamsKeeper.Subspace(banktypes.ModuleName)
    }
    ```
 
@@ -41,8 +43,9 @@ with particular kinds of accounts.
    ```go
    func NewApp(...) *App {
      // ...
-     app.BankKeeper = bank.NewBaseKeeper(
-       app.AccountKeeper, app.subspaces[bank.ModuleName], app.BlocklistedAccAddrs(),
+     app.BankKeeper = bankkeeper.NewBaseKeeper(
+       appCodec, keys[banktypes.StoreKey], app.AccountKeeper,
+       app.GetSubspace(banktypes.ModuleName), app.BlacklistedAccAddrs(),
      )
    }
    ```
@@ -54,7 +57,7 @@ with particular kinds of accounts.
      // ...
      app.mm = module.NewManager(
        // ...
-       bank.NewAppModule(app.BankKeeper, app.AccountKeeper),
+       bank.NewAppModule(appCodec, app.BankKeeper, app.AccountKeeper),
        // ...
      )
    }
@@ -65,7 +68,7 @@ with particular kinds of accounts.
    ```go
    func NewApp(...) *App {
      // ...
-     app.mm.SetOrderInitGenesis(..., bank.ModuleName, ...)
+     app.mm.SetOrderInitGenesis(..., banktypes.ModuleName, ...)
    }
    ```
 
@@ -76,10 +79,11 @@ with particular kinds of accounts.
      // ...
      app.sm = module.NewSimulationManager(
        // ...
-       bank.NewAppModule(app.BankKeeper, app.AccountKeeper),
+       bank.NewAppModule(appCodec, app.BankKeeper, app.AccountKeeper),
        // ...
      )
    }
+   ```
 
 ## Genesis
 
@@ -104,8 +108,8 @@ destination account.
 
 ```go
 type MsgSend struct {
-  FromAddress sdk.AccAddress `json:"from_address" yaml:"from_address"`
-  ToAddress   sdk.AccAddress `json:"to_address" yaml:"to_address"`
+  FromAddress string         `json:"from_address" yaml:"from_address"`
+  ToAddress   string         `json:"to_address" yaml:"to_address"`
   Amount      sdk.Coins      `json:"amount" yaml:"amount"`
 }
 ```
@@ -117,12 +121,12 @@ inputs must be equivalent to the sum of all outputs.
 
 ```go
 type Input struct {
-  Address sdk.AccAddress `json:"address" yaml:"address"`
+  Address string         `json:"address" yaml:"address"`
   Coins   sdk.Coins      `json:"coins" yaml:"coins"`
 }
 
 type Output struct {
-  Address sdk.AccAddress `json:"address" yaml:"address"`
+  Address string         `json:"address" yaml:"address"`
   Coins   sdk.Coins      `json:"coins" yaml:"coins"`
 }
 
@@ -141,7 +145,7 @@ The `x/bank` supports the following transactional commands.
 1. Send tokens via a `MsgSend` message.
 
    ```shell
-   app tx send [from_key_or_address] [to_address] [amount] [...flags]
+   paxd tx bank send [from_key_or_address] [to_address] [amount] [...flags]
    ```
 
 Note, the `x/bank` module does not natively support constructing a `MsgMultiSend`
