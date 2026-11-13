@@ -24,23 +24,23 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 )
 
-func TestRepair_26_Transfer(t *testing.T) {
-	repair26ReceiptRoundTrip(t, 2, types.ReceiptStatusSuccessful, 0)
+func TestReceiptProjectionTransfer(t *testing.T) {
+	receiptProjectionReceiptRoundTrip(t, 2, types.ReceiptStatusSuccessful, 0)
 }
 
-func TestRepair_26_Reversion(t *testing.T) {
-	repair26ReceiptRoundTrip(t, 3, types.ReceiptStatusFailed, 0)
+func TestReceiptProjectionReversion(t *testing.T) {
+	receiptProjectionReceiptRoundTrip(t, 3, types.ReceiptStatusFailed, 0)
 }
 
-func TestRepair_26_Events(t *testing.T) {
-	repair26ReceiptRoundTrip(t, 1, types.ReceiptStatusSuccessful, 1)
+func TestReceiptProjectionEvents(t *testing.T) {
+	receiptProjectionReceiptRoundTrip(t, 1, types.ReceiptStatusSuccessful, 1)
 }
 
-func TestRepair_26_ContractCreation(t *testing.T) {
-	repair26ReceiptRoundTrip(t, 4, types.ReceiptStatusSuccessful, 0)
+func TestReceiptProjectionContractCreation(t *testing.T) {
+	receiptProjectionReceiptRoundTrip(t, 4, types.ReceiptStatusSuccessful, 0)
 }
 
-func repair26ReceiptRoundTrip(t *testing.T, selected int, expectedStatus uint64, expectedLogs int) {
+func receiptProjectionReceiptRoundTrip(t *testing.T, selected int, expectedStatus uint64, expectedLogs int) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

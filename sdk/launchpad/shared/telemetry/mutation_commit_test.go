@@ -21,10 +21,10 @@ import (
 )
 
 var (
-	repairInvalid    = errors.New("invalid account")
-	repairOutboxFull = errors.New("outbox capacity exceeded")
-	repairMissingAck = errors.New("delivery acknowledgement missing")
-	repairPolicy     = delivery.Policy{
+	mutationInvalid    = errors.New("invalid account")
+	mutationOutboxFull = errors.New("outbox capacity exceeded")
+	mutationMissingAck = errors.New("delivery acknowledgement missing")
+	mutationPolicy     = delivery.Policy{
 		Subjects:   map[string]bool{"account.changed": true},
 		EventTypes: map[string]bool{"account.changed": true},
 	}
@@ -32,14 +32,14 @@ var (
 
 // This fixture stores authoritative profiles and their production-encoded outbox
 // bytes atomically. Capacity refusal leaves both collections unchanged.
-type repairStore struct {
+type mutationStore struct {
 	mu             sync.Mutex
 	profiles       map[string]string
 	outbox         map[string][]byte
 	capacity, used int
 }
 
-func (s *repairStore) transact(ctx context.Context, account string) error {
+func (s *mutationStore) transact(ctx context.Context, account string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -58,12 +58,12 @@ func (s *repairStore) transact(ctx context.Context, account string) error {
 		EmittedAt: time.Date(2026, 11, 4, 0, 0, 0, 0, time.UTC), TraceID: "repair_m1013",
 		Payload: payload, PayloadHash: delivery.Hash(payload),
 	}
-	wire, err := envelope.Encode(repairPolicy, "account.changed")
+	wire, err := envelope.Encode(mutationPolicy, "account.changed")
 	if err != nil {
 		return err
 	}
 	if len(wire) > s.capacity-s.used {
-		return repairOutboxFull
+		return mutationOutboxFull
 	}
 	s.profiles[account] = "1"
 	s.outbox[account] = append([]byte(nil), wire...)
@@ -71,29 +71,29 @@ func (s *repairStore) transact(ctx context.Context, account string) error {
 	return nil
 }
 
-func (s *repairStore) snapshot(account string) (string, []byte, int, int) {
+func (s *mutationStore) snapshot(account string) (string, []byte, int, int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.profiles[account], append([]byte(nil), s.outbox[account]...), len(s.profiles), len(s.outbox)
 }
 
-type repairFixture struct {
+type mutationFixture struct {
 	metrics            *telemetry.Metrics
-	store              *repairStore
+	store              *mutationStore
 	consumer, exporter *httptest.Server
 	mu                 sync.Mutex
 	received           map[string]delivery.Envelope
 }
 
-func newRepairFixture(t *testing.T, capacity int, ackAvailable bool) *repairFixture {
+func newMutationFixture(t *testing.T, capacity int, ackAvailable bool) *mutationFixture {
 	t.Helper()
 	m, err := telemetry.New("userd", "qualification", "zone-a")
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := &repairFixture{
+	f := &mutationFixture{
 		metrics:  m,
-		store:    &repairStore{profiles: make(map[string]string), outbox: make(map[string][]byte), capacity: capacity},
+		store:    &mutationStore{profiles: make(map[string]string), outbox: make(map[string][]byte), capacity: capacity},
 		received: make(map[string]delivery.Envelope),
 	}
 	f.consumer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -106,7 +106,7 @@ func newRepairFixture(t *testing.T, capacity int, ackAvailable bool) *repairFixt
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		event, err := delivery.Decode(raw, repairPolicy, "account.changed")
+		event, err := delivery.Decode(raw, mutationPolicy, "account.changed")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
@@ -126,10 +126,10 @@ func newRepairFixture(t *testing.T, capacity int, ackAvailable bool) *repairFixt
 	return f
 }
 
-func (f *repairFixture) run(ctx context.Context, account string) error {
+func (f *mutationFixture) run(ctx context.Context, account string) error {
 	return f.metrics.WithMutation(ctx, "account_mutation", func(ctx context.Context) error {
 		if account == "" {
-			return repairInvalid
+			return mutationInvalid
 		}
 		return ctx.Err()
 	}, func(ctx context.Context) error {
@@ -139,7 +139,7 @@ func (f *repairFixture) run(ctx context.Context, account string) error {
 	})
 }
 
-func (f *repairFixture) acknowledge(ctx context.Context, account string) error {
+func (f *mutationFixture) acknowledge(ctx context.Context, account string) error {
 	_, wire, _, _ := f.store.snapshot(account)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, f.consumer.URL+"/events", bytes.NewReader(wire))
 	if err != nil {
@@ -151,12 +151,12 @@ func (f *repairFixture) acknowledge(ctx context.Context, account string) error {
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusNoContent {
-		return repairMissingAck
+		return mutationMissingAck
 	}
 	return nil
 }
 
-func (f *repairFixture) assertState(t *testing.T, account string, committed, delivered bool) {
+func (f *mutationFixture) assertState(t *testing.T, account string, committed, delivered bool) {
 	t.Helper()
 	revision, wire, profiles, outbox := f.store.snapshot(account)
 	f.mu.Lock()
@@ -174,7 +174,7 @@ func (f *repairFixture) assertState(t *testing.T, account string, committed, del
 	if revision != "1" || len(wire) == 0 || profiles != 1 || outbox != 1 {
 		t.Fatalf("committed state: %q %q %d %d", revision, wire, profiles, outbox)
 	}
-	decoded, err := delivery.Decode(wire, repairPolicy, "account.changed")
+	decoded, err := delivery.Decode(wire, mutationPolicy, "account.changed")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,7 +187,7 @@ func (f *repairFixture) assertState(t *testing.T, account string, committed, del
 	}
 }
 
-func (f *repairFixture) assertMetrics(t *testing.T, eligible, good, commits, rollbacks uint64) {
+func (f *mutationFixture) assertMetrics(t *testing.T, eligible, good, commits, rollbacks uint64) {
 	t.Helper()
 	response, err := f.exporter.Client().Get(f.exporter.URL)
 	if err != nil {
@@ -247,8 +247,8 @@ func (f *repairFixture) assertMetrics(t *testing.T, eligible, good, commits, rol
 	}
 }
 
-func TestRepairM_1013_Commit(t *testing.T) {
-	f := newRepairFixture(t, 1<<20, true)
+func TestMutationTelemetryCommit(t *testing.T) {
+	f := newMutationFixture(t, 1<<20, true)
 	if err := f.run(context.Background(), "alice"); err != nil {
 		t.Fatal(err)
 	}
@@ -256,26 +256,26 @@ func TestRepairM_1013_Commit(t *testing.T) {
 	f.assertMetrics(t, 1, 1, 1, 0)
 }
 
-func TestRepairM_1013_Rollback(t *testing.T) {
-	f := newRepairFixture(t, 1, true)
-	if err := f.run(context.Background(), "alice"); !errors.Is(err, repairOutboxFull) {
+func TestMutationTelemetryRollback(t *testing.T) {
+	f := newMutationFixture(t, 1, true)
+	if err := f.run(context.Background(), "alice"); !errors.Is(err, mutationOutboxFull) {
 		t.Fatalf("lost transaction error: %v", err)
 	}
 	f.assertState(t, "alice", false, false)
 	f.assertMetrics(t, 1, 0, 0, 1)
 }
 
-func TestRepairM_1013_MissingAck(t *testing.T) {
-	f := newRepairFixture(t, 1<<20, false)
-	if err := f.run(context.Background(), "alice"); !errors.Is(err, repairMissingAck) {
+func TestMutationTelemetryMissingAck(t *testing.T) {
+	f := newMutationFixture(t, 1<<20, false)
+	if err := f.run(context.Background(), "alice"); !errors.Is(err, mutationMissingAck) {
 		t.Fatalf("lost acknowledgement error: %v", err)
 	}
 	f.assertState(t, "alice", true, true)
 	f.assertMetrics(t, 1, 0, 1, 0)
 }
 
-func TestRepairM_1013_CommitBeforeAck(t *testing.T) {
-	f := newRepairFixture(t, 1<<20, true)
+func TestMutationTelemetryCommitBeforeAck(t *testing.T) {
+	f := newMutationFixture(t, 1<<20, true)
 	err := f.metrics.WithMutation(context.Background(), "account_mutation", func(context.Context) error {
 		return nil
 	}, func(ctx context.Context) error {
@@ -292,9 +292,9 @@ func TestRepairM_1013_CommitBeforeAck(t *testing.T) {
 	f.assertMetrics(t, 1, 1, 1, 0)
 }
 
-func TestRepairM_1013_InvalidOperation(t *testing.T) {
-	f := newRepairFixture(t, 1<<20, true)
-	if err := f.run(context.Background(), ""); !errors.Is(err, repairInvalid) {
+func TestMutationTelemetryInvalidOperation(t *testing.T) {
+	f := newMutationFixture(t, 1<<20, true)
+	if err := f.run(context.Background(), ""); !errors.Is(err, mutationInvalid) {
 		t.Fatalf("lost validation error: %v", err)
 	}
 	f.assertState(t, "", false, false)
@@ -337,10 +337,10 @@ func TestRepairM_1013_InvalidOperation(t *testing.T) {
 	f.assertMetrics(t, 0, 0, 0, 0)
 }
 
-func TestRepairM_1013_Panic(t *testing.T) {
+func TestMutationTelemetryPanic(t *testing.T) {
 	for _, stage := range []string{"transaction", "acknowledgement"} {
 		t.Run(stage, func(t *testing.T) {
-			f := newRepairFixture(t, 1<<20, true)
+			f := newMutationFixture(t, 1<<20, true)
 			acknowledged := false
 			func() {
 				defer func() {
@@ -372,8 +372,8 @@ func TestRepairM_1013_Panic(t *testing.T) {
 	}
 }
 
-func TestRepairM_1013_ConcurrentOperations(t *testing.T) {
-	f := newRepairFixture(t, 1<<20, true)
+func TestMutationTelemetryConcurrentOperations(t *testing.T) {
+	f := newMutationFixture(t, 1<<20, true)
 	const operations = 24
 	results := make(chan error, operations)
 	for i := 0; i < operations; i++ {

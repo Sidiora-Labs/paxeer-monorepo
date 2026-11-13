@@ -31,66 +31,70 @@ import (
 // peers. This transactional in-memory SQL fixture implements only the committed
 // delivery query contract; unsupported SQL fails rather than returning success.
 // It is not evidence that a PostgreSQL deployment was qualified.
-type m962Build struct {
+type replayLifecycleBuild struct {
 	Consumer, Generation, Manifest, Status, Owner, Projection string
 	Next, Count, Revision, Epoch                              int64
 	Lease                                                     time.Time
 }
-type m962Alias struct {
+type replayLifecycleAlias struct {
 	Generation, Prior string
 	Revision          int64
 }
-type m962Observation struct {
+type replayLifecycleObservation struct {
 	Range, Path, Subject string
 	Envelope             Envelope
 }
-type m962Proof struct {
+type replayLifecycleProof struct {
 	Manifest, Digest, Subjects, Consumer, Generation string
 	Count                                            int64
 }
-type m962Outbox struct {
+type replayLifecycleOutbox struct {
 	Subject  string
 	Wire     []byte
 	Envelope Envelope
 }
-type m962Data struct {
+type replayLifecycleData struct {
 	Source       []ArchiveRaw
 	Frontier     int64
 	Manifests    map[string][]byte
-	Builds       map[string]*m962Build
-	Aliases      map[string]m962Alias
+	Builds       map[string]*replayLifecycleBuild
+	Aliases      map[string]replayLifecycleAlias
 	Paths        map[string]string
-	Observations map[string]m962Observation
-	Proofs       map[string]m962Proof
-	Outbox       map[string]m962Outbox
+	Observations map[string]replayLifecycleObservation
+	Proofs       map[string]replayLifecycleProof
+	Outbox       map[string]replayLifecycleOutbox
 	Projection   map[string][][]byte
-	History      []m962Alias
+	History      []replayLifecycleAlias
 }
-type m962Database struct {
+type replayLifecycleDatabase struct {
 	mu        sync.Mutex
-	data      m962Data
+	data      replayLifecycleData
 	failApply bool
 }
 
-func m962NewData() m962Data {
-	return m962Data{Frontier: 123, Manifests: map[string][]byte{}, Builds: map[string]*m962Build{}, Aliases: map[string]m962Alias{}, Paths: map[string]string{}, Observations: map[string]m962Observation{}, Proofs: map[string]m962Proof{}, Outbox: map[string]m962Outbox{}, Projection: map[string][][]byte{}}
+func replayLifecycleNewData() replayLifecycleData {
+	return replayLifecycleData{Frontier: 123, Manifests: map[string][]byte{}, Builds: map[string]*replayLifecycleBuild{}, Aliases: map[string]replayLifecycleAlias{}, Paths: map[string]string{}, Observations: map[string]replayLifecycleObservation{}, Proofs: map[string]replayLifecycleProof{}, Outbox: map[string]replayLifecycleOutbox{}, Projection: map[string][][]byte{}}
 }
-func (d *m962Database) edit(f func(*m962Data)) { d.mu.Lock(); defer d.mu.Unlock(); f(&d.data) }
-func (d *m962Database) snapshot() string {
+func (d *replayLifecycleDatabase) edit(f func(*replayLifecycleData)) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	f(&d.data)
+}
+func (d *replayLifecycleDatabase) snapshot() string {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	b, _ := json.Marshal(d.data)
 	return string(b)
 }
-func m962Pair(a, b string) string { return a + "/" + b }
-func m962Int(s string) int64 {
+func replayLifecyclePair(a, b string) string { return a + "/" + b }
+func replayLifecycleInt(s string) int64 {
 	n, err := strconv.ParseInt(s, 10, 64)
 	if err != nil {
 		panic(err)
 	}
 	return n
 }
-func m962Bytes(s string) []byte {
+func replayLifecycleBytes(s string) []byte {
 	if !strings.HasPrefix(s, `\x`) {
 		return []byte(s)
 	}
@@ -100,7 +104,7 @@ func m962Bytes(s string) []byte {
 	}
 	return b
 }
-func m962InArray(array, value string) bool {
+func replayLifecycleInArray(array, value string) bool {
 	// All fixture subjects are plain tokens without PostgreSQL array escapes.
 	for _, s := range strings.Split(strings.Trim(array, "{}"), ",") {
 		if strings.Trim(s, `"`) == value {
@@ -110,28 +114,30 @@ func m962InArray(array, value string) bool {
 	return false
 }
 
-type m962Result struct {
+type replayLifecycleResult struct {
 	rows [][]any
 	tag  string
 	err  error
 }
 
-func m962Rows(rows ...[]any) m962Result {
-	return m962Result{rows: rows, tag: fmt.Sprintf("SELECT %d", len(rows))}
+func replayLifecycleRows(rows ...[]any) replayLifecycleResult {
+	return replayLifecycleResult{rows: rows, tag: fmt.Sprintf("SELECT %d", len(rows))}
 }
-func m962Tag(kind string, n int) m962Result { return m962Result{tag: fmt.Sprintf("%s %d", kind, n)} }
-func (db *m962Database) eval(d *m962Data, sql string, a []string) m962Result {
-	q := strings.Join(strings.Fields(strings.ReplaceAll(sql, `"m962".`, "")), " ")
+func replayLifecycleTag(kind string, n int) replayLifecycleResult {
+	return replayLifecycleResult{tag: fmt.Sprintf("%s %d", kind, n)}
+}
+func (db *replayLifecycleDatabase) eval(d *replayLifecycleData, sql string, a []string) replayLifecycleResult {
+	q := strings.Join(strings.Fields(strings.ReplaceAll(sql, `"replayLifecycle".`, "")), " ")
 	has := func(s string) bool { return strings.Contains(q, s) }
 	key := ""
 	if len(a) >= 2 {
-		key = m962Pair(a[0], a[1])
+		key = replayLifecyclePair(a[0], a[1])
 	}
 	b := d.Builds[key]
 	live := b != nil && len(a) > 2 && b.Owner == a[2] && b.Lease.After(time.Now())
 	switch {
 	case strings.HasPrefix(q, "SELECT block_hash,raw_count FROM indexer."):
-		h := m962Int(a[1])
+		h := replayLifecycleInt(a[1])
 		var block string
 		var n int64
 		for _, r := range d.Source {
@@ -141,23 +147,23 @@ func (db *m962Database) eval(d *m962Data, sql string, a []string) m962Result {
 			}
 		}
 		if block == "" {
-			return m962Rows()
+			return replayLifecycleRows()
 		}
-		return m962Rows([]any{block, n})
+		return replayLifecycleRows([]any{block, n})
 	case strings.HasPrefix(q, "SELECT transaction_hash,block_hash,emitter,height,"):
 		var rows [][]any
 		for _, r := range d.Source {
-			if r.Height == m962Int(a[0]) {
+			if r.Height == replayLifecycleInt(a[0]) {
 				topics, _ := json.Marshal(r.Topics)
 				rows = append(rows, []any{r.TransactionHash, r.BlockHash, r.Emitter, r.Height, int64(r.TransactionIndex), int64(r.LogIndex), topics, r.Data})
 			}
 		}
-		return m962Rows(rows...)
+		return replayLifecycleRows(rows...)
 	case strings.HasPrefix(q, "SELECT typed_complete_height FROM indexer."):
-		return m962Rows([]any{d.Frontier})
+		return replayLifecycleRows([]any{d.Frontier})
 	case strings.HasPrefix(q, "SELECT count(*) FROM generate_series"):
 		var missing int64
-		for h := m962Int(a[1]) - m962Int(a[2]); h <= m962Int(a[1]); h++ {
+		for h := replayLifecycleInt(a[1]) - replayLifecycleInt(a[2]); h <= replayLifecycleInt(a[1]); h++ {
 			found := false
 			for _, r := range d.Source {
 				if r.Height == h {
@@ -168,217 +174,217 @@ func (db *m962Database) eval(d *m962Data, sql string, a []string) m962Result {
 				missing++
 			}
 		}
-		return m962Rows([]any{missing})
+		return replayLifecycleRows([]any{missing})
 	case strings.HasPrefix(q, "INSERT INTO delivery_archive_manifests"):
 		if _, ok := d.Manifests[a[0]]; ok {
-			return m962Tag("INSERT 0", 0)
+			return replayLifecycleTag("INSERT 0", 0)
 		}
-		d.Manifests[a[0]] = m962Bytes(a[6])
-		return m962Tag("INSERT 0", 1)
+		d.Manifests[a[0]] = replayLifecycleBytes(a[6])
+		return replayLifecycleTag("INSERT 0", 1)
 	case strings.HasPrefix(q, "SELECT manifest FROM delivery_archive_manifests"):
 		raw, ok := d.Manifests[a[0]]
 		if !ok {
-			return m962Rows()
+			return replayLifecycleRows()
 		}
-		return m962Rows([]any{raw})
+		return replayLifecycleRows([]any{raw})
 	case strings.HasPrefix(q, "SELECT generation FROM delivery_read_aliases"):
 		alias, ok := d.Aliases[a[0]]
 		if !ok {
-			return m962Rows()
+			return replayLifecycleRows()
 		}
-		return m962Rows([]any{alias.Generation})
+		return replayLifecycleRows([]any{alias.Generation})
 	case strings.HasPrefix(q, "SELECT b.manifest_digest,b.status,b.next_height,b.raw_count"):
 		if b == nil || d.Aliases[a[0]].Generation != a[1] {
-			return m962Rows()
+			return replayLifecycleRows()
 		}
-		return m962Rows([]any{b.Manifest, b.Status, b.Next, b.Count})
+		return replayLifecycleRows([]any{b.Manifest, b.Status, b.Next, b.Count})
 	case strings.HasPrefix(q, "INSERT INTO delivery_rebuilds"):
 		if b != nil {
-			return m962Tag("INSERT 0", 0)
+			return replayLifecycleTag("INSERT 0", 0)
 		}
-		d.Builds[key] = &m962Build{Consumer: a[0], Generation: a[1], Manifest: a[2], Next: m962Int(a[3]), Status: "building", Owner: a[4], Epoch: 1, Lease: time.Now().Add(time.Duration(m962Int(a[5])) * time.Millisecond)}
-		return m962Tag("INSERT 0", 1)
+		d.Builds[key] = &replayLifecycleBuild{Consumer: a[0], Generation: a[1], Manifest: a[2], Next: replayLifecycleInt(a[3]), Status: "building", Owner: a[4], Epoch: 1, Lease: time.Now().Add(time.Duration(replayLifecycleInt(a[5])) * time.Millisecond)}
+		return replayLifecycleTag("INSERT 0", 1)
 	case strings.HasPrefix(q, "SELECT manifest_digest,status FROM delivery_rebuilds"):
 		if b == nil {
-			return m962Rows()
+			return replayLifecycleRows()
 		}
-		return m962Rows([]any{b.Manifest, b.Status})
+		return replayLifecycleRows([]any{b.Manifest, b.Status})
 	case strings.HasPrefix(q, "UPDATE delivery_rebuilds SET owner=$3,epoch=epoch+"):
 		if b == nil || b.Owner != a[2] && b.Lease.After(time.Now()) || b.Status != "building" && b.Status != "verified" {
-			return m962Tag("UPDATE", 0)
+			return replayLifecycleTag("UPDATE", 0)
 		}
 		if b.Owner != a[2] {
 			b.Epoch++
 		}
 		b.Owner = a[2]
-		b.Lease = time.Now().Add(time.Duration(m962Int(a[3])) * time.Millisecond)
-		return m962Tag("UPDATE", 1)
+		b.Lease = time.Now().Add(time.Duration(replayLifecycleInt(a[3])) * time.Millisecond)
+		return replayLifecycleTag("UPDATE", 1)
 	case strings.HasPrefix(q, "INSERT INTO delivery_generation_paths"):
 		if _, ok := d.Paths[key]; ok {
-			return m962Tag("INSERT 0", 0)
+			return replayLifecycleTag("INSERT 0", 0)
 		}
 		d.Paths[key] = a[2]
-		return m962Tag("INSERT 0", 1)
+		return replayLifecycleTag("INSERT 0", 1)
 	case strings.HasPrefix(q, "SELECT authoritative_path FROM delivery_generation_paths"):
 		v, ok := d.Paths[key]
 		if !ok {
-			return m962Rows()
+			return replayLifecycleRows()
 		}
-		return m962Rows([]any{v})
+		return replayLifecycleRows([]any{v})
 	case strings.HasPrefix(q, "SELECT manifest_digest,next_height FROM delivery_rebuilds"):
 		if b == nil || b.Status != "building" {
-			return m962Rows()
+			return replayLifecycleRows()
 		}
-		return m962Rows([]any{b.Manifest, b.Next})
+		return replayLifecycleRows([]any{b.Manifest, b.Next})
 	case strings.HasPrefix(q, "SELECT epoch,next_height,owner FROM delivery_rebuilds"):
 		if b == nil || b.Status != "building" || b.Owner != a[2] && b.Lease.After(time.Now()) {
-			return m962Rows()
+			return replayLifecycleRows()
 		}
-		return m962Rows([]any{b.Epoch, b.Next, b.Owner})
+		return replayLifecycleRows([]any{b.Epoch, b.Next, b.Owner})
 	case strings.HasPrefix(q, "UPDATE delivery_rebuilds SET owner=$3,epoch=$4"):
 		if b == nil {
-			return m962Tag("UPDATE", 0)
+			return replayLifecycleTag("UPDATE", 0)
 		}
 		b.Owner = a[2]
-		b.Epoch = m962Int(a[3])
-		b.Lease = time.Now().Add(time.Duration(m962Int(a[4])) * time.Millisecond)
-		return m962Tag("UPDATE", 1)
+		b.Epoch = replayLifecycleInt(a[3])
+		b.Lease = time.Now().Add(time.Duration(replayLifecycleInt(a[4])) * time.Millisecond)
+		return replayLifecycleTag("UPDATE", 1)
 	case strings.HasPrefix(q, "INSERT INTO repair_41_projection"):
 		if db.failApply {
 			db.failApply = false
-			return m962Result{err: errors.New("interrupted projection transaction")}
+			return replayLifecycleResult{err: errors.New("interrupted projection transaction")}
 		}
-		d.Projection[a[0]] = append(d.Projection[a[0]], [][]byte{m962Bytes(a[4])}...)
-		return m962Tag("INSERT 0", 1)
+		d.Projection[a[0]] = append(d.Projection[a[0]], [][]byte{replayLifecycleBytes(a[4])}...)
+		return replayLifecycleTag("INSERT 0", 1)
 	case strings.HasPrefix(q, "SELECT body FROM repair_41_projection"):
 		var rows [][]any
 		for _, body := range d.Projection[a[0]] {
 			rows = append(rows, []any{body})
 		}
-		return m962Rows(rows...)
+		return replayLifecycleRows(rows...)
 	case strings.HasPrefix(q, "UPDATE delivery_rebuilds SET next_height=$5"):
-		if !live || b.Epoch != m962Int(a[3]) {
-			return m962Tag("UPDATE", 0)
+		if !live || b.Epoch != replayLifecycleInt(a[3]) {
+			return replayLifecycleTag("UPDATE", 0)
 		}
-		b.Next = m962Int(a[4])
-		b.Count += m962Int(a[5])
+		b.Next = replayLifecycleInt(a[4])
+		b.Count += replayLifecycleInt(a[5])
 		b.Revision++
-		return m962Tag("UPDATE", 1)
+		return replayLifecycleTag("UPDATE", 1)
 	case strings.HasPrefix(q, "SELECT next_height,raw_count,manifest_digest,epoch FROM delivery_rebuilds"):
 		if !live || b.Status != "building" {
-			return m962Rows()
+			return replayLifecycleRows()
 		}
-		return m962Rows([]any{b.Next, b.Count, b.Manifest, b.Epoch})
+		return replayLifecycleRows([]any{b.Next, b.Count, b.Manifest, b.Epoch})
 	case strings.HasPrefix(q, "UPDATE delivery_rebuilds SET status='verified'"):
-		if !live || b.Epoch != m962Int(a[3]) {
-			return m962Tag("UPDATE", 0)
+		if !live || b.Epoch != replayLifecycleInt(a[3]) {
+			return replayLifecycleTag("UPDATE", 0)
 		}
 		b.Status = "verified"
 		b.Projection = a[4]
 		b.Revision++
-		return m962Tag("UPDATE", 1)
+		return replayLifecycleTag("UPDATE", 1)
 	case strings.HasPrefix(q, "SELECT manifest_digest,status,epoch FROM delivery_rebuilds"):
 		if !live {
-			return m962Rows()
+			return replayLifecycleRows()
 		}
-		return m962Rows([]any{b.Manifest, b.Status, b.Epoch})
+		return replayLifecycleRows([]any{b.Manifest, b.Status, b.Epoch})
 	case strings.HasPrefix(q, "SELECT next_height,raw_count,projection_digest FROM delivery_rebuilds"):
 		if b == nil {
-			return m962Rows()
+			return replayLifecycleRows()
 		}
-		return m962Rows([]any{b.Next, b.Count, b.Projection})
+		return replayLifecycleRows([]any{b.Next, b.Count, b.Projection})
 	case strings.HasPrefix(q, "SELECT status,next_height,raw_count,revision FROM delivery_rebuilds"):
 		if b == nil {
-			return m962Rows()
+			return replayLifecycleRows()
 		}
-		return m962Rows([]any{b.Status, b.Next, b.Count, b.Revision})
+		return replayLifecycleRows([]any{b.Status, b.Next, b.Count, b.Revision})
 	case strings.HasPrefix(q, "SELECT epoch FROM delivery_rebuilds"):
 		if !live || b.Status != "active" {
-			return m962Rows()
+			return replayLifecycleRows()
 		}
-		return m962Rows([]any{b.Epoch})
+		return replayLifecycleRows([]any{b.Epoch})
 	case strings.HasPrefix(q, "SELECT status,manifest_digest,next_height,raw_count,projection_digest FROM delivery_rebuilds"):
 		if b == nil {
-			return m962Rows()
+			return replayLifecycleRows()
 		}
-		return m962Rows([]any{b.Status, b.Manifest, b.Next, b.Count, b.Projection})
+		return replayLifecycleRows([]any{b.Status, b.Manifest, b.Next, b.Count, b.Projection})
 	case strings.HasPrefix(q, "UPDATE delivery_rebuilds SET epoch=epoch"):
-		if !live || b.Status != "active" || b.Epoch != m962Int(a[3]) {
-			return m962Tag("UPDATE", 0)
+		if !live || b.Status != "active" || b.Epoch != replayLifecycleInt(a[3]) {
+			return replayLifecycleTag("UPDATE", 0)
 		}
-		return m962Tag("UPDATE", 1)
+		return replayLifecycleTag("UPDATE", 1)
 	case strings.HasPrefix(q, "UPDATE delivery_rebuilds SET status='active'"):
-		if b == nil || has("owner=$3") && (!live || b.Epoch != m962Int(a[3])) {
-			return m962Tag("UPDATE", 0)
+		if b == nil || has("owner=$3") && (!live || b.Epoch != replayLifecycleInt(a[3])) {
+			return replayLifecycleTag("UPDATE", 0)
 		}
 		b.Status = "active"
 		b.Revision++
-		return m962Tag("UPDATE", 1)
+		return replayLifecycleTag("UPDATE", 1)
 	case strings.HasPrefix(q, "SELECT generation,revision FROM delivery_read_aliases"):
 		v, ok := d.Aliases[a[0]]
 		if !ok {
-			return m962Rows()
+			return replayLifecycleRows()
 		}
-		return m962Rows([]any{v.Generation, v.Revision})
+		return replayLifecycleRows([]any{v.Generation, v.Revision})
 	case strings.HasPrefix(q, "SELECT generation,COALESCE(prior_generation,''),revision FROM delivery_read_aliases"):
 		v, ok := d.Aliases[a[0]]
 		if !ok {
-			return m962Rows()
+			return replayLifecycleRows()
 		}
-		return m962Rows([]any{v.Generation, v.Prior, v.Revision})
+		return replayLifecycleRows([]any{v.Generation, v.Prior, v.Revision})
 	case strings.HasPrefix(q, "INSERT INTO delivery_read_aliases"):
-		d.Aliases[a[0]] = m962Alias{a[1], a[2], m962Int(a[3])}
-		return m962Tag("INSERT 0", 1)
+		d.Aliases[a[0]] = replayLifecycleAlias{a[1], a[2], replayLifecycleInt(a[3])}
+		return replayLifecycleTag("INSERT 0", 1)
 	case strings.HasPrefix(q, "UPDATE delivery_read_aliases SET generation=$2"):
 		v, ok := d.Aliases[a[0]]
 		if !ok {
-			return m962Tag("UPDATE", 0)
+			return replayLifecycleTag("UPDATE", 0)
 		}
-		d.Aliases[a[0]] = m962Alias{a[1], a[2], v.Revision + 1}
-		return m962Tag("UPDATE", 1)
+		d.Aliases[a[0]] = replayLifecycleAlias{a[1], a[2], v.Revision + 1}
+		return replayLifecycleTag("UPDATE", 1)
 	case strings.HasPrefix(q, "INSERT INTO delivery_cutover_history"):
 		for _, v := range d.History {
-			if v.Revision == m962Int(a[1]) {
-				return m962Result{err: errors.New("duplicate cutover revision")}
+			if v.Revision == replayLifecycleInt(a[1]) {
+				return replayLifecycleResult{err: errors.New("duplicate cutover revision")}
 			}
 		}
-		d.History = append(d.History, m962Alias{a[2], a[3], m962Int(a[1])})
-		return m962Tag("INSERT 0", 1)
+		d.History = append(d.History, replayLifecycleAlias{a[2], a[3], replayLifecycleInt(a[1])})
+		return replayLifecycleTag("INSERT 0", 1)
 	case strings.HasPrefix(q, "INSERT INTO delivery_outbox"):
 		if _, ok := d.Outbox[a[0]]; ok {
-			return m962Tag("INSERT 0", 0)
+			return replayLifecycleTag("INSERT 0", 0)
 		}
-		wire := m962Bytes(a[4])
+		wire := replayLifecycleBytes(a[4])
 		var e Envelope
 		if err := json.Unmarshal(wire, &e); err != nil {
-			return m962Result{err: err}
+			return replayLifecycleResult{err: err}
 		}
-		d.Outbox[a[0]] = m962Outbox{a[2], wire, e}
-		return m962Tag("INSERT 0", 1)
+		d.Outbox[a[0]] = replayLifecycleOutbox{a[2], wire, e}
+		return replayLifecycleTag("INSERT 0", 1)
 	case strings.HasPrefix(q, "SELECT subject,envelope FROM delivery_outbox"):
 		v, ok := d.Outbox[a[0]]
 		if !ok {
-			return m962Rows()
+			return replayLifecycleRows()
 		}
-		return m962Rows([]any{v.Subject, v.Wire})
+		return replayLifecycleRows([]any{v.Subject, v.Wire})
 	case strings.HasPrefix(q, "INSERT INTO delivery_shadow_observations"):
 		k := key + "/" + a[2]
 		if _, ok := d.Observations[k]; ok {
-			return m962Tag("INSERT 0", 0)
+			return replayLifecycleTag("INSERT 0", 0)
 		}
 		var order SourceOrder
 		if err := json.Unmarshal([]byte(a[4]), &order); err != nil {
-			return m962Result{err: err}
+			return replayLifecycleResult{err: err}
 		}
-		d.Observations[k] = m962Observation{a[0], a[1], a[5], Envelope{EventID: a[2], PayloadHash: a[3], SourceOrder: order}}
-		return m962Tag("INSERT 0", 1)
+		d.Observations[k] = replayLifecycleObservation{a[0], a[1], a[5], Envelope{EventID: a[2], PayloadHash: a[3], SourceOrder: order}}
+		return replayLifecycleTag("INSERT 0", 1)
 	case strings.HasPrefix(q, "SELECT payload_hash,source_order,subject FROM delivery_shadow_observations"):
 		v, ok := d.Observations[key+"/"+a[2]]
 		if !ok {
-			return m962Rows()
+			return replayLifecycleRows()
 		}
 		raw, _ := json.Marshal(v.Envelope.SourceOrder)
-		return m962Rows([]any{v.Envelope.PayloadHash, raw, v.Subject})
+		return replayLifecycleRows([]any{v.Envelope.PayloadHash, raw, v.Subject})
 	case strings.HasPrefix(q, "SELECT path,event_id,payload_hash,source_order FROM delivery_shadow_observations"):
 		keys := make([]string, 0, len(d.Observations))
 		for k := range d.Observations {
@@ -388,12 +394,12 @@ func (db *m962Database) eval(d *m962Data, sql string, a []string) m962Result {
 		var rows [][]any
 		for _, k := range keys {
 			v := d.Observations[k]
-			if v.Range == a[0] && (!has("subject=ANY($2)") || m962InArray(a[1], v.Subject)) {
+			if v.Range == a[0] && (!has("subject=ANY($2)") || replayLifecycleInArray(a[1], v.Subject)) {
 				raw, _ := json.Marshal(v.Envelope.SourceOrder)
 				rows = append(rows, []any{v.Path, v.Envelope.EventID, v.Envelope.PayloadHash, raw})
 			}
 		}
-		return m962Rows(rows...)
+		return replayLifecycleRows(rows...)
 	case strings.HasPrefix(q, "SELECT event_id,payload_hash FROM delivery_outbox"):
 		ids := make([]string, 0, len(d.Outbox))
 		for k := range d.Outbox {
@@ -403,27 +409,27 @@ func (db *m962Database) eval(d *m962Data, sql string, a []string) m962Result {
 		var rows [][]any
 		for _, id := range ids {
 			v := d.Outbox[id]
-			h := m962Int(v.Envelope.SourceOrder.Height)
-			if h >= m962Int(a[0]) && h <= m962Int(a[1]) && m962InArray(a[2], v.Subject) {
+			h := replayLifecycleInt(v.Envelope.SourceOrder.Height)
+			if h >= replayLifecycleInt(a[0]) && h <= replayLifecycleInt(a[1]) && replayLifecycleInArray(a[2], v.Subject) {
 				rows = append(rows, []any{id, v.Envelope.PayloadHash})
 			}
 		}
-		return m962Rows(rows...)
+		return replayLifecycleRows(rows...)
 	case strings.HasPrefix(q, "INSERT INTO delivery_shadow_comparisons"):
-		p := m962Proof{Manifest: a[0], Digest: a[1], Count: m962Int(a[2]), Subjects: a[3], Consumer: a[4], Generation: a[5]}
+		p := replayLifecycleProof{Manifest: a[0], Digest: a[1], Count: replayLifecycleInt(a[2]), Subjects: a[3], Consumer: a[4], Generation: a[5]}
 		d.Proofs[a[0]+"/"+a[4]+"/"+a[5]+"/"+a[3]] = p
-		return m962Tag("INSERT 0", 1)
+		return replayLifecycleTag("INSERT 0", 1)
 	case strings.HasPrefix(q, "SELECT event_digest,event_count FROM delivery_shadow_comparisons"):
 		v, ok := d.Proofs[a[0]+"/"+a[1]+"/"+a[2]+"/"+a[3]]
 		if !ok || v.Count <= 0 {
-			return m962Rows()
+			return replayLifecycleRows()
 		}
-		return m962Rows([]any{v.Digest, v.Count})
+		return replayLifecycleRows([]any{v.Digest, v.Count})
 	}
-	return m962Result{err: fmt.Errorf("unsupported committed SQL contract: %s", q)}
+	return replayLifecycleResult{err: fmt.Errorf("unsupported committed SQL contract: %s", q)}
 }
 
-func m962Fields(rows [][]any) []pgproto3.FieldDescription {
+func replayLifecycleFields(rows [][]any) []pgproto3.FieldDescription {
 	if len(rows) == 0 {
 		return nil
 	}
@@ -442,7 +448,7 @@ func m962Fields(rows [][]any) []pgproto3.FieldDescription {
 	}
 	return fields
 }
-func m962Value(v any) []byte {
+func replayLifecycleValue(v any) []byte {
 	switch x := v.(type) {
 	case []byte:
 		return []byte(`\x` + hex.EncodeToString(x))
@@ -455,7 +461,7 @@ func m962Value(v any) []byte {
 		return []byte(fmt.Sprint(v))
 	}
 }
-func (db *m962Database) serve(conn net.Conn) {
+func (db *replayLifecycleDatabase) serve(conn net.Conn) {
 	defer conn.Close()
 	wire := pgproto3.NewBackend(conn, conn)
 	if _, err := wire.ReceiveStartupMessage(); err != nil {
@@ -469,26 +475,26 @@ func (db *m962Database) serve(conn net.Conn) {
 	if wire.Flush() != nil {
 		return
 	}
-	var tx *m962Data
+	var tx *replayLifecycleData
 	defer func() {
 		if tx != nil {
 			db.mu.Unlock()
 		}
 	}()
-	execute := func(q string, a []string) m962Result {
+	execute := func(q string, a []string) replayLifecycleResult {
 		lower := strings.ToLower(q)
 		if strings.HasPrefix(lower, "begin") {
 			if tx != nil {
-				return m962Result{err: errors.New("nested transaction")}
+				return replayLifecycleResult{err: errors.New("nested transaction")}
 			}
 			db.mu.Lock()
 			raw, _ := json.Marshal(db.data)
-			var copy m962Data
+			var copy replayLifecycleData
 			if err := json.Unmarshal(raw, &copy); err != nil {
 				panic(err)
 			}
 			tx = &copy
-			return m962Result{tag: "BEGIN"}
+			return replayLifecycleResult{tag: "BEGIN"}
 		}
 		if lower == "commit" {
 			if tx != nil {
@@ -496,14 +502,14 @@ func (db *m962Database) serve(conn net.Conn) {
 				tx = nil
 				db.mu.Unlock()
 			}
-			return m962Result{tag: "COMMIT"}
+			return replayLifecycleResult{tag: "COMMIT"}
 		}
 		if lower == "rollback" {
 			if tx != nil {
 				tx = nil
 				db.mu.Unlock()
 			}
-			return m962Result{tag: "ROLLBACK"}
+			return replayLifecycleResult{tag: "ROLLBACK"}
 		}
 		if tx != nil {
 			return db.eval(tx, q, a)
@@ -512,13 +518,13 @@ func (db *m962Database) serve(conn net.Conn) {
 		defer db.mu.Unlock()
 		return db.eval(&db.data, q, a)
 	}
-	sendRows := func(result m962Result, fields bool) {
+	sendRows := func(result replayLifecycleResult, fields bool) {
 		if result.err != nil {
 			wire.Send(&pgproto3.ErrorResponse{Severity: "ERROR", Code: "XX000", Message: result.err.Error()})
 			return
 		}
 		if fields {
-			if f := m962Fields(result.rows); len(f) > 0 {
+			if f := replayLifecycleFields(result.rows); len(f) > 0 {
 				wire.Send(&pgproto3.RowDescription{Fields: f})
 			} else {
 				wire.Send(&pgproto3.NoData{})
@@ -527,7 +533,7 @@ func (db *m962Database) serve(conn net.Conn) {
 		for _, row := range result.rows {
 			values := make([][]byte, len(row))
 			for i, v := range row {
-				values[i] = m962Value(v)
+				values[i] = replayLifecycleValue(v)
 			}
 			wire.Send(&pgproto3.DataRow{Values: values})
 		}
@@ -535,7 +541,7 @@ func (db *m962Database) serve(conn net.Conn) {
 	}
 	var query string
 	var args []string
-	var result *m962Result
+	var result *replayLifecycleResult
 	for {
 		msg, err := wire.Receive()
 		if err != nil {
@@ -557,7 +563,7 @@ func (db *m962Database) serve(conn net.Conn) {
 			result = &r
 			if r.err != nil {
 				wire.Send(&pgproto3.NoData{})
-			} else if f := m962Fields(r.rows); len(f) > 0 {
+			} else if f := replayLifecycleFields(r.rows); len(f) > 0 {
 				wire.Send(&pgproto3.RowDescription{Fields: f})
 			} else {
 				wire.Send(&pgproto3.NoData{})
@@ -601,13 +607,13 @@ func (db *m962Database) serve(conn net.Conn) {
 
 // Source rows are a committed deterministic chain fixture. Manifests, segments,
 // observations and comparison evidence are emitted by the real producers.
-func m962Source() []ArchiveRaw {
+func replayLifecycleSource() []ArchiveRaw {
 	return []ArchiveRaw{{TransactionHash: "0x" + strings.Repeat("1", 64), BlockHash: "0x" + strings.Repeat("2", 64), Emitter: "0x" + strings.Repeat("3", 40), Height: 123, TransactionIndex: 4, LogIndex: 5, Topics: []string{"0x" + strings.Repeat("4", 64)}, Data: []byte{0, 1, 2, 3}}}
 }
 
-type m962Fixture struct {
+type replayLifecycleFixture struct {
 	ctx        context.Context
-	db         *m962Database
+	db         *replayLifecycleDatabase
 	address    string
 	objects    *storage.Client
 	objectMu   sync.Mutex
@@ -620,12 +626,12 @@ type m962Fixture struct {
 	authority  bool
 }
 
-func m962FixtureNew(t *testing.T) *m962Fixture {
+func replayLifecycleFixtureNew(t *testing.T) *replayLifecycleFixture {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	t.Cleanup(cancel)
-	f := &m962Fixture{ctx: ctx, db: &m962Database{data: m962NewData()}, objectData: map[string][]byte{}, authority: true}
-	f.db.data.Source = m962Source()
+	f := &replayLifecycleFixture{ctx: ctx, db: &replayLifecycleDatabase{data: replayLifecycleNewData()}, objectData: map[string][]byte{}, authority: true}
+	f.db.data.Source = replayLifecycleSource()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -676,7 +682,7 @@ func m962FixtureNew(t *testing.T) *m962Fixture {
 	}))
 	t.Cleanup(server.Close)
 	client := s3.New(s3.Options{Region: "test", BaseEndpoint: aws.String(server.URL), UsePathStyle: true, Credentials: credentials.NewStaticCredentialsProvider("fixture-key", "fixture-secret", "")})
-	f.objects = storage.NewFromS3(client, "m962")
+	f.objects = storage.NewFromS3(client, "replayLifecycle")
 	f.open(t, "g1", "worker")
 	f.manifest, f.digest, err = f.archive.Capture(ctx, 123, 123)
 	if err != nil {
@@ -684,7 +690,7 @@ func m962FixtureNew(t *testing.T) *m962Fixture {
 	}
 	return f
 }
-func (f *m962Fixture) open(t *testing.T, generation, owner string) {
+func (f *replayLifecycleFixture) open(t *testing.T, generation, owner string) {
 	t.Helper()
 	if f.pool != nil {
 		f.pool.Close()
@@ -707,7 +713,7 @@ func (f *m962Fixture) open(t *testing.T, generation, owner string) {
 	f.pool = pool
 	policy := fixturePolicy()
 	policy.Subjects["kindle.chain125.other"] = true
-	store, err := NewStoreWithEpochGuard(pool, "m962", policy, func(context.Context, pgx.Tx) error {
+	store, err := NewStoreWithEpochGuard(pool, "replayLifecycle", policy, func(context.Context, pgx.Tx) error {
 		if !f.authority {
 			return ErrLease
 		}
@@ -717,13 +723,13 @@ func (f *m962Fixture) open(t *testing.T, generation, owner string) {
 		t.Fatal(err)
 	}
 	pin := strings.Repeat("a", 64)
-	archive, err := NewArchive(store, f.objects, "m962", "canonical", "deployment", pin, pin, pin)
+	archive, err := NewArchive(store, f.objects, "replayLifecycle", "canonical", "deployment", pin, pin, pin)
 	if err != nil {
 		t.Fatal(err)
 	}
 	f.archive = archive
-	f.engine, err = NewReplayEngine(archive, "reader", generation, owner, repair41Projection{archive}, func(ctx context.Context, action string) error {
-		allowed, _ := ctx.Value(m962AdminKey{}).(string)
+	f.engine, err = NewReplayEngine(archive, "reader", generation, owner, activeRebuildProjection{archive}, func(ctx context.Context, action string) error {
+		allowed, _ := ctx.Value(replayLifecycleAdminKey{}).(string)
 		if allowed != action {
 			return ErrAuthorization
 		}
@@ -734,12 +740,12 @@ func (f *m962Fixture) open(t *testing.T, generation, owner string) {
 	}
 }
 
-type m962AdminKey struct{}
+type replayLifecycleAdminKey struct{}
 
-func (f *m962Fixture) admin(action string) context.Context {
-	return context.WithValue(f.ctx, m962AdminKey{}, action)
+func (f *replayLifecycleFixture) admin(action string) context.Context {
+	return context.WithValue(f.ctx, replayLifecycleAdminKey{}, action)
 }
-func (f *m962Fixture) observe(t *testing.T, subject string, e Envelope, paths ...string) {
+func (f *replayLifecycleFixture) observe(t *testing.T, subject string, e Envelope, paths ...string) {
 	t.Helper()
 	if err := f.archive.store.Produce(f.ctx, []Pending{{subject, e}}, func(ctx context.Context, tx pgx.Tx) error {
 		for _, path := range paths {
@@ -752,18 +758,18 @@ func (f *m962Fixture) observe(t *testing.T, subject string, e Envelope, paths ..
 		t.Fatal(err)
 	}
 }
-func (f *m962Fixture) event(id string) Envelope {
+func (f *replayLifecycleFixture) event(id string) Envelope {
 	e := fixtureEnvelope(id)
 	e.SourceOrder = SourceOrder{"123", "4", "5"}
 	return e
 }
-func (f *m962Fixture) evidence(t *testing.T, subjects []string, consumer, generation string) {
+func (f *replayLifecycleFixture) evidence(t *testing.T, subjects []string, consumer, generation string) {
 	t.Helper()
 	if _, err := f.archive.store.CompareShadowGeneration(f.ctx, f.digest, subjects, consumer, generation); err != nil {
 		t.Fatal("persist scoped comparison", err)
 	}
 }
-func (f *m962Fixture) build(t *testing.T) {
+func (f *replayLifecycleFixture) build(t *testing.T) {
 	t.Helper()
 	if err := f.engine.Start(f.ctx, f.digest); err != nil {
 		t.Fatal(err)
@@ -778,27 +784,27 @@ func (f *m962Fixture) build(t *testing.T) {
 		t.Fatal(status, err)
 	}
 }
-func (f *m962Fixture) promote(t *testing.T, revision int64) {
+func (f *replayLifecycleFixture) promote(t *testing.T, revision int64) {
 	t.Helper()
 	if err := f.engine.Promote(f.admin("replay.promote"), revision); err != nil {
 		t.Fatal("promote", err)
 	}
 }
-func m962AllSubjects() []string { return []string{fixtureSubject, "kindle.chain125.other"} }
-func (f *m962Fixture) bothGenerations(t *testing.T) {
+func replayLifecycleAllSubjects() []string { return []string{fixtureSubject, "kindle.chain125.other"} }
+func (f *replayLifecycleFixture) bothGenerations(t *testing.T) {
 	t.Helper()
 	f.observe(t, fixtureSubject, f.event("event"), "legacy", "durable")
 	f.build(t)
-	f.evidence(t, m962AllSubjects(), "reader", "g1")
+	f.evidence(t, replayLifecycleAllSubjects(), "reader", "g1")
 	f.promote(t, 0)
 	f.open(t, "g2", "worker")
 	f.build(t)
-	f.evidence(t, m962AllSubjects(), "reader", "g2")
+	f.evidence(t, replayLifecycleAllSubjects(), "reader", "g2")
 	f.promote(t, 1)
 }
 
-func TestRepairM_962_ReplayLifecycle(t *testing.T) {
-	f := m962FixtureNew(t)
+func TestReplayLifecycleRetentionAndPromotion(t *testing.T) {
+	f := replayLifecycleFixtureNew(t)
 	f.observe(t, fixtureSubject, f.event("event"), "legacy", "durable")
 	if err := f.engine.Start(f.ctx, f.digest); err != nil {
 		t.Fatal(err)
@@ -818,7 +824,7 @@ func TestRepairM_962_ReplayLifecycle(t *testing.T) {
 	if err := f.engine.Start(f.ctx, f.digest); !errors.Is(err, ErrLease) {
 		t.Fatal("live lease stolen", err)
 	}
-	f.db.edit(func(d *m962Data) { d.Builds["reader/g1"].Lease = time.Now().Add(-time.Second) })
+	f.db.edit(func(d *replayLifecycleData) { d.Builds["reader/g1"].Lease = time.Now().Add(-time.Second) })
 	if err := f.engine.Start(f.ctx, f.digest); err != nil {
 		t.Fatal("expired lease recovery", err)
 	}
@@ -832,9 +838,9 @@ func TestRepairM_962_ReplayLifecycle(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	f.evidence(t, m962AllSubjects(), "reader", "g1")
+	f.evidence(t, replayLifecycleAllSubjects(), "reader", "g1")
 	f.promote(t, 0)
-	f.db.edit(func(d *m962Data) { d.Builds["reader/g1"].Lease = time.Now().Add(-time.Second) })
+	f.db.edit(func(d *replayLifecycleData) { d.Builds["reader/g1"].Lease = time.Now().Add(-time.Second) })
 	before = f.db.snapshot()
 	f.open(t, "g1", "restart")
 	budget, err := NewWorkBudget(1, 10000, 1000)
@@ -858,10 +864,10 @@ func TestRepairM_962_ReplayLifecycle(t *testing.T) {
 	}
 }
 
-func TestRepairM_962_ChangedCanonical(t *testing.T) {
+func TestReplayLifecycleChangedCanonical(t *testing.T) {
 	for _, phase := range []string{"apply", "verify", "promote"} {
 		t.Run(phase, func(t *testing.T) {
-			f := m962FixtureNew(t)
+			f := replayLifecycleFixtureNew(t)
 			f.observe(t, fixtureSubject, f.event("event"), "legacy", "durable")
 			if err := f.engine.Start(f.ctx, f.digest); err != nil {
 				t.Fatal(err)
@@ -875,9 +881,9 @@ func TestRepairM_962_ChangedCanonical(t *testing.T) {
 				if err := f.engine.RunBlock(f.ctx); err != nil {
 					t.Fatal(err)
 				}
-				f.evidence(t, m962AllSubjects(), "reader", "g1")
+				f.evidence(t, replayLifecycleAllSubjects(), "reader", "g1")
 			}
-			f.db.edit(func(d *m962Data) { d.Source[0].Data = []byte("changed canonical bytes") })
+			f.db.edit(func(d *replayLifecycleData) { d.Source[0].Data = []byte("changed canonical bytes") })
 			before := f.db.snapshot()
 			var err error
 			if phase == "promote" {
@@ -895,18 +901,18 @@ func TestRepairM_962_ChangedCanonical(t *testing.T) {
 	}
 }
 
-func TestRepairM_962_RollbackFreshness(t *testing.T) {
+func TestReplayLifecycleRollbackFreshness(t *testing.T) {
 	for _, scenario := range []string{"fresh", "retired", "verified", "source_advanced", "expired_segment", "expired_manifest", "changed_projection", "incomplete_progress", "stale_worker", "expired_lease", "recovery_epoch", "missing_guard", "inactive_current", "alias_revision", "unauthorized"} {
 		t.Run(scenario, func(t *testing.T) {
-			f := m962FixtureNew(t)
+			f := replayLifecycleFixtureNew(t)
 			f.bothGenerations(t)
 			ctx := f.admin("replay.rollback")
 			revision := int64(2)
 			switch scenario {
 			case "retired", "verified":
-				f.db.edit(func(d *m962Data) { d.Builds["reader/g1"].Status = scenario })
+				f.db.edit(func(d *replayLifecycleData) { d.Builds["reader/g1"].Status = scenario })
 			case "source_advanced":
-				f.db.edit(func(d *m962Data) { d.Frontier++ })
+				f.db.edit(func(d *replayLifecycleData) { d.Frontier++ })
 			case "expired_segment":
 				if err := f.objects.Delete(f.ctx, f.archive.key("segments", f.manifest.Blocks[0].SegmentHash)); err != nil {
 					t.Fatal(err)
@@ -916,19 +922,19 @@ func TestRepairM_962_RollbackFreshness(t *testing.T) {
 					t.Fatal(err)
 				}
 			case "changed_projection":
-				f.db.edit(func(d *m962Data) { d.Projection["g1"][0] = []byte(`{"changed":true}`) })
+				f.db.edit(func(d *replayLifecycleData) { d.Projection["g1"][0] = []byte(`{"changed":true}`) })
 			case "incomplete_progress":
-				f.db.edit(func(d *m962Data) { d.Builds["reader/g1"].Next-- })
+				f.db.edit(func(d *replayLifecycleData) { d.Builds["reader/g1"].Next-- })
 			case "stale_worker":
 				f.engine.owner = "stale-worker"
 			case "expired_lease":
-				f.db.edit(func(d *m962Data) { d.Builds["reader/g2"].Lease = time.Now().Add(-time.Second) })
+				f.db.edit(func(d *replayLifecycleData) { d.Builds["reader/g2"].Lease = time.Now().Add(-time.Second) })
 			case "recovery_epoch":
 				f.authority = false
 			case "missing_guard":
 				f.archive.store.epochGuard = nil
 			case "inactive_current":
-				f.db.edit(func(d *m962Data) { d.Builds["reader/g2"].Status = "building" })
+				f.db.edit(func(d *replayLifecycleData) { d.Builds["reader/g2"].Status = "building" })
 			case "alias_revision":
 				revision = 1
 			case "unauthorized":
@@ -984,13 +990,13 @@ func TestRepairM_962_RollbackFreshness(t *testing.T) {
 	}
 }
 
-func TestRepairM_962_ShadowProofScope(t *testing.T) {
+func TestReplayLifecycleShadowProofScope(t *testing.T) {
 	for _, scope := range []string{"subset", "consumer", "generation", "unbound", "canonical"} {
 		t.Run(scope, func(t *testing.T) {
-			f := m962FixtureNew(t)
+			f := replayLifecycleFixtureNew(t)
 			f.observe(t, fixtureSubject, f.event("event"), "legacy", "durable")
 			f.build(t)
-			subjects := m962AllSubjects()
+			subjects := replayLifecycleAllSubjects()
 			consumer, generation := "reader", "g1"
 			switch scope {
 			case "subset":
@@ -1027,10 +1033,10 @@ func TestRepairM_962_ShadowProofScope(t *testing.T) {
 	}
 }
 
-func TestRepairM_962_ShadowDurable(t *testing.T) {
+func TestReplayLifecycleShadowDurable(t *testing.T) {
 	for _, fault := range []string{"exact", "missing", "extra", "both_extra", "changed", "both_changed", "wrong_range", "outbox_missing", "retry_conflict", "subject_retry_conflict", "late_extra", "changed_after_proof"} {
 		t.Run(fault, func(t *testing.T) {
-			f := m962FixtureNew(t)
+			f := replayLifecycleFixtureNew(t)
 			e := f.event("event")
 			paths := []string{"legacy", "durable"}
 			if fault == "missing" {
@@ -1069,7 +1075,7 @@ func TestRepairM_962_ShadowDurable(t *testing.T) {
 					paths = append(paths, "legacy")
 				}
 				for _, path := range paths {
-					f.db.edit(func(d *m962Data) { delete(d.Observations, f.digest+"/"+path+"/"+e.EventID) })
+					f.db.edit(func(d *replayLifecycleData) { delete(d.Observations, f.digest+"/"+path+"/"+e.EventID) })
 					if err := f.archive.store.mutate(f.ctx, func(tx pgx.Tx) error {
 						return f.archive.store.RecordShadowTx(f.ctx, tx, f.digest, path, fixtureSubject, bad)
 					}); err != nil {
@@ -1092,11 +1098,11 @@ func TestRepairM_962_ShadowDurable(t *testing.T) {
 				}
 			}
 			if fault == "outbox_missing" {
-				f.db.edit(func(d *m962Data) { delete(d.Outbox, e.EventID) })
+				f.db.edit(func(d *replayLifecycleData) { delete(d.Outbox, e.EventID) })
 			}
 			if fault == "changed_after_proof" {
 				f.build(t)
-				f.evidence(t, m962AllSubjects(), "reader", "g1")
+				f.evidence(t, replayLifecycleAllSubjects(), "reader", "g1")
 				f.observe(t, fixtureSubject, f.event("later"), "legacy", "durable")
 				before := f.db.snapshot()
 				if err := f.engine.Promote(f.admin("replay.promote"), 0); !errors.Is(err, ErrIntegrity) {
@@ -1109,7 +1115,7 @@ func TestRepairM_962_ShadowDurable(t *testing.T) {
 			}
 			if fault == "late_extra" {
 				f.build(t)
-				f.evidence(t, m962AllSubjects(), "reader", "g1")
+				f.evidence(t, replayLifecycleAllSubjects(), "reader", "g1")
 				extra := f.event("late-extra")
 				if err := f.archive.store.mutate(f.ctx, func(tx pgx.Tx) error {
 					return f.archive.store.RecordShadowTx(f.ctx, tx, f.digest, "durable", fixtureSubject, extra)
@@ -1125,7 +1131,7 @@ func TestRepairM_962_ShadowDurable(t *testing.T) {
 				}
 				return
 			}
-			_, err := f.archive.store.CompareShadowGeneration(f.ctx, f.digest, m962AllSubjects(), "reader", "g1")
+			_, err := f.archive.store.CompareShadowGeneration(f.ctx, f.digest, replayLifecycleAllSubjects(), "reader", "g1")
 			f.db.mu.Lock()
 			proofs := len(f.db.data.Proofs)
 			f.db.mu.Unlock()
@@ -1135,7 +1141,7 @@ func TestRepairM_962_ShadowDurable(t *testing.T) {
 				}
 				before := f.db.snapshot()
 				f.open(t, "g1", "reopened")
-				f.evidence(t, m962AllSubjects(), "reader", "g1")
+				f.evidence(t, replayLifecycleAllSubjects(), "reader", "g1")
 				if before != f.db.snapshot() {
 					t.Fatal("retry after reopen changed durable proof")
 				}
@@ -1149,8 +1155,8 @@ func TestRepairM_962_ShadowDurable(t *testing.T) {
 
 // Assert that the fixture projection hashes the exact raw
 // bytes the production archive emitted, including its record delimiters.
-func TestRepairM_962_ArchiveTransport(t *testing.T) {
-	f := m962FixtureNew(t)
+func TestReplayLifecycleArchiveTransport(t *testing.T) {
+	f := replayLifecycleFixtureNew(t)
 	block, records, err := f.archive.ReadBlock(f.ctx, f.digest, 123)
 	if err != nil {
 		t.Fatal(err)

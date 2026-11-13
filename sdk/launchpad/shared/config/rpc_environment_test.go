@@ -8,7 +8,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
 )
 
-func repairM952Environment(t *testing.T) {
+func rpcEnvironmentEnvironment(t *testing.T) {
 	t.Helper()
 	for _, key := range []string{
 		"CHAIN_ID", "LOG_LEVEL", "NODE_ENV", "PORT", "RPC_URL_FALLBACK",
@@ -20,8 +20,8 @@ func repairM952Environment(t *testing.T) {
 	validEnv(t)
 }
 
-func TestRepairM_952_ReviewedSuccessFixtures(t *testing.T) {
-	repairM952Environment(t)
+func TestRPCEnvironmentReviewedSuccessFixtures(t *testing.T) {
+	rpcEnvironmentEnvironment(t)
 	cfg, err := Load()
 	if err != nil {
 		t.Fatal(err)
@@ -33,7 +33,7 @@ func TestRepairM_952_ReviewedSuccessFixtures(t *testing.T) {
 	t.Run("overrides", TestLoadCoercesAndOverrides)
 }
 
-func TestRepairM_952_CurrentRPCKeys(t *testing.T) {
+func TestRPCEnvironmentCurrentRPCKeys(t *testing.T) {
 	origins := []string{"https://api-mainnet-beta.paxeer.network"}
 	for i := 1; i <= 14; i++ {
 		origins = append(origins, fmt.Sprintf("https://api%d.mainnet-beta.paxeer.network", i))
@@ -41,7 +41,7 @@ func TestRepairM_952_CurrentRPCKeys(t *testing.T) {
 	for i, primary := range origins {
 		fallback := origins[(i+1)%len(origins)]
 		t.Run(primary, func(t *testing.T) {
-			repairM952Environment(t)
+			rpcEnvironmentEnvironment(t)
 			t.Setenv("RPC_URL", primary)
 			t.Setenv("RPC_URL_FALLBACK", fallback)
 			for _, loader := range []struct {
@@ -65,11 +65,11 @@ func TestRepairM_952_CurrentRPCKeys(t *testing.T) {
 	}
 }
 
-func TestRepairM_952_NegativeRPCFixtures(t *testing.T) {
+func TestRPCEnvironmentNegativeRPCFixtures(t *testing.T) {
 	for _, key := range []string{"RPC_URL", "RPC_URL_FALLBACK"} {
 		for _, raw := range []string{"not-a-url", "::::bad", "file://localhost/etc/passwd", "https://operator:super-secret@%%/private-key"} {
 			t.Run(key+"/"+fmt.Sprint(len(raw)), func(t *testing.T) {
-				repairM952Environment(t)
+				rpcEnvironmentEnvironment(t)
 				t.Setenv(key, raw)
 				cfg, err := Load()
 				if err == nil || !strings.Contains(err.Error(), key+": url_") {
@@ -87,11 +87,11 @@ func TestRepairM_952_NegativeRPCFixtures(t *testing.T) {
 		}
 	}
 	t.Run("redaction", func(t *testing.T) {
-		repairM952Environment(t)
+		rpcEnvironmentEnvironment(t)
 		TestPrivateEnvironmentRedaction(t)
 	})
 	t.Run("conflicting_private_export", func(t *testing.T) {
-		repairM952Environment(t)
+		rpcEnvironmentEnvironment(t)
 		TestConflictingPrivateConfigNeverExports(t)
 	})
 }

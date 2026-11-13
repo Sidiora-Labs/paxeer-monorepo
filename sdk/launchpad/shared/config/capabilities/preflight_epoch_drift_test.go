@@ -6,7 +6,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
 )
 
-func TestRepairM_950_HistoricalSolidityManifest(t *testing.T) {
+func TestPreflightEpochHistoricalSolidityManifest(t *testing.T) {
 	manifest := historicalPreflightManifest(t)
 	approved, ok := deployment.Approved(32_226_215)
 	if !ok || manifest.ActivationHeight != 32_226_215 || manifest.DeploymentVersion == deployment.Current().DeploymentVersion {
@@ -17,7 +17,7 @@ func TestRepairM_950_HistoricalSolidityManifest(t *testing.T) {
 			t.Fatalf("historical fixture rewrote approved %s", name)
 		}
 	}
-	c := repair38OpenChain(t, false)
+	c := preflightFixtureOpenChain(t, false)
 	if want, err := manifest.Hash(); err != nil {
 		t.Fatal(err)
 	} else if got, err := c.engine.manifest.Hash(); err != nil || got != want {
@@ -43,16 +43,16 @@ func TestRepairM_950_HistoricalSolidityManifest(t *testing.T) {
 	}
 }
 
-func TestRepairM_950_HistoricalDrift(t *testing.T) {
+func TestPreflightEpochHistoricalDrift(t *testing.T) {
 	assertRecordedPreflightDrift(t, false)
 }
 
-func TestRepairM_950_CurrentNativeDrift(t *testing.T) {
+func TestPreflightEpochCurrentNativeDrift(t *testing.T) {
 	assertCurrentNativePreflightDrift(t)
 }
 
-func TestRepairM_950_CurrentNativeCreation(t *testing.T) {
-	c := repair38OpenChain(t, true)
+func TestPreflightEpochCurrentNativeCreation(t *testing.T) {
+	c := preflightFixtureOpenChain(t, true)
 	current := deployment.Current()
 	for _, path := range []string{"Router", "SidioraFactory"} {
 		t.Run(path, func(t *testing.T) {

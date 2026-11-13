@@ -19,37 +19,37 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 )
 
-const repairM960StreamInfo = `{"type":"io.nats.jetstream.api.v1.stream_info_response","config":{"name":"AUTH_REPAIR","subjects":["security.audit.repair"],"storage":"file","num_replicas":1},"state":{}}`
+const auditConsumerStreamInfo = `{"type":"io.nats.jetstream.api.v1.stream_info_response","config":{"name":"AUTH_REPAIR","subjects":["security.audit.repair"],"storage":"file","num_replicas":1},"state":{}}`
 
-func repairM960ConsumerInfo(durable string) string {
+func auditConsumerConsumerInfo(durable string) string {
 	return fmt.Sprintf(`{"type":"io.nats.jetstream.api.v1.consumer_info_response","stream_name":"AUTH_REPAIR","name":%q,"config":{"name":%q,"durable_name":%q,"deliver_policy":"all","ack_policy":"explicit","ack_wait":5000000000,"max_deliver":5,"filter_subject":"security.audit.repair","replay_policy":"instant","max_ack_pending":20,"max_waiting":1,"max_batch":10,"max_expires":1000000000,"num_replicas":0}}`, durable, durable, durable)
 }
 
-type repairM960Exchange struct {
+type auditConsumerExchange struct {
 	subject, request, response string
 }
 
-func repairM960AttachTranscript(durable string) []repairM960Exchange {
-	info := repairM960ConsumerInfo(durable)
+func auditConsumerAttachTranscript(durable string) []auditConsumerExchange {
+	info := auditConsumerConsumerInfo(durable)
 	var response struct {
 		Config json.RawMessage `json:"config"`
 	}
 	if err := json.Unmarshal([]byte(info), &response); err != nil {
 		panic(err)
 	}
-	return []repairM960Exchange{
+	return []auditConsumerExchange{
 		{"$JS.API.CONSUMER.CREATE.AUTH_REPAIR." + durable + ".security.audit.repair", `{"stream_name":"AUTH_REPAIR","config":` + string(response.Config) + `,"action":"create"}`, info},
-		{"$JS.API.STREAM.INFO.AUTH_REPAIR", "", repairM960StreamInfo},
-		{"$JS.API.STREAM.INFO.AUTH_REPAIR", "", repairM960StreamInfo},
+		{"$JS.API.STREAM.INFO.AUTH_REPAIR", "", auditConsumerStreamInfo},
+		{"$JS.API.STREAM.INFO.AUTH_REPAIR", "", auditConsumerStreamInfo},
 		{"$JS.API.CONSUMER.INFO.AUTH_REPAIR." + durable, "", info},
 		{"$JS.API.CONSUMER.INFO.AUTH_REPAIR." + durable, "", info},
 	}
 }
 
-func TestRepairM_960_AuditDurableFixture(t *testing.T) {
+func TestAuditConsumerAuditDurableFixture(t *testing.T) {
 	for _, durable := range []string{"audit_fixture", "audit_replay"} {
 		t.Run(durable, func(t *testing.T) {
-			nc, js := repairM960Peer(t, repairM960AttachTranscript(durable))
+			nc, js := auditConsumerPeer(t, auditConsumerAttachTranscript(durable))
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
 			consumer, err := newAuditFixtureConsumer(ctx, nc, js, "AUTH_REPAIR", durable, "security.audit.repair")
@@ -64,12 +64,12 @@ func TestRepairM_960_AuditDurableFixture(t *testing.T) {
 	}
 }
 
-func TestRepairM_960_UnprovisionedDurablesRefused(t *testing.T) {
+func TestAuditConsumerUnprovisionedDurablesRefused(t *testing.T) {
 	for _, durable := range []string{"audit_fixture", "audit_replay"} {
 		t.Run(durable, func(t *testing.T) {
-			nc, _ := repairM960Peer(t, []repairM960Exchange{
-				{"$JS.API.STREAM.INFO.AUTH_REPAIR", "", repairM960StreamInfo},
-				{"$JS.API.STREAM.INFO.AUTH_REPAIR", "", repairM960StreamInfo},
+			nc, _ := auditConsumerPeer(t, []auditConsumerExchange{
+				{"$JS.API.STREAM.INFO.AUTH_REPAIR", "", auditConsumerStreamInfo},
+				{"$JS.API.STREAM.INFO.AUTH_REPAIR", "", auditConsumerStreamInfo},
 				{"$JS.API.CONSUMER.INFO.AUTH_REPAIR." + durable, "", `{"type":"io.nats.jetstream.api.v1.consumer_info_response","error":{"code":404,"err_code":10014,"description":"consumer not found"}}`},
 			})
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -87,13 +87,13 @@ func TestRepairM_960_UnprovisionedDurablesRefused(t *testing.T) {
 	}
 }
 
-func TestRepairM_960_ProvisioningFailures(t *testing.T) {
+func TestAuditConsumerProvisioningFailures(t *testing.T) {
 	for _, durable := range []string{"audit_fixture", "audit_replay"} {
 		t.Run(durable, func(t *testing.T) {
 			t.Run("create_refused", func(t *testing.T) {
-				transcript := repairM960AttachTranscript(durable)[:1]
+				transcript := auditConsumerAttachTranscript(durable)[:1]
 				transcript[0].response = `{"type":"io.nats.jetstream.api.v1.consumer_create_response","error":{"code":503,"err_code":10008,"description":"JetStream system temporarily unavailable"}}`
-				nc, js := repairM960Peer(t, transcript)
+				nc, js := auditConsumerPeer(t, transcript)
 				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
 				consumer, err := newAuditFixtureConsumer(ctx, nc, js, "AUTH_REPAIR", durable, "security.audit.repair")
@@ -107,9 +107,9 @@ func TestRepairM_960_ProvisioningFailures(t *testing.T) {
 				}
 			})
 			t.Run("configuration_drift", func(t *testing.T) {
-				transcript := repairM960AttachTranscript(durable)
+				transcript := auditConsumerAttachTranscript(durable)
 				transcript[4].response = strings.Replace(transcript[4].response, `"max_ack_pending":20`, `"max_ack_pending":21`, 1)
-				nc, js := repairM960Peer(t, transcript)
+				nc, js := auditConsumerPeer(t, transcript)
 				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
 				consumer, err := newAuditFixtureConsumer(ctx, nc, js, "AUTH_REPAIR", durable, "security.audit.repair")
@@ -128,7 +128,7 @@ func TestRepairM_960_ProvisioningFailures(t *testing.T) {
 // The peer replays a bounded JetStream API transcript over loopback TCP. The
 // fixture helper, configuration codec, NATS transport and attaching driver are
 // the real implementations; the peer has no consumer or storage implementation.
-func repairM960Peer(t *testing.T, transcript []repairM960Exchange) (*nats.Conn, jetstream.JetStream) {
+func auditConsumerPeer(t *testing.T, transcript []auditConsumerExchange) (*nats.Conn, jetstream.JetStream) {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -146,7 +146,7 @@ func repairM960Peer(t *testing.T, transcript []repairM960Exchange) (*nats.Conn, 
 			done <- err
 			return
 		}
-		done <- repairM960Replay(conn, transcript)
+		done <- auditConsumerReplay(conn, transcript)
 	}()
 	t.Cleanup(func() { _ = listener.Close() })
 	nc, err := nats.Connect("nats://"+listener.Addr().String(), nats.NoReconnect(), nats.Timeout(time.Second))
@@ -166,7 +166,7 @@ func repairM960Peer(t *testing.T, transcript []repairM960Exchange) (*nats.Conn, 
 	return nc, js
 }
 
-func repairM960Replay(conn net.Conn, transcript []repairM960Exchange) error {
+func auditConsumerReplay(conn net.Conn, transcript []auditConsumerExchange) error {
 	if _, err := io.WriteString(conn, "INFO {\"server_id\":\"AUTH_REPAIR_TRANSCRIPT\",\"version\":\"2.12.2\",\"proto\":1,\"headers\":true,\"max_payload\":1048576}\r\n"); err != nil {
 		return err
 	}

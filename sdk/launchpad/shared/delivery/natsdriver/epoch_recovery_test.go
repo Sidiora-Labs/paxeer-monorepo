@@ -24,11 +24,11 @@ import (
 // This committed loopback fixture speaks the NATS/JetStream wire protocol.
 // The component being qualified is the production controller and its durable
 // journal, codec and NATS client, with no replacement controller or store.
-type repair961Broker struct {
+type epochRecoveryBroker struct {
 	mu       sync.Mutex
 	listener net.Listener
 	member   EpochMemberAuthority
-	clients  map[*repair961Client]bool
+	clients  map[*epochRecoveryClient]bool
 	revoked  bool
 	sequence uint64
 	messages [][]byte
@@ -39,21 +39,21 @@ type repair961Broker struct {
 	workers  sync.WaitGroup
 }
 
-type repair961Client struct {
+type epochRecoveryClient struct {
 	net.Conn
 	writeMu       sync.Mutex
 	subscriptions map[string]string
 	username      string
 }
 
-func (c *repair961Client) send(wire string) error {
+func (c *epochRecoveryClient) send(wire string) error {
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
 	_, err := io.WriteString(c.Conn, wire)
 	return err
 }
 
-func repair961Fixture(t *testing.T, name string) (EpochMemberAuthority, *repair961Broker) {
+func epochRecoveryFixture(t *testing.T, name string) (EpochMemberAuthority, *epochRecoveryBroker) {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -75,7 +75,7 @@ func repair961Fixture(t *testing.T, name string) (EpochMemberAuthority, *repair9
 		id = "N" + strings.Repeat("B", 55)
 	}
 	member := EpochMemberAuthority{Name: name, URL: "nats://" + listener.Addr().String(), ServerID: id, ConfigPath: path, ExistingSHA256: epochSHA(config), Replacement: replacement, ReplacementSHA256: epochSHA(replacement), Credentials: []EpochCredential{{ID: "epoch-three", Username: "epoch-three", Password: "test-epoch-three-secret"}}, Probe: cfg}
-	broker := &repair961Broker{listener: listener, member: member, clients: map[*repair961Client]bool{}, stopped: make(chan struct{})}
+	broker := &epochRecoveryBroker{listener: listener, member: member, clients: map[*epochRecoveryClient]bool{}, stopped: make(chan struct{})}
 	broker.workers.Add(1)
 	go func() {
 		defer broker.workers.Done()
@@ -85,7 +85,7 @@ func repair961Fixture(t *testing.T, name string) (EpochMemberAuthority, *repair9
 			if err != nil {
 				return
 			}
-			client := &repair961Client{Conn: conn, subscriptions: map[string]string{}}
+			client := &epochRecoveryClient{Conn: conn, subscriptions: map[string]string{}}
 			broker.mu.Lock()
 			broker.clients[client] = true
 			broker.mu.Unlock()
@@ -113,7 +113,7 @@ func repair961Fixture(t *testing.T, name string) (EpochMemberAuthority, *repair9
 	return member, broker
 }
 
-func (b *repair961Broker) serve(c *repair961Client) {
+func (b *epochRecoveryBroker) serve(c *epochRecoveryClient) {
 	defer c.Close()
 	defer func() { b.mu.Lock(); delete(b.clients, c); b.mu.Unlock() }()
 	info, _ := json.Marshal(map[string]any{"server_id": b.member.ServerID, "server_name": b.member.Name, "version": "2.12.6", "proto": 1, "host": "127.0.0.1", "port": b.listener.Addr().(*net.TCPAddr).Port, "headers": true, "auth_required": true, "max_payload": 1048576})
@@ -204,7 +204,7 @@ func (b *repair961Broker) serve(c *repair961Client) {
 	}
 }
 
-func (c *repair961Client) message(destination, subject, reply string, body []byte) bool {
+func (c *epochRecoveryClient) message(destination, subject, reply string, body []byte) bool {
 	sid := ""
 	for filter, id := range c.subscriptions {
 		if filter == destination || (strings.HasSuffix(filter, ">") && strings.HasPrefix(destination, strings.TrimSuffix(filter, ">"))) || (strings.HasSuffix(filter, ".*") && strings.HasPrefix(destination, strings.TrimSuffix(filter, "*"))) {
@@ -222,7 +222,7 @@ func (c *repair961Client) message(destination, subject, reply string, body []byt
 	return c.send(response+strconv.Itoa(len(body))+"\r\n"+string(body)+"\r\n") == nil
 }
 
-func (b *repair961Broker) publish(c *repair961Client, subject, reply string, body []byte) bool {
+func (b *epochRecoveryBroker) publish(c *epochRecoveryClient, subject, reply string, body []byte) bool {
 	cfg := b.member.Probe
 	switch {
 	case subject == "$SYS.REQ.SERVER."+b.member.ServerID+".RELOAD":
@@ -296,20 +296,20 @@ func (b *repair961Broker) publish(c *repair961Client, subject, reply string, bod
 	}
 }
 
-func repair961Plan() EpochRecoveryPlan {
+func epochRecoveryPlan() EpochRecoveryPlan {
 	return EpochRecoveryPlan{Proposal: "actual-cutover", Actor: "fixture-operator", Epoch: 3, Region: "region-primary", Revision: 2}
 }
 
-func repair961Controller(t *testing.T, path string, members []EpochMemberAuthority) *BrokerEpochController {
+func epochRecoveryController(t *testing.T, path string, members []EpochMemberAuthority) *BrokerEpochController {
 	t.Helper()
-	controller, err := NewJournalBrokerEpochController(path, repair961Plan(), members)
+	controller, err := NewJournalBrokerEpochController(path, epochRecoveryPlan(), members)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return controller
 }
 
-func repair961Read(t *testing.T, path string) *epochFenceRecord {
+func epochRecoveryRead(t *testing.T, path string) *epochFenceRecord {
 	t.Helper()
 	wire, err := readEpochJournal(path)
 	if err != nil {
@@ -325,9 +325,9 @@ func repair961Read(t *testing.T, path string) *epochFenceRecord {
 	return &record
 }
 
-func repair961AssertProof(t *testing.T, path string, result EpochFenceResult, members []EpochMemberAuthority, brokers []*repair961Broker) {
+func epochRecoveryAssertProof(t *testing.T, path string, result EpochFenceResult, members []EpochMemberAuthority, brokers []*epochRecoveryBroker) {
 	t.Helper()
-	record := repair961Read(t, path)
+	record := epochRecoveryRead(t, path)
 	wire, err := json.Marshal(result)
 	if err != nil || record.State != "verified" || record.BoundProof != result.ProofSHA256 || epochSHA(wire) != result.ProofSHA256 || record.ProofSHA256 != result.ProofSHA256 || len(result.Evidence) != len(members) || len(record.Members) != len(members) {
 		t.Fatalf("unconsumed or incomplete durable proof: %+v %v", record, err)
@@ -384,13 +384,13 @@ func repair961AssertProof(t *testing.T, path string, result EpochFenceResult, me
 	}
 }
 
-func TestRepairM_961_RuntimeWiring(t *testing.T) {
-	member, broker := repair961Fixture(t, "member-one")
+func TestEpochRecoveryRuntimeWiring(t *testing.T) {
+	member, broker := epochRecoveryFixture(t, "member-one")
 	path := filepath.Join(t.TempDir(), "recovery.json")
 	if err := os.Chmod(filepath.Dir(path), 0700); err != nil {
 		t.Fatal(err)
 	}
-	controller := repair961Controller(t, path, []EpochMemberAuthority{member})
+	controller := epochRecoveryController(t, path, []EpochMemberAuthority{member})
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if _, err := controller.FenceAndBind(ctx, "actual-cutover", "unauthorized-operator"); err == nil {
@@ -407,8 +407,8 @@ func TestRepairM_961_RuntimeWiring(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repair961AssertProof(t, path, result, []EpochMemberAuthority{member}, []*repair961Broker{broker})
-	reopened := repair961Controller(t, path, []EpochMemberAuthority{member})
+	epochRecoveryAssertProof(t, path, result, []EpochMemberAuthority{member}, []*epochRecoveryBroker{broker})
+	reopened := epochRecoveryController(t, path, []EpochMemberAuthority{member})
 	if _, err = reopened.FenceAndBind(ctx, "other-proposal", "fixture-operator"); err == nil {
 		t.Fatal("different proposal consumed proof")
 	}
@@ -420,7 +420,7 @@ func TestRepairM_961_RuntimeWiring(t *testing.T) {
 	if err != nil {
 		t.Fatal("verified journal could not reopen", err)
 	}
-	durable := repair961Read(t, path)
+	durable := epochRecoveryRead(t, path)
 	if durable.BoundProof != refreshed.ProofSHA256 || durable.State != "verified" {
 		t.Fatal("reopened proof not consumed")
 	}
@@ -434,17 +434,17 @@ func TestRepairM_961_RuntimeWiring(t *testing.T) {
 	}
 }
 
-func TestRepairM_961_RestartRecovery(t *testing.T) {
+func TestEpochRecoveryRestartRecovery(t *testing.T) {
 	for _, stage := range []string{"published", "reloaded", "verified"} {
 		t.Run(stage, func(t *testing.T) {
-			first, b1 := repair961Fixture(t, "member-one")
-			second, b2 := repair961Fixture(t, "member-two")
+			first, b1 := epochRecoveryFixture(t, "member-one")
+			second, b2 := epochRecoveryFixture(t, "member-two")
 			members := []EpochMemberAuthority{first, second}
 			path := filepath.Join(t.TempDir(), "recovery.json")
 			if err := os.Chmod(filepath.Dir(path), 0700); err != nil {
 				t.Fatal(err)
 			}
-			controller := repair961Controller(t, path, members)
+			controller := epochRecoveryController(t, path, members)
 			interruption := &struct{}{}
 			controller.checkpoint = func(member, point string) error {
 				if member == "member-one" && point == stage {
@@ -463,7 +463,7 @@ func TestRepairM_961_RestartRecovery(t *testing.T) {
 				_, _ = controller.FenceAndBind(ctx, "actual-cutover", "fixture-operator")
 				t.Fatal("interruption not reached")
 			}()
-			before := repair961Read(t, path)
+			before := epochRecoveryRead(t, path)
 			if before.State != "applying" || before.Result != nil || before.BoundProof != "" || before.Members[first.Name] == nil || before.Members[second.Name] != nil {
 				t.Fatalf("partial state certified: %+v", before)
 			}
@@ -487,23 +487,23 @@ func TestRepairM_961_RestartRecovery(t *testing.T) {
 				defer conn.Close()
 				members[i].Control = conn
 			}
-			reopened := repair961Controller(t, path, []EpochMemberAuthority{members[1], members[0]})
+			reopened := epochRecoveryController(t, path, []EpochMemberAuthority{members[1], members[0]})
 			result, err := reopened.FenceAndBind(ctx, "actual-cutover", "fixture-operator")
 			if err != nil {
 				t.Fatal(err)
 			}
-			repair961AssertProof(t, path, result, members, []*repair961Broker{b1, b2})
+			epochRecoveryAssertProof(t, path, result, members, []*epochRecoveryBroker{b1, b2})
 		})
 	}
 }
 
-func TestRepairM_961_RejectChangedAuthorityAndConfig(t *testing.T) {
-	member, broker := repair961Fixture(t, "member-one")
+func TestEpochRecoveryRejectChangedAuthorityAndConfig(t *testing.T) {
+	member, broker := epochRecoveryFixture(t, "member-one")
 	path := filepath.Join(t.TempDir(), "recovery.json")
 	if err := os.Chmod(filepath.Dir(path), 0700); err != nil {
 		t.Fatal(err)
 	}
-	controller := repair961Controller(t, path, []EpochMemberAuthority{member})
+	controller := epochRecoveryController(t, path, []EpochMemberAuthority{member})
 	interrupted := errors.New("operator interrupted")
 	controller.checkpoint = func(_, stage string) error {
 		if stage == "published" {
@@ -516,21 +516,21 @@ func TestRepairM_961_RejectChangedAuthorityAndConfig(t *testing.T) {
 	if _, err := controller.FenceAndBind(ctx, "actual-cutover", "fixture-operator"); !errors.Is(err, interrupted) {
 		t.Fatal("expected publication interruption", err)
 	}
-	record := repair961Read(t, path)
+	record := epochRecoveryRead(t, path)
 	if record.State != "failed" || record.Result != nil || record.BoundProof != "" {
 		t.Fatal("failed operation certified")
 	}
 	changed := member
 	changed.Credentials = append([]EpochCredential(nil), member.Credentials...)
 	changed.Credentials[0].Password = "changed-reviewed-authority"
-	other := repair961Controller(t, path, []EpochMemberAuthority{changed})
+	other := epochRecoveryController(t, path, []EpochMemberAuthority{changed})
 	if _, err := other.FenceAndBind(ctx, "actual-cutover", "fixture-operator"); err == nil {
 		t.Fatal("changed credential inventory resumed")
 	}
 	if err := os.WriteFile(member.ConfigPath, []byte("unreviewed configuration"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	reopened := repair961Controller(t, path, []EpochMemberAuthority{member})
+	reopened := epochRecoveryController(t, path, []EpochMemberAuthority{member})
 	if _, err := reopened.FenceAndBind(ctx, "actual-cutover", "fixture-operator"); err == nil {
 		t.Fatal("unreviewed replacement resumed")
 	}
@@ -540,19 +540,19 @@ func TestRepairM_961_RejectChangedAuthorityAndConfig(t *testing.T) {
 	if reloads != 0 {
 		t.Fatal("rejected authority reloaded broker")
 	}
-	record = repair961Read(t, path)
+	record = epochRecoveryRead(t, path)
 	if record.State != "failed" || record.BoundProof != "" {
 		t.Fatal("rejected configuration consumed proof")
 	}
 }
 
-func TestRepairM_961_UnavailableBrokerCannotCertify(t *testing.T) {
-	member, broker := repair961Fixture(t, "member-one")
+func TestEpochRecoveryUnavailableBrokerCannotCertify(t *testing.T) {
+	member, broker := epochRecoveryFixture(t, "member-one")
 	path := filepath.Join(t.TempDir(), "recovery.json")
 	if err := os.Chmod(filepath.Dir(path), 0700); err != nil {
 		t.Fatal(err)
 	}
-	controller := repair961Controller(t, path, []EpochMemberAuthority{member})
+	controller := epochRecoveryController(t, path, []EpochMemberAuthority{member})
 	controller.checkpoint = func(_, stage string) error {
 		if stage == "reloaded" {
 			return broker.listener.Close()
@@ -564,20 +564,20 @@ func TestRepairM_961_UnavailableBrokerCannotCertify(t *testing.T) {
 	if _, err := controller.FenceAndBind(ctx, "actual-cutover", "fixture-operator"); err == nil {
 		t.Fatal("network unavailability certified as credential denial")
 	}
-	record := repair961Read(t, path)
+	record := epochRecoveryRead(t, path)
 	if record.State != "failed" || record.Result != nil || record.BoundProof != "" || record.Members[member.Name].Stage != "prepared" {
 		t.Fatal("unavailable broker produced aggregate success")
 	}
 }
 
-func TestRepairM_961_ConcurrentAndPrivateJournal(t *testing.T) {
-	member, _ := repair961Fixture(t, "member-one")
+func TestEpochRecoveryConcurrentAndPrivateJournal(t *testing.T) {
+	member, _ := epochRecoveryFixture(t, "member-one")
 	path := filepath.Join(t.TempDir(), "recovery.json")
 	if err := os.Chmod(filepath.Dir(path), 0700); err != nil {
 		t.Fatal(err)
 	}
-	controller := repair961Controller(t, path, []EpochMemberAuthority{member})
-	other := repair961Controller(t, path, []EpochMemberAuthority{member})
+	controller := epochRecoveryController(t, path, []EpochMemberAuthority{member})
+	other := epochRecoveryController(t, path, []EpochMemberAuthority{member})
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	controller.checkpoint = func(_, stage string) error {
@@ -606,7 +606,7 @@ func TestRepairM_961_ConcurrentAndPrivateJournal(t *testing.T) {
 	if err = os.Symlink(target, alias); err != nil {
 		t.Fatal(err)
 	}
-	linked := repair961Controller(t, alias, []EpochMemberAuthority{member})
+	linked := epochRecoveryController(t, alias, []EpochMemberAuthority{member})
 	if _, err = linked.FenceAndBind(ctx, "actual-cutover", "fixture-operator"); err == nil {
 		t.Fatal("symlink journal followed")
 	}
