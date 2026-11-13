@@ -2,9 +2,9 @@
 
 # Validators and commitment
 
-BFT block commitment, signed execution receipts, and independent evidence verification.
+The LayerX kernel executes and orders transactions and builds blocks; validators check and commit them. Verify execution receipts and commitment evidence.
 
-Paxeer validators commit blocks on one network. The kernel participates in block production. Applications verify execution receipts and the committed blocks covering them; finality comes from BFT commitment.
+The LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. Paxeer validators commit blocks on one network. Applications verify execution receipts and the committed blocks covering them; finality comes from BFT commitment.
 
 ## Verify the execution outcome
 

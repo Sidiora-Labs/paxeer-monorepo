@@ -109,7 +109,7 @@
   },
   "/finality": {
     "title": "Finality & Commitment",
-    "description": "Follow a transaction from submission through verified execution to BFT block commitment."
+    "description": "Follow transactions executed and ordered by the LayerX kernel inside paxd, from signed execution receipts to blocks checked and committed by validators."
   },
   "/foundry": {
     "title": "Build with Foundry",
@@ -125,7 +125,7 @@
   },
   "/guarantors": {
     "title": "Validators and commitment",
-    "description": "BFT block commitment, signed execution receipts, and independent evidence verification."
+    "description": "The LayerX kernel executes and orders transactions and builds blocks; validators check and commit them. Verify execution receipts and commitment evidence."
   },
   "/hardhat": {
     "title": "Build with Hardhat",
@@ -209,7 +209,7 @@
   },
   "/network-operations": {
     "title": "Network operations",
-    "description": "Operate Paxeer mainnet-beta nodes and the optional hosted services, monitor readiness, and preserve durable state."
+    "description": "Operate paxd nodes with the LayerX kernel that executes and orders transactions and builds blocks for validators to check and commit."
   },
   "/network-parameters": {
     "title": "Network Parameters",
@@ -221,7 +221,7 @@
   },
   "/operators": {
     "title": "Operators Guide",
-    "description": "Manage Paxeer X node services, validator accounts, monitoring, and recovery."
+    "description": "Manage paxd nodes, whose LayerX kernel executes and orders transactions and builds blocks, and the validators that check and commit them."
   },
   "/oracle-risk": {
     "title": "Oracles & Market Risk",
@@ -241,7 +241,7 @@
   },
   "/paxeer-vs-layerx": {
     "title": "Paxeer X and LayerX",
-    "description": "One BFT network combines EVM smart contracts, autonomous agent execution, and programmable finance, with finality at block commit."
+    "description": "The LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. EVM smart contracts, autonomous agent execution, and programmable finance share the sequence, with finality at block commit."
   },
   "/payments-quickstart": {
     "title": "Your first payment",
@@ -277,7 +277,7 @@
   },
   "/public-rpc": {
     "title": "Public RPC endpoints",
-    "description": "Connect wallets and applications to Paxeer mainnet-beta, EVM chain ID 125, using node JSON-RPC at the endpoint root."
+    "description": "Connect to Paxeer mainnet-beta, EVM chain ID 125, through node JSON-RPC; the LayerX kernel executes and orders transactions and builds blocks that validators check and commit."
   },
   "/python": {
     "title": "Python Quickstart",
@@ -321,7 +321,7 @@
   },
   "/security": {
     "title": "Security and trust boundaries",
-    "description": "How transaction signatures, receipt keys, committed blocks, and scoped service credentials establish trust in Paxeer X."
+    "description": "Verify signed execution receipts from the LayerX kernel inside paxd and the blocks it builds that validators check and commit."
   },
   "/sequencing": {
     "title": "Sequencing & Finality",
@@ -365,7 +365,7 @@
   },
   "/unified-network": {
     "title": "Unified Network Architecture",
-    "description": "How Paxeer X combines EVM and Cosmos execution with LayerX activities, identity, programs, and receipts in one BFT network."
+    "description": "The LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it."
   },
   "/wasm-runtime": {
     "title": "WASM Runtime",
