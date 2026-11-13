@@ -21580,3 +21580,8 @@ fix = "Tasks 22.41.1 to 22.41.40 read every page against the tree, correct it an
 title = "The pages under tools/wasm-tools derive from an upstream project"
 symptom = "The directory tools/wasm-tools holds the sources of an upstream project together with a file VENDOR.kvx that records its origin. Its Markdown pages are pages of the page list, among them lines 3157 to 3176."
 fix = "Task 22.41.41 reads the pages of lines 3157 to 3176 of the page list as pages that derive from an upstream project and lists them in a manifest."
+
+[gotcha.4352]
+title = "Two generated pages of the source-control directory name their source under an earlier file name"
+symptom = "The pages implementation-plan.md and traceability.md under spec/layerx-merge/source-control state in their header that they are generated from a file spec.kvx beside them, and the first names a script path for regeneration. The directory holds the specification as source-spec.kvx and the script under its tools directory."
+fix = "Task 22.41.100 corrects the header of both pages, and the header text of the script where the script writes it."

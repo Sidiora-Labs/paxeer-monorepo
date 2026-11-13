@@ -13714,6 +13714,12 @@ value = "Tasks 22.41.42 to 22.41.99 read the pages of the manifests 22.41.1.kvx 
 basis = "A second reader finds what a first reader passed over, and a page that derives from an upstream project keeps its substance."
 affects = []
 
+[decision.3434]
+title = "The header of a generated page names files that the tree holds"
+value = "Task 22.41.100 corrects the link in the header of the pages implementation-plan.md and traceability.md under spec/layerx-merge/source-control so that it resolves to source-spec.kvx of that directory. The header names a regeneration command only where the script under the tools directory of that directory can write the pages in this tree as it stands, and then with the script path the tree holds. The same text is corrected in the script where the script writes the header. The body of both pages stays as it is."
+basis = "A reader follows the header of a generated page to its source."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43374,6 +43380,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.41.100]
+title = "Correct the header of two generated pages under spec/layerx-merge/source-control"
+reqs = ["22998.1"]
+touches = ["spec/layerx-merge/source-control"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/docs/review/22.41.100.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.100.kvx && grep -q source-spec.kvx spec/layerx-merge/source-control/implementation-plan.md && grep -q source-spec.kvx spec/layerx-merge/source-control/traceability.md"
+do_1 = "do_1 Decision 3434, gotcha 4352. The pages of this task are implementation-plan.md and traceability.md under spec/layerx-merge/source-control. The header of each page links a file spec.kvx beside it, and the header of the first names a script path for regeneration. Find in the directory the specification file the pages are generated from and the script under its tools directory."
+symbols = []
 
 [capability.22.41.99]
 title = "Read page sections 1 to 19 of the review manifest of task 22.41.40 a second time against the tree"
@@ -361889,6 +361904,37 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.41.100]
+title = "Correct the header of two generated pages under spec/layerx-merge/source-control"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.41.100"]
+interfaces = []
+do_1 = "do_1 Decision 3434, gotcha 4352. The pages of this task are implementation-plan.md and traceability.md under spec/layerx-merge/source-control. The header of each page links a file spec.kvx beside it, and the header of the first names a script path for regeneration. Find in the directory the specification file the pages are generated from and the script under its tools directory."
+do_2 = "do_2 Correct the link of both headers so that it resolves to source-spec.kvx of the directory. Read the script and establish whether it can write the two pages in this tree as it stands. If it can, the header names the script path the tree holds. If it cannot, the header states the file the page was generated from and names no command. Where the script writes the header text, correct the text in the script the same way, and change nothing else in the script. The body of both pages stays as it is: do not run the script over the pages."
+do_3 = "do_3 Change no file other than the two pages, the script and the manifest. Delete, rename and move nothing. A symbolic link and a submodule entry stay as they are. Run no formatter and no tool that rewrites line endings or other files. Before each commit read the output of git status and confirm that it names only these files."
+do_4 = "do_4 Write the manifest spec/layerx-merge/programme/docs/review/22.41.100.kvx in the form of the manifest spec/layerx-merge/programme/docs/review/22.41.43.kvx: a manifest section with the task and the number of pages and one page section with the path and the status corrected for each of the two pages. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["spec/layerx-merge/source-control"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/docs/review/22.41.100.kvx"]
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
+verify_cmd = "test -s spec/layerx-merge/programme/docs/review/22.41.100.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.100.kvx && grep -q source-spec.kvx spec/layerx-merge/source-control/implementation-plan.md && grep -q source-spec.kvx spec/layerx-merge/source-control/traceability.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 45
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.41.99]
 title = "Read page sections 1 to 19 of the review manifest of task 22.41.40 a second time against the tree"
