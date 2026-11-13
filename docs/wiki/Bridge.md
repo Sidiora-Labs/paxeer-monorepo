@@ -1,57 +1,43 @@
 # Bridge module
 
-The kernel custody credit activity and its light client are retired.
-Bridge module ID `8` (`LXP_MODULE_BRIDGE`) no longer provides a custody
-credit activity. The former deposit verification, execution, genesis profile,
-payload and issuance procedures are no longer supported funding paths.
+Paxeer is one BFT chain. Native bank and ledger transfers move value within that
+chain; they do not cross a LayerX-to-Paxeer custody boundary. A committed block
+establishes finality for those transfers. See [Unified network](UnifiedNetwork.md)
+and [ledger payments](PaymentsQuickstart.md).
 
-Withdraw requests are Asset ordinal 9. Emergency exit is a library path,
-not a `0x0008xxxx` activity.
+## External-chain bridge
 
-The LayerX↔Paxeer custody boundary is a different surface
-from the Paxeer-side `layerxbridge` module and `LayerXBridge` precompile
-(EVM address `0x1016`) that bridges Paxeer to external chains such as
-Ethereum; see [Unified Network Architecture](UnifiedNetwork.md).
+The `layerxbridge` module and `LayerXBridge` precompile at
+`0x0000000000000000000000000000000000001016` handle external-chain bridge
+operations. The [ABI](../../precompiles/layerxbridge/abi.json) exposes:
 
-Sources: `include/layerx/lxp_bridge.h`,
-`src/modules/bridge/lxp_bridge_withdraw.c`,
-`src/modules/bridge/lxp_bridge_exit.c`.
+- `bridgeIn` with source-chain event identity, recipient, asset, amount and
+  attestor signatures.
+- `bridgeOut` with destination chain, asset, amount and recipient, returning
+  the withdrawal nonce.
+- `getChain`, `getCap`, `getAttestors`, `isNullified` and `isPaused` views.
 
----
+Chain registration, attestors, caps and pause state are governed by the
+[module keeper](../../modules/layerxbridge/keeper). A configured external vault,
+asset mapping and attestor policy are prerequisites; a precompile address alone
+does not establish availability for an external chain. Use the registered ABI
+and inspect the execution result and committed receipt.
 
-## Custody credit retirement
+## Kernel bridge helpers
 
-For the retirement notice, see [Custody](Custody.md). For current ledger
-payments, use the
-[Human service payment path](PaymentsQuickstart.md).
+Kernel module ID `8` (`LXP_MODULE_BRIDGE`) has no custody-credit activity.
+The supported asset activity list does not include a withdrawal operation;
+see [Asset](Asset.md). Funding uses current native bank or ledger operations,
+rather than custody-credit or deposit-based account opening.
 
----
-
-## Withdraw request
-
-See [Asset](Asset.md#withdraw). The LayerX debit lands in
-`system:paxeer-withdrawals` before any Paxeer payout. Settlement binds the
-asset recorded at request time (`spec/layerx-beta/spec.kvx` requirement 10).
-A caller-supplied asset that disagrees is refused with no transfer.
-
-The former bridge withdraw finalization path is retired.
-
----
-
-## Emergency exit
-
-`lxp_exit_eligibility` and `lxp_exit_declare`
-(`include/layerx/lxp_bridge.h`) check eligibility and declare an emergency
-exit against the last finalised checkpoint when the liveness bound is
-exceeded. This is not an ordinary activity ordinal.
-
-The former exit-claim construction path using guarantor signatures is retired.
-
----
+The retained library declarations in
+[`lxp_bridge.h`](../../include/layerx/lxp_bridge.h) include withdrawal and
+emergency-exit helpers. These declarations are not public activity registrations
+and do not create another execution or finality network. See
+[Custody](Custody.md) and [Finality](Finality.md) for the merged-chain model.
 
 ## Start here
 
 - [Asset](Asset.md)
-- [Finality](Finality.md)
-- [Sequencing](Sequencing.md)
-- [Paxeer boundary](PaxeerBoundary.md)
+- [Precompile ABIs](../system/precompiles.md)
+- [Unified network](UnifiedNetwork.md)

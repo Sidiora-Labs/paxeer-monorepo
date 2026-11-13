@@ -1,0 +1,203 @@
+[coverage]
+module = "trading-charts"
+threshold_percent = 90
+method = "Package coverage of hand-written Go sources."
+
+[before]
+total_percent = 45.7
+
+[before.cmd_charts_measure]
+package = "cmd/charts-measure"
+covered_statements = 24
+total_statements = 354
+percent = 6.8
+
+[before.cmd_charts_rebuild]
+package = "cmd/charts-rebuild"
+covered_statements = 60
+total_statements = 96
+percent = 62.5
+
+[before.cmd_chartsd]
+package = "cmd/chartsd"
+covered_statements = 0
+total_statements = 2
+percent = 0.0
+
+[before.development]
+package = "development"
+covered_statements = 0
+total_statements = 2
+percent = 0.0
+
+[before.integration]
+package = "integration"
+covered_statements = 0
+total_statements = 213
+percent = 0.0
+
+[before.internal_app]
+package = "internal/app"
+covered_statements = 166
+total_statements = 417
+percent = 39.8
+
+[before.internal_chainread]
+package = "internal/chainread"
+covered_statements = 0
+total_statements = 32
+percent = 0.0
+
+[before.internal_cleanup]
+package = "internal/cleanup"
+covered_statements = 0
+total_statements = 6
+percent = 0.0
+
+[before.internal_config]
+package = "internal/config"
+covered_statements = 51
+total_statements = 245
+percent = 20.8
+
+[before.internal_consumer]
+package = "internal/consumer"
+covered_statements = 196
+total_statements = 708
+percent = 27.7
+
+[before.internal_engine]
+package = "internal/engine"
+covered_statements = 810
+total_statements = 1429
+percent = 56.7
+
+[before.internal_httpapi]
+package = "internal/httpapi"
+covered_statements = 957
+total_statements = 1433
+percent = 66.8
+
+[before.internal_internaltest]
+package = "internal/internaltest"
+covered_statements = 0
+total_statements = 85
+percent = 0.0
+
+[before.internal_migrate]
+package = "internal/migrate"
+covered_statements = 11
+total_statements = 13
+percent = 84.6
+
+[before.internal_safefile]
+package = "internal/safefile"
+covered_statements = 13
+total_statements = 16
+percent = 81.2
+
+[before.internal_store]
+package = "internal/store"
+covered_statements = 438
+total_statements = 905
+percent = 48.4
+
+[after]
+total_percent = 90.2
+
+[after.cmd_charts_measure]
+package = "cmd/charts-measure"
+covered_statements = 320
+total_statements = 358
+percent = 89.4
+
+[after.cmd_charts_rebuild]
+package = "cmd/charts-rebuild"
+covered_statements = 89
+total_statements = 97
+percent = 91.8
+
+[after.cmd_chartsd]
+package = "cmd/chartsd"
+covered_statements = 0
+total_statements = 2
+percent = 0.0
+
+[after.development]
+package = "development"
+covered_statements = 2
+total_statements = 2
+percent = 100.0
+
+[after.integration]
+package = "integration"
+covered_statements = 163
+total_statements = 213
+percent = 76.5
+
+[after.internal_app]
+package = "internal/app"
+covered_statements = 398
+total_statements = 428
+percent = 93.0
+
+[after.internal_chainread]
+package = "internal/chainread"
+covered_statements = 27
+total_statements = 32
+percent = 84.4
+
+[after.internal_cleanup]
+package = "internal/cleanup"
+covered_statements = 5
+total_statements = 6
+percent = 83.3
+
+[after.internal_config]
+package = "internal/config"
+covered_statements = 231
+total_statements = 245
+percent = 94.3
+
+[after.internal_consumer]
+package = "internal/consumer"
+covered_statements = 614
+total_statements = 708
+percent = 86.7
+
+[after.internal_engine]
+package = "internal/engine"
+covered_statements = 1308
+total_statements = 1429
+percent = 91.5
+
+[after.internal_httpapi]
+package = "internal/httpapi"
+covered_statements = 1338
+total_statements = 1433
+percent = 93.4
+
+[after.internal_internaltest]
+package = "internal/internaltest"
+covered_statements = 253
+total_statements = 316
+percent = 80.1
+
+[after.internal_migrate]
+package = "internal/migrate"
+covered_statements = 11
+total_statements = 13
+percent = 84.6
+
+[after.internal_safefile]
+package = "internal/safefile"
+covered_statements = 14
+total_statements = 16
+percent = 87.5
+
+[after.internal_store]
+package = "internal/store"
+covered_statements = 820
+total_statements = 905
+percent = 90.6
+

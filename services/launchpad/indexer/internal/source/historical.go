@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/store"
 	"github.com/ethereum/go-ethereum/common"
@@ -186,7 +187,11 @@ func (s *HistoricalSource) FetchHistoricalWith(ctx context.Context, o FetchOptio
 	if err != nil {
 		return result, err
 	}
-	if uint64(o.ToBlock) > head.Height { //nolint:gosec // validated fetch range uses unsigned chain heights
+	oToBlockUint64, conversionErr := checked.Convert[uint64](o.ToBlock)
+	if conversionErr != nil {
+		return HistoricalResult{}, conversionErr
+	}
+	if oToBlockUint64 > head.Height {
 		return result, sourceError(IncompleteError, "historical", nil)
 	}
 	result.Heads = HistoricalHeads{RPCCommittedHeight: head.Height, ApplicationDurableHeight: durable}
@@ -195,15 +200,26 @@ func (s *HistoricalSource) FetchHistoricalWith(ctx context.Context, o FetchOptio
 		if err != nil {
 			return result, err
 		}
-		indexed := uint64(height) //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
+		indexed, conversionErr := checked.Convert[uint64](height)
+		if conversionErr != nil {
+			return HistoricalResult{}, conversionErr
+		}
 		result.Heads.ExplorerIndexedHeight = &indexed
 	}
 	result.FetchResult = FetchResult{ManifestDigest: s.RPC.opts.ManifestDigest, Blocks: map[uint64]BlockRecord{}, BlockTimestamps: map[uint64]int64{}, TxFromMap: map[string]string{}}
 	for from := o.FromBlock; from <= o.ToBlock; {
 		to := from + min(int64(1999), o.ToBlock-from)
-		useExplorer := s.Explorer != nil && uint64(from) <= *result.Heads.ExplorerIndexedHeight
+		fromUint64, conversionErr := checked.Convert[uint64](from)
+		if conversionErr != nil {
+			return HistoricalResult{}, conversionErr
+		}
+		useExplorer := s.Explorer != nil && fromUint64 <= *result.Heads.ExplorerIndexedHeight
 		if useExplorer {
-			to = min(to, int64(*result.Heads.ExplorerIndexedHeight)) //nolint:gosec // chain value uses the existing signed storage representation
+			headsExplorerIndexedHeightInt64, conversionErr := checked.Convert[int64](*result.Heads.ExplorerIndexedHeight)
+			if conversionErr != nil {
+				return HistoricalResult{}, conversionErr
+			}
+			to = min(to, headsExplorerIndexedHeightInt64)
 		}
 		pageOptions := o
 		pageOptions.FromBlock = from
@@ -230,8 +246,12 @@ func (s *HistoricalSource) FetchHistoricalWith(ctx context.Context, o FetchOptio
 		}
 		return a.Index < b.Index
 	})
+	oToBlockUint642, conversionErr := checked.Convert[uint64](o.ToBlock)
+	if conversionErr != nil {
+		return HistoricalResult{}, conversionErr
+	}
 	s.RPC.mu.Lock()
-	err = s.RPC.fenceLocked(uint64(o.ToBlock)) //nolint:gosec // validated fetch range uses unsigned chain heights
+	err = s.RPC.fenceLocked(oToBlockUint642)
 	s.RPC.mu.Unlock()
 	if err != nil {
 		return HistoricalResult{Heads: result.Heads}, err
@@ -310,7 +330,15 @@ func (s *HistoricalQualifiedSource) FetchQualifiedBatch(ctx context.Context, fro
 	}
 	readAheadBelowFloor(s.History.RPC, s.Authority, to)
 	batch, qualified, err := qualifyWithDiscoveries(ctx, s.Authority, s.History.RPC.opts.ManifestDigest, from, to, "historical-", func(discoveries []AddressEpoch) (FetchResult, error) {
-		historical, err := s.History.FetchHistoricalWith(ctx, FetchOptions{FromBlock: int64(from), ToBlock: int64(to)}, s.DurableHeight(), discoveries) //nolint:gosec // chain value uses the existing signed storage representation
+		fromInt64, conversionErr := checked.Convert[int64](from)
+		if conversionErr != nil {
+			return FetchResult{}, conversionErr
+		}
+		toInt64, conversionErr := checked.Convert[int64](to)
+		if conversionErr != nil {
+			return FetchResult{}, conversionErr
+		}
+		historical, err := s.History.FetchHistoricalWith(ctx, FetchOptions{FromBlock: fromInt64, ToBlock: toInt64}, s.DurableHeight(), discoveries)
 		return historical.FetchResult, err
 	})
 	if err != nil {
@@ -371,7 +399,15 @@ func (s *LiveQualifiedSource) FetchQualifiedBatch(ctx context.Context, from, to 
 	readAheadBelowFloor(s.RPC, s.Authority, to)
 	var first BlockRecord
 	batch, qualified, err := qualifyWithDiscoveries(ctx, s.Authority, s.RPC.opts.ManifestDigest, from, to, "live-", func(discoveries []AddressEpoch) (FetchResult, error) {
-		fetch, err := s.RPC.FetchCommitted(ctx, FetchOptions{FromBlock: int64(from), ToBlock: int64(to)}, false, discoveries) //nolint:gosec // chain value uses the existing signed storage representation
+		fromInt642, conversionErr := checked.Convert[int64](from)
+		if conversionErr != nil {
+			return FetchResult{}, conversionErr
+		}
+		toInt642, conversionErr := checked.Convert[int64](to)
+		if conversionErr != nil {
+			return FetchResult{}, conversionErr
+		}
+		fetch, err := s.RPC.FetchCommitted(ctx, FetchOptions{FromBlock: fromInt642, ToBlock: toInt642}, false, discoveries)
 		if err == nil {
 			first = fetch.Blocks[from]
 		}
@@ -403,7 +439,11 @@ func qualifyFetch(ctx context.Context, historical FetchResult, authority *receip
 	if !historical.Complete {
 		return batch, nil, sourceError(IncompleteError, "historical-qualified", nil)
 	}
-	batch = store.CanonicalBatch{ChainID: 125, PreviousHeight: int64(from) - 1, Blocks: []store.BlockCompleteness{}, Records: []store.RawRecord{}} //nolint:gosec // chain value uses the existing signed storage representation
+	fromInt643, conversionErr := checked.Convert[int64](from)
+	if conversionErr != nil {
+		return store.CanonicalBatch{}, nil, conversionErr
+	}
+	batch = store.CanonicalBatch{ChainID: 125, PreviousHeight: fromInt643 - 1, Blocks: []store.BlockCompleteness{}, Records: []store.RawRecord{}}
 	counts := map[uint64]int{}
 	for _, log := range historical.Logs {
 		if log.TxIndex > math.MaxUint32 || log.Index > math.MaxUint32 {
@@ -413,7 +453,19 @@ func qualifyFetch(ctx context.Context, historical FetchResult, authority *receip
 		for i, topic := range log.Topics {
 			topics[i] = strings.ToLower(topic.Hex())
 		}
-		batch.Records = append(batch.Records, store.RawRecord{TransactionHash: strings.ToLower(log.TxHash.Hex()), BlockHash: strings.ToLower(log.BlockHash.Hex()), Emitter: strings.ToLower(log.Address.Hex()), Height: int64(log.BlockNumber), TransactionIndex: uint32(log.TxIndex), LogIndex: uint32(log.Index), Topics: topics, Data: append([]byte{}, log.Data...)}) //nolint:gosec // chain value uses the existing signed storage representation
+		logBlockNumberInt64, conversionErr := checked.Convert[int64](log.BlockNumber)
+		if conversionErr != nil {
+			return store.CanonicalBatch{}, nil, conversionErr
+		}
+		logTxIndexUint32, conversionErr := checked.Convert[uint32](log.TxIndex)
+		if conversionErr != nil {
+			return store.CanonicalBatch{}, nil, conversionErr
+		}
+		logIndexUint32, conversionErr := checked.Convert[uint32](log.Index)
+		if conversionErr != nil {
+			return store.CanonicalBatch{}, nil, conversionErr
+		}
+		batch.Records = append(batch.Records, store.RawRecord{TransactionHash: strings.ToLower(log.TxHash.Hex()), BlockHash: strings.ToLower(log.BlockHash.Hex()), Emitter: strings.ToLower(log.Address.Hex()), Height: logBlockNumberInt64, TransactionIndex: logTxIndexUint32, LogIndex: logIndexUint32, Topics: topics, Data: append([]byte{}, log.Data...)})
 		counts[log.BlockNumber]++
 	}
 	for height := from; height <= to; height++ {
@@ -421,7 +473,11 @@ func qualifyFetch(ctx context.Context, historical FetchResult, authority *receip
 		if !ok {
 			return store.CanonicalBatch{}, nil, sourceError(IncompleteError, "historical-qualified", nil)
 		}
-		batch.Blocks = append(batch.Blocks, store.BlockCompleteness{Height: int64(height), Hash: strings.ToLower(record.Hash.Hex()), RawCount: counts[height], FetchComplete: true, RequiredDecodeComplete: true}) //nolint:gosec // chain height uses the existing signed completeness field
+		heightInt64, conversionErr := checked.Convert[int64](height)
+		if conversionErr != nil {
+			return store.CanonicalBatch{}, nil, conversionErr
+		}
+		batch.Blocks = append(batch.Blocks, store.BlockCompleteness{Height: heightInt64, Hash: strings.ToLower(record.Hash.Hex()), RawCount: counts[height], FetchComplete: true, RequiredDecodeComplete: true})
 	}
 	identity, err := parityDigest(struct {
 		Manifest string

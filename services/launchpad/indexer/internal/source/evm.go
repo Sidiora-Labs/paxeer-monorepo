@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
@@ -352,13 +353,17 @@ func (w ethLogWire) toLog() (ethtypes.Log, error) {
 	if err != nil {
 		return ethtypes.Log{}, fmt.Errorf("log logIndex: %w", err)
 	}
+	idxUint, conversionErr := checked.Convert[uint](idx)
+	if conversionErr != nil {
+		return ethtypes.Log{}, conversionErr
+	}
 	return ethtypes.Log{
 		Address:     w.Address,
 		Topics:      w.Topics,
 		Data:        common.FromHex(w.Data),
 		BlockNumber: bn,
 		TxHash:      common.HexToHash(w.TxHash),
-		Index:       uint(idx),
+		Index:       idxUint,
 		Removed:     w.Removed,
 	}, nil
 }

@@ -18,7 +18,7 @@ log in `node/sequencer/wal/wal.go`. The log records:
 
 | Entry | Recorded material |
 | --- | --- |
-| `OPEN` | Height, open-block timestamp, and base fee |
+| `OPEN` | Height, open-block timestamp, base fee and optional proposer address |
 | `ACCEPT` | Sequence, height, transaction bytes, signed receipt, return data, log data, and VM error |
 | `SEAL` | Height, sequence range, and last sequence hash |
 | `COMMITTED` | Height, last sequence, and application hash |
@@ -75,11 +75,8 @@ queries to data the node can serve. An unknown block or a block above the
 serving watermark can produce JSON `null`; that response alone does not prove
 that the transaction was refused or that committed data was lost.
 
-Public HTTPS JSON-RPC is at the root of the node hosts, for example
-`https://api1.mainnet-beta.paxeer.network`, with EVM chain ID 125 (`0x7d`). The
-public host set includes `api1` through `api14.mainnet-beta.paxeer.network` and
-`api-mainnet-beta.paxeer.network`. Node history and progress can differ, so
-compare the requested height with the serving node and use an appropriately
+Public HTTPS JSON-RPC uses a node root URL, with EVM chain ID 125 (`0x7d`).
+Node history and progress can differ, so compare the requested height with the serving node and use an appropriately
 retained node for historical data. See [Public RPC](PublicRpc.md).
 
 For signed early execution evidence, the configured node extension
@@ -88,23 +85,6 @@ in `rpc/sequencer_receipt.go`. Authenticate its receipt key against the governed
 height-range pins and verify the receipt bytes and output digests. The
 `committed` result includes the block number and hash. A successful fetch is
 neither independent replay nor proof of finality by itself.
-
-## Retired availability protocol
-
-The pre-merge five-class bundle, 65,536-byte chunk proofs, tag-18/19/20 fetch
-stream, sealed-candidate selector, and daemon checkpoint storage are retired
-transport instructions. The former `LAYERX_NODE_CHECKPOINT_DIRECTORY` and
-`LAYERX_NODE_DA_RETAIN_BATCHES` settings do not configure the integrated node's
-WAL or receipt store. Do not apply the old retention minimum or checkpoint
-selector rules to current block retrieval.
-
-The guarantor availability-attestation and checkpoint-submission paths are
-retired. In `modules/layerxanchor/keeper/checkpoints.go`,
-`SubmitAvailabilityAttestation` and `SubmitCheckpoint` return `ErrModuleRetired`.
-`modules/layerxanchor/types/errors.go` registers that error in the `layerxanchor`
-codespace with code 19 and message `LXP_MODULE_DISABLED: layerxanchor retired`.
-Historical records are not a new availability or finality authority. The
-network's BFT commit is the finality boundary.
 
 ## Related pages
 

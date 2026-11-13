@@ -217,7 +217,7 @@ def test_architecture_root_public_rpc_example_and_hosted_contract_are_distinct()
         "https://api14.mainnet-beta.paxeer.network",
     ):
         assert origin in documentation
-        assert origin in source("docs/site/docs/reference/public-rpc.md")
+        assert origin in source("docs/site/paxeer-docs/src/app/public-rpc/page.tsx")
     assert "`debug`, `echo`, `eth`, `net`, `pax`, `px` and `txpool`" in documentation
     assert "Method availability depends on node configuration" in documentation
     assert "Obtain its deployment URL and credentials from the operator" in documentation

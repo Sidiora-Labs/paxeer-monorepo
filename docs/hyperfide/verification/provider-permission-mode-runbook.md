@@ -29,10 +29,13 @@ The matrix checks:
 
 ## Prerequisites
 
+Run the commands from the `tools/hyperfide` workspace. Paths below are relative to that workspace.
+
 Build through Turbo, clear any ambient generic OpenAI API-key route, and start
 an isolated server/daemon pair:
 
 ```bash
+cd tools/hyperfide
 pnpm exec turbo run build
 codex --help
 claude --help
@@ -218,7 +221,7 @@ For every probe, inspect the worktree before archiving it:
 
 ```bash
 THREAD_ID=<probe-thread-id>
-ENV_ID=$(hyperfide-platform thread show "$THREAD_ID" --json | jq -r '.environmentId')
+ENV_ID=$(hyperfide-platform thread show "$THREAD_ID" --json | jq -er '.thread.environmentId')
 ENV_PATH=$(Hyperfide environment show "$ENV_ID" --json | jq -r '.path')
 
 git -C "$ENV_PATH" status --short

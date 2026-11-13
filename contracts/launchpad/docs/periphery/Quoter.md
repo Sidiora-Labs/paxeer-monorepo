@@ -1,10 +1,16 @@
 # Solidity API
 
+Source: [Quoter.sol](../../contracts/periphery/Quoter.sol).
+
 ## Quoter
 
-Read-only quote and data access. No state changes. Gas-free via staticcall.
+UUPS-upgradeable contract for read-only pool quotes and statistics. Quote calls compute output, fees
+and price impact from pool reserves and the pool's current dynamic fee. Read calls can be made
+through `eth_call` without submitting a transaction.
 
-_UUPS proxy. All functions are view — no state mutations._
+`quoteExactInput` and `quoteMultihop` require registered, unpaused pools without opticals. They
+reject zero-output quotes and sells exceeding real USDL reserves. Initialization grants
+`DEFAULT_ADMIN_ROLE` to the supplied administrator; upgrades require that role.
 
 ### ZeroAddress
 
@@ -46,17 +52,17 @@ Quote exact input amount for a swap
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| pool | address | The pool address |
-| amountIn | uint256 | Exact input amount |
-| isBuy | bool | True = USDL→Token, False = Token→USDL |
+| Name     | Type    | Description                           |
+| -------- | ------- | ------------------------------------- |
+| pool     | address | The pool address                      |
+| amountIn | uint256 | Exact input amount                    |
+| isBuy    | bool    | True = USDL→Token, False = Token→USDL |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| result | struct IQuoter.QuoteResult | QuoteResult with amountOut, feeAmount, priceImpact |
+| Name   | Type                       | Description                                           |
+| ------ | -------------------------- | ----------------------------------------------------- |
+| result | struct IQuoter.QuoteResult | QuoteResult with amountOut, feeAmount, priceImpactBps |
 
 ### getPoolPrice
 
@@ -108,33 +114,52 @@ Simulate a multihop swap: Token A → USDL → Token B
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| tokenIn | address | Address of the token to sell |
-| tokenOut | address | Address of the token to buy |
-| amountIn | uint256 | Amount of tokenIn to sell |
+| Name     | Type    | Description                  |
+| -------- | ------- | ---------------------------- |
+| tokenIn  | address | Address of the token to sell |
+| tokenOut | address | Address of the token to buy  |
+| amountIn | uint256 | Amount of tokenIn to sell    |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type                               | Description                                 |
+| ------ | ---------------------------------- | ------------------------------------------- |
 | result | struct IQuoter.MultihopQuoteResult | MultihopQuoteResult with both legs' details |
 
-### _calculateFee
+### \_calculateFee
 
 ```solidity
 function _calculateFee(address pool) internal view returns (uint256)
 ```
 
-### _getTokenTotalSupply
+### \_getTokenTotalSupply
 
 ```solidity
 function _getTokenTotalSupply(address token) internal view returns (uint256)
 ```
 
-### _authorizeUpgrade
+### \_authorizeUpgrade
 
 ```solidity
 function _authorizeUpgrade(address) internal
 ```
 
+### UnexecutableQuote
+
+```solidity
+error UnexecutableQuote()
+```
+
+### OpticalQuoteUnsupported
+
+```solidity
+error OpticalQuoteUnsupported()
+```
+
+### \_validatePool
+
+```solidity
+function _validatePool(address pool) internal view
+```
+
+Requires a registered, unpaused pool without an optical.

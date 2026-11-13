@@ -145,7 +145,7 @@ func repair62Bootstrap(t *testing.T) *repair62Database {
 	repair62Load(t, "peers.json", &d.peers)
 	d.height = d.peers.Initial
 	var registry production.MigrationRegistry
-	dir := filepath.Join(repair62Root(), "launchpad/spec/production-system/integration/migrations")
+	dir := filepath.Join(repair62Root(), "migrations")
 	raw, err := os.ReadFile(filepath.Join(dir, "registry.json"))
 	if err != nil {
 		t.Fatal(err)

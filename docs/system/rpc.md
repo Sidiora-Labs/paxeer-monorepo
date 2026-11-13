@@ -4,14 +4,14 @@ Paxeer mainnet-beta is one BFT network running `paxd`, with the kernel inside
 the network proposing blocks. The EVM chain ID is **125** (`0x7d`); a transaction
 is final once its block is committed.
 
-Public JSON-RPC uses the root path of `https://api1.mainnet-beta.paxeer.network`
-through `https://api14.mainnet-beta.paxeer.network`, and
-`https://api-mainnet-beta.paxeer.network`. Use a node's root WebSocket URL, for
-example `wss://api1.mainnet-beta.paxeer.network`, for subscriptions.
-`node.hyperpaxeer.com` is the hpx library mirror, not an RPC endpoint.
+Public JSON-RPC uses a node's root path. Use the node's root WebSocket URL for
+subscriptions. Select the endpoint from the
+[public RPC reference](../site/paxeer-docs/src/app/public-rpc/page.tsx) and set `NODE_RPC_URL`
+to its HTTPS root URL for this shell example. The hpx library mirror distributes
+build libraries and does not serve chain RPC.
 
 ```bash
-curl https://api1.mainnet-beta.paxeer.network/ \
+curl "$NODE_RPC_URL" \
   -H 'Content-Type: application/json' \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
@@ -31,21 +31,13 @@ JSON-RPC names lowercase only the first character of the Go method name.
 rules reject that signature, so it has no JSON-RPC method.
 
 [`rpc/served_methods.go`](../../rpc/served_methods.go) distinguishes ordinary
-calls from subscription selectors. Its frozen registration lists are
+calls from subscription selectors. Registration snapshots are stored in
 [`served_methods_http.golden`](../../rpc/testdata/served_methods_http.golden)
 and [`served_methods_ws.golden`](../../rpc/testdata/served_methods_ws.golden).
-
-| Registration configuration | Service calls | Subscription topics |
-|---|---|---|
-| HTTP, all legacy methods enabled, test API disabled | 120 | 0 |
-| HTTP, default legacy allowlist, test API disabled | 87 | 0 |
-| WebSocket | 72 | 3 |
-
-These counts cover the service calls below. They exclude Geth's built-in
-`rpc_modules` metadata method and the WebSocket subscription control methods
-`eth_subscribe` and `eth_unsubscribe`. Enabling the eligible test API adds one
-HTTP call. Registration does not guarantee successful execution: configuration
-and backend availability still apply.
+The server registrations and callback rules determine the available calls.
+Geth also supplies `rpc_modules`; WebSocket supplies `eth_subscribe` and
+`eth_unsubscribe`. Registration does not guarantee successful execution:
+configuration and backend availability still apply.
 
 Configuration is under `[evm]` in `app.toml`, as defined in
 [`rpc/config/config.go`](../../rpc/config/config.go):
@@ -57,7 +49,7 @@ Configuration is under `[evm]` in `app.toml`, as defined in
   data `"legacy_pax_deprecated"`. Enabled legacy calls carry the
   `Pax-Legacy-RPC-Deprecation` response header. Prefer standard `eth_*` and
   `debug_*` calls for new integrations. `pax_sequencerReceipt` is exempt from
-  this legacy gate; WebSocket does not register either legacy namespace.
+  this legacy gate; WebSocket registers `pax_sequencerReceipt` without the legacy methods.
 - `enable_unsafe_keyring_rpc` defaults to `false`. Local signing calls
   (`eth_sign`, `eth_signTransaction`, `eth_sendTransaction`, and legacy
   `pax_sign`) remain registered but refuse execution while disabled.
@@ -182,7 +174,7 @@ selectors are listed separately under [WebSocket subscriptions](#websocket-subsc
 | `pax_getVMError` | HTTP | PaxTransactionAPI | `rpc/tx.go` |
 | `pax_newBlockFilter` | HTTP | PaxFilterAPI | `rpc/pax_filter.go` |
 | `pax_newFilter` | HTTP | PaxFilterAPI | `rpc/pax_filter.go` |
-| `pax_sequencerReceipt` | HTTP | SequencerReceiptAPI | `rpc/sequencer_receipt.go` |
+| `pax_sequencerReceipt` | HTTP, WS | SequencerReceiptAPI | `rpc/sequencer_receipt.go` |
 | `pax_sign` | HTTP | PaxTransactionAPI | `rpc/tx.go` |
 | `pax_traceBlockByHashExcludeTraceFail` | HTTP | PaxDebugAPI | `rpc/tracers.go` |
 | `pax_traceBlockByNumberExcludeTraceFail` | HTTP | PaxDebugAPI | `rpc/tracers.go` |
@@ -209,6 +201,13 @@ selectors are listed separately under [WebSocket subscriptions](#websocket-subsc
 | `px_getCapabilities` | HTTP, WS | pxAccountAPI | `rpc/px_discovery.go` |
 | `px_getCommit` | HTTP, WS | pxKernelAPI | `rpc/px_kernel.go` |
 | `px_getHistory` | HTTP, WS | pxHistoryAPI | `rpc/px_history.go` |
+| `px_getInferenceDeal` | HTTP, WS | pxInferenceAPI | `rpc/px_inference.go` |
+| `px_getInferencePeer` | HTTP, WS | pxInferenceAPI | `rpc/px_inference.go` |
+| `px_getInferencePeerAt` | HTTP, WS | pxInferenceAPI | `rpc/px_inference.go` |
+| `px_getInferenceReceipts` | HTTP, WS | pxInferenceAPI | `rpc/px_inference.go` |
+| `px_getInferenceRoom` | HTTP, WS | pxInferenceAPI | `rpc/px_inference.go` |
+| `px_getInferenceRoomAt` | HTTP, WS | pxInferenceAPI | `rpc/px_inference.go` |
+| `px_getInferenceRooms` | HTTP, WS | pxInferenceAPI | `rpc/px_inference.go` |
 | `px_getNetwork` | HTTP, WS | pxAccountAPI | `rpc/px_account.go` |
 | `px_getReceiptKeys` | HTTP, WS | receiptKeysAPI | `rpc/sequencer_receipt.go` |
 | `px_getRouteCatalogue` | HTTP, WS | pxAccountAPI | `rpc/px_discovery.go` |
@@ -231,11 +230,16 @@ validate their parameters and then answer `-32004` with error data code
 the hosted identity and faucet services, whose method contract is
 [`services/platform/hosted/gateway/openrpc.json`](../../services/platform/hosted/gateway/openrpc.json).
 
-Both `px_getReceiptKeys` and `pax_sequencerReceipt` require a configured local
-receipt source or receipt forwarding URL. Without either, they return code
-`-32000` and the message `<method> served by sequencer`. These are roles within
-the merged network. Receipt progress is `submitted`, `receipted`, or `committed`;
-a signed execution receipt before commitment does not establish block finality.
+`px_getReceiptKeys` reads the local keeper's governed key set and requires an
+explicit empty parameter array, `[]`. Missing, unreadable or invalid key state
+returns code `-32003`, message `Chain read unavailable`, and error data code
+`receipt_keys_unavailable`; a forwarding URL does not supply this state.
+
+`pax_sequencerReceipt` uses a configured local receipt source or a receipt
+forwarding URL. Without either, it returns code `-32000` and the message
+`pax_sequencerReceipt served by sequencer`. These are roles within the merged
+network. Receipt progress is `submitted`, `receipted`, or `committed`; a signed
+execution receipt before commitment does not establish block finality.
 
 ## test
 
@@ -247,8 +251,8 @@ a signed execution receipt before commitment does not establish block finality.
 
 | Method | Transport | Service type | Source |
 |---|---|---|---|
-| `txpool_content` | HTTP | TxPoolAPI | `rpc/txpool.go` |
-| `txpool_status` | HTTP | TxPoolAPI | `rpc/txpool.go` |
+| `txpool_content` | HTTP, WS | TxPoolAPI | `rpc/txpool.go` |
+| `txpool_status` | HTTP, WS | TxPoolAPI | `rpc/txpool.go` |
 
 ## web3
 

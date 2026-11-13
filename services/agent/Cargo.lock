@@ -653,12 +653,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b7ac824320a75a52197e8f2d787f6a38b6718bb6897a35142d749af3c0e8f4fe"
 
 [[package]]
-name = "foldhash"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9c4f5dac5e15c24eb999c26181a6ca40b39fe946cbe4c263c7209467bc83af2"
-
-[[package]]
 name = "foreign-types"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -782,27 +776,9 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.15.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9229cfe53dfd69f0609a49f65461bd93001ea1ef889cd5529dd176593f5338a1"
-dependencies = [
- "foldhash",
-]
-
-[[package]]
-name = "hashbrown"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
-
-[[package]]
-name = "hashlink"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7382cf6263419f2d8df38c55d7da83da5c18aef87fc7a7fc1fb1e344edfe14c1"
-dependencies = [
- "hashbrown 0.15.5",
-]
 
 [[package]]
 name = "hex"
@@ -979,7 +955,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cc4e190f5d26ca7051642629da2c52fc03bde85a03197c99408dcd291734c855"
 dependencies = [
  "equivalent",
- "hashbrown 0.17.1",
+ "hashbrown",
 ]
 
 [[package]]
@@ -1123,7 +1099,6 @@ dependencies = [
  "zeroize",
 ]
 
-# The runtime grant encoder is now a regular layerx-client dependency.
 [[package]]
 name = "layerx-client"
 version = "0.1.0"
@@ -1140,6 +1115,7 @@ dependencies = [
  "layerx-proof",
  "layerx-types",
  "layerx-wire",
+ "native-tls",
  "rustix",
  "rustls",
  "serde_json",
@@ -1183,7 +1159,7 @@ name = "layerx-human-kms"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "k256",
  "layerx-agent-api",
  "layerx-client",
@@ -1537,9 +1513,9 @@ dependencies = [
 
 [[package]]
 name = "libsqlite3-sys"
-version = "0.35.0"
+version = "0.39.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "133c182a6a2c87864fe97778797e46c7e999672690dc9fa3ee8e241aa4a9c13f"
+checksum = "14a5f01b87b92705d07b433c06f96cbc764637d81a0bffb5734ce17cf0f9a2b3"
 dependencies = [
  "cc",
  "pkg-config",
@@ -2089,14 +2065,13 @@ dependencies = [
 
 [[package]]
 name = "rusqlite"
-version = "0.37.0"
+version = "0.41.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "165ca6e57b20e1351573e3729b958bc62f0e48025386970b6e4d29e7a7e71f3f"
+checksum = "da9bba6f3506135e120a6586df05be18b48d18896600646a4bec8f993d91a594"
 dependencies = [
  "bitflags",
  "fallible-iterator 0.3.0",
  "fallible-streaming-iterator",
- "hashlink",
  "libsqlite3-sys",
  "smallvec",
 ]

@@ -8,8 +8,7 @@ and discover token pointers at `0x000000000000000000000000000000000000100A`.
 
 This page covers native denominations, token pointers, account identifiers,
 and funding. The merged ledger precompile also retains registered Asset
-metadata and account operations; its ABI replaces the old public activity
-submission instructions.
+metadata and account operations through its ABI.
 
 See also [Public JSON-RPC](PublicRpc.md), [Fees](Fees.md),
 [Programs](Programs.md), and [Hosted agent boundary](HostedAgentBoundary.md)
@@ -174,11 +173,8 @@ Do not treat a wallet top-up as registered Asset issuance.
 
 ## Fees, submission, and receipts
 
-Public node JSON-RPC is at the root of
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`, plus
-`https://api-mainnet-beta.paxeer.network`. Check `eth_chainId == "0x7d"` before
-signing. Submit signed EVM transactions with `eth_sendRawTransaction`; query
+Select a node root URL from [Public RPC](PublicRpc.md).
+Check `eth_chainId == "0x7d"` before signing. Submit signed EVM transactions with `eth_sendRawTransaction`; query
 the same hash with `eth_getTransactionReceipt`. Require a successful receipt
 in a committed block before crediting a transfer, and check the expected
 recipient, amount, denomination or token, and emitted events as appropriate.
@@ -186,9 +182,8 @@ On an uncertain response, retain the signed bytes and hash and reconcile
 that transaction before creating another payment.
 
 Estimate EVM gas with `eth_estimateGas` and obtain fee inputs from the node.
-Programs expose their own metering and fee schedule views; the old Asset
-activity ordinal prices and standalone genesis fee blob are retired as
-public transaction instructions. Hosted `px_` methods have a separate
+Programs expose their own metering and fee schedule views.
+Hosted `px_` methods have a separate
 application contract in
 [`openrpc.json`](../../services/platform/hosted/gateway/openrpc.json).
 The [Hosted agent boundary](HostedAgentBoundary.md) serves authenticated

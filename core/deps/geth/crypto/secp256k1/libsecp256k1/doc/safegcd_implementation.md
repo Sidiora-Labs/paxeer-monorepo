@@ -131,7 +131,7 @@ be faster at the level of optimization we're able to do in C.
 Every divstep can be expressed as a matrix multiplication, applying a transition matrix *(1/2 t)*
 to both vectors *[f, g]* and *[d, e]* (see paragraph 8.1 in the paper):
 
-```
+```text
   t = [ u,  v ]
       [ q,  r ]
 
@@ -176,7 +176,7 @@ to update the full-size *f*, *g*, *d*, and *e* numbers once every *N* steps.
 
 We still need functions to compute:
 
-```
+```text
   [ out_f ] = (1/2^N * [ u,  v ]) * [ in_f ]
   [ out_g ]   (        [ q,  r ])   [ in_g ]
 

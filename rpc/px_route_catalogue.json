@@ -38826,6 +38826,18 @@
       ]
     },
     {
+      "id": "node_rpc:px_getInferenceRoomAt",
+      "service": "node_rpc",
+      "method": "px_getInferenceRoomAt",
+      "path": "/",
+      "transport": "json-rpc",
+      "authentication": "none",
+      "version": "1",
+      "consumers": [
+        "developer"
+      ]
+    },
+    {
       "id": "node_rpc:px_getInferenceDeal",
       "service": "node_rpc",
       "method": "px_getInferenceDeal",
@@ -38850,6 +38862,18 @@
       "consumers": [
         "wallet",
         "explorer",
+        "developer"
+      ]
+    },
+    {
+      "id": "node_rpc:px_getInferencePeerAt",
+      "service": "node_rpc",
+      "method": "px_getInferencePeerAt",
+      "path": "/",
+      "transport": "json-rpc",
+      "authentication": "none",
+      "version": "1",
+      "consumers": [
         "developer"
       ]
     },

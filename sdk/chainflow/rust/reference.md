@@ -1,5 +1,11 @@
 # ChainflowDataGateway Rust SDK Reference
 
+Routes, declared response media types and error statuses for the SDK. See
+[api.md](api.md) for examples and [README.md](README.md) for client options.
+HTTP operations return request builders completed with `.send().await`;
+WebSocket builders use `.open().await`. HTTP errors use `Error::Api` for any
+non-success status, including statuses outside the declared lists below.
+
 ## Operations
 
 ### client.gateway().list_health()

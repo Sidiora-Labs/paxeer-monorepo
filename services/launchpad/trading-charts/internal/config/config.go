@@ -264,7 +264,7 @@ func (c *Config) OpenRuntimePool(ctx context.Context, role string, legacy runtim
 		return nil, err
 	}
 	if err = c.CheckRuntimeSchema(ctx, pool); err != nil {
-		pool.Close()
+		runtimedb.ClosePool(pool)
 		return nil, err
 	}
 	return pool, nil

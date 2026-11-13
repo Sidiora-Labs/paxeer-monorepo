@@ -1,0 +1,345 @@
+[manifest]
+task = "22.41.36"
+pages = 114
+
+[record.1]
+path = "spec/layerx-merge/programme/issues/input/1769.md"
+
+[record.2]
+path = "spec/layerx-merge/programme/issues/input/1770.md"
+
+[record.3]
+path = "spec/layerx-merge/programme/issues/input/1771.md"
+
+[record.4]
+path = "spec/layerx-merge/programme/issues/input/1772.md"
+
+[record.5]
+path = "spec/layerx-merge/programme/issues/input/1773.md"
+
+[record.6]
+path = "spec/layerx-merge/programme/issues/input/1774.md"
+
+[record.7]
+path = "spec/layerx-merge/programme/issues/input/1775.md"
+
+[record.8]
+path = "spec/layerx-merge/programme/issues/input/1776.md"
+
+[record.9]
+path = "spec/layerx-merge/programme/issues/input/1777.md"
+
+[record.10]
+path = "spec/layerx-merge/programme/issues/input/1778.md"
+
+[record.11]
+path = "spec/layerx-merge/programme/issues/input/1779.md"
+
+[record.12]
+path = "spec/layerx-merge/programme/issues/input/1780.md"
+
+[record.13]
+path = "spec/layerx-merge/programme/issues/input/1781.md"
+
+[record.14]
+path = "spec/layerx-merge/programme/issues/input/1782.md"
+
+[record.15]
+path = "spec/layerx-merge/programme/issues/input/1783.md"
+
+[record.16]
+path = "spec/layerx-merge/programme/issues/input/1784.md"
+
+[record.17]
+path = "spec/layerx-merge/programme/issues/input/1785.md"
+
+[record.18]
+path = "spec/layerx-merge/programme/issues/input/1786.md"
+
+[record.19]
+path = "spec/layerx-merge/programme/issues/input/1787.md"
+
+[record.20]
+path = "spec/layerx-merge/programme/issues/input/1788.md"
+
+[record.21]
+path = "spec/layerx-merge/programme/issues/input/1789.md"
+
+[record.22]
+path = "spec/layerx-merge/programme/issues/input/1790.md"
+
+[record.23]
+path = "spec/layerx-merge/programme/issues/input/1791.md"
+
+[record.24]
+path = "spec/layerx-merge/programme/issues/input/1792.md"
+
+[record.25]
+path = "spec/layerx-merge/programme/issues/input/1793.md"
+
+[record.26]
+path = "spec/layerx-merge/programme/issues/input/1794.md"
+
+[record.27]
+path = "spec/layerx-merge/programme/issues/input/1795.md"
+
+[record.28]
+path = "spec/layerx-merge/programme/issues/input/1796.md"
+
+[record.29]
+path = "spec/layerx-merge/programme/issues/input/1797.md"
+
+[record.30]
+path = "spec/layerx-merge/programme/issues/input/1798.md"
+
+[record.31]
+path = "spec/layerx-merge/programme/issues/input/1799.md"
+
+[record.32]
+path = "spec/layerx-merge/programme/issues/input/1800.md"
+
+[record.33]
+path = "spec/layerx-merge/programme/issues/input/1801.md"
+
+[record.34]
+path = "spec/layerx-merge/programme/issues/input/1802.md"
+
+[record.35]
+path = "spec/layerx-merge/programme/issues/input/1803.md"
+
+[record.36]
+path = "spec/layerx-merge/programme/issues/input/1804.md"
+
+[record.37]
+path = "spec/layerx-merge/programme/issues/input/1805.md"
+
+[record.38]
+path = "spec/layerx-merge/programme/issues/input/1806.md"
+
+[record.39]
+path = "spec/layerx-merge/programme/issues/input/1807.md"
+
+[record.40]
+path = "spec/layerx-merge/programme/issues/input/1808.md"
+
+[record.41]
+path = "spec/layerx-merge/programme/issues/input/1809.md"
+
+[record.42]
+path = "spec/layerx-merge/programme/issues/input/1810.md"
+
+[record.43]
+path = "spec/layerx-merge/programme/issues/input/1811.md"
+
+[record.44]
+path = "spec/layerx-merge/programme/issues/input/1812.md"
+
+[record.45]
+path = "spec/layerx-merge/programme/issues/input/1813.md"
+
+[record.46]
+path = "spec/layerx-merge/programme/issues/input/1814.md"
+
+[record.47]
+path = "spec/layerx-merge/programme/issues/input/1815.md"
+
+[record.48]
+path = "spec/layerx-merge/programme/issues/input/1816.md"
+
+[record.49]
+path = "spec/layerx-merge/programme/issues/input/1817.md"
+
+[record.50]
+path = "spec/layerx-merge/programme/issues/input/1818.md"
+
+[record.51]
+path = "spec/layerx-merge/programme/issues/input/1819.md"
+
+[record.52]
+path = "spec/layerx-merge/programme/issues/input/1820.md"
+
+[record.53]
+path = "spec/layerx-merge/programme/issues/input/1821.md"
+
+[record.54]
+path = "spec/layerx-merge/programme/issues/input/1822.md"
+
+[record.55]
+path = "spec/layerx-merge/programme/issues/input/1823.md"
+
+[record.56]
+path = "spec/layerx-merge/programme/issues/input/1824.md"
+
+[record.57]
+path = "spec/layerx-merge/programme/issues/input/1825.md"
+
+[record.58]
+path = "spec/layerx-merge/programme/issues/input/1826.md"
+
+[record.59]
+path = "spec/layerx-merge/programme/issues/input/1827.md"
+
+[record.60]
+path = "spec/layerx-merge/programme/issues/input/1828.md"
+
+[record.61]
+path = "spec/layerx-merge/programme/issues/input/1829.md"
+
+[record.62]
+path = "spec/layerx-merge/programme/issues/input/1830.md"
+
+[record.63]
+path = "spec/layerx-merge/programme/issues/input/1831.md"
+
+[record.64]
+path = "spec/layerx-merge/programme/issues/input/1832.md"
+
+[record.65]
+path = "spec/layerx-merge/programme/issues/input/1833.md"
+
+[record.66]
+path = "spec/layerx-merge/programme/issues/input/1834.md"
+
+[record.67]
+path = "spec/layerx-merge/programme/issues/input/1835.md"
+
+[record.68]
+path = "spec/layerx-merge/programme/issues/input/1836.md"
+
+[record.69]
+path = "spec/layerx-merge/programme/issues/input/1837.md"
+
+[record.70]
+path = "spec/layerx-merge/programme/issues/input/1838.md"
+
+[record.71]
+path = "spec/layerx-merge/programme/issues/input/1839.md"
+
+[record.72]
+path = "spec/layerx-merge/programme/issues/input/1840.md"
+
+[record.73]
+path = "spec/layerx-merge/programme/issues/input/1841.md"
+
+[record.74]
+path = "spec/layerx-merge/programme/issues/input/1842.md"
+
+[record.75]
+path = "spec/layerx-merge/programme/issues/input/1843.md"
+
+[record.76]
+path = "spec/layerx-merge/programme/issues/input/1844.md"
+
+[record.77]
+path = "spec/layerx-merge/programme/issues/input/1845.md"
+
+[record.78]
+path = "spec/layerx-merge/programme/issues/input/1846.md"
+
+[record.79]
+path = "spec/layerx-merge/programme/issues/input/1847.md"
+
+[record.80]
+path = "spec/layerx-merge/programme/issues/input/1848.md"
+
+[record.81]
+path = "spec/layerx-merge/programme/issues/input/1849.md"
+
+[record.82]
+path = "spec/layerx-merge/programme/issues/input/1850.md"
+
+[record.83]
+path = "spec/layerx-merge/programme/issues/input/1851.md"
+
+[record.84]
+path = "spec/layerx-merge/programme/issues/input/1852.md"
+
+[record.85]
+path = "spec/layerx-merge/programme/issues/input/1853.md"
+
+[record.86]
+path = "spec/layerx-merge/programme/issues/input/1854.md"
+
+[record.87]
+path = "spec/layerx-merge/programme/issues/input/1855.md"
+
+[record.88]
+path = "spec/layerx-merge/programme/issues/input/1856.md"
+
+[record.89]
+path = "spec/layerx-merge/programme/issues/input/1857.md"
+
+[record.90]
+path = "spec/layerx-merge/programme/issues/input/1858.md"
+
+[record.91]
+path = "spec/layerx-merge/programme/issues/input/1859.md"
+
+[record.92]
+path = "spec/layerx-merge/programme/issues/input/1860.md"
+
+[record.93]
+path = "spec/layerx-merge/programme/issues/input/1861.md"
+
+[record.94]
+path = "spec/layerx-merge/programme/issues/input/1862.md"
+
+[record.95]
+path = "spec/layerx-merge/programme/issues/input/1863.md"
+
+[record.96]
+path = "spec/layerx-merge/programme/issues/input/1864.md"
+
+[record.97]
+path = "spec/layerx-merge/programme/issues/input/1865.md"
+
+[record.98]
+path = "spec/layerx-merge/programme/issues/input/1866.md"
+
+[record.99]
+path = "spec/layerx-merge/programme/issues/input/1867.md"
+
+[record.100]
+path = "spec/layerx-merge/programme/issues/input/1868.md"
+
+[record.101]
+path = "spec/layerx-merge/programme/issues/input/1869.md"
+
+[record.102]
+path = "spec/layerx-merge/programme/issues/input/1870.md"
+
+[record.103]
+path = "spec/layerx-merge/programme/issues/input/1871.md"
+
+[record.104]
+path = "spec/layerx-merge/programme/issues/input/1872.md"
+
+[record.105]
+path = "spec/layerx-merge/programme/issues/input/1873.md"
+
+[record.106]
+path = "spec/layerx-merge/programme/issues/input/1874.md"
+
+[record.107]
+path = "spec/layerx-merge/programme/issues/input/1875.md"
+
+[record.108]
+path = "spec/layerx-merge/programme/issues/input/1876.md"
+
+[record.109]
+path = "spec/layerx-merge/programme/issues/input/1877.md"
+
+[record.110]
+path = "spec/layerx-merge/programme/issues/input/1878.md"
+
+[record.111]
+path = "spec/layerx-merge/programme/issues/input/1879.md"
+
+[record.112]
+path = "spec/layerx-merge/programme/issues/input/1880.md"
+
+[record.113]
+path = "spec/layerx-merge/programme/issues/input/1881.md"
+
+[record.114]
+path = "spec/layerx-merge/programme/issues/input/1882.md"

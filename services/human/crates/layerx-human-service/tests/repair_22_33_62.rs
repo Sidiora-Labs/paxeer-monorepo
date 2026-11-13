@@ -40,7 +40,7 @@ use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 type TestResult<T = ()> = Result<T, Box<dyn Error>>;
 const PROVIDER: &str = "repair-22-33-62";
@@ -323,7 +323,9 @@ fn start_backend(
     thread::spawn(move || {
         let _ = sender.send(layerx_human_kms::run_from_environment(&backend_clock));
     });
-    let expires = Instant::now() + Duration::from_secs(15);
+    let startup_clock = supervisor.clock()?;
+    let mut startup_deadline =
+        layerx_types::clock::Deadline::start(startup_clock.as_ref(), Duration::from_secs(15))?;
     loop {
         if let Ok(result) = exited.try_recv() {
             return Err(format!("production KMS exited: {result:?}").into());
@@ -331,7 +333,10 @@ fn start_backend(
         if TcpStream::connect(backend).is_ok() {
             break;
         }
-        if Instant::now() >= expires {
+        if startup_deadline
+            .remaining(startup_clock.as_ref())?
+            .is_zero()
+        {
             return Err("production KMS startup timed out".into());
         }
         thread::sleep(Duration::from_millis(5));

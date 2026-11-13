@@ -83,7 +83,11 @@ fn produce(raw: &[u8]) -> Result<Value> {
     let signer = SigningKey::from_bytes(&TRANSACTION_SEED);
     signer
         .verifying_key()
-        .verify_strict(&raw[..prefix], &Signature::from_slice(&raw[prefix..])?)?;
+        .verify_strict(
+            &raw[..prefix],
+            &Signature::from_slice(&raw[prefix..]).map_err(|error| error.to_string())?,
+        )
+        .map_err(|error| error.to_string())?;
     let call = &raw[DOMAIN.len()..prefix];
     if call[..4] != [0x78, 0xea, 0x11, 0xdb]
         || call[100..116] != [0; 16]

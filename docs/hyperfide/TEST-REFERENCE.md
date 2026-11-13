@@ -1,14 +1,17 @@
 # Test and fixture reference
 
-These are test-only declarations, not supported product APIs or live Hyperfide HTTP endpoints. Route observations (kind `route`) are excluded for that reason: those under `tests/fixtures/`, such as `GET /api/tasks`, `GET /users` and `POST /users`, come from fixture applications that test extraction and that Hyperfide does not start, and those under `tests/hyperfide/` and in `tests/semantic/run.py` are not routes at all but route patterns misreading dictionary `.get()` calls and path strings in those test scripts.
+These declarations belong to tests and fixture applications under `tools/hyperfide`.
+Fixture routes such as `GET /api/tasks`, `GET /users` and `POST /users` are inputs
+to extraction tests. The explorer and Hyperfide runtime do not serve those fixture routes.
 
-This baseline was regenerated at revision `a2a367f9` (2026-10-17) of the Hyperfide 2.0 development tree, whose binary reports `hyperfide version` 2.0.0-dev. No generator script exists in the tree, and `hyperfide docs packet` declines to write a packet in this revision. The tables were produced the same way as the [source reference](SOURCE-REFERENCE.md), with the same declaration kinds and the same rule for top-level constants and exported top-level variables, covering every file that `graph_path_is_test()` in [src/graph.c](../../tools/hyperfide/core/native/src/graph.c) classifies as a test. Local bindings (other `variable` and `object` rows, `action` rows, and functions nested in another function, such as helpers defined inside a Python test function) are omitted, as are the fixture-only extraction kinds `attribute`, `block`, `component`, `contract`, `event`, `impl`, `mapper`, `paragraph`, `program`, `query`, `record` and `statement`. Test files with no declaration left are not listed. The binary is invoked as `hyperfide`; `cg` remains a deprecated compatibility alias for the same executable.
+The tables list selected declarations with their source lines. A declaration longer
+than 200 characters ends in `…`; a multiline declaration shows its first line.
+These names describe test helpers and examples rather than supported product APIs.
 
-The baseline contains 2712 declarations in 285 files. Source links and line numbers refer to revision `a2a367f9`; rerun the workflow after implementation changes. The declaration column quotes the source line at the indexed location and may be only the first line of a multiline declaration; quotes longer than 200 characters are cut and end in `…`. It is not an inferred behavioral contract.
+For implementation modules, see the [source reference](SOURCE-REFERENCE.md).
+The [testing instructions](runtime/testing.md) describe the test harnesses.
 
-For shipped modules, see the [source reference](SOURCE-REFERENCE.md). The [testing instructions](runtime/testing.md) explain how the integration tests run the binary in temporary repositories.
-
-## kvx/impl/go/kvx_test.go
+## core/kvx/impl/go/kvx_test.go
 
 [Open source](../../tools/hyperfide/core/kvx/impl/go/kvx_test.go)
 
@@ -1491,26 +1494,6 @@ For shipped modules, see the [source reference](SOURCE-REFERENCE.md). The [testi
 | `campaign_policy` | function | 179 | <code>def campaign_policy():</code> |
 | `main_case` | function | 186 | <code>def main_case(case):</code> |
 
-## tests/hyperfide/cases/support/checkpoint_source.py
-
-Source unavailable in this vendored tree.
-
-| Indexed name | Kind | Line | Source declaration |
-| --- | --- | ---: | --- |
-| `load` | function | 10 | <code>def load(name,path):</code> |
-| `canonical` | function | 12 | <code>def canonical(value):return json.dumps(value,sort_keys=True,separators=(",",":"),ensure_ascii=False).encode()</code> |
-| `digest` | function | 13 | <code>def digest(data):return "sha256:"+hashlib.sha256(data).hexdigest()</code> |
-| `expect` | function | 14 | <code>def expect(value,detail):</code> |
-| `check` | function | 16 | <code>def check(identity,fn):</code> |
-| `Fixture` | class | 26 | <code>class Fixture:</code> |
-| `__init__` | method | 27 | <code>def __init__(self,base,native_root):</code> |
-| `restore` | method | 68 | <code>def restore(self):</code> |
-| `call` | method | 72 | <code>def call(self,workspace,_native_result,&#42;&#42;changes):</code> |
-| `valid` | method | 80 | <code>def valid(self):</code> |
-| `rejects` | method | 82 | <code>def rejects(self,mutation,code=None):</code> |
-| `direct_negative` | method | 85 | <code>def direct_negative(self,&#42;&#42;changes):</code> |
-| `run` | function | 87 | <code>def run(native_root,out):</code> |
-
 ## tests/hyperfide/cases/support/graph_contracts.py
 
 [Open source](../../tools/hyperfide/tests/hyperfide/cases/support/graph_contracts.py)
@@ -1582,19 +1565,19 @@ Source unavailable in this vendored tree.
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
 | `PostgresCluster` | class | 4 | <code>class PostgresCluster:</code> |
-| `__init__` | method | 5 | <code>def __init__(self,root=None):</code> |
+| `__init__` | method | 5 | <code>def __init__(self,root=None,bin_dir=None):</code> |
 | `run` | method | 14 | <code>def run(self,&#42;args,timeout=45):</code> |
-| `configure` | method | 20 | <code>def configure(self,directory,socketdir):</code> |
-| `start` | method | 22 | <code>def start(self,directory):</code> |
-| `stop` | method | 34 | <code>def stop(self,directory):</code> |
-| `sql` | method | 37 | <code>def sql(self,text,replica=False,user='hf_operator',database='postgres'):</code> |
-| `url` | method | 39 | <code>def url(self,replica=False,user='hf_operator'):</code> |
-| `replicate` | method | 41 | <code>def replicate(self):</code> |
-| `synchronous` | method | 51 | <code>def synchronous(self,enabled=True):</code> |
-| `promote` | method | 59 | <code>def promote(self):self.run('pg_ctl','-D',str(self.standby),'-w','promote')</code> |
-| `backup` | method | 60 | <code>def backup(self,name='backup'):</code> |
-| `stopped` | method | 62 | <code>def stopped(self,directory,socketdir):</code> |
-| `close` | method | 68 | <code>def close(self):</code> |
+| `configure` | method | 22 | <code>def configure(self,directory,socketdir):</code> |
+| `start` | method | 24 | <code>def start(self,directory):</code> |
+| `stop` | method | 36 | <code>def stop(self,directory):</code> |
+| `sql` | method | 39 | <code>def sql(self,text,replica=False,user='hf_operator',database='postgres'):</code> |
+| `url` | method | 41 | <code>def url(self,replica=False,user='hf_operator'):</code> |
+| `replicate` | method | 43 | <code>def replicate(self):</code> |
+| `synchronous` | method | 53 | <code>def synchronous(self,enabled=True):</code> |
+| `promote` | method | 61 | <code>def promote(self):self.run('pg_ctl','-D',str(self.standby),'-w','promote')</code> |
+| `backup` | method | 62 | <code>def backup(self,name='backup'):</code> |
+| `stopped` | method | 64 | <code>def stopped(self,directory,socketdir):</code> |
+| `close` | method | 70 | <code>def close(self):</code> |
 
 ## tests/hyperfide/cases/support/postgres_drills.py
 
@@ -1631,16 +1614,16 @@ Source unavailable in this vendored tree.
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
-| `expect` | function | 11 | <code>def expect(v,m="assertion failed"):</code> |
-| `check` | function | 13 | <code>def check(name,fn):</code> |
-| `policy` | function | 18 | <code>def policy():</code> |
-| `observed` | function | 20 | <code>def observed():</code> |
-| `Fixture` | class | 22 | <code>class Fixture:</code> |
-| `__init__` | method | 23 | <code>def __init__(self,base):</code> |
-| `call` | method | 27 | <code>def call(self,action,data):</code> |
-| `assess` | method | 33 | <code>def assess(self,p=None,o=None,now=NOW):</code> |
-| `reject` | method | 35 | <code>def reject(self,data):</code> |
-| `main` | function | 37 | <code>def main():</code> |
+| `expect` | function | 10 | <code>def expect(v,m="assertion failed"):</code> |
+| `check` | function | 12 | <code>def check(name,fn):</code> |
+| `policy` | function | 17 | <code>def policy():</code> |
+| `observed` | function | 19 | <code>def observed():</code> |
+| `Fixture` | class | 21 | <code>class Fixture:</code> |
+| `__init__` | method | 22 | <code>def __init__(self,base):</code> |
+| `call` | method | 26 | <code>def call(self,action,data):</code> |
+| `assess` | method | 32 | <code>def assess(self,p=None,o=None,now=NOW):</code> |
+| `reject` | method | 34 | <code>def reject(self,data):</code> |
+| `main` | function | 36 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/10_3.py
 
@@ -1698,8 +1681,8 @@ Source unavailable in this vendored tree.
 | `reject` | method | 145 | <code>def reject(self,payload=None,&#42;,action="create",trusted=True,role="provisioner"):</code> |
 | `using` | function | 154 | <code>def using(base,callback):</code> |
 | `main` | function | 158 | <code>def main():</code> |
-| `install_local_package` | function | 584 | <code>def install_local_package(candidate,manager):</code> |
-| `link_cases` | function | 605 | <code>def link_cases(case):</code> |
+| `install_local_package` | function | 588 | <code>def install_local_package(candidate,manager):</code> |
+| `link_cases` | function | 609 | <code>def link_cases(case):</code> |
 
 ## tests/hyperfide/cases/tasks/11_2.py
 
@@ -1709,13 +1692,13 @@ Source unavailable in this vendored tree.
 | --- | --- | ---: | --- |
 | `expect` | function | 7 | <code>def expect(value,message):</code> |
 | `check` | function | 9 | <code>def check(identity,callback):</code> |
-| `git` | function | 13 | <code>def git(root,&#42;args):</code> |
-| `Fixture` | class | 16 | <code>class Fixture:</code> |
-| `__init__` | method | 17 | <code>def __init__(self,base):</code> |
-| `invoke` | method | 32 | <code>def invoke(self,request=None,raw=None):</code> |
-| `materialize` | method | 39 | <code>def materialize(self):</code> |
-| `refused` | method | 42 | <code>def refused(self):</code> |
-| `main` | function | 48 | <code>def main():</code> |
+| `git` | function | 100 | <code>def git(root,&#42;args):</code> |
+| `Fixture` | class | 103 | <code>class Fixture:</code> |
+| `__init__` | method | 104 | <code>def __init__(self,base):</code> |
+| `invoke` | method | 119 | <code>def invoke(self,request=None,raw=None):</code> |
+| `materialize` | method | 126 | <code>def materialize(self):</code> |
+| `refused` | method | 129 | <code>def refused(self):</code> |
+| `main` | function | 135 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/11_3.py
 
@@ -1759,14 +1742,13 @@ Source unavailable in this vendored tree.
 | `__init__` | method | 60 | <code>def __init__(self):</code> |
 | `manifest` | method | 65 | <code>def manifest(self,profile,command,name):</code> |
 | `sql` | method | 77 | <code>def sql(self,sql,values=None,admin=False,serial=True):</code> |
-| `accept_spec` | method | 95 | <code>def accept_spec(f):</code> |
-| `setup` | method | 106 | <code>def setup(f):</code> |
-| `write_pool_config` | method | 117 | <code>def write_pool_config(f):</code> |
-| `seed_quota` | method | 119 | <code>def seed_quota(f):</code> |
-| `start_provisioner` | method | 127 | <code>def start_provisioner(f):</code> |
-| `stop_provisioner` | method | 145 | <code>def stop_provisioner(f):</code> |
-| `close` | method | 151 | <code>def close(f):</code> |
-| `main` | function | 157 | <code>def main():</code> |
+| `setup` | method | 90 | <code>def setup(f):</code> |
+| `write_pool_config` | method | 103 | <code>def write_pool_config(f):</code> |
+| `seed_quota` | method | 105 | <code>def seed_quota(f):</code> |
+| `start_provisioner` | method | 115 | <code>def start_provisioner(f):</code> |
+| `stop_provisioner` | method | 140 | <code>def stop_provisioner(f):</code> |
+| `close` | method | 146 | <code>def close(f):</code> |
+| `main` | function | 152 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/12_1.py
 
@@ -1831,27 +1813,27 @@ Source unavailable in this vendored tree.
 | `cstate` | method | 470 | <code>def cstate(self):</code> |
 | `native` | method | 475 | <code>def native(self, action, request, timeout=30):</code> |
 | `start_serve` | method | 484 | <code>def start_serve(self, slot="S1", seconds=150):</code> |
-| `stop_serve` | method | 490 | <code>def stop_serve(self, sig):</code> |
-| `helper` | method | 496 | <code>def helper(self, suid):</code> |
-| `proc_stat` | method | 505 | <code>def proc_stat(pid):</code> |
-| `proc_uid` | method | 514 | <code>def proc_uid(pid):</code> |
-| `alive` | method | 522 | <code>def alive(self, pid, start=None):</code> |
-| `uid_processes` | method | 526 | <code>def uid_processes(self, suid):</code> |
-| `ledger` | method | 533 | <code>def ledger(self, sql, args=()):</code> |
-| `launch` | method | 543 | <code>def launch(self, launch_id):</code> |
-| `events` | method | 547 | <code>def events(self, launch_id, kind=None):</code> |
-| `stdout` | method | 552 | <code>def stdout(self, launch_id):</code> |
-| `lock_held` | method | 558 | <code>def lock_held(self, launch_id):</code> |
-| `instruction` | method | 573 | <code>def instruction(self, kind, launch_id, body, attempt, generation="2", held=False, suppress=True):</code> |
-| `start_body` | method | 580 | <code>def start_body(self, slot, session=None):</code> |
-| `steer_body` | method | 583 | <code>def steer_body(self, text):</code> |
-| `simulate_accepted` | method | 586 | <code>def simulate_accepted(self, ins, slot, state="ACCEPTED", agent=None):</code> |
-| `cleanup` | method | 606 | <code>def cleanup(self):</code> |
-| `scenario` | function | 654 | <code>def scenario(p):</code> |
-| `cleanup_state` | function | 830 | <code>def cleanup_state():</code> |
-| `cleanup_only` | function | 839 | <code>def cleanup_only():</code> |
-| `dispatch_probe` | function | 857 | <code>def dispatch_probe():</code> |
-| `main` | function | 878 | <code>def main():</code> |
+| `stop_serve` | method | 493 | <code>def stop_serve(self, sig):</code> |
+| `helper` | method | 499 | <code>def helper(self, suid):</code> |
+| `proc_stat` | method | 508 | <code>def proc_stat(pid):</code> |
+| `proc_uid` | method | 517 | <code>def proc_uid(pid):</code> |
+| `alive` | method | 525 | <code>def alive(self, pid, start=None):</code> |
+| `uid_processes` | method | 529 | <code>def uid_processes(self, suid):</code> |
+| `ledger` | method | 536 | <code>def ledger(self, sql, args=()):</code> |
+| `launch` | method | 553 | <code>def launch(self, launch_id):</code> |
+| `events` | method | 557 | <code>def events(self, launch_id, kind=None):</code> |
+| `stdout` | method | 562 | <code>def stdout(self, launch_id):</code> |
+| `lock_held` | method | 568 | <code>def lock_held(self, launch_id):</code> |
+| `instruction` | method | 583 | <code>def instruction(self, kind, launch_id, body, attempt, generation="2", held=False, suppress=True):</code> |
+| `start_body` | method | 590 | <code>def start_body(self, slot, session=None):</code> |
+| `steer_body` | method | 593 | <code>def steer_body(self, text):</code> |
+| `simulate_accepted` | method | 596 | <code>def simulate_accepted(self, ins, slot, state="ACCEPTED", agent=None):</code> |
+| `cleanup` | method | 616 | <code>def cleanup(self):</code> |
+| `scenario` | function | 664 | <code>def scenario(p):</code> |
+| `cleanup_state` | function | 841 | <code>def cleanup_state():</code> |
+| `cleanup_only` | function | 850 | <code>def cleanup_only():</code> |
+| `dispatch_probe` | function | 868 | <code>def dispatch_probe():</code> |
+| `main` | function | 889 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/12_3.py
 
@@ -1883,7 +1865,7 @@ Source unavailable in this vendored tree.
 | `progress_line` | function | 318 | <code>def progress_line(sequence, useful, state="WORKING", &#42;&#42;extra):</code> |
 | `scenarios` | function | 321 | <code>def scenarios(fx):</code> |
 | `build` | function | 475 | <code>def build(work):</code> |
-| `main` | function | 485 | <code>def main():</code> |
+| `main` | function | 486 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/12_4.py
 
@@ -2056,21 +2038,21 @@ Source unavailable in this vendored tree.
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
-| `canonical` | function | 16 | <code>def canonical(value):return json.dumps(value,sort_keys=True,separators=(",",":"),ensure_ascii=False).encode()</code> |
-| `_release_sql` | function | 18 | <code>def _release_sql(self,sql,values=None,&#42;&#42;kwargs):</code> |
-| `ReleaseIdentityFixture` | class | 28 | <code>class ReleaseIdentityFixture(module.SessionIdentityFixture):</code> |
-| `__init__` | method | 31 | <code>def __init__(self,extra_components=(),extra_setup=None,&#42;&#42;kwargs):</code> |
-| `AdmissionFixture` | class | 37 | <code>class AdmissionFixture(AgentFixture):</code> |
-| `__init__` | method | 38 | <code>def __init__(self):</code> |
-| `adapt` | method | 42 | <code>def adapt(self,f):</code> |
-| `policy_digest` | method | 54 | <code>def policy_digest(self,quota):</code> |
-| `seed_reservation` | method | 56 | <code>def seed_reservation(self,quota,session,reservation,request,active):</code> |
-| `seed_dispatch` | method | 60 | <code>def seed_dispatch(self):</code> |
-| `resolve_dispatch` | method | 66 | <code>def resolve_dispatch(self,command):</code> |
-| `check` | function | 69 | <code>def check(identity,fn):</code> |
-| `startup_budget` | function | 73 | <code>def startup_budget():</code> |
-| `classifier_table` | function | 140 | <code>def classifier_table():</code> |
-| `main` | function | 146 | <code>def main():</code> |
+| `canonical` | function | 37 | <code>def canonical(value):return json.dumps(value,sort_keys=True,separators=(",",":"),ensure_ascii=False).encode()</code> |
+| `_release_sql` | function | 39 | <code>def _release_sql(self,sql,values=None,&#42;&#42;kwargs):</code> |
+| `ReleaseIdentityFixture` | class | 49 | <code>class ReleaseIdentityFixture(module.SessionIdentityFixture):</code> |
+| `__init__` | method | 52 | <code>def __init__(self,extra_components=(),extra_setup=None,&#42;&#42;kwargs):</code> |
+| `AdmissionFixture` | class | 58 | <code>class AdmissionFixture(AgentFixture):</code> |
+| `__init__` | method | 59 | <code>def __init__(self):</code> |
+| `adapt` | method | 63 | <code>def adapt(self,f):</code> |
+| `policy_digest` | method | 75 | <code>def policy_digest(self,quota):</code> |
+| `seed_reservation` | method | 77 | <code>def seed_reservation(self,quota,session,reservation,request,active):</code> |
+| `seed_dispatch` | method | 81 | <code>def seed_dispatch(self):</code> |
+| `resolve_dispatch` | method | 87 | <code>def resolve_dispatch(self,command):</code> |
+| `check` | function | 90 | <code>def check(identity,fn):</code> |
+| `startup_budget` | function | 94 | <code>def startup_budget():</code> |
+| `classifier_table` | function | 161 | <code>def classifier_table():</code> |
+| `main` | function | 167 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/14_1.py
 
@@ -2114,14 +2096,6 @@ Source unavailable in this vendored tree.
 | --- | --- | ---: | --- |
 | `main` | function | 155 | <code>def main():</code> |
 
-## tests/hyperfide/cases/tasks/14_writer_observation_transport.py
-
-Source unavailable in this vendored tree.
-
-| Indexed name | Kind | Line | Source declaration |
-| --- | --- | ---: | --- |
-| `main` | function | 192 | <code>def main():</code> |
-
 ## tests/hyperfide/cases/tasks/15_1.py
 
 [Open source](../../tools/hyperfide/tests/hyperfide/cases/tasks/15_1.py)
@@ -2143,12 +2117,12 @@ Source unavailable in this vendored tree.
 | `evidence_dir` | function | 278 | <code>def evidence_dir():</code> |
 | `sql` | function | 282 | <code>def sql(statement,database="postgres"):</code> |
 | `cleanup` | function | 290 | <code>def cleanup(emit=True):</code> |
-| `AuthenticatedArtifactAdapter` | class | 308 | <code>class AuthenticatedArtifactAdapter:</code> |
-| `__init__` | method | 315 | <code>def __init__(self,objects,base,database,resource_id):</code> |
-| `close` | method | 353 | <code>def close(self):</code> |
-| `durable_suite` | function | 356 | <code>def durable_suite(f):</code> |
-| `pin_manifest` | function | 442 | <code>def pin_manifest():</code> |
-| `main` | function | 471 | <code>def main():</code> |
+| `AuthenticatedArtifactAdapter` | class | 312 | <code>class AuthenticatedArtifactAdapter:</code> |
+| `__init__` | method | 319 | <code>def __init__(self,objects,base,database,resource_id):</code> |
+| `close` | method | 357 | <code>def close(self):</code> |
+| `durable_suite` | function | 360 | <code>def durable_suite(f):</code> |
+| `pin_manifest` | function | 446 | <code>def pin_manifest():</code> |
+| `main` | function | 475 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/15_2.py
 
@@ -2208,22 +2182,21 @@ Source unavailable in this vendored tree.
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
 | `module` | function | 13 | <code>def module(name,path):</code> |
-| `accepted_intent` | function | 24 | <code>def accepted_intent():</code> |
-| `sha` | function | 47 | <code>def sha(data):return 'sha256:'+hashlib.sha256(data).hexdigest()</code> |
-| `canonical` | function | 48 | <code>def canonical(value):return json.dumps(value,sort_keys=True,separators=(',',':'),ensure_ascii=False,allow_nan=False).encode()</code> |
-| `expect` | function | 49 | <code>def expect(value,message='Observed checkpoint assertion failed'):</code> |
-| `check` | function | 51 | <code>def check(name,call):</code> |
-| `CheckpointFixture` | class | 55 | <code>class CheckpointFixture:</code> |
-| `__init__` | method | 56 | <code>def __init__(self):</code> |
-| `ok` | method | 102 | <code>def ok(self,action,value,component='15.3',key='operator'):</code> |
-| `put` | method | 104 | <code>def put(self,data):</code> |
-| `upload` | method | 107 | <code>def upload(self,data):</code> |
-| `reject` | method | 113 | <code>def reject(self,value,codes,key='operator',action='artifact.checkpoint.register'):</code> |
-| `adopt_request` | method | 116 | <code>def adopt_request(self,&#42;&#42;overrides):</code> |
-| `close` | method | 118 | <code>def close(self):</code> |
-| `adoption` | function | 122 | <code>def adoption(f,checkpoint_id):</code> |
-| `main` | function | 188 | <code>def main():</code> |
-| `cleanup` | function | 230 | <code>def cleanup():</code> |
+| `sha` | function | 19 | <code>def sha(data):return 'sha256:'+hashlib.sha256(data).hexdigest()</code> |
+| `canonical` | function | 20 | <code>def canonical(value):return json.dumps(value,sort_keys=True,separators=(',',':'),ensure_ascii=False,allow_nan=False).encode()</code> |
+| `expect` | function | 21 | <code>def expect(value,message='Observed checkpoint assertion failed'):</code> |
+| `check` | function | 23 | <code>def check(name,call):</code> |
+| `CheckpointFixture` | class | 27 | <code>class CheckpointFixture:</code> |
+| `__init__` | method | 28 | <code>def __init__(self):</code> |
+| `ok` | method | 74 | <code>def ok(self,action,value,component='15.3',key='operator'):</code> |
+| `put` | method | 76 | <code>def put(self,data):</code> |
+| `upload` | method | 79 | <code>def upload(self,data):</code> |
+| `reject` | method | 85 | <code>def reject(self,value,codes,key='operator',action='artifact.checkpoint.register'):</code> |
+| `adopt_request` | method | 88 | <code>def adopt_request(self,&#42;&#42;overrides):</code> |
+| `close` | method | 90 | <code>def close(self):</code> |
+| `adoption` | function | 94 | <code>def adoption(f,checkpoint_id):</code> |
+| `main` | function | 160 | <code>def main():</code> |
+| `cleanup` | function | 202 | <code>def cleanup():</code> |
 
 ## tests/hyperfide/cases/tasks/15_4.py
 
@@ -2302,7 +2275,7 @@ Source unavailable in this vendored tree.
 | `start` | method | 145 | <code>def start(self):</code> |
 | `cleanup_behaviour` | function | 318 | <code>def cleanup_behaviour():</code> |
 | `primary_cases` | function | 368 | <code>def primary_cases():</code> |
-| `quiet_cleanup` | function | 372 | <code>def quiet_cleanup():</code> |
+| `quiet_cleanup` | function | 372 | <code>def quiet_cleanup(report=False):</code> |
 
 ## tests/hyperfide/cases/tasks/16_4.py
 
@@ -2473,8 +2446,7 @@ Source unavailable in this vendored tree.
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
 | `managers` | function | 8 | <code>def managers(f):</code> |
-| `accepted_proof_intent` | function | 10 | <code>def accepted_proof_intent(f):</code> |
-| `main` | function | 30 | <code>def main():</code> |
+| `main` | function | 10 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/18_4.py
 
@@ -2482,13 +2454,13 @@ Source unavailable in this vendored tree.
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
-| `accepted_intent` | function | 44 | <code>def accepted_intent(f,criteria):</code> |
-| `setup` | function | 70 | <code>def setup(f):</code> |
-| `closed_issue_delivery` | function | 102 | <code>def closed_issue_delivery(f,fid):</code> |
-| `restart` | function | 108 | <code>def restart(f,limit):</code> |
-| `claim` | function | 113 | <code>def claim(f,name='a'):</code> |
-| `reopen_after_change` | function | 116 | <code>def reopen_after_change(f,call,fid):</code> |
-| `main` | function | 125 | <code>def main():</code> |
+| `accepted_intent` | function | 46 | <code>def accepted_intent(f,criteria):</code> |
+| `setup` | function | 67 | <code>def setup(f):</code> |
+| `closed_issue_delivery` | function | 101 | <code>def closed_issue_delivery(f,fid):</code> |
+| `restart` | function | 107 | <code>def restart(f,limit):</code> |
+| `claim` | function | 112 | <code>def claim(f,name='a'):</code> |
+| `reopen_after_change` | function | 158 | <code>def reopen_after_change(f,call,fid):</code> |
+| `main` | function | 172 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/19_1.py
 
@@ -2565,9 +2537,9 @@ Source unavailable in this vendored tree.
 | `profile_for` | function | 21 | <code>def profile_for(f):</code> |
 | `binding` | function | 23 | <code>def binding(host='main',boot='1'):</code> |
 | `closed` | function | 25 | <code>def closed(f,path,database):</code> |
-| `static_checks` | function | 31 | <code>def static_checks():</code> |
-| `authenticated_checks` | function | 91 | <code>def authenticated_checks():</code> |
-| `supervisor_checks` | function | 268 | <code>def supervisor_checks():</code> |
+| `static_checks` | function | 60 | <code>def static_checks():</code> |
+| `authenticated_checks` | function | 120 | <code>def authenticated_checks():</code> |
+| `supervisor_checks` | function | 297 | <code>def supervisor_checks():</code> |
 
 ## tests/hyperfide/cases/tasks/1_2.py
 
@@ -2601,23 +2573,23 @@ Source unavailable in this vendored tree.
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
-| `run` | function | 56 | <code>def run(argv, &#42;, cwd=ROOT, text="", timeout=40):</code> |
-| `expect` | function | 62 | <code>def expect(condition, detail):</code> |
-| `check` | function | 67 | <code>def check(identity, callback):</code> |
-| `response` | function | 77 | <code>def response(result):</code> |
-| `error_code` | function | 83 | <code>def error_code(result):</code> |
-| `ServiceFixture` | class | 106 | <code>class ServiceFixture:</code> |
-| `__init__` | method | 107 | <code>def __init__(self, directory):</code> |
-| `module` | method | 119 | <code>def module(self, name, content):</code> |
-| `fixture` | method | 122 | <code>def fixture(self, ident="fixture", &#42;, roles=None, requires=None, action="fixture.echo",</code> |
-| `fragment` | method | 144 | <code>def fragment(self, name, value):</code> |
-| `event_rows` | method | 147 | <code>def event_rows(self):</code> |
-| `invoke` | method | 150 | <code>def invoke(self, &#42;, role="control", request=None, raw=None, revision="fixture-revision", policy=True):</code> |
-| `service_case` | function | 162 | <code>def service_case(base, callback):</code> |
-| `policy_reject` | function | 167 | <code>def policy_reject(base, mutation, code, &#42;, missing=False):</code> |
-| `registry_reject` | function | 176 | <code>def registry_reject(base, mutation, &#42;, before_import=True):</code> |
-| `mutate_fragment` | function | 187 | <code>def mutate_fragment(fixture, mutation):</code> |
-| `native_fixture` | function | 194 | <code>def native_fixture(base):</code> |
+| `run` | function | 54 | <code>def run(argv, &#42;, cwd=ROOT, text="", timeout=40):</code> |
+| `expect` | function | 61 | <code>def expect(condition, detail):</code> |
+| `check` | function | 66 | <code>def check(identity, callback):</code> |
+| `response` | function | 76 | <code>def response(result):</code> |
+| `error_code` | function | 82 | <code>def error_code(result):</code> |
+| `ServiceFixture` | class | 105 | <code>class ServiceFixture:</code> |
+| `__init__` | method | 106 | <code>def __init__(self, directory):</code> |
+| `module` | method | 118 | <code>def module(self, name, content):</code> |
+| `fixture` | method | 121 | <code>def fixture(self, ident="fixture", &#42;, roles=None, requires=None, action="fixture.echo",</code> |
+| `fragment` | method | 143 | <code>def fragment(self, name, value):</code> |
+| `event_rows` | method | 146 | <code>def event_rows(self):</code> |
+| `invoke` | method | 149 | <code>def invoke(self, &#42;, role="control", request=None, raw=None, revision="fixture-revision", policy=True):</code> |
+| `service_case` | function | 161 | <code>def service_case(base, callback):</code> |
+| `policy_reject` | function | 166 | <code>def policy_reject(base, mutation, code, &#42;, missing=False):</code> |
+| `registry_reject` | function | 175 | <code>def registry_reject(base, mutation, &#42;, before_import=True):</code> |
+| `mutate_fragment` | function | 186 | <code>def mutate_fragment(fixture, mutation):</code> |
+| `native_fixture` | function | 193 | <code>def native_fixture(base):</code> |
 | `native_exec` | function | 213 | <code>def native_exec(directory, component="99.1", action="fixture.echo", text="{}&#92;n"):</code> |
 | `authoring_fixture` | function | 217 | <code>def authoring_fixture(base):</code> |
 | `authoring_command` | function | 229 | <code>def authoring_command(pack, tool, &#42;args):</code> |
@@ -2711,11 +2683,11 @@ Source unavailable in this vendored tree.
 | `spec_closure` | function | 25 | <code>def spec_closure():</code> |
 | `linkage_probe` | function | 35 | <code>def linkage_probe():</code> |
 | `function_probe` | function | 64 | <code>def function_probe(env):</code> |
-| `include_spec_closure` | function | 73 | <code>def include_spec_closure():</code> |
-| `child_probe` | function | 86 | <code>def child_probe(kind,env):</code> |
-| `psql` | function | 98 | <code>def psql(env,query):</code> |
-| `owned` | function | 103 | <code>def owned(env):</code> |
-| `main` | function | 107 | <code>def main():</code> |
+| `include_spec_closure` | function | 88 | <code>def include_spec_closure():</code> |
+| `child_probe` | function | 101 | <code>def child_probe(kind,env):</code> |
+| `psql` | function | 113 | <code>def psql(env,query):</code> |
+| `owned` | function | 118 | <code>def owned(env):</code> |
+| `main` | function | 122 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/21_2.py
 
@@ -2728,11 +2700,11 @@ Source unavailable in this vendored tree.
 | `ExtendedFixture` | class | 46 | <code>class ExtendedFixture(original):</code> |
 | `__init__` | method | 47 | <code>def __init__(self,&#42;args,&#42;&#42;kwargs):</code> |
 | `sql` | method | 67 | <code>def sql(self,query,values=None,&#42;&#42;kwargs):</code> |
-| `emit` | function | 121 | <code>def emit(name,ok,detail):</code> |
-| `repeat_receipt_probe` | function | 124 | <code>def repeat_receipt_probe():</code> |
-| `triage_probe` | function | 135 | <code>def triage_probe():</code> |
-| `main` | function | 153 | <code>def main():</code> |
-| `cleanup` | function | 170 | <code>def cleanup():</code> |
+| `emit` | function | 122 | <code>def emit(name,ok,detail):</code> |
+| `repeat_receipt_probe` | function | 125 | <code>def repeat_receipt_probe():</code> |
+| `triage_probe` | function | 136 | <code>def triage_probe():</code> |
+| `main` | function | 154 | <code>def main():</code> |
+| `cleanup` | function | 171 | <code>def cleanup():</code> |
 
 ## tests/hyperfide/cases/tasks/21_3.py
 
@@ -2771,11 +2743,11 @@ Source unavailable in this vendored tree.
 | `run_task` | function | 99 | <code>def run_task(task):</code> |
 | `ensure_semantic_fence_schema` | function | 137 | <code>def ensure_semantic_fence_schema(f,service=None):</code> |
 | `apply_advisory_fixture_migration` | function | 150 | <code>def apply_advisory_fixture_migration(f,name,service=None):</code> |
-| `seed_advisory_amendment_source` | function | 165 | <code>def seed_advisory_amendment_source(f,service):</code> |
-| `signed_authority_probe` | function | 198 | <code>def signed_authority_probe(include_findings=False,include_amendment=False,include_legacy=False):</code> |
-| `durable_job_probe` | function | 365 | <code>def durable_job_probe():</code> |
-| `AdvisoryFixture` | class | 377 | <code>class AdvisoryFixture(jobs.Fixture):</code> |
-| `start` | method | 378 | <code>def start(self):</code> |
+| `seed_advisory_amendment_source` | function | 178 | <code>def seed_advisory_amendment_source(f,service):</code> |
+| `signed_authority_probe` | function | 213 | <code>def signed_authority_probe(include_findings=False,include_amendment=False,include_legacy=False):</code> |
+| `durable_job_probe` | function | 375 | <code>def durable_job_probe():</code> |
+| `AdvisoryFixture` | class | 387 | <code>class AdvisoryFixture(jobs.Fixture):</code> |
+| `start` | method | 388 | <code>def start(self):</code> |
 
 ## tests/hyperfide/cases/tasks/22_1.py
 
@@ -2912,27 +2884,27 @@ Source unavailable in this vendored tree.
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
 | `uid` | function | 16 | <code>def uid(n):return "00000000-0000-4000-8000-"+format(n,"012x")</code> |
-| `expect` | function | 25 | <code>def expect(condition,message="unexpected result"):</code> |
-| `check` | function | 27 | <code>def check(identity,fn):</code> |
-| `env_for` | function | 32 | <code>def env_for(db):</code> |
-| `sql` | function | 38 | <code>def sql(text,db=None):</code> |
-| `seed` | function | 43 | <code>def seed():</code> |
-| `component_dependencies` | function | 69 | <code>def component_dependencies(names):</code> |
-| `Fixture` | class | 83 | <code>class Fixture:</code> |
-| `__init__` | method | 84 | <code>def __init__(self,task):</code> |
-| `request` | method | 106 | <code>def request(self,action,payload,component=None):</code> |
-| `ok` | method | 111 | <code>def ok(self,action,payload,component=None):</code> |
-| `rejected` | method | 113 | <code>def rejected(self,action,payload,code,component=None):</code> |
-| `close` | method | 115 | <code>def close(self):self.identity.close()</code> |
-| `setup` | function | 116 | <code>def setup(task):return Fixture(task)</code> |
-| `observation_dir` | function | 117 | <code>def observation_dir():</code> |
-| `cleanup` | function | 121 | <code>def cleanup(emit=True):</code> |
-| `tests` | function | 165 | <code>def tests(f):</code> |
-| `count_attempts` | function | 211 | <code>def count_attempts():return sql("SELECT count(&#42;) FROM hyperfide.attempts WHERE organisation_id='"+ORG+"' AND run_id='"+RUN+"';")</code> |
-| `session` | function | 212 | <code>def session(snapshot,identity):</code> |
-| `control_loss` | function | 214 | <code>def control_loss(f,initial,base):</code> |
-| `session_liveness` | function | 242 | <code>def session_liveness(f):</code> |
-| `run` | function | 278 | <code>def run(task,callback):</code> |
+| `expect` | function | 20 | <code>def expect(condition,message="unexpected result"):</code> |
+| `check` | function | 22 | <code>def check(identity,fn):</code> |
+| `env_for` | function | 27 | <code>def env_for(db):</code> |
+| `sql` | function | 33 | <code>def sql(text,db=None):</code> |
+| `seed` | function | 40 | <code>def seed():</code> |
+| `component_dependencies` | function | 66 | <code>def component_dependencies(names):</code> |
+| `Fixture` | class | 80 | <code>class Fixture:</code> |
+| `__init__` | method | 81 | <code>def __init__(self,task):</code> |
+| `request` | method | 103 | <code>def request(self,action,payload,component=None):</code> |
+| `ok` | method | 108 | <code>def ok(self,action,payload,component=None):</code> |
+| `rejected` | method | 110 | <code>def rejected(self,action,payload,code,component=None):</code> |
+| `close` | method | 112 | <code>def close(self):self.identity.close()</code> |
+| `setup` | function | 113 | <code>def setup(task):return Fixture(task)</code> |
+| `observation_dir` | function | 114 | <code>def observation_dir():</code> |
+| `cleanup` | function | 118 | <code>def cleanup(emit=True):</code> |
+| `tests` | function | 166 | <code>def tests(f):</code> |
+| `count_attempts` | function | 228 | <code>def count_attempts():return sql("SELECT count(&#42;) FROM hyperfide.attempts WHERE organisation_id='"+ORG+"' AND run_id='"+RUN+"';")</code> |
+| `session` | function | 229 | <code>def session(snapshot,identity):</code> |
+| `control_loss` | function | 231 | <code>def control_loss(f,initial,base):</code> |
+| `session_liveness` | function | 259 | <code>def session_liveness(f):</code> |
+| `run` | function | 295 | <code>def run(task,callback):</code> |
 
 ## tests/hyperfide/cases/tasks/24_2.py
 
@@ -2962,24 +2934,24 @@ Source unavailable in this vendored tree.
 | `fencing_configuration` | function | 28 | <code>def fencing_configuration(root):</code> |
 | `listening` | function | 40 | <code>def listening(port):</code> |
 | `managed_fencing_tests` | function | 44 | <code>def managed_fencing_tests():</code> |
-| `inflight` | function | 80 | <code>def inflight(task,attempt,sandbox,slot,lease,key,session=None,execution="RUNNING",sandbox_state="RUNNING"):</code> |
-| `control` | function | 91 | <code>def control(kind,scope_id):return q(f"SELECT mode&#124;&#124;':'&#124;&#124;status&#124;&#124;':'&#124;&#124;generation FROM hyperfide.recovery_controls WHERE scope_kind='{kind}' AND scope_id='{scope_id}';")</code> |
-| `gate` | function | 92 | <code>def gate(kind,scope_id):return q(f"SELECT mode FROM hyperfide.execution_controls WHERE scope_kind='{kind}' AND scope_id='{scope_id}';")</code> |
-| `attempt_state` | function | 93 | <code>def attempt_state(attempt):return q(f"SELECT compute_authority&#124;&#124;':'&#124;&#124;execution_state FROM hyperfide.attempts WHERE id='{attempt}';")</code> |
-| `lease_state` | function | 94 | <code>def lease_state(lease):return q(f"SELECT state FROM hyperfide.compute_leases WHERE id='{lease}';")</code> |
-| `run_state` | function | 95 | <code>def run_state():return q(f"SELECT state FROM hyperfide.runs WHERE id='{m.RUN}';")</code> |
-| `open_debts` | function | 96 | <code>def open_debts(op):return sorted(q(f"SELECT id FROM hyperfide.recovery_resource_debts WHERE operation_id='{op}' AND status&lt;&gt;'RESOLVED';").split())</code> |
-| `debt_resources` | function | 97 | <code>def debt_resources(op,kind):return sorted(q(f"SELECT resource_id FROM hyperfide.recovery_resource_debts WHERE operation_id='{op}' AND resource_kind='{kind}';").split())</code> |
-| `record_inventory` | function | 98 | <code>def record_inventory(name,value):</code> |
-| `pause_tests` | function | 101 | <code>def pause_tests(f):</code> |
-| `drain_tests` | function | 120 | <code>def drain_tests(f):</code> |
-| `stop_tests` | function | 142 | <code>def stop_tests(f):</code> |
-| `historical_tests` | function | 185 | <code>def historical_tests(f,request):</code> |
-| `cancel_tests` | function | 203 | <code>def cancel_tests(f,request):</code> |
-| `tests` | function | 220 | <code>def tests(f):</code> |
-| `drop_fencing_database` | function | 227 | <code>def drop_fencing_database():</code> |
-| `cleanup` | function | 237 | <code>def cleanup(emit):</code> |
-| `main` | function | 250 | <code>def main():</code> |
+| `inflight` | function | 86 | <code>def inflight(task,attempt,sandbox,slot,lease,key,session=None,execution="RUNNING",sandbox_state="RUNNING"):</code> |
+| `control` | function | 97 | <code>def control(kind,scope_id):return q(f"SELECT mode&#124;&#124;':'&#124;&#124;status&#124;&#124;':'&#124;&#124;generation FROM hyperfide.recovery_controls WHERE scope_kind='{kind}' AND scope_id='{scope_id}';")</code> |
+| `gate` | function | 98 | <code>def gate(kind,scope_id):return q(f"SELECT mode FROM hyperfide.execution_controls WHERE scope_kind='{kind}' AND scope_id='{scope_id}';")</code> |
+| `attempt_state` | function | 99 | <code>def attempt_state(attempt):return q(f"SELECT compute_authority&#124;&#124;':'&#124;&#124;execution_state FROM hyperfide.attempts WHERE id='{attempt}';")</code> |
+| `lease_state` | function | 100 | <code>def lease_state(lease):return q(f"SELECT state FROM hyperfide.compute_leases WHERE id='{lease}';")</code> |
+| `run_state` | function | 101 | <code>def run_state():return q(f"SELECT state FROM hyperfide.runs WHERE id='{m.RUN}';")</code> |
+| `open_debts` | function | 102 | <code>def open_debts(op):return sorted(q(f"SELECT id FROM hyperfide.recovery_resource_debts WHERE operation_id='{op}' AND status&lt;&gt;'RESOLVED';").split())</code> |
+| `debt_resources` | function | 103 | <code>def debt_resources(op,kind):return sorted(q(f"SELECT resource_id FROM hyperfide.recovery_resource_debts WHERE operation_id='{op}' AND resource_kind='{kind}';").split())</code> |
+| `record_inventory` | function | 104 | <code>def record_inventory(name,value):</code> |
+| `pause_tests` | function | 107 | <code>def pause_tests(f):</code> |
+| `drain_tests` | function | 126 | <code>def drain_tests(f):</code> |
+| `stop_tests` | function | 148 | <code>def stop_tests(f):</code> |
+| `historical_tests` | function | 198 | <code>def historical_tests(f,request):</code> |
+| `cancel_tests` | function | 216 | <code>def cancel_tests(f,request):</code> |
+| `tests` | function | 240 | <code>def tests(f):</code> |
+| `drop_fencing_database` | function | 247 | <code>def drop_fencing_database():</code> |
+| `cleanup` | function | 257 | <code>def cleanup(emit):</code> |
+| `main` | function | 270 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/24_4.py
 
@@ -3146,17 +3118,17 @@ Source unavailable in this vendored tree.
 | `expect` | function | 9 | <code>def expect(value,message='Actual launcher contract differs'):</code> |
 | `check` | function | 11 | <code>def check(name,fn):</code> |
 | `last_json` | function | 15 | <code>def last_json(text):</code> |
-| `digest` | function | 17 | <code>def digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()</code> |
-| `tree` | function | 18 | <code>def tree(path):return {str(p.relative_to(path)):digest(p) for p in sorted(path.rglob('&#42;')) if p.is_file()}</code> |
-| `Release` | class | 19 | <code>class Release:</code> |
-| `__init__` | method | 21 | <code>def __init__(self,base):</code> |
-| `run` | method | 28 | <code>def run(self,args,env,binary='hyperfide',timeout=60,cwd=None):</code> |
-| `HostFixture` | class | 31 | <code>class HostFixture:</code> |
-| `__init__` | method | 33 | <code>def __init__(self,base):</code> |
-| `write` | method | 47 | <code>def write(self,path,body,mode=0o600):path.write_text(json.dumps(body));path.chmod(mode);return path</code> |
-| `launchers` | function | 48 | <code>def launchers(base,env):</code> |
-| `offline` | function | 95 | <code>def offline(base,env):</code> |
-| `main` | function | 125 | <code>def main():</code> |
+| `digest` | function | 21 | <code>def digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()</code> |
+| `tree` | function | 22 | <code>def tree(path):return {str(p.relative_to(path)):digest(p) for p in sorted(path.rglob('&#42;')) if p.is_file()}</code> |
+| `Release` | class | 23 | <code>class Release:</code> |
+| `__init__` | method | 25 | <code>def __init__(self,base):</code> |
+| `run` | method | 32 | <code>def run(self,args,env,binary='hyperfide',timeout=60,cwd=None):</code> |
+| `HostFixture` | class | 35 | <code>class HostFixture:</code> |
+| `__init__` | method | 37 | <code>def __init__(self,base):</code> |
+| `write` | method | 51 | <code>def write(self,path,body,mode=0o600):path.write_text(json.dumps(body));path.chmod(mode);return path</code> |
+| `launchers` | function | 52 | <code>def launchers(base,env):</code> |
+| `offline` | function | 99 | <code>def offline(base,env):</code> |
+| `main` | function | 137 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/26_4_recovery.py
 
@@ -3275,11 +3247,11 @@ Source unavailable in this vendored tree.
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
-| `controlled` | function | 30 | <code>def controlled(change="",positive=False):</code> |
-| `portable_cleanup_resource` | function | 35 | <code>def portable_cleanup_resource(remove=False):</code> |
-| `cleanup_readiness` | function | 52 | <code>def cleanup_readiness():</code> |
-| `portable_cases` | function | 67 | <code>def portable_cases():</code> |
-| `main` | function | 193 | <code>def main():</code> |
+| `controlled` | function | 37 | <code>def controlled(change="",positive=False):</code> |
+| `portable_cleanup_resource` | function | 42 | <code>def portable_cleanup_resource(remove=False):</code> |
+| `cleanup_readiness` | function | 59 | <code>def cleanup_readiness():</code> |
+| `portable_cases` | function | 74 | <code>def portable_cases():</code> |
+| `main` | function | 203 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/28_4.py
 
@@ -3289,8 +3261,8 @@ Source unavailable in this vendored tree.
 | --- | --- | ---: | --- |
 | `kvx_sections` | function | 8 | <code>def kvx_sections(text):</code> |
 | `independent_view` | function | 17 | <code>def independent_view(root):</code> |
-| `controlled_pack` | function | 30 | <code>def controlled_pack(base,mismatches):</code> |
-| `main` | function | 44 | <code>def main():</code> |
+| `controlled_pack` | function | 49 | <code>def controlled_pack(base,mismatches,uncatalogued=None,unmapped=(),relevel=False):</code> |
+| `main` | function | 84 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/2_1.py
 
@@ -3304,19 +3276,19 @@ Source unavailable in this vendored tree.
 | `outdir` | function | 29 | <code>def outdir():</code> |
 | `Service` | class | 32 | <code>class Service:</code> |
 | `__init__` | method | 33 | <code>def __init__(self,base):</code> |
-| `_bootstrap` | method | 62 | <code>def _bootstrap(self,value,run,overrides=None):</code> |
-| `_enrol` | method | 69 | <code>def _enrol(self,run):</code> |
-| `request` | method | 76 | <code>def request(self,action,input,run,component="spec-import",overrides=None):</code> |
-| `ok` | method | 94 | <code>def ok(self,&#42;args,&#42;&#42;kwargs):</code> |
-| `reject` | method | 96 | <code>def reject(self,action,input,run,codes,&#42;&#42;kwargs):</code> |
-| `source` | method | 98 | <code>def source(self,content=SOURCE):</code> |
-| `envelope` | method | 101 | <code>def envelope(self,run,source=None):</code> |
-| `probe` | function | 103 | <code>def probe(s):</code> |
-| `private_profile` | function | 239 | <code>def private_profile():</code> |
-| `private_probe` | function | 257 | <code>def private_probe(service):</code> |
-| `qualify_private` | function | 299 | <code>def qualify_private():</code> |
-| `cleanup` | function | 331 | <code>def cleanup():</code> |
-| `main` | function | 344 | <code>def main():</code> |
+| `_bootstrap` | method | 67 | <code>def _bootstrap(self,value,run,overrides=None):</code> |
+| `_enrol` | method | 74 | <code>def _enrol(self,run):</code> |
+| `request` | method | 83 | <code>def request(self,action,input,run,component="spec-import",overrides=None):</code> |
+| `ok` | method | 101 | <code>def ok(self,&#42;args,&#42;&#42;kwargs):</code> |
+| `reject` | method | 103 | <code>def reject(self,action,input,run,codes,&#42;&#42;kwargs):</code> |
+| `source` | method | 105 | <code>def source(self,content=SOURCE):</code> |
+| `envelope` | method | 108 | <code>def envelope(self,run,source=None):</code> |
+| `probe` | function | 110 | <code>def probe(s):</code> |
+| `private_profile` | function | 249 | <code>def private_profile():</code> |
+| `private_probe` | function | 267 | <code>def private_probe(service):</code> |
+| `qualify_private` | function | 309 | <code>def qualify_private():</code> |
+| `cleanup` | function | 341 | <code>def cleanup():</code> |
+| `main` | function | 354 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/2_2.py
 
@@ -3415,22 +3387,22 @@ Source unavailable in this vendored tree.
 | `check` | function | 16 | <code>def check(identity,callback):</code> |
 | `apply_migration` | function | 21 | <code>def apply_migration(f,name):</code> |
 | `HierarchyFixture` | class | 24 | <code>class HierarchyFixture(IdentityFixture):</code> |
-| `__init__` | method | 25 | <code>def __init__(self,extra_components=(),extra_setup=None,bootstrap=True,extra_env=None,seed_historical_runtime=True,source_object_id=None):</code> |
-| `ok` | method | 59 | <code>def ok(self,action,payload=None,key="leader",component="3.1"):</code> |
-| `reject` | method | 63 | <code>def reject(self,action,payload,code,key="leader",component="3.1"):</code> |
-| `bootstrap` | method | 67 | <code>def bootstrap(self):</code> |
-| `snapshot` | method | 72 | <code>def snapshot(self):</code> |
-| `add_package` | function | 77 | <code>def add_package(f,key,feature,wave,task=False):</code> |
-| `configure` | function | 83 | <code>def configure(f,key,feature,policy,suffix=""):</code> |
-| `assignment` | function | 85 | <code>def assignment(f,key,manager,generation="1",suffix=""):</code> |
-| `move` | function | 87 | <code>def move(f,key,generation,frm,to,suffix="",refs=(),lg="1"):</code> |
-| `package_row` | function | 89 | <code>def package_row(f,key):</code> |
-| `generations` | function | 91 | <code>def generations(f,keys):</code> |
-| `proposal` | function | 93 | <code>def proposal(f,name,successor,keys=ALPHA,lg="1",supersedes=None):</code> |
-| `ownership_and_lifecycle` | function | 97 | <code>def ownership_and_lifecycle(f,state):</code> |
-| `leader_loss_recovery` | function | 220 | <code>def leader_loss_recovery(f,state):</code> |
-| `readiness_refusals` | function | 240 | <code>def readiness_refusals(f):</code> |
-| `main` | function | 273 | <code>def main():</code> |
+| `__init__` | method | 25 | <code>def __init__(self,extra_components=(),extra_setup=None,bootstrap=True,extra_env=None,seed_historical_runtime=True,source_object_id=None,parent_managers=False,native_session_placeholders=True,credentia…</code> |
+| `ok` | method | 60 | <code>def ok(self,action,payload=None,key="leader",component="3.1"):</code> |
+| `reject` | method | 64 | <code>def reject(self,action,payload,code,key="leader",component="3.1"):</code> |
+| `bootstrap` | method | 68 | <code>def bootstrap(self):</code> |
+| `snapshot` | method | 73 | <code>def snapshot(self):</code> |
+| `add_package` | function | 78 | <code>def add_package(f,key,feature,wave,task=False):</code> |
+| `configure` | function | 84 | <code>def configure(f,key,feature,policy,suffix=""):</code> |
+| `assignment` | function | 86 | <code>def assignment(f,key,manager,generation="1",suffix=""):</code> |
+| `move` | function | 88 | <code>def move(f,key,generation,frm,to,suffix="",refs=(),lg="1"):</code> |
+| `package_row` | function | 90 | <code>def package_row(f,key):</code> |
+| `generations` | function | 92 | <code>def generations(f,keys):</code> |
+| `proposal` | function | 94 | <code>def proposal(f,name,successor,keys=ALPHA,lg="1",supersedes=None):</code> |
+| `ownership_and_lifecycle` | function | 98 | <code>def ownership_and_lifecycle(f,state):</code> |
+| `leader_loss_recovery` | function | 221 | <code>def leader_loss_recovery(f,state):</code> |
+| `readiness_refusals` | function | 241 | <code>def readiness_refusals(f):</code> |
+| `main` | function | 274 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/3_2.py
 
@@ -3446,22 +3418,22 @@ Source unavailable in this vendored tree.
 | `parse_kvx` | function | 35 | <code>def parse_kvx(source):</code> |
 | `accept_spec` | function | 37 | <code>def accept_spec(f,generation,criterion="A task packet SHALL identify exact inputs. Mandatory intent and constraints SHALL not be removed by context ranking."):</code> |
 | `move_run` | function | 47 | <code>def move_run(f,generation,spec,state):</code> |
-| `prepared_slot` | function | 49 | <code>def prepared_slot(f,key,commit):</code> |
-| `PacketFixture` | class | 72 | <code>class PacketFixture(HierarchyFixture):</code> |
-| `__init__` | method | 73 | <code>def __init__(self,extra_components=(),extra_setup=None,bootstrap=True,seed_historical_runtime=True,extra_env=None,source_object_id=None):</code> |
-| `task_definition` | method | 88 | <code>def task_definition(self,section=None,&#42;&#42;overrides):</code> |
-| `insert_task` | method | 95 | <code>def insert_task(self,key,definition,criteria=None,generation=2,spec=None):</code> |
-| `proof_policy` | method | 99 | <code>def proof_policy(self,criteria,generation=2,spec=None):</code> |
-| `register_proof` | method | 104 | <code>def register_proof(self,task,policy):</code> |
-| `accepted_task` | method | 107 | <code>def accepted_task(self,key,&#42;&#42;overrides):</code> |
-| `packet_input` | method | 109 | <code>def packet_input(self,&#42;&#42;overrides):</code> |
-| `create_packet` | method | 111 | <code>def create_packet(self,&#42;&#42;overrides):</code> |
-| `refuse_packet` | method | 113 | <code>def refuse_packet(self,code,&#42;&#42;overrides):</code> |
-| `validate` | method | 115 | <code>def validate(self,digest):</code> |
-| `stale` | method | 117 | <code>def stale(self,digest,reason):</code> |
-| `without_attempt` | function | 121 | <code>def without_attempt(mandatory):</code> |
-| `main` | function | 123 | <code>def main():</code> |
-| `graph_inputs_regression` | function | 285 | <code>def graph_inputs_regression():</code> |
+| `prepared_slot` | function | 49 | <code>def prepared_slot(f,key,commit,provider_config=None):</code> |
+| `PacketFixture` | class | 73 | <code>class PacketFixture(HierarchyFixture):</code> |
+| `__init__` | method | 74 | <code>def __init__(self,extra_components=(),extra_setup=None,bootstrap=True,seed_historical_runtime=True,extra_env=None,source_object_id=None,provider_config=None,credential_actions=None):</code> |
+| `task_definition` | method | 89 | <code>def task_definition(self,section=None,&#42;&#42;overrides):</code> |
+| `insert_task` | method | 96 | <code>def insert_task(self,key,definition,criteria=None,generation=2,spec=None):</code> |
+| `proof_policy` | method | 100 | <code>def proof_policy(self,criteria,generation=2,spec=None):</code> |
+| `register_proof` | method | 105 | <code>def register_proof(self,task,policy):</code> |
+| `accepted_task` | method | 108 | <code>def accepted_task(self,key,&#42;&#42;overrides):</code> |
+| `packet_input` | method | 110 | <code>def packet_input(self,&#42;&#42;overrides):</code> |
+| `create_packet` | method | 112 | <code>def create_packet(self,&#42;&#42;overrides):</code> |
+| `refuse_packet` | method | 114 | <code>def refuse_packet(self,code,&#42;&#42;overrides):</code> |
+| `validate` | method | 116 | <code>def validate(self,digest):</code> |
+| `stale` | method | 118 | <code>def stale(self,digest,reason):</code> |
+| `without_attempt` | function | 122 | <code>def without_attempt(mandatory):</code> |
+| `main` | function | 124 | <code>def main():</code> |
+| `graph_inputs_regression` | function | 286 | <code>def graph_inputs_regression():</code> |
 
 ## tests/hyperfide/cases/tasks/3_3.py
 
@@ -3489,11 +3461,11 @@ Source unavailable in this vendored tree.
 | `check` | function | 16 | <code>def check(identity,fn):</code> |
 | `native_profiles` | function | 20 | <code>def native_profiles(f):</code> |
 | `accepted_intent` | function | 37 | <code>def accepted_intent(f):</code> |
-| `claim` | function | 54 | <code>def claim(f):</code> |
-| `rotate_epoch` | function | 63 | <code>def rotate_epoch(f,writer):</code> |
-| `SupervisorFixture` | class | 70 | <code>class SupervisorFixture(sched.SchedulerFixture):</code> |
-| `__init__` | method | 71 | <code>def __init__(self,extra_setup=None,bootstrap=True):</code> |
-| `main` | function | 77 | <code>def main():</code> |
+| `claim` | function | 55 | <code>def claim(f):</code> |
+| `rotate_epoch` | function | 64 | <code>def rotate_epoch(f,writer):</code> |
+| `SupervisorFixture` | class | 71 | <code>class SupervisorFixture(sched.SchedulerFixture):</code> |
+| `__init__` | method | 72 | <code>def __init__(self,extra_setup=None,bootstrap=True):</code> |
+| `main` | function | 78 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/4_1.py
 
@@ -3507,20 +3479,20 @@ Source unavailable in this vendored tree.
 | `database_env` | function | 52 | <code>def database_env(database=DATABASE):</code> |
 | `sql` | function | 60 | <code>def sql(text, &#42;, database=DATABASE, allow_error=False):</code> |
 | `observation_dir` | function | 74 | <code>def observation_dir():</code> |
-| `cleanup` | function | 79 | <code>def cleanup():</code> |
-| `Service` | class | 97 | <code>class Service:</code> |
-| `__init__` | method | 98 | <code>def __init__(self, base):</code> |
-| `request` | method | 106 | <code>def request(self, action, value=None, &#42;, policy=None, env=None):</code> |
-| `ok` | method | 122 | <code>def ok(self,action,value=None):</code> |
-| `reject` | method | 127 | <code>def reject(self,action,value,code):</code> |
-| `create` | method | 132 | <code>def create(self,kind,record):</code> |
-| `reject_create` | method | 134 | <code>def reject_create(self,kind,record,code):</code> |
-| `validators` | function | 144 | <code>def validators(service):</code> |
-| `schema_checks` | function | 195 | <code>def schema_checks(service):</code> |
-| `final_schema_negatives` | function | 261 | <code>def final_schema_negatives(service):</code> |
-| `relational` | function | 283 | <code>def relational(service):</code> |
-| `relational_final` | function | 353 | <code>def relational_final(service,xid,scope,epoch,custody):</code> |
-| `main` | function | 404 | <code>def main():</code> |
+| `cleanup` | function | 86 | <code>def cleanup():</code> |
+| `Service` | class | 104 | <code>class Service:</code> |
+| `__init__` | method | 105 | <code>def __init__(self, base):</code> |
+| `request` | method | 113 | <code>def request(self, action, value=None, &#42;, policy=None, env=None):</code> |
+| `ok` | method | 129 | <code>def ok(self,action,value=None):</code> |
+| `reject` | method | 134 | <code>def reject(self,action,value,code):</code> |
+| `create` | method | 139 | <code>def create(self,kind,record):</code> |
+| `reject_create` | method | 141 | <code>def reject_create(self,kind,record,code):</code> |
+| `validators` | function | 151 | <code>def validators(service):</code> |
+| `schema_checks` | function | 202 | <code>def schema_checks(service):</code> |
+| `final_schema_negatives` | function | 276 | <code>def final_schema_negatives(service):</code> |
+| `relational` | function | 300 | <code>def relational(service):</code> |
+| `relational_final` | function | 370 | <code>def relational_final(service,xid,scope,epoch,custody):</code> |
+| `main` | function | 421 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/4_2.py
 
@@ -3597,21 +3569,21 @@ Source unavailable in this vendored tree.
 | `cleanup_owned` | function | 38 | <code>def cleanup_owned(task):</code> |
 | `expect` | function | 80 | <code>def expect(value,message):</code> |
 | `check` | function | 82 | <code>def check(name,callback):</code> |
-| `accept_scheduler_spec` | function | 91 | <code>def accept_scheduler_spec(f,tasks):</code> |
-| `SchedulerFixture` | class | 106 | <code>class SchedulerFixture(PacketFixture):</code> |
-| `__init__` | method | 107 | <code>def __init__(self,extra_components=(),extra_setup=None,agent_limit=2,bootstrap=True,sandbox_cpu_limit=8000,sandbox_cpu_headroom=1000,source_object_id=None,extra_env=None,extra_tasks=()):</code> |
-| `start` | method | 143 | <code>def start(self):</code> |
-| `capacity` | method | 147 | <code>def capacity(self,job="AGENT"):</code> |
-| `packet_request` | method | 151 | <code>def packet_request(self,name="a",&#42;&#42;overrides):</code> |
-| `prepare_claim` | method | 153 | <code>def prepare_claim(self,name="a",lease_ms=300000):</code> |
-| `claim` | method | 158 | <code>def claim(self,name="a",request=None,lease_ms=300000):</code> |
-| `primary` | method | 161 | <code>def primary(self,body,data=None):</code> |
-| `counts` | method | 179 | <code>def counts(self):</code> |
-| `allow_describe` | function | 181 | <code>def allow_describe(f):</code> |
-| `add_slot` | function | 191 | <code>def add_slot(f,key):</code> |
-| `ledger` | function | 193 | <code>def ledger(f):</code> |
-| `refused_unchanged` | function | 203 | <code>def refused_unchanged(f,request,code,key="manager",message=None):</code> |
-| `main` | function | 208 | <code>def main():</code> |
+| `accept_scheduler_spec` | function | 94 | <code>def accept_scheduler_spec(f,tasks):</code> |
+| `SchedulerFixture` | class | 109 | <code>class SchedulerFixture(PacketFixture):</code> |
+| `__init__` | method | 110 | <code>def __init__(self,extra_components=(),extra_setup=None,agent_limit=2,bootstrap=True,sandbox_cpu_limit=8000,sandbox_cpu_headroom=1000,source_object_id=None,extra_env=None,extra_tasks=(),provider_config…</code> |
+| `start` | method | 146 | <code>def start(self):</code> |
+| `capacity` | method | 150 | <code>def capacity(self,job="AGENT"):</code> |
+| `packet_request` | method | 154 | <code>def packet_request(self,name="a",&#42;&#42;overrides):</code> |
+| `prepare_claim` | method | 156 | <code>def prepare_claim(self,name="a",lease_ms=300000):</code> |
+| `claim` | method | 161 | <code>def claim(self,name="a",request=None,lease_ms=300000):</code> |
+| `primary` | method | 164 | <code>def primary(self,body,data=None):</code> |
+| `counts` | method | 182 | <code>def counts(self):</code> |
+| `allow_describe` | function | 184 | <code>def allow_describe(f):</code> |
+| `add_slot` | function | 194 | <code>def add_slot(f,key):</code> |
+| `ledger` | function | 196 | <code>def ledger(f):</code> |
+| `refused_unchanged` | function | 206 | <code>def refused_unchanged(f,request,code,key="manager",message=None):</code> |
+| `main` | function | 211 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/5_2.py
 
@@ -3619,31 +3591,28 @@ Source unavailable in this vendored tree.
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
-| `kvx` | function | 10 | <code>def kvx(name,&#42;&#42;fields):return {"name":name,"fields":{key:{"value":value} for key,value in fields.items()}}</code> |
-| `SchedulerFixture` | class | 16 | <code>class SchedulerFixture(m.SchedulerFixture):</code> |
-| `sql` | method | 17 | <code>def sql(self,sql,values=None,admin=False,serial=True):</code> |
-| `lease_setup` | function | 31 | <code>def lease_setup(f):</code> |
-| `lease_fixture` | function | 47 | <code>def lease_fixture():</code> |
-| `reclaim` | function | 49 | <code>def reclaim(f,name,generation,lease_ms=300000):</code> |
-| `bootstrap_runner` | function | 56 | <code>def bootstrap_runner(f):</code> |
-| `try_reclaim` | function | 64 | <code>def try_reclaim(f,name,generation):</code> |
-| `delegate_worker` | function | 73 | <code>def delegate_worker(f,token,name):</code> |
-| `renew` | function | 79 | <code>def renew(f,key,token,lease_ms=1000,&#42;&#42;kwargs):</code> |
-| `expire` | function | 81 | <code>def expire(f):</code> |
-| `code` | function | 83 | <code>def code(response):return response.get("error",{}).get("code")</code> |
-| `primary_now` | function | 84 | <code>def primary_now(f):return f.sql("SELECT clock_timestamp()::text AS now")&#91;0&#93;&#91;"now"&#93;</code> |
-| `from_primary` | function | 85 | <code>def from_primary(f,expires,before,after,ms):</code> |
-| `attempt_state` | function | 87 | <code>def attempt_state(f,attempt):</code> |
-| `current_generations` | function | 89 | <code>def current_generations(f,task):</code> |
-| `wait_past` | function | 91 | <code>def wait_past(f,expires,margin_ms=50):</code> |
-| `concurrently` | function | 93 | <code>def concurrently(&#42;calls):</code> |
-| `admit_custody` | function | 100 | <code>def admit_custody(f,token):</code> |
-| `revoke_custody` | function | 108 | <code>def revoke_custody(f,custody):</code> |
-| `generations` | function | 118 | <code>def generations():</code> |
-| `m_try` | function | 226 | <code>def m_try(call):</code> |
-| `races` | function | 233 | <code>def races():</code> |
-| `cleanup` | function | 289 | <code>def cleanup():</code> |
-| `main` | function | 304 | <code>def main():</code> |
+| `lease_setup` | function | 12 | <code>def lease_setup(f):</code> |
+| `lease_fixture` | function | 28 | <code>def lease_fixture():</code> |
+| `reclaim` | function | 30 | <code>def reclaim(f,name,generation,lease_ms=300000):</code> |
+| `bootstrap_runner` | function | 37 | <code>def bootstrap_runner(f):</code> |
+| `try_reclaim` | function | 45 | <code>def try_reclaim(f,name,generation):</code> |
+| `delegate_worker` | function | 54 | <code>def delegate_worker(f,token,name):</code> |
+| `renew` | function | 60 | <code>def renew(f,key,token,lease_ms=1000,&#42;&#42;kwargs):</code> |
+| `expire` | function | 62 | <code>def expire(f):</code> |
+| `code` | function | 64 | <code>def code(response):return response.get("error",{}).get("code")</code> |
+| `primary_now` | function | 65 | <code>def primary_now(f):return f.sql("SELECT clock_timestamp()::text AS now")&#91;0&#93;&#91;"now"&#93;</code> |
+| `from_primary` | function | 66 | <code>def from_primary(f,expires,before,after,ms):</code> |
+| `attempt_state` | function | 68 | <code>def attempt_state(f,attempt):</code> |
+| `current_generations` | function | 70 | <code>def current_generations(f,task):</code> |
+| `wait_past` | function | 72 | <code>def wait_past(f,expires,margin_ms=50):</code> |
+| `concurrently` | function | 74 | <code>def concurrently(&#42;calls):</code> |
+| `admit_custody` | function | 81 | <code>def admit_custody(f,token):</code> |
+| `revoke_custody` | function | 89 | <code>def revoke_custody(f,custody):</code> |
+| `generations` | function | 99 | <code>def generations():</code> |
+| `m_try` | function | 207 | <code>def m_try(call):</code> |
+| `races` | function | 214 | <code>def races():</code> |
+| `cleanup` | function | 271 | <code>def cleanup():</code> |
+| `main` | function | 286 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/5_3.py
 
@@ -3651,23 +3620,21 @@ Source unavailable in this vendored tree.
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
-| `field` | function | 9 | <code>def field(key,value,line):return {"key":key,"raw":json.dumps(value),"value":value,"line":line}</code> |
-| `accepted_intent` | function | 10 | <code>def accepted_intent(f):</code> |
-| `describe_access` | function | 25 | <code>def describe_access(f):</code> |
-| `fixture` | function | 33 | <code>def fixture(describe=False,&#42;&#42;kwargs):</code> |
-| `registered` | function | 38 | <code>def registered(f):</code> |
-| `reconcile_probe` | function | 53 | <code>def reconcile_probe(f,request_id,observation):return f.primary(RECONCILE_JS,{"request_id":request_id,"observation":observation})</code> |
-| `outcome` | function | 54 | <code>def outcome(response):</code> |
-| `refused` | function | 56 | <code>def refused(response,code):expect(response.get("error",{}).get("code")==code,"Expected "+code+", observed "+json.dumps(response))</code> |
-| `receipt` | function | 57 | <code>def receipt(f,state="COMPLETED"):</code> |
-| `dispatch` | function | 62 | <code>def dispatch(f,request_id):</code> |
-| `attempt` | function | 64 | <code>def attempt(f,attempt_id):</code> |
-| `lost_response` | function | 71 | <code>def lost_response(f,action,payload,key,component):</code> |
-| `crash_after_commit` | function | 91 | <code>def crash_after_commit(f,request):</code> |
-| `wait_rows` | function | 94 | <code>def wait_rows(f,sql,values,deadline=20):</code> |
-| `prepare_replacement` | function | 101 | <code>def prepare_replacement(f,name,generation):</code> |
-| `cleanup` | function | 109 | <code>def cleanup():</code> |
-| `main` | function | 125 | <code>def main():</code> |
+| `describe_access` | function | 9 | <code>def describe_access(f):</code> |
+| `fixture` | function | 17 | <code>def fixture(describe=False,&#42;&#42;kwargs):</code> |
+| `registered` | function | 21 | <code>def registered(f):</code> |
+| `reconcile_probe` | function | 36 | <code>def reconcile_probe(f,request_id,observation):return f.primary(RECONCILE_JS,{"request_id":request_id,"observation":observation})</code> |
+| `outcome` | function | 37 | <code>def outcome(response):</code> |
+| `refused` | function | 39 | <code>def refused(response,code):expect(response.get("error",{}).get("code")==code,"Expected "+code+", observed "+json.dumps(response))</code> |
+| `receipt` | function | 40 | <code>def receipt(f,state="COMPLETED"):</code> |
+| `dispatch` | function | 45 | <code>def dispatch(f,request_id):</code> |
+| `attempt` | function | 47 | <code>def attempt(f,attempt_id):</code> |
+| `lost_response` | function | 54 | <code>def lost_response(f,action,payload,key,component):</code> |
+| `crash_after_commit` | function | 74 | <code>def crash_after_commit(f,request):</code> |
+| `wait_rows` | function | 77 | <code>def wait_rows(f,sql,values,deadline=20):</code> |
+| `prepare_replacement` | function | 84 | <code>def prepare_replacement(f,name,generation):</code> |
+| `cleanup` | function | 92 | <code>def cleanup():</code> |
+| `main` | function | 108 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/5_4.py
 
@@ -3675,32 +3642,31 @@ Source unavailable in this vendored tree.
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
-| `accept_generation_two` | function | 34 | <code>def accept_generation_two(f):</code> |
-| `setup` | function | 52 | <code>def setup(f):</code> |
-| `ResourceFixture` | class | 73 | <code>class ResourceFixture(m.SchedulerFixture):</code> |
-| `__init__` | method | 74 | <code>def __init__(self):</code> |
-| `prepare_claim` | method | 76 | <code>def prepare_claim(self,name="a",lease_ms=300000):</code> |
-| `set_policy` | method | 78 | <code>def set_policy(self,&#42;&#42;values):</code> |
-| `account` | method | 81 | <code>def account(self,ident):</code> |
-| `lower` | method | 83 | <code>def lower(self,body,data=None,timeout=60):</code> |
-| `new_pool` | method | 101 | <code>def new_pool(self,limits):</code> |
-| `scope_of` | function | 110 | <code>def scope_of(f):</code> |
-| `job` | function | 113 | <code>def job(f,kind,priority=0,wait="CAPACITY",deadline=300000,task="a"):</code> |
-| `queue` | function | 115 | <code>def queue(f,request):return f.ok("scheduler.resources.queue",request,key="manager",component="5.4")</code> |
-| `admit` | function | 116 | <code>def admit(f,waiter,&#42;&#42;extra):return f.ok("scheduler.resources.admit",dict(scope_of(f),waiter_id=waiter,&#42;&#42;extra),key="manager",component="5.4")</code> |
-| `expire` | function | 117 | <code>def expire(f,waiter):</code> |
-| `reservations` | function | 119 | <code>def reservations(f,requests):</code> |
-| `waiter_request` | function | 121 | <code>def waiter_request(f,waiter):return f.sql("SELECT request_id FROM hyperfide.resource_waiters WHERE id=$1",&#91;waiter&#93;)&#91;0&#93;&#91;"request_id"&#93;</code> |
-| `limit_kind` | function | 123 | <code>def limit_kind(f,kind,observed):</code> |
-| `primary_section` | function | 137 | <code>def primary_section(f):</code> |
-| `fairness_section` | function | 253 | <code>def fairness_section(f):</code> |
-| `ceiling_section` | function | 361 | <code>def ceiling_section(f):</code> |
-| `workload` | function | 394 | <code>def workload(seed):</code> |
-| `reference` | function | 404 | <code>def reference(events):</code> |
-| `replay_section` | function | 433 | <code>def replay_section(f,base_seed):</code> |
-| `run_fixture` | function | 461 | <code>def run_fixture(name,section,&#42;args):</code> |
-| `main` | function | 468 | <code>def main():</code> |
-| `cleanup` | function | 477 | <code>def cleanup():</code> |
+| `setup` | function | 53 | <code>def setup(f):</code> |
+| `ResourceFixture` | class | 74 | <code>class ResourceFixture(m.SchedulerFixture):</code> |
+| `__init__` | method | 75 | <code>def __init__(self):</code> |
+| `prepare_claim` | method | 77 | <code>def prepare_claim(self,name="a",lease_ms=300000):</code> |
+| `set_policy` | method | 79 | <code>def set_policy(self,&#42;&#42;values):</code> |
+| `account` | method | 82 | <code>def account(self,ident):</code> |
+| `lower` | method | 84 | <code>def lower(self,body,data=None,timeout=60):</code> |
+| `new_pool` | method | 102 | <code>def new_pool(self,limits):</code> |
+| `scope_of` | function | 111 | <code>def scope_of(f):</code> |
+| `job` | function | 114 | <code>def job(f,kind,priority=0,wait="CAPACITY",deadline=300000,task="a"):</code> |
+| `queue` | function | 116 | <code>def queue(f,request):return f.ok("scheduler.resources.queue",request,key="manager",component="5.4")</code> |
+| `admit` | function | 117 | <code>def admit(f,waiter,&#42;&#42;extra):return f.ok("scheduler.resources.admit",dict(scope_of(f),waiter_id=waiter,&#42;&#42;extra),key="manager",component="5.4")</code> |
+| `expire` | function | 118 | <code>def expire(f,waiter):</code> |
+| `reservations` | function | 120 | <code>def reservations(f,requests):</code> |
+| `waiter_request` | function | 122 | <code>def waiter_request(f,waiter):return f.sql("SELECT request_id FROM hyperfide.resource_waiters WHERE id=$1",&#91;waiter&#93;)&#91;0&#93;&#91;"request_id"&#93;</code> |
+| `limit_kind` | function | 124 | <code>def limit_kind(f,kind,observed):</code> |
+| `primary_section` | function | 138 | <code>def primary_section(f):</code> |
+| `fairness_section` | function | 254 | <code>def fairness_section(f):</code> |
+| `ceiling_section` | function | 362 | <code>def ceiling_section(f):</code> |
+| `workload` | function | 395 | <code>def workload(seed):</code> |
+| `reference` | function | 405 | <code>def reference(events):</code> |
+| `replay_section` | function | 434 | <code>def replay_section(f,base_seed):</code> |
+| `run_fixture` | function | 462 | <code>def run_fixture(name,section,&#42;args):</code> |
+| `main` | function | 469 | <code>def main():</code> |
+| `cleanup` | function | 478 | <code>def cleanup():</code> |
 
 ## tests/hyperfide/cases/tasks/6_1.py
 
@@ -3743,7 +3709,7 @@ Source unavailable in this vendored tree.
 | `suite63` | function | 471 | <code>def suite63(s):</code> |
 | `suite64` | function | 624 | <code>def suite64(s):</code> |
 | `daemon_lifecycle` | function | 672 | <code>def daemon_lifecycle(s):</code> |
-| `main` | function | 771 | <code>def main(task="6.1"):</code> |
+| `main` | function | 787 | <code>def main(task="6.1"):</code> |
 
 ## tests/hyperfide/cases/tasks/6_3.py
 
@@ -3806,17 +3772,17 @@ Source unavailable in this vendored tree.
 | `ready` | method | 84 | <code>def ready(self,manifest=None):</code> |
 | `publish` | method | 91 | <code>def publish(self,build,channel="main",expected="0",operation=None):</code> |
 | `ingestion` | function | 93 | <code>def ingestion(f):</code> |
-| `branch_commit` | function | 160 | <code>def branch_commit(f):</code> |
-| `extract_at` | function | 168 | <code>def extract_at(f,source,generation):</code> |
-| `drive` | function | 170 | <code>def drive(f,manifest,chunks,limit):</code> |
-| `committed_transactions` | function | 180 | <code>def committed_transactions():</code> |
-| `network_amplification` | function | 184 | <code>def network_amplification(f,branch):</code> |
-| `graph_saturation` | function | 205 | <code>def graph_saturation(f,build):</code> |
-| `branch_race` | function | 259 | <code>def branch_race(f,branch):</code> |
-| `artifact_status` | function | 290 | <code>def artifact_status(build,status):</code> |
-| `publication` | function | 294 | <code>def publication(f):</code> |
-| `querying` | function | 380 | <code>def querying(f):</code> |
-| `main` | function | 528 | <code>def main(mode="7.2"):</code> |
+| `branch_commit` | function | 194 | <code>def branch_commit(f):</code> |
+| `extract_at` | function | 202 | <code>def extract_at(f,source,generation):</code> |
+| `drive` | function | 204 | <code>def drive(f,manifest,chunks,limit):</code> |
+| `committed_transactions` | function | 214 | <code>def committed_transactions():</code> |
+| `network_amplification` | function | 218 | <code>def network_amplification(f,branch):</code> |
+| `graph_saturation` | function | 239 | <code>def graph_saturation(f,build):</code> |
+| `branch_race` | function | 293 | <code>def branch_race(f,branch):</code> |
+| `artifact_status` | function | 324 | <code>def artifact_status(build,status):</code> |
+| `publication` | function | 328 | <code>def publication(f):</code> |
+| `querying` | function | 414 | <code>def querying(f):</code> |
+| `main` | function | 562 | <code>def main(mode="7.2"):</code> |
 
 ## tests/hyperfide/cases/tasks/7_3.py
 
@@ -3853,7 +3819,7 @@ Source unavailable in this vendored tree.
 | `socket_up` | function | 55 | <code>def socket_up(path):</code> |
 | `absence` | function | 60 | <code>def absence(item):</code> |
 | `cleanup` | function | 64 | <code>def cleanup():</code> |
-| `main` | function | 78 | <code>def main():</code> |
+| `main` | function | 97 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/8_1.py
 
@@ -3884,9 +3850,9 @@ Source unavailable in this vendored tree.
 | `define_cases` | function | 206 | <code>def define_cases():</code> |
 | `Service` | class | 382 | <code>class Service:</code> |
 | `__init__` | method | 383 | <code>def __init__(self, directory):</code> |
-| `request` | method | 400 | <code>def request(self, action, payload):</code> |
-| `close` | method | 414 | <code>def close(self):</code> |
-| `main` | function | 427 | <code>def main():</code> |
+| `request` | method | 405 | <code>def request(self, action, payload):</code> |
+| `close` | method | 419 | <code>def close(self):</code> |
+| `main` | function | 432 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/8_2.py
 
@@ -3898,8 +3864,8 @@ Source unavailable in this vendored tree.
 | `check` | function | 15 | <code>def check(name,fn):</code> |
 | `sha` | function | 19 | <code>def sha(data):return "sha256:"+hashlib.sha256(data).hexdigest()</code> |
 | `ProvisionerFixture` | class | 20 | <code>class ProvisionerFixture(identity.IdentityFixture):</code> |
-| `__init__` | method | 21 | <code>def __init__(self,&#42;args,&#42;&#42;kwargs):super().__init__(&#42;args,service_role="provisioner",&#42;&#42;kwargs)</code> |
-| `main` | function | 22 | <code>def main():</code> |
+| `__init__` | method | 21 | <code>def __init__(self,&#42;args,&#42;&#42;kwargs):</code> |
+| `main` | function | 31 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/8_3.py
 
@@ -3908,21 +3874,21 @@ Source unavailable in this vendored tree.
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
 | `load` | function | 7 | <code>def load(name,path):</code> |
-| `check` | function | 21 | <code>def check(name,fn):</code> |
-| `sha` | function | 25 | <code>def sha(value):return "sha256:"+hashlib.sha256(value).hexdigest()</code> |
-| `utc` | function | 26 | <code>def utc(ms=60000):return time.strftime("%Y-%m-%dT%H:%M:%S",time.gmtime((time.time()&#42;1000+ms)/1000))+".000Z"</code> |
-| `prepare_provider_intent_fixture` | function | 27 | <code>def prepare_provider_intent_fixture(f):</code> |
-| `seed_provider_capacity` | function | 37 | <code>def seed_provider_capacity(f):</code> |
-| `spawn_service` | function | 95 | <code>def spawn_service(f,role,port,components,module_root):</code> |
-| `simulated_module_root` | function | 108 | <code>def simulated_module_root(folder):</code> |
-| `SimulatedProvisionerFixture` | class | 117 | <code>class SimulatedProvisionerFixture(pools.ProvisionerFixture):</code> |
-| `__init__` | method | 119 | <code>def __init__(self,module_root,&#42;&#42;kwargs):self.module_root=module_root;super().__init__(&#42;&#42;kwargs)</code> |
-| `start` | method | 120 | <code>def start(self):self.child=spawn_service(self,"provisioner",self.port,self.components,self.module_root)</code> |
-| `crash` | method | 121 | <code>def crash(self):</code> |
-| `stop` | method | 123 | <code>def stop(self):</code> |
-| `wait_for` | function | 130 | <code>def wait_for(predicate,detail,seconds=30):</code> |
-| `worker_composition` | function | 139 | <code>def worker_composition(check):</code> |
-| `main` | function | 270 | <code>def main():</code> |
+| `check` | function | 22 | <code>def check(name,fn):</code> |
+| `sha` | function | 26 | <code>def sha(value):return "sha256:"+hashlib.sha256(value).hexdigest()</code> |
+| `utc` | function | 27 | <code>def utc(ms=60000):return time.strftime("%Y-%m-%dT%H:%M:%S",time.gmtime((time.time()&#42;1000+ms)/1000))+".000Z"</code> |
+| `prepare_provider_intent_fixture` | function | 28 | <code>def prepare_provider_intent_fixture(f):</code> |
+| `seed_provider_capacity` | function | 38 | <code>def seed_provider_capacity(f):</code> |
+| `spawn_service` | function | 97 | <code>def spawn_service(f,role,port,components,module_root):</code> |
+| `simulated_module_root` | function | 110 | <code>def simulated_module_root(folder):</code> |
+| `SimulatedProvisionerFixture` | class | 119 | <code>class SimulatedProvisionerFixture(pools.ProvisionerFixture):</code> |
+| `__init__` | method | 121 | <code>def __init__(self,module_root,&#42;&#42;kwargs):self.module_root=module_root;super().__init__(&#42;&#42;kwargs)</code> |
+| `start` | method | 122 | <code>def start(self):self.child=spawn_service(self,"provisioner",self.port,self.components,self.module_root)</code> |
+| `crash` | method | 123 | <code>def crash(self):</code> |
+| `stop` | method | 125 | <code>def stop(self):</code> |
+| `wait_for` | function | 132 | <code>def wait_for(predicate,detail,seconds=30):</code> |
+| `worker_composition` | function | 141 | <code>def worker_composition(check):</code> |
+| `main` | function | 278 | <code>def main():</code> |
 
 ## tests/hyperfide/cases/tasks/8_4.py
 
@@ -3999,7 +3965,7 @@ Source unavailable in this vendored tree.
 | --- | --- | ---: | --- |
 | `simulate_quota` | function | 26 | <code>def simulate_quota(fixture):</code> |
 | `actual_factory_checks` | function | 43 | <code>def actual_factory_checks(fixture,folder):</code> |
-| `main` | function | 137 | <code>def main():</code> |
+| `main` | function | 140 | <code>def main():</code> |
 
 ## tests/hyperfide/check-evidence.py
 
@@ -4007,31 +3973,31 @@ Source unavailable in this vendored tree.
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
-| `InvalidEvidence` | class | 23 | <code>class InvalidEvidence(Exception):</code> |
-| `require` | function | 27 | <code>def require(condition, message):</code> |
-| `unique_object` | function | 32 | <code>def unique_object(pairs):</code> |
-| `decode` | function | 40 | <code>def decode(value):</code> |
-| `canonical` | function | 45 | <code>def canonical(value):</code> |
-| `digest_file` | function | 49 | <code>def digest_file(path):</code> |
-| `load` | function | 59 | <code>def load(path):</code> |
-| `identifiers` | function | 66 | <code>def identifiers(value, label, empty=False):</code> |
-| `positive_integer` | function | 74 | <code>def positive_integer(value, label, zero=False):</code> |
-| `sha` | function | 78 | <code>def sha(value, label):</code> |
-| `relative_file` | function | 82 | <code>def relative_file(root, relative):</code> |
-| `checked_file` | function | 95 | <code>def checked_file(root, record):</code> |
-| `timestamp` | function | 105 | <code>def timestamp(value):</code> |
-| `command_shape` | function | 110 | <code>def command_shape(command):</code> |
-| `physical_file` | function | 124 | <code>def physical_file(path):</code> |
-| `physical_directory` | function | 127 | <code>def physical_directory(path):</code> |
-| `logical_file` | function | 130 | <code>def logical_file(path):</code> |
-| `command_pass` | function | 133 | <code>def command_pass(command):</code> |
-| `observed_events` | function | 157 | <code>def observed_events(path):</code> |
-| `verify_receipt_integrity` | function | 174 | <code>def verify_receipt_integrity(root, receipt, manifest_hash, registry_hash, registration_hash):</code> |
-| `source_inventory` | function | 248 | <code>def source_inventory(workspace, registration, campaign):</code> |
-| `worktree_inventory` | function | 268 | <code>def worktree_inventory(workspace, campaign, commit, inventory):</code> |
-| `verify_selected` | function | 306 | <code>def verify_selected(root, receipt, manifest, registry, registration, events, artifact_map):</code> |
-| `check` | function | 444 | <code>def check(args):</code> |
-| `main` | function | 494 | <code>def main():</code> |
+| `InvalidEvidence` | class | 24 | <code>class InvalidEvidence(Exception):</code> |
+| `require` | function | 28 | <code>def require(condition, message):</code> |
+| `unique_object` | function | 33 | <code>def unique_object(pairs):</code> |
+| `decode` | function | 41 | <code>def decode(value):</code> |
+| `canonical` | function | 46 | <code>def canonical(value):</code> |
+| `digest_file` | function | 80 | <code>def digest_file(path):</code> |
+| `load` | function | 90 | <code>def load(path):</code> |
+| `identifiers` | function | 97 | <code>def identifiers(value, label, empty=False):</code> |
+| `positive_integer` | function | 105 | <code>def positive_integer(value, label, zero=False):</code> |
+| `sha` | function | 109 | <code>def sha(value, label):</code> |
+| `relative_file` | function | 113 | <code>def relative_file(root, relative):</code> |
+| `checked_file` | function | 126 | <code>def checked_file(root, record):</code> |
+| `timestamp` | function | 136 | <code>def timestamp(value):</code> |
+| `command_shape` | function | 141 | <code>def command_shape(command):</code> |
+| `physical_file` | function | 155 | <code>def physical_file(path):</code> |
+| `physical_directory` | function | 158 | <code>def physical_directory(path):</code> |
+| `logical_file` | function | 161 | <code>def logical_file(path):</code> |
+| `command_pass` | function | 196 | <code>def command_pass(command):</code> |
+| `observed_events` | function | 220 | <code>def observed_events(path):</code> |
+| `verify_receipt_integrity` | function | 237 | <code>def verify_receipt_integrity(root, receipt, manifest_hash, registry_hash, registration_hash):</code> |
+| `source_inventory` | function | 311 | <code>def source_inventory(workspace, registration, campaign):</code> |
+| `worktree_inventory` | function | 331 | <code>def worktree_inventory(workspace, campaign, commit, inventory):</code> |
+| `verify_selected` | function | 441 | <code>def verify_selected(root, receipt, manifest, registry, registration, events, artifact_map):</code> |
+| `check` | function | 599 | <code>def check(args):</code> |
+| `main` | function | 661 | <code>def main():</code> |
 
 ## tests/hyperfide/inspect-proof.py
 
@@ -4107,27 +4073,27 @@ Source unavailable in this vendored tree.
 | `uid` | function | 18 | <code>def uid():return str(uuid.uuid4())</code> |
 | `process_start` | function | 19 | <code>def process_start(pid):</code> |
 | `SubmissionStack` | class | 23 | <code>class SubmissionStack:</code> |
-| `__init__` | method | 25 | <code>def __init__(self,record,tasks,extra_components=(),agent_limit=6,prefix="hyperfide-assurance-submit-",before_start=None):</code> |
-| `OwnedScheduler` | class | 44 | <code>class OwnedScheduler(self.scheduler.SchedulerFixture):</code> |
-| `start` | method | 45 | <code>def start(self):</code> |
-| `save` | method | 62 | <code>def save(self):self.record.write_text(json.dumps(self.state))</code> |
-| `remember` | method | 63 | <code>def remember(self,f):</code> |
-| `own_process` | method | 70 | <code>def own_process(self,pid,label,port=None):</code> |
-| `own_path` | method | 74 | <code>def own_path(self,path,prefix):</code> |
-| `git` | method | 76 | <code>def git(self,&#42;args):</code> |
-| `setup` | method | 79 | <code>def setup(self,f):</code> |
-| `put` | method | 121 | <code>def put(self,data):</code> |
-| `claim` | method | 126 | <code>def claim(self,name,lease_ms=300000,upload=True):</code> |
-| `submission` | method | 143 | <code>def submission(self,name,&#42;&#42;changes):</code> |
-| `envelope` | method | 150 | <code>def envelope(self,name,value):</code> |
-| `send` | method | 153 | <code>def send(self,name,operation):return self.fixture.request(operation,key="worker_"+name)&#91;1&#93;</code> |
-| `submit` | method | 154 | <code>def submit(self,name,value):return self.send(name,self.envelope(name,value))</code> |
-| `scalar` | method | 156 | <code>def scalar(self,text,values):return self.fixture.sql(text,values)&#91;0&#93;</code> |
-| `custodies` | method | 157 | <code>def custodies(self,name):</code> |
-| `attempt_state` | method | 160 | <code>def attempt_state(self,name):</code> |
-| `close` | method | 163 | <code>def close(self):</code> |
-| `code` | function | 172 | <code>def code(response):return response.get("error",{}).get("code") if isinstance(response,dict) and response.get("ok") is False else None</code> |
-| `cleanup_stack` | function | 174 | <code>def cleanup_stack(record,prefix,run_sql,resource_prefix,artifact,write_absence):</code> |
+| `__init__` | method | 25 | <code>def __init__(self,record,tasks,extra_components=(),agent_limit=6,prefix="hyperfide-assurance-submit-",before_start=None,baseline_files=None,provider_config=None):</code> |
+| `OwnedScheduler` | class | 49 | <code>class OwnedScheduler(self.scheduler.SchedulerFixture):</code> |
+| `start` | method | 50 | <code>def start(self):</code> |
+| `save` | method | 67 | <code>def save(self):self.record.write_text(json.dumps(self.state))</code> |
+| `remember` | method | 68 | <code>def remember(self,f):</code> |
+| `own_process` | method | 75 | <code>def own_process(self,pid,label,port=None):</code> |
+| `own_path` | method | 79 | <code>def own_path(self,path,prefix):</code> |
+| `git` | method | 81 | <code>def git(self,&#42;args):</code> |
+| `setup` | method | 84 | <code>def setup(self,f):</code> |
+| `put` | method | 127 | <code>def put(self,data):</code> |
+| `claim` | method | 132 | <code>def claim(self,name,lease_ms=300000,upload=True):</code> |
+| `submission` | method | 149 | <code>def submission(self,name,&#42;&#42;changes):</code> |
+| `envelope` | method | 156 | <code>def envelope(self,name,value):</code> |
+| `send` | method | 159 | <code>def send(self,name,operation):return self.fixture.request(operation,key="worker_"+name)&#91;1&#93;</code> |
+| `submit` | method | 160 | <code>def submit(self,name,value):return self.send(name,self.envelope(name,value))</code> |
+| `scalar` | method | 162 | <code>def scalar(self,text,values):return self.fixture.sql(text,values)&#91;0&#93;</code> |
+| `custodies` | method | 163 | <code>def custodies(self,name):</code> |
+| `attempt_state` | method | 166 | <code>def attempt_state(self,name):</code> |
+| `close` | method | 169 | <code>def close(self):</code> |
+| `code` | function | 178 | <code>def code(response):return response.get("error",{}).get("code") if isinstance(response,dict) and response.get("ok") is False else None</code> |
+| `cleanup_stack` | function | 180 | <code>def cleanup_stack(record,prefix,run_sql,resource_prefix,artifact,write_absence):</code> |
 
 ## tests/hyperfide/integration/tls_relay.py
 
@@ -4161,24 +4127,24 @@ Source unavailable in this vendored tree.
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
-| `GateError` | class | 19 | <code>class GateError(Exception):</code> |
-| `canonical` | function | 22 | <code>def canonical(value):</code> |
-| `digest` | function | 25 | <code>def digest(data):</code> |
-| `pairs` | function | 28 | <code>def pairs(items):</code> |
-| `read_json` | function | 36 | <code>def read_json(path):</code> |
-| `strings` | function | 43 | <code>def strings(value, name, nonempty=True):</code> |
-| `utc` | function | 52 | <code>def utc():</code> |
-| `immutable` | function | 55 | <code>def immutable(path, data):</code> |
-| `snapshot` | function | 66 | <code>def snapshot(campaign, original, category, original_label=None):</code> |
-| `children` | function | 78 | <code>def children():</code> |
-| `source_inventory` | function | 81 | <code>def source_inventory(root, registration, output_dir):</code> |
-| `worktree_inventory` | function | 97 | <code>def worktree_inventory(root, inventory, output_dir, commit):</code> |
-| `run_child` | function | 124 | <code>def run_child(argv, root, timeout, env):</code> |
-| `load_registry` | function | 202 | <code>def load_registry(path):</code> |
-| `validate_manifest` | function | 257 | <code>def validate_manifest(manifest, registration, registry):</code> |
-| `parse_events` | function | 300 | <code>def parse_events(output):</code> |
-| `execute` | function | 330 | <code>def execute(args, root, registry_path, registry, registration, registration_path, manifest_path, manifest):</code> |
-| `main` | function | 545 | <code>def main():</code> |
+| `GateError` | class | 23 | <code>class GateError(Exception):</code> |
+| `canonical` | function | 26 | <code>def canonical(value):</code> |
+| `digest` | function | 29 | <code>def digest(data):</code> |
+| `pairs` | function | 77 | <code>def pairs(items):</code> |
+| `read_json` | function | 85 | <code>def read_json(path):</code> |
+| `strings` | function | 92 | <code>def strings(value, name, nonempty=True):</code> |
+| `utc` | function | 101 | <code>def utc():</code> |
+| `immutable` | function | 104 | <code>def immutable(path, data):</code> |
+| `snapshot` | function | 115 | <code>def snapshot(campaign, original, category, original_label=None, workspace=None):</code> |
+| `children` | function | 136 | <code>def children():</code> |
+| `source_inventory` | function | 139 | <code>def source_inventory(root, registration, output_dir):</code> |
+| `worktree_inventory` | function | 155 | <code>def worktree_inventory(root, inventory, output_dir, commit):</code> |
+| `run_child` | function | 182 | <code>def run_child(argv, root, timeout, env):</code> |
+| `load_registry` | function | 332 | <code>def load_registry(path):</code> |
+| `validate_manifest` | function | 480 | <code>def validate_manifest(manifest, registration, registry):</code> |
+| `parse_events` | function | 530 | <code>def parse_events(output):</code> |
+| `execute` | function | 560 | <code>def execute(args, root, registry_path, registry, registration, registration_path, manifest_path, manifest):</code> |
+| `main` | function | 799 | <code>def main():</code> |
 
 ## tests/hyperfide/selftest_harness.py
 
@@ -4186,101 +4152,101 @@ Source unavailable in this vendored tree.
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
-| `digest` | function | 102 | <code>def digest(data: bytes) -&gt; str:</code> |
-| `write_json` | function | 106 | <code>def write_json(path: Path, value: object) -&gt; None:</code> |
-| `seal_receipt` | function | 110 | <code>def seal_receipt(receipt: dict) -&gt; None:</code> |
-| `Fixture` | class | 115 | <code>class Fixture:</code> |
-| `__init__` | method | 116 | <code>def __init__(self, mode: str = "success") -&gt; None:</code> |
-| `pin` | method | 146 | <code>def pin(self, relative: str) -&gt; None:</code> |
-| `save` | method | 152 | <code>def save(self) -&gt; None:</code> |
-| `run` | method | 157 | <code>def run(self, &#42;selector: str, extra: tuple&#91;str, ...&#93; = (), runner: Path &#124; None = None) -&gt; subprocess.CompletedProcess:</code> |
-| `successful` | method | 166 | <code>def successful(self, &#42;selector: str) -&gt; tuple&#91;Path, dict&#93;:</code> |
-| `check` | method | 195 | <code>def check(self, campaign: Path, receipt_id: str &#124; None = None) -&gt; subprocess.CompletedProcess:</code> |
-| `close` | method | 201 | <code>def close(self) -&gt; None:</code> |
-| `HarnessTests` | class | 205 | <code>class HarnessTests(unittest.TestCase):</code> |
-| `setUpClass` | method | 207 | <code>def setUpClass(cls) -&gt; None:</code> |
-| `setUp` | method | 211 | <code>def setUp(self) -&gt; None:</code> |
-| `tearDown` | method | 214 | <code>def tearDown(self) -&gt; None:</code> |
-| `fixture` | method | 218 | <code>def fixture(self, mode: str = "success") -&gt; Fixture:</code> |
-| `rejected` | method | 223 | <code>def rejected(self, result: subprocess.CompletedProcess) -&gt; None:</code> |
-| `test_01_missing_selector` | method | 233 | <code>def test_01_missing_selector(self):</code> |
-| `test_02_unknown_selector` | method | 236 | <code>def test_02_unknown_selector(self):</code> |
-| `test_03_empty_selector` | method | 239 | <code>def test_03_empty_selector(self):</code> |
-| `test_04_duplicate_selector` | method | 242 | <code>def test_04_duplicate_selector(self):</code> |
-| `test_05_empty_suite` | method | 245 | <code>def test_05_empty_suite(self):</code> |
-| `test_06_missing_runner` | method | 251 | <code>def test_06_missing_runner(self):</code> |
-| `test_07_missing_child` | method | 257 | <code>def test_07_missing_child(self):</code> |
-| `test_08_missing_checker` | method | 263 | <code>def test_08_missing_checker(self):</code> |
-| `test_09_missing_fixture` | method | 273 | <code>def test_09_missing_fixture(self):</code> |
-| `test_10_fixture_digest` | method | 279 | <code>def test_10_fixture_digest(self):</code> |
-| `test_11_missing_credential` | method | 289 | <code>def test_11_missing_credential(self):</code> |
-| `test_12_failed_child` | method | 295 | <code>def test_12_failed_child(self):</code> |
-| `test_13_timeout_descendants` | method | 298 | <code>def test_13_timeout_descendants(self):</code> |
-| `test_14_zero_assertions` | method | 323 | <code>def test_14_zero_assertions(self):</code> |
-| `test_15_duplicate_assertions` | method | 326 | <code>def test_15_duplicate_assertions(self):</code> |
-| `test_16_unexecuted_assertions` | method | 329 | <code>def test_16_unexecuted_assertions(self):</code> |
-| `test_17_failed_assertion` | method | 332 | <code>def test_17_failed_assertion(self):</code> |
-| `test_18_malformed_assertion` | method | 335 | <code>def test_18_malformed_assertion(self):</code> |
-| `test_19_missing_cleanup` | method | 338 | <code>def test_19_missing_cleanup(self):</code> |
-| `test_20_failed_cleanup` | method | 341 | <code>def test_20_failed_cleanup(self):</code> |
-| `test_21_missing_artifact` | method | 350 | <code>def test_21_missing_artifact(self):</code> |
-| `test_22_tampered_artifact` | method | 358 | <code>def test_22_tampered_artifact(self):</code> |
-| `test_23_tampered_receipt` | method | 365 | <code>def test_23_tampered_receipt(self):</code> |
-| `test_24_scope_forgery` | method | 374 | <code>def test_24_scope_forgery(self):</code> |
-| `test_25_inventory_forgery` | method | 384 | <code>def test_25_inventory_forgery(self):</code> |
-| `test_26_snapshot_tampered` | method | 395 | <code>def test_26_snapshot_tampered(self):</code> |
-| `test_27_append_only` | method | 404 | <code>def test_27_append_only(self):</code> |
-| `test_28_changed_input` | method | 417 | <code>def test_28_changed_input(self):</code> |
-| `test_29_task_selector` | method | 427 | <code>def test_29_task_selector(self):</code> |
-| `test_30_suite_selector` | method | 430 | <code>def test_30_suite_selector(self):</code> |
-| `test_31_failed_then_pass` | method | 433 | <code>def test_31_failed_then_pass(self):</code> |
-| `test_32_canonical_checker` | method | 445 | <code>def test_32_canonical_checker(self):</code> |
-| `test_33_normal_exit_descendants` | method | 454 | <code>def test_33_normal_exit_descendants(self):</code> |
-| `imported_helper` | method | 477 | <code>def imported_helper(self, declared: bool):</code> |
-| `test_34_declared_import` | method | 492 | <code>def test_34_declared_import(self):</code> |
-| `test_35_undeclared_import_in_root` | method | 495 | <code>def test_35_undeclared_import_in_root(self):</code> |
-| `retained_fixture` | method | 499 | <code>def retained_fixture(self, approved: bool = True, omit: str &#124; None = None):</code> |
-| `test_36_retention_approved` | method | 520 | <code>def test_36_retention_approved(self):</code> |
-| `test_37_retention_unapproved` | method | 528 | <code>def test_37_retention_unapproved(self):</code> |
-| `test_38_retention_owner_missing` | method | 532 | <code>def test_38_retention_owner_missing(self):</code> |
-| `test_39_retention_expiry_missing` | method | 536 | <code>def test_39_retention_expiry_missing(self):</code> |
-| `test_40_registry_boolean_version` | method | 541 | <code>def test_40_registry_boolean_version(self):</code> |
-| `test_41_registration_boolean_version` | method | 547 | <code>def test_41_registration_boolean_version(self):</code> |
-| `test_42_manifest_boolean_version` | method | 553 | <code>def test_42_manifest_boolean_version(self):</code> |
-| `test_43_input_boolean_size` | method | 559 | <code>def test_43_input_boolean_size(self):</code> |
-| `test_44_manifest_unknown_field` | method | 569 | <code>def test_44_manifest_unknown_field(self):</code> |
-| `test_45_approval_unknown_field` | method | 575 | <code>def test_45_approval_unknown_field(self):</code> |
-| `test_46_output_equals_workspace` | method | 582 | <code>def test_46_output_equals_workspace(self):</code> |
-| `test_47_output_contains_source` | method | 587 | <code>def test_47_output_contains_source(self):</code> |
-| `test_48_detached_pipe_timeout` | method | 601 | <code>def test_48_detached_pipe_timeout(self):</code> |
-| `test_49_git_bytecode_parity` | method | 627 | <code>def test_49_git_bytecode_parity(self):</code> |
-| `required_artifact_regression` | method | 646 | <code>def required_artifact_regression(self, method):</code> |
-| `test_50_required_artifacts_per_receipt` | method | 654 | <code>def test_50_required_artifacts_per_receipt(self):</code> |
-| `test_51_required_artifact_old_snapshot_tamper` | method | 657 | <code>def test_51_required_artifact_old_snapshot_tamper(self):</code> |
-| `test_52_required_artifact_logical_alias_forgery` | method | 660 | <code>def test_52_required_artifact_logical_alias_forgery(self):</code> |
-| `test_53_cleanup_immutable_absence_reference` | method | 663 | <code>def test_53_cleanup_immutable_absence_reference(self):</code> |
-| `proof_regression` | method | 666 | <code>def proof_regression(self, method):</code> |
-| `test_54_proof_component_inspection_is_not_authority` | method | 674 | <code>def test_54_proof_component_inspection_is_not_authority(self):</code> |
-| `test_55_proof_component_cannot_satisfy_full` | method | 677 | <code>def test_55_proof_component_cannot_satisfy_full(self):</code> |
-| `test_56_proof_exact_anchor_and_source` | method | 680 | <code>def test_56_proof_exact_anchor_and_source(self):</code> |
-| `test_57_proof_case_and_closed_policy_binding` | method | 683 | <code>def test_57_proof_case_and_closed_policy_binding(self):</code> |
-| `test_58_proof_path_escape_and_symlink` | method | 686 | <code>def test_58_proof_path_escape_and_symlink(self):</code> |
-| `test_59_proof_duplicate_and_unknown_request_keys` | method | 689 | <code>def test_59_proof_duplicate_and_unknown_request_keys(self):</code> |
-| `test_60_proof_real_canonical_artifact_tamper` | method | 692 | <code>def test_60_proof_real_canonical_artifact_tamper(self):</code> |
-| `test_61_proof_portable_real_source_and_executable_checks` | method | 695 | <code>def test_61_proof_portable_real_source_and_executable_checks(self):</code> |
-| `test_62_proof_portable_rejects_missing_map_and_changed_tool` | method | 698 | <code>def test_62_proof_portable_rejects_missing_map_and_changed_tool(self):</code> |
-| `test_63_proof_portable_rejects_wrong_commit_and_escape` | method | 701 | <code>def test_63_proof_portable_rejects_wrong_commit_and_escape(self):</code> |
-| `test_64_proof_postcheck_bytes_are_rechecked` | method | 704 | <code>def test_64_proof_postcheck_bytes_are_rechecked(self):</code> |
-| `test_65_proof_git_filter_no_execution` | method | 707 | <code>def test_65_proof_git_filter_no_execution(self):</code> |
-| `test_66_proof_external_campaign_environment` | method | 709 | <code>def test_66_proof_external_campaign_environment(self):</code> |
-| `test_67_proof_private_staging_lock` | method | 711 | <code>def test_67_proof_private_staging_lock(self):</code> |
-| `test_68_proof_immutable_child_runtime_assets` | method | 714 | <code>def test_68_proof_immutable_child_runtime_assets(self):</code> |
-| `InventoryResult` | class | 717 | <code>class InventoryResult(unittest.TextTestResult):</code> |
-| `__init__` | method | 718 | <code>def __init__(self, &#42;args, &#42;&#42;kwargs):</code> |
-| `addSuccess` | method | 722 | <code>def addSuccess(self, test):</code> |
-| `addFailure` | method | 726 | <code>def addFailure(self, test, error):</code> |
-| `addError` | method | 730 | <code>def addError(self, test, error):</code> |
-| `main` | function | 735 | <code>def main() -&gt; int:</code> |
+| `digest` | function | 106 | <code>def digest(data: bytes) -&gt; str:</code> |
+| `write_json` | function | 110 | <code>def write_json(path: Path, value: object) -&gt; None:</code> |
+| `seal_receipt` | function | 114 | <code>def seal_receipt(receipt: dict) -&gt; None:</code> |
+| `Fixture` | class | 119 | <code>class Fixture:</code> |
+| `__init__` | method | 120 | <code>def __init__(self, mode: str = "success") -&gt; None:</code> |
+| `pin` | method | 150 | <code>def pin(self, relative: str) -&gt; None:</code> |
+| `save` | method | 156 | <code>def save(self) -&gt; None:</code> |
+| `run` | method | 161 | <code>def run(self, &#42;selector: str, extra: tuple&#91;str, ...&#93; = (), runner: Path &#124; None = None) -&gt; subprocess.CompletedProcess:</code> |
+| `successful` | method | 170 | <code>def successful(self, &#42;selector: str) -&gt; tuple&#91;Path, dict&#93;:</code> |
+| `check` | method | 199 | <code>def check(self, campaign: Path, receipt_id: str &#124; None = None) -&gt; subprocess.CompletedProcess:</code> |
+| `close` | method | 205 | <code>def close(self) -&gt; None:</code> |
+| `HarnessTests` | class | 209 | <code>class HarnessTests(unittest.TestCase):</code> |
+| `setUpClass` | method | 211 | <code>def setUpClass(cls) -&gt; None:</code> |
+| `setUp` | method | 215 | <code>def setUp(self) -&gt; None:</code> |
+| `tearDown` | method | 218 | <code>def tearDown(self) -&gt; None:</code> |
+| `fixture` | method | 222 | <code>def fixture(self, mode: str = "success") -&gt; Fixture:</code> |
+| `rejected` | method | 227 | <code>def rejected(self, result: subprocess.CompletedProcess) -&gt; None:</code> |
+| `test_01_missing_selector` | method | 237 | <code>def test_01_missing_selector(self):</code> |
+| `test_02_unknown_selector` | method | 240 | <code>def test_02_unknown_selector(self):</code> |
+| `test_03_empty_selector` | method | 243 | <code>def test_03_empty_selector(self):</code> |
+| `test_04_duplicate_selector` | method | 246 | <code>def test_04_duplicate_selector(self):</code> |
+| `test_05_empty_suite` | method | 249 | <code>def test_05_empty_suite(self):</code> |
+| `test_06_missing_runner` | method | 255 | <code>def test_06_missing_runner(self):</code> |
+| `test_07_missing_child` | method | 261 | <code>def test_07_missing_child(self):</code> |
+| `test_08_missing_checker` | method | 267 | <code>def test_08_missing_checker(self):</code> |
+| `test_09_missing_fixture` | method | 280 | <code>def test_09_missing_fixture(self):</code> |
+| `test_10_fixture_digest` | method | 286 | <code>def test_10_fixture_digest(self):</code> |
+| `test_11_missing_credential` | method | 296 | <code>def test_11_missing_credential(self):</code> |
+| `test_12_failed_child` | method | 302 | <code>def test_12_failed_child(self):</code> |
+| `test_13_timeout_descendants` | method | 305 | <code>def test_13_timeout_descendants(self):</code> |
+| `test_14_zero_assertions` | method | 330 | <code>def test_14_zero_assertions(self):</code> |
+| `test_15_duplicate_assertions` | method | 333 | <code>def test_15_duplicate_assertions(self):</code> |
+| `test_16_unexecuted_assertions` | method | 336 | <code>def test_16_unexecuted_assertions(self):</code> |
+| `test_17_failed_assertion` | method | 339 | <code>def test_17_failed_assertion(self):</code> |
+| `test_18_malformed_assertion` | method | 342 | <code>def test_18_malformed_assertion(self):</code> |
+| `test_19_missing_cleanup` | method | 345 | <code>def test_19_missing_cleanup(self):</code> |
+| `test_20_failed_cleanup` | method | 348 | <code>def test_20_failed_cleanup(self):</code> |
+| `test_21_missing_artifact` | method | 357 | <code>def test_21_missing_artifact(self):</code> |
+| `test_22_tampered_artifact` | method | 365 | <code>def test_22_tampered_artifact(self):</code> |
+| `test_23_tampered_receipt` | method | 372 | <code>def test_23_tampered_receipt(self):</code> |
+| `test_24_scope_forgery` | method | 381 | <code>def test_24_scope_forgery(self):</code> |
+| `test_25_inventory_forgery` | method | 391 | <code>def test_25_inventory_forgery(self):</code> |
+| `test_26_snapshot_tampered` | method | 402 | <code>def test_26_snapshot_tampered(self):</code> |
+| `test_27_append_only` | method | 411 | <code>def test_27_append_only(self):</code> |
+| `test_28_changed_input` | method | 424 | <code>def test_28_changed_input(self):</code> |
+| `test_29_task_selector` | method | 434 | <code>def test_29_task_selector(self):</code> |
+| `test_30_suite_selector` | method | 437 | <code>def test_30_suite_selector(self):</code> |
+| `test_31_failed_then_pass` | method | 440 | <code>def test_31_failed_then_pass(self):</code> |
+| `test_32_canonical_checker` | method | 452 | <code>def test_32_canonical_checker(self):</code> |
+| `test_33_normal_exit_descendants` | method | 461 | <code>def test_33_normal_exit_descendants(self):</code> |
+| `imported_helper` | method | 484 | <code>def imported_helper(self, declared: bool):</code> |
+| `test_34_declared_import` | method | 499 | <code>def test_34_declared_import(self):</code> |
+| `test_35_undeclared_import_in_root` | method | 502 | <code>def test_35_undeclared_import_in_root(self):</code> |
+| `retained_fixture` | method | 506 | <code>def retained_fixture(self, approved: bool = True, omit: str &#124; None = None):</code> |
+| `test_36_retention_approved` | method | 527 | <code>def test_36_retention_approved(self):</code> |
+| `test_37_retention_unapproved` | method | 535 | <code>def test_37_retention_unapproved(self):</code> |
+| `test_38_retention_owner_missing` | method | 539 | <code>def test_38_retention_owner_missing(self):</code> |
+| `test_39_retention_expiry_missing` | method | 543 | <code>def test_39_retention_expiry_missing(self):</code> |
+| `test_40_registry_boolean_version` | method | 548 | <code>def test_40_registry_boolean_version(self):</code> |
+| `test_41_registration_boolean_version` | method | 554 | <code>def test_41_registration_boolean_version(self):</code> |
+| `test_42_manifest_boolean_version` | method | 560 | <code>def test_42_manifest_boolean_version(self):</code> |
+| `test_43_input_boolean_size` | method | 566 | <code>def test_43_input_boolean_size(self):</code> |
+| `test_44_manifest_unknown_field` | method | 576 | <code>def test_44_manifest_unknown_field(self):</code> |
+| `test_45_approval_unknown_field` | method | 582 | <code>def test_45_approval_unknown_field(self):</code> |
+| `test_46_output_equals_workspace` | method | 589 | <code>def test_46_output_equals_workspace(self):</code> |
+| `test_47_output_contains_source` | method | 594 | <code>def test_47_output_contains_source(self):</code> |
+| `test_48_detached_pipe_timeout` | method | 608 | <code>def test_48_detached_pipe_timeout(self):</code> |
+| `test_49_git_bytecode_parity` | method | 634 | <code>def test_49_git_bytecode_parity(self):</code> |
+| `required_artifact_regression` | method | 653 | <code>def required_artifact_regression(self, method):</code> |
+| `test_50_required_artifacts_per_receipt` | method | 661 | <code>def test_50_required_artifacts_per_receipt(self):</code> |
+| `test_51_required_artifact_old_snapshot_tamper` | method | 664 | <code>def test_51_required_artifact_old_snapshot_tamper(self):</code> |
+| `test_52_required_artifact_logical_alias_forgery` | method | 667 | <code>def test_52_required_artifact_logical_alias_forgery(self):</code> |
+| `test_53_cleanup_immutable_absence_reference` | method | 670 | <code>def test_53_cleanup_immutable_absence_reference(self):</code> |
+| `proof_regression` | method | 673 | <code>def proof_regression(self, method):</code> |
+| `test_54_proof_component_inspection_is_not_authority` | method | 681 | <code>def test_54_proof_component_inspection_is_not_authority(self):</code> |
+| `test_55_proof_component_cannot_satisfy_full` | method | 684 | <code>def test_55_proof_component_cannot_satisfy_full(self):</code> |
+| `test_56_proof_exact_anchor_and_source` | method | 687 | <code>def test_56_proof_exact_anchor_and_source(self):</code> |
+| `test_57_proof_case_and_closed_policy_binding` | method | 690 | <code>def test_57_proof_case_and_closed_policy_binding(self):</code> |
+| `test_58_proof_path_escape_and_symlink` | method | 693 | <code>def test_58_proof_path_escape_and_symlink(self):</code> |
+| `test_59_proof_duplicate_and_unknown_request_keys` | method | 696 | <code>def test_59_proof_duplicate_and_unknown_request_keys(self):</code> |
+| `test_60_proof_real_canonical_artifact_tamper` | method | 699 | <code>def test_60_proof_real_canonical_artifact_tamper(self):</code> |
+| `test_61_proof_portable_real_source_and_executable_checks` | method | 702 | <code>def test_61_proof_portable_real_source_and_executable_checks(self):</code> |
+| `test_62_proof_portable_rejects_missing_map_and_changed_tool` | method | 705 | <code>def test_62_proof_portable_rejects_missing_map_and_changed_tool(self):</code> |
+| `test_63_proof_portable_rejects_wrong_commit_and_escape` | method | 708 | <code>def test_63_proof_portable_rejects_wrong_commit_and_escape(self):</code> |
+| `test_64_proof_postcheck_bytes_are_rechecked` | method | 711 | <code>def test_64_proof_postcheck_bytes_are_rechecked(self):</code> |
+| `test_65_proof_git_filter_no_execution` | method | 714 | <code>def test_65_proof_git_filter_no_execution(self):</code> |
+| `test_66_proof_external_campaign_environment` | method | 716 | <code>def test_66_proof_external_campaign_environment(self):</code> |
+| `test_67_proof_private_staging_lock` | method | 718 | <code>def test_67_proof_private_staging_lock(self):</code> |
+| `test_68_proof_immutable_child_runtime_assets` | method | 721 | <code>def test_68_proof_immutable_child_runtime_assets(self):</code> |
+| `InventoryResult` | class | 724 | <code>class InventoryResult(unittest.TextTestResult):</code> |
+| `__init__` | method | 725 | <code>def __init__(self, &#42;args, &#42;&#42;kwargs):</code> |
+| `addSuccess` | method | 729 | <code>def addSuccess(self, test):</code> |
+| `addFailure` | method | 733 | <code>def addFailure(self, test, error):</code> |
+| `addError` | method | 737 | <code>def addError(self, test, error):</code> |
+| `main` | function | 742 | <code>def main() -&gt; int:</code> |
 
 ## tests/hyperfide/support/identity_fixture.py
 
@@ -4295,27 +4261,27 @@ Source unavailable in this vendored tree.
 | `expect` | function | 17 | <code>def expect(value,message):</code> |
 | `check` | function | 19 | <code>def check(name,callback):</code> |
 | `IdentityFixture` | class | 27 | <code>class IdentityFixture:</code> |
-| `__init__` | method | 28 | <code>def __init__(self,extra_components=(),extra_env=None,extra_setup=None,components=None,database=None,service_role="control",extra_actions=()):</code> |
-| `sql` | method | 118 | <code>def sql(self,sql,values=None,admin=False,serial=True):</code> |
-| `start` | method | 123 | <code>def start(self):</code> |
-| `stop` | method | 134 | <code>def stop(self):</code> |
-| `close` | method | 141 | <code>def close(self):</code> |
-| `seed_fixture_principal` | method | 149 | <code>def seed_fixture_principal(self,record):</code> |
-| `apply_migration` | method | 151 | <code>def apply_migration(self,name):</code> |
-| `add_principal` | method | 156 | <code>def add_principal(self,name,role,actor_id=None):</code> |
-| `operation` | method | 173 | <code>def operation(self,component,action,input,run=None,authority=None,expected_version=None,operation=None):</code> |
-| `sign` | method | 176 | <code>def sign(self,key,message):</code> |
-| `request` | method | 178 | <code>def request(self,body,key="operator",endpoint="/v1/invoke",credential=None,nonce=None,seconds=None,headers=None,ca=None,timeout_seconds=10):</code> |
-| `invoke` | method | 192 | <code>def invoke(self,action,input,component="14.1",key="operator",authority=None,&#42;&#42;kwargs):</code> |
-| `bind` | method | 195 | <code>def bind(self):</code> |
-| `issue` | method | 197 | <code>def issue(self,grant=None,ttl=300,actions=None):</code> |
-| `enrollment` | method | 199 | <code>def enrollment(self,key="runner",boot=None):</code> |
-| `_bootstrap_runner` | function | 204 | <code>def _bootstrap_runner(self,actions=None):</code> |
-| `_delegate_principal` | function | 211 | <code>def _delegate_principal(self,name,session_id,allowed_actions=None):</code> |
-| `_evidence_base` | function | 230 | <code>def _evidence_base():</code> |
-| `_record_fixture` | function | 238 | <code>def _record_fixture(fixture):</code> |
-| `write_identity_observations` | function | 251 | <code>def write_identity_observations():</code> |
-| `cleanup_identity_evidence` | function | 256 | <code>def cleanup_identity_evidence(task):</code> |
+| `__init__` | method | 28 | <code>def __init__(self,extra_components=(),extra_env=None,extra_setup=None,components=None,database=None,service_role="control",extra_actions=(),credential_actions=None):</code> |
+| `sql` | method | 139 | <code>def sql(self,sql,values=None,admin=False,serial=True):</code> |
+| `start` | method | 144 | <code>def start(self):</code> |
+| `stop` | method | 155 | <code>def stop(self):</code> |
+| `close` | method | 162 | <code>def close(self):</code> |
+| `seed_fixture_principal` | method | 170 | <code>def seed_fixture_principal(self,record):</code> |
+| `apply_migration` | method | 172 | <code>def apply_migration(self,name):</code> |
+| `add_principal` | method | 177 | <code>def add_principal(self,name,role,actor_id=None):</code> |
+| `operation` | method | 194 | <code>def operation(self,component,action,input,run=None,authority=None,expected_version=None,operation=None):</code> |
+| `sign` | method | 197 | <code>def sign(self,key,message):</code> |
+| `request` | method | 199 | <code>def request(self,body,key="operator",endpoint="/v1/invoke",credential=None,nonce=None,seconds=None,headers=None,ca=None,timeout_seconds=10):</code> |
+| `invoke` | method | 213 | <code>def invoke(self,action,input,component="14.1",key="operator",authority=None,&#42;&#42;kwargs):</code> |
+| `bind` | method | 216 | <code>def bind(self):</code> |
+| `issue` | method | 218 | <code>def issue(self,grant=None,ttl=300,actions=None):</code> |
+| `enrollment` | method | 220 | <code>def enrollment(self,key="runner",boot=None):</code> |
+| `_bootstrap_runner` | function | 225 | <code>def _bootstrap_runner(self,actions=None):</code> |
+| `_delegate_principal` | function | 232 | <code>def _delegate_principal(self,name,session_id,allowed_actions=None):</code> |
+| `_evidence_base` | function | 251 | <code>def _evidence_base():</code> |
+| `_record_fixture` | function | 259 | <code>def _record_fixture(fixture):</code> |
+| `write_identity_observations` | function | 272 | <code>def write_identity_observations():</code> |
+| `cleanup_identity_evidence` | function | 277 | <code>def cleanup_identity_evidence(task):</code> |
 
 ## tests/hyperfide/support/preparation_process_fixture.py
 
@@ -4514,10 +4480,10 @@ Source unavailable in this vendored tree.
 | `test_portable_rejects_missing_map_and_changed_tool` | method | 149 | <code>def test_portable_rejects_missing_map_and_changed_tool(self):</code> |
 | `test_portable_rejects_wrong_commit_and_escape` | method | 161 | <code>def test_portable_rejects_wrong_commit_and_escape(self):</code> |
 | `test_postcheck_bytes_are_rechecked` | method | 169 | <code>def test_postcheck_bytes_are_rechecked(self):</code> |
-| `test_git_filter_configuration_never_executes` | method | 179 | <code>def test_git_filter_configuration_never_executes(self):</code> |
-| `test_portable_external_campaign_with_closed_environment` | method | 227 | <code>def test_portable_external_campaign_with_closed_environment(self):</code> |
-| `test_portable_checker_preserves_immutable_assets` | method | 237 | <code>def test_portable_checker_preserves_immutable_assets(self):</code> |
-| `test_portable_stage_permissions_and_exclusive_lock` | method | 255 | <code>def test_portable_stage_permissions_and_exclusive_lock(self):</code> |
+| `test_git_filter_configuration_never_executes` | method | 207 | <code>def test_git_filter_configuration_never_executes(self):</code> |
+| `test_portable_external_campaign_with_closed_environment` | method | 255 | <code>def test_portable_external_campaign_with_closed_environment(self):</code> |
+| `test_portable_checker_preserves_immutable_assets` | method | 265 | <code>def test_portable_checker_preserves_immutable_assets(self):</code> |
+| `test_portable_stage_permissions_and_exclusive_lock` | method | 283 | <code>def test_portable_stage_permissions_and_exclusive_lock(self):</code> |
 
 ## tests/hyperfide/test_required_artifact_receipts.py
 

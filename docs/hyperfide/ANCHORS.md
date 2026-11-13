@@ -84,7 +84,7 @@ purpose line.
 
 Do not anchor everything — anchor where coordination happens.
 
-```
+```sh
 hyperfide anchors               # health: coverage, stale docs, top of the work list
 hyperfide anchors --uncovered   # the backfill work list, ranked
 hyperfide anchors --stale       # docs whose code moved on

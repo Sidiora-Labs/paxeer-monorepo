@@ -37,7 +37,7 @@ func localChainFixture(t *testing.T) string {
 
 func phase2Migration(t *testing.T, schema string) string {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join(fixtureRoot(), "launchpad/spec/production-system/integration/migrations/180001.sql"))
+	raw, err := os.ReadFile(filepath.Join(fixtureRoot(), "migrations/180001.sql"))
 	if err != nil {
 		t.Fatal(err)
 	}

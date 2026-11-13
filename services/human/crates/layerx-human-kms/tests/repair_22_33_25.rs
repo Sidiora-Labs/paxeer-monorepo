@@ -61,7 +61,7 @@ use layerx_human_service::custody::{
     KeyClass, KmsProvider, PrincipalKeyBinding, ProviderKeyDescription, RemoteKmsProvider,
 };
 use layerx_human_service::frame::{Limits, MutualTlsConfig};
-use layerx_types::clock::{Clock, Deadline};
+use layerx_types::clock::{Clock, ClockReading, Deadline};
 use ring::signature::{Ed25519KeyPair, KeyPair};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use rustls::{
@@ -81,7 +81,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use zeroize::Zeroizing;
 
 type Result<T = ()> = std::result::Result<T, Box<dyn Error>>;
@@ -241,11 +241,18 @@ impl Runtime {
             _root: root,
         }
     }
-    fn now(&self) -> u64 {
+    fn reading(&self) -> ClockReading {
         self.clock
             .sample(Duration::from_secs(1))
             .unwrap_or_else(|error| panic!("{error:?}"))
-            .unix_seconds()
+    }
+    fn elapsed_since(&self, start: ClockReading) -> Duration {
+        self.reading()
+            .elapsed_since(start)
+            .unwrap_or_else(|error| panic!("{error:?}"))
+    }
+    fn now(&self) -> u64 {
+        self.reading().unix_seconds()
     }
 }
 impl Drop for Runtime {
@@ -1103,7 +1110,7 @@ fn fragmented_handshake_and_frame_release_all_permits() -> Result {
         streams.push(tcp);
     }
     await_count(&host.active, 16, peers.runtime.clock.as_ref());
-    let started = Instant::now();
+    let started = peers.runtime.reading();
     for byte in &hello[1..31] {
         thread::sleep(Duration::from_millis(25));
         for stream in &mut streams {
@@ -1118,7 +1125,7 @@ fn fragmented_handshake_and_frame_release_all_permits() -> Result {
         0,
         "continuous handshake fragments must not retain permits"
     );
-    assert!(started.elapsed() < Duration::from_millis(700));
+    assert!(peers.runtime.elapsed_since(started) < Duration::from_millis(700));
     assert!(
         host.remote().probe().is_ok(),
         "permits must admit a new authenticated request"
@@ -1145,7 +1152,7 @@ fn fragmented_handshake_and_frame_release_all_permits() -> Result {
             .collect::<std::io::Result<Vec<_>>>()
     })?;
     await_count(&host.active, 16, peers.runtime.clock.as_ref());
-    let started = Instant::now();
+    let started = peers.runtime.reading();
     for _ in 0..30 {
         thread::sleep(Duration::from_millis(25));
         for stream in &mut frames {
@@ -1161,7 +1168,7 @@ fn fragmented_handshake_and_frame_release_all_permits() -> Result {
         0,
         "continuous frame fragments must not retain permits"
     );
-    assert!(started.elapsed() < Duration::from_millis(700));
+    assert!(peers.runtime.elapsed_since(started) < Duration::from_millis(700));
     assert!(host.remote().probe().is_ok());
     Ok(())
 }
@@ -1177,10 +1184,10 @@ fn fragmented_peer_close_and_completed_request_return_permits() -> Result {
         streams.push(stream);
     }
     await_count(&host.active, 16, peers.runtime.clock.as_ref());
-    let started = Instant::now();
+    let started = peers.runtime.reading();
     drop(streams);
     await_count(&host.active, 0, peers.runtime.clock.as_ref());
-    assert!(started.elapsed() < Duration::from_secs(2));
+    assert!(peers.runtime.elapsed_since(started) < Duration::from_secs(2));
 
     let mut streams = Vec::new();
     for _ in 0..16 {
@@ -1194,10 +1201,10 @@ fn fragmented_peer_close_and_completed_request_return_permits() -> Result {
         streams.push(stream);
     }
     await_count(&host.active, 16, peers.runtime.clock.as_ref());
-    let started = Instant::now();
+    let started = peers.runtime.reading();
     drop(streams);
     await_count(&host.active, 0, peers.runtime.clock.as_ref());
-    assert!(started.elapsed() < Duration::from_secs(2));
+    assert!(peers.runtime.elapsed_since(started) < Duration::from_secs(2));
     for _ in 0..16 {
         host.remote().probe()?;
         await_count(&host.active, 0, peers.runtime.clock.as_ref());
@@ -1217,11 +1224,11 @@ fn store_admission_has_the_same_deadline() {
     let guard = shared.lock().unwrap_or_else(|error| panic!("{error:?}"));
     let address = host.address;
     let clock = peers.runtime.clock.clone();
-    let started = Instant::now();
+    let started = peers.runtime.reading();
     let worker = thread::spawn(move || remote(address, clock).probe());
     await_count(&host.active, 1, peers.runtime.clock.as_ref());
     await_count(&host.active, 0, peers.runtime.clock.as_ref());
-    assert!(started.elapsed() < Duration::from_secs(2));
+    assert!(peers.runtime.elapsed_since(started) < Duration::from_secs(2));
     assert!(worker
         .join()
         .unwrap_or_else(|error| panic!("{error:?}"))

@@ -12,7 +12,7 @@ Run the canonical Dockerfile from the repository root with an explicit argument:
 
 ```sh
 docker build --file docker/platform-dashboard-web/Dockerfile \
-  --build-arg DASHBOARD_API_ORIGIN=https://dashboard-api.example.com \
+  --build-arg DASHBOARD_API_ORIGIN="$DASHBOARD_API_ORIGIN" \
   --tag layerx-dashboard-web:local .
 ```
 
@@ -23,7 +23,7 @@ from the repository root:
 
 ```bash
 set -euo pipefail
-export DASHBOARD_API_ORIGIN=https://dashboard-api.example.com
+: "${DASHBOARD_API_ORIGIN:?set the dashboard API origin}"
 source services/platform/hosted/tests/beta-images.sh
 build_args=$(image_build_args layerx-dashboard-web)
 docker build --file docker/platform-dashboard-web/Dockerfile \
@@ -42,5 +42,5 @@ when deploying from the repository root, keeping the repository as build context
 
 ```sh
 fly deploy . --config services/platform/hosted/dashboard/web/fly.toml \
-  --build-arg DASHBOARD_API_ORIGIN=https://dashboard-api.example.com
+  --build-arg DASHBOARD_API_ORIGIN="$DASHBOARD_API_ORIGIN"
 ```

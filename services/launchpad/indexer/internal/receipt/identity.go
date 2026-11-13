@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
@@ -222,8 +223,21 @@ func (a *RPCQualification) parseBlock(raw json.RawMessage) (pinnedBlock, error) 
 		if err = json.Unmarshal(encoded, &meta); err != nil || meta.Hash == nil || *meta.Hash != tx.Hash() {
 			return pinnedBlock{}, ErrQualification
 		}
-		if meta.BlockHash != nil && *meta.BlockHash != hash || meta.TransactionIndex != nil && uint64(*meta.TransactionIndex) != uint64(i) {
+		if meta.BlockHash != nil && *meta.BlockHash != hash {
 			return pinnedBlock{}, ErrQualification
+		}
+		if meta.TransactionIndex != nil {
+			transactionIndex, conversionErr := checked.Convert[uint64](*meta.TransactionIndex)
+			if conversionErr != nil {
+				return pinnedBlock{}, conversionErr
+			}
+			expectedIndex, conversionErr := checked.Convert[uint64](i)
+			if conversionErr != nil {
+				return pinnedBlock{}, conversionErr
+			}
+			if transactionIndex != expectedIndex {
+				return pinnedBlock{}, ErrQualification
+			}
 		}
 		txs[i] = &tx
 	}

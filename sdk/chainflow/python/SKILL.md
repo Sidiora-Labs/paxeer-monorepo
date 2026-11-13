@@ -40,8 +40,9 @@ client = ChainflowDataGateway(rest_api_key=os.environ["REST_API_KEY"])
 ```
 
 The constructor reads these environment variables when the corresponding option
-is omitted. It requires `rest_api_key` even for a client used only to mint tokens
-or connect to a stream.
+is omitted. Construction permits any credential subset, including none.
+Each protected operation requires its own credential; public health is
+unauthenticated.
 
 | Option | Environment | Sent to |
 | --- | --- | --- |
@@ -52,7 +53,10 @@ or connect to a stream.
 Keep both API keys server-side. Tokens are opaque credentials bound to one feed
 or the `markets` or `explorer` scope, with a 300-second handshake lifetime. The
 SDK does not mint or renew them automatically. Do not log tokens or connection
-URLs containing them; Python WebSocket debug logging includes the connection URL.
+URLs containing them. The SDK redacts the `token` query parameter in WebSocket
+connection logs and recognized credential fields in connection-option logs.
+Received message bytes are logged at debug level; review message content and
+transport-library logging separately.
 
 Set `base_url` explicitly or use `SIDIORALABS_BASE_URL` to override the gateway.
 `websocket_base_url` overrides the stream base; otherwise HTTP becomes WS and
@@ -78,7 +82,7 @@ manager as below.
 
 Mint for the same scope that the connection will use, then explicitly install
 the returned token. This complete example requires the `websockets` extra and
-both API keys:
+the WS minting key:
 
 ```python
 import os
@@ -86,7 +90,6 @@ import os
 from chainflow_data_gateway import ChainflowDataGateway
 
 with ChainflowDataGateway(
-    rest_api_key=os.environ["REST_API_KEY"],
     ws_mint_key=os.environ["WS_MINT_KEY"],
 ) as client:
     credential = client.gateway.create_web_socket_token(symbol="btc")

@@ -4,7 +4,7 @@ import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import test from "node:test";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { committedVector, recordedCommittedReceipt } from "./committed-fixture.mjs";
-const { refusesUnboundCommitments } = await import("./repair-22-33-1478-support.mjs");
+const { refusesUnboundCommitments } = await import("./committed-payment-fixture.mjs");
 const { decodeRawEip1559, keccak256, verifySequencerReceipt } = await import("@sidiora/layerx-sdk");
 const {
   LAYERX_LEDGER_ADDRESS,

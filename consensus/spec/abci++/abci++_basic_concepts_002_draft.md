@@ -3,6 +3,8 @@ order: 1
 title: Overview and basic concepts
 ---
 
+# Overview and basic concepts
+
 ## Outline
 
 - [ABCI++ vs. ABCI](#abci-vs-abci)
@@ -17,8 +19,6 @@ title: Overview and basic concepts
 - [Errors](#errors)
 - [Events](#events)
 - [Evidence](#evidence)
-
-# Overview and basic concepts
 
 This page describes the application's boundary with the embedded consensus engine
 in this fork. The `_002_draft` filename is retained for existing links; the
@@ -88,10 +88,10 @@ interface boundary, but different callers may run concurrently.
 
 Execution order depends on the configured consensus mode:
 
-| Path | Application calls and applicability |
-| --- | --- |
-| Classic consensus | Proposal validation calls `ProcessProposal`. After a decision, `BlockExecutor.ApplyBlock` calls `FinalizeBlock`, saves its response, validates updates, calls `Commit`, updates the mempool, and saves consensus state. |
-| Autobahn | A non-empty `autobahn-config-file` selects this path in `node/node.go`. `GigaRouter.runExecute` reads ordered global blocks and `executeBlock` calls `FinalizeBlock`, saves its response, calls `Commit`, then records the application hash. This execution loop does not call `ProcessProposal`. |
+| Path              | Application calls and applicability                                                                                                                                                                                                                                                               |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Classic consensus | Proposal validation calls `ProcessProposal`. After a decision, `BlockExecutor.ApplyBlock` calls `FinalizeBlock`, saves its response, validates updates, calls `Commit`, updates the mempool, and saves consensus state.                                                                           |
+| Autobahn          | A non-empty `autobahn-config-file` selects this path in `node/node.go`. `GigaRouter.runExecute` reads ordered global blocks and `executeBlock` calls `FinalizeBlock`, saves its response, calls `Commit`, then records the application hash. This execution loop does not call `ProcessProposal`. |
 
 The Autobahn implementation is in
 [`internal/p2p/giga_router.go`](../../internal/p2p/giga_router.go). Its

@@ -1,0 +1,121 @@
+[meta]
+title = "Human workspace lint coverage"
+target = "human-lint"
+
+[coverage.copy_clippy]
+command = "cargo clippy --manifest-path services/human/tools/copy-lint/Cargo.toml --locked --all-targets -- -D warnings"
+covers = "Every target of the copy catalog and source checker, with warnings denied."
+
+[coverage.copy_tests]
+command = "cargo test --manifest-path services/human/tools/copy-lint/Cargo.toml --locked"
+covers = "Catalog vocabulary, status messages, sentence case, ramp isolation, retired routes, JSX text and prose concatenation."
+
+[coverage.copy_sources]
+command = "cargo run --manifest-path services/human/tools/copy-lint/Cargo.toml --locked -- apps/web"
+covers = "The committed web copy catalog and TypeScript source tree."
+
+[coverage.web_typecheck]
+command = "npm --prefix apps/web run typecheck"
+covers = "Strict TypeScript checking of web sources, copy and test sources, with local UI declarations and compiled agent and wallet SDK dependencies prepared."
+
+[coverage.web_tests]
+command = "npm --prefix apps/web test"
+covers = "The declared web suites for the shell, copy, UI library, state models, API and session boundaries, explorer, activity, agents, security and native transaction journeys."
+
+[coverage.workspace_clippy]
+command = "cargo clippy --manifest-path services/human/Cargo.toml --locked --workspace --all-targets -- -D warnings"
+covers = "Every member and target of the human Rust workspace, with warnings denied."
+
+[coverage.boundary_tests]
+command = "cargo test --manifest-path services/human/tools/boundary-check/Cargo.toml --locked"
+covers = "Dependency, private node, determinism, payload authority, bundle and retired surface policies over fixtures and the human workspace; the two named transport files permit only monotonic deadline reads."
+
+[coverage.boundary_sources]
+command = "cargo run --manifest-path services/human/tools/boundary-check/Cargo.toml --locked -- services/human/crates"
+covers = "Dependency declarations and Rust sources of the human crates."
+
+[coverage.dependency_policy]
+command = "sh services/human/tools/dependency-policy.sh"
+covers = "Resolved package bans, SPDX license alternatives and the prohibition of unsafe Rust constructs."
+
+[coverage.lockfile_policy]
+command = "cargo deny --manifest-path services/human/Cargo.toml check advisories bans sources"
+covers = "Security advisories, duplicate and prohibited packages, and registry and Git source policy."
+
+[coverage.web_lint]
+command = "npm --prefix apps/web run lint"
+covers = "Generated runtime copy consistency, strict TypeScript, typed ESLint with zero warnings, dependency and content security policy, and high severity npm advisories."
+
+[coverage.member_waits]
+covers = "Bounded polling steps for nonblocking listeners; provider startup deadlines and elapsed-time assertions use the runtime clock authority. KMS test hosts use the production connection worker. Gateway requests accept a total duration budget and their tests require completion within a bounded receive."
+paths = [
+    "services/human/crates/layerx-human-identity-provider/src/main.rs",
+    "services/human/crates/layerx-human-identity-provider/tests/repair_22_33_36.rs",
+    "services/human/crates/layerx-human-kms/tests/provider/repair_22_33_1540_host.rs",
+    "services/human/crates/layerx-human-kms/tests/repair_22_33_1540.rs",
+    "services/human/crates/layerx-human-kms/tests/repair_22_33_25.rs",
+    "services/human/crates/layerx-human-kms/tests/repair_22_33_26.rs",
+    "services/human/crates/layerx-human-kms/tests/repair_22_33_27.rs",
+    "services/human/crates/layerx-human-kms/tests/repair_22_33_31.rs",
+    "services/human/crates/layerx-human-kms/tests/support/repair_22_33_27_host.rs",
+    "services/human/crates/layerx-human-security-provider/tests/repair_22_31_155.rs",
+    "services/human/crates/layerx-human-security-provider/tests/repair_22_33_46.rs",
+    "services/human/crates/layerx-human-security-provider/tests/repair_22_33_47.rs",
+    "services/human/crates/layerx-human-security-provider/tests/repair_22_33_54.rs",
+    "services/human/crates/layerx-human-service/src/server/production_reads.rs",
+    "services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs",
+    "services/human/crates/layerx-human-service/tests/repair_22_31_152.rs",
+    "services/human/crates/layerx-human-service/tests/repair_22_33_38.rs",
+    "services/human/crates/layerx-human-service/tests/repair_22_33_49.rs",
+    "services/human/crates/layerx-human-service/tests/repair_22_33_50.rs",
+    "services/human/crates/layerx-human-service/tests/repair_22_33_62.rs",
+    "services/human/crates/layerx-human-service/tests/repair_22_33_63.rs",
+    "services/human/crates/layerx-human-service/tests/retained_capability_install_replies.rs",
+    "services/human/crates/layerx-human-service/tests/support/repair_22_33_44_kms.rs",
+    "services/human/crates/layerx-human-test-support/tests/support/committed_evidence.rs",
+    "services/human/crates/layerx-network-gateway/src/lib.rs",
+    "services/human/crates/layerx-network-gateway/tests/repair_22_31_157.rs",
+    "services/human/crates/layerx-network-gateway/tests/repair_22_33_56.rs",
+    "services/human/crates/layerx-network-gateway/tests/support/hosted_gateway.rs"
+]
+
+[coverage.web_runtime_contracts]
+covers = "Live cancellation checks across asynchronous operations, validated cursor and operation components, exact display conversions, ownership and archive provenance checks, private report credentials and typed support HTTP fixture values."
+paths = [
+    "apps/web/src/api/gas-station.ts",
+    "apps/web/src/api/generated/index.ts",
+    "apps/web/src/api/performance-sink.ts",
+    "apps/web/src/api/precompiles.ts",
+    "apps/web/src/api/stream.ts",
+    "apps/web/src/api/wallet.ts",
+    "apps/web/src/app/_markets/activity-feed.tsx",
+    "apps/web/src/app/_markets/send-outcome.tsx",
+    "apps/web/src/app/exchange/exchange-client.tsx",
+    "apps/web/src/app/explorer/programs/[programId]/program-details.tsx",
+    "apps/web/src/explorer/client.ts",
+    "apps/web/src/explorer/components.tsx",
+    "apps/web/src/explorer/links.ts",
+    "apps/web/src/explorer/model.ts",
+    "apps/web/src/explorer/native-model.ts",
+    "apps/web/src/explorer/program-contract.test.ts",
+    "apps/web/src/journeys/activity/facts.tsx",
+    "apps/web/src/journeys/agents/model.ts",
+    "apps/web/src/journeys/agents/recovery.ts",
+    "apps/web/src/journeys/approvals/controller.ts",
+    "apps/web/src/journeys/approvals/programs.tsx",
+    "apps/web/src/states/report.ts",
+    "apps/web/src/support/conversation.ts",
+    "apps/web/src/support/service.fixture.ts"
+]
+
+[coverage.transport_deadlines]
+covers = "KMS handshakes and gateway transport requests use monotonic deadlines in the two named transport files. Other ambient clock and random-source patterns remain rejected."
+paths = ["services/human/crates/layerx-human-kms/src/server.rs", "services/human/crates/layerx-network-gateway/src/lib.rs"]
+
+[coverage.wallet_policy]
+covers = "The local wallet package has the approved name, path, version, Apache-2.0 license and private flag; the manifest and web lockfile agree."
+paths = ["apps/web/policy/check.mjs", "apps/web/policy/repair-22-33-419.json", "apps/web/test/repair-22-33-419.test.mjs", "apps/web/package-lock.json"]
+
+[coverage.receipt_payloads]
+covers = "The intents authority builds activity receipts with height-encoded batches and governance onboarding receipts. Each constructor preserves canonical field bytes with and without a sequencer signature. Service activity reads and onboarding evidence use these constructors."
+paths = ["services/human/crates/layerx-intents/src/vectors.rs", "services/human/crates/layerx-intents/src/vectors/receipts.rs", "services/human/crates/layerx-intents/tests/receipt_payloads.rs", "services/human/crates/layerx-human-service/src/server/production_reads.rs", "services/human/crates/layerx-human-service/tests/repair_22_33_49.rs"]

@@ -18,7 +18,7 @@ use std::net::{SocketAddr, TcpListener};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use layerx_agentd::identity::{
     register, CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority,
@@ -186,16 +186,40 @@ fn custody_temp_recovery_before_link_rename_and_unlink() -> Result {
     Ok(())
 }
 
-struct ElapsedClock(Instant, u64);
+struct ElapsedClock {
+    clock: std::sync::Mutex<Arc<layerx_client::runtime_clock::RuntimeClock>>,
+    start: ClockReading,
+    unix_milliseconds: u64,
+}
+impl ElapsedClock {
+    fn new(unix_milliseconds: u64) -> std::result::Result<Self, ClockError> {
+        let clock = layerx_client::runtime_clock::RuntimeClock::from_environment()?;
+        let start = clock.sample(Duration::from_secs(1))?;
+        Ok(Self {
+            clock: std::sync::Mutex::new(clock),
+            start,
+            unix_milliseconds,
+        })
+    }
+}
 impl Clock for ElapsedClock {
     fn sample(&self, budget: Duration) -> std::result::Result<ClockReading, ClockError> {
         if budget.is_zero() {
             return Err(ClockError::Unavailable);
         }
-        let nanos = u64::try_from(self.0.elapsed().as_nanos()).map_err(|_| ClockError::Overflow)?;
+        let now = self
+            .clock
+            .lock()
+            .map_err(|_| ClockError::Unavailable)?
+            .sample(budget)?;
+        let nanos = u64::try_from(now.elapsed_since(self.start)?.as_nanos())
+            .map_err(|_| ClockError::Overflow)?;
         Ok(ClockReading {
-            generation: [1; 16],
-            unix_milliseconds: self.1 + nanos / 1_000_000,
+            generation: self.start.generation,
+            unix_milliseconds: self
+                .unix_milliseconds
+                .checked_add(nanos / 1_000_000)
+                .ok_or(ClockError::Overflow)?,
             monotonic_nanoseconds: nanos,
         })
     }
@@ -266,7 +290,8 @@ fn remote(address: SocketAddr, clock: Arc<dyn Clock>) -> RemoteKmsProvider {
 
 fn start_delayed_backend(
     listener: TcpListener,
-    arrival: std::sync::mpsc::Sender<Instant>,
+    arrival: std::sync::mpsc::Sender<ClockReading>,
+    clock: Arc<dyn Clock>,
 ) -> std::thread::JoinHandle<()> {
     std::thread::spawn(move || {
         let mut workers = Vec::new();
@@ -275,6 +300,7 @@ fn start_delayed_backend(
             let (tcp, _) = checked(listener.accept());
             let config = server_config();
             let arrival = arrival.clone();
+            let clock = clock.clone();
             workers.push(std::thread::spawn(move || {
                 checked(tcp.set_read_timeout(Some(Duration::from_secs(2))));
                 checked(tcp.set_write_timeout(Some(Duration::from_secs(2))));
@@ -289,7 +315,7 @@ fn start_delayed_backend(
                     ));
                     checked(stream.flush());
                 } else {
-                    checked(arrival.send(Instant::now()));
+                    checked(arrival.send(checked(clock.sample(Duration::from_secs(1)))));
                     // Dribble a real codec response slowly: per-read relative timeouts
                     // would keep this worker alive beyond the operation budget.
                     let response = kms_wire::response(
@@ -387,11 +413,11 @@ fn request_operation(
 #[test]
 fn gateway_operation_deadline_bounds_real_delayed_transport() -> Result {
     let _ = rustls::crypto::ring::default_provider().install_default();
-    let clock: Arc<dyn Clock> = Arc::new(ElapsedClock(Instant::now(), 1_793_779_200_000));
+    let clock: Arc<dyn Clock> = Arc::new(ElapsedClock::new(1_793_779_200_000)?);
     let listener = TcpListener::bind("127.0.0.1:0")?;
     let address = listener.local_addr()?;
     let (arrival, arrivals) = std::sync::mpsc::channel();
-    let backend = start_delayed_backend(listener, arrival);
+    let backend = start_delayed_backend(listener, arrival, clock.clone());
     let gateway = Arc::new(LxkpGateway::new(
         Arc::new(remote(address, clock.clone())),
         GatewayTls::new(CA, SERVER, &Zeroizing::new(SERVER_KEY.to_vec()), CLIENT)?,
@@ -420,22 +446,28 @@ fn gateway_operation_deadline_bounds_real_delayed_transport() -> Result {
             checked(serving.serve_connection(tcp));
         });
         let client = remote(front_address, clock.clone());
-        let start = Instant::now();
+        let start = clock.sample(Duration::from_secs(1))?;
         let result = request_operation(operation, &client, &binding, &reference, front_address);
         assert!(
             matches!(result, Err(KmsError::Unavailable)),
             "operation {operation}: {result:?}"
         );
         assert!(
-            start.elapsed() < Duration::from_millis(270),
+            clock.sample(Duration::from_secs(1))?.elapsed_since(start)?
+                < Duration::from_millis(270),
             "operation {operation} exceeded total gateway budget: {:?}",
-            start.elapsed()
+            clock.sample(Duration::from_secs(1))?.elapsed_since(start)?
         );
         let provider_started = checked(arrivals.recv_timeout(Duration::from_secs(1)));
         assert!(
-            provider_started.elapsed() < Duration::from_millis(155),
+            clock
+                .sample(Duration::from_secs(1))?
+                .elapsed_since(provider_started)?
+                < Duration::from_millis(155),
             "provider exceeded the 110ms absolute budget: {:?}",
-            provider_started.elapsed()
+            clock
+                .sample(Duration::from_secs(1))?
+                .elapsed_since(provider_started)?
         );
         checked(worker.join()); // A refusal also releases the sole gateway participant slot.
     }
@@ -1043,10 +1075,7 @@ fn session_production_driver_renews_and_recovers_through_maintenance() -> Result
     let mut service = driver.into_provisioner()?;
     service.contract_mut().now = replacement.expires_at - 19;
     let driver = SessionLifecycleDriver::new(service)?;
-    let clock: Arc<dyn Clock> = Arc::new(ElapsedClock(
-        Instant::now(),
-        (replacement.expires_at - 19) * 1000,
-    ));
+    let clock: Arc<dyn Clock> = Arc::new(ElapsedClock::new((replacement.expires_at - 19) * 1000)?);
     let backend = Arc::new(checked(
         layerx_human_service::server::backend::UnixComponents::new_with_clock(
             fixture.0.join("product.sock"),
@@ -1077,7 +1106,7 @@ fn session_production_driver_renews_and_recovers_through_maintenance() -> Result
     );
     let shutdown = bound.shutdown();
     let server = std::thread::spawn(move || checked(bound.run()));
-    let until = Instant::now() + Duration::from_secs(2);
+    let mut renewal_steps = 0..400;
     loop {
         let current = components
             .sessions()
@@ -1087,7 +1116,7 @@ fn session_production_driver_renews_and_recovers_through_maintenance() -> Result
             break;
         }
         assert!(
-            Instant::now() < until,
+            renewal_steps.next().is_some(),
             "production component scheduler did not renew authority"
         );
         std::thread::sleep(Duration::from_millis(5));

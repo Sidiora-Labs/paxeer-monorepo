@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -133,13 +134,29 @@ func (s *Store) commitCanonical(ctx context.Context, b CanonicalBatch, project f
 		if r.Data == nil {
 			r.Data = []byte{}
 		}
-		tag, e := tx.Exec(ctx, `INSERT INTO indexer.indexer_raw_logs(chain_id,transaction_hash,log_index,height,transaction_index,block_hash,emitter,topics,data) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING`, b.ChainID, r.TransactionHash, int64(r.LogIndex), r.Height, int64(r.TransactionIndex), r.BlockHash, r.Emitter, topics, r.Data)
+		rLogIndexInt64, conversionErr := checked.Convert[int64](r.LogIndex)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		rTransactionIndexInt64, conversionErr := checked.Convert[int64](r.TransactionIndex)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		tag, e := tx.Exec(ctx, `INSERT INTO indexer.indexer_raw_logs(chain_id,transaction_hash,log_index,height,transaction_index,block_hash,emitter,topics,data) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING`, b.ChainID, r.TransactionHash, rLogIndexInt64, r.Height, rTransactionIndexInt64, r.BlockHash, r.Emitter, topics, r.Data)
 		if e != nil {
 			return e
 		}
 		if tag.RowsAffected() == 0 {
 			var same bool
-			e = tx.QueryRow(ctx, `SELECT height=$4 AND transaction_index=$5 AND block_hash=$6 AND emitter=$7 AND topics=$8::jsonb AND data=$9 FROM indexer.indexer_raw_logs WHERE chain_id=$1 AND transaction_hash=$2 AND log_index=$3`, b.ChainID, r.TransactionHash, int64(r.LogIndex), r.Height, int64(r.TransactionIndex), r.BlockHash, r.Emitter, topics, r.Data).Scan(&same)
+			rLogIndexInt642, conversionErr := checked.Convert[int64](r.LogIndex)
+			if conversionErr != nil {
+				return conversionErr
+			}
+			rTransactionIndexInt642, conversionErr := checked.Convert[int64](r.TransactionIndex)
+			if conversionErr != nil {
+				return conversionErr
+			}
+			e = tx.QueryRow(ctx, `SELECT height=$4 AND transaction_index=$5 AND block_hash=$6 AND emitter=$7 AND topics=$8::jsonb AND data=$9 FROM indexer.indexer_raw_logs WHERE chain_id=$1 AND transaction_hash=$2 AND log_index=$3`, b.ChainID, r.TransactionHash, rLogIndexInt642, r.Height, rTransactionIndexInt642, r.BlockHash, r.Emitter, topics, r.Data).Scan(&same)
 			if e != nil {
 				return e
 			}
@@ -172,13 +189,21 @@ func (s *Store) commitCanonical(ctx context.Context, b CanonicalBatch, project f
 	}
 
 	for _, o := range b.Outbox {
-		tag, e := tx.Exec(ctx, `INSERT INTO indexer.indexer_ingest_outbox(chain_id,transaction_hash,log_index,event_kind,payload) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`, b.ChainID, o.TransactionHash, int64(o.LogIndex), o.Kind, o.Payload)
+		oLogIndexInt64, conversionErr := checked.Convert[int64](o.LogIndex)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		tag, e := tx.Exec(ctx, `INSERT INTO indexer.indexer_ingest_outbox(chain_id,transaction_hash,log_index,event_kind,payload) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`, b.ChainID, o.TransactionHash, oLogIndexInt64, o.Kind, o.Payload)
 		if e != nil {
 			return e
 		}
 		if tag.RowsAffected() == 0 {
 			var same bool
-			e = tx.QueryRow(ctx, `SELECT payload=$5::jsonb FROM indexer.indexer_ingest_outbox WHERE chain_id=$1 AND transaction_hash=$2 AND log_index=$3 AND event_kind=$4`, b.ChainID, o.TransactionHash, int64(o.LogIndex), o.Kind, o.Payload).Scan(&same)
+			oLogIndexInt642, conversionErr := checked.Convert[int64](o.LogIndex)
+			if conversionErr != nil {
+				return conversionErr
+			}
+			e = tx.QueryRow(ctx, `SELECT payload=$5::jsonb FROM indexer.indexer_ingest_outbox WHERE chain_id=$1 AND transaction_hash=$2 AND log_index=$3 AND event_kind=$4`, b.ChainID, o.TransactionHash, oLogIndexInt642, o.Kind, o.Payload).Scan(&same)
 			if e != nil {
 				return e
 			}
@@ -203,7 +228,11 @@ func (s *Store) commitCanonical(ctx context.Context, b CanonicalBatch, project f
 	return tx.Commit(ctx)
 }
 func validateBatch(b CanonicalBatch) error {
-	if b.ChainID <= 0 || b.Fence <= 0 || b.PreviousHeight < 0 || b.PreviousHeight > math.MaxInt64-int64(len(b.Blocks)) || len(b.StreamID) == 0 || len(b.StreamID) > 128 || len(b.Owner) == 0 || len(b.Owner) > 128 || len(b.BatchID) == 0 || len(b.BatchID) > 128 || len(b.Blocks) == 0 || len(b.Blocks) > 1000 || len(b.Records) > 100000 || len(b.Outbox) > 100000 {
+	bBlocksInt64, conversionErr := checked.Convert[int64](len(b.Blocks))
+	if conversionErr != nil {
+		return conversionErr
+	}
+	if b.ChainID <= 0 || b.Fence <= 0 || b.PreviousHeight < 0 || b.PreviousHeight > math.MaxInt64-bBlocksInt64 || len(b.StreamID) == 0 || len(b.StreamID) > 128 || len(b.Owner) == 0 || len(b.Owner) > 128 || len(b.BatchID) == 0 || len(b.BatchID) > 128 || len(b.Blocks) == 0 || len(b.Blocks) > 1000 || len(b.Records) > 100000 || len(b.Outbox) > 100000 {
 		return errors.New("invalid canonical batch bounds")
 	}
 	totalBytes := 0
@@ -237,7 +266,11 @@ func validateBatch(b CanonicalBatch) error {
 		}
 	}
 	for i, bl := range b.Blocks {
-		if bl.Height != b.PreviousHeight+int64(i)+1 || !hashPattern.MatchString(bl.Hash) || !bl.FetchComplete || !bl.RequiredDecodeComplete || bl.RawCount != counts[bl.Height] {
+		iInt64, conversionErr := checked.Convert[int64](i)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		if bl.Height != b.PreviousHeight+iInt64+1 || !hashPattern.MatchString(bl.Hash) || !bl.FetchComplete || !bl.RequiredDecodeComplete || bl.RawCount != counts[bl.Height] {
 			return errors.New("incomplete or noncontiguous blocks")
 		}
 	}
@@ -302,14 +335,18 @@ func (c CanonicalTx) InsertCommittedOutboxIntent(ctx context.Context, b Canonica
 		return errors.New("committed outbox intent requires a bounded inventory intent")
 	}
 	var height int64
-	err := c.Tx.QueryRow(ctx, `SELECT height FROM indexer.indexer_raw_logs WHERE chain_id=$1 AND transaction_hash=$2 AND log_index=$3`, b.ChainID, o.TransactionHash, int64(o.LogIndex)).Scan(&height)
+	oLogIndexInt643, conversionErr := checked.Convert[int64](o.LogIndex)
+	if conversionErr != nil {
+		return conversionErr
+	}
+	err := c.Tx.QueryRow(ctx, `SELECT height FROM indexer.indexer_raw_logs WHERE chain_id=$1 AND transaction_hash=$2 AND log_index=$3`, b.ChainID, o.TransactionHash, oLogIndexInt643).Scan(&height)
 	if errors.Is(err, pgx.ErrNoRows) || err == nil && height > b.PreviousHeight {
 		return ErrIntegrity
 	}
 	if err != nil {
 		return err
 	}
-	tag, err := c.Tx.Exec(ctx, `INSERT INTO indexer.indexer_ingest_outbox(chain_id,transaction_hash,log_index,event_kind,payload) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`, b.ChainID, o.TransactionHash, int64(o.LogIndex), o.Kind, o.Payload)
+	tag, err := c.Tx.Exec(ctx, `INSERT INTO indexer.indexer_ingest_outbox(chain_id,transaction_hash,log_index,event_kind,payload) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`, b.ChainID, o.TransactionHash, oLogIndexInt643, o.Kind, o.Payload)
 	if err != nil {
 		return err
 	}
@@ -317,7 +354,7 @@ func (c CanonicalTx) InsertCommittedOutboxIntent(ctx context.Context, b Canonica
 		return nil
 	}
 	var same bool
-	if err = c.Tx.QueryRow(ctx, `SELECT payload=$5::jsonb FROM indexer.indexer_ingest_outbox WHERE chain_id=$1 AND transaction_hash=$2 AND log_index=$3 AND event_kind=$4`, b.ChainID, o.TransactionHash, int64(o.LogIndex), o.Kind, o.Payload).Scan(&same); err != nil {
+	if err = c.Tx.QueryRow(ctx, `SELECT payload=$5::jsonb FROM indexer.indexer_ingest_outbox WHERE chain_id=$1 AND transaction_hash=$2 AND log_index=$3 AND event_kind=$4`, b.ChainID, o.TransactionHash, oLogIndexInt643, o.Kind, o.Payload).Scan(&same); err != nil {
 		return err
 	}
 	if !same {
@@ -423,20 +460,32 @@ func (c CanonicalTx) InsertAccountingFill(ctx context.Context, fill accounting.F
 		return "", err
 	}
 	var bound bool
-	err = c.Tx.QueryRow(ctx, `SELECT height=$4 AND transaction_index=$5 AND block_hash=$6 AND emitter=$7 FROM indexer.indexer_raw_logs WHERE chain_id=$1 AND transaction_hash=$2 AND log_index=$3`, 125, fill.Position.TransactionHash, int64(logIndex), height, int64(transactionIndex), fill.Position.BlockHash, fill.ActualEmitter).Scan(&bound)
+	logIndexInt64, conversionErr := checked.Convert[int64](logIndex)
+	if conversionErr != nil {
+		return "", conversionErr
+	}
+	transactionIndexInt64, conversionErr := checked.Convert[int64](transactionIndex)
+	if conversionErr != nil {
+		return "", conversionErr
+	}
+	err = c.Tx.QueryRow(ctx, `SELECT height=$4 AND transaction_index=$5 AND block_hash=$6 AND emitter=$7 FROM indexer.indexer_raw_logs WHERE chain_id=$1 AND transaction_hash=$2 AND log_index=$3`, 125, fill.Position.TransactionHash, logIndexInt64, height, transactionIndexInt64, fill.Position.BlockHash, fill.ActualEmitter).Scan(&bound)
 	if err != nil {
 		return "", err
 	}
 	if !bound {
 		return "", ErrIntegrity
 	}
-	tag, err := c.Tx.Exec(ctx, `INSERT INTO indexer.indexer_accounting_fills(source_fill_id,source_fact_digest,chain_id,transaction_hash,log_index,pool_address,payload) VALUES($1,$2,125,$3,$4,$5,$6) ON CONFLICT DO NOTHING`, fill.SourceFillID, string(digest), fill.Position.TransactionHash, int64(logIndex), fill.PoolAddress, payload)
+	tag, err := c.Tx.Exec(ctx, `INSERT INTO indexer.indexer_accounting_fills(source_fill_id,source_fact_digest,chain_id,transaction_hash,log_index,pool_address,payload) VALUES($1,$2,125,$3,$4,$5,$6) ON CONFLICT DO NOTHING`, fill.SourceFillID, string(digest), fill.Position.TransactionHash, logIndexInt64, fill.PoolAddress, payload)
 	if err != nil {
 		return "", err
 	}
 	if tag.RowsAffected() == 0 {
 		var same bool
-		err = c.Tx.QueryRow(ctx, `SELECT source_fact_digest=$2 AND chain_id=125 AND transaction_hash=$3 AND log_index=$4 AND pool_address=$5 AND payload=$6::jsonb FROM indexer.indexer_accounting_fills WHERE source_fill_id=$1`, fill.SourceFillID, string(digest), fill.Position.TransactionHash, int64(logIndex), fill.PoolAddress, payload).Scan(&same)
+		logIndexInt642, conversionErr := checked.Convert[int64](logIndex)
+		if conversionErr != nil {
+			return "", conversionErr
+		}
+		err = c.Tx.QueryRow(ctx, `SELECT source_fact_digest=$2 AND chain_id=125 AND transaction_hash=$3 AND log_index=$4 AND pool_address=$5 AND payload=$6::jsonb FROM indexer.indexer_accounting_fills WHERE source_fill_id=$1`, fill.SourceFillID, string(digest), fill.Position.TransactionHash, logIndexInt642, fill.PoolAddress, payload).Scan(&same)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return "", ErrIntegrity
 		}

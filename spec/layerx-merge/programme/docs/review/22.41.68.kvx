@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.68"
+pages = 20
+
+[page.1]
+path = "docs/site/docs/platform/public-api.md"
+status = "reviewed"
+
+[page.2]
+path = "docs/site/docs/platform/registry-journal.md"
+status = "reviewed"
+
+[page.3]
+path = "docs/site/docs/platform/registry.md"
+status = "reviewed"
+
+[page.4]
+path = "docs/site/docs/platform/webhooks.md"
+status = "reviewed"
+
+[page.5]
+path = "docs/site/docs/programs/index.md"
+status = "corrected"
+
+[page.6]
+path = "docs/site/docs/programs/sandbox.md"
+status = "reviewed"
+
+[page.7]
+path = "docs/site/docs/programs/storage-scan.md"
+status = "corrected"
+
+[page.8]
+path = "docs/site/docs/programs/workspace.md"
+status = "corrected"
+
+[page.9]
+path = "docs/site/docs/protocol/commitment-levels.md"
+status = "reviewed"
+
+[page.10]
+path = "docs/site/docs/protocol/data-availability.md"
+status = "reviewed"
+
+[page.11]
+path = "docs/site/docs/protocol/finality.md"
+status = "reviewed"
+
+[page.12]
+path = "docs/site/docs/protocol/index.md"
+status = "corrected"
+
+[page.13]
+path = "docs/site/docs/protocol/modules.md"
+status = "reviewed"
+
+[page.14]
+path = "docs/site/docs/protocol/sidiora.md"
+status = "reviewed"
+
+[page.15]
+path = "docs/site/docs/protocol/xweb.md"
+status = "corrected"
+
+[page.16]
+path = "docs/site/docs/reference/index.md"
+status = "reviewed"
+
+[page.17]
+path = "docs/site/docs/reference/public-rpc.md"
+status = "corrected"
+
+[page.18]
+path = "docs/system/INDEX.md"
+status = "reviewed"
+
+[page.19]
+path = "docs/system/chain-modules.md"
+status = "reviewed"
+
+[page.20]
+path = "docs/system/cli.md"
+status = "corrected"

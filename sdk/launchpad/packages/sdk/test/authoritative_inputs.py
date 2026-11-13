@@ -9,7 +9,7 @@ import shutil
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[5]
-OWNER = pathlib.Path("launchpad/spec/production-system/integration/contracts")
+OWNER = pathlib.Path("sdk/launchpad/protocol/contracts")
 RECORDED = pathlib.Path("services/launchpad/api/internal/rest/testdata/contracts/v2/openapi.json")
 GENERATOR = pathlib.Path("tools/launchpad/production/interfaces/codegen.py")
 

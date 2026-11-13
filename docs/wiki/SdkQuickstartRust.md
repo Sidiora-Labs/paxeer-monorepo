@@ -1,7 +1,6 @@
 # Rust SDK quickstart
 
-Package: `layerx-sdk` at `services/agent/crates/layerx-sdk`. There is no
-`sdk/platform/rust`.
+Package: `layerx-sdk` at `services/agent/crates/layerx-sdk`.
 
 This crate ships typed public JSON-RPC wrappers for `px_register`,
 `px_requestFunds`, native `eth_sendRawTransaction` submission and
@@ -13,8 +12,9 @@ This crate ships typed public JSON-RPC wrappers for `px_register`,
 
 ## Register
 
-`RpcClient::register` takes a 32-byte Ed25519 public key and its
-64-byte signature over `layerx_sdk::register::binding`. The gateway
+Connect to the configured hosted gateway with `RpcClient::connect_hosted`;
+registration is a hosted operation. `RpcClient::register` takes a 32-byte
+Ed25519 public key and its 64-byte signature over `layerx_sdk::register::binding`. The gateway
 derives the subject; the caller cannot name another principal.
 
 ```rust
@@ -109,7 +109,7 @@ fn verify(
     previous_state_root: [u8; 32],
     resulting_state_root: [u8; 32],
     sequencer_public_key: [u8; 32],
-) -> Result<layerx_proof::receipt::VerifiedReceipt, layerx_sdk::production::ReceiptVerificationFailure> {
+) -> Result<layerx_proof::receipt::VerifiedReceipt, layerx_proof::receipt::VerificationFailure> {
     let authorised = AuthorizedBatch::new(
         batch_id,
         asset,
@@ -121,8 +121,10 @@ fn verify(
 }
 ```
 
-The five batch facts must come from a source you already trust.
-Taking them from the same service that handed you the receipt
-proves nothing.
+This helper verifies kernel receipt bytes under independently authenticated
+batch facts. It does not verify the node RPC receipt view or BFT commitment.
+For native signed-transaction receipts, use `RpcClient::wait_for_with_commit`
+with caller-pinned `ReceiptCommitEvidence`; its implementation is in
+[`rpc_verification.rs`](../../services/agent/crates/layerx-sdk/src/rpc_verification.rs).
 
 [SDK quickstarts](SdkQuickstarts.md) · [Home](Home.md)

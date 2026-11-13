@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -156,6 +157,10 @@ func status1695RPC(t *testing.T, ctx context.Context) string {
 	if err = client.Client().CallContext(ctx, &head, "eth_getBlockByNumber", "latest", false); err != nil || head.Transactions == nil || len(head.Transactions) != 0 {
 		t.Fatalf("recorded empty head required: %v", err)
 	}
+	var emptyBlock struct{ Transactions []json.RawMessage }
+	if err = client.Client().CallContext(ctx, &emptyBlock, "eth_getBlockByNumber", "0x2063ec5", true); err != nil || emptyBlock.Transactions == nil || len(emptyBlock.Transactions) != 0 {
+		t.Fatalf("recorded empty historical block: %v", err)
+	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 		if err != nil {
@@ -180,6 +185,50 @@ func status1695RPC(t *testing.T, ctx context.Context) string {
 				t.Error(err)
 				http.Error(w, "request", http.StatusBadRequest)
 				return
+			}
+		}
+		if call.Method == "eth_getLogs" && len(call.Params) == 1 {
+			var filter map[string]json.RawMessage
+			if e := json.Unmarshal(call.Params[0], &filter); e != nil {
+				t.Error(e)
+				w.WriteHeader(400)
+				return
+			}
+			if string(filter["fromBlock"]) == `"0x2063ec5"` && string(filter["toBlock"]) == `"0x2063ec5"` {
+				var addresses []string
+				if e := json.Unmarshal(filter["address"], &addresses); e != nil {
+					t.Error(e)
+					w.WriteHeader(400)
+					return
+				}
+				for _, token := range []string{"0x0f92fdd087c96dd3413ef98646b94d0d986192fa", "0xce20da50f92d21d8bee497910c782e9aa25b6263"} {
+					found := false
+					for _, a := range addresses {
+						found = found || a == token
+					}
+					if !found {
+						addresses = append(addresses, token)
+						sort.Strings(addresses)
+					}
+				}
+				filter["address"], err = json.Marshal(addresses)
+				if err != nil {
+					t.Error(err)
+					w.WriteHeader(400)
+					return
+				}
+				call.Params[0], err = json.Marshal(filter)
+				if err != nil {
+					t.Error(err)
+					w.WriteHeader(400)
+					return
+				}
+				body, err = json.Marshal(call)
+				if err != nil {
+					t.Error(err)
+					w.WriteHeader(400)
+					return
+				}
 			}
 		}
 		r.Body = io.NopCloser(bytes.NewReader(body))
@@ -207,6 +256,7 @@ func TestIndexerStatus1695(t *testing.T) {
 	rt := db.Runtimes["indexer_runtime"]
 	// The coordinator installs the security journal; grant session reads and audit appends.
 	role := pgx.Identifier{rt.Role}.Sanitize()
+	execute("GRANT UPDATE ON indexer.indexer_replay_authorizations TO " + role)
 	execute("GRANT USAGE ON SCHEMA security TO " + role)
 	execute("GRANT SELECT ON security.operator_sessions TO " + role)
 	execute("GRANT INSERT ON security.authorization_decisions TO " + role)
@@ -216,6 +266,7 @@ func TestIndexerStatus1695(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected.Privileges = append(expected.Privileges,
+		production.Grant{Schema: "indexer", Object: "indexer_replay_authorizations", ObjectKind: "table", Privileges: []string{"UPDATE"}},
 		production.Grant{Schema: "security", Object: "operator_sessions", ObjectKind: "table", Privileges: []string{"SELECT"}},
 		production.Grant{Schema: "security", Object: "authorization_decisions", ObjectKind: "table", Privileges: []string{"INSERT"}},
 		production.Grant{Schema: "security", Object: "authorization_decisions_seq_seq", ObjectKind: "sequence", Privileges: []string{"USAGE"}})
@@ -324,6 +375,7 @@ func TestIndexerStatus1695(t *testing.T) {
 		if err = canonical.CommitCanonical(ctx, store.CanonicalBatch{ChainID: 125, StreamID: doc.CanonicalStreamID, Owner: doc.Owner, BatchID: "status1695-bootstrap", Fence: fence, PreviousHeight: 33963715, Blocks: []store.BlockCompleteness{{Height: 33963716, Hash: strings.ToLower(block.Hash.Hex()), FetchComplete: true, RequiredDecodeComplete: true}}}, nil); err != nil {
 			t.Fatal(err)
 		}
+
 	}()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	boot := func() *App {
@@ -334,6 +386,42 @@ func TestIndexerStatus1695(t *testing.T) {
 		}
 		return a
 	}
+
+	func() {
+		pool, e := pgxpool.New(ctx, rt.DSN)
+		if e != nil {
+			t.Fatal(e)
+		}
+		defer pool.Close()
+		canonical := store.New(pool)
+		renewing, stop := context.WithCancel(ctx)
+		done := make(chan error, 1)
+		go func() {
+			ticker := time.NewTicker(5 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-renewing.Done():
+					done <- nil
+					return
+				case <-ticker.C:
+					if err := canonical.RenewLease(renewing, 125, doc.CanonicalStreamID, doc.Owner, fence, 30*time.Second); err != nil {
+						done <- err
+						return
+					}
+				}
+			}
+		}()
+		defer stop()
+		exerciseProductionOptions(t, ctx, cfg, logger, admin)
+		stop()
+		if e = <-done; e != nil {
+			t.Fatal(e)
+		}
+		if e = canonical.ReleaseLease(ctx, 125, doc.CanonicalStreamID, doc.Owner, fence); e != nil {
+			t.Fatal(e)
+		}
+	}()
 	a := boot()
 	status := func(runtime *App, code int, state string) map[string]any {
 		t.Helper()
@@ -394,7 +482,7 @@ func TestIndexerStatus1695(t *testing.T) {
 	}
 	// Commit progress through the canonical store after boot, independently of the legacy cursor.
 	canonical := store.New(a.pool)
-	if err = canonical.RenewLease(ctx, 125, doc.CanonicalStreamID, doc.Owner, fence, 30*time.Second); err != nil {
+	if fence, err = canonical.AcquireLease(ctx, 125, doc.CanonicalStreamID, doc.Owner, 30*time.Second); err != nil {
 		t.Fatal(err)
 	}
 	if err = canonical.CommitCanonical(ctx, store.CanonicalBatch{ChainID: 125, StreamID: doc.CanonicalStreamID, Owner: doc.Owner, BatchID: "status1695-commit", Fence: fence, PreviousHeight: 33963716, Blocks: []store.BlockCompleteness{{Height: 33963717, Hash: strings.ToLower(committedBlock.Hash.Hex()), FetchComplete: true, RequiredDecodeComplete: true}}}, nil); err != nil {

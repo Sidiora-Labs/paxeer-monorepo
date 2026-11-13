@@ -608,7 +608,7 @@ func TestStreamRelayInlineDocumentGate(t *testing.T) {
 // hermetic repair gate, so neither maintains a second privilege inventory.
 func reviewedRelayRole(t *testing.T) production.RoleManifest {
 	t.Helper()
-	path := filepath.Join(internaltest.RepositoryRoot(t), "launchpad/spec/production-system/integration/migrations/grants.json")
+	path := filepath.Join(internaltest.RepositoryRoot(t), "migrations/grants.json")
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)

@@ -1,0 +1,20 @@
+[manifest]
+task = "22.43.119"
+records_moved = 0
+files_renamed = 4
+
+[file.1]
+from = "sdk/testutil/repair_m674.kvx"
+to = "sdk/testutil/rest.kvx"
+
+[file.2]
+from = "sdk/testutil/repair_m674_test.go"
+to = "sdk/testutil/rest_test.go"
+
+[file.3]
+from = "sdk/testutil/network/repair_m672.kvx"
+to = "sdk/testutil/network/config_genesis.kvx"
+
+[file.4]
+from = "sdk/testutil/network/repair_m672_test.go"
+to = "sdk/testutil/network/config_genesis_test.go"

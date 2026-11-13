@@ -484,7 +484,7 @@ func realPolicyChat(t *testing.T) (*fanout.DurableStore, map[string]context.Cont
 	store := durableFixture(t)
 	ctx := context.Background()
 	schema := store.Pool.Config().ConnConfig.RuntimeParams["search_path"]
-	for _, path := range []string{"launchpad/spec/production-system/integration/migrations/330000.sql", "launchpad/spec/production-system/integration/migrations/350000.sql", "launchpad/spec/production-system/integration/migrations/370000.sql", "launchpad/spec/production-system/integration/migrations/380000.sql", "launchpad/spec/production-system/integration/migrations/370001.sql"} {
+	for _, path := range []string{"migrations/330000.sql", "migrations/350000.sql", "migrations/370000.sql", "migrations/380000.sql", "migrations/370001.sql"} {
 		raw, err := os.ReadFile(filepath.Join("../../../../..", path))
 		if err != nil {
 			t.Fatal(err)

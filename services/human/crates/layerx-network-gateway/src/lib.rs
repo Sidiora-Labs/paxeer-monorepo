@@ -669,6 +669,21 @@ impl GatewayEndpoint {
         self.post_with_deadline(body, Instant::now() + IO_TIMEOUT)
     }
 
+    /// Posts with a total transport budget measured from this call.
+    ///
+    /// # Errors
+    /// Reports an expired or overflowing budget or a transport or framing failure.
+    pub fn post_with_timeout(
+        &self,
+        body: &str,
+        timeout: Duration,
+    ) -> Result<Vec<u8>, GatewayError> {
+        let deadline = Instant::now()
+            .checked_add(timeout)
+            .ok_or_else(|| GatewayError::Transport("gateway timeout overflow".into()))?;
+        self.post_with_deadline(body, deadline)
+    }
+
     /// Posts with one injected monotonic deadline for resolution, connect,
     /// TLS, request writes and response reads.
     ///

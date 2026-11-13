@@ -61,7 +61,7 @@ func RunFaultScenario(ctx context.Context, scenario string, config Config) error
 	if err != nil {
 		return fmt.Errorf("charts fault: source publication authority: %w", err)
 	}
-	policy := delivery.Policy{Subjects: map[string]bool{accounting.MarketSubject: true}, EventTypes: map[string]bool{accounting.MarketSubject: true}}
+	policy := delivery.Policy{Subjects: map[string]bool{accounting.MarketSubject: true}, EventTypes: map[string]bool{"market": true}}
 	var records []recordedPublication
 	for rows.Next() {
 		var positionWire, wire []byte

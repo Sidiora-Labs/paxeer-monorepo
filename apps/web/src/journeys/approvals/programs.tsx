@@ -27,7 +27,7 @@ export function ProgramApprovalInboxRows({ approvals, at, onOpen, selectedId }: 
     const state = programApprovalState(approval.state === "pending" && countdown.expired ? "expired" : approval.state);
     return <ListItem key={`program:${approval.approval_id}`} navigates
       aria-current={selectedId === approval.approval_id ? "true" : undefined}
-      onClick={onOpen === undefined ? undefined : () => onOpen(approval.approval_id)}
+      onClick={onOpen === undefined ? undefined : () => { onOpen(approval.approval_id); }}
       title={programApprovalTitle(approval)} subtitle={approval.agent_name}
       trailing={<Badge variant={state.tone} size="sm">{state.label}</Badge>}
       trailingCaption={<span role="timer">{countdown.label}</span>} />;
@@ -132,7 +132,7 @@ export function ProgramApprovalDetailCard({ detail, controller, at, shell, onCha
     <p>{copyEntry("approval.program.consequence").message}</p>
     {detail.semantics === "authorized-limits" ? <section className="flex flex-col gap-3">
       <h2>{copyEntry("approval.program.limits").message}</h2>
-      {detail.authorized_limits.map((limit, index) => <div key={`${limit.source_account}:${limit.asset_id}:${index}`}>
+      {detail.authorized_limits.map((limit, index) => <div key={`${limit.source_account}:${limit.asset_id}:${String(index)}`}>
         <p>{formatCopy("approval.program.units", { amount: limit.maximum_amount.toString() })}</p>
         <CopyableIdentifier label={copyEntry("approval.program.asset").message} value={limit.asset_id} />
         {limit.destination === undefined ? null : <CopyableIdentifier label={copyEntry("approval.program.destination").message} value={limit.destination} />}

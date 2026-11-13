@@ -651,7 +651,6 @@ mod capability_install_boundary {
     use std::io::{Read, Write};
     use std::net::{TcpListener, TcpStream};
     use std::path::Path;
-    use std::time::Instant;
 
     use layerx_agentd::human::{serve_one, AcceptedTransport, HumanPeer};
     use layerx_agentd::human_runtime::{ProductionHumanOperations, RemoteHumanAuthority};
@@ -664,7 +663,7 @@ mod capability_install_boundary {
     const DEADLINE: Duration = Duration::from_secs(5);
 
     fn accept(listener: &TcpListener) -> TcpStream {
-        let deadline = Instant::now() + DEADLINE;
+        let mut accept_steps = 0..5_000;
         loop {
             match listener.accept() {
                 Ok((stream, _)) => {
@@ -673,7 +672,10 @@ mod capability_install_boundary {
                     return stream;
                 }
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                    assert!(Instant::now() < deadline, "capability authority deadline");
+                    assert!(
+                        accept_steps.next().is_some(),
+                        "capability authority deadline"
+                    );
                     thread::sleep(Duration::from_millis(1));
                 }
                 Err(error) => panic!("capability authority accept: {error}"),
@@ -869,12 +871,12 @@ mod capability_install_boundary {
         let count = requests.len();
         let server = thread::spawn(move || {
             for _ in 0..count {
-                let deadline = Instant::now() + DEADLINE;
+                let mut accept_steps = 0..5_000;
                 let stream = loop {
                     match listener.accept() {
                         Ok((stream, _)) => break stream,
                         Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                            assert!(Instant::now() < deadline, "capability install deadline");
+                            assert!(accept_steps.next().is_some(), "capability install deadline");
                             thread::sleep(Duration::from_millis(1));
                         }
                         Err(error) => panic!("capability install accept: {error}"),

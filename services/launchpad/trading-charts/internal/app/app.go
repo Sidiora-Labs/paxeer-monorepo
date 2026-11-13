@@ -121,13 +121,13 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 
 	rdb, err := sharedredis.NewClient(cfg.RedisURL)
 	if err != nil {
-		pool.Close()
+		shareddb.ClosePool(pool)
 		return nil, err
 	}
 
 	defer func() {
 		if !secretOwned {
-			pool.Close()
+			shareddb.ClosePool(pool)
 			_ = rdb.Close()
 		}
 	}()
@@ -136,7 +136,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 
 	swapConsumer, err := consumer.New(builder, cfg.RedisURL, logger)
 	if err != nil {
-		pool.Close()
+		shareddb.ClosePool(pool)
 		_ = rdb.Close()
 		return nil, err
 	}
@@ -217,17 +217,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 				return nil, archiveErr
 			}
 			archive = &store.ArchiveReader{Objects: objects, Bucket: features.Archive.Bucket, Exact: exact, BlockTime: func(c context.Context, height int64, expected string) (int64, error) {
-				if height < 0 {
-					return 0, errors.New("charts: invalid archive height")
-				}
-				block, e := (chainread.Reader{RPC: rpc}).Block(c, height)
-				if e != nil {
-					return 0, errors.New("charts: archive block timestamp unavailable")
-				}
-				if !strings.EqualFold(block.Hash, expected) {
-					return 0, errors.New("charts: archive block authority mismatch")
-				}
-				return block.Time, nil
+				return archiveBlockTime(c, rpc, height, expected)
 			}}
 		}
 		accountingConsumer, e = consumer.NewSourceVerifiedAccountingConsumer(consumer.SourceVerifiedAccountingConfig{Pool: pool, Deliveries: durable, Partitions: partitions, Exact: exact, ConsumerID: d.ConsumerID, Generation: d.Generation, ProjectionVersion: d.ProjectionVersion, Owner: d.Owner, SourceStream: d.SourceStream, SourcePartitionSchema: "indexer", RPC: rpc, MaxReplayBlocks: d.MaxReplayBlocks, MaxReplayFills: d.MaxReplayFills, SeriesV2: true, StreamWriter: &delivery.StreamWriter{Schema: "api_stream"}})
@@ -252,14 +242,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return nil, e
 		}
 		secretChecks["verified_rpc"] = func(c context.Context) error {
-			pin, e := verifiedRPC.Pin(c, features.AnchorHeight)
-			if e != nil {
-				return e
-			}
-			if pin.Hash != common.HexToHash(features.AnchorHash) {
-				return errors.New("charts: verified RPC anchor changed")
-			}
-			return nil
+			return verifyArchiveAnchor(c, verifiedRPC, features.AnchorHeight, features.AnchorHash)
 		}
 		transport, e = natsdriver.NewConsumer(ctx, nc, d.Consumer)
 		if e != nil {
@@ -350,6 +333,31 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}, nil
 }
 
+func archiveBlockTime(ctx context.Context, rpc *ethclient.Client, height int64, expected string) (int64, error) {
+	if height < 0 {
+		return 0, errors.New("charts: invalid archive height")
+	}
+	block, err := (chainread.Reader{RPC: rpc}).Block(ctx, height)
+	if err != nil {
+		return 0, errors.New("charts: archive block timestamp unavailable")
+	}
+	if !strings.EqualFold(block.Hash, expected) {
+		return 0, errors.New("charts: archive block authority mismatch")
+	}
+	return block.Time, nil
+}
+
+func verifyArchiveAnchor(ctx context.Context, client *sharedchain.Client, height uint64, expected string) error {
+	pin, err := client.Pin(ctx, height)
+	if err != nil {
+		return err
+	}
+	if pin.Hash != common.HexToHash(expected) {
+		return errors.New("charts: verified RPC anchor changed")
+	}
+	return nil
+}
+
 // Close releases all resources.
 func (a *App) Close() {
 	if a.completenessStop != nil {
@@ -380,7 +388,7 @@ func (a *App) Close() {
 		a.secretStop()
 	}
 	if a.pool != nil {
-		a.pool.Close()
+		shareddb.ClosePool(a.pool)
 	}
 	if a.redis != nil {
 		_ = a.redis.Close()
@@ -408,6 +416,15 @@ func Run(parent context.Context) error {
 		return err
 	}
 	defer app.Close()
+	internalFailure := make(chan struct{}, 1)
+	failRuntime := func() {
+		app.tracker.BeginDrain()
+		select {
+		case internalFailure <- struct{}{}:
+		default:
+		}
+		cancel()
+	}
 	if app.chartPublisher != nil {
 		if err = app.startChartOutbox(ctx, logger); err != nil {
 			return err
@@ -428,8 +445,7 @@ func Run(parent context.Context) error {
 			defer release()
 			if e := app.accounting.RunCompleteness(completenessCtx, logger); e != nil && !errors.Is(e, context.Canceled) {
 				logger.Error("chart completeness loop failed", slog.Any("err", e))
-				app.tracker.BeginDrain()
-				cancel()
+				failRuntime()
 			}
 		}()
 		go func() {
@@ -440,8 +456,7 @@ func Run(parent context.Context) error {
 			defer release()
 			if e := app.accounting.Run(ctx, app.transport); !errors.Is(e, context.Canceled) {
 				logger.Error("accounting consumer failed", slog.Any("err", e))
-				app.tracker.BeginDrain()
-				cancel()
+				failRuntime()
 			}
 		}()
 	} else if err := app.Consumer.Start(ctx); err != nil {
@@ -467,8 +482,7 @@ func Run(parent context.Context) error {
 					stop()
 					if e != nil && !errors.Is(e, context.Canceled) {
 						logger.Error("chart rollup failed", slog.Any("err", e))
-						app.tracker.BeginDrain()
-						cancel()
+						failRuntime()
 						return
 					}
 				}
@@ -495,10 +509,23 @@ func Run(parent context.Context) error {
 		}
 	}()
 
-	shutErr := sharedprocess.Run(ctx, sharedprocess.Options{Tracker: app.tracker,
-		Logger:     logger,
-		OnShutdown: func(sctx context.Context) error { cancel(); return srv.Shutdown(sctx) },
-	})
+	lifecycleDone := make(chan error, 1)
+	go func() {
+		lifecycleDone <- sharedprocess.Run(ctx, sharedprocess.Options{Tracker: app.tracker,
+			Logger:     logger,
+			OnShutdown: func(sctx context.Context) error { cancel(); return srv.Shutdown(sctx) },
+		})
+	}()
+	var shutErr error
+	select {
+	case shutErr = <-lifecycleDone:
+	case <-internalFailure:
+		// An internal provider failure drains current work without a signal
+		// propagation delay, so the service can release its listener promptly.
+		shutdownCtx, stop := context.WithTimeout(context.Background(), sharedprocess.DefaultTimeout)
+		shutErr = errors.Join(srv.Shutdown(shutdownCtx), app.tracker.Drain(shutdownCtx))
+		stop()
+	}
 
 	cancel()
 

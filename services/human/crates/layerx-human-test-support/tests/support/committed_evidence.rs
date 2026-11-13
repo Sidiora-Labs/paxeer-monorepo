@@ -322,13 +322,13 @@ fn serve_recorded_rpc(listener: TcpListener, case: Value, chain_id: u64) -> thre
                 case["receiptJson"].clone(),
             ),
         ];
-        let expires = std::time::Instant::now() + Duration::from_secs(10);
+        let mut accept_steps = 0..10_000;
         for (method, params, result) in replies {
             let mut stream = loop {
                 match listener.accept() {
                     Ok((stream, _)) => break stream,
                     Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                        assert!(std::time::Instant::now() < expires, "missing RPC {method}");
+                        assert!(accept_steps.next().is_some(), "missing RPC {method}");
                         thread::sleep(Duration::from_millis(1));
                     }
                     Err(e) => panic!("accept RPC: {e}"),

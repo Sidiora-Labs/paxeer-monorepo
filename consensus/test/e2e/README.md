@@ -4,7 +4,13 @@ This harness configures local consensus-engine testnets from TOML manifests and 
 
 Run the commands on this page from `consensus/test/e2e/`. The Go module is rooted at the repository root; its [`go.mod`](../../../go.mod) declares Go 1.25.8. The runner invokes the `docker` and `docker-compose` executables.
 
-The Docker image is currently blocked. This harness is inherited from upstream Tendermint, and [`docker/Dockerfile`](docker/Dockerfile) expects `go.mod` and `go.sum` in its `consensus/` build context, where neither exists. It also uses Go 1.17 and expects a standalone `build/tendermint` binary from `make build`; this tree embeds the engine in `paxd` instead. Consequently, the default `make` target cannot supply the required `tendermint/e2e-node` image. Docker stages require a working image before they can run; the examples below describe the runner's interface, not a qualified Docker workflow.
+Build the `tendermint/e2e-node` image using the repository root as its context, as required by [`docker/Dockerfile`](docker/Dockerfile):
+
+```sh
+docker build --tag tendermint/e2e-node -f docker/Dockerfile ../../..
+```
+
+The image uses Go 1.25.8 on Debian Bookworm and builds the embedded node and test application as `/usr/bin/app`, with LevelDB and RocksDB development libraries installed. Use the explicit command above for the repository-root context.
 
 The individual Go tool targets are:
 
@@ -12,9 +18,9 @@ The individual Go tool targets are:
 make generator runner tests node
 ```
 
-The `node` target enables the `badgerdb,boltdb,cleveldb,rocksdb` build tags and requires the corresponding native database dependencies. These targets are defined in the local [`Makefile`](Makefile); this documentation rewrite does not qualify their builds or a Docker run.
+The `node` target enables the `badgerdb,boltdb,cleveldb,rocksdb` build tags and requires the corresponding native database dependencies. These targets are defined in the local [`Makefile`](Makefile).
 
-With a working image, select the CI manifest with:
+After building the image, select the CI manifest with:
 
 ```sh
 ./build/runner -f networks/ci.toml
@@ -31,7 +37,7 @@ The suite asks:
 1. Does a valid testnet configuration produce blocks, with all nodes eventually catching up?
 2. Does each node satisfy the invariants specified by the Go E2E tests?
 
-These are the intended invariants for valid network configurations. Handwritten manifests test specific configurations; randomly generated manifests explore permutations, subject to the current harness limitations below.
+These are the intended invariants for valid network configurations. Handwritten manifests test specific configurations; randomly generated manifests explore permutations, using the runtime protocol described below.
 
 The default run sets up the testnet, starts a background transaction load, starts the nodes, and waits for blocks and node catch-up. It applies configured perturbations, such as killing or disconnecting nodes, followed by evidence injection when requested. Finally, it stops the load, waits for the network to settle, and runs the Go tests. The orchestration is in [`runner/main.go`](runner/main.go).
 
@@ -43,7 +49,7 @@ Tests must account for the node configuration and for a live network that contin
 
 Testnets are specified as TOML manifests. For an example see [`networks/ci.toml`](networks/ci.toml), and for field documentation see [`pkg/manifest.go`](pkg/manifest.go). Loading and validation live in [`pkg/testnet.go`](pkg/testnet.go).
 
-The node runtime supports `abci_protocol = "builtin"`. The inherited generator still emits out-of-process ABCI choices, which the current runtime rejects. Generating a manifest does not establish that it can run in this tree.
+Use `abci_protocol = "builtin"` for every node. The runtime embeds the test application and accepts this protocol only. Select this value in generated manifests before running them.
 
 ## Random Testnet Generation
 
@@ -56,9 +62,7 @@ Generate random testnet manifests with `generator`:
 ./build/generator -g 8 -d networks/generated/
 ```
 
-[`generator/main.go`](generator/main.go) uses the fixed seed `4827085738`; the CLI has no seed flag. This does **not** guarantee identical manifests across fresh processes. Although `combinations()` sorts its keys, `probSetChoice.Choose()` and `weightedChoice.Choose()` in [`generator/random.go`](generator/random.go) iterate maps without sorting, so the same seeded random draws can select different values.
-
-To reproduce a configuration, save the exact generated TOML manifest together with the code revision and failure logs, then pass that saved manifest to `runner -f`. Do not regenerate it from the seed or assume a generated filename identifies the same configuration in another run. Saving a manifest preserves the configuration inputs; it does not make runtime timing or newly generated genesis data identical.
+[`generator/main.go`](generator/main.go) uses the fixed seed `4827085738`; the CLI has no seed flag. Save the generated TOML manifest and pass that saved file to `runner -f` to reuse a configuration. Map iteration in the generator can affect choices across processes even with the same seed; a saved manifest preserves the configuration inputs.
 
 With a working Docker image and supported manifests, [`run-multiple.sh`](run-multiple.sh) runs testnets sequentially:
 
@@ -94,7 +98,7 @@ Test cases are normal Go tests in [`tests/`](tests/). The runner executes the co
 
 ### Running Manual Tests
 
-With the Docker prerequisite resolved, start the testnet and set `E2E_MANIFEST` to an absolute path so it also resolves from the Go test package's working directory:
+After building the Docker image, start the testnet and set `E2E_MANIFEST` to an absolute path so it also resolves from the Go test package's working directory:
 
 ```sh
 ./build/runner -f networks/ci.toml start
@@ -120,7 +124,7 @@ go tool pprof "http://localhost:$PORT/debug/pprof/block"
 go tool pprof "http://localhost:$PORT/debug/pprof/mutex"
 ```
 
-See Julia Evans's [pprof introduction](https://jvns.ca/blog/2017/09/24/profiling-go-with-pprof/) for background.
+See this [pprof introduction](https://jvns.ca/blog/2017/09/24/profiling-go-with-pprof/) for background.
 
 ## Enabling IPv6
 
@@ -135,7 +139,7 @@ The manifest's `ipv6` field selects IPv6 addressing in the generated Compose net
 
 ## Benchmarking Testnets
 
-With the Docker prerequisite resolved, `./build/runner -f <manifest> benchmark` sets up a testnet, generates load, starts nodes, waits for catch-up, and samples 100 blocks. It reports the mean, standard deviation, minimum and maximum block intervals, along with transaction and sampling statistics. It does not apply perturbations and cleans up on exit. See [`runner/benchmark.go`](runner/benchmark.go).
+After building the Docker image, `./build/runner -f <manifest> benchmark` sets up a testnet, generates load, starts nodes, waits for catch-up, and samples 100 blocks. It reports the mean, standard deviation, minimum and maximum block intervals, along with transaction and sampling statistics. It does not apply perturbations and cleans up on exit. See [`runner/benchmark.go`](runner/benchmark.go).
 
 ## Running Individual Nodes
 
@@ -146,6 +150,6 @@ make node
 TMHOME=$HOME/.tendermint ./build/node ./node/built-in.toml
 ```
 
-The node loads its engine configuration from `$TMHOME/config/config.toml`; the command does not initialize that home. This tree has no standalone `tendermint init` executable. The runner's `setup` stage writes per-node homes under the testnet directory and application settings in each node's `config/app.toml`.
+The node loads its engine configuration from `$TMHOME/config/config.toml`; the command does not initialize that home. The runner's `setup` stage writes per-node homes under the testnet directory and application settings in each node's `config/app.toml`.
 
 [`node/built-in.toml`](node/built-in.toml) is an example of the test application's settings. [`node/config.go`](node/config.go) aliases the definitions and validation in [`node/runtime/config.go`](node/runtime/config.go); startup and home loading are in [`node/runtime/node.go`](node/runtime/node.go). Only the `builtin` application protocol is supported.

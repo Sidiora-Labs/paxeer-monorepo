@@ -12,7 +12,7 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use layerx_network_gateway::{
     counted, decode_account, decode_account_balances, decode_assets, decode_hex, optional_quantity,
@@ -141,12 +141,16 @@ impl AbiProducer {
         let stop = Arc::new(AtomicBool::new(false));
         let stopped = Arc::clone(&stop);
         let worker = thread::spawn(move || {
-            let deadline = Instant::now() + Duration::from_secs(10);
+            let mut accept_steps = 0..10_000;
             let mut served = 0;
-            while !stopped.load(Ordering::Acquire) && Instant::now() < deadline && served < 3 {
+            while !stopped.load(Ordering::Acquire) && served < 3 {
                 let (mut stream, _) = match listener.accept() {
                     Ok(connection) => connection,
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        assert!(
+                            accept_steps.next().is_some(),
+                            "ABI producer request deadline"
+                        );
                         thread::sleep(Duration::from_millis(1));
                         continue;
                     }
