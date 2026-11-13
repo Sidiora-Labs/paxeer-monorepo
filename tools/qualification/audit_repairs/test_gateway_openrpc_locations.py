@@ -110,15 +110,15 @@ def test_035_real_catalogue_producer_overlays_locations_and_filters_retired_rout
     assert '"../../../../../tools/paxeer-x/route-catalogue.json"' in producer
     assert 'serde_json::from_str(include_str!("../route-locations.json"))' in producer
     assert re.search(
-        r'catalogue\s*\.as_object_mut\(\)\s*\.expect\("route catalogue is an object"\)'
+        r'catalogue\s*\.as_object_mut\(\)\s*\.unwrap_or_else\(\|\| panic!\("route catalogue is an object"\)\)'
         r'\s*\.extend\(locations\);', producer,
     )
     assert re.search(
         r'catalogue\["routes"\]\s*\.as_array_mut\(\)'
-        r'\s*\.expect\("route catalogue has a routes array"\)'
+        r'\s*\.unwrap_or_else\(\|\| panic!\("route catalogue has a routes array"\)\)'
         r'\s*\.retain\(\|route\| \{', producer,
     )
-    assert 'let path = route["path"].as_str().expect("route path is a string");' in producer
+    assert 'let path = route["path"].as_str().unwrap_or_else(|| panic!("route path is a string"));' in producer
     assert 'path != "/rpc" && !path.starts_with("/rpc/")' in producer
     assert producer.index(".extend(locations)") < producer.index(".retain(")
     assert "layerx_platform_gateway::unified_service_catalogue()" in rust_function("routes.rs", "catalogue")
@@ -172,7 +172,7 @@ def test_035_inherited_repair_preserves_entire_openrpc_document():
     ).read_text())
     assert snapshot["base_revision"] == "b06a8e8502aeb3eee0ed79afb1979f134a140ff1"
     assert snapshot["source"] == "services/platform/hosted/gateway/openrpc.json"
-    assert snapshot["pin_source_revision"] == "2910889b640274b1b6f2bd14a2fba25019093bb2"
+    assert snapshot["pin_source_revision"] == "f210675f121b1d1e6b66ec46a6e59286320dd35e"
     assert hashlib.sha256((ROOT / snapshot["source"]).read_bytes()).hexdigest() == snapshot["sha256"]
 
 
