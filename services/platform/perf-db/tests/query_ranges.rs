@@ -1,9 +1,4 @@
-//! Task 22.33.1373 repair record: query-reversed-range is proven by
-//! query_reversed_range_ticks, query_reversed_range_ticks_inclusive,
-//! query_reversed_range_candles and query_reversed_range_candles_inclusive.
-//! Baseline verification was not run: the task's ordered qualification rules
-//! require implementation first and verification only through hf-done.
-//! Wiring requests: none; the repair preserves all four public signatures.
+//! Tick and candle range queries preserve ordering and inclusive bounds.
 
 use std::fmt::Debug;
 

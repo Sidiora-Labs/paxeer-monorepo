@@ -2,7 +2,7 @@
 mode = "BUILD"
 audit = "22.30.75"
 acceptance = "22998.1"
-proof = "services/platform/perf-db/tests/repair_22_33_1376.rs"
+proof = "services/platform/perf-db/tests/relational_consistency.rs"
 baseline = "The initial diff contained only runner bookkeeping; there was no prior gate ledger or repair. No unchanged-tree verification was run because the controlling gate order forbids tests before complete implementation and hf-build. No baseline failure is claimed."
 evidence = "Exact qualified source revision, command, exit code and private log location are supplied by the runner's hf-build/hf-done receipts; implementation alone does not establish closure."
 

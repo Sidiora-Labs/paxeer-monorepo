@@ -36,7 +36,7 @@ fn indexed(number: u64, event: Event) -> IndexedEvent {
 // six-decimal token amounts, signs and big-endian ids are retained verbatim.
 fn recorded(name: &str) -> Event {
     let mut transcript: HashMap<String, Event> =
-        serde_json::from_str(include_str!("../src/fixtures/repair_1370_chain.json")).unwrap();
+        serde_json::from_str(include_str!("../src/fixtures/chain_events.json")).unwrap();
     transcript.remove(name).unwrap()
 }
 

@@ -1,22 +1,11 @@
-//! Task 22.33.1375 repair record (audit 22.30.75, owner domain 8).
-//! numeric-parse-zero-fallback: numeric_parse_zero_fallback_recorded_ingestion;
-//! numeric_parse_supported_signed_width.
-//! identifier-parse-validation: identifier_parse_validation_recorded_ingestion;
-//! identifier_parse_exact_ascii_width_without_panics; identifier_parse_validation_cli.
-//! Baseline verification was not run: the ordered gate instructions require
-//! complete implementation before the first build or verification.
-//! Attempt 1 build failed with E0308 in main.rs; verification was not reached.
-//! CLI callers now propagate parser errors before querying the real store.
-//! Ingestion accepts typed events; the recorded text producer below propagates
-//! each parse error before encoding, delivery, or database mutation.
-//! No out-of-path wiring is required.
+//! Numeric and identifier parsing validates recorded events before ingestion and CLI queries.
 
 use std::collections::HashMap;
 use std::error::Error;
 
 use perfdb::core::types::{
-    parse_address, parse_fixed, parse_hash, Event, IndexedEvent, ParseFixedError,
-    ParseIdentifierError,
+    Event, IndexedEvent, ParseFixedError, ParseIdentifierError, parse_address, parse_fixed,
+    parse_hash,
 };
 use perfdb::storage::wal::{self, SyncPolicy};
 use perfdb::{PerfDb, PerfDbConfig};
@@ -44,7 +33,7 @@ fn ingest_recorded(
     let user = parse_address(user_text)?;
     let position = parse_hash(position_text)?;
     let mut transcript: HashMap<String, Event> =
-        serde_json::from_str(include_str!("../src/fixtures/repair_1370_chain.json"))?;
+        serde_json::from_str(include_str!("../src/fixtures/chain_events.json"))?;
     let mut event = transcript.remove("position_opened").unwrap();
     match &mut event {
         Event::PositionOpened {

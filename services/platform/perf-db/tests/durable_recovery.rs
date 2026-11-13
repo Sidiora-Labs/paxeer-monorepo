@@ -144,7 +144,7 @@ fn fingerprint(dir: &Path) -> BTreeMap<PathBuf, (u64, u32)> {
 }
 
 #[test]
-fn TestRepair_140_tick_replay_history_crash_boundaries() {
+fn tick_replay_history_crash_boundaries() {
     let feed = [
         tick(1_100_000_000, 0, 100.0),
         tick(1_100_000_000, 0, 100.0), // Equal records are distinct WAL occurrences.
@@ -215,7 +215,7 @@ fn TestRepair_140_tick_replay_history_crash_boundaries() {
 }
 
 #[test]
-fn TestRepair_140_tick_live_bucket_and_shutdown_cursor() {
+fn tick_live_bucket_and_shutdown_cursor() {
     let dir = tempfile::tempdir().unwrap();
     let cfg = config(dir.path());
     let expected;
@@ -261,7 +261,7 @@ fn TestRepair_140_tick_live_bucket_and_shutdown_cursor() {
 }
 
 #[test]
-fn TestRepair_140_snapshot_same_block_exact_event_boundary() {
+fn snapshot_same_block_exact_event_boundary() {
     let dir = tempfile::tempdir().unwrap();
     let cfg = config(dir.path());
     let before = deposit(42, 0, 10);
@@ -298,7 +298,7 @@ fn TestRepair_140_snapshot_same_block_exact_event_boundary() {
 }
 
 #[test]
-fn TestRepair_140_snapshot_concurrent_mutation_boundary() {
+fn snapshot_concurrent_mutation_boundary() {
     let dir = tempfile::tempdir().unwrap();
     let cfg = config(dir.path());
     let db = Arc::new(PerfDb::open(cfg.clone()).unwrap());
@@ -359,7 +359,7 @@ fn TestRepair_140_snapshot_concurrent_mutation_boundary() {
 }
 
 #[test]
-fn TestRepair_140_event_redelivery_dedup_before_and_after_reopen() {
+fn event_redelivery_dedup_before_and_after_reopen() {
     for use_snapshot in [false, true] {
         let dir = tempfile::tempdir().unwrap();
         let cfg = config(dir.path());
@@ -386,7 +386,7 @@ fn TestRepair_140_event_redelivery_dedup_before_and_after_reopen() {
 }
 
 #[test]
-fn TestRepair_140_event_conflicting_redelivery_refused_before_wal() {
+fn event_conflicting_redelivery_refused_before_wal() {
     let dir = tempfile::tempdir().unwrap();
     let cfg = config(dir.path());
     let accepted = deposit(42, 0, 100);
@@ -424,7 +424,7 @@ fn TestRepair_140_event_conflicting_redelivery_refused_before_wal() {
 }
 
 #[test]
-fn TestRepair_140_event_wal_redelivery_is_idempotent() {
+fn event_wal_redelivery_is_idempotent() {
     let dir = tempfile::tempdir().unwrap();
     let cfg = config(dir.path());
     {
@@ -449,7 +449,7 @@ fn TestRepair_140_event_wal_redelivery_is_idempotent() {
 }
 
 #[test]
-fn TestRepair_140_snapshot_cursor_and_dedup_survive_wal_pruning() {
+fn snapshot_cursor_and_dedup_survive_wal_pruning() {
     let dir = tempfile::tempdir().unwrap();
     let cfg = config(dir.path());
     let expected;
@@ -482,7 +482,7 @@ fn TestRepair_140_snapshot_cursor_and_dedup_survive_wal_pruning() {
 }
 
 #[test]
-fn TestRepair_140_database_writer_lease_and_live_inspection() {
+fn database_writer_lease_and_live_inspection() {
     let dir = tempfile::tempdir().unwrap();
     let cfg = config(dir.path());
     let db = PerfDb::open(cfg.clone()).unwrap();
@@ -526,7 +526,7 @@ fn TestRepair_140_database_writer_lease_and_live_inspection() {
 
 #[cfg(unix)]
 #[test]
-fn TestRepair_140_database_writer_lease_directory_alias() {
+fn database_writer_lease_directory_alias() {
     let dir = tempfile::tempdir().unwrap();
     let data = dir.path().join("data");
     let db = PerfDb::open(config(&data)).unwrap();
@@ -538,7 +538,7 @@ fn TestRepair_140_database_writer_lease_directory_alias() {
 }
 
 #[test]
-fn TestRepair_140_inspection_ignores_uncommitted_mmap_suffix() {
+fn inspection_ignores_uncommitted_mmap_suffix() {
     let dir = tempfile::tempdir().unwrap();
     let mut cfg = config(dir.path());
     cfg.wal.sync_policy = SyncPolicy::None;
@@ -559,7 +559,7 @@ fn TestRepair_140_inspection_ignores_uncommitted_mmap_suffix() {
 }
 
 #[test]
-fn TestRepair_140_inspection_does_not_repair_wal_or_create_database() {
+fn inspection_does_not_repair_wal_or_create_database() {
     let dir = tempfile::tempdir().unwrap();
     let missing = dir.path().join("missing");
     assert!(PerfDb::open_read_only(config(&missing)).is_err());
