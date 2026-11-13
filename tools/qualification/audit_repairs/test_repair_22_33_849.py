@@ -571,13 +571,13 @@ def test_f021_native_funding_uses_retained_bank_send_and_public_root_roster():
     funding = (ROOT / owner.BANK_PRODUCER).read_text()
     assert "pub(super) fn sign_native(" in funding
     assert '"eth_sendRawTransaction"' in funding and "DEPLOYMENT_CHAIN_ID: u64 = 125" in funding
-    assert owner.native_funding((ROOT / "docs/site/docs/overview/getting-started.md").read_text(), roots)
+    assert owner.native_funding((ROOT / "docs/site/paxeer-docs/src/app/payments-quickstart/page.tsx").read_text(), roots)
     text = source("108.0.7")
     assert "funded_by_custody_credit" not in text and "router=" not in text
     assert 'python3 tools/paxeer-x/gates/onboarding_funding.py "$1"' in text
     assert 'check "native-bank-send:$page" funded_by_native_bank_send "$page"' in text
     assert text.count('docs/wiki/Getting-Started-Beta.md') == 1
-    assert "docs/site/docs/platform/index.md" in text
+    assert "docs/site/paxeer-docs/src/app/platform-api/page.tsx" in text
 
 
 @pytest.mark.parametrize("suffix", ["/rpc", "/evm", "/rpc/ws", "?route=rpc", ":8545"])
@@ -596,7 +596,7 @@ def test_f021_public_roster_refuses_prefixed_or_non_public_roots(suffix):
 def test_f021_funding_refuses_unserved_faucet_and_retired_producers(addition):
     owner = module("onboarding_funding")
     roots = owner.public_roots((ROOT / owner.INVENTORY).read_text())
-    current = (ROOT / "docs/site/docs/overview/getting-started.md").read_text()
+    current = (ROOT / "docs/site/paxeer-docs/src/app/payments-quickstart/page.tsx").read_text()
     with pytest.raises(ValueError, match="forbidden|retired funding"):
         owner.native_funding(current + addition, roots)
 
@@ -610,7 +610,7 @@ def test_f021_keeps_unserved_host_refusal_and_private_page_corpus():
     assert "docs/platform/beta-resets.ics" in text
     assert "check package-info-docs-location no_docs_host" in text
     scanner = (ROOT / "tools/bringup/docs-names.sh").read_text()
-    assert "inventory=docs/site/docs/reference/public-rpc.md" in scanner
+    assert "inventory=docs/site/paxeer-docs/src/app/public-rpc/page.tsx" in scanner
     assert 'docs-names "$inventory" "$spec" "${files[@]}"' in scanner
 
 

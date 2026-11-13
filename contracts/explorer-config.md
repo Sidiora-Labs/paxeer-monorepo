@@ -33,13 +33,7 @@ Do not copy example policy choices as claims about every deployment.
 | `PAXEER_X_NATIVE_COIN_DECIMALS` | default 18 |
 | `NETWORK`, `SUBNETWORK`, `COIN`, `COIN_NAME` | display labels; set Paxeer network labels and PAX coin labels explicitly |
 
-Use the [public node root URLs](evm-rpc.md#http-endpoint), for example
-`https://api1.mainnet-beta.paxeer.network/`, for JSON-RPC.
-The numbered hosts are `api1` through `api14`; the unnumbered host is
-`api-mainnet-beta.paxeer.network`.
-`node.hyperpaxeer.com` is only the library mirror, not an RPC endpoint.
-The pre-merge router and its /rpc, /rpc/ws and /rpc/schema paths are retired.
-There is no separate LayerX interface or separate sequencer service to supply.
+Use the configured [node root endpoint](evm-rpc.md#http-endpoint) for JSON-RPC.
 
 HTTP request URLs must use `http` or `https`; WebSocket URLs must use `ws` or
 `wss`. `ConfigHelper.parse_urls_list` rejects WebSocket schemes in HTTP pools
@@ -98,20 +92,29 @@ configuration does not restore state the node has pruned.
 `PAXEER_X_CAPABILITIES_ENABLED` defaults to false through the boolean helper;
 `PAXEER_X_CAPABILITIES_REFRESH_SECONDS` defaults to 30. The discovery process
 in [capabilities.ex](../services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex)
-probes one head height, then checks bridge and exchange views, launchpad code,
-and the addr precompile's unified-account response. It publishes absent flags
+probes one head height, then checks bridge `isPaused`, exchange `getMarginMode`,
+launchpad `getPoolCount`, and the addr precompile’s `getUnifiedAccount` response. It publishes absent flags
 until a successful probe and retains a prior snapshot on a failed refresh.
 The [API controller](../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/capabilities_controller.ex)
 exposes the capability contract to the browser. Address constants and ABI
 files alone do not establish availability; see
 [activation and retirement](address-inventory.md#activation).
 
-Legacy `PAXEER_X_ROUTER_URL` is still read into the compatibility receipt
-client's `router_url` configuration in `runtime.exs`; that pre-merge router
-reference is retired and is not a merged-network deployment requirement.
-Likewise, registry references to removed kernel receipt import workers are
-historical references, not extra workers to start. The source index below
-marks absent declaration files rather than supplying a replacement service.
+`PAXEER_X_GATEWAY_URL` supplies the receipt provider, including the compatibility
+client’s `router_url` key in `runtime.exs`. It serves receipt and key discovery,
+transaction receipt, `px_getCommit`, `px_getValidators`, and `px_getSequenceBatch`
+reads. `PAXEER_X_NODE_RPC_URL` separately selects the consensus RPC listener for
+`block` and `block_results` inclusion evidence. See
+[transaction status](explorer-http-api.md#transaction-status-and-signature).
+
+`PAXEER_X_RECEIPT_AUTHORITY_FILE` selects the JSON authority configuration. It
+contains a nonempty consensus `chain_id`, governed `receipt_keys`, and
+`validator_checkpoints` keyed by positive decimal heights with 32-byte hex
+`block_hash` and `validators_hash` values; `validator_history` is optional.
+The consensus chain identifier is distinct from the numeric EVM chain ID.
+Invalid authority files stop startup. Without a file, the receipt client has no
+configured chain identifier or trusted pins.
+
 
 ## Native price-feed indexing
 
@@ -158,11 +161,9 @@ address. The browser-facing variables are documented in
 
 ## Registry source index
 
-These link targets preserve interface-registry references. Each row points
-to the current source owner for its declaration, ABI, message, configuration
-family or helper. It does not assert that a method is registered, a feature
-is enabled, or a contract is deployed. Rows marked retired identify source
-references absent from this tree and must not be used as deployment targets.
+The following entries link declarations and configuration families to their
+source files. Method availability and enabled features follow server registration
+and runtime configuration.
 
 | Link targets | Source owner |
 | --- | --- |
@@ -223,7 +224,7 @@ references absent from this tree and must not be used as deployment targets.
 | <a id="env-hackney"></a>`env-hackney` | [services/explorer/backend/config/runtime.exs](../services/explorer/backend/config/runtime.exs) |
 | <a id="env-health"></a>`env-health` | [services/explorer/backend/config/runtime.exs](../services/explorer/backend/config/runtime.exs) |
 | <a id="env-hide"></a>`env-hide` | [services/explorer/backend/config/runtime.exs](../services/explorer/backend/config/runtime.exs) |
-| <a id="env-indexer"></a>`env-indexer` | [services/explorer/backend/apps/indexer/config/dev/anvil.exs](../services/explorer/backend/apps/indexer/config/dev/anvil.exs); Retired reference: `services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x_kernel_receipts.ex` is absent; [services/explorer/backend/config/config_helper.exs](../services/explorer/backend/config/config_helper.exs); [services/explorer/backend/config/runtime.exs](../services/explorer/backend/config/runtime.exs) |
+| <a id="env-indexer"></a>`env-indexer` | [services/explorer/backend/apps/indexer/config/dev/anvil.exs](../services/explorer/backend/apps/indexer/config/dev/anvil.exs); [services/explorer/backend/config/config_helper.exs](../services/explorer/backend/config/config_helper.exs); [services/explorer/backend/config/runtime.exs](../services/explorer/backend/config/runtime.exs) |
 | <a id="env-ipc"></a>`env-ipc` | [services/explorer/backend/config/runtime.exs](../services/explorer/backend/config/runtime.exs) |
 | <a id="env-ipfs"></a>`env-ipfs` | [services/explorer/backend/config/runtime.exs](../services/explorer/backend/config/runtime.exs) |
 | <a id="env-json"></a>`env-json` | [services/explorer/backend/config/runtime.exs](../services/explorer/backend/config/runtime.exs) |

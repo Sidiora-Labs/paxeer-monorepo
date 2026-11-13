@@ -1,10 +1,15 @@
 # Solidity API
 
+Source: [ProtocolConfig.sol](../../contracts/protocol/ProtocolConfig.sol).
+
 ## ProtocolConfig
 
-Single source of truth for all global protocol parameters
+UUPS-upgradeable storage for global USDL, virtual-reserve, fee and creation-fee settings. Only
+`DEFAULT_ADMIN_ROLE` may change settings or authorize upgrades. When an event emitter is configured,
+setters emit configuration updates through it.
 
-_UUPS proxy. Only admin can update. Emits config changes via EventEmitter._
+Initialization sets base/minimum/maximum swap fees to 30/10/300 BPS, the protocol share to 1000 BPS,
+and concentration weight to zero. `setFeeWeights` requires concentration weight to remain zero.
 
 ### usdlAddress
 
@@ -120,9 +125,8 @@ function setFeeWeights(uint256 newDecayRate, uint256 newVolWeight, uint256 newCo
 function setVirtualDefaults(uint256 newVirtualUsdl, uint256 newVirtualToken) external
 ```
 
-### _authorizeUpgrade
+### \_authorizeUpgrade
 
 ```solidity
 function _authorizeUpgrade(address) internal
 ```
-

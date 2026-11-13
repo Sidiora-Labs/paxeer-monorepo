@@ -9,8 +9,7 @@ shapes. A historical vector does not make a retired operation active.
 Human operates on the merged Paxeer network, chain ID **125** (`0x7d`). The
 kernel is part of the network and proposes blocks; block commit is finality.
 The Human HTTPS API described here is an application contract. Public node
-JSON-RPC uses the root of `https://api-mainnet-beta.paxeer.network` or the
-numbered `api1` through `api14.mainnet-beta.paxeer.network` hosts.
+JSON-RPC uses the node root URL; see [Public JSON-RPC](PublicRpc.md).
 
 [Human custody](HumanCustody.md) explains signing, owner export and evidence.
 [Hosted Human](HostedHuman.md) covers material assembly;

@@ -5,7 +5,8 @@ go-metrics
 
 Go port of Coda Hale's Metrics library: <https://github.com/dropwizard/metrics>.
 
-Documentation: <https://godoc.org/github.com/rcrowley/go-metrics>.
+This repository's package is `github.com/ethereum/go-ethereum/metrics` in
+[`core/deps/geth`](../). The links to go-metrics below describe the upstream project.
 
 Usage
 -----
@@ -21,8 +22,9 @@ g := metrics.NewGauge()
 metrics.Register("bar", g)
 g.Update(47)
 
-r := NewRegistry()
-g := metrics.NewRegisteredFunctionalGauge("cache-evictions", r, func() int64 { return cache.getEvictionsCount() })
+r := metrics.NewRegistry()
+cacheGauge := metrics.NewRegisteredGauge("cache-evictions", r)
+cacheGauge.Update(47)
 
 s := metrics.NewExpDecaySample(1028, 0.015) // or metrics.NewUniformSample(1028)
 h := metrics.NewHistogram(s)
@@ -39,8 +41,7 @@ t.Time(func() {})
 t.Update(47)
 ```
 
-Register() is not threadsafe. For threadsafe metric registration use
-GetOrRegister:
+Use `GetOrRegisterTimer` to retrieve or register a timer in one operation:
 
 ```go
 t := metrics.GetOrRegisterTimer("account.create.latency", nil)
@@ -71,42 +72,16 @@ w, _ := syslog.Dial("unixgram", "/dev/log", syslog.LOG_INFO, "metrics")
 go metrics.Syslog(metrics.DefaultRegistry, 60e9, w)
 ```
 
-Periodically emit every metric to Graphite using the [Graphite client](https://github.com/cyberdelia/go-metrics-graphite):
+Periodically emit every metric into InfluxDB using the local reporter:
 
 ```go
+import "github.com/ethereum/go-ethereum/metrics/influxdb"
 
-import "github.com/cyberdelia/go-metrics-graphite"
-
-addr, _ := net.ResolveTCPAddr("tcp", "127.0.0.1:2003")
-go graphite.Graphite(metrics.DefaultRegistry, 10e9, "metrics", addr)
+go influxdb.InfluxDB(metrics.DefaultRegistry, 10*time.Second,
+  influxURL, influxDatabase, influxUsername, influxPassword, "metrics.")
 ```
 
-Periodically emit every metric into InfluxDB:
-
-**NOTE:** this has been pulled out of the library due to constant fluctuations
-in the InfluxDB API. In fact, all client libraries are on their way out. see
-issues [#121](https://github.com/rcrowley/go-metrics/issues/121) and
-[#124](https://github.com/rcrowley/go-metrics/issues/124) for progress and details.
-
-```go
-import "github.com/vrischmann/go-metrics-influxdb"
-
-go influxdb.InfluxDB(metrics.DefaultRegistry,
-  10e9, 
-  "127.0.0.1:8086", 
-  "database-name", 
-  "username", 
-  "password"
-)
-```
-
-Periodically emit every metric to StatHat:
-
-```go
-import "github.com/rcrowley/go-metrics/stathat"
-
-go stathat.Stathat(metrics.DefaultRegistry, 10e9, "example@example.com")
-```
+See the [reporter documentation](influxdb/README.md) for its arguments.
 
 Maintain all metrics along with expvars at `/debug/metrics`:
 
@@ -116,7 +91,7 @@ as well as all your go-metrics.
 
 
 ```go
-import "github.com/rcrowley/go-metrics/exp"
+import "github.com/ethereum/go-ethereum/metrics/exp"
 
 exp.Exp(metrics.DefaultRegistry)
 ```
@@ -125,19 +100,13 @@ Installation
 ------------
 
 ```sh
-go get github.com/rcrowley/go-metrics
-```
-
-StatHat support additionally requires their Go client:
-
-```sh
-go get github.com/stathat/go
+go get github.com/ethereum/go-ethereum/metrics
 ```
 
 Publishing Metrics
 ------------------
 
-Clients are available for the following destinations:
+The upstream project lists clients for the following destinations:
 
 * Graphite - https://github.com/cyberdelia/go-metrics-graphite
 * InfluxDB - https://github.com/vrischmann/go-metrics-influxdb

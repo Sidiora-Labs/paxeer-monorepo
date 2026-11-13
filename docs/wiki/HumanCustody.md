@@ -69,20 +69,18 @@ a security audit event, and returns a timed secret with `value`, `remask_at`
 and `copyable` (`security.rs`). Repeat plaintext exports and later managed
 signing are refused after the self-custody marker.
 
-There are two implementation boundaries to distinguish:
+The HTTP dispatcher uses `KeyExportCeremony` in
+`server/production_components.rs`. `Keystore::export_primary_once` refuses
+providers marked `Production`; plaintext HTTP export therefore returns a
+refusal for those providers.
 
-- The HTTP dispatcher in `server/production_components.rs` still calls that
-  legacy `KeyExportCeremony`. Its `Keystore::export_primary_once` explicitly
-  refuses a `Production` provider (`custody/mod.rs`). The declared timed-secret
-  response therefore does not establish a working production plaintext export.
-- The provider handover uses `export_primary_envelope` and
-  `acknowledge_primary_export` (`custody/export.rs`). It persists the ceremony,
-  principal/key binding and recipient-encrypted delivery, recovers the same
-  envelope after interruption, and retains it until owner acknowledgment.
-  Acknowledgment checks the recipient proof, acknowledges the provider, durably
-  marks local self-custody and clears the retained envelope. Interrupted
-  acknowledgment can be retried after restart. This protects key delivery;
-  it is a separate provider flow from the HTTP timed-secret ceremony.
+The provider handover uses `export_primary_envelope` and
+`acknowledge_primary_export` (`custody/export.rs`). It persists the ceremony,
+principal/key binding and recipient-encrypted delivery, recovers the same
+envelope after interruption, and retains it until owner acknowledgment.
+Acknowledgment checks the recipient proof, acknowledges the provider, durably
+marks local self-custody and clears the retained envelope. Interrupted
+acknowledgment can be retried after restart.
 
 Only the human-primary key class is eligible for owner handover. Ordinary
 reads, receipts, traces, notifications and managed-agent operations do not

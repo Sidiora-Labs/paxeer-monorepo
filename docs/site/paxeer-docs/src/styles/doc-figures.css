@@ -1,0 +1,15 @@
+.doc-figure{margin:1.8rem 0 2.4rem;--hairline-plate:var(--gray-0);border:0;border-radius:0;background:transparent}
+.doc-figure-stage{height:230px;max-width:400px;margin:0 auto;position:relative;color:var(--color-text);aspect-ratio:5/4}
+.doc-figure-stage>svg{display:block;width:100%;height:100%}
+.doc-figure figcaption{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border:0;font-size:12px;line-height:1.5;color:var(--color-text-secondary)}
+.doc-figure figcaption button{font:inherit;white-space:nowrap;background:transparent;color:inherit;border:0;border-radius:5px;padding:4px 8px;cursor:pointer}
+.doc-figure figcaption button:focus-visible{outline:2px solid currentColor;outline-offset:3px}
+.doc-figure--compact .doc-figure-stage{height:140px}
+.doc-related{margin-top:2.5rem;border-top:1px solid var(--color-border);padding-top:1.3rem}
+.doc-related>p{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-secondary)}
+.doc-related-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.doc-related-links>a{padding:14px;border:1px solid var(--color-border);border-radius:8px;text-decoration:none;line-height:1.5}
+.doc-related-links>a:hover{border-color:currentColor}
+@media(max-width:600px){.doc-figure-stage{height:190px}.doc-figure figcaption{align-items:flex-start;padding:10px 0}.doc-related-links{grid-template-columns:1fr}}
+
+.doc-figure figcaption button:hover{background:var(--color-surface-elevated);color:var(--color-text)}

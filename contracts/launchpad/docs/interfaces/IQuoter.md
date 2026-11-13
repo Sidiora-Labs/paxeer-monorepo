@@ -4,6 +4,13 @@
 
 Interface for read-only quote and data access (no state changes)
 
+Source: [IQuoter.sol](../../contracts/interfaces/IQuoter.sol).
+
+The [Quoter implementation](../../contracts/periphery/Quoter.sol) requires registered, unpaused
+pools without optical hooks for `quoteExactInput` and both legs of `quoteMultihop`. It rejects zero
+output and sell output above the pool's real USDL balance. These quotes use the current pool fee;
+they do not reserve a price for a later transaction.
+
 ### QuoteResult
 
 ```solidity
@@ -53,19 +60,21 @@ function quoteExactInput(address pool, uint256 amountIn, bool isBuy) external vi
 
 Quote exact input amount for a swap
 
+`feeAmount` is denominated in the input asset: USDL for a buy and the pool token for a sell.
+
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| pool | address | The pool address |
-| amountIn | uint256 | Exact input amount |
-| isBuy | bool | True = USDL→Token, False = Token→USDL |
+| Name     | Type    | Description                           |
+| -------- | ------- | ------------------------------------- |
+| pool     | address | The pool address                      |
+| amountIn | uint256 | Exact input amount                    |
+| isBuy    | bool    | True = USDL→Token, False = Token→USDL |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| result | struct IQuoter.QuoteResult | QuoteResult with amountOut, feeAmount, priceImpact |
+| Name   | Type                       | Description                                           |
+| ------ | -------------------------- | ----------------------------------------------------- |
+| result | struct IQuoter.QuoteResult | QuoteResult with amountOut, feeAmount, priceImpactBps |
 
 ### getPoolPrice
 
@@ -117,15 +126,14 @@ Simulate a multihop swap: Token A → USDL → Token B
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| tokenIn | address | Address of the token to sell |
-| tokenOut | address | Address of the token to buy |
-| amountIn | uint256 | Amount of tokenIn to sell |
+| Name     | Type    | Description                  |
+| -------- | ------- | ---------------------------- |
+| tokenIn  | address | Address of the token to sell |
+| tokenOut | address | Address of the token to buy  |
+| amountIn | uint256 | Amount of tokenIn to sell    |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type                               | Description                                 |
+| ------ | ---------------------------------- | ------------------------------------------- |
 | result | struct IQuoter.MultihopQuoteResult | MultihopQuoteResult with both legs' details |
-

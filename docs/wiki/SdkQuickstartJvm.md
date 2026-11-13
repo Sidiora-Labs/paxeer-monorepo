@@ -16,9 +16,9 @@ No `px_register` wrapper. Catalog constant
 `GeneratedSchema.AgentOperations.AGENT_REGISTER` (`"agent.register"`)
 can be sent with `ProductionClient.agent` when
 `HttpProductionTransport` is constructed with an agent RPC URL.
-That operation is daemon/agent registration, not public
-`px_register`. Use [Public JSON-RPC](PublicRpc.md) or the Rust SDK
-for self-service principal creation.
+That operation registers an agent through the agent plane. Hosted
+self-service principal registration uses `px_register`. Use
+[Public JSON-RPC](PublicRpc.md) or the Rust SDK for self-service principal creation.
 
 ---
 
@@ -83,22 +83,29 @@ This package has no public JSON-RPC wrapper; use an HTTP client as above.
 
 ```java
 import com.sidiora.layerx.sdk.verify.LocalVerifier;
-import com.sidiora.layerx.sdk.verify.LocalVerifier.AuthorizedReceiptBatch;
-import com.sidiora.layerx.sdk.verify.LocalVerifier.ReceiptVerification;
+import com.sidiora.layerx.sdk.verify.LocalVerifier.ReceiptKeys;
+import com.sidiora.layerx.sdk.verify.LocalVerifier.SequencerReceiptVerification;
 
 public final class Verify {
-    public static ReceiptVerification verify(byte[] canonicalReceipt, AuthorizedReceiptBatch authorized) {
-        return LocalVerifier.verifyReceipt(canonicalReceipt, authorized);
+    public static SequencerReceiptVerification verify(
+            byte[] canonicalReceipt, byte[] rawTransaction, ReceiptKeys keys) {
+        return LocalVerifier.verifySequencerReceipt(canonicalReceipt, rawTransaction, keys);
     }
 
     private Verify() {}
 }
 ```
 
-`AuthorizedReceiptBatch` is
-`(byte[] batchId, byte[] asset, byte[] previousStateRoot, byte[] resultingStateRoot, byte[] sequencerPublicKey)`.
-Those facts must come from a source you already trust.
-`verifyReceiptOutcome` returns the decoded outcome without requiring
-result code 0.
+`ReceiptKeys` holds a list of `ReceiptKey` values with `keyId`, `publicKey`,
+`firstHeight` and `lastHeight`; height bounds use `BigInteger` and are inclusive.
+Authenticate the keys independently of the receipt response. Pass the exact
+signed EVM transaction as `rawTransaction`.
+
+The overload taking a `JsonNode` view and `previousSequenceHash` additionally
+checks the RPC view and authenticated predecessor. Call `requireSuccess()` on
+the result before treating execution as successful. Receipt authentication
+alone does not prove block commitment; use the evidence and trust interfaces in
+[`Committed.java`](../../sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/Committed.java)
+for that step.
 
 [SDK quickstarts](SdkQuickstarts.md) · [Home](Home.md)

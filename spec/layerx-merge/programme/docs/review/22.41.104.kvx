@@ -1,0 +1,39 @@
+[manifest]
+task = "22.41.104"
+pages = 9
+
+[page.1]
+path = "docs/site/paxeer-docs/src/app/evm/page.tsx"
+status = "corrected"
+
+[page.2]
+path = "docs/site/paxeer-docs/src/app/fees/page.tsx"
+status = "corrected"
+
+[page.3]
+path = "docs/site/paxeer-docs/src/app/finality/page.tsx"
+status = "corrected"
+
+[page.4]
+path = "docs/site/paxeer-docs/src/app/foundry/page.tsx"
+status = "corrected"
+
+[page.5]
+path = "docs/site/paxeer-docs/src/app/funding/page.tsx"
+status = "corrected"
+
+[page.6]
+path = "docs/site/paxeer-docs/src/app/governance/page.tsx"
+status = "corrected"
+
+[page.7]
+path = "docs/site/paxeer-docs/src/app/guarantors/page.tsx"
+status = "corrected"
+
+[page.8]
+path = "docs/site/paxeer-docs/src/app/hardhat/page.tsx"
+status = "corrected"
+
+[page.9]
+path = "docs/site/paxeer-docs/src/app/human-interface/page.tsx"
+status = "corrected"

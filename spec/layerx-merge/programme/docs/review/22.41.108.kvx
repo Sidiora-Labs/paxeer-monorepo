@@ -1,0 +1,35 @@
+[manifest]
+task = "22.41.108"
+pages = 8
+
+[page.1]
+path = "docs/site/paxeer-docs/src/app/parallelization/page.tsx"
+status = "corrected"
+
+[page.2]
+path = "docs/site/paxeer-docs/src/app/paxeer-vs-layerx/page.tsx"
+status = "corrected"
+
+[page.3]
+path = "docs/site/paxeer-docs/src/app/payments-quickstart/page.tsx"
+status = "corrected"
+
+[page.4]
+path = "docs/site/paxeer-docs/src/app/payments/page.tsx"
+status = "corrected"
+
+[page.5]
+path = "docs/site/paxeer-docs/src/app/perpetuals/page.tsx"
+status = "corrected"
+
+[page.6]
+path = "docs/site/paxeer-docs/src/app/platform-api/page.tsx"
+status = "corrected"
+
+[page.7]
+path = "docs/site/paxeer-docs/src/app/precompiles/page.tsx"
+status = "corrected"
+
+[page.8]
+path = "docs/site/paxeer-docs/src/app/program-workspace/page.tsx"
+status = "corrected"

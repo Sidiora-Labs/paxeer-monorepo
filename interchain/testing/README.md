@@ -19,8 +19,9 @@ The testing package has four cooperating components:
 - `TestChain` wraps a `TestingApp`, validator set, headers and funded sender
   accounts. `NewTestChain` creates four validators; `NewTestChainWithValSet`
   accepts a supplied validator set and matching, correctly ordered signers.
-  `SendMsgs` signs and delivers SDK messages, commits successful execution and
-  advances the headers and coordinator time.
+  `SendMsgs` signs and delivers SDK messages, then advances the headers and
+  coordinator time for both successful and refused messages. Delivery commits
+  a block, and the helper reloads the sender's sequence from committed state.
 - `Path` connects two endpoints. `NewPath(chainA, chainB)` creates `EndpointA` and
   `EndpointB` and sets their counterparty pointers. `RelayPacket` receives and
   acknowledges an already sent packet using its commitment and emitted acknowledgement.
@@ -74,8 +75,8 @@ func (app *SimApp) GetTxConfig() client.TxConfig {
 ```
 
 The current harness also uses `TestingAppDecorator` in [chain.go](chain.go) to
-expose simapp-specific test support. In particular, `SendMsgs` asserts that
-`chain.App` is a `*TestingAppDecorator`. Implementing `TestingApp` alone does not
+expose simapp-specific test support. In particular, `SendMsgs` type-asserts
+`chain.App` to `*TestingAppDecorator`. Implementing `TestingApp` alone does not
 make an arbitrary application compatible with every harness helper.
 
 ### Initialize TestingApp

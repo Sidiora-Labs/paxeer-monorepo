@@ -229,7 +229,7 @@ def test_f042_explorer_and_optional_hosted_gateway_entry_points():
     assert "Explorer operators use [`services/explorer`](services/explorer/)" in build
     docs = section("Documentation", level=2)
     assert "[hosted quickstart](docs/wiki/Quickstart.md)" in docs
-    assert "[hosted gateway methods](docs/site/docs/platform/gateway-rpc.md)" in docs
+    assert "[hosted gateway methods](docs/site/paxeer-docs/src/app/platform-api/page.tsx)" in docs
     quickstart = section("Quick start: connect to chain 125")
     assert "services/platform/hosted/gateway/openrpc.json" in quickstart
     assert "Obtain its deployment URL and credentials from the operator" in quickstart

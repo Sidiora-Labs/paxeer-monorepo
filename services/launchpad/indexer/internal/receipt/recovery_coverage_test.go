@@ -23,7 +23,7 @@ func TestDurableMarketRecoveryPreservesCommittedSourceCoordinates(t *testing.T) 
 	if _, err = pool.Exec(ctx, partitionDDL); err != nil {
 		t.Fatal(err)
 	}
-	ddl, err := os.ReadFile("../../../../../launchpad/spec/production-system/integration/migrations/190001.sql")
+	ddl, err := os.ReadFile("../../../../../migrations/190001.sql")
 	if err != nil {
 		t.Fatal(err)
 	}

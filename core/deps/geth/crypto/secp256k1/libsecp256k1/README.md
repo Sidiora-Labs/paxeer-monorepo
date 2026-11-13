@@ -76,15 +76,15 @@ This can be done with the following steps:
    social media, personal website). This is to mitigate the unlikely case that incorrect 
    content is being presented by this repository.
 3. Clone the repository: 
-    ```
+    ```sh
     git clone https://github.com/bitcoin-core/secp256k1
     ```
 4. Check out the latest release tag, e.g. 
-    ```
+    ```sh
     git checkout v0.6.0
     ```
 5. Use git to verify the GPG signature: 
-   ```
+   ```text
    % git tag -v v0.6.0 | grep -C 3 'Good signature'
 
    gpg: Signature made Mon 04 Nov 2024 12:14:44 PM EST

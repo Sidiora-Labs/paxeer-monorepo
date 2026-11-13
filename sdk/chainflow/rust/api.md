@@ -4,10 +4,10 @@ Complete reference of every operation, grouped by resource. See [the README](./R
 
 ## Contents
 
-- [`Gateway`](#gateway)
+- [`GatewayResource`](#gatewayresource)
   - [Check gateway liveness](#check-gateway-liveness)
   - [Mint a scoped WebSocket token](#mint-a-scoped-websocket-token)
-- [`PriceFeeds`](#pricefeeds)
+- [`PriceFeedsResource`](#pricefeedsresource)
   - [Get the current feed price](#get-the-current-feed-price)
   - [Get feed](#get-feed)
   - [Get spot-style market statistics](#get-spot-style-market-statistics)
@@ -15,14 +15,14 @@ Complete reference of every operation, grouped by resource. See [the README](./R
   - [Get trade-tape storage status](#get-trade-tape-storage-status)
   - [Get recent spot trades](#get-recent-spot-trades)
   - [Get recent perpetual trades](#get-recent-perpetual-trades)
-- [`TradingView`](#tradingview)
+- [`TradingViewResource`](#tradingviewresource)
   - [Get UDF feed capabilities](#get-udf-feed-capabilities)
   - [Get server Unix time](#get-server-unix-time)
   - [Resolve UDF symbol metadata](#resolve-udf-symbol-metadata)
   - [Search within one feed](#search-within-one-feed)
   - [Get OHLCV history](#get-ohlcv-history)
   - [Get UDF quotes](#get-udf-quotes)
-- [`Markets`](#markets)
+- [`MarketsResource`](#marketsresource)
   - [Get aggregator health](#get-aggregator-health)
   - [List display-scaled market summaries](#list-display-scaled-market-summaries)
   - [Get one display-scaled market summary](#get-one-display-scaled-market-summary)
@@ -30,21 +30,21 @@ Complete reference of every operation, grouped by resource. See [the README](./R
   - [List fresh unscaled tickers](#list-fresh-unscaled-tickers)
   - [Get one fresh unscaled ticker](#get-one-fresh-unscaled-ticker)
   - [Get estimated long/short perpetual open interest](#get-estimated-longshort-perpetual-open-interest)
-- [`Explorer`](#explorer)
+- [`ExplorerResource`](#explorerresource)
   - [Get EVM explorer health](#get-evm-explorer-health)
   - [Get recent EVM blocks](#get-recent-evm-blocks)
   - [Get recent explorer activity](#get-recent-explorer-activity)
-- [`CoinGecko`](#coingecko)
+- [`CoinGeckoResource`](#coingeckoresource)
   - [List local CoinGecko-compatible IDs](#list-local-coingecko-compatible-ids)
   - [Get CoinGecko-compatible market data](#get-coingecko-compatible-market-data)
   - [Get CoinGecko-compatible coin detail](#get-coingecko-compatible-coin-detail)
   - [Get compact USD quotes](#get-compact-usd-quotes)
-- [`CoinMarketCap`](#coinmarketcap)
+- [`CoinMarketCapResource`](#coinmarketcapresource)
   - [Get CMC-compatible latest quotes](#get-cmc-compatible-latest-quotes)
   - [Get CMC-compatible latest listings](#get-cmc-compatible-latest-listings)
   - [Get CMC-compatible latest quotes](#get-cmc-compatible-latest-quotes-1)
   - [Get CMC-compatible latest listings](#get-cmc-compatible-latest-listings-1)
-- [`WebSockets`](#websockets)
+- [`WebSocketsResource`](#websocketsresource)
   - [Open {market} WebSocket](#open-market-websocket)
   - [Open markets WebSocket](#open-markets-websocket)
   - [Open explorer WebSocket](#open-explorer-websocket)
@@ -65,13 +65,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-## `Gateway`
+## `GatewayResource`
 
 Gateway health and WebSocket credential issuance.
 
 ### Check gateway liveness
 
-Checks Nginx only; does not probe the auth helper, database or market services.
+Checks Nginx liveness. The result is raw bytes. Set an explicit `.timeout(...)`
+to apply a body-read deadline as well as the deadline for response headers.
 
 | Direction | Type |
 | --- | --- |
@@ -98,13 +99,13 @@ let response = client
     .await?;
 ```
 
-## `PriceFeeds`
+## `PriceFeedsResource`
 
 Per-symbol USD prices, statistics and tapes.
 
 ### Get the current feed price
 
-HTTP 200 may contain {error: No price data available} during cold start. timestamp is candle-bucket start.
+HTTP 200 may contain `{"error": "No price data available"}` during cold start. The timestamp is the candle-bucket start.
 
 | Direction | Type |
 | --- | --- |
@@ -146,7 +147,7 @@ let response = client.price_feeds().list_perpetual_stats(Market::Btc).send().awa
 
 ### Get trade-tape storage status
 
-This path reports tape storage status; use /trades/{symbol} for trade records.
+This path reports tape storage status; use `/api/{market}/trades/{symbol}` for trade records.
 
 | Direction | Type |
 | --- | --- |
@@ -165,7 +166,7 @@ let response = client.price_feeds().list_trade_tape_status(Market::Btc).send().a
 ```rust
 let response = client
     .price_feeds()
-    .retrieve_recent_spot_trades(Market::Btc, "example")
+    .retrieve_recent_spot_trades(Market::Btc, "BTC")
     .send()
     .await?;
 ```
@@ -179,12 +180,12 @@ let response = client
 ```rust
 let response = client
     .price_feeds()
-    .retrieve_recent_perpetual_trades(Market::Btc, "example")
+    .retrieve_recent_perpetual_trades(Market::Btc, "BTC")
     .send()
     .await?;
 ```
 
-## `TradingView`
+## `TradingViewResource`
 
 TradingView UDF configuration, metadata, quotes and candles.
 
@@ -200,7 +201,9 @@ let response = client.trading_view().list_datafeed_config(Market::Btc).send().aw
 
 ### Get server Unix time
 
-An integer encoded as a text response, in seconds. Express currently serves text/html, not JSON.
+An integer encoded as a text response, in seconds, with media type `text/html`.
+The SDK returns raw bytes. Set an explicit `.timeout(...)` to apply a body-read
+deadline as well as the deadline for response headers.
 
 | Direction | Type |
 | --- | --- |
@@ -249,7 +252,7 @@ Ascending, inclusive range. Countback limits rows from the START of that range. 
 ```rust
 let response = client
     .trading_view()
-    .list_candle_history(Market::Btc, Symbol::Btc, Resolution::_1, 1, 1)
+    .list_candle_history(Market::Btc, Symbol::Btc, Resolution::_1, 1735689600, 1735693200)
     .send()
     .await?;
 ```
@@ -266,7 +269,7 @@ Omitting symbols returns an empty d array. Bid and ask both equal candle close; 
 let response = client.trading_view().list_quotes(Market::Btc).send().await?;
 ```
 
-## `Markets`
+## `MarketsResource`
 
 Cross-market summaries and ticker adapters.
 
@@ -331,7 +334,7 @@ Unknown, missing or stale prices return HTTP 503, not 404.
 | Response | [`MarketsRetrieveTickerResponse`](./src/models/markets.rs) |
 
 ```rust
-let response = client.markets().retrieve_ticker("example").send().await?;
+let response = client.markets().retrieve_ticker("BTC").send().await?;
 ```
 
 ### Get estimated long/short perpetual open interest
@@ -344,7 +347,7 @@ let response = client.markets().retrieve_ticker("example").send().await?;
 let response = client.markets().list_open_interest().send().await?;
 ```
 
-## `Explorer`
+## `ExplorerResource`
 
 EVM blocks and activity.
 
@@ -382,13 +385,13 @@ Explorer activity.
 let response = client.explorer().list_transactions().send().await?;
 ```
 
-## `CoinGecko`
+## `CoinGeckoResource`
 
 USD-only CoinGecko-compatible local-feed formats.
 
 ### List local CoinGecko-compatible IDs
 
-List local CoinGecko-compatible IDs Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
+Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
 
 | Direction | Type |
 | --- | --- |
@@ -400,7 +403,7 @@ let response = client.coin_gecko().list().send().await?;
 
 ### Get CoinGecko-compatible market data
 
-Get CoinGecko-compatible market data Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
+Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
 
 | Direction | Type |
 | --- | --- |
@@ -412,7 +415,7 @@ let response = client.coin_gecko().list_markets().send().await?;
 
 ### Get CoinGecko-compatible coin detail
 
-Get CoinGecko-compatible coin detail Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
+Unsupported or duplicate query parameters are rejected with 400. This is a local compatibility adapter, not the official provider.
 
 | Direction | Type |
 | --- | --- |
@@ -434,13 +437,13 @@ Response keys are local IDs unless symbols was supplied, in which case keys are 
 let response = client.coin_gecko().list_simple_prices().send().await?;
 ```
 
-## `CoinMarketCap`
+## `CoinMarketCapResource`
 
 USD-only CMC-compatible local-feed formats.
 
 ### Get CMC-compatible latest quotes
 
-Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol, not numeric provider ID. Missing selected prices fail the whole request. Unsupported metadata is null.
+Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol; listings contain an array of assets. Missing selected prices fail the whole request. Unsupported metadata is null.
 
 | Direction | Type |
 | --- | --- |
@@ -452,7 +455,7 @@ let response = client.coin_market_cap().list_quotes().send().await?;
 
 ### Get CMC-compatible latest listings
 
-Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol, not numeric provider ID. Missing selected prices fail the whole request. Unsupported metadata is null.
+Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol; listings contain an array of assets. Missing selected prices fail the whole request. Unsupported metadata is null.
 
 | Direction | Type |
 | --- | --- |
@@ -464,7 +467,7 @@ let response = client.coin_market_cap().list_listings().send().await?;
 
 ### Get CMC-compatible latest quotes
 
-Alias of the same path without /api. Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol, not numeric provider ID. Missing selected prices fail the whole request. Unsupported metadata is null.
+Alias of the same path without `/api`. Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol; listings contain an array of assets. Missing selected prices fail the whole request. Unsupported metadata is null.
 
 | Direction | Type |
 | --- | --- |
@@ -476,7 +479,7 @@ let response = client.coin_market_cap().list_quotes_api_alias().send().await?;
 
 ### Get CMC-compatible latest listings
 
-Alias of the same path without /api. Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol, not numeric provider ID. Missing selected prices fail the whole request. Unsupported metadata is null.
+Alias of the same path without `/api`. Only USD; unknown/duplicate parameters are rejected. Quotes are keyed by uppercase symbol; listings contain an array of assets. Missing selected prices fail the whole request. Unsupported metadata is null.
 
 | Direction | Type |
 | --- | --- |
@@ -486,13 +489,16 @@ Alias of the same path without /api. Only USD; unknown/duplicate parameters are 
 let response = client.coin_market_cap().list_listings_api_alias().send().await?;
 ```
 
-## `WebSockets`
+## `WebSocketsResource`
 
-Upgrade handshakes; application messages are described by x-websocket.
+The `websocket` feature supplies persistent connections. Configure a scoped
+`ws_token` before opening one; minting alone does not update the client. See
+[the README](./README.md#authentication) for a complete token-mint and connection
+example. Use a fresh token for a later handshake after its 300-second lifetime.
 
 ### Open {market} WebSocket
 
-One connection addresses one feed. SYMBOL is the uppercase counterpart of lowercase market; no cross-symbol subscriptions. This upgrades the connection; there is no HTTP JSON response body on success. Standard REST SDK generators cannot implement the stream automatically. Use x-websocket for the protocol.
+One connection addresses one feed. SYMBOL is the uppercase counterpart of lowercase market; no cross-symbol subscriptions. This upgrades the connection; there is no HTTP JSON response body on success. The connection sends and receives `serde_json::Value` frames.
 
 | Direction | Type |
 | --- | --- |
@@ -504,7 +510,7 @@ let _connection = client.web_sockets().connect_price_feed(Market::Btc).open().aw
 
 ### Open markets WebSocket
 
-Aggregate socket. Initial snapshots and full replacements; default broadcast cadence is 5 seconds. This upgrades the connection; there is no HTTP JSON response body on success. Standard REST SDK generators cannot implement the stream automatically. Use x-websocket for the protocol.
+Aggregate socket. Initial snapshots and full replacements; default broadcast cadence is 5 seconds. This upgrades the connection; there is no HTTP JSON response body on success. The connection sends and receives `serde_json::Value` frames.
 
 | Direction | Type |
 | --- | --- |
@@ -516,7 +522,7 @@ let _connection = client.web_sockets().connect_markets().open().await?;
 
 ### Open explorer WebSocket
 
-EVM blocks and a separate activity stream. This upgrades the connection; there is no HTTP JSON response body on success. Standard REST SDK generators cannot implement the stream automatically. Use x-websocket for the protocol.
+EVM blocks and a separate activity stream. This upgrades the connection; there is no HTTP JSON response body on success. The connection sends and receives `serde_json::Value` frames.
 
 | Direction | Type |
 | --- | --- |
@@ -528,7 +534,7 @@ let _connection = client.web_sockets().connect_explorer().open().await?;
 
 ### Open explorer WebSocket
 
-Alias of /ws/explorer. EVM blocks and a separate  activity stream. This upgrades the connection; there is no HTTP JSON response body on success. Standard REST SDK generators cannot implement the stream automatically. Use x-websocket for the protocol.
+Alias of `/ws/explorer`. EVM blocks and a separate activity stream. This upgrades the connection; there is no HTTP JSON response body on success. The connection sends and receives `serde_json::Value` frames.
 
 | Direction | Type |
 | --- | --- |

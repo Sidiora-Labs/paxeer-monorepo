@@ -1,0 +1,39 @@
+[manifest]
+task = "22.41.111"
+pages = 9
+
+[page.1]
+path = "docs/site/paxeer-docs/src/app/storage-scan/page.tsx"
+status = "corrected"
+
+[page.2]
+path = "docs/site/paxeer-docs/src/app/storage/page.tsx"
+status = "corrected"
+
+[page.3]
+path = "docs/site/paxeer-docs/src/app/streams/page.tsx"
+status = "corrected"
+
+[page.4]
+path = "docs/site/paxeer-docs/src/app/subscriptions/page.tsx"
+status = "corrected"
+
+[page.5]
+path = "docs/site/paxeer-docs/src/app/unified-network/page.tsx"
+status = "corrected"
+
+[page.6]
+path = "docs/site/paxeer-docs/src/app/wasm-runtime/page.tsx"
+status = "corrected"
+
+[page.7]
+path = "docs/site/paxeer-docs/src/app/wasm/page.tsx"
+status = "corrected"
+
+[page.8]
+path = "docs/site/paxeer-docs/src/app/wasmbinding/page.tsx"
+status = "corrected"
+
+[page.9]
+path = "docs/site/paxeer-docs/src/app/webhooks/page.tsx"
+status = "corrected"

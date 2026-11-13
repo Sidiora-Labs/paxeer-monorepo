@@ -97,8 +97,8 @@ object containing a client ID and chain ID.
 
 These are Cosmos query-service routes, available on a configured gRPC gateway.
 Their declaration does not establish their availability on public Ethereum
-JSON-RPC hosts. Public Paxeer JSON-RPC uses the HTTPS root path, for example
-`https://api1.mainnet-beta.paxeer.network`, with EVM chain id `125`.
+JSON-RPC hosts. Public Paxeer JSON-RPC uses the configured node's HTTPS root
+path with EVM chain id `125`.
 
 The denom-trace response above is checked against a packet-produced voucher,
 the registered query service and the generated HTTP gateway in

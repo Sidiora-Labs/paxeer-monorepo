@@ -1,0 +1,16 @@
+{
+  "name": "@centra/docs-assistant",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./react": "./src/DocsAssistant.tsx",
+    "./style.css": "./src/style.css",
+    "./server": "./server/index.mjs"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0",
+    "@openai/apps-sdk-ui": "^0.2.2"
+  }
+}

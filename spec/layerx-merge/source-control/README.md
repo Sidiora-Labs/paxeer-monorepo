@@ -1,29 +1,17 @@
-# Native source control: completion programme
+# Native source control
 
-This directory carries the native source-control specification of the vendored project
-(`addiqate/hyperfide/spec/hyperfide-source-control/`, snapshot 22e546f1) into the layerx-merge
-feature so its unfinished work is tracked and qualified here.
+Hyperfide provides online source history, scoped workspaces, candidate acceptance and Git import/export. The implementation lives in [tools/hyperfide](../../../tools/hyperfide/).
 
-- `source-spec.kvx` is the original specification (its `[task.*]` blocks keep their original ids
-  and statuses as the vendored project recorded them); `source-qualification.kvx` and
-  `provider-accounting.kvx` are its qualification and accounting records; the Markdown files are
-  its design documents.
-- `audit.kvx` records the review of every original task against the code: verdict, evidence and
-  what is missing.
-- Each original task found not done becomes a task `22.37.N` in `spec/layerx-merge/spec.kvx`
-  (`[task.22.37.N]`, with `source_task = "<original id>"`), worked and qualified under the
-  layerx-merge rules; its qualification records land in `spec/layerx-merge/qualification.kvx`.
+## Documents
 
-## Placement and numbering
+- [Overview](SOURCE-README.md): service, client and product entry points.
+- [Design](design.body.md) and [decisions](decisions.md): responsibility boundaries and source invariants.
+- [Repository layout](repository-layout.md) and [implementation seams](repository-baseline.md): package locations and toolchains.
+- [Storage](storage.md) and [protocol](protocol.md): object formats, requests, retries and acceptance.
+- [Workspaces](workspaces.md): source scopes, materialization, cache and checkpoints.
+- [Product integration](hyperfide-integration.md) and [security](identity-security.md): task custody, clients and authorization.
+- [Git interoperability](git-interop.md) and [migration](migration.md): remote projections and source-authority transitions.
+- [Fleet orchestration](fleet-orchestration.md), [sandbox contracts](sandbox-contracts.md) and [interface catalogue](interface-contracts.md): environment installation and worker authority.
+- [Verification](verification.md): case registry and workload contracts.
 
-- Task 22.36.1 moves the vendored project from `addiqate/hyperfide/` to `tools/hyperfide/` and its
-  documentation to `docs/hyperfide/`; every `22.37.N` task requires it and names the moved paths.
-- The audit (2026-11-06) found 7 of the 34 original tasks done (0.2, 0.3 to 0.7, 3.1), 26 partial and
-  one not done (0.14). The 27 unfinished tasks map to `22.37.1` to `22.37.27` in source wave order;
-  `audit.kvx` names the mapping in each block's `new_task`.
-- Live-provider, model and object-store parts of the original tasks (0.11 to 0.14, 1.1, 6.1) are
-  gated in component mode; their live runs are recorded UNRUN until the owner supplies credentials
-  (decision 2700 in `spec/layerx-merge/spec.kvx`).
-- Migration numbers in the proposals are renumbered after the highest migration of the moved tree
-  (0760): 0761 ancestry index, 0762 workspace closure, 0763 workspace attempts, 0764 publication
-  credentials, 0765 import legacy maps.
+The [source specification](source-spec.kvx) contains the source-control requirements. [Implementation plan](implementation-plan.md) and [traceability](traceability.md) are generated views.

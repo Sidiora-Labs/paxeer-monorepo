@@ -15,7 +15,7 @@ Integration tests for `paxd` EVM JSON-RPC method-aware schemas, deterministic ex
    ./tests/integration/evm_module/scripts/evm_rpc_tests.sh
    ```
 
-Before `go test`, the [script](../scripts/evm_rpc_tests.sh) uses `docker exec` to attempt sender association, send one EVM transfer and attempt two deployments (a minimal contract and a reverter). Successful receipt lookups export the seed bindings described below. Deployment failures can leave required bindings unset; an enabled run fails those cases and reports their identities. The script runs this package with `PAX_EVM_IO_RUN_INTEGRATION=1`, then, only if that command succeeds, runs the sibling WebSocket package with `PAX_EVM_WS_RUN_INTEGRATION=1`. The CLI submissions use the local Cosmos chain ID `pax`. Use a disposable cluster with a funded signing key.
+Before `go test`, the [script](../scripts/evm_rpc_tests.sh) uses `docker exec` to associate the sender, send one EVM transfer and deploy a minimal contract and a reverter. It waits for sender sequence advancement between submissions and requires successful deployment receipts with matching hashes, nonzero contract addresses and positive block heights. These receipts supply the seed bindings described below. Any setup failure stops the script before either suite runs. The script runs this package with `PAX_EVM_IO_RUN_INTEGRATION=1`, then, only if that command succeeds, runs the sibling WebSocket package with `PAX_EVM_WS_RUN_INTEGRATION=1`. The CLI submissions use the local Cosmos chain ID `pax`. Use a disposable cluster with a funded signing key.
 
 Script knobs:
 
@@ -31,7 +31,7 @@ Script knobs:
 
 The RPC URL must reach the same chain from both the host Go process and the container CLI/receipt queries. The Go package alone defaults to `http://127.0.0.1:8545`; the script uses `http://localhost:8545`.
 
-For extra `[DEBUG]` output, set `PAX_EVM_IO_DEBUG_FILES` to comma-separated fixture paths relative to `testdata/`, such as `eth_call/call-contract.io`. Every selected name must exist; unknown or duplicate names fail. Matching names restrict execution to an explicitly declared debug subset, which is not full-suite qualification. The full fixture inventory is validated before selection. An unset `PAX_EVM_IO_RUN_INTEGRATION` causes the integration test to skip when invoking the Go package directly.
+For extra `[DEBUG]` output, set `PAX_EVM_IO_DEBUG_FILES` to comma-separated fixture paths relative to `testdata/`, such as `eth_call/call-contract.io`. Every selected name must exist; unknown or duplicate names fail. Matching names restrict execution to the selected fixtures. The full fixture inventory is validated before selection. When invoking the Go package directly, `PAX_EVM_IO_RUN_INTEGRATION` must equal `1`; any other value skips the integration test.
 
 ### Legacy `pax_*` gating
 
@@ -76,7 +76,7 @@ select a matching seed container for each invocation. Then:
    PAX_EVM_RPC_URL="$LEGACY_RPC_URL" ./tests/integration/evm_module/scripts/evm_rpc_tests.sh
    ```
    The report looks like:
-   ```
+   ```text
    ========== Pax EVM RPC .io/.iox test report ==========
      Total:  ...
      Passed: ...
@@ -107,16 +107,14 @@ An enabled run must execute every selected identity exactly once without skips. 
 [`testdata/README.md`](testdata/README.md) and the
 [unsupported-method reference](../../../../docs/evm_jsonrpc_unsupported.md).
 
-### Fixtures replaced by self-contained versions
+### Self-contained revert fixtures
 
-Some execution-apis fixtures depended on contracts at fixed addresses that only exist on the execution-apis test chain. They are replaced by fixtures that use the script-deployed reverter:
+The revert fixtures query the script-deployed reverter through `__REVERTER__`:
 
-| Upstream fixture | Replacement |
-| ---------------- | ----------- |
-| `eth_call/call-revert-abi-error.io` | `eth_call/call-revert-abi-error-pax.iox` |
-| `eth_call/call-revert-abi-panic.io` | `eth_call/call-revert-abi-panic-pax.iox` |
-| `eth_estimateGas/estimate-call-abi-error.io` | `eth_estimateGas/estimate-call-abi-error-pax.iox` |
-| `eth_estimateGas/estimate-failed-call.io` | `eth_estimateGas/estimate-call-abi-error-pax.iox` and `estimate-call-abi-panic-pax.iox` |
+- `eth_call/call-revert-abi-error-pax.iox`
+- `eth_call/call-revert-abi-panic-pax.iox`
+- `eth_estimateGas/estimate-call-abi-error-pax.iox`
+- `eth_estimateGas/estimate-call-abi-panic-pax.iox`
 
 ## What is checked
 
@@ -157,15 +155,15 @@ requests at EOF, and orphan response markers fail parsing.
 ## Outcomes
 
 - **Pass** - every selected pair, declared expectation, binding and directive passes, and executed identities match the declared inventory exactly.
-- **Skip** - only the integration opt-in is unset. An enabled qualification never skips missing fixtures, empty files, required bindings or reverter setup.
+- **Skip** - the integration opt-in does not equal `1`. An enabled run rejects missing fixtures, empty files, required bindings or reverter setup.
 - **Fail** - inventory, setup, parsing, transport, HTTP status, schema, deterministic-value, reference or directive checks fail. Pair identities and the actual response accompany comparison failures.
 
 ### What "seed" means here
 
 **Seed** is the minimal-contract deployment block found by the script before the tests. It gives data-dependent fixtures a known block to query; inspect the exported values rather than assuming setup succeeded.
 
-1. The script sends an EVM transfer, attempts the minimal-contract deployment and polls for its receipt.
+1. The script sends an EVM transfer, deploys the minimal contract and requires its successful committed receipt.
 2. The script sets `PAX_EVM_IO_SEED_BLOCK` to that block number (hex) and `PAX_EVM_IO_DEPLOY_TX_HASH` to the deploy tx hash.
 3. In `.iox` fixtures, `__SEED__` is replaced by that block number (or by `"latest"` if the seed is not set).
 4. Fixtures can bind `${txHash}` from a first request (for example `eth_getBlockByNumber(__SEED__, true)` -> `result.transactions.0.hash`); `${deployTxHash}` and `${txHash}` are both pre-filled from `PAX_EVM_IO_DEPLOY_TX_HASH` when set; subsequent bindings may replace them.
-5. The script also deploys a reverter contract and sets `PAX_EVM_IO_REVERTER_ADDRESS`; `__REVERTER__` is replaced by that address. The reverter answers empty calldata or `0x01` with `Error("user error")` and `0x02` with a panic.
+5. The script also requires a successful reverter deployment receipt and sets `PAX_EVM_IO_REVERTER_ADDRESS`; `__REVERTER__` is replaced by that address. The reverter answers empty calldata or `0x01` with `Error("user error")` and `0x02` with a panic.

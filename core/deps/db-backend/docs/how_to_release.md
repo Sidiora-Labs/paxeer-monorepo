@@ -4,7 +4,7 @@ This document provides a step-by-step guide for creating a release of tm-db.
 
 ## 1. Update the changelog
 
-Open the `CHANGELOG.md` at the root of the repository. 
+Open [`CHANGELOG.md`](../CHANGELOG.md) in `core/deps/db-backend`. 
 Amend the top of this file with a section for the latest version (0.6.x etc).
 Be sure to include any bug fixes, improvements, dependency upgrades, and breaking changes included in this version. 
 (It's OK to exclude changes to tooling dependencies, like updates to Github Actions.)
