@@ -1,5 +1,8 @@
 # The write journal
 
+Paths in this page are relative to the Hyperfide workspace,
+[`tools/hyperfide`](../../tools/hyperfide), unless shown as example project paths.
+
 An agent finishing a task should not be derailed because an editor's
 `hyperfide lsp` happens to be re-indexing the tree. When a lifecycle write is still
 blocked after the lock wait (`HYPERFIDE_BUSY_TIMEOUT_MS`, alias
@@ -11,23 +14,23 @@ process that gets the write lock applies the queue.
 the same executable, with identical arguments, JSON and exit codes. The
 messages quoted below keep the `cg` wording this build prints.
 
-The journal is implemented in `src/journal.c` and covered by
+The journal is implemented in `core/native/src/journal.c` and covered by
 `tests/integration/42_journal.sh`. `tests/integration/23_dblock.sh` covers
 the lock behaviour around it.
 
 ## What is journaled, and what is not
 
-| Journaled (exit 0, "queued") | Operation |
-|---|---|
-| `hyperfide remember` (including `--supersedes`) | `memory.add` |
-| the outcome memory of `hyperfide spec done` and of a refusal | `memory.add` |
-| the lease release and attempt finish behind `hyperfide spec done`, `implemented`, `release` | `lease.release` |
-| `hyperfide spec heartbeat` | `attempt.heartbeat` |
-| `hyperfide handoff` | `handoff.add` |
-| `hyperfide work open` / `hyperfide work update` (the new revision row) | `work.update` |
-| `hyperfide work close --evidence …` | `work.close` |
-| `hyperfide event ingest` (agent hooks) | `event.ingest` |
-| the events every command emits (`task.status`, …) | `event.emit` |
+| Journaled (exit 0, "queued")                                                                | Operation           |
+| ------------------------------------------------------------------------------------------- | ------------------- |
+| `hyperfide remember` (including `--supersedes`)                                             | `memory.add`        |
+| the outcome memory of `hyperfide spec done` and of a refusal                                | `memory.add`        |
+| the lease release and attempt finish behind `hyperfide spec done`, `implemented`, `release` | `lease.release`     |
+| `hyperfide spec heartbeat`                                                                  | `attempt.heartbeat` |
+| `hyperfide handoff`                                                                         | `handoff.add`       |
+| `hyperfide work open` / `hyperfide work update` (the new revision row)                      | `work.update`       |
+| `hyperfide work close --evidence …`                                                         | `work.close`        |
+| `hyperfide event ingest` (agent hooks)                                                      | `event.ingest`      |
+| the events every command emits (`task.status`, …)                                           | `event.emit`        |
 
 Some writes are correct only against the live state, so they are never
 queued. These keep the old behaviour: they wait, then exit 75 with nothing
@@ -85,12 +88,28 @@ Each record is one file, named `<ms since epoch, 13 digits>-<pid, 7>-<seq,
 reader never sees half a record:
 
 ```json
-{"v":1,"id":"1791358355788-2292778-0001","at":1791358355788,"pid":2292778,
- "op":"memory.add","command":"remember","summary":"[decision] use the journal",
- "branch":"main","agent":"alpha","run":null,
- "args":{"created":1791358355,"type":"decision","task":"jr/1.1",
-         "body":"use the journal","symbols":"formatName","files":"src/a.c",
-         "source":"manual","supersedes":0}}
+{
+  "v": 1,
+  "id": "1791358355788-2292778-0001",
+  "at": 1791358355788,
+  "pid": 2292778,
+  "op": "memory.add",
+  "command": "remember",
+  "summary": "[decision] use the journal",
+  "branch": "main",
+  "agent": "alpha",
+  "run": null,
+  "args": {
+    "created": 1791358355,
+    "type": "decision",
+    "task": "jr/1.1",
+    "body": "use the journal",
+    "symbols": "formatName",
+    "files": "src/a.c",
+    "source": "manual",
+    "supersedes": 0
+  }
+}
 ```
 
 `branch`, `agent` and `run` are the writer's. The writer's values are what
@@ -133,12 +152,12 @@ the replay goes on to the next one.
   `"id":null`.
 - Every command that queued something without saying so itself prints one
   stderr line on exit: `cg: the graph database is busy — N writes queued
-  in .codegraph/journal/; the next cg command that gets the lock applies
-  them`.
+in .codegraph/journal/; the next cg command that gets the lock applies
+them`.
 
 ## `hyperfide journal`
 
-```
+```text
 hyperfide journal [list] [--json]       pending and failed records: id, when, command, op, summary
 hyperfide journal apply [--json]        replay now, waiting the lock timeout (exit 75 if it never frees)
 hyperfide journal drop <id> [--json]    remove one pending or failed record
@@ -157,18 +176,15 @@ checkout's SQLite database has one writer at a time. It is never a channel
 to the control service. In distributed authority mode (a
 `.hyperfide/authority.json` descriptor, or `HYPERFIDE_AUTHORITY_DESCRIPTOR`;
 `hyperfide authority mode` prints the mode) the binary selects authority
-before any SQLite open or journal replay (`src/hyperfide/client.c`), and
+before any SQLite open or journal replay (`core/native/src/hyperfide/client.c`), and
 `hyperfide journal` refuses with `DISTRIBUTED_COMMAND_UNSUPPORTED`, exit 78.
 
 What the journal does for one machine, the service does with PostgreSQL:
 a transactional outbox with committed delivery obligations
 (`core/control-plane/src/events/outbox.ts`) and inbox deduplication
-(`core/control-plane/src/events/inbox.ts`). The design keeps the same rule
-the journal keeps for claims: disconnected progress is a pending submission
-that the current primary must validate, never an offline claim, completion
-or integration ([migration.md](../../tools/hyperfide/spec/hyperfide/migration.md)). Tasks 6.1,
-6.2 and 25.3 are `pending` in `spec/hyperfide/spec.kvx`, so that path is not
-qualified in this revision.
+(`core/control-plane/src/events/inbox.ts`). Disconnected progress is a pending
+submission that the current primary validates before accepting a claim,
+completion or integration.
 
 ## Limitations
 

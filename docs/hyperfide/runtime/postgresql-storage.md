@@ -1,5 +1,7 @@
 # PostgreSQL storage
 
+Source paths and pnpm commands below are relative to `tools/hyperfide`.
+
 Set `HYPERFIDE_DATABASE_URL` before starting the server. A `postgres://` or
 `postgresql://` URL selects PostgreSQL through Drizzle and node-postgres. An unset
 value retains the configured SQLite data-directory path; a file path or `sqlite:`
@@ -36,18 +38,11 @@ SQL through the handle's `dialect` property where necessary. PostgreSQL plugin
 schemas are isolated by a hash of the plugin id. Ordered migrations are
 transactional, append-only and checked by statement hash.
 
-The existing synchronous `storage.database()` and `storage.migrate()` API remains
-SQLite-based for compatibility. These bundled plugins still use that API and are
-follow-up candidates for task 6.6: Account Pooler, Automations,
-Docs, GitHub, Memory, Prompt Library, Side chat, Storage & retention, Tasks and
-Workflows. Their databases do not move to PostgreSQL when the server database
+The synchronous `storage.database()` and `storage.migrate()` API uses SQLite.
+A plugin using that API retains its SQLite database when the server database
 configuration changes.
 
-Run `bash tests/hyperfide/cases/v22/6_1.sh` for db and server suites on SQLite and
-an owned temporary PostgreSQL cluster, portable plugin storage integration tests,
-and the changed-file identity gate. Historical SQLite
-migration repair, PRAGMA/WAL diagnostics and SQLite query-plan tests apply only to
-SQLite; portable data behavior runs on both engines.
+SQLite PRAGMA/WAL diagnostics and query plans apply only to SQLite.
 
 Server-move archives currently contain physical SQLite backups. That archive
 transfer workflow and its tests remain SQLite-specific; PostgreSQL deployments
