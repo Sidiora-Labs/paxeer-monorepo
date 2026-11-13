@@ -273,7 +273,7 @@ func (s *KeeperTestSuite) TestLastCompletedUpgrade() {
 }
 
 func (s *KeeperTestSuite) TestGetClosestUpgrade() {
-	for _, tc := range repairM601LookupCases() {
+	for _, tc := range upgradeHandoffLookupCases() {
 		s.Run(tc.name, func() {
 			doneStore := prefix.NewStore(s.ctx.KVStore(s.app.GetKey(types.StoreKey)), []byte{types.DoneByte})
 			for _, name := range []string{"upgrade1", "upgrade2", "upgrade3", "z-old", "a-new", "m-last", "c-tie"} {
@@ -282,7 +282,7 @@ func (s *KeeperTestSuite) TestGetClosestUpgrade() {
 			for _, plan := range tc.plans {
 				s.app.UpgradeKeeper.SetDone(s.ctx.WithBlockHeight(plan.Height), plan.Name)
 			}
-			repairM601AssertLookup(s.T(), s.app.UpgradeKeeper, s.ctx, tc)
+			upgradeHandoffAssertLookup(s.T(), s.app.UpgradeKeeper, s.ctx, tc)
 		})
 	}
 }
