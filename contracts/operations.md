@@ -1,12 +1,12 @@
 # Operations tool contracts
 
-This page describes the tools-ops interfaces and preserves the anchors used by the interface registry. Start at the [contracts overview](README.md) for Solidity project boundaries. Paths below are relative links to the owning implementation; checked-in deployment examples describe inputs, not evidence that a service is deployed.
+This page describes operational tool interfaces. Start at the [contracts overview](README.md) for Solidity project boundaries. Paths below are relative links to the owning implementation; checked-in deployment examples describe inputs, not evidence that a service is deployed.
 
 ## Network and endpoint contract
 
 Paxeer mainnet-beta is one BFT network. The kernel runs inside the node and proposes blocks, and receipts become final when their block is committed. Its EVM chain ID is `125` (`0x7d`). Sub-chains are tenant domains in the database, not additional node deployments.
 
-Public node JSON-RPC uses HTTPS at the configured node origin's root path. The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`, subject to node configuration. Use the [public endpoint reference](../docs/site/docs/reference/public-rpc.md) for the full list and WebSocket examples. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
+Public node JSON-RPC uses HTTPS at the configured node origin's root path. Node method availability follows the [node RPC contract](rpc.md#public-json-rpc). Use the [public endpoint reference](../docs/site/docs/reference/public-rpc.md) for the full list and WebSocket examples. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
 
 Native bank balances and block commitment govern network value and finality. External bridge operations have their own [bridge contract](bridge/README.md).
 
@@ -45,7 +45,7 @@ The embedded benchmark client is [`tools/benchmark/loadtest`](../tools/benchmark
 | `post_tx_evm_queries` | Integer counts `block_by_number`, `receipt` and `filters`. |
 | `evm_use_eip1559_txs` | Boolean transaction-format selection. |
 
-The current `Config` type does not declare `run_oracle` or `pax_tester_address`; their presence in a sample or registry row does not make them active settings. JSON decoding is not strict about unknown fields. Dynamic `EVMAddresses` are filled by the client, not an operator-supplied address map.
+`tls_ca_file` optionally supplies a PEM CA bundle for gRPC TLS connections. JSON decoding accepts unknown fields; only fields declared in `Config` configure the client. Dynamic `EVMAddresses` are filled by the client, not an operator-supplied address map.
 
 ### Bench CLI
 
@@ -172,7 +172,7 @@ The CLI consumes native node configuration/genesis and sidecar task JSON. The ta
 
 ## Other tools and registered anchors
 
-The following source map preserves the remaining registry anchors. CLI rows identify entry points; environment/configuration rows identify input declarations; format rows identify serialized artifacts. These links identify each tool’s owning implementation.
+The following source map links additional tool interfaces. CLI rows identify entry points; environment/configuration rows identify input declarations; format rows identify serialized artifacts. These links identify each tool’s owning implementation.
 
 | Interface | Owning sources and contract boundary |
 | --- | --- |

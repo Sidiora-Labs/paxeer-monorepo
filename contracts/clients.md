@@ -25,6 +25,9 @@ The Next.js app lives in [apps/launchpad/web](../apps/launchpad/web). Its [works
 
 `NEXT_PUBLIC_STATS_API_URL` and `NEXT_PUBLIC_LIVESTREAM_API_URL` are optional. `NEXT_PUBLIC_STREAM_ORIGIN` selects the public WebSocket origin; absent an override it is the WebSocket form of the data API origin. Private API and stream overrides use `NEXT_PUBLIC_PRIVATE_API_ORIGIN` and `NEXT_PUBLIC_PRIVATE_STREAM_ORIGIN`; absent overrides, those clients use the page origin. Missing or malformed required values produce a configuration error state. Production backend URLs require HTTPS/WSS and reject credentials, queries and fragments.
 
+Data, gateway, metadata and stats URLs must be origins without path prefixes.
+PnL and livestream URLs may include a path prefix.
+
 [rpc.ts](../apps/launchpad/web/src/core/rpc.ts) builds the deduplicated node RPC list in this order: `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_RPC_URL_FALLBACK`, `NEXT_PUBLIC_PAXEER_RPC_URL`. When all three variables are unset it selects the built-in mainnet-beta root endpoint. A configured malformed value raises `RpcConfigurationError`; production requires HTTPS and a root URL without credentials, query or fragment. This RPC list is separate from the launchpad REST origins.
 
 ### Same-origin routes
@@ -78,7 +81,7 @@ Operation timeouts default to the greater of the generated budget and 8 seconds 
 
 ## Launchpad indexer SDK
 
-[`HttpClient`](../sdk/launchpad/packages/indexer-sdk/src/index.ts) requires `baseUrl` before use. `getRecentTrades(poolAddress)` requests `/stats/{poolAddress}/transactions`, validates `transactions`, then returns `{pool, trades}`. Amounts, prices and fees remain strings. This is a compatibility data API call, not an indexer operational-status call. The production API has removed the unversioned `/stats/*` family; use the versioned trade operation there. See [API](services.md#launchpad-api) and [indexer](services.md#launchpad-indexer).
+[`HttpClient`](../sdk/launchpad/packages/indexer-sdk/src/index.ts) requires `baseUrl` before use. Its `recentTrades(poolAddress)` method, also available through the exported `getRecentTrades` helper, requests `/stats/{poolAddress}/transactions`, validates `transactions`, then returns `{pool, trades}`. Amounts, prices and fees remain strings. This is a compatibility data API call, not an indexer operational-status call. The production API has removed the unversioned `/stats/*` family; use the versioned trade operation there. See [API](services.md#launchpad-api) and [indexer](services.md#launchpad-indexer).
 
 ## Launchpad metadata SDK
 

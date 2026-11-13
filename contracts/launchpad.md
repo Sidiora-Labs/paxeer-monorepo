@@ -9,7 +9,7 @@ Hosted service calls follow the [gateway OpenRPC contract](../services/platform/
 
 The active Go module is [`modules/launchpad`](../modules/launchpad), with module/store name `launchpad` and treasury account `launchpad_treasury`. [keys.go](../modules/launchpad/types/keys.go) declares the launchpad precompile at **`0x0000000000000000000000000000000000001017`** and launched-token decimals as 6.
 
-[`precompiles/launchpad`](../precompiles/launchpad) exposes the module through [the direct ABI](../precompiles/launchpad/abi.json) and [role ABIs](../precompiles/launchpad/abi). Direct selectors resolve in the role order documented in [launchpad.go](../precompiles/launchpad/launchpad.go): `Router`, `SidioraFactory`, `Quoter`, `PoolRegistry`, `FeesRouter`, `FeeAccumulator`, `ProtocolConfig`. Registered role and pool surfaces forward calls with the original caller appended; [surface.go](../precompiles/launchpad/surface.go) installs the runtime owned by the keeper. A role named `Router` here is an on-chain launchpad ABI role. There is no network RPC router.
+[`precompiles/launchpad`](../precompiles/launchpad) exposes the module through [the direct ABI](../precompiles/launchpad/abi.json) and [role ABIs](../precompiles/launchpad/abi). Direct selectors resolve in the role order documented in [launchpad.go](../precompiles/launchpad/launchpad.go): `Router`, `SidioraFactory`, `Quoter`, `PoolRegistry`, `FeesRouter`, `FeeAccumulator`, `ProtocolConfig`, followed by the chain launch methods. Registered role and pool surfaces forward calls with the original caller appended; [surface.go](../precompiles/launchpad/surface.go) installs the runtime owned by the keeper. A role named `Router` here is an on-chain launchpad ABI role. There is no network RPC router.
 
 Use the reviewed manifest to select role addresses. Native surfaces are not Solidity implementation proxies to upgrade with UUPS. [The keeper's governance message server](../modules/launchpad/keeper/msg_server.go) implements `MsgUpdateParams`, role grants/revokes and treasury operations under the module governance authority. The [retired-address runtime](../precompiles/launchpad/retired.go) refuses calls with `Retired(address replacement)` instead of redirecting a write to another deployment.
 
@@ -28,8 +28,19 @@ The current [error registry](../modules/launchpad/types/errors.go) uses codespac
 | 12 | `LXP_LAUNCHPAD_UNKNOWN_MARKET` | `PoolNotFound()` |
 | 16 | `LXP_LAUNCHPAD_NOT_FEE_RIGHTS_HOLDER` | `NotNftOwner()` |
 | 70 | `LXP_LAUNCHPAD_RETIRED` | `Retired(address)` |
+| 77 | `LXP_LAUNCHPAD_WRONG_CHAIN` | `WrongChain()` |
+| 78 | `LXP_LAUNCHPAD_NOT_LAUNCHED_CHAIN` | `NotLaunchedChain()` |
 
-The registry's `ContractErrorOf` table is the authority for custom error signatures and arguments. [errors.go](../precompiles/launchpad/errors.go) preserves nested revert bytes and encodes mapped contract errors; keeper-only failures use an ABI `Error(string)` reason. Do not assume every failure is a string or that module names map mechanically to Solidity error names. [run.go](../precompiles/launchpad/run.go) also handles unknown selectors with empty revert data. The `legacy/v610` registries describe historical replay, not the current error inventory.
+The registry's `ContractErrorOf` table and the precompile's
+[errors.go](../precompiles/launchpad/errors.go) define custom error signatures and
+arguments. The precompile additionally maps codes 77–81 to `WrongChain()`,
+`NotLaunchedChain()`, `NotFeeRightHolder()`, `EpochTooEarly()`, and
+`NothingToDistribute()`. It preserves nested revert bytes; keeper-only failures
+use an ABI `Error(string)` reason. Do not assume every failure is a string or
+that module names map mechanically to Solidity error names.
+[run.go](../precompiles/launchpad/run.go) also handles unknown selectors with
+empty revert data. The `legacy/v610` registries describe historical replay, not
+the current error inventory.
 
 ## Launchpad events
 
@@ -65,4 +76,4 @@ The configured `paxeer-x-network` uses chain ID 125 and a root-path HTTPS node e
 
 [`native-surface.js`](launchpad/scripts/lib/native-surface.js) recognizes one exact runtime byte string. Its recognition must not be treated as a general proof for every native surface version; compare against the runtime installed by the [current keeper](../modules/launchpad/keeper) and the selected deployment.
 
-[`planCreationFee`](launchpad/scripts/set-creation-fee.js) returns a governance message for the runtime it recognizes as native. In this branch, `LAUNCHPAD_AUTHORITY` is required and `LAUNCHPAD_PARAMS_JSON` names a file containing the full params object. The emitted message has type `/paxprotocol.paxchain.launchpad.MsgUpdateParams`, replaces `creation_fee` with `1000000`, and includes empty `role_grants` and `role_revokes`. It prints the message rather than submitting it. Its contract branch calls `setCreationFee` and checks readback. `LAUNCHPAD_MANIFEST` can select the address file. Verify the runtime branch before using this script against any deployed role.
+[`planCreationFee`](launchpad/scripts/set-creation-fee.js) returns a governance message for the runtime it recognizes as native. For a recognized native surface, `LAUNCHPAD_AUTHORITY` is required and `LAUNCHPAD_PARAMS_JSON` names a file containing the full params object. The emitted message has type `/paxprotocol.paxchain.launchpad.MsgUpdateParams`, replaces `creation_fee` with `1000000`, and includes empty `role_grants` and `role_revokes`. It prints the message rather than submitting it. Its contract branch calls `setCreationFee` and checks readback. `LAUNCHPAD_MANIFEST` can select the address file. Verify the runtime branch before using this script against any deployed role.

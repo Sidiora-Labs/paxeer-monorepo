@@ -158,7 +158,7 @@ Set the primary oracle used for TWAP queries
 function setDeviationThreshold(uint256 deviationBps) external
 ```
 
-Set the max deviation allowed between adapters before circuit breaking
+Set the maximum deviation from the first valid feed used to filter aggregated prices.
 
 #### Parameters
 

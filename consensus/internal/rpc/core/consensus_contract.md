@@ -10,13 +10,13 @@ stores, consensus state, reactor and evidence pool are configured.
 
 ## RPC boundary
 
-[`DefaultRPCConfig`](../../../config/config.go) binds
-`tcp://127.0.0.1:26657`. CORS allowed origins are empty by default. Operators
+[`DefaultRPCConfig`](../../../config/config.go) selects a loopback TCP listener
+on port 26657. CORS allowed origins are empty by default. Operators
 configure `[rpc].laddr` and the CORS lists explicitly when exposing diagnostics.
 The OpenAPI server entry is this local diagnostic listener.
 
-The public network has EVM chain ID 125 (`0x7d`). Its HTTPS and WebSocket
-JSON-RPC endpoint is at the root of `https://api-mainnet-beta.paxeer.network`.
+The public network has EVM chain ID 125 (`0x7d`). Its public JSON-RPC uses the
+root path on the configured network endpoint.
 The [public endpoint and namespace contract](../../../../docs/site/docs/reference/public-rpc.md#method-contracts)
 maintains the node inventory. The public node namespaces are `debug`, `echo`,
 `eth`, `net`, `pax`, `test` and `txpool`, subject to node configuration. Hosted
@@ -39,8 +39,10 @@ by their Go JSON tags and the OpenAPI schemas. Hashes use hexadecimal strings;
 byte payloads such as transactions and ABCI values use base64. Consult each
 schema for its specific encoding and nullability. `block` returns `block_id`
 and `block`; `header` wraps its value under `header`; `block_results` exposes
-`height`, `txs_results`, `total_gas_used` and execution events. Missing or pruned
-heights are refusals; an unknown block/header hash returns a null object field.
+`height`, `txs_results`, `total_gas_used` and execution events. Nonpositive,
+future or pruned requested heights return errors. An unknown block/header hash
+returns a null object field. In the classic path, a valid height with no block
+metadata also returns a null block or header field.
 
 ## Autobahn refusals
 
@@ -62,9 +64,10 @@ sentinel identity. Malformed parameters can fail before the handler is called.
 The legacy success schemas apply only to configured CometBFT components:
 `commit` reads the BlockStore, `consensus_state` requires consensus state,
 `dump_consensus_state` also requires the reactor, and `broadcast_evidence`
-validates evidence before submitting it to the evidence pool. For a latest
-legacy commit `canonical` is false; the stored commit from the following block
-is canonical. A missing legacy commit may be null. These conditions do not
+validates evidence before submitting it to the evidence pool. At the current
+classic height, a matching seen commit has `canonical` set to false. A commit
+loaded through `LoadBlockCommit` has `canonical` set to true. A missing classic
+commit may be null. These conditions do not
 provide a mode switch on an Autobahn node.
 
 ## Commitment sources
@@ -82,12 +85,16 @@ are available from `commit` only in the configured legacy mode described above.
 
 `GigaRouter` uses [`data.State`](../../autobahn/data/state.go) for retained
 global blocks and the block-hash index, rather than the CometBFT BlockStore.
-With `Consensus.PersistentStateDir` configured, the data WAL stores
-`globalblocks` and `fullcommitqcs` alongside the consensus persistence. Startup
-reconciles their retained ranges, restores certificates and blocks, and rebuilds
-the hash index. Corruption such as blocks with no commit-QC WAL fails startup;
-it must not be represented as an empty successful history. Disabling persistence
-is not a restart-recovery guarantee and risks validator safety.
+The JSON `persistent_state_dir` setting in
+[`AutobahnFileConfig`](../../../config/autobahn.go) supplies
+`Consensus.PersistentStateDir`; relative paths resolve against the node home.
+Normal configurations require a nonblank directory. In-memory operation is
+available only through `unsafe_test_only_disable_persistence`, which is mutually
+exclusive with a configured directory and provides no restart recovery.
+The data WAL stores `globalblocks` and `fullcommitqcs` alongside the consensus
+persistence. Startup reconciles their retained ranges, restores certificates
+and blocks, and rebuilds the hash index. The retained block range is served only
+after reconciliation and validation.
 
 Execution is a separate durable path: `GigaRouter` saves each FinalizeBlock
 response to the configured `StateStore` before application Commit.

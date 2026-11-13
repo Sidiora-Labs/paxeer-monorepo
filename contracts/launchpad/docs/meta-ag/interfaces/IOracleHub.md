@@ -49,7 +49,7 @@ Initialize the UUPS proxy
 
 | Name          | Type    | Description                                                  |
 | ------------- | ------- | ------------------------------------------------------------ |
-| primaryOracle | address | IPriceOracle used as TWAP fallback                           |
+| primaryOracle | address | IPriceOracle called directly for TWAP queries                |
 | deviationBps  | uint256 | Initial deviation circuit-breaker threshold (BPS)            |
 | minConfidence | uint256 | Minimum confidence score required to serve a price (0–10000) |
 | admin         | address | Timelock — granted DEFAULT_ADMIN_ROLE                        |
@@ -153,7 +153,7 @@ Get prices for multiple tokens using best-available source
 function getTWAP(address token, uint256 period) external view returns (uint256 twapPrice)
 ```
 
-Get the TWAP price from the primary oracle adapter (if supported)
+Get the TWAP price directly from the primary oracle.
 
 Calls the primary oracle’s `getTWAP` directly. A zero period reverts; the primary oracle’s errors
 propagate.
@@ -284,7 +284,7 @@ Set the minimum confidence score required to use a price
 function setPrimaryOracle(address oracle) external
 ```
 
-Set the primary oracle used for TWAP fallback
+Set the primary oracle used for TWAP queries.
 
 #### Parameters
 
@@ -362,7 +362,8 @@ The minimum confidence score threshold
 function pause() external
 ```
 
-Emergency pause; blocks price queries.
+Pause `getPrice`, `getAggregatedPrice`, `getPricesBatch` and `getTWAP`. While paused,
+`isPriceAvailable` returns `(false, 0)` and `getPriceFromSource` still calls the named adapter.
 
 ### unpause
 

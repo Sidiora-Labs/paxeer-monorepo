@@ -83,13 +83,13 @@ bool lastReentryRecorded
 ### Transfer
 
 ```solidity
-event Transfer(address from, address to, uint256 value)
+event Transfer(address indexed from, address indexed to, uint256 value)
 ```
 
 ### Approval
 
 ```solidity
-event Approval(address owner, address spender, uint256 value)
+event Approval(address indexed owner, address indexed spender, uint256 value)
 ```
 
 ### ReentryArmed

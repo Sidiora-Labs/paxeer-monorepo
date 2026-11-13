@@ -5,12 +5,12 @@
 [IEventEmitter.sol](../../contracts/interfaces/IEventEmitter.sol) declares the central event API;
 [EventEmitter.sol](../../contracts/data/EventEmitter.sol) implements authorization and emission.
 This reference accompanies the
-[launchpad overview](../../README.md#layer-2-data--the-memory-of-the-protocol) and
+[launchpad overview](../../README.md#data-and-fee-accounting) and
 [operations runbook](../../operations/README.md).
 
 These are EVM contract events on Paxeer mainnet-beta (chain ID 125 / `0x7d`). Read receipts and logs
 through root-path node JSON-RPC. Receipts are final when their block is committed on the single BFT
-network, whose kernel proposes blocks. Discover the hub proxy and source contracts in the reviewed
+network, whose kernel proposes blocks. Discover the hub proxy and source contracts in
 `deployments/<network>-addresses.json`.
 
 The hub is an optional mirror, with coverage determined by each producer and the deployed wiring.
@@ -552,6 +552,9 @@ event OpticalLifecycle(uint8 indexed action, address indexed optical, address in
 ```solidity
 function emitOpticalLifecycle(uint8 action, address optical, address pool, bytes32 name, bytes payload) external
 ```
+
+An authorized caller may emit for itself when `msg.sender == optical`. Emitting for another optical
+also requires the selector-specific permission for this method.
 
 ### TokenTransfer
 

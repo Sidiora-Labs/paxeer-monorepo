@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.49"
+pages = 20
+
+[page.1]
+path = "contracts/launchpad/docs/meta-ag/adapters/SidioraAdapter.md"
+status = "corrected"
+
+[page.2]
+path = "contracts/launchpad/docs/meta-ag/adapters/VaultAdapter.md"
+status = "reviewed"
+
+[page.3]
+path = "contracts/launchpad/docs/meta-ag/analytics/TransactionTracker.md"
+status = "corrected"
+
+[page.4]
+path = "contracts/launchpad/docs/meta-ag/engine/PECOR.md"
+status = "corrected"
+
+[page.5]
+path = "contracts/launchpad/docs/meta-ag/engine/PECOROrders.md"
+status = "reviewed"
+
+[page.6]
+path = "contracts/launchpad/docs/meta-ag/interfaces/IDataFeedAdapter.md"
+status = "corrected"
+
+[page.7]
+path = "contracts/launchpad/docs/meta-ag/interfaces/IERC20Minimal.md"
+status = "reviewed"
+
+[page.8]
+path = "contracts/launchpad/docs/meta-ag/interfaces/IMetaAGQuoter.md"
+status = "corrected"
+
+[page.9]
+path = "contracts/launchpad/docs/meta-ag/interfaces/IMetaAGRouter.md"
+status = "corrected"
+
+[page.10]
+path = "contracts/launchpad/docs/meta-ag/interfaces/IOracleHub.md"
+status = "corrected"
+
+[page.11]
+path = "contracts/launchpad/docs/meta-ag/interfaces/IPECOR.md"
+status = "corrected"
+
+[page.12]
+path = "contracts/launchpad/docs/meta-ag/interfaces/IPECOROrders.md"
+status = "reviewed"
+
+[page.13]
+path = "contracts/launchpad/docs/meta-ag/interfaces/IPECORVault.md"
+status = "corrected"
+
+[page.14]
+path = "contracts/launchpad/docs/meta-ag/interfaces/IPriceOracle.md"
+status = "corrected"
+
+[page.15]
+path = "contracts/launchpad/docs/meta-ag/interfaces/IProtocolAdapter.md"
+status = "corrected"
+
+[page.16]
+path = "contracts/launchpad/docs/meta-ag/interfaces/ITransactionTracker.md"
+status = "corrected"
+
+[page.17]
+path = "contracts/launchpad/docs/meta-ag/interfaces/IWETH.md"
+status = "reviewed"
+
+[page.18]
+path = "contracts/launchpad/docs/meta-ag/mocks/MockFeeOnTransferERC20.md"
+status = "reviewed"
+
+[page.19]
+path = "contracts/launchpad/docs/meta-ag/mocks/MockFeedAdapter.md"
+status = "corrected"
+
+[page.20]
+path = "contracts/launchpad/docs/meta-ag/mocks/MockOracleHub.md"
+status = "corrected"

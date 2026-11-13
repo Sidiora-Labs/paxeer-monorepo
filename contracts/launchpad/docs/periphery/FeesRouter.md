@@ -79,7 +79,8 @@ Claim accumulated fees (CLAIM strategy only, NFT owner)
 function executeBurn(uint256 nftId) external returns (uint256 amount)
 ```
 
-Execute burn of accumulated fees (BURN strategy only, NFT owner)
+Transfer accumulated USDL fees to the accumulator's dead address (BURN strategy only, NFT owner).
+The accumulator performs a token transfer.
 
 #### Parameters
 
@@ -89,9 +90,9 @@ Execute burn of accumulated fees (BURN strategy only, NFT owner)
 
 #### Return Values
 
-| Name   | Type    | Description        |
-| ------ | ------- | ------------------ |
-| amount | uint256 | USDL amount burned |
+| Name   | Type    | Description                                 |
+| ------ | ------- | ------------------------------------------- |
+| amount | uint256 | USDL amount transferred to the dead address |
 
 ### executeAirdrop
 
@@ -120,7 +121,9 @@ separately; the returned amount is allocated to the epoch.
 function claimAirdrop(uint256 nftId) external returns (uint256 amount)
 ```
 
-Claim the caller's share of the latest airdrop epoch using its recorded snapshot balance.
+Claim the caller's share of the latest airdrop epoch using its recorded snapshot balance. Requires
+neither NFT ownership nor the AIRDROP strategy to remain selected. Claims close 180 days after the
+epoch is triggered.
 
 #### Parameters
 

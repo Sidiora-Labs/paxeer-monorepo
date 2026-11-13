@@ -246,6 +246,7 @@ attempt count u32be and next-attempt time u64be. Times are milliseconds. The
 tenant-scoped configuration key includes the submission ID. `LXUR` is retired
 and refused as `unknown.state_version`; corrupt/current-hash mismatches are
 `unknown.state_corrupt`. Receipt lookup, nonce observations and exact-byte
-resend remain distinct observations. Backoff starts at 1 second and caps at
-60 seconds, including deterministic jitter. A missing receipt or unavailable
-lookup does not prove execution failure.
+resend remain distinct observations. The backoff base starts at 1 second and
+doubles with each attempt, up to 60 seconds. Deterministic jitter adds between
+zero and one quarter of the base; the total delay is capped at 60 seconds.
+A missing receipt or unavailable lookup does not prove execution failure.

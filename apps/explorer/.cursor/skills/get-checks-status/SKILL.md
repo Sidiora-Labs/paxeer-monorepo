@@ -24,7 +24,7 @@ _Note_ in the command output, format all URLs as clickable Markdown links with d
 2. **Fetch the status of the most recent workflow run**
    - List the latest run for the Explorer / Build workflow on the current branch:
      - `gh run list --workflow=explorer-build.yml --branch <BRANCH> --limit 1`
-   - If no runs are returned, report that the workflow was never run for the current branch and skip other steps.
+   - If no runs are returned, report that no matching run is available and skip other steps.
    - If a run exists, get its status and run ID, then:
      - **If the workflow is pending (queued or in progress)**: Use `gh run watch <RUN_ID>` to subscribe to completion (or poll with `gh run view <RUN_ID>` until status is completed).
      - **If the workflow has failed**: Retrieve failed jobs and steps with:

@@ -6,10 +6,10 @@ Interface for the UUPS multi-asset PECORVault. Registered tokens hold reserves f
 swaps. `OPERATOR_ROLE` gates token pulls, pushes, native withdrawals and reservation changes.
 `DEFAULT_ADMIN_ROLE` controls token registration, operator membership and upgrades.
 
-Register USDL with `registerToken(USDL, true)` before using it in vault swaps. Reservations protect
-order escrow and accrued fees. Use `getAvailableReserves` for spendable liquidity and
-`getReservedBalance` for total reservations; `getReserves` reports the accounted reserve before
-subtracting reservations.
+To use USDL in vault swaps, register it with `registerToken(USDL, true)` before supplying USDL
+liquidity. Reservations protect order escrow and accrued fees. Use `getAvailableReserves` for
+spendable liquidity and `getReservedBalance` for total reservations; `getReserves` reports the
+accounted reserve before subtracting reservations.
 
 Source: [IPECORVault.sol](../../../contracts/meta-ag/interfaces/IPECORVault.sol).
 
@@ -90,6 +90,9 @@ function syncAllReserves() external
 function deposit(address token, uint256 amount) external
 ```
 
+Donate inventory to the vault. The credited amount is measured on receipt; deposits create no
+depositor shares or withdrawal entitlement.
+
 ### depositBatch
 
 ```solidity
@@ -124,6 +127,9 @@ Pull tokens from `from` into the vault (fee-on-transfer safe).
 function pushTokens(address token, address to, uint256 amount) external
 ```
 
+Transfer spendable inventory to the recipient. The vault's balance must decrease by exactly
+`amount` and the recipient's balance must increase by exactly `amount`; otherwise the call reverts.
+
 ### withdrawNative
 
 ```solidity
@@ -153,7 +159,7 @@ function getReserves(address token) external view returns (uint256)
 function getTokenInfo(address token) external view returns (bool isRegistered, bool isStablecoin, uint8 decimals, uint256 reserves, uint256 totalDeposited, uint256 totalWithdrawn)
 ```
 
-_Flat-tuple return preserves live ABI compatibility. Struct form via tokens() auto-getter._
+Returns registration, stablecoin status, decimals and reserve totals as a flat tuple.
 
 ### isStablecoin
 

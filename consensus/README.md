@@ -11,7 +11,7 @@ The [specification](./spec/README.md) includes inherited Tendermint protocol des
 - `paxd start` constructs the node with [`node`](node/) from [`sdk/server/start.go`](../sdk/server/start.go).
 - `paxd tendermint` exposes the engine's operator subcommands, wired in [`sdk/server/util.go`](../sdk/server/util.go): `show-node-id`, `show-validator`, `show-address`, `version`, `gen-autobahn-config`, `gen-validator`, `reindex-event`, `light`, `reset`, `unsafe-reset-all`, `gen-node-key`, `inspect`, `key-migrate`, `debug` and `completion`. Their implementations live in [`cmd/tendermint/commands`](cmd/tendermint/commands/) and [`sdk/server`](../sdk/server/).
 - The application is called in-process through the Go `Application` interface in [`abci/types/application.go`](abci/types/application.go), wrapped by [`internal/proxy`](internal/proxy/). Its block lifecycle includes `ProcessProposal`, `FinalizeBlock` and `Commit`. This tree has no socket or gRPC ABCI transport.
-- Autobahn is optional. `autobahn-config-file` in the node configuration ([`config/config.go`](config/config.go)) points at its JSON configuration; leaving it empty disables Autobahn. Configuration validation rejects combining Autobahn with sequencer mode, and [`node/node.go`](node/node.go) rejects Autobahn with a remote validator signer. `paxd tendermint gen-autobahn-config [node-dirs...] --output <file>` generates the JSON file.
+- Autobahn is optional. `autobahn-config-file` in the node configuration ([`config/config.go`](config/config.go)) points at its JSON configuration; leaving it empty disables Autobahn. Configuration validation rejects combining Autobahn with sequencer mode, and [`node/node.go`](node/node.go) rejects Autobahn with a remote validator signer. `paxd tendermint gen-autobahn-config <node-dir> [node-dirs...] --output <file> --persistent-state-dir <directory>` generates the JSON file. Each node directory supplies `validator_pubkey.txt`, `node_pubkey.txt`, `autobahn_address.txt` and `evmrpc_url.txt`. The persistence directory defaults to `data/autobahn`; a relative path resolves against the node's `--home` directory. See [`gen_autobahn_config.go`](cmd/tendermint/commands/gen_autobahn_config.go).
 
 The LayerX kernel runs inside `paxd` through the cgo host in [`modules/lxphost`](../modules/lxphost/), wired into the application in [`node/app.go`](../node/app.go). It participates in this network's execution and block proposal path. In sequencer mode, the in-process [`ConsensusSource`](../node/sequencer/consensus_source.go) supplies the executor's sealed pending block through the [`SequencerSource`](types/sequencer.go) interface. A transaction receipt is final once its block is committed.
 
@@ -53,6 +53,3 @@ The fuzz targets are described in [`test/fuzz/README.md`](test/fuzz/README.md).
 
 To report a vulnerability, follow the repository [security policy](../SECURITY.md).
 
-## Documentation
-
-Hosted documentation for Paxeer X Network is at [docs.paxeer.app](https://docs.paxeer.app/). The source repository is [Sidiora-Labs/paxeer-monorepo](https://github.com/Sidiora-Labs/paxeer-monorepo).

@@ -7,7 +7,7 @@
 - Reproducible defects, build failures and feature requests: GitHub issues at <https://github.com/Sidiora-Labs/paxeer-monorepo/issues>, using the [bug](.github/ISSUE_TEMPLATE/bug.yml), [feature](.github/ISSUE_TEMPLATE/feature.yml) or [question](.github/ISSUE_TEMPLATE/question.yml) form.
 - Build, test and repository layout questions: [docs/QUALIFICATION.md](docs/QUALIFICATION.md) and [docs/MONOREPO.md](docs/MONOREPO.md).
 
-The official site is <https://paxeer.network>. These are the only support channels this repository maintains.
+The official site is <https://paxeer.network>. Component guides are indexed in the [repository README](README.md#documentation).
 
 ## Writing a useful report
 

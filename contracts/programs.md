@@ -34,7 +34,7 @@ transaction hash, call ordinal and selector. See
 | Operations | ABI methods |
 | --- | --- |
 | Deployment and upgrade | `deploy`, `upgrade` |
-| Execution | `call`, `simulateCall` |
+| Execution | `call`, `callWithReceipts`, `simulateCall` |
 | Transfers and account registration | `transfer`, `registerAccount`, `registryRead` |
 | Wind-down | `setExitRoute`, `deprecate`, `tombstone`, `exitValue`, `exitValueBounded` |
 | Sandbox lifecycle | `sandboxFund`, `sandboxActivate`, `sandboxExecute` |
@@ -55,6 +55,12 @@ retain it when interpreting prices and fee ceilings.
 entrypoint, bytes callData, bytes capabilities, bytes accessDeclaration, uint32
 responseCapacity, uint64[7] budget, uint128 feeLimit)` and return
 `(int32 terminalResult, uint8 terminalKind, bytes response)`.
+
+`callWithReceipts` takes the same arguments followed by
+`ReceiptAuthority[] receiptAuthorities`. Each tuple contains `bytes canonicalReceipt`
+and `uint64 blockHeight`; the handler passes those authorities to the host. It
+returns the same terminal result tuple. See the
+[receipt-aware handler](../precompiles/layerxprograms/method_call_receipts.go).
 
 `response` contains the complete terminal evidence frame. `responseCapacity`
 bounds the guest bytes nested inside a successful execution; it does not bound or

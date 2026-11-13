@@ -122,7 +122,10 @@ function initialize( address _protocolConfig, address _treasury, address _poolRe
 function recordFee(address pool, uint256 feeAmount) external override onlyRole(POOL_ROLE) nonReentrant
 ```
 
-Record fees from a swap (pool-only)
+Records prepaid USDL fees for the caller's own registered pool. The caller must have `POOL_ROLE`,
+and the USDL balance must cover existing liabilities plus the fee. The protocol cut is deposited
+in the treasury; the remaining pool cut can be reduced by the optical's fee-distribution hook,
+with the difference held as optical surplus.
 
 #### Parameters
 
@@ -178,7 +181,9 @@ Transfers accumulated USDL fees to `DEAD_ADDRESS` (BURN strategy, FeesRouter-onl
 function triggerAirdrop( address pool ) external override onlyRole(FEES_ROUTER_ROLE) nonReentrant returns (uint256 totalAmount)
 ```
 
-Trigger airdrop distribution for a pool (AIRDROP strategy, FeesRouter-only)
+Reserves accumulated fees for a new airdrop epoch. Requires `FEES_ROUTER_ROLE` and historical
+balance and supply reads from the pool token. The snapshot uses the preceding block and excludes
+balances held by the pool and `DEAD_ADDRESS` from the eligible supply.
 
 #### Parameters
 
@@ -198,7 +203,8 @@ Trigger airdrop distribution for a pool (AIRDROP strategy, FeesRouter-only)
 function claimAirdrop(address pool, address holder) external override nonReentrant returns (uint256 amount)
 ```
 
-Claim airdrop share for a token holder
+Pays a holder's share of the latest airdrop epoch to that holder. Anyone can submit the claim;
+the holder's snapshot balance determines the share.
 
 #### Parameters
 
@@ -299,8 +305,8 @@ function _getTokenTotalSupply(address token) internal view returns (uint256)
 function authorizeOptical(address optical) external onlyRole(OPTICAL_GRANTER_ROLE)
 ```
 
-Authorize an optical contract to claim surplus. Callable by OPTICAL_GRANTER_ROLE (e.g.
-LaunchpadOpticalFactory).
+Grants `OPTICAL_CLAIM_ROLE` to an optical. Requires `OPTICAL_GRANTER_ROLE`, which is used by
+LaunchpadOpticalFactory. Surplus claims check the pool's optical attachment in the registry.
 
 ### recordOpticalSurplus
 
@@ -308,7 +314,9 @@ LaunchpadOpticalFactory).
 function recordOpticalSurplus(address pool, uint256 amount) external override onlyRole(POOL_ROLE) nonReentrant
 ```
 
-Record optical surplus when beforeFeeDistribution returns adjustedFee < feeAmount
+Records additional prepaid USDL as optical surplus for the caller's own registered pool. Requires
+`POOL_ROLE` and sufficient USDL backing beyond existing liabilities. A zero amount returns
+without changing balances.
 
 #### Parameters
 
@@ -362,8 +370,9 @@ Checks historical balance and supply read support on the pool token.
 function claimAirdropEpoch(address pool, address holder, uint256 epoch) external override nonReentrant returns (uint256 amount)
 ```
 
-Pays the holder’s share of a specified snapshot epoch to that holder. Snapshot balances exclude the
-pool and dead address; claims close after 180 days.
+Pays the holder's share of a specified snapshot epoch to that holder. Snapshot balances exclude the
+pool and dead address; claims close 180 days after the epoch is triggered. Each holder can claim
+once per epoch. The final eligible claimant receives any rounding remainder.
 
 ### sweepExpiredAirdrop
 

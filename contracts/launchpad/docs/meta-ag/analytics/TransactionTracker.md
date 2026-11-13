@@ -6,10 +6,11 @@ UUPS analytics contract for authorized emitters. `EMITTER_ROLE` controls all rec
 `DEFAULT_ADMIN_ROLE` controls emitter membership, snapshots and upgrades. `authorizedEmitters`
 mirrors role membership, including changes made through inherited role administration.
 
-`recordTrade` updates daily, token and user totals. It credits half the USD volume to each token,
-counts each token once per trade, and counts each distinct user once per day. Other recording
-methods emit their corresponding events without changing trade totals. A configured producer must
-call the tracker for activity to appear here.
+`recordTrade` updates daily, token and user totals. Each token side receives `volumeUSD / 2`,
+rounded down, and one trade count. If both sides name the same token, that token receives both
+credits and two trade counts. Daily and user totals receive the full volume, and each distinct
+user is counted once per day. Other recording methods emit their corresponding events without
+changing trade totals. A configured producer must call the tracker for activity to appear here.
 
 Daily buckets use Unix timestamps floored to one day. `recordTrade` and `forceDaySnapshot` roll a
 bucket forward when the day changes; a snapshot call in the same day leaves the bucket unchanged.

@@ -423,7 +423,7 @@ Full oracle-priced quote with price impact and fee breakdown.
 | Name           | Type    | Description                                     |
 | -------------- | ------- | ----------------------------------------------- |
 | grossOut       | uint256 | Raw amountOut before fee / impact.              |
-| netOut         | uint256 | amountOut user actually receives.               |
+| netOut         | uint256 | Quoted output after fee and impact deductions.  |
 | priceImpactBps | uint256 | Price impact applied (BPS).                     |
 | feeBps         | uint256 | Effective fee rate after tiered stacking (BPS). |
 | feeAmount      | uint256 | Fee deducted from grossOut.                     |
@@ -444,7 +444,7 @@ Bubbles the first failing call’s revert data. An empty revert becomes `Multica
 receive() external payable
 ```
 
-Accept native transfers only from WETH unwraps initiated by PECOR.
+Accept native transfers only from the configured WETH contract.
 
 ### \_calculateSwapOutput
 

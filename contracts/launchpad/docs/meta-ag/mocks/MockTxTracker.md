@@ -28,7 +28,7 @@ uint256 callCount
 ### Recorded
 
 ```solidity
-event Recorded(address caller, bytes payload)
+event Recorded(address indexed caller, bytes payload)
 ```
 
 ### record

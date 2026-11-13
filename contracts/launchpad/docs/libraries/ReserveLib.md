@@ -4,7 +4,7 @@
 
 Constant-product AMM math with virtual reserves
 
-All functions are pure and are used by SidioraPool and Quoter.
+Pure constant-product helpers used by SidioraPool and Quoter.
 
 ```text
 Effective USDL reserve = virtualUsdlReserve + realUsdlBalance
@@ -94,6 +94,8 @@ function getPrice(uint256 effectiveUsdl, uint256 tokenReserve) internal pure ret
 ```
 
 Returns the current token price in USDL (18 decimal fixed-point)
+
+Reverts with `InsufficientLiquidity()` when tokenReserve is zero.
 
 _price = effectiveUsdl \* 1e18 / tokenReserve_
 

@@ -17,6 +17,9 @@ function calculateDynamicFee(uint256 baseFee, uint256 minFee, uint256 maxFee, ui
 
 Calculates the dynamic fee for a swap
 
+Requires `minFee <= maxFee` and `maxFee < 10000`. The calculation saturates at maxFee as components
+are added and raises a smaller result to minFee.
+
 #### Parameters
 
 | Name                | Type    | Description                                             |
@@ -45,7 +48,8 @@ function calculateAgeFactor(uint256 feeDecayRate, uint256 poolAgeSeconds) intern
 
 Age factor: higher fee for younger pools, decays over time
 
-_ageFactor = feeDecayRate / (1 + poolAgeInHours)_
+_ageFactor = feeDecayRate / (1 + poolAgeInHours)_, where poolAgeInHours is poolAgeSeconds divided
+by 3600 with integer truncation.
 
 #### Parameters
 
@@ -89,7 +93,7 @@ _volatilityFactor = volatilityWeight \* volatility / 1e6_
 function calculateConcentrationFactor(uint256 concentrationWeight, uint256 topHolderBps) internal pure returns (uint256 factor)
 ```
 
-Concentration factor: higher fee when whale dominates
+Concentration factor: increases with the top holder's share
 
 _concentrationFactor = concentrationWeight \* topHolderBps / 10000_
 

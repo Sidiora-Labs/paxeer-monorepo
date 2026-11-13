@@ -38,7 +38,7 @@ The configuration names the variables; neither the configuration nor the scripts
 
 - Set `owner` in [`config.json`](config.json) to the vault owner address. Schema validation accepts its `PLACEHOLDER:` value; deployment requires a real address. The committed attestor set has one member and threshold one. Confirm that set against the selected manifest; the proposals generator refuses a set or threshold that differs from it, defaulting to `services/bridge/deploy/attestors.json`.
 - The endpoint must answer `eth_chainId` with `8453`; the script stops on any other chain id.
-- `jq`, `forge`, `cast` and `git` are on the `PATH`.
+- `jq`, `forge`, `cast`, `git` and `python3` are on the `PATH`; broadcasting also requires `flock`.
 - The deployer account holds enough ETH to pay for the vault creation, the `setCap` call and the `transferOwnership` call the deployment makes.
 
 Run from the repository root:

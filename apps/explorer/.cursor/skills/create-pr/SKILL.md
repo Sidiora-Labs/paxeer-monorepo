@@ -50,7 +50,7 @@ _Note:_ In the command output, format all URLs as clickable Markdown links with 
   - Add a separate section listing each variable change and the **purpose** of each (why it was added/changed).
     - **Bad:** "Added `NEXT_PUBLIC_VIEWS_TX_GROUPED_FEES` environment variable to the documentation."
     - **Good:** "Added `NEXT_PUBLIC_VIEWS_TX_GROUPED_FEES` to group transaction fees into one section on the transaction page."
-    - **Good:** "Extended possible values for `NEXT_PUBLIC_VIEWS_TX_ADDITIONAL_FIELDS` with set_max_gas_limit to display the maximum gas price set by the transaction sender."
+    - **Good:** "Enabled `set_max_gas_limit` in `NEXT_PUBLIC_VIEWS_TX_ADDITIONAL_FIELDS` to display the sender's maximum network fee, calculated as gas limit times gas price."
     - **Good:** "Introduced a new option, `"fee reception"`, for the `NEXT_PUBLIC_NETWORK_VERIFICATION_TYPE` variable."
 - **Checklist:** Keep the "Checklist for PR Author" section from the template and check the items that apply (e.g. tested locally, tests added, ENVS/docs/validator updated if env vars changed).
 - When the description is ready, **ask the user for confirmation or changes** before creating the PR (step 4).

@@ -1,0 +1,75 @@
+[manifest]
+task = "22.41.45"
+pages = 18
+
+[page.1]
+path = "consensus/test/README.md"
+status = "corrected"
+
+[page.2]
+path = "consensus/test/e2e/README.md"
+status = "reviewed"
+
+[page.3]
+path = "consensus/test/fuzz/README.md"
+status = "reviewed"
+
+[page.4]
+path = "contracts/README.md"
+status = "corrected"
+
+[page.5]
+path = "contracts/address-inventory.md"
+status = "corrected"
+
+[page.6]
+path = "contracts/agent-api.md"
+status = "corrected"
+
+[page.7]
+path = "contracts/agent-config.md"
+status = "corrected"
+
+[page.8]
+path = "contracts/agent-formats.md"
+status = "corrected"
+
+[page.9]
+path = "contracts/agent-human-peer.md"
+status = "corrected"
+
+[page.10]
+path = "contracts/agent-rust-api.md"
+status = "corrected"
+
+[page.11]
+path = "contracts/bridge-deploy.md"
+status = "corrected"
+
+[page.12]
+path = "contracts/bridge-vectors.md"
+status = "corrected"
+
+[page.13]
+path = "contracts/bridge/ATTESTATION-SOLANA.md"
+status = "reviewed"
+
+[page.14]
+path = "contracts/bridge/README.md"
+status = "corrected"
+
+[page.15]
+path = "contracts/bridge/evm/ATTESTATION.md"
+status = "reviewed"
+
+[page.16]
+path = "contracts/bridge/evm/chains/arbitrum/README.md"
+status = "corrected"
+
+[page.17]
+path = "contracts/bridge/evm/chains/avalanche/README.md"
+status = "corrected"
+
+[page.18]
+path = "contracts/bridge/evm/chains/base/README.md"
+status = "corrected"

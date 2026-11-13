@@ -35,7 +35,8 @@ The consumer defaults to a five-minute maximum age and a one-minute processing l
 
 ## Middleware seller HTTP routes
 
-[seller/src/rpc.ts](../services/platform/middleware/seller/src/rpc.ts) is a client adapter, not a listening HTTP server. `PaymentRpc` posts JSON-RPC to a root origin, restricts calls to `eth_` and `pax_`, submits raw transactions with `eth_sendRawTransaction`, reads `pax_sequencerReceipt` and checks committed transaction status with `eth_getTransactionReceipt`. Its transport bounds response size and time, rejects redirects and checks the response ID and envelope.
+[seller/src/rpc.ts](../services/platform/middleware/seller/src/rpc.ts) is a client adapter, not a listening HTTP server. `PaymentRpc` posts JSON-RPC to a root origin, restricts calls to `eth_` and `pax_`, submits raw transactions with `eth_sendRawTransaction`, reads `pax_sequencerReceipt` and checks committed transaction status with `eth_getTransactionReceipt`. Its transport limits responses to 8 MiB and requests to thirty seconds, rejects
+redirects and checks the response ID and envelope.
 
 `HostedGatewayRpc` posts JSON-RPC to the configured gateway root origin. It accepts the configured gateway origin with or without a trailing slash and restricts calls to `px_` methods. Use that hosted gateway URL for discovery and hosted operations such as `px_register` and `px_requestFunds`, and the separate node endpoint with `PaymentRpc` for payment submission and receipt reads. No middleware package creates an extra public network endpoint.
 
@@ -89,7 +90,9 @@ The [reference runner](../services/platform/examples/run-reference-apps.mjs) and
 
 ## Public RPC examples
 
-[public-rpc.mjs](../services/platform/middleware/examples/public-rpc.mjs) and [public_rpc.py](../services/platform/middleware/examples/public_rpc.py) contain the executable example clients. Inspect their selected transport and endpoint validation before use: compatibility clients that require a retired path need migration to the root contract. Receipt keys and commitment validators are trusted inputs, not values to accept from an untrusted payment offer. Configure the node endpoint independently of build-library downloads.
+[public-rpc.mjs](../services/platform/middleware/examples/public-rpc.mjs) and [public_rpc.py](../services/platform/middleware/examples/public_rpc.py) contain the executable example clients. Their default JSON-RPC path is the root.
+They require HTTPS except for loopback HTTP, reject URL credentials, queries and
+fragments, and bound responses to 8 MiB with a thirty-second request timeout. Receipt keys and commitment validators are trusted inputs, not values to accept from an untrusted payment offer. Configure the node endpoint independently of build-library downloads.
 
 <a id="middleware-conformance-env-vars"></a>
 <a id="middleware-conformance-environment"></a>

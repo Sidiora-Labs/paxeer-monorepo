@@ -17,7 +17,8 @@ GovernanceModule.
 
 Supply `PRIVATE_KEY` and the existing six-decimal mainnet `USDL_ADDRESS` in the deployment
 environment. Set `GUARDIAN_ADDRESS` to the intended Timelock cancellation guardian, or it defaults
-to the deployment wallet. `TIMELOCK_DELAY` defaults to 172800 seconds. Leave `ADMIN_ADDRESS` unset:
+to the deployment wallet. `TIMELOCK_DELAY` defaults to 172800 seconds and must be an integer
+from 3600 through 2592000 seconds. Leave `ADMIN_ADDRESS` unset:
 proxy administration is assigned to Timelock. Shell-exported variables override `.env`, so replace
 any previously exported local token address before running on mainnet.
 

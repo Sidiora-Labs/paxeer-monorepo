@@ -62,7 +62,7 @@ Initialize the UUPS proxy
 function setAuthorizedEmitter(address emitter, bool authorized) external
 ```
 
-Grant / revoke EMITTER_ROLE to a contract address.
+Grant or revoke `EMITTER_ROLE` for a nonzero emitter address. Requires default administration.
 
 ### forceDaySnapshot
 
@@ -70,7 +70,8 @@ Grant / revoke EMITTER_ROLE to a contract address.
 function forceDaySnapshot() external
 ```
 
-Force a daily stats snapshot (e.g., ops-driven day rollover).
+Requires default administration. Archives the stored day and starts today's bucket only when
+the day has changed; a call within the same day leaves the bucket unchanged.
 
 ### recordTrade
 

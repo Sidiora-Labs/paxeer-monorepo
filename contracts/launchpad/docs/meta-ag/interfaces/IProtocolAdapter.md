@@ -29,6 +29,10 @@ struct QuoteResult {
 }
 ```
 
+`feeAmount` uses adapter-specific units: VaultAdapter reports output-token units, SidioraAdapter
+reports input-token units for a single hop, and Sidiora token-to-token quotes report USDL using
+the sell leg's execution rate. SidioraAdapter reports zero `feeBps`.
+
 ### SwapResult
 
 ```solidity
@@ -113,7 +117,7 @@ Check if this adapter supports a specific token pair
 
 | Name      | Type | Description                                         |
 | --------- | ---- | --------------------------------------------------- |
-| supported | bool | True if the pair can be routed through this adapter |
+| supported | bool | The adapter's pair-support flag                     |
 
 ### getSupportedPairs
 
@@ -161,7 +165,7 @@ _Returns type(uint256).max if no practical limit_
 function adapterId() external view returns (bytes32 id)
 ```
 
-Unique identifier for this adapter (e.g., keccak256("Sidiora.v1"))
+Unique identifier for this adapter, such as `keccak256("SidioraAMM.v1")` for SidioraAdapter.
 
 #### Return Values
 

@@ -384,7 +384,7 @@ Get all registered token addresses
 function isAuthorizedRelayer(address relayer) external view returns (bool authorized)
 ```
 
-Check if a relayer is authorized
+Returns membership in `RELAYER_ROLE`.
 
 #### Parameters
 
@@ -563,10 +563,3 @@ error PriceJumpExceeded(address token, uint256 previousPrice, uint256 proposedPr
 event MaxPriceJumpUpdated(address indexed token, uint256 previousLimitBps, uint256 limitBps)
 ```
 
-### isAuthorizedRelayer
-
-```solidity
-function isAuthorizedRelayer(address relayer) external view returns (bool authorized)
-```
-
-Returns membership in `RELAYER_ROLE`.

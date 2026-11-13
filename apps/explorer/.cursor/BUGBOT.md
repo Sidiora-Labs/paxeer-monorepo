@@ -27,7 +27,7 @@ When a PR adds, changes, renames, or removes an environment variable, verify tha
 
 - The variable is documented in [docs/explorer/ENVS.md](../../../docs/explorer/ENVS.md) with its name, expected type, whether it is required, default value, and an example value.
 - The variable is added to the app config in the appropriate section of `configs/app/` (`features/`, `ui.ts`, `api.ts`, etc.).
-- A validation schema is added or updated in `deploy/tools/envs-validator/schema.ts`. For complex configs, a **separate sub-schema** should be created (similar to `tacScheme` or `beaconChainSchema`).
+- A validation schema is added or updated in `deploy/tools/envs-validator/schema.ts`. For complex configs, a **separate sub-schema** should be created (similar to `tacSchema` or `beaconChainSchema`).
 - The supported deployment values are represented in the tracked presets under [configs/envs](../configs/envs). JSON configuration examples live in `deploy/tools/envs-validator/test/assets/configs/`.
 - If the variable contains an external URL that is **not** an asset URL (i.e., not an image or JSON file), the appropriate CSP policy in `nextjs/csp/policies/` is updated. Policies should only be added when the relevant config option is actually enabled.
 - If the variable links to an external resource (image or JSON config), the `ASSETS_ENVS` array in `deploy/scripts/download_assets.sh` is extended with the variable name.

@@ -76,7 +76,7 @@ The ABI declares **18 methods and 9 events**. All writes are nonpayable and requ
 
 `getAsset` returns, in order: `bytes32 assetId`, `string symbol`, `string name`, `uint8 decimals`, `uint128 supplyCap`, `bytes32 issuerDid`, `bytes32 salt`, `uint8 issuerKind`, `uint8 custodyKind`, `bytes custodyReference`, `bool paused`, `uint128 totalUnits`.
 
-Decision **2340** retires the receive activity and payer-grant issue/revoke activities. The `issueGrant`, `revokeGrant` and `getPayerGrant` selectors remain for typed refusal with `Error(string)` reason **`LXP_NO_PAYER_GRANT`** (ledger SDK code 214, shared registry code -214). `draw` also refuses this way once its argument, binding and pause checks pass. These routes submit no kernel activity and create no grant, receipt, sequence or payment event. Earlier validation can still refuse a malformed or unauthorized call. `revokeGrant` retains its pause exemption; `getPayerGrant` remains a view. The seven-output legacy view tuple is defined in the ABI, but no successful grant lookup is served.
+The receive activity and payer-grant issue/revoke activities are retired. The `issueGrant`, `revokeGrant` and `getPayerGrant` selectors remain for typed refusal with `Error(string)` reason **`LXP_NO_PAYER_GRANT`** (ledger SDK code 214, shared registry code -214). `draw` also refuses this way once its argument, binding and pause checks pass. These routes submit no kernel activity and create no grant, receipt, sequence or payment event. Earlier validation can still refuse a malformed or unauthorized call. `revokeGrant` retains its pause exemption; `getPayerGrant` remains a view. The seven-output legacy view tuple is defined in the ABI, but no successful grant lookup is served.
 
 `payExact` is supported: `expiresAtMs` is a Unix timestamp in **milliseconds**, strictly later than the current block time. The keeper verifies ownership of `from`, reads the source account's next sequence, and constructs SEND activity `0x00010005`. Its context hash binds `from || to || assetId || amount_u128_be || paymentReference` through `DomainContextHash`. Successful execution mirrors the transfer and emits `Transfer` and `PaymentExact`. A payment reference cannot be used for a second successful SEND, even at a new sequence; see [idempotency](#idempotency).
 
@@ -229,7 +229,7 @@ The active [auth ABI](../../../precompiles/layerxauth/abi.json) declares **10 me
 
 Writes are nonpayable and use the current EVM DID binding; views do not require that binding. The dispatcher refuses delegate calls and writes in static calls. [Execute](../../../precompiles/layerxauth/layerxauth.go) stages handler changes in a cached context and publishes them only on success.
 
-`recordLifecycle` accepts governance payload tag `0x71`, sub-op **1 or 3**, and submits it through the shared host. It returns the actual receipt's global sequence and emits the matching `IdentityStateUpdated` event after validating that it names the actor. Session and successor grants use sub-op 5, capabilities use 8, revocation uses 6. `expirySequence` and revocation `sequence` are sequence values; `timestampMs`, grant validity timestamps and period timestamps are milliseconds.
+`recordLifecycle` accepts governance payload tag `0x71`, sub-op **1, 2 or 3**, and submits it through the shared host. [RecordLifecycle](../../../modules/layerxauth/keeper/lifecycle.go) requires a sub-op 2 key-rotation payload to be exactly **92 bytes**, with variant 0 and field count 4. The precompile returns the actual receipt's global sequence and emits the matching `IdentityStateUpdated` event after validating that it names the actor. Session and successor grants use sub-op 5, capabilities use 8, revocation uses 6. `expirySequence` and revocation `sequence` are sequence values; `timestampMs`, grant validity timestamps and period timestamps are milliseconds.
 
 `capabilityScope` returns, in order: `uint64 moduleMask`, `uint16 ordinalMin`, `uint16 ordinalMax`, `bytes32 assetId`, `uint128 maxPerActivity`, `uint128 maxTotal`, `uint128 spentTotal`, `uint64 periodLength`, `uint128 maxPerPeriod`, `uint128 spentThisPeriod`, `uint64 periodStart`, `bytes32 purposeHash`.
 
@@ -396,7 +396,7 @@ The implemented execution path is EVM call → precompile dispatcher → bound a
 | Retained selectors | Kernel receive and payer-grant issue/revoke activities are retired. Ledger compatibility grant selectors and draw refuse; `payExact` remains a SEND. |
 | Surface declarations | Describe surfaces at their served symbols and paths; removed auth result-by-idempotency and payer-grant interfaces are retired, not planned features. |
 
-## Ramp compatibility registry correction
+## Ramp payment encoding
 
 The retained Rust draw codec has the exact signature
 `encode_draw(grant_id: [u8; 32], recipient: [u8; 32], amount: u128,

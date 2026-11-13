@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.50"
+pages = 20
+
+[page.1]
+path = "contracts/launchpad/docs/meta-ag/mocks/MockProtocolAdapter.md"
+status = "reviewed"
+
+[page.2]
+path = "contracts/launchpad/docs/meta-ag/mocks/MockReentrantERC20.md"
+status = "corrected"
+
+[page.3]
+path = "contracts/launchpad/docs/meta-ag/mocks/MockSidioraPool.md"
+status = "reviewed"
+
+[page.4]
+path = "contracts/launchpad/docs/meta-ag/mocks/MockSidioraPoolRegistry.md"
+status = "reviewed"
+
+[page.5]
+path = "contracts/launchpad/docs/meta-ag/mocks/MockSidioraQuoter.md"
+status = "reviewed"
+
+[page.6]
+path = "contracts/launchpad/docs/meta-ag/mocks/MockSidioraRouter.md"
+status = "corrected"
+
+[page.7]
+path = "contracts/launchpad/docs/meta-ag/mocks/MockStandardERC20.md"
+status = "corrected"
+
+[page.8]
+path = "contracts/launchpad/docs/meta-ag/mocks/MockSwapFeeBeacon.md"
+status = "reviewed"
+
+[page.9]
+path = "contracts/launchpad/docs/meta-ag/mocks/MockTxTracker.md"
+status = "corrected"
+
+[page.10]
+path = "contracts/launchpad/docs/meta-ag/mocks/MockWETH9.md"
+status = "corrected"
+
+[page.11]
+path = "contracts/launchpad/docs/meta-ag/oracle/OracleHub.md"
+status = "corrected"
+
+[page.12]
+path = "contracts/launchpad/docs/meta-ag/oracle/PriceOracle.md"
+status = "corrected"
+
+[page.13]
+path = "contracts/launchpad/docs/meta-ag/oracle/adapters/PriceOracleAdapter.md"
+status = "reviewed"
+
+[page.14]
+path = "contracts/launchpad/docs/meta-ag/oracle/adapters/SidioraFeedAdapter.md"
+status = "corrected"
+
+[page.15]
+path = "contracts/launchpad/docs/meta-ag/proxy/ERC1967Proxy.md"
+status = "reviewed"
+
+[page.16]
+path = "contracts/launchpad/docs/meta-ag/quoter/MetaAGQuoter.md"
+status = "corrected"
+
+[page.17]
+path = "contracts/launchpad/docs/meta-ag/router/MetaAGRouter.md"
+status = "corrected"
+
+[page.18]
+path = "contracts/launchpad/docs/meta-ag/vault/PECORVault.md"
+status = "corrected"
+
+[page.19]
+path = "contracts/launchpad/docs/opticals/BaseOptical.md"
+status = "reviewed"
+
+[page.20]
+path = "contracts/launchpad/docs/opticals/LaunchpadOpticalFactory.md"
+status = "corrected"

@@ -29,7 +29,9 @@ uses mutual TLS with a verified client certificate. Its private listener
 implementation is `agent_rpc_exchange` in
 [main.rs](../services/agent/crates/layerx-agentd/src/main.rs).
 The hosted Agent operation route is `POST /v1/agent/rpc`; this is an agent
-envelope API, not an Ethereum JSON-RPC request.
+envelope API, not an Ethereum JSON-RPC request. The private operation listener
+accepts only POST for operation requests and GET for its health route; other
+methods are refused.
 
 Requests use UTF-8 JSON and `application/json`, with a 1,048,576-byte body bound
 and 16,384-byte header bound. HTTP/1.1 framing requires one canonical decimal

@@ -100,10 +100,20 @@ exposes the capability contract to the browser. Address constants and ABI
 files alone do not establish availability; see
 [activation and retirement](address-inventory.md#activation).
 
-`PAXEER_X_ROUTER_URL` supplies the optional receipt provider through the
-compatibility client’s `router_url` key in `runtime.exs`. Configure a provider
-that serves the receipt and key methods described in
+`PAXEER_X_GATEWAY_URL` supplies the receipt provider, including the compatibility
+client’s `router_url` key in `runtime.exs`. It serves receipt and key discovery,
+transaction receipt, `px_getCommit`, `px_getValidators`, and `px_getSequenceBatch`
+reads. `PAXEER_X_NODE_RPC_URL` separately selects the consensus RPC listener for
+`block` and `block_results` inclusion evidence. See
 [transaction status](explorer-http-api.md#transaction-status-and-signature).
+
+`PAXEER_X_RECEIPT_AUTHORITY_FILE` selects the JSON authority configuration. It
+contains a nonempty consensus `chain_id`, governed `receipt_keys`, and
+`validator_checkpoints` keyed by positive decimal heights with 32-byte hex
+`block_hash` and `validators_hash` values; `validator_history` is optional.
+The consensus chain identifier is distinct from the numeric EVM chain ID.
+Invalid authority files stop startup. Without a file, the receipt client has no
+configured chain identifier or trusted pins.
 
 
 ## Native price-feed indexing

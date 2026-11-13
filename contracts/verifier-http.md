@@ -27,13 +27,12 @@ Paths below are relative to
 | Route/service registration | [server/src/run.rs](../services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/run.rs) |
 | Generated JSON representation | [proto/build.rs](../services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/build.rs), using `actix-prost-macros` 0.1.0 |
 
-The build generates the HTTP handlers and gRPC services from v2. Retained
-v1 proto files do not establish live v1 routes.
+The build generates the HTTP handlers and gRPC services from v2.
 
 ## Deployment and transport
 
-The shared launcher defaults to HTTP enabled at `0.0.0.0:8050` and gRPC
-disabled at `0.0.0.0:8051`. HTTP request bodies default to a maximum of
+The shared launcher defaults to HTTP enabled on port `8050` and gRPC
+disabled on port `8051`. HTTP request bodies default to a maximum of
 `2097152` bytes (`server.http.max_body_size`). These are local configuration
 defaults, not public endpoint guarantees. See
 [launcher settings](../services/explorer/services/libs/blockscout-service-launcher/src/launcher/settings.rs)
@@ -57,10 +56,12 @@ return `Unavailable` (14), mapped to HTTP 503.
 
 The Rust HTTP client in
 [http_client/client.rs](../services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/src/http_client/client.rs)
-sets absolute route paths with `Url::set_path`; it does not preserve a prefix
-in its configured base URL. A prefixed deployment therefore needs a caller
-that constructs the full path or proxy mapping that exposes the root API.
-Do not assume a base URL path is carried forward by that client.
+appends each route to the path in its configured base URL, trimming trailing
+slashes from that base path before calling `Url::set_path`. Include the
+deployment's HTTP base path in the client base URL: a base path of
+`/explorer-verifier` produces `/explorer-verifier/health` for health requests.
+Request construction replaces the base URL's query with the method's query
+parameters, or clears it for methods without query parameters.
 
 All mapped POST methods accept `Content-Type: application/json` with the
 whole request as the body (`body: "*"`). They are not MIME multipart uploads,
@@ -109,12 +110,14 @@ Single multipart requests contain `bytecode`, `bytecodeType`,
 `compilerVersion`, `sourceFiles`, optional `evmVersion`, optional signed
 int32 `optimizationRuns`, optional `metadata`, and `postActions` (default
 empty). An absent optimization count disables optimization; a supplied count
-enables it. Standard JSON requests replace the multipart source/settings
-fields with `input`, retaining bytecode/type, compiler, metadata and actions.
+from `0` through `1000000` enables it. Negative counts and counts above
+`1000000` return `InvalidArgument`. Standard JSON requests replace the
+multipart source/settings fields with `input`, retaining bytecode/type,
+compiler, metadata and actions.
 
 `metadata` has optional string `chainId` and `contractAddress`; it provides
 explorer context, not a trusted chain proof. For Paxeer, the chain ID string
-is `"125"`. The proto reserves the old top-level `libraries` fields: place
+is `"125"`. The proto reserves the multipart `libraries` fields: place
 compiler library settings in standard JSON input instead. Source paths in
 multipart maps and parsed standard JSON must name relative files without
 parent components, absolute roots, Windows drive prefixes or NUL bytes.
@@ -132,6 +135,10 @@ contains optional hex `creationCode`, optional hex `runtimeCode` and optional
 metadata. Supply code to compare. Multipart batches use `sources` (not
 `sourceFiles`), optional `evmVersion`, and optional uint32 `optimizationRuns`.
 Standard JSON batches use `input` instead of those source/settings fields.
+Batch multipart counts also range from `0` through `1000000`. In both single
+and batch Solidity standard JSON requests, `settings.optimizer.runs` has the
+same ceiling when supplied. See
+[request conversion](../services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/proto_conversions.rs).
 
 ## grpc-vyperverifier
 
@@ -145,7 +152,7 @@ gRPC service: `blockscout.smartContractVerifier.v2.VyperVerifier`.
 
 Multipart input contains `bytecode`, `bytecodeType`, `compilerVersion`,
 `sourceFiles`, optional `evmVersion`, optional `metadata`, and `interfaces`
-(default empty). The old `optimizations` field is reserved. Standard JSON
+(default empty). The `optimizations` field is reserved. Standard JSON
 uses `bytecode`, `bytecodeType`, `compilerVersion`, string `input` and
 optional metadata. There are no Vyper batch methods in this service.
 
@@ -193,13 +200,6 @@ ZkSync returns `zkCompilers` and `solcCompilers` arrays. Select an exact
 advertised compiler identifier rather than assuming an installed system
 compiler or a version inferred from a pragma. Availability depends on the
 configured fetchers and refresh cycle; unsupported compilers return an error.
-
-For a root-mounted local service, for example:
-
-```bash
-curl --fail-with-body --max-time 15 \
-  http://127.0.0.1:8050/api/v2/verifier/solidity/versions
-```
 
 ## verifier-methods
 

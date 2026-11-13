@@ -9,7 +9,8 @@ fee accumulator holds the corresponding optical surplus.
 
 The owner calls `executeBuybackBurn(pool, minTokensOut, deadline)` to claim that surplus, transfer
 USDL into the pool and buy tokens directly to `DEAD_ADDRESS`. A positive minimum token output is
-required. The buyback rate is fixed at construction.
+required. The buyback rate is fixed at construction. Tokens sent to `DEAD_ADDRESS` remain part of
+the token's total supply.
 
 ### NothingToExecute
 
@@ -23,7 +24,7 @@ error NothingToExecute()
 address DEAD_ADDRESS
 ```
 
-Dead address for burning tokens
+Destination for tokens bought with accumulated USDL.
 
 ### buybackBps
 
@@ -44,13 +45,13 @@ Accumulated USDL per pool for buyback execution
 ### BuybackAccumulated
 
 ```solidity
-event BuybackAccumulated(address pool, uint256 amount)
+event BuybackAccumulated(address indexed pool, uint256 amount)
 ```
 
 ### BuybackExecuted
 
 ```solidity
-event BuybackExecuted(address pool, uint256 usdlUsed)
+event BuybackExecuted(address indexed pool, uint256 usdlUsed)
 ```
 
 ### constructor

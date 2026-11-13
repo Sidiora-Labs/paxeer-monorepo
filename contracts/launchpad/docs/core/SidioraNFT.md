@@ -26,7 +26,7 @@ bytes32 STRATEGY_SETTER_ROLE
 uint256 nextTokenId
 ```
 
-Get current token ID counter
+Returns the next token ID to mint. Initialization sets it to 1.
 
 ### eventEmitter
 
@@ -52,7 +52,8 @@ function initialize( string calldata _name, string calldata _symbol, address _ev
 function mint( address to, address pool, uint8 strategy ) external override onlyRole(MINTER_ROLE) returns (uint256 tokenId)
 ```
 
-Mint a new pool NFT (factory-only via MINTER_ROLE)
+Mints a pool NFT for a caller with `MINTER_ROLE`. A contract recipient must accept
+`onERC721Received`. The pool must be nonzero and have no existing NFT in the pool index.
 
 #### Parameters
 

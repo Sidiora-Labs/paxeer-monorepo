@@ -29,7 +29,9 @@ termination signals.
 | `perps-loadtest` | Gateway socket load profile and report |
 
 `perps-replay --from <height> [--to <height>] [--dry-run]` requires `--from`.
-Omitted `--to` resolves to the stored cursor. Read the
+Omitted `--to` resolves to the stored cursor. The inclusive range must stay
+within the stored cursor and contain at most 1,000,000 heights. Invalid requests
+exit 2. Read the
 [replay implementation](../services/platform/perps-data/internal/replay/replay.go)
 before operating on a populated database.
 
@@ -134,7 +136,10 @@ registry or fee configuration.
 `event_id`, `event_type`, `schema_version`, `chain_id`, `source_order`,
 `emitted_at`, `trace_id`, `payload_hash` and `payload`. Source-order components
 `height`, `transaction_index` and `log_index` are decimal strings. Payload hashes
-use SHA-256; the accepted schema version is 1. Subject admission is server-owned;
+use SHA-256 as lowercase hex without a prefix; the accepted schema version is 1.
+Source-order values are canonical nonnegative decimal strings bounded to 63 bits.
+`emitted_at` is a nonzero UTC timestamp. The payload is a JSON object whose
+exact retained bytes determine its hash. Subject admission is server-owned;
 arbitrary public subjects are not accepted.
 
 The [outbox/inbox store](../services/platform/perps-data/internal/delivery/store.go)
