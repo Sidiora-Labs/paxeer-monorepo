@@ -1,6 +1,6 @@
 # Tendermint Tests
 
-The unit tests (ie. the `go test` s) live next to the packages they cover. Run them from the repository root with:
+The unit tests (`go test`) live next to the packages they cover. Run them from the repository root with:
 
 ```sh
 go test ./consensus/...
@@ -8,7 +8,7 @@ go test ./consensus/...
 
 From the `consensus` directory, `make test` runs the same packages with `go test -p 1 -tags deadlock` (target defined in [`Makefile`](./Makefile)).
 
-The upstream integration targets are not runnable in this tree: `make test_integrations` depends on `tools` and `test_libs` targets and on `abci/tests/test_app/test.sh`, `test_cover.sh` and `docker/Dockerfile`, none of which exist in this tree.
+`make test_release` selects the `release` build tag. `make test_race` runs the packages with the race detector, verbose output and package parallelism limited to one.
 
 ## Fuzzing
 

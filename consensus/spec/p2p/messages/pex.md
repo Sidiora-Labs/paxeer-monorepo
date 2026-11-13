@@ -31,7 +31,7 @@ PexResponse is an list of net addresses provided to a peer to dial.
 ### PexAddress
 
 PexAddress provides needed information for a node to dial a peer. This is in the form of a `URL` that gets parsed
-into a `NodeAddress`. See [ParseNodeAddress](https://github.com/tendermint/tendermint/blob/f2a8f5e054cf99ebe246818bb6d71f41f9a30faa/internal/p2p/address.go#L43) for more details.
+into a `NodeAddress`. See [ParseNodeAddress](../../../internal/p2p/address.go) for more details.
 
 | Name | Type   | Description      | Field Number |
 |------|--------|------------------|--------------|

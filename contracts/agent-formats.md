@@ -39,12 +39,25 @@ JSON consensus integers use canonical decimal strings, without signs, padding
 or whitespace. Fixed identifiers are lowercase hexadecimal with exact widths.
 Do not convert u64/u128 quantities through floating-point numbers.
 
-Native activity records retain `protocol_version`, `module` and `ordinal`.
+The JSON `NativeActivityV1` record retains `version`, `module` and `ordinal`
+as decimal strings; its version identifies the native protocol.
 Native purpose, signature and local-grant records are closed versioned objects;
 their canonical encodings are declared in `v1.kvx` and implemented in
 [identity.rs](../services/agent/crates/layerx-agent-api/src/identity.rs).
 A structurally valid signature carrier does not establish signing authority:
 the runtime must verify the actual signer, current ownership, expiry and session.
+
+### Send consent
+
+The `native_send_v1` preparation profile carries `SignedNativeSendPurposeV2`.
+Its purpose binds the stable owner DID, current Ed25519 `consent_public_key`,
+independently recovered `evm_sender`, transaction type 2 and chain ID 125,
+along with the tenant, agent, session, capability, expiry and exact preparation
+commitments. The consent signature covers SHA-256 of the canonical purpose
+bytes under the NUL-terminated `LayerX/native/send-purpose/v2` domain. The
+EIP-1559 transaction signature is checked separately; neither signing key is
+derived from the DID. The purpose codec is in
+[native_send.rs](../services/agent/crates/layerx-agent-api/src/native_send.rs).
 
 ## Agent API response
 
@@ -74,8 +87,8 @@ Exact overrides and the executable/library distinction are described under
 ## Agentd store
 
 [`Store`](../services/agent/crates/layerx-agentd/src/store/mod.rs) persists
-`store.bin`, with magic `LXAS` and current schema version **3**. Forward migration
-supports versions 1 through 3 and refuses newer schemas. Every `TenantKey`
+`store.bin`, with magic `LXAS` and current schema version **4**. Forward migration
+supports versions 1 through 4 and refuses newer schemas. Every `TenantKey`
 contains tenant, object kind and opaque ID; canonical key bytes use a big-endian
 u16 tenant length, UTF-8 tenant, u8 kind, big-endian u32 ID length and ID bytes.
 Never recover a record by dropping its tenant coordinate.

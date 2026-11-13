@@ -65,8 +65,8 @@ consumer's validation. An overlay does not supply a default credential.
 
 ## Scripts
 
-These are command interfaces, not commands executed by this documentation.
-Run them from the repository root with the intended environment supplied.
+Run these commands from the repository root with the intended environment
+supplied.
 
 | Tool | Interface and behavior |
 | --- | --- |
@@ -118,8 +118,8 @@ must use the flags above.
 
 The attestor manifest defaults to
 [services/bridge/deploy/attestors.json](../services/bridge/deploy/attestors.json).
-Its placeholder set must be replaced with the reviewed set in the selected
-manifest. Membership, ordering and threshold must match the chain config.
+The committed set contains one attestor with threshold one. Membership,
+ordering and threshold in the selected manifest must match the chain config.
 The generator emits native protobuf message bodies for chain registration,
 the attestor set, and asset caps, using the bridge module's codec and types.
 Files are `01-register-chain.json`, `02-set-attestors.json`, and
@@ -170,17 +170,11 @@ not the [explorer frontend](explorer-frontend-config.md).
 The Solana consumer requires `version: 1` and `phase: "ready"`; it recognizes
 `deployed` and `initialized` as earlier phases but refuses them for export.
 Ready records must include validated owner, attestors, threshold, and both SOL
-and SID registrations. **The current shell deployment script does not emit
-the required `version` or `phase` fields**, even in its final record, so its
-Solana output does not pass this consumer unchanged. This producer/consumer
-gap must be resolved before treating shell output as app-ready evidence;
-adding a phase label by hand does not establish the required verified state.
+and SID registrations. Only records satisfying these requirements are exported.
 
 ## CI
 
 The owning shell checks are in
 [services/bridge/deploy/tests](../services/bridge/deploy/tests/): checklist,
 deployment scripts, EVM and Solana dry runs, documentation and workflow checks.
-They describe coverage of these tools; this page makes no claim that a live
-deployment, verification submission, or post-deployment checklist has run.
 Explorer indexing configuration is documented [here](explorer-config.md).

@@ -1,0 +1,186 @@
+[manifest]
+task = "22.41.3"
+pages = 55
+
+[record.1]
+path = "consensus/spec/core/encoding.md"
+
+[record.2]
+path = "consensus/spec/core/genesis.md"
+
+[record.3]
+path = "consensus/spec/core/readme.md"
+
+[record.4]
+path = "consensus/spec/core/state.md"
+
+[record.5]
+path = "consensus/spec/ivy-proofs/README.md"
+
+[record.6]
+path = "consensus/spec/light-client/README.md"
+
+[record.7]
+path = "consensus/spec/light-client/accountability/README.md"
+
+[record.8]
+path = "consensus/spec/light-client/accountability/Synopsis.md"
+
+[record.9]
+path = "consensus/spec/light-client/accountability/results/001indinv-apalache-report.md"
+
+[record.10]
+path = "consensus/spec/light-client/attacks/isolate-attackers_001_draft.md"
+
+[record.11]
+path = "consensus/spec/light-client/attacks/isolate-attackers_002_reviewed.md"
+
+[record.12]
+path = "consensus/spec/light-client/attacks/notes-on-evidence-handling.md"
+
+[record.13]
+path = "consensus/spec/light-client/detection/README.md"
+
+[record.14]
+path = "consensus/spec/light-client/detection/detection_001_reviewed.md"
+
+[record.15]
+path = "consensus/spec/light-client/detection/detection_003_reviewed.md"
+
+[record.16]
+path = "consensus/spec/light-client/detection/discussions.md"
+
+[record.17]
+path = "consensus/spec/light-client/detection/draft-functions.md"
+
+[record.18]
+path = "consensus/spec/light-client/detection/req-ibc-detection.md"
+
+[record.19]
+path = "consensus/spec/light-client/supervisor/supervisor_001_draft.md"
+
+[record.20]
+path = "consensus/spec/light-client/supervisor/supervisor_002_draft.md"
+
+[record.21]
+path = "consensus/spec/light-client/verification/README.md"
+
+[record.22]
+path = "consensus/spec/light-client/verification/verification_001_published.md"
+
+[record.23]
+path = "consensus/spec/light-client/verification/verification_002_draft.md"
+
+[record.24]
+path = "consensus/spec/light-client/verification/verification_003_draft.md"
+
+[record.25]
+path = "consensus/spec/p2p/config.md"
+
+[record.26]
+path = "consensus/spec/p2p/connection.md"
+
+[record.27]
+path = "consensus/spec/p2p/messages/README.md"
+
+[record.28]
+path = "consensus/spec/p2p/messages/block-sync.md"
+
+[record.29]
+path = "consensus/spec/p2p/messages/consensus.md"
+
+[record.30]
+path = "consensus/spec/p2p/messages/evidence.md"
+
+[record.31]
+path = "consensus/spec/p2p/messages/mempool.md"
+
+[record.32]
+path = "consensus/spec/p2p/messages/pex.md"
+
+[record.33]
+path = "consensus/spec/p2p/messages/state-sync.md"
+
+[record.34]
+path = "consensus/spec/p2p/node.md"
+
+[record.35]
+path = "consensus/spec/p2p/peer.md"
+
+[record.36]
+path = "consensus/spec/p2p/readme.md"
+
+[record.37]
+path = "consensus/spec/rpc/README.md"
+
+[page.1]
+path = "consensus/test/README.md"
+status = "corrected"
+
+[page.2]
+path = "consensus/test/e2e/README.md"
+status = "corrected"
+
+[page.3]
+path = "consensus/test/fuzz/README.md"
+status = "corrected"
+
+[page.4]
+path = "contracts/README.md"
+status = "corrected"
+
+[page.5]
+path = "contracts/address-inventory.md"
+status = "corrected"
+
+[page.6]
+path = "contracts/agent-api.md"
+status = "corrected"
+
+[page.7]
+path = "contracts/agent-config.md"
+status = "corrected"
+
+[page.8]
+path = "contracts/agent-formats.md"
+status = "corrected"
+
+[page.9]
+path = "contracts/agent-human-peer.md"
+status = "corrected"
+
+[page.10]
+path = "contracts/agent-rust-api.md"
+status = "corrected"
+
+[page.11]
+path = "contracts/bridge-deploy.md"
+status = "corrected"
+
+[page.12]
+path = "contracts/bridge-vectors.md"
+status = "corrected"
+
+[page.13]
+path = "contracts/bridge/ATTESTATION-SOLANA.md"
+status = "reviewed"
+
+[page.14]
+path = "contracts/bridge/README.md"
+status = "corrected"
+
+[page.15]
+path = "contracts/bridge/evm/ATTESTATION.md"
+status = "corrected"
+
+[page.16]
+path = "contracts/bridge/evm/chains/arbitrum/README.md"
+status = "corrected"
+
+[page.17]
+path = "contracts/bridge/evm/chains/avalanche/README.md"
+status = "corrected"
+
+[page.18]
+path = "contracts/bridge/evm/chains/base/README.md"
+status = "corrected"
