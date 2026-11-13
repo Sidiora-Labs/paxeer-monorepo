@@ -1,7 +1,7 @@
 [repair]
 task = "22.33.938"
 finding = "order-cancel-wallet-step"
-proof = "repair-22-33-938.test.ts: orderCancelWalletStepRetainsPreparedRequestUntilConfirmed, orderCancelWalletStepKeepsUnavailableExplicitAndRetryIdempotent, orderCancelWalletStepRefreshesOnlyConfirmedApiOutcome, orderCancelWalletStepRejectsMismatchedResponse, orderCancelWalletStepUsesRealUnavailableProvider"
+proof = "order-cancellation-review.test.ts: orderCancelWalletStepRetainsPreparedRequestUntilConfirmed, orderCancelWalletStepKeepsUnavailableExplicitAndRetryIdempotent, orderCancelWalletStepRefreshesOnlyConfirmedApiOutcome, orderCancelWalletStepRejectsMismatchedResponse, orderCancelWalletStepUsesRealUnavailableProvider"
 change = "Retain prepared requests for explicit wallet review; admit only the reviewed provider's exact cancellation call and owned order, resume its existing attempt, and refresh only on confirmed cancellation or a verified fill race. Reuse the preparation idempotency key on retries."
 baseline = "Not executed: the task's implementation-first order and bounded hf-build/hf-done gates prohibit a separate unchanged-tree verify; no baseline failures are claimed."
 producer = "services/launchpad/api/internal/app/dev_network_reads.go explicitly leaves IF_ORDER_CANCEL unavailable; the focused test uses an in-memory HTTP contract fixture through the real SdkClient and OrdersList plus the real createAdvancedProvider with unavailable bindings, and does not claim an executed successful owning-producer/wallet transaction."

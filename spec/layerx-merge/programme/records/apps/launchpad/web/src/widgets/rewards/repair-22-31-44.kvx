@@ -1,6 +1,6 @@
 [repair.22.31.44]
 finding = "reward-claim-route"
-test = "repair-22-31-44.test.ts:reward_claim_route_reaches_registered_handler"
+test = "reward-claim-route.test.ts:reward_claim_route_reaches_registered_handler"
 base_revision = "7a46d90eecc4435aea1d78bdd9590421997ccc7e"
 change = "RewardsView prepares claims at the exact served IF_REWARD_CLAIM path with its existing authenticated scope, recipient, rewardIds and fresh Idempotency-Key."
 proof = "Real widget request producer -> accountRequest -> loopback HTTP -> app.registerRewardRoutes -> l18.HTTP.PrepareClaim; real frozen request decoder validates emitted bytes; unavailable dependencies return the actual handler's 503, while the legacy slash route returns 404."

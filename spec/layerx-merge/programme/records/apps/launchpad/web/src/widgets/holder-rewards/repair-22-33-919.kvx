@@ -7,12 +7,12 @@ baseline = "Not run: the ordered instructions require complete implementation be
 wiring_requests = "None: loaded-row scope disclosure uses the existing owner-controlled sort contract; grid continuation uses the existing cursor hook."
 
 [finding.reward-sort-scope]
-test = "repair-22-33-919.test.ts::reward_sort_scope"
+test = "rewards-sort-pagination.test.ts::reward_sort_scope"
 repair = "Disclose that sorting, filters and CSV export apply only to loaded coins; show visible and loaded counts in both presentations and explain that further pages can change the order."
 proof = "Real view, providers, cursor hook, SDK codec and loopback HTTP read model: ascending over a full first page, then a second page below the entire first range, grid presentation and filtered versus loaded counts."
 
 [finding.rewards-grid-pagination]
-test = "repair-22-33-919.test.ts::rewards_grid_pagination"
+test = "rewards-sort-pagination.test.ts::rewards_grid_pagination"
 repair = "Pass the same continuation, loading and error actions to the grid's shared LoadMore primitive, retaining previously loaded rows during failure and retry."
 proof = "Real view and HTTP cursor chain: grid first page, second-page dependency failure, retained rows, explicit retry of the same cursor, disabled retry while loading, second-page success, exhaustion and presentation switching."
 

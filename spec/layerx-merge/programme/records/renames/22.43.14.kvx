@@ -1,0 +1,460 @@
+[manifest]
+task = "22.43.14"
+records_moved = 24
+files_renamed = 28
+
+[file.1]
+from = "apps/launchpad/web/src/widgets/bounties/repair-22-31-47.test.ts"
+to = "apps/launchpad/web/src/widgets/bounties/prepared-transaction-binding.test.ts"
+
+[file.2]
+from = "apps/launchpad/web/src/widgets/bounties/repair-22-33-985.fixtures.ts"
+to = "apps/launchpad/web/src/widgets/bounties/bounty-transaction.fixtures.ts"
+
+[file.3]
+from = "apps/launchpad/web/src/widgets/bounties/repair-22-33-985.test.ts"
+to = "apps/launchpad/web/src/widgets/bounties/bounty-session-broadcast-recovery.test.ts"
+
+[file.4]
+from = "apps/launchpad/web/src/widgets/chat/repair-22-33-1011.test.ts"
+to = "apps/launchpad/web/src/widgets/chat/direct-message-session-read-marker.test.ts"
+
+[file.5]
+from = "apps/launchpad/web/src/widgets/coin/repair-22-33-918.test.ts"
+to = "apps/launchpad/web/src/widgets/coin/coin-pagination-risk.test.ts"
+
+[file.6]
+from = "apps/launchpad/web/src/widgets/create-chain/repair-22-33-923.test.ts"
+to = "apps/launchpad/web/src/widgets/create-chain/chain-launch-recovery.test.ts"
+
+[file.7]
+from = "apps/launchpad/web/src/widgets/create/repair-22-31-39.test.ts"
+to = "apps/launchpad/web/src/widgets/create/native-creation-approval.test.ts"
+
+[file.8]
+from = "apps/launchpad/web/src/widgets/create/repair-22-33-949.test.ts"
+to = "apps/launchpad/web/src/widgets/create/creation-purchase-recovery.test.ts"
+
+[file.9]
+from = "apps/launchpad/web/src/widgets/holder-rewards/repair-22-33-919.test.ts"
+to = "apps/launchpad/web/src/widgets/holder-rewards/rewards-sort-pagination.test.ts"
+
+[file.10]
+from = "apps/launchpad/web/src/widgets/home/repair-22-33-988.test.ts"
+to = "apps/launchpad/web/src/widgets/home/paused-callouts-arrivals.test.ts"
+
+[file.11]
+from = "apps/launchpad/web/src/widgets/leaderboard/cups/repair-22-33-920.test.ts"
+to = "apps/launchpad/web/src/widgets/leaderboard/cups/cup-standings-pagination.test.ts"
+
+[file.12]
+from = "apps/launchpad/web/src/widgets/live/repair-22-33-922.test.ts"
+to = "apps/launchpad/web/src/widgets/live/live-continuation-refresh.test.ts"
+
+[file.13]
+from = "apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.fixtures.ts"
+to = "apps/launchpad/web/src/widgets/meta-ag/advanced-order.fixtures.ts"
+
+[file.14]
+from = "apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.test.ts"
+to = "apps/launchpad/web/src/widgets/meta-ag/advanced-order-recovery.test.ts"
+
+[file.15]
+from = "apps/launchpad/web/src/widgets/my-token/repair-22-31-60.test.ts"
+to = "apps/launchpad/web/src/widgets/my-token/creator-discovery.test.ts"
+
+[file.16]
+from = "apps/launchpad/web/src/widgets/my-token/repair-22-33-1010.test.ts"
+to = "apps/launchpad/web/src/widgets/my-token/creator-wallet-lifecycle.test.ts"
+
+[file.17]
+from = "apps/launchpad/web/src/widgets/profile/repair-22-33-930.test.ts"
+to = "apps/launchpad/web/src/widgets/profile/profile-privacy-image-removal.test.ts"
+
+[file.18]
+from = "apps/launchpad/web/src/widgets/rewards/repair-22-31-44.test.ts"
+to = "apps/launchpad/web/src/widgets/rewards/reward-claim-route.test.ts"
+
+[file.19]
+from = "apps/launchpad/web/src/widgets/rewards/repair-22-33-969.test.ts"
+to = "apps/launchpad/web/src/widgets/rewards/reward-claim-recovery.test.ts"
+
+[file.20]
+from = "apps/launchpad/web/src/widgets/social/repair-22-33-921.test.ts"
+to = "apps/launchpad/web/src/widgets/social/callout-pagination-follow-recovery.test.ts"
+
+[file.21]
+from = "apps/launchpad/web/src/widgets/swap/repair-22-31-43.test.ts"
+to = "apps/launchpad/web/src/widgets/swap/swap-quote-confirmation.test.ts"
+
+[file.22]
+from = "apps/launchpad/web/src/widgets/terminal/activity-tabs/repair-22-33-938.test.ts"
+to = "apps/launchpad/web/src/widgets/terminal/activity-tabs/order-cancellation-review.test.ts"
+
+[file.23]
+from = "apps/launchpad/web/src/widgets/terminal/repair-22-33-936.test.ts"
+to = "apps/launchpad/web/src/widgets/terminal/preset-storage-fallback.test.ts"
+
+[file.24]
+from = "apps/launchpad/web/src/widgets/terminal/right-rail/repair-22-33-935.fixture.ts"
+to = "apps/launchpad/web/src/widgets/terminal/right-rail/position-pagination.fixture.ts"
+
+[file.25]
+from = "apps/launchpad/web/src/widgets/terminal/right-rail/repair-22-33-935.test.ts"
+to = "apps/launchpad/web/src/widgets/terminal/right-rail/position-pagination-storage.test.ts"
+
+[file.26]
+from = "apps/launchpad/web/src/widgets/terminal/views/repair-22-33-937.test.ts"
+to = "apps/launchpad/web/src/widgets/terminal/views/following-pagination.test.ts"
+
+[file.27]
+from = "apps/launchpad/web/src/widgets/trading/repair-22-33-1004.test.ts"
+to = "apps/launchpad/web/src/widgets/trading/trade-data-recovery.test.ts"
+
+[file.28]
+from = "apps/launchpad/web/src/widgets/trading/transaction-controls/repair-22-33-1005.test.ts"
+to = "apps/launchpad/web/src/widgets/trading/transaction-controls/receipt-recovery-native-runner.test.ts"
+
+[file.29]
+from = "apps/launchpad/web/src/widgets/bounties/repair-22-31-47.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/bounties/repair-22-31-47.kvx"
+
+[file.30]
+from = "apps/launchpad/web/src/widgets/bounties/repair-22-33-985.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/bounties/repair-22-33-985.kvx"
+
+[file.31]
+from = "apps/launchpad/web/src/widgets/chat/repair-22-33-1011.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/chat/repair-22-33-1011.kvx"
+
+[file.32]
+from = "apps/launchpad/web/src/widgets/coin/repair-22-33-918.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/coin/repair-22-33-918.kvx"
+
+[file.33]
+from = "apps/launchpad/web/src/widgets/create-chain/repair-22-33-923.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/create-chain/repair-22-33-923.kvx"
+
+[file.34]
+from = "apps/launchpad/web/src/widgets/holder-rewards/repair-22-33-919.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/holder-rewards/repair-22-33-919.kvx"
+
+[file.35]
+from = "apps/launchpad/web/src/widgets/home/repair-22-33-988.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/home/repair-22-33-988.kvx"
+
+[file.36]
+from = "apps/launchpad/web/src/widgets/leaderboard/cups/repair-22-33-920.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/leaderboard/cups/repair-22-33-920.kvx"
+
+[file.37]
+from = "apps/launchpad/web/src/widgets/live/repair-22-33-922.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/live/repair-22-33-922.kvx"
+
+[file.38]
+from = "apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.kvx"
+
+[file.39]
+from = "apps/launchpad/web/src/widgets/my-token/repair-22-31-60.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/my-token/repair-22-31-60.kvx"
+
+[file.40]
+from = "apps/launchpad/web/src/widgets/my-token/repair-22-33-1010.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/my-token/repair-22-33-1010.kvx"
+
+[file.41]
+from = "apps/launchpad/web/src/widgets/profile/repair-22-33-930.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/profile/repair-22-33-930.kvx"
+
+[file.42]
+from = "apps/launchpad/web/src/widgets/rewards/repair-22-31-44.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/rewards/repair-22-31-44.kvx"
+
+[file.43]
+from = "apps/launchpad/web/src/widgets/rewards/repair-22-33-969.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/rewards/repair-22-33-969.kvx"
+
+[file.44]
+from = "apps/launchpad/web/src/widgets/social/repair-22-33-921.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/social/repair-22-33-921.kvx"
+
+[file.45]
+from = "apps/launchpad/web/src/widgets/swap/repair-22-31-43.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/swap/repair-22-31-43.kvx"
+
+[file.46]
+from = "apps/launchpad/web/src/widgets/swap/repair-22-31-442.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/swap/repair-22-31-442.kvx"
+
+[file.47]
+from = "apps/launchpad/web/src/widgets/terminal/activity-tabs/repair-22-33-938.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/terminal/activity-tabs/repair-22-33-938.kvx"
+
+[file.48]
+from = "apps/launchpad/web/src/widgets/terminal/repair-22-33-936.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/terminal/repair-22-33-936.kvx"
+
+[file.49]
+from = "apps/launchpad/web/src/widgets/terminal/right-rail/repair-22-33-935.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/terminal/right-rail/repair-22-33-935.kvx"
+
+[file.50]
+from = "apps/launchpad/web/src/widgets/terminal/views/repair-22-33-937.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/terminal/views/repair-22-33-937.kvx"
+
+[file.51]
+from = "apps/launchpad/web/src/widgets/trading/repair-22-33-1004.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/trading/repair-22-33-1004.kvx"
+
+[file.52]
+from = "apps/launchpad/web/src/widgets/trading/transaction-controls/repair-22-33-1005.kvx"
+to = "spec/layerx-merge/programme/records/apps/launchpad/web/src/widgets/trading/transaction-controls/repair-22-33-1005.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "repair-22-33-921.test.ts"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "repair-22-33-987.fixtures.ts"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "repair-22-33-987.test.ts"
+
+[reference.4]
+file = "apps/launchpad/qualification/records/web/type-contracts.kvx"
+name = "repair-22-33-987.test.ts"
+
+[reference.5]
+file = "spec/layerx-merge/dispositions/d22-19.kvx"
+name = "repair-22-31-43.test.ts"
+
+[reference.6]
+file = "spec/layerx-merge/dispositions/d22-21.kvx"
+name = "repair-22-31-60.test.ts"
+
+[reference.7]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "repair-22-33-1005.test.ts"
+
+[reference.8]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "repair-22-33-919.test.ts"
+
+[reference.9]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "repair-22-33-921.test.ts"
+
+[reference.10]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "repair-22-33-923.test.ts"
+
+[reference.11]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "repair-22-33-930.test.ts"
+
+[reference.12]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "repair-22-33-935.test.ts"
+
+[reference.13]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "repair-22-33-987.test.ts"
+
+[reference.14]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "repair-22-33-988.test.ts"
+
+[reference.15]
+file = "spec/layerx-merge/programme/issues/1687.kvx"
+name = "repair-22-33-930.test.ts"
+
+[reference.16]
+file = "spec/layerx-merge/programme/issues/1699.kvx"
+name = "repair-22-33-987.fixtures.ts"
+
+[reference.17]
+file = "spec/layerx-merge/programme/issues/1699.kvx"
+name = "repair-22-33-987.test.ts"
+
+[reference.18]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-31-43.test.ts"
+
+[reference.19]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-31-60.test.ts"
+
+[reference.20]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-1005.test.ts"
+
+[reference.21]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-919.test.ts"
+
+[reference.22]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-921.test.ts"
+
+[reference.23]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-923.test.ts"
+
+[reference.24]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-930.test.ts"
+
+[reference.25]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-935.test.ts"
+
+[reference.26]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-987.test.ts"
+
+[reference.27]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-988.test.ts"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-39.test.ts"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-43.test.ts"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-44.test.ts"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-47.test.ts"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-60.test.ts"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-1004.test.ts"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-1005.test.ts"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-1010.test.ts"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-1011.test.ts"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-918.test.ts"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-919.test.ts"
+
+[reference.39]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-920.test.ts"
+
+[reference.40]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-921.test.ts"
+
+[reference.41]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-922.test.ts"
+
+[reference.42]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-923.test.ts"
+
+[reference.43]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-930.test.ts"
+
+[reference.44]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-935.test.ts"
+
+[reference.45]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-936.test.ts"
+
+[reference.46]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-937.test.ts"
+
+[reference.47]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-938.test.ts"
+
+[reference.48]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-949.test.ts"
+
+[reference.49]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-969.test.ts"
+
+[reference.50]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-985.test.ts"
+
+[reference.51]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-987.fixtures.ts"
+
+[reference.52]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-987.test.ts"
+
+[reference.53]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-988.test.ts"
+
+[reference.54]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair-22-31-39.test.ts"
+
+[reference.55]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair-22-31-43.test.ts"
+
+[reference.56]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair-22-31-44.test.ts"
+
+[reference.57]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair-22-31-47.test.ts"
+
+[reference.58]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair-22-31-60.test.ts"
+
+[reference.59]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair-22-33-918.test.ts"
+
+[reference.60]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair-22-33-920.test.ts"
+
+[reference.61]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair-22-33-922.test.ts"
+
+[reference.62]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair-22-33-937.test.ts"

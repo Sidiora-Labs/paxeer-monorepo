@@ -51,7 +51,7 @@ import {
   type WalletClient,
 } from 'viem';
 
-export const repair2233949Record = {
+export const creationPurchaseRecoveryCoverage = {
   findings: {
     'purchase-recovery-control': 'purchaseRecoveryControlReopensAndVerifies',
     'chain-config-layout': 'chainConfigUsesTrackedProjectAndPrivateCache',

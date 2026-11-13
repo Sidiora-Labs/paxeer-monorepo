@@ -21,7 +21,7 @@ import {
   trade,
 } from './creation-wire.fixture';
 
-export const repair223139Record = {
+export const nativeCreationApprovalCoverage = {
   findings: {
     'native-client-spender': 'nativeClientSpenderCreationAndFirstBuy',
     'native-domain-spender': 'nativeDomainSpenderProofRejectsHostileContexts',
