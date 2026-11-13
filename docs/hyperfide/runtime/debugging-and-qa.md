@@ -11,7 +11,7 @@ workspace unless they name a runtime data directory or example path.
 - `pnpm desktop` packages the Electron app and launches it against the installed data directory, ports and Electron user-data directory, the same targets a released build uses. It shares the single-instance lock with an installed hyperfide platform: quit that first, or the launch focuses it instead of starting your build.
 - `pnpm desktop:worktree` packages and launches it against this checkout's data directory and deterministic ports, the same instance `pnpm start:worktree` uses, with Electron's user-data directory at `$HYPERFIDE_DATA_DIR/desktop` (override with `HYPERFIDE_DESKTOP_USER_DATA_DIR`). Like `pnpm start:worktree`, it skips first-run setup unless `HYPERFIDE_SKIP_ONBOARDING=0`. It refuses to start when the server or host-daemon port is busy, so a stale server cannot answer for your build. It shows the dev Dock icon while running (`HYPERFIDE_DESKTOP_DEV_ICON=1`). Set `HYPERFIDE_DESKTOP_OPEN_DEVTOOLS=1` to open DevTools. Both desktop commands always repackage first; machines without a Developer ID identity produce unsigned artifacts.
 - The packaged app defaults to server/frontend `:38886`, host daemon `:38887`, data dir `~/.hyperfide/`, and logs under `~/.hyperfide/logs/`.
-- `hyperfide-app` (including `pnpm start`), `hyperfide-server`, and `hyperfide-host-daemon` capture service stdout and stderr in `logs/server-stdio.log` and `logs/host-daemon-stdio.log` under the selected data directory. These append across restarts; a file over 10 MB is renamed to `<name>-stdio.1.log` (replacing the previous one) when its service starts. They hold early startup errors, crashes, and other output that bypasses the logger. Application log lines go only to the rotating `<component>.N.log` files, which keep the five newest per component; the logger skips its pretty console copy when stdout is a plain file, so `pnpm dev` terminals still show it. Service output is not forwarded to the launcher's terminal.
+- `hyperfide-app` (including `pnpm start`), `hyperfide-server`, and `hyperfide-host-daemon` capture service stdout and stderr in `logs/server-stdio.log` and `logs/host-daemon-stdio.log` under the selected data directory. These append across restarts; a file over 10 MiB is renamed to `<name>-stdio.1.log` (replacing the previous one) when its service starts. They hold early startup errors, crashes, and other output that bypasses the logger. Application log lines go only to the rotating `<component>.N.log` files, which keep the five newest per component; the logger skips its pretty console copy when stdout is a plain file, so `pnpm dev` terminals still show it. Service output is not forwarded to the launcher's terminal.
 - Entity IDs in URLs (`proj_*`, `thr_*`) are primary keys. Query them directly against the active data dir: `sqlite3 <data>/hyperfide.db "SELECT * FROM threads WHERE id = 'thr_xxx';"`.
 - API routes are under `/api/v1/`, for example `GET /api/v1/threads/:id`. Use `curl` against the server API to isolate frontend issues from server behavior.
 - Use the CLI to inspect state: `pnpm hyperfide-platform thread show <id>`, `pnpm hyperfide-platform project list`, `pnpm hyperfide-platform status`. From source, use `pnpm hyperfide-platform:dev`.
@@ -238,14 +238,14 @@ bytes. Unsatisfiable ranges return `416` with `Content-Range: bytes */<size>`.
 Malformed ranges, unsupported units, and multipart ranges fall back to the full
 `200` response. HEAD ignores Range. Revision routes read the file with one
 whole-file daemon read, so those responses ignore Range, keep the daemon's
-25 MB non-image limit, and revalidate with a strong SHA-256 ETag.
+25 MiB non-image limit, and revalidate with a strong SHA-256 ETag.
 
 File previews request the first 64 KiB. A complete sample becomes the preview
 directly. Otherwise the sample, its MIME type, and the `Content-Range` size
 classify the file: images and videos render from the file URL, binaries show
 their size and a Download link, and text is fetched in full only when it is at
-most 25 MB. The Download link is the file URL with the anchor `download`
-attribute, so the browser streams it to disk without the 25 MB limit.
+most 25 MiB. The Download link is the file URL with the anchor `download`
+attribute, so the browser streams it to disk without the 25 MiB limit.
 
 `If-None-Match` revalidation takes precedence over Range. Streamed responses use
 weak metadata ETags (`W/"file-<revision>"`), not content SHA-256 hashes. This
@@ -255,7 +255,7 @@ matching weak tag or date. All raw file responses carry `Content-Security-Policy
 sandbox allow-scripts`, including SVG and XHTML, so directly opened documents
 cannot acquire the app's origin privileges. HTML also carries the no-store
 policy, at any size; the app renders an HTML iframe only for files up
-to 5 MiB and shows larger HTML as source or, past 25 MB, as a Download.
+to 5 MiB and shows larger HTML as source or, past 25 MiB, as a Download.
 
 The server uses `host.read_file_chunk` for a metadata-only probe (`length: 0`),
 then reads at most 1 MiB per RPC as the HTTP consumer pulls data. HEAD, `304`,

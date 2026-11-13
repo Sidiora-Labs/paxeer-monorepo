@@ -8,27 +8,17 @@ and the [wire grammar](provider-bridge-protocol.md).
 
 Source paths below are relative to `tools/hyperfide`.
 
-A "provider" is a coding agent HYPERFIDE can run a thread on (Claude Code, Codex, Pi,
-ACP agents such as Cursor or Amp). The design goal is that **everything a
-provider touches is owned by its plugin** — translating the agent's native
-output into HYPERFIDE's data model, projecting that data onto the timeline, and how
-its tools are represented — with the smallest possible provider-agnostic core.
-
-## Principles
-
-1. **Zero first-party privilege.** First-party providers use only the public
-   API. Every special case is a public primitive or is deleted.
-2. **Each fact lives in one place.** A capability is declared or reported,
-   never both. Presentation comes from the bridge, never from core tables.
-3. **Core understands a small semantic vocabulary.** Everything else is an
-   extension kind with mandatory declarative presentation.
-4. **Every client renders everything without plugin code.** Plugin renderers
-   are a web upgrade; mobile renders the declarative base.
+A provider is a coding agent Hyperfide can run a thread on, such as Claude
+Code, Codex, Pi, or an ACP agent. Its plugin registers capabilities and
+translates agent output into semantic deltas with presentation metadata.
+The runtime assembles events, and the server projects them onto the timeline.
+Core rows use host renderers; plugin renderers handle their own extension
+rows and tool rows. The mobile client loads these web components in its WebView.
 
 ## Layers
 
-A provider's output flows through these layers. The plugin owns the first two;
-core owns the rest and never branches on a provider id.
+A provider's output flows through these layers. The plugin supplies the bridge;
+the runtime supplies the assembler, and the server stores and projects events.
 
 ```
 host agent  ─►  bridge (plugin)  ─►  thread/delta (core vocabulary)  ─►
@@ -59,7 +49,7 @@ hyperfide.providers.register({
   },
   maintenance: { health: true, usage: true, installation: true }, // each defaults to false
   capabilities: {
-    // pre-session facts, one client shape: ProviderInfo
+    // pre-session permission and session capabilities
     permissionModes: ["accept-edits", "auto", "full"], // closed core enum
     fork: "checkpoint", // "none" | "tip" | "checkpoint"
     supportsNativeUserQuestion: true,
@@ -84,7 +74,7 @@ hyperfide.providers.register({
   // model/list answer travels
   env: { passthrough: ["HYPERFIDE_CLAUDE_CODE_EXECUTABLE"] },
   deriveProviderOptions(ctx) {
-    // called on every command
+    // called on every session and turn command
     // ctx: { threadId, projectId, model, permissionMode, promptMode?, settings }
     return {}; // opaque JSON handed to this plugin's bridge
   },
@@ -194,8 +184,9 @@ Rules:
   reserved ahead of time. Registrations replace wholesale on reload. Disabling
   the plugin removes the provider; open threads show a provider-unavailable
   state instead of erroring.
-- Capabilities project to exactly one client shape, `ProviderInfo`.
-  `ProviderInfo.maintenance` is the one shape of the three maintenance facts.
+- `ProviderInfo` carries client-facing capabilities and maintenance flags.
+  The server also retains the reasoning ladder, fork level, and manual
+  compaction capability for command handling.
 - The plugin learns per-instance truth itself (probe through its own host RPC,
   register conservatively while the host is offline, re-register on connect).
 - Picker order and the default provider are user settings (Settings →
@@ -229,10 +220,12 @@ bootstrap owns the process boundary — argv, the plugin-scoped
 `dataDir`/`tempDir`, bounded stdin framing, and signals — so importing the
 module must start nothing.
 
-One process per provider artifact; the bridge supervises any child processes.
-The runtime never scopes processes per thread and never matches error text.
+Threads share a bridge process when their provider id, bridge launch
+fingerprint, and injected skills catalog match. The launch fingerprint includes
+the artifact digest, capabilities, and static provider options. The bridge
+supervises its child processes.
 
-**Handshake** (reported per session at `initialize`, never declared; field
+**Handshake** (reported per bridge process at `initialize`; field
 semantics in [provider-bridge-protocol.md](provider-bridge-protocol.md),
 "Versioning and capabilities"):
 
@@ -257,11 +250,13 @@ semantics in [provider-bridge-protocol.md](provider-bridge-protocol.md),
 declares `skills.configure`),
 `provider/{health,usage,installation/status,installation/run}`.
 
-Execution options ride every command and carry no provider-named field:
+Session and turn requests carry execution options. The optional fields below
+extend `RuntimePermissionPolicy`:
 
 ```ts
-{ model, serviceTier?, reasoningLevel, promptMode?, sessionOptions?,
-  instructions, providerOptions: JsonValue } & PermissionPolicy
+{ model?, serviceTier?, reasoningLevel?, promptMode?, sessionOptions?,
+  instructions?, envVars?: Record<string, string>,
+  providerOptions?: Record<string, unknown> } & RuntimePermissionPolicy
 ```
 
 `sessionOptions` carries the user's pending choices among the options the
@@ -292,10 +287,10 @@ ships with the conformance kit and JSON-RPC harness as
 
 ## 3. Vocabulary
 
-**Core item kinds** — the kinds core acts on:
+**Core bridge item types** — the built-in `type` values of `DeltaItemShape`:
 
 ```
-message · reasoning · plan · command · fileChange · fileRead · search
+agentMessage · reasoning · plan · command · fileChange · fileRead · search
 webSearch · webFetch · imageView · imageGeneration · backgroundTask
 delegation · planSteps · compaction · tool
 ```
@@ -323,12 +318,12 @@ that value.
 **Delegation** — one kind for every sub-agent encoding:
 
 ```ts
-{ childRef: string, label: string, status: ItemStatus,
+{ childRef: string, label: string, status: ThreadEventItemStatus,
   background: boolean, summary?: string } // child turns link by parentRef
 ```
 
-**Presentation** — attached by the bridge at `item.open`, persisted with the
-item so it renders after the plugin is uninstalled or upgraded:
+**Presentation** — attached by the bridge at `item.open` or `item.close`,
+persisted with the item so it renders after the plugin is uninstalled or upgraded:
 
 ```ts
 presentation: {
@@ -353,27 +348,27 @@ and draw the SVG tinted with `currentColor`. If the plugin is gone or the name
 unknown when the row renders, the per-kind fallback glyph draws — rows are
 never rewritten when a plugin changes its map.
 
-`tint` is a plain CSS colour per theme, and the forms every client paints are
-hex, `rgb()`/`rgba()`/`hsl()`/`hsla()`/`hwb()` with a numeric alpha, and named
-colours. The web also paints `oklch()`, `lab()`, `lch()`, `color()` and a
-percentage alpha through CSS; React Native's colour parser does not, so on
-mobile such a tint falls back to the neutral row colour (never to black).
+`tint` supplies a CSS colour for each theme. Timeline rows in browsers,
+desktop, and the mobile WebView use the web renderer's CSS colour support.
 
 Genericity rule: model fallback, context cleared, compaction skipped, and
 background work stay core. Provider-specific concepts (Codex goals, the Codex
-`macos` permission profile) are that plugin's extension kinds. Core keeps no
-table of tool names.
+`macos` permission profile) use that plugin's extension kinds.
 
 ## 4. Interactions
 
-**Approvals** (closed, policy-bearing — permission modes auto-decide these):
+**Approvals** use `payload.kind: "approval"` and one of these subject kinds:
 
 ```
-command · file_change · tool_use { tool, presentation } · permission_grant
+command · file_change · tool_use { tool, presentation } · permission_grant · plan
 ```
 
-`accept-edits` approves `file_change`; `auto` approves `command` +
-`file_change` + `tool_use`; `full` approves all.
+`RuntimePermissionPolicy` combines the permission mode with scope, reviewer,
+and escalation behavior. `accept-edits` uses workspace scope and a user
+reviewer; `auto` uses workspace scope and an automatic reviewer; `full` uses
+full scope with no reviewer or escalation setting. Providers declare the
+modes they support and map the policy to their agent. When the runtime owns
+approval enforcement, `permissionEscalation: "deny"` denies approval requests.
 
 A `tool_use` approval is any tool call with no core kind (an MCP tool, a
 provider-native tool). Its `presentation` — the same label, glyph, tint,
@@ -384,10 +379,10 @@ agent-authored Markdown on every surface it reaches (the row body, the
 approval banner, on the web and on mobile): an image in it renders as its alt
 text, never as a fetch the user did not decide on.
 
-**Requests** (open): `userQuestion` and `planReview` render with core
-renderers; `"<pluginId>/<kind>"` renders with the plugin through the existing
-`pendingInteraction` slot. Any bridge may raise any kind. The server
-fabricates no placeholder items.
+**Requests** use `payload.kind: "user_question"` for core question forms or
+`"<pluginId>/<name>"` for a plugin's `pendingInteraction` form. Plan review
+uses the `plan` approval subject. The server validates these payloads with
+`pendingInteractionPayloadSchema`.
 
 Every status change of every interaction — any approval subject, a user
 question, a plugin request — appends one `system/interaction/lifecycle`
@@ -412,8 +407,8 @@ the id of the plugin's `pendingInteraction` slot registration and `data` is
 whatever that form reads (the kind grammar is lowercase `[a-z0-9-]`, so a
 form a bridge can address must register a lowercase id). No permission mode
 answers a request: it reaches the user through the plugin's form on the web
-app (`hyperfide platform thread interactions respond <id> --value '<json>'` from the CLI;
-the phone shows a card that points at the desktop app), and the answer comes
+app, including the mobile WebView (or through
+`hyperfide platform thread interactions respond <id> --value '<json>'`), and the answer comes
 back as `{ kind: "request_answer", value }` — the form's submitted value,
 capped at 64 KiB (`PLUGIN_INTERACTION_MAX_PAYLOAD_BYTES`, the same cap on the
 request's `data`). The server accepts a request only while the plugin named
@@ -429,8 +424,7 @@ Server-side projection folds items into timeline rows typed by item kind.
 Extension rows carry their payload and declarative presentation. Core rows use
 the fields defined for their own kind.
 
-A
-plugin renders its own extension kinds and the generic `tool` items its
+A plugin renders its own extension kinds and the generic `tool` items its
 provider emitted:
 
 ```ts
@@ -446,8 +440,8 @@ a settings section, nav panel, palette action, provider icon,
 pending-interaction form, or `app.composer.customize` chrome — is present from
 that boot pass on, including on the New Thread page; until then the served
 logo stands in for a registered provider icon. Keep the bundle small: it ships
-to every window whether or not the provider is selected. Mobile renders the
-declarative base for every kind.
+to every window whether or not the provider is selected. The mobile WebView
+loads the same frontend bundles and uses the same renderer registrations.
 
 The provider directory is available to plugins through
 `app.experimental_useProviders()` (frontend) and `hyperfide.sdk.providers`

@@ -560,7 +560,7 @@ includeHidden? }` (1–200 ids) returns `{ threads: { threadId, descendantIds
 Archived and hidden descendants are omitted unless flagged, matching
 `threads.count`, but the walk passes through them; anything reachable only
 through a deleted thread is omitted. One recursive query over
-`threads_parent_idx`. unarchived`.
+`threads_parent_idx`.
 
 Docs: [backend-sdk.md](../../../tools/hyperfide/plugins/hyperfide-guide/skills/hyperfide-plugin-authoring/references/backend-sdk.md).
 
@@ -788,7 +788,7 @@ the navigation model. Rail's header is its New thread button, registered as
 `{ items, activeItemId, isHomeActive, isShortcutModifierHeld, actions }` from
 one model mounted above the sidebar. Items arrive in the user's saved order
 with `isVisible`, `isLoading`, `pluginId`, shortcut metadata, and `badge` (the
-panel's `experimental_useBadge` value). The runtime ignores `experimental_Accessory`; counts come from `badge`. Item ids are the keys stored in
+panel's `experimental_useBadge` value). Counts come from `badge`. Item ids are the keys stored in
 `sidebar.pluginPanelOrder` and `sidebar.visiblePluginPanels`, and items keep
 their identity while unchanged. `actions` covers
 `activate(id, { target })`, `goHome({ target })`, `setVisible`,
@@ -1007,7 +1007,8 @@ Docs: [frontend-core-slots.md](../../../tools/hyperfide/plugins/hyperfide-guide/
 
 Adds a row to the root New thread screen's right-panel Actions list. The row
 can open a closable tab with `{ projectId: string | null, params: JsonValue | null }`.
-It is separate from `threadPanelAction`, which requires a `threadId`.
+Thread action tabs use `experimental_tab` with `context: { kind: "thread" }`
+and `availability: "action"`, and receive a `threadId`.
 
 Docs: [frontend-core-slots.md](../../../tools/hyperfide/plugins/hyperfide-guide/skills/hyperfide-plugin-authoring/references/frontend-core-slots.md).
 
@@ -1122,9 +1123,8 @@ Docs: [frontend-renderer-slots.md](../../../tools/hyperfide/plugins/hyperfide-gu
 
 The read hook returns the sidebar's live thread view (`PluginSidebarThread`
 DTOs with a host-resolved `indicator`, plus `sections`) from the host's own
-query and cache. The action hook is `@internal` and scheduled for removal
-(see Scheduled removals). Neither
-doc covers three September 2026 additions:
+query and cache. The action hook is a runtime compatibility member marked
+`@internal`; published declarations omit it. The read hook supports:
 
 - `experimental_lifecycles` (active, archived, or both; active by default).
   With it, `PluginSidebarThreadsState.experimental_archived` exposes archive
@@ -1132,8 +1132,10 @@ doc covers three September 2026 additions:
   active-only reads.
 - `PluginSidebarThreadsState.experimental_hosts`, the current machines in host
   query order, including those with no threads. Older hosts may omit it.
-- `openNewThread({ hostId })`, unprefixed by request, preselects a machine for
-  a new environment. `environmentId` takes priority.
+
+The compatibility action handle's `openNewThread({ hostId })` preselects a
+machine for a new environment. `environmentId` takes priority. Published
+plugins navigate with `useHyperfideNavigate().toCompose`.
 
 Docs: [frontend-registration.md](../../../tools/hyperfide/plugins/hyperfide-guide/skills/hyperfide-plugin-authoring/references/frontend-registration.md).
 
@@ -1611,8 +1613,7 @@ placement with normal and scheduled creation.
 `package.json` → `hyperfide.experimental_providers` statically declares
 `{ kind, id, displayName }` provider identities before a plugin runs. Only
 `kind: "agent"` is accepted. It keeps a disabled plugin's agents discoverable
-in Settings → Providers, and grants no runtime capability. Add `"environment"`
-or `"machine"` only together with a consumer.
+in Settings → Providers, and grants no runtime capability.
 
 ## Global prompt history (`hyperfide.sdk.experimental_promptHistory`)
 
@@ -1728,11 +1729,11 @@ field introduces no separate backend or headless side effect.
 
 - `experimental_useRpcQuery`, `experimental_useRpcKeyedQuery`, `experimental_useRpcMutation`, and `experimental_useRpcRefresh` use the core `@hyperfide/query-tags` cache mechanism per client. Query state keeps previous data during refresh errors; consumers show an inline Retry using `refetch`. Successful reads clear the error. Keyed calls accept `{ keys }` and return a record containing every requested key; consumers share one observer per plugin/method and requests batch up to 200 keys. A pure `select` projection retains unchanged JSON subobjects across key and fetch-state changes, so default rows do not republish unchanged notification levels.
 - `ExperimentalRpcMutationState.pendingInputs` contains every in-flight input for that hook instance until the server acknowledges its write. Background rereads are excluded. `isPending` remains true while any input is pending. Core `useTaggedMutation` exposes the same state from TanStack's mutation cache.
-- `ExperimentalRpcMutationOptions.optimistic(input, cache)` predicts loaded cached values before the write. `cache.update(method, input, updater)` targets a plain read, and `cache.updateKey(method, key, updater)` targets one keyed row. `cache` is an `ExperimentalRpcOptimisticCache`. Pure updaters receive the currently visible value and return its prediction. An absent plain read is skipped; a keyed row that loads while the write is pending shows the prediction. Predictions are shared by every reader on that client. The core route mutation accepts the same core optimistic descriptors and uses the same `@hyperfide/query-tags` implementation. Ui-preferences already updates its shared Jotai atoms optimistically, which remains unchanged.
+- `ExperimentalRpcMutationOptions.optimistic(input, cache)` predicts loaded cached values before the write. `cache.update(method, input, updater)` targets a plain read, and `cache.updateKey(method, key, updater)` targets one keyed row. `cache` is an `ExperimentalRpcOptimisticCache`. Pure updaters receive the currently visible value and return its prediction. An absent plain read is skipped; a keyed row that loads while the write is pending shows the prediction. Predictions are shared by every reader on that client. The core route mutation accepts the same core optimistic descriptors and uses the same `@hyperfide/query-tags` implementation. UI preferences update their shared Jotai atoms optimistically.
 - Predictions remain over incoming reads until confirmed matched reads arrive, independently of mutation pending state. A rejected write rolls back its layer and surfaces the mutation error. An accepted write whose refresh fails keeps its prediction with the read error and Retry; a successful refresh replaces it. Later predictions and confirmed values are protected from older mutation settles and rollbacks. Inverted completion retains the later confirmed value until a subsequent fresh read can replace it. Keyed rows live in the `@hyperfide/query-tags` keyed store: an accepted row prediction becomes the row's value, and only a read of that row that started after acceptance replaces it.
 - `defineRpcContract` accepts the core `ContractTagDeclarations`: `tags(input, output)`, `keyTags(key, value)`, and `invalidates(input, output)` receive validated values. Tags are in the RPC envelope; successful writes broadcast their invalidated tags and return `invalidated`. Tagged mutations resolve at write acknowledgement while matching active reads refresh in the background.
 - `hyperfide.rpc.experimental_invalidate(tags)` requires nonempty tags; `experimental_invalidateAll()` refreshes all reads of that plugin, including untagged reads. Load, reload, disable and reconnect refresh plugin reads through the same cache path. Plugin changed messages are scoped to `{ kind: "plugin", pluginId }` subscribers; reconnect batches subscriptions and unknown targets are ignored.
-- Core uses the same tagged reads, invalidation and mutation implementation for UI preferences. Core keeps each thread once, in the same `@hyperfide/query-tags` keyed store as plugin keyed rows, and derives thread detail, every thread list, search and sidebar navigation from it as keyed views. Every core thread write (pin and unpin through one batcher, read state, rename, section and parent moves, archive, unarchive, delete, stop, send status, environment rename) predicts on the entity with `optimisticKeyedUpdate` through `beginOptimisticMutation`, the path `cache.updateKey` uses, and confirms at the server's acknowledgement. One contract table (`@hyperfide/query-tags/testing`) runs against core thread entities and plugin keyed rows; the pin hooks add `useTaggedMutation` with `meta.errorMessage` for core's error toast. Push-notifications thread levels are the first plugin caller; delivery retains `useRealtime`. Core's composer banner, Info row and the retired sidebar pull request member call `experimental_useRpcKeyedQuery` and `experimental_useRpcMutation` with an explicit `pluginId: "hyperfide--github-pr-status"` outside any plugin slot, the calls another plugin makes, so that UI can move into the plugin unchanged; the hooks require `pluginId` only when no plugin slot provides one. Cache seeding remains outside this API.
+- Core uses the same tagged reads, invalidation and mutation implementation for UI preferences. Core keeps each thread once, in the same `@hyperfide/query-tags` keyed store as plugin keyed rows, and derives thread detail, every thread list, search and sidebar navigation from it as keyed views. Every core thread write (pin and unpin through one batcher, read state, rename, section and parent moves, archive, unarchive, delete, stop, send status, environment rename) predicts on the entity with `optimisticKeyedUpdate` through `beginOptimisticMutation`, the path `cache.updateKey` uses, and confirms at the server's acknowledgement. One contract table (`@hyperfide/query-tags/testing`) runs against core thread entities and plugin keyed rows; the pin hooks add `useTaggedMutation` with `meta.errorMessage` for core's error toast. Push-notifications thread levels are the first plugin caller; delivery retains `useRealtime`. Core pull-request queries and actions call `experimental_useRpcKeyedQuery` and `experimental_useRpcMutation` with an explicit `pluginId: "hyperfide--github-pr-status"` outside any plugin slot. The hooks require `pluginId` only when no plugin slot provides one. Cache seeding remains outside this API.
 
 ## Page titles
 
@@ -1771,6 +1772,6 @@ is disabled or the read fails. Plugin builds warn with the replacement call.
 
 - **Surface:** `app.slots.experimental_tab`, `ExperimentalTabRegistration`, `ExperimentalTabContext`, `ExperimentalTabReference`, `ExperimentalTabTargetReference`, `ExperimentalThreadActionTabProps`, `ExperimentalThreadTabActionContext`, and `ExperimentalAppPanel.experimental_openTab`. Context is thread (`threadId`) or an owned navigation panel (`panelId`, component `subPath`). Availability is fixed or action. Only actions accept `run`, default `params` and per-open persisted params/title; navigation-page fixed tabs retain validated session targets. `tooltip` defaults to title and layout is padded or flush.
 - **Behavior:** one registry and destination dispatcher serve thread fixed, thread action, navigation-page fixed and navigation-page action tabs. `useVisible` runs inside plugin scope/crash isolation for the current context. It hides a destination or launcher without removing saved fixed identity/order or already-open action instances. Action params deduplicate instances; fixed tabs have one identity and cannot close. Existing `openFixedTab`, action `openPanel`, message-action openers and `openThreadPanel` delegate through the shared dispatcher. New-thread-screen actions retain their project-context API and use the same action-opening implementation.
-- **Compatibility:** `threadPanelAction`, `PluginThreadPanelActionRegistration`, `PluginThreadPanelProps`, `PluginThreadPanelActionContext`, `navPanel.fixedTabs`, `PluginFixedTabRegistration` and `PluginFixedTabDeclaration` are removed from public source typings. Runtime adapters in the registration collector remain for published bundles and Git-source install/update builds. Legacy optional icons, unknown fields and older fixed-tab owner shapes are accepted; malformed entries warn/skip rather than crashing the plugin. `hyperfide-plugin-build` emits migration warnings with replacement examples and the authoring migration link. Server install/rebuild paths copy warnings into the plugin log; warnings never block install or update. The runtime export manifest continues to expose existing SDK functions.
+- **Compatibility:** The registration collector accepts `threadPanelAction` and `navPanel.fixedTabs` from installed bundles and Git-source install/update builds. Public registrations use `experimental_tab`. The adapters accept optional icons, unknown fields and fixed-tab owner shapes; malformed entries produce warnings and are skipped. `hyperfide-plugin-build` emits migration warnings with replacement examples and the authoring migration link. Server install/rebuild paths copy warnings into the plugin log; warnings do not block install or update. The runtime export manifest exposes the SDK functions used by installed bundles.
 - **Persistence and automation:** thread fixed entries use `{id, kind: 'plugin-fixed', pluginId, tabId}` through SDK `threads.tabs.get/update` and CLI `hyperfide platform thread tabs show/set`, with revision checks. Existing `plugin-page-fixed` and `plugin-panel` action entries/params keep their IDs and storage keys. Selection is client-local. Legacy core Info/Diff kinds, active selections and split IDs convert without reordering; server entries rewrite through the revision-checked queue. Split restoration waits for registration/visibility readiness.
 - **Core callers:** Info and Diff register as thread + fixed and use the shared content host, visibility, descriptor and open paths. Diff retains shortcut, Git setting, file/commit navigation and review state. Core-only Info metadata and Diff controllers remain pane-owned contexts; they are not public plugin API. Docs, GitHub, Side Chat, Tasks, Workflows and the ThreadChat demo use the unified registration.

@@ -8,9 +8,12 @@ hyperfide platform --help
 hyperfide platform thread list
 ```
 
-Runtime data belongs in `~/.hyperfide`. Platform configuration variables use the
-`HYPERFIDE_` prefix. Select a separate data directory and unused ports when running
-an isolated test instance. Keep credentials out of logs and issue reports.
+Production runtime data defaults to `~/.hyperfide`. Development instances use
+checkout-specific directories under `~/.hyperfide-dev`, with checkout-specific
+ports. `HYPERFIDE_DATA_DIR` overrides the data directory. Platform configuration
+variables use the `HYPERFIDE_` prefix. Select a separate data directory and unused
+ports when running an isolated instance. Keep credentials out of logs and issue
+reports.
 
 ## Source development
 
