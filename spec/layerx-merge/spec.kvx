@@ -13978,6 +13978,12 @@ value = "docs/release/7.0.0-systems.kvx takes the value retired for the systems 
 basis = "Gotcha 4390."
 affects = []
 
+[decision.3478]
+title = "The page wins over the test in the tasks that bring the Python tests along"
+value = "Tasks 22.43.264 to 22.43.289 bring the Python test files under tools/qualification and tests/ci to the present tree. A test follows the present page and the present path and keeps the fact it pins. The tasks change no page, no product file and no workflow file. A fact that no page states any more is checked against the code; the task names it for a later task where it still holds. Each task selects its files by position in the sorted list of its directory, so the tasks add, remove and rename no test file."
+basis = "Gotcha 4391."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43638,6 +43644,240 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.43.289]
+title = "Bring the Python tests 1 to 27 of tools/qualification/paxeer-x, its tests directory and tools/qualification/tests to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tools/qualification"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/paxeer-x/test_*.py tools/qualification/paxeer-x/tests/test_*.py tools/qualification/tests/test_*.py | sed -n 1,27p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 1 to 27 of the output of the command LC_ALL=C ls tools/qualification/paxeer-x/test_*.py tools/qualification/paxeer-x/tests/test_*.py tools/qualification/tests/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.288]
+title = "Bring the Python tests 1 to 26 of tools/qualification to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tools/qualification"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/test_*.py | sed -n 1,26p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 1 to 26 of the output of the command LC_ALL=C ls tools/qualification/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.287]
+title = "Bring the Python tests 158 to 179 of tests/ci to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tests/ci"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py | sed -n 158,179p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 158 to 179 of the output of the command LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.286]
+title = "Bring the Python tests 137 to 157 of tests/ci to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tests/ci"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py | sed -n 137,157p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 137 to 157 of the output of the command LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.285]
+title = "Bring the Python tests 71 to 136 of tests/ci to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tests/ci"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py | sed -n 71,136p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 71 to 136 of the output of the command LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.284]
+title = "Bring the Python tests 50 to 70 of tests/ci to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tests/ci"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py | sed -n 50,70p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 50 to 70 of the output of the command LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.283]
+title = "Bring the Python tests 30 to 49 of tests/ci to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tests/ci"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py | sed -n 30,49p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 30 to 49 of the output of the command LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.282]
+title = "Bring the Python tests 18 to 29 of tests/ci to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tests/ci"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py | sed -n 18,29p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 18 to 29 of the output of the command LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.281]
+title = "Bring the Python tests 1 to 17 of tests/ci to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tests/ci"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py | sed -n 1,17p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 1 to 17 of the output of the command LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.280]
+title = "Bring the Python tests 256 to 275 of tools/qualification/audit_repairs to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 256,275p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 256 to 275 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.279]
+title = "Bring the Python tests 231 to 255 of tools/qualification/audit_repairs to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 231,255p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 231 to 255 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.278]
+title = "Bring the Python tests 221 to 230 of tools/qualification/audit_repairs to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 221,230p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 221 to 230 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.277]
+title = "Bring the Python tests 209 to 220 of tools/qualification/audit_repairs to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 209,220p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 209 to 220 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.276]
+title = "Bring the Python tests 193 to 208 of tools/qualification/audit_repairs to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 193,208p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 193 to 208 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.275]
+title = "Bring the Python tests 183 to 192 of tools/qualification/audit_repairs to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 183,192p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 183 to 192 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.274]
+title = "Bring the Python tests 173 to 182 of tools/qualification/audit_repairs to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 173,182p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 173 to 182 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.273]
+title = "Bring the Python tests 163 to 172 of tools/qualification/audit_repairs to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 163,172p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 163 to 172 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.272]
+title = "Bring the Python tests 153 to 162 of tools/qualification/audit_repairs to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 153,162p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 153 to 162 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.271]
+title = "Bring the Python tests 143 to 152 of tools/qualification/audit_repairs to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 143,152p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 143 to 152 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.270]
+title = "Bring the Python tests 133 to 142 of tools/qualification/audit_repairs to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 133,142p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 133 to 142 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.269]
+title = "Bring the Python tests 119 to 132 of tools/qualification/audit_repairs to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 119,132p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 119 to 132 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.268]
+title = "Bring the Python tests 87 to 118 of tools/qualification/audit_repairs to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 87,118p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 87 to 118 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.267]
+title = "Bring the Python tests 68 to 86 of tools/qualification/audit_repairs to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 68,86p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 68 to 86 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.266]
+title = "Bring the Python tests 46 to 67 of tools/qualification/audit_repairs to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 46,67p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 46 to 67 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.265]
+title = "Bring the Python tests 31 to 45 of tools/qualification/audit_repairs to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 31,45p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 31 to 45 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
+
+[capability.22.43.264]
+title = "Bring the Python tests 1 to 30 of tools/qualification/audit_repairs to the present pages and paths"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+verification_contract = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 1,30p)"
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 1 to 30 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+symbols = []
 
 [capability.22.43.263]
 title = "Mark in the systems inventory the interfaces that the upgrade retires"
@@ -373506,6 +373746,838 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.43.289]
+title = "Bring the Python tests 1 to 27 of tools/qualification/paxeer-x, its tests directory and tools/qualification/tests to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.289"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 1 to 27 of the output of the command LC_ALL=C ls tools/qualification/paxeer-x/test_*.py tools/qualification/paxeer-x/tests/test_*.py tools/qualification/tests/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tools/qualification"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/paxeer-x/test_*.py tools/qualification/paxeer-x/tests/test_*.py tools/qualification/tests/test_*.py | sed -n 1,27p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.288]
+title = "Bring the Python tests 1 to 26 of tools/qualification to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.288"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 1 to 26 of the output of the command LC_ALL=C ls tools/qualification/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tools/qualification"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/test_*.py | sed -n 1,26p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.287]
+title = "Bring the Python tests 158 to 179 of tests/ci to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.287"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 158 to 179 of the output of the command LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tests/ci"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py | sed -n 158,179p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.286]
+title = "Bring the Python tests 137 to 157 of tests/ci to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.286"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 137 to 157 of the output of the command LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tests/ci"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py | sed -n 137,157p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.285]
+title = "Bring the Python tests 71 to 136 of tests/ci to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.285"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 71 to 136 of the output of the command LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tests/ci"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py | sed -n 71,136p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.284]
+title = "Bring the Python tests 50 to 70 of tests/ci to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.284"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 50 to 70 of the output of the command LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tests/ci"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py | sed -n 50,70p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.283]
+title = "Bring the Python tests 30 to 49 of tests/ci to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.283"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 30 to 49 of the output of the command LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tests/ci"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py | sed -n 30,49p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.282]
+title = "Bring the Python tests 18 to 29 of tests/ci to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.282"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 18 to 29 of the output of the command LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tests/ci"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py | sed -n 18,29p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.281]
+title = "Bring the Python tests 1 to 17 of tests/ci to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.281"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 1 to 17 of the output of the command LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tests/ci"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tests/ci/test_*.py tests/ci/*_test.py | sed -n 1,17p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.280]
+title = "Bring the Python tests 256 to 275 of tools/qualification/audit_repairs to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.280"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 256 to 275 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 256,275p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.279]
+title = "Bring the Python tests 231 to 255 of tools/qualification/audit_repairs to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.279"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 231 to 255 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 231,255p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.278]
+title = "Bring the Python tests 221 to 230 of tools/qualification/audit_repairs to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.278"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 221 to 230 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 221,230p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.277]
+title = "Bring the Python tests 209 to 220 of tools/qualification/audit_repairs to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.277"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 209 to 220 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 209,220p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.276]
+title = "Bring the Python tests 193 to 208 of tools/qualification/audit_repairs to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.276"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 193 to 208 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 193,208p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.275]
+title = "Bring the Python tests 183 to 192 of tools/qualification/audit_repairs to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.275"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 183 to 192 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 183,192p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.274]
+title = "Bring the Python tests 173 to 182 of tools/qualification/audit_repairs to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.274"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 173 to 182 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 173,182p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.273]
+title = "Bring the Python tests 163 to 172 of tools/qualification/audit_repairs to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.273"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 163 to 172 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 163,172p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.272]
+title = "Bring the Python tests 153 to 162 of tools/qualification/audit_repairs to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.272"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 153 to 162 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 153,162p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.271]
+title = "Bring the Python tests 143 to 152 of tools/qualification/audit_repairs to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.271"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 143 to 152 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 143,152p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.270]
+title = "Bring the Python tests 133 to 142 of tools/qualification/audit_repairs to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.270"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 133 to 142 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 133,142p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.269]
+title = "Bring the Python tests 119 to 132 of tools/qualification/audit_repairs to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.269"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 119 to 132 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 119,132p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.268]
+title = "Bring the Python tests 87 to 118 of tools/qualification/audit_repairs to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.268"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 87 to 118 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 87,118p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.267]
+title = "Bring the Python tests 68 to 86 of tools/qualification/audit_repairs to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.267"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 68 to 86 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 68,86p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.266]
+title = "Bring the Python tests 46 to 67 of tools/qualification/audit_repairs to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.266"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 46 to 67 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 46,67p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.265]
+title = "Bring the Python tests 31 to 45 of tools/qualification/audit_repairs to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.265"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 31 to 45 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 31,45p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.43.264]
+title = "Bring the Python tests 1 to 30 of tools/qualification/audit_repairs to the present pages and paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.264"]
+interfaces = []
+do_1 = "do_1 Decision 3478, gotcha 4391. The files of this task are the lines 1 to 30 of the output of the command LC_ALL=C ls tools/qualification/audit_repairs/test_*.py, run in the root of the repository; the verification command selects the same lines with sed. Run each of them on its own with python3 -m pytest -q and the marker expression not native, and write down for each file that does not pass the first test that stops and its cause. Files of the selection that pass stay as they are."
+do_2 = "do_2 A test that reads a section or a sentence of the earlier front page of the repository reads docs/readme/NETWORK.md, where that text lives now, and resolves relative links from the directory of that page; an assertion about the short front page itself stays on README.md of the root. A test that reads another page whose text was rewritten follows the present page: find the sentence of the present page, or of the page the text moved to, that states the same fact, and pin that sentence. A test that reads a path from before a rename takes the present path; the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path."
+do_3 = "do_3 The page wins over the test. Change no page, no product file and no workflow file in this task. An assertion keeps the fact it pins and changes only where it reads the fact and in which words. Where no page of the tree states the fact any more, check the fact against the code: where it no longer holds, remove the assertion; where it holds, remove the assertion and name the fact and the page that should state it in the final message, so that a later task puts it there. Use no skip mark and no expected-failure mark for these cases."
+do_4 = "do_4 A test that stops for another cause: where it needs a tool, a container image or a network that the target test-qualification-python of the Makefile does not provide, give it the marker native or the skip condition that its neighbours use for the same need, and say so in the final message. Where it reads a lock file, a checksum, a workflow file or a generated file whose content moved on, find out which side is current: bring the test along when the file is current, and when the file is the stale side leave both as they are and name the file in the final message. Change a helper file that several tests share only where a selected test cannot pass otherwise, and keep that change small. Add, remove and rename no test file: the tasks of this series select their files by position in the sorted list."
+do_5 = "do_5 Run the selected files together by hand as the verification does until they pass. Then run the build once and the verification once at the final revision. Before each commit read the output of git status. List in the final message each file you changed with its cause in a few words, and separately every fact, file or page that you name for a later task."
+symbols = []
+touches = ["tools/qualification/audit_repairs"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q -m 'not native' $(LC_ALL=C ls tools/qualification/audit_repairs/test_*.py | sed -n 1,30p)"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.43.261]
 title = "Admit in the register of retired interfaces the references that state a retirement"
