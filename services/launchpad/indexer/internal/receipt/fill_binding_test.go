@@ -11,9 +11,9 @@ import (
 )
 
 func TestFillRequiresCanonicalSwapArguments(t *testing.T) {
-	input := repair53InputsFromProducer(t)
+	input := receiptReplayInputsFromProducer(t)
 	ctx := context.Background()
-	authority, closeClient := repair53Open(t, ctx, input)
+	authority, closeClient := receiptReplayOpen(t, ctx, input)
 	defer closeClient()
 	if err := authority.Rehydrate(ctx, input.Markets); err != nil {
 		t.Fatal(err)
@@ -86,9 +86,9 @@ func TestFillRequiresCanonicalSwapArguments(t *testing.T) {
 }
 
 func TestTenantActorsRequireUniqueAdmittedMarket(t *testing.T) {
-	input := repair53InputsFromProducer(t)
+	input := receiptReplayInputsFromProducer(t)
 	ctx := context.Background()
-	authority, closeClient := repair53Open(t, ctx, input)
+	authority, closeClient := receiptReplayOpen(t, ctx, input)
 	defer closeClient()
 	if err := authority.Rehydrate(ctx, input.Markets); err != nil {
 		t.Fatal(err)

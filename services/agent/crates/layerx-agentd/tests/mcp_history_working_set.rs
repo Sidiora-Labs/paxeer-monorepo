@@ -1,5 +1,5 @@
 //! mcp-history-scan: real invocation producer, durable store, evidence consumer and restart.
-//! Finding/test mapping and baseline constraints: `src/repair_22_33_1508.kvx`.
+//! Finding/test mapping and baseline constraints: `spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/repair_22_33_1508.kvx`.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;

@@ -146,7 +146,7 @@ def test_f065_native_profile_producer_transport_consumer_preserve_private_curren
     owner = module("hosted_profile")
     revision = "24ad444517739fd50d4cf816446559d52d7bdd77"
     ca = tmp_path / "ca.pem"
-    shutil.copyfile(ROOT / "tools/bringup/tests/fixtures/repair_m794/paxeer-boundary-loopback/ca.pem", ca)
+    shutil.copyfile(ROOT / "tools/bringup/tests/fixtures/service_identities/paxeer-boundary-loopback/ca.pem", ca)
     ca.chmod(0o600)
     recorded = tmp_path / "recorded.json"
     shutil.copyfile(ROOT / "daemon/committed-fixture/vectors/vector-v4-committed.json", recorded)
@@ -157,7 +157,7 @@ def test_f065_native_profile_producer_transport_consumer_preserve_private_curren
     owner.publish_native(path, revision, inputs, ROOT)
     assert path.stat().st_mode & 0o777 == 0o600
     assert module("hosted_profile").load_native(path, revision, ROOT) == inputs
-    assert ca.read_bytes() == (ROOT / "tools/bringup/tests/fixtures/repair_m794/paxeer-boundary-loopback/ca.pem").read_bytes()
+    assert ca.read_bytes() == (ROOT / "tools/bringup/tests/fixtures/service_identities/paxeer-boundary-loopback/ca.pem").read_bytes()
     assert recorded.read_bytes() == (ROOT / "daemon/committed-fixture/vectors/vector-v4-committed.json").read_bytes()
     with pytest.raises(FileExistsError):
         owner.publish_native(path, revision, inputs, ROOT)

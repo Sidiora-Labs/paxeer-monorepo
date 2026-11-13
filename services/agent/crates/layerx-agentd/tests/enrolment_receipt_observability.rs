@@ -1,4 +1,4 @@
-//! Findings and baseline constraints are recorded in `src/repair_22_33_1513.kvx`.
+//! Findings and baseline constraints are recorded in `spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/repair_22_33_1513.kvx`.
 fn require_some<T>(value: Option<T>, message: &str) -> T {
     value.unwrap_or_else(|| panic!("{message}"))
 }
@@ -911,7 +911,7 @@ fn receipt_v2_unverified_ingress_requires_real_committed_block_and_sequence_cove
     use layerx_client::rpc::receipt_commit::ReceiptCommitEvidence;
     use layerx_programs::chain_proof::{merkle::SimpleProof, ChainProofVerifier};
     let recording: Value = must(serde_json::from_str(include_str!(
-        "../../layerx-client/tests/fixtures/repair_22_33_1546_node.json"
+        "../../layerx-client/tests/fixtures/node_committed_evidence.json"
     )));
     let mut case = recording["receipt"].clone();
     case["receiptJson"] = case["view"].clone();

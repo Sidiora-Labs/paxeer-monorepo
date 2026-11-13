@@ -8,7 +8,7 @@ import tomllib
 
 
 ROOT = Path(__file__).resolve().parents[2]
-RECORD = ROOT / "tools/ci/tests/repair_22_39_54.kvx"
+RECORD = ROOT / "spec/layerx-merge/programme/records/tools/ci/tests/repair_22_39_54.kvx"
 DESELECT_FILE = ROOT / "tests/ci/data/tools_ci_deselect.txt"
 LEDGER_TEST = (
     "tools/ci/tests/test_beta_ledger_paths.py::BetaLedgerPathsTest::"

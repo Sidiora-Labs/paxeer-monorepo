@@ -21690,3 +21690,68 @@ fix = "The task that renames a test file changes the path key of its section in 
 title = "The room of the inference market reads the node binary from the search path"
 symptom = "The room script tools/qualification/paxeer-x/inference_market_room.py looks the node binary up on the search path of the shell."
 fix = "A build command that runs the room installs the node binary first with the install target of chain.mk. The build command of task 22.38.37 does."
+
+[gotcha.4374]
+title = "A test of the wallet service pages reads the full path of a deployment file inside code marks"
+symptom = "The test tests/ci/test_wallet_service_docs_references.py reads in the page docs/wallet/service/runbooks/gateway-rollback.md the full path of the image file and of the two example environment files of the gateway deployment, each inside code marks. A link whose text is the file name alone does not hold the full path."
+fix = "A page that links such a file gives the full path from the repository root as the text of the link, inside code marks. Run the test after a change to a page under docs/wallet/service."
+
+[gotcha.4375]
+title = "A batch of one request returns one result"
+symptom = "The client of consensus/rpc/jsonrpc decodes the answer to a batch of one request into one result. The batch section of TestProofRpcRoutes in consensus/internal/rpc/core holds the shape of that answer."
+fix = "A test of the batch path asserts for a batch of one request that Send returns no error and one result. A task that changes the shape the server writes for a batch brings the tests under consensus that hold the shape to it in the same commit."
+
+[gotcha.4376]
+title = "The inventory files under tools/workspace name each package manifest by its path"
+symptom = "The files tools/workspace/paxeer-manifest-roots.txt and tools/workspace/platform-dependency-roots.txt hold one line for each package manifest and name the test file that covers it. The scripts scripts/workspace/check-paxeer-manifests.sh and scripts/workspace/check-platform-dependencies.sh compare the lines with the manifests in the tree, and the target paxeer-manifest-lint of the Makefile runs them."
+fix = "A task that renames a directory holding a package manifest, or a test file that an inventory line names, brings the inventory line to the present path in the same commit and runs both scripts. A workflow under .github and a test under tests/ci that name the directory follow in the same commit."
+
+[gotcha.4377]
+title = "A rename leaves readers under other directories"
+symptom = "A task that renames a file changes the readers inside its own paths. A reader under another directory keeps the earlier name: a path string of a test, a line of a data file that lists file names, a workflow step, a build-time reader of Rust or a target path of a package manifest. A search of the text does not find the last two; a check that compiles the tests does."
+fix = "A task that renames a file names in its manifest every reader that git grep finds outside its paths. A later task for the area of the reader brings the reference to the present name, and runs for Rust the check that compiles the tests of the area."
+
+[gotcha.4378]
+title = "The target agent-test of the Makefile reaches the node build"
+symptom = "The target agent-test of the Makefile runs the target agent-test-native-prerequisites first, and that target builds the node binary with the target paxeer-build. The build of the node reads its Go modules from the module cache. The target agent-build does not fill that cache."
+fix = "The build command of a task whose verification runs make agent-test runs go mod download first, as the build command of task 22.39.499 does for the human service. The build command of task 22.39.498 does."
+
+[gotcha.4379]
+title = "One library test of the agent daemon runs a Python file that imports cryptography"
+symptom = "The library test receipt_reference_reaches_recovery_consumer of services/agent/crates/layerx-agentd runs tools/qualification/paxeer-x/mcp_daemon_revocation.py with python3. That file imports the package cryptography. The target agent-build of the Makefile installs no Python package."
+fix = "The build command of a task whose verification runs make agent-test installs the packages of tests/bridge/requirements.txt with pip first; that file names cryptography. The build command of task 22.39.498 does."
+
+[gotcha.4380]
+title = "The target paxeer-manifest-lint reads Rust and Go packages that the tools install does not fetch"
+symptom = "The target paxeer-manifest-lint of the Makefile runs cargo clippy with the offline option over the thirteen package manifests of the list PAXEER_LOCKED_RUST_MANIFESTS, and go vet with the module proxy off in the three directories of the list PAXEER_NESTED_GO_DIRS. The manifest tests/fixtures/example/cosmwasm/cw1155/Cargo.toml names two packages by a git address. The target paxeer-tools-install fetches none of these packages."
+fix = "The build command of a task whose verification runs make paxeer-manifest-lint fetches the packages first: cargo fetch with the locked option for each manifest of the first list and go mod download in each directory of the second. The target paxeer-manifest-install does both and installs the npm packages as well. The build command of task 22.39.511 fetches them."
+
+[gotcha.4381]
+title = "The check of the paths asks for a change under every path of a task"
+symptom = "The spec tool closes a task only when each path of the task holds a change of the task. A task that brings readers to present names and lists a directory where no reference is stale cannot close. The file services/platform/ramps/toolkit/tests/native_payment_settlement.rs holds three file names with an earlier record name; they are names of files that the test writes into a copy of the tree, not paths of renamed files."
+fix = "The paths of a task that brings readers to present names list only directories where the search finds a stale reference. Where the task finds none under a path, the path leaves the list. The paths of task 22.43.253 leave out services/platform/ramps."
+
+[gotcha.4382]
+title = "The target human-test runs the tests of every member of the workspace of the human services"
+symptom = "The target human-test of the Makefile runs its prerequisite targets, exports the variables PAXD and LAYERX_TEST_NATIVE_BIN_DIR and then runs cargo test over every member of services/human/Cargo.toml. A task whose verification runs that target and whose paths hold only some members cannot bring a test of another member in line. A hand run of cargo test without the prerequisite targets and the two variables reports tests that the target itself passes."
+fix = "The paths of a task whose verification runs make human-test hold services/human/crates. A hand run of the tests builds the prerequisite targets first and sets the same two variables as the Makefile. The paths of task 22.39.499 hold the directory."
+
+[gotcha.4383]
+title = "The target paxeer-manifest-lint runs forge fmt before its Rust and Go checks"
+symptom = "The first lines of the target paxeer-manifest-lint of the Makefile run forge fmt with the check option over the contracts of the repository and of tools/benchmark/loadtest/contracts/evm. The target paxeer-tools-install installs the Go lint program only."
+fix = "The build command of a task whose verification runs make paxeer-manifest-lint starts with forge --version, so that a missing contract tool shows in the build and not in the verification. The build command of task 22.39.511 does."
+
+[gotcha.4384]
+title = "Record files moved after the readers of their directory were brought to present paths"
+symptom = "Task 22.43.239 moved the record files of tools/qualification/audit_repairs under spec/layerx-merge/programme/records. Eighteen test files of that directory read a record by the earlier path. One test under tools/qualification/paxeer-x/tests, two patterns of tools/paxeer-x/retired_callers.json with the lines of its test, one list entry of tests/bridge/retired/test_retired_checkpoint_settlement.py and one line of .gitignore name a file or a directory by a path from before a rename."
+fix = "Task 22.43.258 brings these readers to the present paths. A search for stale references runs once more after the last task that moves files."
+
+[gotcha.4385]
+title = "The notice page of a fixture directory with key material is one line"
+symptom = "The test tests/ci/test_key_material_only_in_fixtures.py reads the page README.md of every fixture directory that the section package.metadata.test-fixtures of four manifests names. It accepts a page of one line that holds the words generated test data and no production use. Five such pages hold a heading and a paragraph."
+fix = "Task 22.43.259 brings the five pages to the one-line form. A task that rewrites pages leaves the notice page of a fixture directory with key material in that form."
+
+[gotcha.4386]
+title = "Tests under tools/qualification read sections and sentences of the front page of the repository"
+symptom = "Test files under tools/qualification/audit_repairs read README.md of the repository root and look for sections and sentences of the text it held before task 22.42.29 wrote the short front page: the overview of the network, the quick start for chain 125, the build and test sections and others."
+fix = "The earlier text lives on as the page docs/readme/NETWORK.md, brought to the present paths, and the front page links to it. A task that shortens a page first searches the tests for readers of its sections and sentences and names the page where each fact lives afterwards."

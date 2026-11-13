@@ -668,7 +668,7 @@
       "reason": "The third-party charting library bundles contain vendor vocabulary rather than retired product callers."
     },
     {
-      "path": "services/platform/examples/marketplace/repair-22-31-349.kvx",
+      "path": "spec/layerx-merge/programme/records/services/platform/examples/marketplace/repair-22-31-349.kvx",
       "reason": "Decision 3125 classifies this historical repair record, including its lx_getSequence test-contract finding, as documentation rather than a live caller."
     },
     {
@@ -707,7 +707,7 @@
         "layerxcustody",
         "layerxverify"
       ],
-      "citation": "Decisions 3125 and 3173 retain the retirement and archive statements pinned by tools/qualification/audit_repairs/test_repair_22_33_404.py and the five other README digest cases (508, 581, 592, 707 and 894), rather than invoking retired executors."
+      "citation": "Decisions 3125 and 3173 retain the retirement and archive statements pinned by tools/qualification/audit_repairs/test_readme_network_architecture.py and the five other README digest cases (508, 581, 592, 707 and 894), rather than invoking retired executors."
     },
     {
       "path": "contracts/config/checkpoint-settlement.json",
@@ -722,7 +722,7 @@
         "layerx-programs-protocol-adapter",
         "protocol-adapter"
       ],
-      "citation": "Decisions 3125 and 3173 retain the adapter retirement paragraph pinned by tools/qualification/audit_repairs/test_repair_22_33_238.py::test_programs_readme_adapter_is_retired, which forbids adding the retired adapter as a dependency."
+      "citation": "Decisions 3125 and 3173 retain the adapter retirement paragraph pinned by tools/qualification/audit_repairs/test_programs_readme_retired_adapter.py::test_programs_readme_adapter_is_retired, which forbids adding the retired adapter as a dependency."
     },
     {
       "path": "programs/crates/layerx-programs-ai-market/src/queries.rs",
@@ -774,7 +774,7 @@
       "lines": [
         "'EndpointClient: hostedUrl required for hosted px_ reads'"
       ],
-      "citation": "Decision 3173 retains the hosted px_ diagnostic pinned by tools/qualification/audit_repairs/test_repair_22_33_154.py::test_readme_planning_limit_matches_real_endpoint_contract; the hosted client is used only for registration and funding."
+      "citation": "Decision 3173 retains the hosted px_ diagnostic pinned by tools/qualification/audit_repairs/test_demo_lint_and_readme_contracts.py::test_readme_planning_limit_matches_real_endpoint_contract; the hosted client is used only for registration and funding."
     },
     {
       "path": "services/platform/hosted/paxeer/fork-rehearsal.sh",
@@ -796,7 +796,7 @@
       "lines": [
         "**Read availability and plan intent** is a planning action, separate from sending a transaction. It checks kernel availability before calling `HumanClient.planIntent()` (`POST /v1/intents/plan`) and displays the plan, an unavailable state or an error. It does not submit or execute a plan. In the current tree, the panel constructs `EndpointClient` with only `url`, while `getNetwork()` requires `hostedUrl` for `px_getNetwork`. Consequently this button reports `EndpointClient: hostedUrl required for hosted px_ reads` before reaching the planner. The demo exposes no environment variable to supply that missing option. Hosted `px_` methods belong to the [hosted gateway contract](../../../services/platform/hosted/gateway/openrpc.json), rather than the public node API."
       ],
-      "citation": "Decision 3173 retains the historical px_getNetwork and hosted px_ planning paragraph pinned by tools/qualification/audit_repairs/test_repair_22_33_154.py::test_readme_planning_limit_matches_real_endpoint_contract, followed by the current node-routing guidance."
+      "citation": "Decision 3173 retains the historical px_getNetwork and hosted px_ planning paragraph pinned by tools/qualification/audit_repairs/test_demo_lint_and_readme_contracts.py::test_readme_planning_limit_matches_real_endpoint_contract, followed by the current node-routing guidance."
     },
     {
       "path": "contracts/launchpad/contracts/core/SidioraFactory.sol",
@@ -1102,7 +1102,7 @@
       "citation": "spec/layerx-merge/spec.kvx [task.16.90.1], decision 2608: the daemon README explicitly states that no retired transport connection is required"
     },
     {
-      "path": "services/agent/crates/layerx-client/src/repair_22_33_1541.kvx",
+      "path": "spec/layerx-merge/programme/records/services/agent/crates/layerx-client/src/repair_22_33_1541.kvx",
       "lines": [
         "baseline = \"No baseline verify executed: explicit user gate order requires implementation first and hf-done alone runs verification. The new test target did not exist at the start. Existing code already retains account height and removes the lni export; no baseline failures are claimed.\"",
         "repair = \"The starting tree already removed public lni and migrated callers. Crate documentation now distinguishes merged paxd node JSON-RPC, hosted gateway joins and generic frame codec/transport; a real TCP codec round trip proves the generic boundary.\""
@@ -2086,14 +2086,14 @@
       "citation": "Decisions 3104 and 3125 retain the live governed fee test identifiers and explicit retired wallet-method refusal cases, none of which authorizes a retired producer."
     },
     {
-      "path": "tools/qualification/paxeer-x/repair-22.31.330.kvx",
+      "path": "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.31.330.kvx",
       "lines": [
         "request = \"Domain 4 storage, tests/storage/lxp_test_batch_wal_recovery.c and src/modules/programs/feed_store.c: these existing storage producer inputs are absent (audit f012); coordinate the separately owned retained-store migration without changing that finding in this task.\""
       ],
       "citation": "Decision 3125 retains the exact historical finding about absent storage inputs in this repair record, which does not invoke a retired storage producer."
     },
     {
-      "path": "tools/qualification/paxeer-x/repair-22.33.765.kvx",
+      "path": "spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.33.765.kvx",
       "lines": [
         "repair = \"Use a disposable source-bound merged paxd generation through the maintained native bootstrap, root node JSON-RPC and hosted root px_getNetwork; require public /rpc and /rpc/schema to be absent, retain private /v1/agent/rpc and daemon /rpc authentication/idempotency checks, replace replica/LNI substitutions and binary fault relays with node/hosted root RPC, and restart the merged node while comparing a retained committed block. Migrate the existing release-kit test's deleted runtime fixture dependency in place.\""
       ],

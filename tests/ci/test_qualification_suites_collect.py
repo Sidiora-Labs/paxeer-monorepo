@@ -251,7 +251,7 @@ def test_qualification_modules_collect():
 
 
 def test_gateway_env_items_are_read_by_name():
-    path = ROOT / "tools/qualification/audit_repairs/test_repair_22_33_1395.py"
+    path = ROOT / "tools/qualification/audit_repairs/test_gateway_receipt_key_provisioning.py"
     spec = importlib.util.spec_from_file_location("gateway_receipt_key_audit", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)

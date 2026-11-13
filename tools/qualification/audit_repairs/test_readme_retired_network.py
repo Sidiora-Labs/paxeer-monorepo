@@ -284,7 +284,7 @@ def test_retired_network_record_maps_audited_finding_and_proof_limits():
     }
     assert len(finding["tests"]) == len(declared)
     assert set(finding["tests"]) == declared
-    owner = tomllib.loads(source("tools/qualification/audit_repairs/repair_22_31_470.kvx"))
+    owner = tomllib.loads(source("spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_31_470.kvx"))
     coverage = owner["coverage"]["audit_22_30_48"]
     assert coverage["finding"] == "readme-retired-network"
     assert coverage["file"] == "README.md"

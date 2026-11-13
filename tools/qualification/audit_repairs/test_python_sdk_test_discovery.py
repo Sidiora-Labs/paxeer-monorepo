@@ -23,7 +23,7 @@ def record():
 
 def source_baseline():
     pins = json.loads(
-        (Path(__file__).with_name("fixtures") / "repair_22_39_293_source_pins.json").read_text()
+        (Path(__file__).with_name("fixtures") / "python_sdk_and_clock_source_pins.json").read_text()
     )
     assert pins["source_revision"] == "2910889b640274b1b6f2bd14a2fba25019093bb2"
     return pins["python_sdk"]
