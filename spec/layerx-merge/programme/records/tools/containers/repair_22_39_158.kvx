@@ -23,7 +23,7 @@ regression = "test_root_recipe_reference_scan_only_matches_recipe_paths runs the
 path = "tools/containers/check.sh"
 lines = "92-135 declares OUT_OF_SCOPE; 112 keeps simd-env; 113-114 names the historical and paxd Rosetta node recipes; 116-117 names the vendored fleet-control and environment-modal-sandbox recipes; 134 keeps Redis."
 list_consumer = "tools/containers/test_out_of_scope_list.py:17 assert_reviewed_out_of_scope asserts the exact thirty-five producer rows in order, retaining the consensus/test/docker/Dockerfile exclusion."
-count_consumer = "tools/containers/test_repair_22_33_776.py:30 test_container_inventory_decodes_the_real_shell_payload independently decodes the actual shell assignment and asserts thirty-five rows and the consensus exclusion."
+count_consumer = "tools/containers/test_container_inventory.py:30 test_container_inventory_decodes_the_real_shell_payload independently decodes the actual shell assignment and asserts thirty-five rows and the consensus exclusion."
 regression = "Keep the grammar-neutral commentary case and all missing, unreviewed, duplicate, reordered, consensus, retired-human and path-content rejection cases unchanged."
 resolution = "Gotcha 3627 and decision 2918 authorize both inventory consumer modules in this continuation; their current-tree assertions resolve the prior blocker without weakening the exact list or parser checks."
 
