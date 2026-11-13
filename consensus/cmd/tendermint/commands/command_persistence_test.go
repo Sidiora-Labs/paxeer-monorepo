@@ -30,7 +30,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func repairM1149NodeConfig(t *testing.T) *config.Config {
+func commandPersistenceConfig(t *testing.T) *config.Config {
 	t.Helper()
 	cfg, err := config.ResetTestRoot(t.TempDir(), "repair_m1149")
 	require.NoError(t, err)
@@ -50,7 +50,7 @@ func repairM1149NodeConfig(t *testing.T) *config.Config {
 	return cfg
 }
 
-func repairM1149Generate(t *testing.T, cfg *config.Config, flags ...string) string {
+func generateCommandAutobahnConfig(t *testing.T, cfg *config.Config, flags ...string) string {
 	t.Helper()
 	path := filepath.Join(cfg.RootDir, "config", "autobahn.json")
 	cmd := MakeGenAutobahnConfigCommand()
@@ -62,10 +62,10 @@ func repairM1149Generate(t *testing.T, cfg *config.Config, flags ...string) stri
 	return path
 }
 
-func TestRepairM_1149_AutobahnGeneratorStartupRoundTrip(t *testing.T) {
+func TestCommandAutobahnGeneratorStartupRoundTrip(t *testing.T) {
 	for _, name := range []string{"default", "relative", "absolute"} {
 		t.Run(name, func(t *testing.T) {
-			cfg := repairM1149NodeConfig(t)
+			cfg := commandPersistenceConfig(t)
 			want := filepath.Join(cfg.RootDir, "data", "autobahn")
 			var flags []string
 			switch name {
@@ -76,7 +76,7 @@ func TestRepairM_1149_AutobahnGeneratorStartupRoundTrip(t *testing.T) {
 				want = filepath.Join(t.TempDir(), "safety")
 				flags = []string{"--persistent-state-dir", want}
 			}
-			repairM1149Generate(t, cfg, flags...)
+			generateCommandAutobahnConfig(t, cfg, flags...)
 			dir, err := config.LoadAutobahnPersistentStateDir(cfg.AutobahnConfigFile, cfg.RootDir)
 			require.NoError(t, err)
 			got, ok := dir.Get()
@@ -103,10 +103,10 @@ func TestRepairM_1149_AutobahnGeneratorStartupRoundTrip(t *testing.T) {
 	}
 }
 
-func TestRepairM_1149_AutobahnGeneratorRejectsEmptyPersistence(t *testing.T) {
+func TestCommandAutobahnGeneratorRejectsEmptyPersistence(t *testing.T) {
 	for _, value := range []string{"", " \t "} {
 		t.Run(fmt.Sprintf("path_%q", value), func(t *testing.T) {
-			cfg := repairM1149NodeConfig(t)
+			cfg := commandPersistenceConfig(t)
 			path := filepath.Join(cfg.RootDir, "config", "autobahn.json")
 			original := []byte("existing operator configuration")
 			require.NoError(t, os.WriteFile(path, original, 0600))
@@ -125,7 +125,7 @@ func TestRepairM_1149_AutobahnGeneratorRejectsEmptyPersistence(t *testing.T) {
 	}
 }
 
-func repairM1149BlockStores(t *testing.T, cfg *config.Config, pruneBase int64) map[int64]types.Tx {
+func seedCommandBlockStores(t *testing.T, cfg *config.Config, pruneBase int64) map[int64]types.Tx {
 	t.Helper()
 	bsdb, err := config.DefaultDBProvider(&config.DBContext{ID: "blockstore", Config: cfg})
 	require.NoError(t, err)
@@ -170,7 +170,7 @@ func repairM1149BlockStores(t *testing.T, cfg *config.Config, pruneBase int64) m
 	return txs
 }
 
-func TestRepairM_1149_ReindexNormalizedHeights(t *testing.T) {
+func TestCommandReindexNormalizedHeights(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		base        int64
@@ -189,9 +189,9 @@ func TestRepairM_1149_ReindexNormalizedHeights(t *testing.T) {
 		{name: "reversed_interval", base: 1, flags: []string{"--start-height", "3", "--end-height", "2"}, wantError: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg := repairM1149NodeConfig(t)
+			cfg := commandPersistenceConfig(t)
 			cfg.TxIndex.Indexer = []string{"kv"}
-			txs := repairM1149BlockStores(t, cfg, tc.base)
+			txs := seedCommandBlockStores(t, cfg, tc.base)
 			cmd := setupReIndexEventCmd(t.Context(), cfg)
 			cmd.SetArgs(tc.flags)
 			err := cmd.Execute()
@@ -230,7 +230,7 @@ func TestRepairM_1149_ReindexNormalizedHeights(t *testing.T) {
 	}
 }
 
-func repairM1149SignedValidator(t *testing.T, cfg *config.Config) []byte {
+func seedCommandSignedValidator(t *testing.T, cfg *config.Config) []byte {
 	t.Helper()
 	for _, path := range []string{cfg.PrivValidator.KeyFile(), cfg.PrivValidator.StateFile()} {
 		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0700))
@@ -251,7 +251,7 @@ func repairM1149SignedValidator(t *testing.T, cfg *config.Config) []byte {
 	return key
 }
 
-func repairM1149ResetCLI(t *testing.T, cfg *config.Config, args ...string) error {
+func executeResetCommand(t *testing.T, cfg *config.Config, args ...string) error {
 	t.Helper()
 	cmd := &cobra.Command{Use: "tendermint", SilenceErrors: true, SilenceUsage: true}
 	cmd.PersistentFlags().String(cli.HomeFlag, cfg.RootDir, "node home")
@@ -260,7 +260,7 @@ func repairM1149ResetCLI(t *testing.T, cfg *config.Config, args ...string) error
 	return cmd.ExecuteContext(t.Context())
 }
 
-func repairM1149CheckSigner(t *testing.T, cfg *config.Config, key []byte, height int64) {
+func assertCommandSignerState(t *testing.T, cfg *config.Config, key []byte, height int64) {
 	t.Helper()
 	actual, err := os.ReadFile(cfg.PrivValidator.KeyFile())
 	require.NoError(t, err)
@@ -270,7 +270,7 @@ func repairM1149CheckSigner(t *testing.T, cfg *config.Config, key []byte, height
 	require.Equal(t, height, pv.LastSignState.Height)
 }
 
-func TestRepairM_1149_ResetResolvedPaths(t *testing.T) {
+func TestCommandResetResolvedPaths(t *testing.T) {
 	for _, homeKind := range []string{"absolute", "relative"} {
 		for _, command := range [][]string{{"reset", "unsafe-all"}, {"unsafe-reset-all"}} {
 			t.Run(homeKind+"/"+strings.Join(command, "_"), func(t *testing.T) {
@@ -285,19 +285,19 @@ func TestRepairM_1149_ResetResolvedPaths(t *testing.T) {
 				cfg.DBPath = "custom-db"
 				cfg.PrivValidator.Key = "signer/custom-key.json"
 				cfg.PrivValidator.State = "custom-db/custom-watermark.json"
-				key := repairM1149SignedValidator(t, cfg)
+				key := seedCommandSignedValidator(t, cfg)
 				createDirs(t, cfg.DBDir(), append(append([]string{}, legacyDBs...), newTendermintDBs...))
 				createDirs(t, home, []string{"wasm", "unrelated"})
 				marker := filepath.Join(home, "unrelated", "keep")
 				require.NoError(t, os.WriteFile(marker, []byte("keep"), 0600))
-				require.NoError(t, repairM1149ResetCLI(t, cfg, command...))
+				require.NoError(t, executeResetCommand(t, cfg, command...))
 				require.DirExists(t, cfg.DBDir())
 				for _, path := range append(append([]string{}, legacyDBs...), newTendermintDBs...) {
 					require.NoDirExists(t, filepath.Join(cfg.DBDir(), path))
 				}
 				require.NoDirExists(t, filepath.Join(home, "wasm"))
 				require.FileExists(t, marker)
-				repairM1149CheckSigner(t, cfg, key, 0)
+				assertCommandSignerState(t, cfg, key, 0)
 				require.NoFileExists(t, filepath.Join(home, cfg.PrivValidator.KeyFile()))
 				require.NoDirExists(t, filepath.Join(home, cfg.DBDir()))
 			})
@@ -305,12 +305,12 @@ func TestRepairM_1149_ResetResolvedPaths(t *testing.T) {
 	}
 }
 
-func TestRepairM_1149_ResetReportsFilesystemFailures(t *testing.T) {
+func TestCommandResetReportsFilesystemFailures(t *testing.T) {
 	for _, command := range [][]string{{"reset", "blockchain"}, {"reset", "unsafe-all"}, {"unsafe-reset-all"}} {
 		t.Run(strings.Join(command, "_"), func(t *testing.T) {
 			cfg := config.TestConfig().SetRoot(t.TempDir())
 			cfg.PrivValidator.State = "signer/watermark.json"
-			key := repairM1149SignedValidator(t, cfg)
+			key := seedCommandSignedValidator(t, cfg)
 			createDirs(t, cfg.RootDir, []string{"wasm", "data/autobahn"})
 			if command[len(command)-1] == "blockchain" {
 				require.NoError(t, os.Symlink("tendermint", filepath.Join(cfg.DBDir(), "tendermint")))
@@ -318,40 +318,40 @@ func TestRepairM_1149_ResetReportsFilesystemFailures(t *testing.T) {
 				require.NoError(t, os.Symlink("loop", filepath.Join(cfg.RootDir, "loop")))
 				cfg.DBPath = "loop/data"
 			}
-			err := repairM1149ResetCLI(t, cfg, command...)
+			err := executeResetCommand(t, cfg, command...)
 			require.ErrorIs(t, err, syscall.ELOOP)
 			var pathErr *os.PathError
 			require.ErrorAs(t, err, &pathErr)
 			require.True(t, strings.HasPrefix(pathErr.Path, cfg.RootDir))
 			require.DirExists(t, filepath.Join(cfg.RootDir, "wasm"))
 			require.DirExists(t, filepath.Join(cfg.RootDir, "data", "autobahn"))
-			repairM1149CheckSigner(t, cfg, key, 7)
+			assertCommandSignerState(t, cfg, key, 7)
 		})
 	}
 	t.Run("recreation_failure", func(t *testing.T) {
 		t.Chdir(t.TempDir())
 		cfg := config.TestConfig().SetRoot(t.TempDir())
-		key := repairM1149SignedValidator(t, cfg)
+		key := seedCommandSignedValidator(t, cfg)
 		cfg.PrivValidator.Key = cfg.PrivValidator.KeyFile()
 		cfg.PrivValidator.State = cfg.PrivValidator.StateFile()
 		cfg.SetRoot("")
 		cfg.DBPath = ""
 		createDirs(t, ".", []string{"wasm"})
-		err := repairM1149ResetCLI(t, cfg, "unsafe-reset-all")
+		err := executeResetCommand(t, cfg, "unsafe-reset-all")
 		require.Error(t, err)
 		var pathErr *os.PathError
 		require.ErrorAs(t, err, &pathErr)
 		require.Equal(t, "", pathErr.Path)
 		require.DirExists(t, "wasm")
-		repairM1149CheckSigner(t, cfg, key, 7)
+		assertCommandSignerState(t, cfg, key, 7)
 	})
 	t.Run("signer_recreation_failure", func(t *testing.T) {
 		cfg := config.TestConfig().SetRoot(t.TempDir())
-		key := repairM1149SignedValidator(t, cfg)
+		key := seedCommandSignedValidator(t, cfg)
 		blocker := filepath.Join(cfg.RootDir, "blocker")
 		require.NoError(t, os.WriteFile(blocker, []byte("not a directory"), 0600))
 		cfg.PrivValidator.State = filepath.Join(blocker, "state.json")
-		err := repairM1149ResetCLI(t, cfg, "unsafe-reset-all")
+		err := executeResetCommand(t, cfg, "unsafe-reset-all")
 		require.ErrorIs(t, err, syscall.ENOTDIR)
 		actual, err := os.ReadFile(cfg.PrivValidator.KeyFile())
 		require.NoError(t, err)
@@ -359,7 +359,7 @@ func TestRepairM_1149_ResetReportsFilesystemFailures(t *testing.T) {
 	})
 }
 
-func repairM1149SeedAutobahn(t *testing.T, rng utils.Rng, dir string, committee *atypes.Committee, keys []atypes.SecretKey) *atypes.Block {
+func seedCommandAutobahnWAL(t *testing.T, rng utils.Rng, dir string, committee *atypes.Committee, keys []atypes.SecretKey) *atypes.Block {
 	t.Helper()
 	wal, err := data.NewDataWAL(utils.Some(dir), committee)
 	require.NoError(t, err)
@@ -383,12 +383,12 @@ func repairM1149SeedAutobahn(t *testing.T, rng utils.Rng, dir string, committee 
 	return blocks[0]
 }
 
-func TestRepairM_1149_ResetConfiguredAutobahnDir(t *testing.T) {
+func TestCommandResetConfiguredAutobahnDir(t *testing.T) {
 	for _, setting := range []string{"default_with_custom_db", "custom_relative", "custom_absolute"} {
 		for _, command := range [][]string{{"reset", "blockchain"}, {"reset", "unsafe-all"}, {"unsafe-reset-all"}} {
 			t.Run(setting+"/"+strings.Join(command, "_"), func(t *testing.T) {
 				rng := utils.TestRng()
-				cfg := repairM1149NodeConfig(t)
+				cfg := commandPersistenceConfig(t)
 				cfg.DBPath = "alternate-db"
 				var flags []string
 				switch setting {
@@ -397,17 +397,17 @@ func TestRepairM_1149_ResetConfiguredAutobahnDir(t *testing.T) {
 				case "custom_absolute":
 					flags = []string{"--persistent-state-dir", filepath.Join(t.TempDir(), "safety")}
 				}
-				repairM1149Generate(t, cfg, flags...)
+				generateCommandAutobahnConfig(t, cfg, flags...)
 				dir, err := config.LoadAutobahnPersistentStateDir(cfg.AutobahnConfigFile, cfg.RootDir)
 				require.NoError(t, err)
 				path, ok := dir.Get()
 				require.True(t, ok)
 				committee, keys := atypes.GenCommittee(rng, 1)
-				repairM1149SeedAutobahn(t, rng, path, committee, keys)
+				seedCommandAutobahnWAL(t, rng, path, committee, keys)
 				createDirs(t, cfg.DBDir(), []string{"state.db", "autobahn"})
 				key, err := os.ReadFile(cfg.PrivValidator.KeyFile())
 				require.NoError(t, err)
-				require.NoError(t, repairM1149ResetCLI(t, cfg, command...))
+				require.NoError(t, executeResetCommand(t, cfg, command...))
 				require.NoDirExists(t, path)
 				require.NoDirExists(t, filepath.Join(cfg.DBDir(), "state.db"))
 				require.NoDirExists(t, filepath.Join(cfg.DBDir(), "autobahn"))
@@ -429,13 +429,13 @@ func TestRepairM_1149_ResetConfiguredAutobahnDir(t *testing.T) {
 	}
 }
 
-func TestRepairM_1149_ResetAutobahnPreflightAndFailure(t *testing.T) {
+func TestCommandResetAutobahnPreflightAndFailure(t *testing.T) {
 	for _, mode := range []string{"missing_config", "invalid_json", "invalid_persistence", "unremovable_persistence", "explicit_test_opt_out"} {
 		t.Run(mode, func(t *testing.T) {
-			cfg := repairM1149NodeConfig(t)
+			cfg := commandPersistenceConfig(t)
 			cfg.PrivValidator.State = "signer/watermark.json"
-			key := repairM1149SignedValidator(t, cfg)
-			configPath := repairM1149Generate(t, cfg)
+			key := seedCommandSignedValidator(t, cfg)
+			configPath := generateCommandAutobahnConfig(t, cfg)
 			createDirs(t, cfg.DBDir(), []string{"state.db"})
 			createDirs(t, cfg.RootDir, []string{"wasm"})
 			switch mode {
@@ -462,10 +462,10 @@ func TestRepairM_1149_ResetAutobahnPreflightAndFailure(t *testing.T) {
 				require.NoError(t, err)
 				require.NoError(t, os.WriteFile(configPath, raw, 0600))
 			}
-			err := repairM1149ResetCLI(t, cfg, "reset", "unsafe-all")
+			err := executeResetCommand(t, cfg, "reset", "unsafe-all")
 			if mode == "explicit_test_opt_out" {
 				require.NoError(t, err)
-				repairM1149CheckSigner(t, cfg, key, 0)
+				assertCommandSignerState(t, cfg, key, 0)
 				return
 			}
 			require.Error(t, err)
@@ -481,7 +481,7 @@ func TestRepairM_1149_ResetAutobahnPreflightAndFailure(t *testing.T) {
 				require.ErrorIs(t, err, config.ErrPersistentStateDirRequired)
 			}
 			require.DirExists(t, filepath.Join(cfg.RootDir, "wasm"))
-			repairM1149CheckSigner(t, cfg, key, 7)
+			assertCommandSignerState(t, cfg, key, 7)
 		})
 	}
 }

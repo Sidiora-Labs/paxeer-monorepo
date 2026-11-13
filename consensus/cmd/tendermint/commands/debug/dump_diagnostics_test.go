@@ -26,7 +26,7 @@ import (
 	rpcserver "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/jsonrpc/server"
 )
 
-func TestRepairM_1152_ArchiveRoundTrip(t *testing.T) {
+func TestDebugArchiveRoundTrip(t *testing.T) {
 	src := t.TempDir()
 	if err := os.Mkdir(filepath.Join(src, "nested"), 0700); err != nil {
 		t.Fatal(err)
@@ -77,7 +77,7 @@ func TestRepairM_1152_ArchiveRoundTrip(t *testing.T) {
 	}
 }
 
-func TestRepairM_1152_ArchiveFinalizationFailure(t *testing.T) {
+func TestDebugArchiveFinalizationFailure(t *testing.T) {
 	name := filepath.Join(t.TempDir(), "readonly.zip")
 	if err := os.WriteFile(name, nil, 0600); err != nil {
 		t.Fatal(err)
@@ -98,7 +98,7 @@ func TestRepairM_1152_ArchiveFinalizationFailure(t *testing.T) {
 	}
 }
 
-func TestRepairM_1152_ArchivePreservesAllErrors(t *testing.T) {
+func TestDebugArchivePreservesAllErrors(t *testing.T) {
 	name := filepath.Join(t.TempDir(), "closed.zip")
 	output, err := os.Create(name)
 	if err != nil {
@@ -117,7 +117,7 @@ func TestRepairM_1152_ArchivePreservesAllErrors(t *testing.T) {
 	}
 }
 
-func TestRepairM_1152_ProfileSizeLimit(t *testing.T) {
+func TestDebugProfileSizeLimit(t *testing.T) {
 	for _, extra := range []int{0, 1} {
 		t.Run(fmt.Sprintf("extra_%d", extra), func(t *testing.T) {
 			body := strings.Repeat("p", maxProfileSize+extra)
@@ -158,7 +158,7 @@ func TestRepairM_1152_ProfileSizeLimit(t *testing.T) {
 	}
 }
 
-func TestRepairM_1152_ProfileRejectsHTTPFailures(t *testing.T) {
+func TestDebugProfileRejectsHTTPFailures(t *testing.T) {
 	for _, status := range []int{http.StatusNoContent, http.StatusNotFound, http.StatusInternalServerError} {
 		t.Run(fmt.Sprint(status), func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -177,7 +177,7 @@ func TestRepairM_1152_ProfileRejectsHTTPFailures(t *testing.T) {
 	}
 }
 
-func TestRepairM_1152_ProfileCancellation(t *testing.T) {
+func TestDebugProfileCancellation(t *testing.T) {
 	for _, phase := range []string{"headers", "body"} {
 		t.Run(phase, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(t.Context())
@@ -202,7 +202,7 @@ func TestRepairM_1152_ProfileCancellation(t *testing.T) {
 	}
 }
 
-func TestRepairM_1152_ProfileClientTimeout(t *testing.T) {
+func TestDebugProfileClientTimeout(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, "partial profile")
 		w.(http.Flusher).Flush()
@@ -225,7 +225,7 @@ func TestRepairM_1152_ProfileClientTimeout(t *testing.T) {
 	}
 }
 
-func repairM1152RPCServer(t *testing.T) *httptest.Server {
+func debugDiagnosticsRPCServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
 	rpcserver.RegisterRPCFuncs(mux, map[string]*rpcserver.RPCFunc{
@@ -246,7 +246,7 @@ func repairM1152RPCServer(t *testing.T) *httptest.Server {
 	return server
 }
 
-func repairM1152Config(t *testing.T) *config.Config {
+func debugDiagnosticsConfig(t *testing.T) *config.Config {
 	t.Helper()
 	conf := config.DefaultConfig().SetRoot(t.TempDir())
 	wal := conf.Consensus.WalFile()
@@ -259,11 +259,11 @@ func repairM1152Config(t *testing.T) *config.Config {
 	return conf
 }
 
-func TestRepairM_1152_CommandContextReachesProfiles(t *testing.T) {
+func TestDebugCommandContextReachesProfiles(t *testing.T) {
 	for _, profile := range []string{"goroutine", "heap"} {
 		t.Run(profile, func(t *testing.T) {
-			rpc := repairM1152RPCServer(t)
-			conf := repairM1152Config(t)
+			rpc := debugDiagnosticsRPCServer(t)
+			conf := debugDiagnosticsConfig(t)
 			previousHome := viper.Get(cli.HomeFlag)
 			viper.Set(cli.HomeFlag, conf.RootDir)
 			defer viper.Set(cli.HomeFlag, previousHome)
@@ -312,8 +312,8 @@ func TestRepairM_1152_CommandContextReachesProfiles(t *testing.T) {
 	}
 }
 
-func TestRepairM_1152_DumpArchiveContainsProfiles(t *testing.T) {
-	rpcServer := repairM1152RPCServer(t)
+func TestDebugDumpArchiveContainsProfiles(t *testing.T) {
+	rpcServer := debugDiagnosticsRPCServer(t)
 	rpc, err := rpchttp.New(rpcServer.URL)
 	if err != nil {
 		t.Fatal(err)
@@ -323,7 +323,7 @@ func TestRepairM_1152_DumpArchiveContainsProfiles(t *testing.T) {
 	}))
 	defer server.Close()
 	outDir := t.TempDir()
-	dumpDebugData(t.Context(), rpc, dumpDebugDataArgs{conf: repairM1152Config(t), outDir: outDir, profAddr: server.URL})
+	dumpDebugData(t.Context(), rpc, dumpDebugDataArgs{conf: debugDiagnosticsConfig(t), outDir: outDir, profAddr: server.URL})
 	entries, err := os.ReadDir(outDir)
 	if err != nil || len(entries) != 1 || filepath.Ext(entries[0].Name()) != ".zip" {
 		t.Fatalf("dump did not produce exactly one archive: %v, %v", entries, err)
