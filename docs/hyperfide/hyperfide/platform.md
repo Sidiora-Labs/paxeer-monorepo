@@ -1,6 +1,6 @@
 # Hyperfide platform
 
-The platform runtime is the Node 24, pnpm 9.15 workspace in `tools/hyperfide`. Implementation paths and commands below are relative to that directory.
+The platform workspace in `tools/hyperfide` declares Node `>=22.19.0` and pnpm `9.15.0`. The separate control-service package pins Node `24.22.0` and npm `11.19.1`. Implementation paths and commands below are relative to `tools/hyperfide`.
 The C binary is the public front door. Runtime threads execute work; the spec,
 Asks, independent checks and qualification receipts govern task completion.
 
@@ -131,13 +131,8 @@ Never store secrets in memory or task packets.
 
 ## Documentation verification
 
-`bash tests/hyperfide/cases/v22/7_3.sh` runs the real documentation checker on
-the task documents in an isolated workspace, then runs the canonical
-`tests/hyperfide/cases/v22/identity_gate.py` over the whole tracked repository.
-The isolated `docs_check_projection.py` supplies a synthetic lifecycle baseline
-because feature-wide packet generation waits for all ordinary tasks to qualify.
-It copies the actual documents and link targets and indexes the real memory
-packet adapter for the claim ledger. It does not qualify this feature or replace
-its final documentation closure. The checker validates scope, links and evidence
-references; semantic review remains necessary. See [platform testing](../runtime/testing.md) for runtime
-checks and capability-dependent suites.
+The documentation checker validates scope, links and evidence references.
+Feature-wide documentation closure follows qualification of the ordinary tasks.
+See [project documentation](../DOCUMENTATION.md) for the CLI and evidence fields,
+and [platform testing](../runtime/testing.md) for runtime checks and
+capability-dependent suites.

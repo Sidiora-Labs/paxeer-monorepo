@@ -2,7 +2,7 @@
 
 A recovery profile states the failure model before the service claims readiness. It names the metadata acknowledgment mode and failure domains, every required immutable object placement, verified storage capabilities, backup retention, an independent authority journal, and RPO/RTO objectives. The schema is [recovery-profile.schema.json](../../../tools/hyperfide/deploy/hyperfide/source-control/recovery-profile.schema.json).
 
-`FSYNC_PRIMARY` requires an fsync-enabled PostgreSQL primary. `SYNC_REPLICA` also requires an observed streaming synchronous replica when capturing a backup. A profile claiming loss of a failure domain must name distinct metadata and object failure domains. Backend identifiers alone do not establish replication: every required backend must be configured and every retained object is read and verified there.
+`FSYNC_PRIMARY` requires an fsync-enabled PostgreSQL primary. `SYNC_REPLICA` also requires an observed streaming synchronous replica when capturing a backup. The profile accepts `PROCESS_LOSS` and `PRIMARY_INSTANCE_LOSS`; selecting `FAILURE_DOMAIN_LOSS` returns `RECOVERY_PROFILE_UNQUALIFIED`. Backend identifiers alone do not establish replication: every required backend must be configured and every retained object is read and verified there.
 
 ## Capture and verify
 
@@ -34,7 +34,7 @@ Run the component recovery drill from the monorepo root:
 cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/6_1.py --component
 ```
 
-This uses owned PostgreSQL 18 processes and a signed HTTP S3 fixture. It kills actual source workers, stops the primary, promotes its physical synchronous standby, and restores a physical backup. The receipt reports `PROCESS_LOSS` and `PRIMARY_INSTANCE_LOSS` as `PASS` only after those checks succeed. Both PostgreSQL instances share one host, so `FAILURE_DOMAIN_LOSS` remains `UNRUN`. Distinct-host or region loss requires a separately qualified topology and external fencing evidence; a live object store alone cannot qualify it.
+This uses owned PostgreSQL 18 processes and a signed HTTP S3 fixture. It kills actual source workers, stops the primary, promotes its physical synchronous standby, and restores a physical backup. The receipt reports `PROCESS_LOSS` and `PRIMARY_INSTANCE_LOSS` as `PASS` only after those checks succeed. Both PostgreSQL instances share one host. The drill measures process and primary-instance recovery within that topology.
 
 For the live S3 variant, supply a fresh isolated bucket or a bucket allowing isolated native source scopes and set `HF_SOURCE_S3_ENDPOINT`, `HF_SOURCE_S3_REGION`, `HF_SOURCE_S3_BUCKET`, `HF_SOURCE_S3_ACCESS_KEY_ID`, and `HF_SOURCE_S3_SECRET_ACCESS_KEY` in the environment or `tools/hyperfide/.env`. Set `HF_SOURCE_S3_SESSION_TOKEN` when required. The existing `HF_ARTIFACT_S3_*` configuration aliases are also supported. Credentials need conditional object creation, reads, conditional deletion and multipart upload/abort permissions. Then run this exact command from the repository root:
 
