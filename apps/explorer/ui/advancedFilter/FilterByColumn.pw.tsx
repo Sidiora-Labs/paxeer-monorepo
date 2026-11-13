@@ -8,7 +8,7 @@ import { test, expect } from 'playwright/lib';
 import type { ColumnsIds } from 'ui/advancedFilter/constants';
 
 import FilterByColumn from './FilterByColumn';
-import { AdvancedFilterInteractionFixture } from './repair-22-33-282.fixture';
+import { AdvancedFilterInteractionFixture } from './AdvancedFilterInteraction.fixture';
 
 const columns: Array<ColumnsIds> = [
   'type',

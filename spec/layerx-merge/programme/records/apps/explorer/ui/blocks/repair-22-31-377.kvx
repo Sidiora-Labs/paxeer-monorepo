@@ -2,7 +2,7 @@
 id = "22.31.377"
 finding = "native-block-refresh"
 proving_tests = ["nativeBlockRefresh", "canonicalHashReplacement", "distinctForkHashes", "refreshAtOverloadLimit", "mixedListCanonicalPromotion"]
-test_file = "apps/explorer/ui/blocks/repair-22-31-377.spec.ts"
+test_file = "apps/explorer/ui/blocks/BlocksCanonicalReconciliation.spec.ts"
 path = "Committed block contract fixtures -> loopback WebSocket v2 channel frames -> production Phoenix SocketProvider -> useBlocksNewBlock -> React Query cache -> BlocksTable and BlocksList"
 baseline = "Not run: ordered gate instructions prohibit testing before implementation and prohibit invoking verify_cmd outside hf-done. No baseline failure is claimed."
 gotcha = "Pinned Vitest treats a function in the name position only as a label; supply the named function as the callback as well so each regression executes."

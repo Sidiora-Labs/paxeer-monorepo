@@ -1,6 +1,6 @@
 [repair.22.33.283]
 audit = "22.30.133"
-test_file = "apps/explorer/ui/advancedFilter/filters/repair-22-33-283.spec.ts"
+test_file = "apps/explorer/ui/advancedFilter/filters/FilterSelection.spec.ts"
 age-filter-roundtrip = "ageFilterRoundtrip: save calendar dates through the production filter, close and unmount it, reopen from serialized request bounds, and reapply with the same visible dates and bounds."
 asset-filter-uncheck = "assetFilterUncheck, assetFilterUncheckExcluded: select and deselect a nonempty-search result, preserve other explicit include/exclude selections, and check the applied address lists."
 method-filter-uncheck = "methodFilterUncheck: remove, restore and remove a saved method absent from the query response, then assert the production request omits its id."

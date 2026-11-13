@@ -1,7 +1,7 @@
 [repair.22.33.368]
 finding = "22.30.140/verification-completion"
 production_path = "ContractVerificationForm.tsx -> useVerificationSubmission.ts -> useApiFetch/useSocketChannel/useSocketMessage -> react-hook-form errors/submission completion or success navigation"
-proof = "repair-22-33-368.spec.ts"
+proof = "VerificationSubmission.spec.ts"
 tests = ["verificationCompletionReleasesOnSocketClose", "verificationCompletionDisplaysPostFailure", "verificationCompletionHandlesResultBeforePostReturns", "verificationCompletionConsumesSocketSuccessOnce", "verificationCompletionRecoversLostResultByPolling", "verificationCompletionBoundsMissingResults", "verificationCompletionUnmountReleasesAndReopens"]
 fixtures = "In-process loopback HTTP status store and Phoenix WebSocket endpoint; real API, socket, and form hooks; no live endpoints or credentials."
 baseline = "Not executed: the ordered task instructions prohibit verification before complete implementation and prohibit invoking verify_cmd outside hf-done. No pre-change failure is claimed."

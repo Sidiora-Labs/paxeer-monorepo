@@ -1,6 +1,6 @@
 [task]
 id = "22.33.281"
-test_file = "apps/explorer/ui/blocks/repair-22-33-281.spec.ts"
+test_file = "apps/explorer/ui/blocks/BlocksChainConfiguration.spec.ts"
 path = "Committed block and chain configuration fixtures -> production BlocksTable/BlocksListItem/BlocksTableItem -> chain-aware nextjs/routes and NativeCoinValue/SimpleValue -> rendered anchors, headings and values, using real Next Router and React context providers."
 baseline = "Not run: the explicit gate order prohibits testing before implementation and invoking verify_cmd outside hf-done. No pre-change test failure is claimed."
 evidence = "The private /out/run/gates.jsonl ledger names the verified candidate revision, exact command, exit code and log path; hf-done must pass on the same revision as hf-build."

@@ -22,7 +22,7 @@ import { afterAll, afterEach, beforeAll, expect, test, vi } from 'vitest';
 
 import { getNativeToken } from './constants';
 import ItemByColumn from './ItemByColumn';
-import { AdvancedFilterInteractionFixture } from './repair-22-33-282.fixture';
+import { AdvancedFilterInteractionFixture } from './AdvancedFilterInteraction.fixture';
 
 vi.hoisted(async() => {
   const { 'default': dotenv } = await import('dotenv');

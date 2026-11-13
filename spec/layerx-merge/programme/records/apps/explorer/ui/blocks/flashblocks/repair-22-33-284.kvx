@@ -1,7 +1,7 @@
 [task]
 id = "22.33.284"
 base_revision = "58a590675bbe54c704c3f54c5ef49c6397e5992d"
-proof = "repair-22-33-284.spec.ts uses a loopback WebSocket producer, protocol fixtures, JSON and Brotli encoders, the production parser, formatter and hook."
+proof = "useFlashblocksProtocol.spec.ts uses a loopback WebSocket producer, protocol fixtures, JSON and Brotli encoders, the production parser, formatter and hook."
 baseline = "Not run: the explicit implementation-first order and bounded gates prohibit unchanged-tree verification; no pre-change test failure is claimed."
 evidence = "The runner records the final candidate revision, exact command, exit code and private evidence path in its hf-build/hf-done ledger."
 wiring = "None: Flashblocks.handleAlertLinkClick in apps/explorer/ui/blocks/Flashblocks.tsx (domain 14) already invokes resume; resume now reconnects an errored or disconnected feed."

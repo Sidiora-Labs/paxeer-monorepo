@@ -16,7 +16,7 @@ import * as transfers from 'mocks/tokens/tokenTransfer';
 import * as internal from 'mocks/txs/internalTxs';
 import { afterAll, afterEach, beforeEach, expect, test } from 'vitest';
 
-import { AddressRepairPeer } from './repair-22-33-290/peer';
+import { AddressRepairPeer } from './addressActivity/peer';
 
 configure({ asyncUtilTimeout: 30_000 });
 
