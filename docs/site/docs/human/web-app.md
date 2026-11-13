@@ -70,11 +70,17 @@ proof details belong in detail views and the explorer.
 ## Hosted wiring
 
 `apps/web/next.config.mjs` configures standalone Next.js output and the
-`/human-ui` asset prefix. With `LAYERX_HUMAN_SERVICE_URL` set, it rewrites
-`/human/v1/:path*` and `/v1/:path*` to the configured Human service's `/v1/`
-operations and `/readyz` to Human readiness. The value must be an HTTPS URL
-without credentials, query or fragment, with a root or `/human` path. Without
-it, those Next.js rewrites are absent.
+`/human-ui` asset prefix. It rewrites `/human/v1/:path*` and `/v1/:path*`
+to `/api/human/v1/:path*`, and `/readyz` to `/api/human/readyz`.
+The server route in `apps/web/src/app/api/human/[...path]/route.ts` forwards
+those requests through `apps/web/src/api/human-proxy.ts`.
+
+The proxy requires `LAYERX_HUMAN_SERVICE_URL` to name an HTTPS URL without
+credentials, query or fragment, with a root or `/human` path. It uses that
+URL's origin and forwards `/v1/` operations or `/readyz`, preserving the
+query, request body, authentication headers and upstream response status.
+Responses use `Cache-Control: no-store`. The rewrites exist regardless of
+the setting; a missing setting prevents the proxy from resolving its upstream.
 
 An operator must supply the matching API, sessions, signing providers and
 gateway dependencies. Page source or a built web bundle does not establish

@@ -37,9 +37,10 @@ field as well as the HTTP status; HTTP success alone does not establish that
 an RPC call succeeded. Reject a different chain ID.
 
 Keep multiple nodes configured, use bounded client deadlines and compare
-`eth_blockNumber` when selecting a node near the head. Chain identity proves
-which network a node serves, not that the node is caught up or that a particular
-transaction committed.
+`eth_blockNumber` when selecting a node near the head. The chain ID selects
+the transaction signing domain. Authenticate genesis and validator history
+separately; a matching chain ID alone does not establish that a node serves
+the intended history, is caught up or has committed a particular transaction.
 
 The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`
 and `txpool`; method availability depends on the node configuration. The former

@@ -169,6 +169,21 @@ out-of-window signed heights fail at `SequencerSignature`. The error enum
 also retains older variants such as `InvalidBase64` and
 `BatchAuthorizationMismatch`; these are not the v2 verification contract.
 
+## Go SDK bundles
+
+`sdk/platform/go/portable_receipt.go` exposes a separate portable schema with
+the same `layerx-receipt-proof-v2` format label. It requires `rawTransaction`
+and `receiptJson` and has no `inclusionHeight`. A `committed` bundle also
+requires `blockHeader`, `receiptInclusion`, `commit` and `validatorSet`;
+the verifier requires independently supplied consensus trust as well as
+receipt-key pins. The Go SDK's conformance bundles are described in
+`sdk/platform/conformance/README.md`.
+
+Select a verifier by the complete object schema and its trust requirements.
+The Rust constructors and Python verifier documented above accept the
+receipted schema in this page's member table. The shared format label alone
+does not make the two object shapes interchangeable.
+
 ## Evidence limits and migration
 
 The v1 base64url object, its `sequencer-signed` level and caller-supplied

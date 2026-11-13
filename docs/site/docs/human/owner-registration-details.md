@@ -50,9 +50,10 @@ retired onboarding procedures; they do not replace a committed chain write.
 
 ## Funding the owner
 
-Fund the intended derived sub-account through a native bank send or the
-appropriate ledger transfer, and check the committed balance for the exact
-account and asset. Account opening and transfer execution are implemented in
+Fund the intended per-asset ledger account through the appropriate ledger
+transfer, and check its committed balance for the exact account and asset.
+Native wallet funding for transaction fees is a separate bank or EVM transfer.
+Account opening and transfer execution are implemented in
 `modules/layerxledger/keeper/accounts.go` and `send.go`; `mirror.go` maps
 successful ledger effects to bank balances. Deriving an account ID alone is
 not evidence that it exists or has funds. The transaction sender also needs
@@ -131,7 +132,8 @@ committed state first. A timeout is an unknown outcome, not proof of failure;
 do not create a new principal, key or funding transfer to bypass it. Resume
 with the original operation identity only after reconciling retained evidence.
 
-The historical `owner-native.started`, `custody-bootstrap.started` and
-`custody-deposit.started` files signal potentially completed old operations.
-Retain them for reconciliation; deleting them and rerunning the retired
-producer is not a merged-network recovery procedure.
+The owner producer in `services/platform/hosted/human/merged_owner.py`
+records binding, identity, recovery, account-opening and funding transactions
+under `human-evidence-input/owner-native-run`. It persists signed bytes before
+broadcast and reuses the same transaction on recovery. Preserve this directory
+with `merged-owner-evidence.json` and the matching protected RPC context.

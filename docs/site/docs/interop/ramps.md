@@ -76,8 +76,7 @@ Callback handling is implemented in `toolkit/src/engine.rs` and
 the order. `apply_provider_callback` rejects conflicting identities or
 sequences and treats identical redelivery as a no-op. `Journal::append`
 validates the complete projected transition before its durable write, then
-applies the staged order and callback-index changes. Atomic callback handling
-is current behavior, rather than a future beta repair.
+applies the staged order and callback-index changes.
 
 ## Reference service and deployment
 

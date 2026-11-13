@@ -38,11 +38,14 @@ The fixture keys and validator sets are test trust anchors.
 | `rpc/sequencer_receipt.go` | `SequencerReceiptResult.Verify(pins...)` checks the RPC view against signed bytes and, when supplied, key pins. Callers must supply trusted pins; calling without them checks consistency and signature only. |
 | `sdk/platform/go/verify.go` | `VerifySequencerReceipt(receiptJSON, rawTransaction, keys)` verifies a receipted JSON view, raw transaction hash, key range, sequence predecessor and execution fields. |
 | `sdk/platform/go/committed.go` | `VerifyCommittedReceipt` adds execution-block and successor-block commits plus transaction, batch and execution-result inclusion. Its `ReceiptInclusion` is the SDK evidence type. |
-| `sdk/platform/go/portable_receipt.go` | `VerifyPortableReceipt(data, keys)` verifies a `layerx-receipt-proof-v2` bundle using caller-supplied pins. `ExportPortableReceipt` constructs and verifies a bundle before export. |
+| `sdk/platform/go/portable_receipt.go` | `VerifyPortableReceipt(data, keys, trust...)` verifies the Go SDK bundle using caller-supplied receipt pins and, for committed evidence, consensus trust. `ExportPortableReceipt(receiptJSON, rawTransaction, keys, committed, trust...)` constructs and verifies it before export. |
 
-The old `verify.BatchHeader` and `verify.ReceiptInclusion` functions are
-removed. A signature over a recorder-produced batch envelope is not the
-network's finality proof. Use the committed-chain verification path below.
+The Go portable object requires `rawTransaction` and `receiptJson` and can
+carry committed-chain evidence. The Rust `layerx-portable` object instead
+carries `inclusionHeight`, permits an optional raw transaction and admits
+only `receipted`. Both use the format label `layerx-receipt-proof-v2`;
+select the consumer by its complete schema. See
+[Portable receipt verifier](../interop/portable-receipts.md#go-sdk-bundles).
 
 The Go SDK's `VerifySequencerReceipt` accepts the receipted view rather than
 the node's committed result envelope. Follow the adapter in
@@ -106,9 +109,7 @@ bindings. Except for the noncanonical case, the mutated receipts still pass
 | `non-canonical-receipt-bytes` | The receipt encoding is noncanonical. |
 
 The V4 recording uses EIP-1559 type-2 transactions on EVM chain ID `125`.
-Its `payExact` transaction is `0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2` and its execution block is
-`0xa7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108`. The daemon recording SHA-256 is
-`5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b`. These are private fixture identities; production consumers need their own trust anchors.
+Production consumers supply their own receipt pins and consensus trust anchors.
 
 ## Verify committed evidence with V4
 
@@ -159,8 +160,7 @@ The SDK's adapted vectors and portable bundles have their own focused gate:
 go -C sdk/platform/go test -count=1 . -run '^(TestVectorFilesV1ToV3MatchSequencerReceiptFixture|TestVectorV4CommittedVerifiesAndRefuses|TestVectorV5PortableRoundTrips)$'
 ```
 
-These are reference commands for SDK verification work. Their presence here
-is not a claim that they ran as part of this documentation rewrite.
+These commands exercise stored SDK vectors and portable bundles.
 
 [One account](../concepts/one-account.md) ·
 [Getting started](../overview/getting-started.md) ·

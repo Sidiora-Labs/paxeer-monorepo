@@ -27,11 +27,9 @@ The checkpoint producer role and the execution-on-one-network,
 settlement-on-another model are retired. Historical operator runbooks do not
 define a second finality step for the merged network.
 
-The limited hosted beta has not opened for general use. Its gateway API becomes
-available with beta admission. Mainnet-beta handles real value: there is no
-faucet for general use, and approved developers receive allocations directly
-from the team. A local `make ci` pass is development evidence, not authorization
-to deploy contracts, move custody, or handle real assets. See
-[Qualification](qualification.md) for evidence categories and
+Mainnet-beta handles real value. Hosted applications require their configured
+services, credentials and admission checks. A local `make ci` result covers
+the native suites listed in [Qualification](qualification.md); deployment
+readiness also requires the intended node and application paths. See
 [Porting](porting.md#network-and-deployment-boundary) for the current Programs
 deployment boundary.
