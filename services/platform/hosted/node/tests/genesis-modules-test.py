@@ -10,12 +10,12 @@ import pytest
 TESTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(TESTS))
 from native_key_harness import NativeKeyHarness, native
-from test_repair_22_31_355 import (
+from test_native_lifecycle import (
     FIXTURES, RecordedNativePeer, staged_store, tls,
 )
 import generation_transport as transport
 
-MODULE_FIXTURES = TESTS / 'fixtures' / 'repair_22_33_1456'
+MODULE_FIXTURES = TESTS / 'fixtures' / 'genesis_modules'
 
 
 class ModuleGenesisPeer(RecordedNativePeer):

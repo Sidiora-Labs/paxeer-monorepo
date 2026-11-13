@@ -1,0 +1,280 @@
+[manifest]
+task = "22.43.165"
+records_moved = 18
+files_renamed = 16
+
+[file.1]
+from = "services/platform/examples/agent-program-call/test/repair-22-31-342.test.mjs"
+to = "services/platform/examples/agent-program-call/test/submission-fate.test.mjs"
+
+[file.2]
+from = "services/platform/examples/agent-spend/test/repair-22-31-479.test.mjs"
+to = "services/platform/examples/agent-spend/test/workspace-dependencies.test.mjs"
+
+[file.3]
+from = "services/platform/examples/buyer-agent/test/repair-22-31-347.test.mjs"
+to = "services/platform/examples/buyer-agent/test/human-payment.test.mjs"
+
+[file.4]
+from = "services/platform/examples/merchant-shop/repair_22_31_353.mjs"
+to = "services/platform/examples/merchant-shop/settlement-fixture.mjs"
+
+[file.5]
+from = "services/platform/examples/merchant-shop/test/repair-22-31-353.test.mjs"
+to = "services/platform/examples/merchant-shop/test/settlement-origins.test.mjs"
+
+[file.6]
+from = "services/platform/examples/test/repair-22-31-349.test.mjs"
+to = "services/platform/examples/test/marketplace-lifecycle-anchor.test.mjs"
+
+[file.7]
+from = "services/platform/examples/test/repair-22-31-360.test.mjs"
+to = "services/platform/examples/test/fulfillment-release.test.mjs"
+
+[file.8]
+from = "services/platform/examples/test/repair-22-33-1317.test.mjs"
+to = "services/platform/examples/test/paid-api-fulfillment.test.mjs"
+
+[file.9]
+from = "services/platform/examples/test/repair-22-33-1318.test.mjs"
+to = "services/platform/examples/test/application-profiles.test.mjs"
+
+[file.10]
+from = "services/platform/examples/test/repair-22-33-1363.test.mjs"
+to = "services/platform/examples/test/program-receipt-fetch.test.mjs"
+
+[file.11]
+from = "services/platform/examples/test/repair-22-33-1364.test.mjs"
+to = "services/platform/examples/test/wallet-review-recovery.test.mjs"
+
+[file.12]
+from = "services/platform/examples/test/repair-22-33-1365.test.mjs"
+to = "services/platform/examples/test/reference-build-process.test.mjs"
+
+[file.13]
+from = "services/platform/examples/test/repair-22-33-1400.test.mjs"
+to = "services/platform/examples/test/receipt-verification.test.mjs"
+
+[file.14]
+from = "services/platform/examples/test/repair-22-33-1408.test.mjs"
+to = "services/platform/examples/test/marketplace-payloads.test.mjs"
+
+[file.15]
+from = "services/platform/examples/test/repair-22-33-1448.test.mjs"
+to = "services/platform/examples/test/merchant-result-code.test.mjs"
+
+[file.16]
+from = "services/platform/examples/test/repair-22-33-1474.test.mjs"
+to = "services/platform/examples/test/merchant-order-recovery.test.mjs"
+
+[file.17]
+from = "services/platform/examples/agent-program-call/repair_22_31_342.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/examples/agent-program-call/repair_22_31_342.kvx"
+
+[file.18]
+from = "services/platform/examples/agent-program-call/repair_22_33_1363.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/examples/agent-program-call/repair_22_33_1363.kvx"
+
+[file.19]
+from = "services/platform/examples/agent-spend/repair-22-31-479.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/examples/agent-spend/repair-22-31-479.kvx"
+
+[file.20]
+from = "services/platform/examples/agent-spend/repair-22-33-1364.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/examples/agent-spend/repair-22-33-1364.kvx"
+
+[file.21]
+from = "services/platform/examples/buyer-agent/repair_22_31_347.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/examples/buyer-agent/repair_22_31_347.kvx"
+
+[file.22]
+from = "services/platform/examples/marketplace/repair-22-31-349.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/examples/marketplace/repair-22-31-349.kvx"
+
+[file.23]
+from = "services/platform/examples/marketplace/repair-22-31-441.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/examples/marketplace/repair-22-31-441.kvx"
+
+[file.24]
+from = "services/platform/examples/marketplace/test/repair-22-33-1408.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/examples/marketplace/test/repair-22-33-1408.kvx"
+
+[file.25]
+from = "services/platform/examples/merchant-shop/repair_22_31_353.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/examples/merchant-shop/repair_22_31_353.kvx"
+
+[file.26]
+from = "services/platform/examples/paid-api/repair-22-33-1317.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/examples/paid-api/repair-22-33-1317.kvx"
+
+[file.27]
+from = "services/platform/examples/repair-22-33-1318.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/examples/repair-22-33-1318.kvx"
+
+[file.28]
+from = "services/platform/examples/repair-22-33-1448.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/examples/repair-22-33-1448.kvx"
+
+[file.29]
+from = "services/platform/examples/support/repair-22-31-360.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/examples/support/repair-22-31-360.kvx"
+
+[file.30]
+from = "services/platform/examples/support/repair-22-33-1365.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/examples/support/repair-22-33-1365.kvx"
+
+[file.31]
+from = "services/platform/examples/support/repair-22-33-1474.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/examples/support/repair-22-33-1474.kvx"
+
+[file.32]
+from = "services/platform/examples/test/repair-22-33-1400.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/examples/test/repair-22-33-1400.kvx"
+
+[file.33]
+from = "services/platform/repair_22_39_503.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/repair_22_39_503.kvx"
+
+[file.34]
+from = "services/platform/repair_22_39_78.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/repair_22_39_78.kvx"
+
+[reference.1]
+file = "services/platform/ramps/repair_22_39_265.kvx"
+name = "repair-22-31-349.kvx"
+
+[reference.2]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "repair-22-31-342.test.mjs"
+
+[reference.3]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "repair-22-31-347.test.mjs"
+
+[reference.4]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "repair-22-31-349.test.mjs"
+
+[reference.5]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "repair-22-31-353.test.mjs"
+
+[reference.6]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "repair-22-31-360.test.mjs"
+
+[reference.7]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "repair-22-33-1364.test.mjs"
+
+[reference.8]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "repair-22-33-1400.test.mjs"
+
+[reference.9]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "repair-22-31-479.test.mjs"
+
+[reference.10]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-31-349.test.mjs"
+
+[reference.11]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-31-360.test.mjs"
+
+[reference.12]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-1364.test.mjs"
+
+[reference.13]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-1400.test.mjs"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-342.test.mjs"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-347.test.mjs"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-349.kvx"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-349.test.mjs"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-353.test.mjs"
+
+[reference.19]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-360.test.mjs"
+
+[reference.20]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-479.kvx"
+
+[reference.21]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-479.test.mjs"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-1317.test.mjs"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-1363.test.mjs"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-1364.test.mjs"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-1365.test.mjs"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-1400.test.mjs"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-1408.test.mjs"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-1448.test.mjs"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-1474.test.mjs"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_503.kvx"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_78.kvx"
+
+[reference.32]
+file = "tools/paxeer-x/retired_callers.json"
+name = "repair-22-31-349.kvx"
+
+[reference.33]
+file = "tools/paxeer-x/tests/retired_callers_test.py"
+name = "repair-22-31-349.kvx"
+
+[reference.34]
+file = "tools/qualification/audit_repairs/test_repair_22_33_1318.py"
+name = "repair-22-33-1318.kvx"
+
+[reference.35]
+file = "tools/qualification/audit_repairs/test_repair_22_33_1318.py"
+name = "repair-22-33-1318.test.mjs"

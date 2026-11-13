@@ -53,7 +53,7 @@ that capability and latest on a full node without it:
 
 Pending consumer regressions live in [pending_state_test.go](pending_state_test.go),
 [pending_simulate_test.go](pending_simulate_test.go) and
-[repair_m1147_test.go](repair_m1147_test.go). The repair tests cover omitted
+[access_list_pending_policy_test.go](access_list_pending_policy_test.go). The repair tests cover omitted
 access-list tags on full nodes and open/idle proposers, explicit pending
 refusal, cancellation, and the HTTP consumer path.
 
@@ -148,7 +148,7 @@ keep their own routing and errors. Profiled transaction traces apply the same
 default-tracer rule. Parent cancellation stops live EVM execution and releases
 trace admission; an expired trace deadline reports `execution timeout`.
 
-[repair_m1292_test.go](repair_m1292_test.go) exercises these contracts through
+[trace_tenant_transport_test.go](trace_tenant_transport_test.go) exercises these contracts through
 real committed execution and clients. It also covers HTTP/WebSocket tenant
 reads after reconnect, including canonical indices, polling filters and raw
 envelopes. Tenant domains share heads and account state intentionally.

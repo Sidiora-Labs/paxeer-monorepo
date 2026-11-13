@@ -9,8 +9,8 @@ import (
 )
 
 func TestEncryptedCredentialsRejectUnboundVaultAndProviderState(t *testing.T) {
-	f := repair57New(t)
-	f.transit = repair57Vault(t)
+	f := streamContractNew(t)
+	f.transit = streamContractVault(t)
 	ctx := context.Background()
 	o, _ := f.create("credential-authority")
 	if _, err := f.store.BeginProvision(ctx, o.ID); err != nil {
@@ -66,7 +66,7 @@ func TestEncryptedCredentialsRejectUnboundVaultAndProviderState(t *testing.T) {
 }
 
 func TestReplacementIntentRequiresOwnerRevisionAndEligibleState(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	if _, err := f.database.Exec(ctx, f.store.RotationSchemaSQL()); err != nil {
 		t.Fatal(err)
