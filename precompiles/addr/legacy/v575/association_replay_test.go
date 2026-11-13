@@ -42,18 +42,18 @@ import (
 
 // Only the three constructor dependencies are provided. Every accessor used by
 // the precompiles returns a production keeper; unused interfaces stay unbound.
-type repair1264Keepers struct {
+type associationReplayKeepers struct {
 	putils.Keepers
 	EvmKeeper     *evmkeeper.Keeper
 	BankKeeper    bankkeeper.BaseKeeper
 	AccountKeeper authkeeper.AccountKeeper
 }
 
-func (k repair1264Keepers) EVMK() putils.EVMKeeper         { return k.EvmKeeper }
-func (k repair1264Keepers) BankK() putils.BankKeeper       { return k.BankKeeper }
-func (k repair1264Keepers) AccountK() putils.AccountKeeper { return k.AccountKeeper }
+func (k associationReplayKeepers) EVMK() putils.EVMKeeper         { return k.EvmKeeper }
+func (k associationReplayKeepers) BankK() putils.BankKeeper       { return k.BankKeeper }
+func (k associationReplayKeepers) AccountK() putils.AccountKeeper { return k.AccountKeeper }
 
-func repair1264NewKeepers(t *testing.T) (repair1264Keepers, sdk.Context) {
+func newAssociationReplayKeepers(t *testing.T) (associationReplayKeepers, sdk.Context) {
 	t.Helper()
 	db := dbm.NewMemDB()
 	cms := store.NewCommitMultiStore(db)
@@ -89,14 +89,14 @@ func repair1264NewKeepers(t *testing.T) (repair1264Keepers, sdk.Context) {
 	auth.SetParams(ctx, authtypes.DefaultParams())
 	bank.SetParams(ctx, banktypes.DefaultParams())
 	evm.SetParams(ctx, evmtypes.DefaultParams())
-	return repair1264Keepers{EvmKeeper: evm, BankKeeper: bank, AccountKeeper: auth}, ctx
+	return associationReplayKeepers{EvmKeeper: evm, BankKeeper: bank, AccountKeeper: auth}, ctx
 }
 
 // This signed, non-payable association is shared by replay and current calls.
 // The expected state transition is 100 uhpx, 23 replaytoken and 19 wei moving
 // from the EVM-cast account to its recovered Pax account, with both mappings set.
-type repair1264Fixture struct {
-	keepers repair1264Keepers
+type associationReplayFixture struct {
+	keepers associationReplayKeepers
 	db      *state.DBImpl
 	evm     *vm.EVM
 	target  common.Address
@@ -107,9 +107,9 @@ type repair1264Fixture struct {
 	coins   sdk.Coins
 }
 
-func repair1264NewFixture(t *testing.T, historical bool) repair1264Fixture {
+func newAssociationReplayFixture(t *testing.T, historical bool) associationReplayFixture {
 	t.Helper()
-	a, ctx := repair1264NewKeepers(t)
+	a, ctx := newAssociationReplayKeepers(t)
 	ctx = ctx.WithMultiStore(ctx.MultiStore().CacheMultiStore()).WithEventManager(sdk.NewEventManager())
 	if historical {
 		ctx = ctx.WithIsTracing(true).WithClosestUpgradeName("v5.7.5")
@@ -140,11 +140,11 @@ func repair1264NewFixture(t *testing.T, historical bool) repair1264Fixture {
 	require.NoError(t, a.BankKeeper.SendCoinsFromModuleToAccount(ctx, "evm", cast, coins))
 	require.NoError(t, a.BankKeeper.AddWei(ctx, cast, sdk.NewInt(19)))
 	db := state.NewDBImpl(ctx, a.EvmKeeper, true)
-	return repair1264Fixture{keepers: a, db: db, evm: &vm.EVM{StateDB: db}, target: target,
+	return associationReplayFixture{keepers: a, db: db, evm: &vm.EVM{StateDB: db}, target: target,
 		pax: pax, cast: cast, pub: pub, input: input, coins: coins}
 }
 
-func repair1264Snapshot(t *testing.T, ctx sdk.Context) map[string]map[string][]byte {
+func snapshotAssociationStores(t *testing.T, ctx sdk.Context) map[string]map[string][]byte {
 	t.Helper()
 	out := make(map[string]map[string][]byte)
 	for _, key := range ctx.MultiStore().StoreKeys() {
@@ -159,7 +159,7 @@ func repair1264Snapshot(t *testing.T, ctx sdk.Context) map[string]map[string][]b
 	return out
 }
 
-func repair1264AssertAssociated(t *testing.T, f repair1264Fixture, ret []byte, method abi.Method) {
+func requireAssociatedAddresses(t *testing.T, f associationReplayFixture, ret []byte, method abi.Method) {
 	t.Helper()
 	a := f.keepers
 	ctx := f.db.Ctx()
@@ -243,18 +243,18 @@ func TestAddressConversionContextWiring(t *testing.T) {
 	}
 }
 
-func TestRepairM_1264_HistoricalStaticCallStateDiff(t *testing.T) {
+func TestHistoricalStaticCallStateDiff(t *testing.T) {
 	var writable map[string]map[string][]byte
 	var writableEvents sdk.Events
 	for _, readOnly := range []bool{false, true} {
-		f := repair1264NewFixture(t, true)
+		f := newAssociationReplayFixture(t, true)
 		p, err := legacy.NewPrecompile(f.keepers)
 		require.NoError(t, err)
-		before := repair1264Snapshot(t, f.db.Ctx())
+		before := snapshotAssociationStores(t, f.db.Ctx())
 		ret, err := p.Run(f.evm, f.target, f.target, f.input, big.NewInt(0), readOnly, false, nil)
 		require.NoError(t, err)
-		repair1264AssertAssociated(t, f, ret, p.ABI.Methods[legacy.Associate])
-		after := repair1264Snapshot(t, f.db.Ctx())
+		requireAssociatedAddresses(t, f, ret, p.ABI.Methods[legacy.Associate])
+		after := snapshotAssociationStores(t, f.db.Ctx())
 		require.NotEqual(t, before, after)
 		require.NotEqual(t, before["evm"], after["evm"])
 		require.NotEqual(t, before["bank"], after["bank"])
@@ -270,19 +270,19 @@ func TestRepairM_1264_HistoricalStaticCallStateDiff(t *testing.T) {
 	}
 }
 
-func TestRepairM_1264_CurrentAssociationRejectsStaticCall(t *testing.T) {
-	f := repair1264NewFixture(t, false)
+func TestCurrentAssociationRejectsStaticCall(t *testing.T) {
+	f := newAssociationReplayFixture(t, false)
 	a := f.keepers
 	p, err := addr.NewPrecompile(a)
 	require.NoError(t, err)
-	before := repair1264Snapshot(t, f.db.Ctx())
+	before := snapshotAssociationStores(t, f.db.Ctx())
 	events := f.db.Ctx().EventManager().Events()
 	_, _, err = p.RunAndCalculateGas(f.evm, f.target, f.target, f.input, 1_000_000,
 		big.NewInt(0), nil, true, false)
 	require.ErrorIs(t, err, vm.ErrExecutionReverted)
 	require.ErrorContains(t, f.db.GetPrecompileError(), "cannot call associate precompile from staticcall")
 	// Inspect before any rollback: refusal itself must leave every store intact.
-	require.Equal(t, before, repair1264Snapshot(t, f.db.Ctx()))
+	require.Equal(t, before, snapshotAssociationStores(t, f.db.Ctx()))
 	require.Equal(t, events, f.db.Ctx().EventManager().Events())
 	_, found := a.EvmKeeper.GetPaxAddress(f.db.Ctx(), f.target)
 	require.False(t, found)
@@ -298,11 +298,11 @@ func TestRepairM_1264_CurrentAssociationRejectsStaticCall(t *testing.T) {
 	ret, _, err := p.RunAndCalculateGas(f.evm, f.target, f.target, f.input, 1_000_000,
 		big.NewInt(0), nil, false, false)
 	require.NoError(t, err)
-	repair1264AssertAssociated(t, f, ret, p.ABI.Methods[addr.Associate])
+	requireAssociatedAddresses(t, f, ret, p.ABI.Methods[addr.Associate])
 }
 
-func TestRepairM_1264_HistoricalConstructorVersionIsolation(t *testing.T) {
-	keepers, _ := repair1264NewKeepers(t)
+func TestHistoricalConstructorVersionIsolation(t *testing.T) {
+	keepers, _ := newAssociationReplayKeepers(t)
 	versions := addr.GetVersioned("v99.0.0", keepers)
 	for version, precompile := range versions {
 		p, historical := precompile.(*pcommon.Precompile)
@@ -318,7 +318,7 @@ func TestRepairM_1264_HistoricalConstructorVersionIsolation(t *testing.T) {
 	require.Contains(t, versions, "v99.0.0")
 }
 
-func TestIssue1682ReplaySelection(t *testing.T) {
+func TestHistoricalAssociationReplaySelection(t *testing.T) {
 	for _, tc := range []struct {
 		height        int64
 		closest       string
@@ -339,7 +339,7 @@ func TestIssue1682ReplaySelection(t *testing.T) {
 	} {
 		for _, tracing := range []bool{true, false} {
 			t.Run(fmt.Sprintf("height=%d/tracing=%t", tc.height, tracing), func(t *testing.T) {
-				f := repair1264NewFixture(t, false)
+				f := newAssociationReplayFixture(t, false)
 				k := f.keepers.EvmKeeper
 				ctx := f.db.Ctx()
 				for i, version := range []string{"v5.7.5", "v5.8.0", "v5.9.0", "v6.0.0"} {
@@ -382,7 +382,7 @@ func TestIssue1682ReplaySelection(t *testing.T) {
 				require.NoError(t, err)
 				abiProvider, ok := p.(interface{ GetABI() abi.ABI })
 				require.True(t, ok)
-				repair1264AssertAssociated(t, f, ret, abiProvider.GetABI().Methods[legacy.Associate])
+				requireAssociatedAddresses(t, f, ret, abiProvider.GetABI().Methods[legacy.Associate])
 				account := f.keepers.AccountKeeper.GetAccount(f.db.Ctx(), f.pax)
 				if tracing && tc.height <= 400 {
 					require.Equal(t, nextNumber, account.GetAccountNumber())
