@@ -2,7 +2,7 @@
 id = "22.33.194"
 acceptance = "22998.1"
 findings = ["f023", "f014", "f015", "f016", "f039", "f024", "f027", "f026"]
-closure_record = "apps/perps/src/widgets/spot/repair-22-33-194.kvx"
+closure_record = "spec/layerx-merge/programme/records/apps/perps/src/widgets/spot/repair-22-33-194.kvx"
 test = "apps/perps/tests/repair-22-33-194.test.ts"
 main_revision = "039e5adc21d328c5a1b7275e9649076c7d444e31"
 main_merge = "Already up to date; main includes prerequisite 22.31.480."
