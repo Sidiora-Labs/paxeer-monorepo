@@ -16,7 +16,7 @@ use serde_json::{json, Value};
 type Failure = Box<dyn std::error::Error>;
 
 const READ_SCHEMA: &str = include_str!("../../../schema/agent-api/read.kvx");
-const RECORDED: &str = include_str!("../src/repair_22_31_227_fixture/committed.json");
+const RECORDED: &str = include_str!("../src/committed_receipt_fixture/committed.json");
 
 fn bytes(value: &Value) -> Vec<u8> {
     let text = value.as_str().unwrap_or_else(|| panic!("recorded hex"));

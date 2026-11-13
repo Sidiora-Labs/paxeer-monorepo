@@ -33,4 +33,4 @@ observed = "The generic resumable cursor is in production.rs, live subscription 
 action = "Inspect those existing modules directly rather than assuming a separate stream or receipt/signature module."
 
 [fixture.ca]
-source = "repair_22_33_1564_fixture/ca.der is the byte-preserving PEM-to-DER conversion of repair_22_31_227_fixture/ca.pem; the test uses the existing committed leaf certificate and private test key."
+source = "private_ca/ca.der is the byte-preserving PEM-to-DER conversion of tls_server/ca.pem; the test uses the existing committed leaf certificate and private test key."

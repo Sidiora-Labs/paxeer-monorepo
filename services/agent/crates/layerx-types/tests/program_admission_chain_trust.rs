@@ -53,7 +53,7 @@ fn registry() -> ModuleRegistry {
 }
 
 #[test]
-fn repair_f12_deploy_payload_matches_native_admission() {
+fn deploy_payload_matches_native_admission() {
     let registry = registry();
     for interface in [None, Some(&b"interface"[..]), Some(&[7; 952][..])] {
         let overhead = 104 + interface.map_or(0, |value| 4 + value.len());
@@ -118,7 +118,7 @@ fn repair_f12_deploy_payload_matches_native_admission() {
 }
 
 #[test]
-fn repair_f12_upgrade_budgets_hook_interface_and_clear_marker() {
+fn upgrade_budgets_hook_interface_and_clear_marker() {
     let registry = registry();
     let longest_hook = vec![9; 65_535];
     for hook in [&b""[..], &b"migrate"[..], longest_hook.as_slice()] {
@@ -187,7 +187,7 @@ fn repair_f12_upgrade_budgets_hook_interface_and_clear_marker() {
 }
 
 #[test]
-fn repair_f30_block_validator_and_state_provenance_roundtrip() {
+fn block_validator_and_state_provenance_roundtrip() {
     let trust = ValidatorSetTrust::parse(TRUST)
         .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
     let producer = BlockReference::new(17, 19, [1; 32], [0x22; 32], [3; 32])
@@ -227,7 +227,7 @@ fn repair_f30_block_validator_and_state_provenance_roundtrip() {
 }
 
 #[test]
-fn repair_f31_explicit_trust_refuses_retired_or_invalid_configuration() {
+fn explicit_trust_refuses_retired_or_invalid_configuration() {
     let trust = ValidatorSetTrust::parse(TRUST)
         .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
     assert_eq!(trust.chain_id(), 125);
@@ -258,7 +258,7 @@ fn repair_f31_explicit_trust_refuses_retired_or_invalid_configuration() {
     deprecated,
     reason = "Exercise retained historical wire compatibility without conferring current authority."
 )]
-fn repair_f32_retired_labels_cannot_satisfy_current_policy() {
+fn retired_labels_cannot_satisfy_current_policy() {
     let levels = [
         VerificationLevel::UNVERIFIED,
         VerificationLevel::SEQUENCER_SIGNED,
@@ -293,7 +293,7 @@ fn repair_f32_retired_labels_cannot_satisfy_current_policy() {
 }
 
 #[test]
-fn repair_f33_archive_readers_preserve_bytes_without_current_privileges() {
+fn archive_readers_preserve_bytes_without_current_privileges() {
     let archive = DeclaredCheckpointSettlement::parse(ARCHIVE)
         .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
     assert!(!archive.domains().is_empty());
@@ -317,7 +317,7 @@ fn repair_f33_archive_readers_preserve_bytes_without_current_privileges() {
 }
 
 #[test]
-fn repair_f48_covering_block_preserves_distinct_execution_height() {
+fn covering_block_preserves_distinct_execution_height() {
     for covering_height in [17, 19] {
         let producer = BlockReference::new(17, covering_height, [1; 32], [2; 32], [3; 32])
             .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));

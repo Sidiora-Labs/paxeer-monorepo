@@ -29,8 +29,8 @@ use layerx_types::clock::{Clock, ClockError, ClockReading};
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 
-const RECORDED: &str = include_str!("../src/repair_22_31_227_fixture/committed.json");
-const CA: &[u8] = include_bytes!("fixtures/repair_22_33_1564_fixture/ca.der");
+const RECORDED: &str = include_str!("../src/committed_receipt_fixture/committed.json");
+const CA: &[u8] = include_bytes!("fixtures/private_ca/ca.der");
 
 fn hex(bytes: &[u8]) -> String {
     hex::encode(bytes)
@@ -74,10 +74,10 @@ impl Server {
                 .with_no_client_auth()
                 .with_single_cert(
                     vec![CertificateDer::from(
-                        include_bytes!("fixtures/repair_22_31_227_fixture/server.der").to_vec(),
+                        include_bytes!("fixtures/tls_server/server.der").to_vec(),
                     )],
                     PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(
-                        include_bytes!("fixtures/repair_22_31_227_fixture/server-key.der").to_vec(),
+                        include_bytes!("fixtures/tls_server/server-key.der").to_vec(),
                     )),
                 )
                 .unwrap_or_else(|error| panic!("committed test certificate: {error:?}")),
@@ -341,7 +341,7 @@ impl Directory {
     fn new() -> Self {
         static NEXT: AtomicUsize = AtomicUsize::new(0);
         let path = std::env::temp_dir().join(format!(
-            "repair-22-33-1564-{}-{}",
+            "rpc-trust-stream-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));

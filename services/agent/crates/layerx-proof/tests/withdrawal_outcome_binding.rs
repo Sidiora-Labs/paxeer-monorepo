@@ -1,18 +1,4 @@
-//! Repair record 22.33.1563, audit 22.30.98, acceptance 22998.1.
-//! Base revision: 8c4a3e7e0bd8b236f61b0f9e0dd18f3cfc360fce.
-//! Qualification revision, command, exit code and private log are recorded by hf-done.
-//!
-//! registry-withdrawal-verifier-removed is proved by
-//! `withdrawal_fixture::paid_withdrawal_receipt_verifies_without_the_signed_activity`,
-//! `retained_withdrawal_outcome_decodes_the_real_fixture`, and
-//! `retained_withdrawal_path_refuses_changed_bytes_and_batch_authority`.
-//! Wiring request: domain 9, spec/layerx-merge/interfaces.kvx: retire 9.rs-proof-receipt-withdrawal-verify and its stale caller edges; publish `receipt::verify_outcome` plus `receipt::withdrawal::WithdrawalOutcome` with tests/withdrawal.rs and this integration target as retained consumer evidence.
-//!
-//! Baseline verification was not run: the explicit gate order allows hf-build
-//! only after full implementation and hf-done after that build. No previous gate
-//! ledger existed, so no test is claimed to have failed before these changes.
-//! Fixture authorization selects the activity transition through the signed
-//! maintenance evidence; sealed batch roots also cover the maintenance transition.
+//! Withdrawal outcomes bind receipt bytes and authorised maintenance batches.
 
 use layerx_proof::receipt::{
     verify_outcome, verify_sequencer_signature, withdrawal::WithdrawalOutcome, AuthorizedBatch,

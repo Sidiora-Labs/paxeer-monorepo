@@ -1,7 +1,4 @@
-//! Task 22.31.226: guarantor-evidence-reaches-committed is covered by
-//! `guarantor_only_success_cannot_yield_committed` and `native_evidence_stops_at_receipted`.
-//! Task 22.33.1557 migrates retired API calls to the retained certificate-bucket
-//! refusal while preserving recorded signature checks and receipt/inclusion coverage.
+//! Historical certificates cannot establish commitment; native evidence is bounded by its rung.
 
 #[path = "support/historical_checkpoint.rs"]
 pub(crate) mod historical;
@@ -40,7 +37,7 @@ const KEY: [u8; 32] =
 const NO_RECORDS: [Vec<u8>; 0] = [];
 
 fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
-    result.unwrap_or_else(|error| panic!("repair 22.31.226 fixture: {error:?}"))
+    result.unwrap_or_else(|error| panic!("certificate fixture: {error:?}"))
 }
 
 fn assert_rung(evidence: &Evidence, expected: Rung) {

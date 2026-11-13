@@ -108,13 +108,13 @@ lint = "clippy::expect_used"
 repair = "Match the required fixture value explicitly; missing evidence still panics with the original reason."
 
 [source_inventory.18]
-file = "tests/repair_22_33_1557.rs"
+file = "tests/receipt_evidence_exports.rs"
 line = 59
 lint = "clippy::expect_used"
 repair = "Match the required fixture value explicitly; missing evidence still panics with the original reason."
 
 [source_inventory.19]
-file = "tests/repair_22_33_1557.rs"
+file = "tests/receipt_evidence_exports.rs"
 line = 204
 lint = "clippy::expect_used"
 repair = "Match the required fixture value explicitly; missing evidence still panics with the original reason."
@@ -216,7 +216,7 @@ lint = "clippy::expect_used"
 repair = "let Some(protocol) = verified.receipt().protocol() else {\n        panic!(\"verified protocol\");\n    };\n    assert_eq!(protocol.result_code(), -206);"
 
 [source_inventory.36]
-file = "tests/repair_22_33_1562.rs"
+file = "tests/export_terminal_refusals.rs"
 line = 20
 lint = "clippy::expect_used"
 repair = "fn retired_checkpoint_suite_and_mislabelled_case_names_are_deleted() -> std::io::Result<()> {"
@@ -337,35 +337,35 @@ log = "/out/logs/verify-1.log"
 distinct_lint_locations = 15
 
 [continuation_lint.1]
-file = "tests/repair_22_33_1563.rs"
+file = "tests/withdrawal_outcome_binding.rs"
 line = 6
 column = 5
 lint = "clippy::doc_markdown"
 repair = "Put the named Rust items in backticks in the existing test documentation."
 
 [continuation_lint.2]
-file = "tests/repair_22_33_1563.rs"
+file = "tests/withdrawal_outcome_binding.rs"
 line = 7
 column = 5
 lint = "clippy::doc_markdown"
 repair = "Put the named Rust items in backticks in the existing test documentation."
 
 [continuation_lint.3]
-file = "tests/repair_22_33_1563.rs"
+file = "tests/withdrawal_outcome_binding.rs"
 line = 8
 column = 5
 lint = "clippy::doc_markdown"
 repair = "Put the named Rust items in backticks in the existing test documentation."
 
 [continuation_lint.4]
-file = "tests/repair_22_33_1563.rs"
+file = "tests/withdrawal_outcome_binding.rs"
 line = 9
 column = 145
 lint = "clippy::doc_markdown"
 repair = "Put the named Rust items in backticks in the existing test documentation."
 
 [continuation_lint.5]
-file = "tests/repair_22_33_1563.rs"
+file = "tests/withdrawal_outcome_binding.rs"
 line = 9
 column = 174
 lint = "clippy::doc_markdown"
@@ -386,42 +386,42 @@ lint = "clippy::too_many_lines"
 repair = "Extract pin refusal and receipt binding refusal helpers, invoked by the existing test with the same fixture inputs and every original assertion."
 
 [continuation_lint.8]
-file = "tests/repair_22_33_1562.rs"
+file = "tests/export_terminal_refusals.rs"
 line = 6
 column = 44
 lint = "clippy::doc_markdown"
 repair = "Put the named Rust items in backticks in the existing test documentation."
 
 [continuation_lint.9]
-file = "tests/repair_22_33_1562.rs"
+file = "tests/export_terminal_refusals.rs"
 line = 7
 column = 5
 lint = "clippy::doc_markdown"
 repair = "Put the named Rust items in backticks in the existing test documentation."
 
 [continuation_lint.10]
-file = "tests/repair_22_33_1562.rs"
+file = "tests/export_terminal_refusals.rs"
 line = 8
 column = 5
 lint = "clippy::doc_markdown"
 repair = "Put the named Rust items in backticks in the existing test documentation."
 
 [continuation_lint.11]
-file = "tests/repair_22_33_1562.rs"
+file = "tests/export_terminal_refusals.rs"
 line = 9
 column = 40
 lint = "clippy::doc_markdown"
 repair = "Put the named Rust items in backticks in the existing test documentation."
 
 [continuation_lint.12]
-file = "tests/repair_22_33_1562.rs"
+file = "tests/export_terminal_refusals.rs"
 line = 10
 column = 5
 lint = "clippy::doc_markdown"
 repair = "Put the named Rust items in backticks in the existing test documentation."
 
 [continuation_lint.13]
-file = "tests/repair_22_33_1562.rs"
+file = "tests/export_terminal_refusals.rs"
 line = 11
 column = 9
 lint = "clippy::doc_markdown"
@@ -468,7 +468,7 @@ file = "tests/native_terminal_outcome.rs"
 count = 1
 
 [bounded_remaining_file.2]
-file = "tests/repair_22_31_226.rs"
+file = "tests/certificate_retirement.rs"
 count = 2
 
 [bounded_remaining_file.3]
@@ -483,14 +483,14 @@ lint = "clippy::too_many_lines"
 status = "unrepaired; bounded gate budget spent"
 
 [bounded_remaining_lint.2]
-file = "tests/repair_22_31_226.rs"
+file = "tests/certificate_retirement.rs"
 line = 2
 column = 5
 lint = "clippy::doc_markdown"
 status = "unrepaired; bounded gate budget spent"
 
 [bounded_remaining_lint.3]
-file = "tests/repair_22_31_226.rs"
+file = "tests/certificate_retirement.rs"
 line = 2
 column = 55
 lint = "clippy::doc_markdown"
@@ -527,14 +527,14 @@ lint = "clippy::too_many_lines"
 repair = "Split the original test into named helpers for complete maintenance receipts, terminal receipt tampering, batch binding, and maintenance authority tampering; invoke every helper from the original test with identical evidence and assertions."
 
 [attempt_3_lint.2]
-file = "tests/repair_22_31_226.rs"
+file = "tests/certificate_retirement.rs"
 line = 2
 column = 5
 lint = "clippy::doc_markdown"
 repair = "Wrap guarantor_only_success_cannot_yield_committed in documentation backticks."
 
 [attempt_3_lint.3]
-file = "tests/repair_22_31_226.rs"
+file = "tests/certificate_retirement.rs"
 line = 2
 column = 55
 lint = "clippy::doc_markdown"
@@ -598,26 +598,26 @@ build_reference = "/out/run/gates.jsonl: build row 2, revision cbb178071e03e604f
 remaining_distinct_lint_locations = 4
 
 [attempt_3_lint.8]
-file = "tests/repair_22_33_1557.rs"
+file = "tests/receipt_evidence_exports.rs"
 line = 2
 column = 21
 lint = "clippy::doc_markdown"
-repair = "Wrap the existing src/repair_22_33_1557.kvx documentation path in backticks."
+repair = "Wrap the existing spec/layerx-merge/programme/records/services/agent/crates/layerx-proof/src/repair_22_33_1557.kvx documentation path in backticks."
 
 [attempt_3_lint.9]
-file = "tests/repair_22_33_1557.rs"
+file = "tests/receipt_evidence_exports.rs"
 line = 232
 lint = "clippy::expect_used"
 repair = "Replace expect_err with err().unwrap_or_else and the same failure panic; the original SequencerSignature assertion still requires an error and checks its exact class."
 
 [attempt_3_lint.10]
-file = "tests/repair_22_33_1557.rs"
+file = "tests/receipt_evidence_exports.rs"
 line = 259
 lint = "clippy::clone_on_copy"
 repair = "Copy the same AuthorizedBatch value directly into ReceiptFact without calling clone."
 
 [attempt_3_lint.11]
-file = "tests/repair_22_33_1557.rs"
+file = "tests/receipt_evidence_exports.rs"
 line = 313
 lint = "clippy::format_collect"
 repair = "Write the same two-digit lowercase identifier bytes into a preallocated String with checked write! calls, keeping the checkpoint-selector refusal assertion unchanged."
@@ -635,7 +635,7 @@ status = "Stopped at the enforced repair budget; task remains in_progress and no
 assertions = "No test is removed, skipped, ignored, weakened or expected to fail; every original assertion remains in the executing test or its called helper."
 
 [attempt_3_last_reported_file.1]
-file = "tests/repair_22_33_1557.rs"
+file = "tests/receipt_evidence_exports.rs"
 count = 4
 lints = ["clippy::doc_markdown", "clippy::expect_used", "clippy::clone_on_copy", "clippy::format_collect"]
 repair_status = "All four source repairs are applied and formatted after the last verification; qualification is unavailable within this attempt's enforced budget."
@@ -659,7 +659,7 @@ lint = "clippy::doc_markdown"
 repair = "Retain backticks around ProtocolReceipt in the canonical layout documentation."
 
 [attempt_4_lint.2]
-file = "tests/repair_22_33_1557.rs"
+file = "tests/receipt_evidence_exports.rs"
 line = 2
 lint = "clippy::doc_markdown"
 repair = "Retain backticks around the repair record path in the test documentation."
@@ -671,19 +671,19 @@ lint = "clippy::too_many_lines"
 repair = "Retain verified_state_for_roots and assert_uncommitted_proof_rungs as named helpers called by the original test; all original level, rung and root assertions execute with the same inputs."
 
 [attempt_4_lint.4]
-file = "tests/repair_22_33_1557.rs"
+file = "tests/receipt_evidence_exports.rs"
 line = 232
 lint = "clippy::expect_used"
 repair = "Match the actual from_receipt_keys result: Err supplies the check for the original SequencerSignature assertion, and Ok panics with the original absent receipt-key pins reason."
 
 [attempt_4_lint.5]
-file = "tests/repair_22_33_1557.rs"
+file = "tests/receipt_evidence_exports.rs"
 line = 259
 lint = "clippy::clone_on_copy"
 repair = "Retain direct copying of AuthorizedBatch into ReceiptFact."
 
 [attempt_4_lint.6]
-file = "tests/repair_22_33_1557.rs"
+file = "tests/receipt_evidence_exports.rs"
 line = 313
 lint = "clippy::format_collect"
 repair = "Retain checked write! calls into a preallocated String for the same two-digit lowercase identifier bytes and unchanged checkpoint-selector refusal assertion."
