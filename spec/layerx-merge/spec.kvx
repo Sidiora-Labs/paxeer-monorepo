@@ -13912,6 +13912,12 @@ value = "The build command of task 22.39.498 is the pip install of tests/bridge/
 basis = "Gotcha 4379 and gotcha 4378. The build command of task 22.39.499 installs the same file."
 affects = []
 
+[decision.3467]
+title = "The build command of task 22.39.511 fetches the Rust and Go packages that make paxeer-manifest-lint reads"
+value = "The build command of task 22.39.511 is make paxeer-tools-install with the silent option, then cargo fetch with the locked option for each of the thirteen manifests of the list PAXEER_LOCKED_RUST_MANIFESTS, then go mod download in tools/hpx/registry, sdk/cosmovisor and sdk/ics23. The verification command, the paths and the do items of the task stay as they are."
+basis = "Gotcha 4380. The lint target runs cargo clippy with the offline option."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -327416,7 +327422,7 @@ symbols = []
 touches = ["go.mod", "go.sum", "tools/hpx/registry", "core/deps/cosmwasm/packages/go-gen", "tools/hyperfide/tests/fixtures", "services/platform/hosted/gateway/tests", "apps/launchpad/web/src/widgets/rewards", ".golangci.yml", "Makefile", "contracts/src/xweb/examples/ApiConsumer.sol", "contracts/test/XWebConsumer.t.sol"]
 tests = []
 planned_paths = ["tools/hpx/registry/repair_22_39_511.kvx"]
-build_cmd = "make -s paxeer-tools-install"
+build_cmd = "make -s paxeer-tools-install && for m in tests/fixtures/example/cosmwasm/cw1155 tests/fixtures/example/cosmwasm/cw20 tests/fixtures/example/cosmwasm/cw721 tests/fixtures/example/cosmwasm/echo tests/fixtures/example/cosmwasm/iter tools/benchmark/loadtest/contracts/jupiter tools/benchmark/loadtest/contracts/mars tools/benchmark/loadtest/contracts/saturn tools/benchmark/loadtest/contracts/venus tests/fixtures/example/cosmwasm/parallelization/bank tests/fixtures/example/cosmwasm/parallelization/staking tests/fixtures/example/cosmwasm/parallelization/wasm wasm-runtime/libwasmvm; do cargo fetch --locked --manifest-path $m/Cargo.toml || exit 1; done && for d in tools/hpx/registry sdk/cosmovisor sdk/ics23; do (cd $d && go mod download) || exit 1; done"
 verify_cmd = "test -s tools/hpx/registry/repair_22_39_511.kvx && make -s paxeer-manifest-lint && GOPROXY=off go mod tidy -diff && cd tools/hpx/registry && GOPROXY=off go build ./..."
 gate_kind = "planned"
 sandbox_profile = "go-cgo"

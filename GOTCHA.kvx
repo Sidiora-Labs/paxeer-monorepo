@@ -21720,3 +21720,8 @@ fix = "The build command of a task whose verification runs make agent-test runs 
 title = "One library test of the agent daemon runs a Python file that imports cryptography"
 symptom = "The library test receipt_reference_reaches_recovery_consumer of services/agent/crates/layerx-agentd runs tools/qualification/paxeer-x/mcp_daemon_revocation.py with python3. That file imports the package cryptography. The target agent-build of the Makefile installs no Python package."
 fix = "The build command of a task whose verification runs make agent-test installs the packages of tests/bridge/requirements.txt with pip first; that file names cryptography. The build command of task 22.39.498 does."
+
+[gotcha.4380]
+title = "The target paxeer-manifest-lint reads Rust and Go packages that the tools install does not fetch"
+symptom = "The target paxeer-manifest-lint of the Makefile runs cargo clippy with the offline option over the thirteen package manifests of the list PAXEER_LOCKED_RUST_MANIFESTS, and go vet with the module proxy off in the three directories of the list PAXEER_NESTED_GO_DIRS. The manifest tests/fixtures/example/cosmwasm/cw1155/Cargo.toml names two packages by a git address. The target paxeer-tools-install fetches none of these packages."
+fix = "The build command of a task whose verification runs make paxeer-manifest-lint fetches the packages first: cargo fetch with the locked option for each manifest of the first list and go mod download in each directory of the second. The target paxeer-manifest-install does both and installs the npm packages as well. The build command of task 22.39.511 fetches them."
