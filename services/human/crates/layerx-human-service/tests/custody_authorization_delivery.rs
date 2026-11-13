@@ -1,14 +1,4 @@
-//! Repair record 22.31.152, audit 22.30.103, acceptance 22998.1.
-//! funding-authorization-refused: `funding_authorization_round_trips_and_recovers`.
-//! export-key-loss: `export_delivery_recovers_lost_reply_and_failed_marker`.
-//! remote-native-signature-gap: `remote_native_admission_refuses_before_discovery`; `attestor_native_consent_still_signs`.
-//! Baseline not run: the ordered implementation/build/hf-done instructions prohibit a pre-implementation verification.
-//! Wiring request (Human domain 10): services/human/crates/layerx-human-service/src/server/agent_creation_native.rs must replace `authorize_send` and its 64-byte journal with `CustodySigner::authorize_send_transaction` and persist `SignedBankTransfer` raw bytes, hash and full 65-byte signature before submission; the legacy refusal stays until migration.
-//! Wiring request (Human domain 10): services/human/crates/layerx-human-service/src/security.rs must bind `ExportCeremony` to authenticated owner/recipient, return `export_primary_envelope` on retries despite audit failure, and call `acknowledge_primary_export` only after recipient decryption and durable retention.
-//! Wiring request (Human KMS domain 10): services/human/crates/layerx-human-kms/src/store.rs must defer managed-signing retirement to acknowledgement if signing during pending encrypted delivery is required; its existing v8 durable delivery survives retirement before acknowledgement.
-//! Wiring request (Human domain 10): services/human/crates/layerx-human-service/src/server/production_components.rs must propagate kms-unsupported-native-consent instead of replacing the startup refusal with a generic message; operation discovery must stay behind successful startup.
-//! Gotcha: `NativeSendPurposeV1` is already explicitly retired by layerx-agent-api; the retained working attestor proof uses the valid preparation-purpose producer, without changing that external interface.
-//! Scope forbids spec/GOTCHA edits; finding/test mapping, baseline limitation and wiring are retained here. Gate evidence is retained by hf-build/hf-done at the candidate revision.
+//! Custody authorization, encrypted key delivery and native consent preserve owner binding.
 
 #[allow(dead_code)]
 mod cluster {

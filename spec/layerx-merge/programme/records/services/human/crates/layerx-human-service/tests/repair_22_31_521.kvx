@@ -39,12 +39,12 @@ symbol = "decide_at"
 change = "Unreleased hold get fourth argument reads boundary.decision_time()"
 
 [site.notification_approval]
-path = "services/human/crates/layerx-human-service/tests/repair_22_31_159.rs"
+path = "services/human/crates/layerx-human-service/tests/approval_asset_domains.rs"
 symbol = "AgentdBoundary::approval"
 change = "ApprovalService::get fourth argument reads self.decision_time()"
 
 [site.notification_round_trip]
-path = "services/human/crates/layerx-human-service/tests/repair_22_31_159.rs"
+path = "services/human/crates/layerx-human-service/tests/approval_asset_domains.rs"
 symbol = "round_trip"
 change = "Initial hold get fourth argument reads boundary.decision_time()"
 
@@ -55,7 +55,7 @@ change = "Compile a real signed LxpSend intent as journey_faults.rs does and pas
 reason = "Attempt 3 ruling and gotcha 3102: call-bound disclosure rejects the old arbitrary ledger payload as malformed"
 
 [site.timed_hold_setup]
-paths = ["services/human/crates/layerx-human-service/tests/decide_nonces.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_159.rs"]
+paths = ["services/human/crates/layerx-human-service/tests/decide_nonces.rs", "services/human/crates/layerx-human-service/tests/approval_asset_domains.rs"]
 symbols = ["decide_at", "round_trip"]
 change = "Use hold_at with the existing sequence windows wrapped in ApprovalSequence and the boundary StepClock reading for admission; the retired sequence-only hold entry returns ClockRequired"
 
@@ -71,10 +71,10 @@ repair = "Pass the established boundary clock reading to hold_at in both fixture
 results = "Authoritative results are the build and verify rows in the private ledger; each records the exact candidate revision, command, exit code and log"
 private_ledger = "/out/run/gates.jsonl"
 verified_revision = "/out/run/gates.jsonl: last kind=verify row, revision field"
-build_command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test decide_nonces --test repair_22_31_159"
+build_command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test decide_nonces --test approval_asset_domains"
 build_result = "/out/run/gates.jsonl: last kind=build row"
 build_log = "/out/run/gates.jsonl: last kind=build row, log field"
-verify_command = "cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test decide_nonces --test repair_22_31_159"
+verify_command = "cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test decide_nonces --test approval_asset_domains"
 verify_gate = "cg spec done 22.31.521 -f layerx-merge --root /work/paxeer-monorepo"
 verify_result = "/out/run/gates.jsonl: last kind=verify row"
 verify_log = "/out/run/gates.jsonl: last kind=verify row, log field"
@@ -94,13 +94,13 @@ observed = "Both nonce cases pass; the three 159 cases fail because AgentStore r
 repair = "Create the stream directory with DirBuilderExt::mode(0o700), as component_frame.rs does; preserve all store checks and assertions"
 
 [site.notification_private_store]
-path = "services/human/crates/layerx-human-service/tests/repair_22_31_159.rs"
+path = "services/human/crates/layerx-human-service/tests/approval_asset_domains.rs"
 symbol = "round_trip"
 change = "Create the agent stream directory with mode 0700 required by the real AgentStore"
 
 [attempt_2.gate_result.build]
 revision = "cc5be133e37707e2c007ae16d7f20a46affb8c88"
-command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test decide_nonces --test repair_22_31_159"
+command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test decide_nonces --test approval_asset_domains"
 exit = 0
 log = "/out/logs/build-1.log"
 
@@ -111,9 +111,9 @@ exit = 1
 log = "/out/logs/verify-1.log"
 
 [attempt_2.qualification]
-verify_command = "cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test decide_nonces --test repair_22_31_159"
+verify_command = "cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test decide_nonces --test approval_asset_domains"
 verify_exit = 101
-observed = "Both decide_nonces cases fail at the unchanged pending_nonce(7, 7) preparation with Disclosure(MalformedPayload), before any changed decision-time call; Cargo stops before repair_22_31_159 executes."
+observed = "Both decide_nonces cases fail at the unchanged pending_nonce(7, 7) preparation with Disclosure(MalformedPayload), before any changed decision-time call; Cargo stops before approval_asset_domains executes."
 assumption = "The existing preparation fixture failure is unrelated to the decision-time signature repair; its preparation and assertions remain unchanged under the instruction to record unrelated failures without chasing them."
 status = "implemented_not_qualified"
 
@@ -127,7 +127,7 @@ evidence_policy = "The private ledger records results after each gate without ch
 
 [attempt_5.gate_result.build]
 revision = "f7ff48f3d6bf68f4d07b972c6a1619a4cfb3f7c3"
-command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test decide_nonces --test repair_22_31_159"
+command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test decide_nonces --test approval_asset_domains"
 exit = 0
 log = "/out/logs/build-1.log"
 
@@ -136,13 +136,13 @@ revision = "f7ff48f3d6bf68f4d07b972c6a1619a4cfb3f7c3"
 command = "cg spec done 22.31.521 -f layerx-merge --root /work/paxeer-monorepo"
 exit = 1
 log = "/out/logs/verify-1.log"
-observed = "Both nonce cases pass; all three 159 cases pass store creation and fail the existing assert!(!delivery.payload().contains(\"Amount:\")) at repair_22_31_159.rs:265; Cargo exits 101"
+observed = "Both nonce cases pass; all three 159 cases pass store creation and fail the existing assert!(!delivery.payload().contains(\"Amount:\")) at approval_asset_domains.rs:265; Cargo exits 101"
 assumption = "The pre-existing notification payload assertion is unrelated to decision time or recursive private directory creation; preserve it, record the failure without chasing it, and leave the task implemented_not_qualified"
 
 [attempt_6.qualification]
 base_revision = "124f642568ebfdb55ed2a6180eea61c06c4516b5"
 decision = "2580 supersedes attempt_5.gate_result.verify's instruction to preserve the obsolete text-channel assertion: 22.31.523 added approval binding lines"
-change = "When text contains Amount:, require the exact base-unit Amount line immediately followed by the exact Asset line, matching repair_22_31_523.rs; always reject the rendered amount-space-asset money form; retain the JSON assertion and every other assertion"
+change = "When text contains Amount:, require the exact base-unit Amount line immediately followed by the exact Asset line, matching approval_disclosure_assets.rs; always reject the rendered amount-space-asset money form; retain the JSON assertion and every other assertion"
 retained = "All eight decision-time sites, StepClock readings, compiled send payload, verified budget boundary, recursive 0700 stream root and nonce assertions stand"
 build_result = "/out/run/gates.jsonl: last kind=build row records exact revision, command, exit and private log"
 verify_result = "/out/run/gates.jsonl: last kind=verify row records exact verified revision, command, exit and private log"

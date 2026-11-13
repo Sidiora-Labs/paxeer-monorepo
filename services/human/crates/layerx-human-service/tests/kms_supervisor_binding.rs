@@ -1,18 +1,4 @@
-//! Repair record 22.33.62 / audit 22.30.107 / acceptance 22998.1.
-//! kms-process-clock-not-forwarded: `explicit_supervisor_binding_survives_child_environment_clear`;
-//! `startup_refusals_and_chain_snapshot_round_trip_use_the_real_provider`.
-//! kms-process-network-disagreement: `startup_refusals_and_chain_snapshot_round_trip_use_the_real_provider`.
-//! Baseline: the repair target and prior implementation are absent on this checkout;
-//! the earlier attempt stopped in `observed_balances_denom` before verification (gotcha 2974).
-//! No unchanged-tree verify ran: the task's ordered implementation/build/hf-done rules prohibit it.
-//! Scope excludes spec/GOTCHA edits; this record holds the finding/test mapping.
-//! The runner records the verified candidate revision and private gate evidence.
-//! Qualification repair: production startup must supply `RemoteKmsProvider`'s
-//! authenticated absolute-deadline transport; a refused TCP connection is its
-//! exact kms-timeout error, rather than a configuration-stage refusal.
-//! Qualification repair: Rustix 1.1.4 converts `SocketAddrAny` via `TryFrom`, not `as_socket`.
-//! No out-of-path wiring is required. Peers use committed TLS material, the real
-//! supervisor clock server and the real KMS provider/store, entirely in process.
+//! KMS startup and transport retain authenticated supervisor and chain bindings.
 
 #[allow(dead_code)]
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]

@@ -235,7 +235,7 @@ fn commit_proof() -> BankCommitEvidence {
 }
 
 #[test]
-fn doc_13_native_bank_call_uses_the_sender_pending_nonce() {
+fn native_bank_call_uses_the_sender_pending_nonce() {
     let node = RpcPeer::start(|request| {
         assert_eq!(request["method"], "eth_getTransactionCount");
         assert_eq!(request["params"], json!([hex(&sender()), "pending"]));
@@ -335,7 +335,7 @@ fn doc_13_native_bank_call_uses_the_sender_pending_nonce() {
 }
 
 #[test]
-fn doc_13_committed_receipt_requires_batch_quorum_and_inclusion() {
+fn committed_receipt_requires_batch_quorum_and_inclusion() {
     let node = RpcPeer::receipts();
     let document = transcript();
     let raw = unhex(
@@ -436,7 +436,7 @@ fn doc_13_committed_receipt_requires_batch_quorum_and_inclusion() {
 }
 
 #[test]
-fn doc_13_settings_targets_and_retirement_match_production() {
+fn settings_targets_and_retirement_match_production() {
     let schema = ApiSchema::v1().or_fail("real executable operation inventory");
     for name in [
         "binding.statement",
@@ -511,7 +511,10 @@ fn doc_13_settings_targets_and_retirement_match_production() {
         );
     }
     for (target, source) in [
-        ("repair_22_33_45", include_str!("repair_22_33_45.rs")),
+        (
+            "documented_service_contract",
+            include_str!("documented_service_contract.rs"),
+        ),
         (
             "agent_runtime_eip1559",
             include_str!("agent_runtime_eip1559.rs"),

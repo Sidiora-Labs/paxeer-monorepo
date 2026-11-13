@@ -1,16 +1,4 @@
-//! Repair 22.33.37 task record (acceptance 22998.1).
-//! archive-history-mutation: `archive_history_detects_replacement_and_missing_after_reopen`.
-//! control-state-restart: `completed_limit_retry_recovers_exact_authority_after_reopen`.
-//! reclaim-old-key-retry: `reclaim_exact_old_key_retry_survives_later_nonce_and_reopen`.
-//! spend-never-reconciles: `spend_uses_verified_budget_and_receipts_after_reopen`.
-//! recovery-production-gap: production recovery remains unavailable; the current chain
-//! lifecycle exposes policy registration but no supported recovery authority submission.
-//! Wiring request (authentication domain): modules/layerxauth/keeper/lifecycle.go must expose
-//! a supported chain recovery transition; `RecordLifecycle` currently admits only tags 1 and 3.
-//! Attempt 2 reported control and archive cases failing; reclaim and spend passed.
-//! Attempt 3 retains those cases and repairs receipt-version binding and retained-row write admission.
-//! Baseline verification was not run: implementation-first and hf-done-only gate order
-//! supersedes step 9's unchanged-tree verification; no baseline failures are claimed.
+//! Agent controls, archive history and spend projections retain authenticated evidence.
 
 pub mod canonical_owner {
     include!("support/canonical_owner.rs");
@@ -1741,7 +1729,14 @@ mod archive_proof {
         drop(scope);
         drop(journey);
         drop(store);
-        verify_retained_history(&root, digest, &principal, request.idempotency_key, &history, &completed);
+        verify_retained_history(
+            &root,
+            digest,
+            &principal,
+            request.idempotency_key,
+            &history,
+            &completed,
+        );
         verify_replaced_history(&root, digest, &principal, request.idempotency_key);
         drop(boundary);
         std::fs::remove_dir_all(root).or_fail("remove archive state");

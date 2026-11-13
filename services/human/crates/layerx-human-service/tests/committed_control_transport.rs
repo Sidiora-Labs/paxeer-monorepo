@@ -1,20 +1,4 @@
-//! Task 22.33.50; audit 22.30.106 finding 12; acceptance 22998.1.
-//! Finding 12: `finding12_recorded_paxd_receipt_transport_recovers_before_replay`,
-//! `finding12_committed_label_requires_retained_consensus_evidence`, and
-//! `finding12_control_transport_preserves_checkpoint_verification`.
-//! Closure is held if the real control interface cannot carry the verified evidence.
-//! The original local adversarial cases remain in `agent_controls_rungs.rs`.
-//! The inherited baseline failures are retained in `repair_22_33_50.kvx`; this
-//! continuation uses only the declared build and hf-done gates for qualification.
-//! FinalizationEvidence.verification carries the committed rung rank without `VerificationLevel` translation.
-//! Wiring request (node/consensus domain): daemon/committed-fixture must retain
-//! paxd control transactions, signed receipts, pinned keys, committed headers,
-//! validator votes and inclusion proofs for pause, resume, limit and archive.
-//! The available committed-payExact recording is never relabeled as a control.
-//! Scope forbids spec/GOTCHA edits; this record retains the mapping and wiring.
-//! Exact candidate revision and qualification evidence are recorded by the gates.
-//! Setup repair: paxd receipts use `AuthenticatedReceipt` ingress, not the legacy
-//! `AuthorizedBatch` outcome store, which rejects this operation shape.
+//! Receipt and control transports preserve consensus evidence and checkpoint verification.
 
 #[path = "support/committed_controls.rs"]
 mod committed_controls;
@@ -389,7 +373,7 @@ fn exchange<T: Send + 'static>(
 }
 
 #[test]
-fn finding12_recorded_paxd_receipt_transport_recovers_before_replay() {
+fn recorded_paxd_receipt_transport_recovers_before_replay() {
     let root = Directory::new("repair223350-replay");
     let agent_root = root.0.join("agent");
     let human_root = root.0.join("human");
@@ -476,7 +460,7 @@ fn assert_material(material: &ReceiptMaterial, frame: &ReceiptLookupFrame) {
 }
 
 #[test]
-fn finding12_committed_label_requires_retained_consensus_evidence() {
+fn committed_label_requires_retained_consensus_evidence() {
     let (_, fact, keys, consensus) = committed_controls::recorded_receipt();
     checked(EvidenceBundle::verify_receipt_with_consensus(
         &fact, &keys, &consensus,
@@ -563,7 +547,7 @@ fn control_seed(frame: &ReceiptLookupFrame) -> human::HumanAgentLifecycleSeed {
 }
 
 #[test]
-fn finding12_control_transport_preserves_checkpoint_verification() {
+fn control_transport_preserves_checkpoint_verification() {
     let root = Directory::new("repair223350-control-wire");
     let agent_root = root.0.join("agent");
     persist_recording(&agent_root);

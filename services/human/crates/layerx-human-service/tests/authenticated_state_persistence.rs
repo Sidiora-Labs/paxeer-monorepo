@@ -1,5 +1,4 @@
-//! Audit 22.30.104 regressions using durable stores, genuine `WebAuthn` signatures,
-//! the production session consumer, Unix framing and strict API response validation.
+//! Authenticated sessions, activity and key exports retain their bindings across restart.
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine as _;
 use ciborium::value::Value as CborValue;

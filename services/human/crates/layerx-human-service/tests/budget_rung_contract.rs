@@ -1,9 +1,4 @@
-//! Repair 22.31.462: persist one `Rung::wire_rank` byte and restore its level floor.
-//! No finer level byte is needed: the budget observation conveys rung achievement,
-//! and restarting must not infer evidence beyond the stored rung.
-//! Files: `agentd/src/{human_runtime.rs,managed_agent.rs`}, Human src/agents/{mod.rs,recovery.rs}, this test.
-//! Live consumers: Human `src/server/agent_runtime.rs` uses the same rung decoder.
-//! Qualification: hf-build, then hf-done; exact revision and logs are retained by those gates.
+//! Budget snapshots persist rung ranks and retain their verification floor across restart.
 
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
 mod runtime_clock_server;

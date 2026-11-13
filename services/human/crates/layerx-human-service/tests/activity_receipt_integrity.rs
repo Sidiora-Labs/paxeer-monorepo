@@ -102,7 +102,7 @@ fn artifact(fact: ReceiptFact) -> ReceiptExport {
 }
 
 #[test]
-fn finding4_full_cursor_same_block_duplicates_and_reopen() {
+fn full_cursor_same_block_duplicates_and_reopen() {
     let root = support::directory("repair2231156-full-cursor");
     let retention = support::retention_uniform(10000);
     let (mut store, digest) = support::install_and_open(
@@ -186,7 +186,7 @@ fn finding4_full_cursor_same_block_duplicates_and_reopen() {
 }
 
 #[test]
-fn finding4_filtered_height_jump_and_unseen_regression() {
+fn filtered_height_jump_and_unseen_regression() {
     let root = support::directory("repair2231156-height-gap");
     let (mut store, _) = support::install_and_open(
         &root,
@@ -221,7 +221,7 @@ fn finding4_filtered_height_jump_and_unseen_regression() {
 }
 
 #[test]
-fn finding4_legacy_height_migration_replays_the_last_block() {
+fn legacy_height_migration_replays_the_last_block() {
     let root = support::directory("repair2231156-legacy");
     let retention = support::retention_uniform(10000);
     let (mut store, digest) = support::install_and_open(
@@ -297,7 +297,7 @@ fn finding4_legacy_height_migration_replays_the_last_block() {
 }
 
 #[test]
-fn finding5_rung_only_mutation_cannot_upgrade_a_signed_receipt() {
+fn rung_only_mutation_cannot_upgrade_a_signed_receipt() {
     let (id, mut fact, keys, consensus) = recorded_receipt();
     let principal = support::principal("alice");
     fact.committed = None;
@@ -391,7 +391,7 @@ fn assert_committed_tampering_refused(
 }
 
 #[test]
-fn finding5_real_committed_evidence_export_decode_reopen_and_tamper() {
+fn real_committed_evidence_export_decode_reopen_and_tamper() {
     let (id, fact, keys, consensus) = recorded_receipt();
     let root = support::directory("repair2231156-committed-export");
     let retention = support::retention_uniform(10000);
@@ -479,7 +479,7 @@ fn finding5_real_committed_evidence_export_decode_reopen_and_tamper() {
 }
 
 #[test]
-fn finding6_real_producer_receipt_header_inclusion_roundtrip() {
+fn real_producer_receipt_header_inclusion_roundtrip() {
     let (id, mut receipt, keys, _) = recorded_receipt();
     receipt.rung = Rung::Receipted;
     receipt.committed = None;
@@ -537,7 +537,7 @@ fn finding6_real_producer_receipt_header_inclusion_roundtrip() {
 }
 
 #[test]
-fn finding6_artifact_only_keys_and_unrelated_roots_are_refused() {
+fn artifact_only_keys_and_unrelated_roots_are_refused() {
     let (_, mut receipt, keys, _) = recorded_receipt();
     receipt.committed = None;
     receipt.rung = Rung::Receipted;

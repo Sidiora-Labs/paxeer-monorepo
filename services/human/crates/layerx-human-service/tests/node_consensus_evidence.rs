@@ -415,7 +415,7 @@ fn acquire(server: &RpcServer) -> (ActivityEntryId, ReceiptFact, Vec<ReceiptKeyE
 }
 
 #[test]
-fn finding13_node_heights_multiple_transactions_and_authenticated_roots() {
+fn node_heights_multiple_transactions_and_authenticated_roots() {
     let (state, server) = start();
     let (_, fact, keys) = acquire(&server);
     for target in ["height", "data_root", "result_root", "batch", "commit"] {
@@ -492,7 +492,7 @@ fn delivery_and_meaning(
 }
 
 #[test]
-fn finding13_node_evidence_survives_store_restart_and_transport_replay() {
+fn node_evidence_survives_store_restart_and_transport_replay() {
     let (_, server) = start();
     let (id, fact, keys) = acquire(&server);
     let root = support::directory("repair223351-restart");
@@ -581,7 +581,7 @@ fn finding13_node_evidence_survives_store_restart_and_transport_replay() {
 }
 
 #[test]
-fn finding13_unrecorded_transactions_cannot_receive_fabricated_commitment() {
+fn unrecorded_transactions_cannot_receive_fabricated_commitment() {
     let (_, server) = start();
     let endpoint = SequencerEndpoint::new(&server.url, &[]).or_fail("endpoint");
     assert!(
@@ -593,7 +593,7 @@ fn finding13_unrecorded_transactions_cannot_receive_fabricated_commitment() {
 }
 
 #[test]
-fn finding13_rpc_height_mutation_is_rejected_by_the_production_reader() {
+fn rpc_height_mutation_is_rejected_by_the_production_reader() {
     for (height, refusal) in [
         ("0x58", ReceiptError::Sequencer(SequencerError::Malformed)),
         ("0x9", ReceiptError::FieldMismatch("height")),
@@ -623,7 +623,7 @@ fn finding13_rpc_height_mutation_is_rejected_by_the_production_reader() {
 }
 
 #[test]
-fn finding13_receipt_key_identity_and_authority_are_required() {
+fn receipt_key_identity_and_authority_are_required() {
     let (_, server) = start();
     let endpoint = SequencerEndpoint::new(&server.url, &[]).or_fail("endpoint");
     let original = NodeRecording::open();
@@ -658,7 +658,7 @@ fn finding13_receipt_key_identity_and_authority_are_required() {
 }
 
 #[test]
-fn finding13_corrupted_node_signature_is_rejected_over_transport() {
+fn corrupted_node_signature_is_rejected_over_transport() {
     let mut recording = NodeRecording::open();
     let hash = fixed(&recording.receipt()["txHash"]);
     let mut signed = bytes(&recording.receipt()["receipt"]);

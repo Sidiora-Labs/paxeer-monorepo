@@ -483,7 +483,7 @@ fn assert_delayed_updates(
 }
 
 #[test]
-fn finding_10_completed_journey_ignores_delayed_tracking_after_restart() {
+fn completed_journey_ignores_delayed_tracking_after_restart() {
     let mut fixture = Fixture::new("repair-22-33-49-delayed");
     let mut scope = fixture
         .store
@@ -652,7 +652,7 @@ fn assert_completed_registration(fixture: &mut Fixture) {
 }
 
 #[test]
-fn finding_8_receipt_only_adapter_is_retired_and_native_activation_requires_commit() {
+fn receipt_only_adapter_is_retired_and_native_activation_requires_commit() {
     let mut fixture = Fixture::new("repair-22-33-49-rungs");
     let mut scope = fixture
         .store
@@ -853,7 +853,7 @@ fn assert_refused_before_restart(
 }
 
 #[test]
-fn finding_9_failed_did_and_recovery_registrations_stay_refused_after_restart() {
+fn failed_did_and_recovery_registrations_stay_refused_after_restart() {
     for failed_stage in [
         ProtocolStage::DidRegistration,
         ProtocolStage::RecoveryRegistration,
@@ -945,7 +945,7 @@ fn finding_9_failed_did_and_recovery_registrations_stay_refused_after_restart() 
 }
 
 #[test]
-fn finding_11_runtime_nonce_matches_both_durable_preparation_fields_after_restart() {
+fn runtime_nonce_matches_both_durable_preparation_fields_after_restart() {
     let mut fixture = Fixture::new("repair-22-33-49-nonce");
     let socket = fixture.root.join("nonce.sock");
     let pending_nonce = 17;
