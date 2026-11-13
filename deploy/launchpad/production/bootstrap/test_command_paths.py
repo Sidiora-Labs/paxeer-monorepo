@@ -112,7 +112,7 @@ class FixtureRpcHandler(BaseHTTPRequestHandler):
 def test_bootstrap_command_paths_real_smoke_client():
     smoke_command = documented_commands()[3]
     spec = importlib.util.spec_from_file_location(
-        "bootstrap_smoke_repair_22_33_722", ROOT / smoke_command[1]
+        "bootstrap_smoke_client", ROOT / smoke_command[1]
     )
     smoke = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(smoke)

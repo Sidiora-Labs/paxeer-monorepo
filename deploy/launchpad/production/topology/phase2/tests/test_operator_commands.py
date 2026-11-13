@@ -21,7 +21,7 @@ from phase2 import v1
 from phase2.capacity import LOAD_FILES, load_capture_adapter
 from phase2.operator import Journal
 from phase2.providers import connected_plan, validate_connected_plan
-from phase2.tests.test_repair_22_31_313 import actual_adapter, connected_inputs
+from phase2.tests.test_runtime_adapter import actual_adapter, connected_inputs
 
 
 def documented_commands():

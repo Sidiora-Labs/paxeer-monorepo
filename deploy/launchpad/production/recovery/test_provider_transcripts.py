@@ -26,7 +26,7 @@ class TranscriptTransport:
 
     def __init__(self, root):
         self.root = root
-        self.fixture = r.load((ROOT / "testdata/repair_m718/providers.json").read_bytes())
+        self.fixture = r.load((ROOT / "testdata/provider_transcripts/providers.json").read_bytes())
         self.objects = {}
         self.calls = []
         self.version = self.fixture["versions"][0]
@@ -117,8 +117,8 @@ class TranscriptTransport:
         raise AssertionError("unrecorded archive operation: " + operation)
 
 
-class RepairM718(unittest.TestCase):
-    def test_repair_m718_opaque_version_round_trip(self):
+class ProviderTranscripts(unittest.TestCase):
+    def test_opaque_version_round_trip(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             credentials = root / "credentials"
@@ -166,7 +166,7 @@ class RepairM718(unittest.TestCase):
         # Run the production validator's negative boundaries too.
         contracts.Contracts("test_opaque_versions_remain_bound_to_inventory_and_trusted_manifest").debug()
 
-    def test_repair_m718_plain_directory_round_trip(self):
+    def test_plain_directory_round_trip(self):
         declaration = r.load((ROOT / "resources.json").read_bytes())
         r.resources(declaration)
         with tempfile.TemporaryDirectory() as directory:
@@ -225,7 +225,7 @@ class RepairM718(unittest.TestCase):
         contracts.Contracts("test_declarative_resources_cover_owned_requirements_without_claiming_activation").debug()
         contracts.Contracts("test_resource_validation_fails_closed_for_every_requirement_group").debug()
 
-    def test_repair_m718_command_paths(self):
+    def test_command_paths(self):
         text = (ROOT / "README.md").read_text()
         for obsolete in ("deploy/production/", "tools/production/"):
             self.assertNotIn(obsolete, text)

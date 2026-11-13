@@ -29,7 +29,7 @@ def documented_commands():
 
 @pytest.fixture(scope='module')
 def release_module():
-    spec = importlib.util.spec_from_file_location('repair_22_33_724_release', ROOT / RELEASE_PATH)
+    spec = importlib.util.spec_from_file_location('recovery_command_release', ROOT / RELEASE_PATH)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

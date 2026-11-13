@@ -16,7 +16,7 @@ from phase2.tests.test_operator import (
     connected_inputs,
     test_connected_render_binds_every_runtime_role,
 )
-from phase2.tests.test_repair_22_31_313 import actual_adapter
+from phase2.tests.test_runtime_adapter import actual_adapter
 
 
 def test_topology_connected_test_gap_real_client_to_operator_journal(connected_inputs, tmp_path):
