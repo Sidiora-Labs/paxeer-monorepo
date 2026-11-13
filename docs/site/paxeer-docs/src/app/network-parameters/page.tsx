@@ -10,20 +10,20 @@ export default function NetworkParameters() {
     <DocsLayout>
       <div className="page-header">
         <h1 className="page-title">Network Parameters</h1>
-        <p className="page-description">Chain identity, denominations, configurable defaults, and governance controls across Paxeer X.</p>
+        <p className="page-description">Chain identity, denominations, source defaults, and governance controls for Paxeer mainnet-beta.</p>
       </div>
 
       <DocArt name="chain-configuration" />
       <h2>Unified execution and application parameters</h2>
-      <p>Paxeer X retains chain ID 125 while joining EVM and Cosmos accounts to LayerX identity and kernel execution in one node. The address precompile’s <code>getUnifiedAccount</code> returns the related EVM address, Cosmos address, DID public key, and LayerX main account identifier. See the <Link href="/unified-network">network model</Link>.</p>
+      <p>Paxeer mainnet-beta uses EVM chain ID 125. The kernel runs inside <code>paxd</code>, and a receipt is final when its block is committed. The address precompile’s <code>getUnifiedAccount</code> returns an EVM address, associated Cosmos address, bound DID public key, and kernel main account identifier. An absent association returns an empty Cosmos address; an absent DID binding returns zero key and account fields. See the <Link href="/unified-network">network model</Link>.</p>
       <table><thead><tr><th>Parameter family</th><th>Controlled behavior</th></tr></thead><tbody>
         <tr><td>Bridge</td><td>Chain registry, attestor threshold, per-asset caps, and pause state</td></tr>
-        <tr><td>Launchpad</td><td>Quote denomination, virtual reserves, creation fee, fee bounds, decay, volatility and concentration weights, and protocol fee share</td></tr>
+        <tr><td>Launchpad</td><td>Quote token, virtual reserves, creation fee, fee bounds, decay, volatility and concentration weights, and protocol fee share</td></tr>
         <tr><td>Fee tokens</td><td>Approved fee denominations, rate age, spread limit, enablement, and distribution policy</td></tr>
         <tr><td>XWeb</td><td>Attestors, signature threshold, request fee, delivery limits, and pause controls</td></tr>
         <tr><td>Tenant domains</td><td><code>modules/layerxchains</code> namespaces state within the shared network. Creating a domain does not require new node infrastructure.</td></tr>
       </tbody></table>
-      <p>The pre-merge custody and anchor parameter families are not live governable families. <code>layerxVerify</code> (<code>0x1012</code>) and <code>layerxCustody</code> (<code>0x1013</code>) are retired at the merge. <code>layerxAnchor</code> (<code>0x1014</code>) rejects writes after the merge, and the retained anchor module refuses new checkpoint submissions. Guarantor threshold, bond, challenge, and unbonding parameters describe that retired protocol only.</p>
+      <p>Governance writes remain subject to each module’s active handlers and authority checks. Bridge registration, launchpad configuration, fee-token policy, and XWeb settings have distinct validation rules. Consensus commits establish finality for the integrated network.</p>
       <p><code>docs/system/chain-modules.md</code> in the monorepo lists parameter fields and <code>docs/system/governance.md</code> lists proposal types. Query the target network’s active values for financial decisions. See <Link href="/precompiles">native interfaces</Link>, <Link href="/assets">asset units</Link>, and <Link href="/bridge">bridge controls</Link>.</p>
 
       <h2>Chain Identifiers</h2>
@@ -36,15 +36,15 @@ export default function NetworkParameters() {
           <tr><td>Account prefix</td><td><code>pax1…</code></td></tr>
           <tr><td>Validator operator prefix</td><td><code>paxvaloper1…</code></td></tr>
           <tr><td>Binary / default home</td><td><code>paxd</code> / <code>~/.paxeer</code></td></tr>
-          <tr><td>Go module</td><td><code>github.com/Sidiora-Labs/Paxeer-X-Network</code></td></tr>
-          <tr><td>Repository</td><td><code>Sidiora-Labs/paxeer-monorepo</code>. The Go module path retains the <code>Paxeer-X-Network</code> name.</td></tr>
+          <tr><td>Node source</td><td><code>daemon/paxd/</code> and <code>node/</code> at the monorepo root</td></tr>
+          <tr><td>Module manifest</td><td><code>go.mod</code> at the monorepo root</td></tr>
         </tbody>
       </table>
-      <pre><code>{`EVM_RPC_URL=http://127.0.0.1:8545
+      <pre><code>{`# Set EVM_RPC_URL to the node JSON-RPC URL and CONSENSUS_NODE to its consensus RPC URL.
 curl -sS "$EVM_RPC_URL" -H 'Content-Type: application/json' \\
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
-paxd status --node tcp://127.0.0.1:26657`}</code></pre>
-      <p>Public node JSON-RPC uses the root URL <code>https://api-mainnet-beta.paxeer.network</code> or the numbered nodes <code>https://api1.mainnet-beta.paxeer.network</code> through <code>https://api14.mainnet-beta.paxeer.network</code>. Expected <code>eth_chainId</code> result is <code>0x7d</code>. Public namespaces are <code>debug</code>, <code>echo</code>, <code>eth</code>, <code>net</code>, <code>pax</code>, <code>test</code> and <code>txpool</code>. Method availability depends on node configuration. Configure more than one node and compare <code>eth_blockNumber</code> when selecting one near the head. <code>node.hyperpaxeer.com</code> is only the hpx library mirror used by build and installation tooling, never a JSON-RPC endpoint. See <Link href="/public-rpc">Public RPC</Link>.</p>
+paxd status --node "$CONSENSUS_NODE"`}</code></pre>
+      <p>Public node JSON-RPC uses the root path. The expected <code>eth_chainId</code> result is <code>0x7d</code>. Public node namespaces are <code>debug</code>, <code>echo</code>, <code>eth</code>, <code>net</code>, <code>pax</code>, <code>test</code> and <code>txpool</code>; availability depends on node configuration. Compare <code>eth_blockNumber</code> across configured nodes when selecting one near the head. See <Link href="/public-rpc">Public RPC</Link>.</p>
       <div className="source-note"><strong>Source:</strong> <code>tools/hpx/publish.sh</code>, <code>node/params/config.go</code>, <code>node/const.go</code>, <code>rpc/info.go</code>.</div>
 
       <h2>Native Denominations</h2>
@@ -56,11 +56,11 @@ paxd status --node tcp://127.0.0.1:26657`}</code></pre>
       <div className="source-note"><strong>Source:</strong> <code>node/params/config.go</code> — <code>UhpxExponent</code>; <code>modules/evm/state/utils.go</code> — <code>UhpxToSweiMultiplier</code>.</div>
 
       <h2>Query Current Parameters</h2>
-      <p>Query the connected network for its active governance, staking, slashing, and consensus parameters. Cosmos queries use the consensus RPC endpoint; EVM requests use the EVM JSON-RPC endpoint.</p>
-      <pre><code>{`paxd query staking params --node tcp://127.0.0.1:26657
-paxd query slashing params --node tcp://127.0.0.1:26657
-paxd query gov params --node tcp://127.0.0.1:26657
-curl -sS http://127.0.0.1:26657/consensus_params`}</code></pre>
+      <p>Query the connected network for its active governance, staking, slashing, and consensus parameters. Cosmos queries use the consensus RPC endpoint; EVM requests use the EVM JSON-RPC endpoint. The examples use <code>CONSENSUS_NODE</code> for the CLI RPC URL and <code>CONSENSUS_HTTP_URL</code> for the consensus HTTP origin.</p>
+      <pre><code>{`paxd query staking params --node "$CONSENSUS_NODE"
+paxd query slashing params --node "$CONSENSUS_NODE"
+paxd query gov params --node "$CONSENSUS_NODE"
+curl -sS "\${CONSENSUS_HTTP_URL:?Set the consensus HTTP origin}/consensus_params"`}</code></pre>
       <table>
         <thead><tr><th>Default parameter</th><th>Value</th><th>Meaning</th></tr></thead>
         <tbody>
@@ -83,8 +83,8 @@ curl -sS http://127.0.0.1:26657/consensus_params`}</code></pre>
       <h2>Performance and Endpoints</h2>
       <p>Track block interval using block timestamps, throughput using transactions per block, and RPC latency using request metrics. Record the node revision and workload when comparing measurements.</p>
       <p>Use the RPC endpoint supplied by your node operator. The <Link href="/admin-hpx">HPX distribution and peer registry</Link> supplies chain metadata and peer information for its configured network. The hosted gateway <code>px_</code> API is separate from public node JSON-RPC. Obtain its URL and credentials from the operator.</p>
-      <h2>LayerX Integration</h2>
-      <p>Paxeer chain parameters govern L1 transactions. For applications that also use LayerX activities and receipts, see <Link href="/paxeer-vs-layerx">Paxeer and LayerX</Link> for the integration architecture.</p>
+      <h2>Kernel Integration</h2>
+      <p>The node executes EVM transactions and kernel activities within one BFT network. <code>modules/lxphost/</code> connects kernel execution to the chain. See <Link href="/paxeer-vs-layerx">Paxeer and LayerX</Link> for the integrated architecture.</p>
 
       <div className="prev-next">
         <Link href="/paxeer-vs-layerx"><div className="prev-next-label">Previous</div><div className="prev-next-title">Paxeer and LayerX</div></Link>

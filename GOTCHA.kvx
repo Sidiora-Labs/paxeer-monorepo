@@ -21595,3 +21595,8 @@ fix = "A change of a page is followed by npm run prepare:docs. Tasks 22.41.101 t
 title = "The migrations of the launchpad services lie in the migrations directory at the repository root"
 symptom = "The directory migrations at the repository root holds the SQLite schemas of the projection tooling. Task 22.41.115 moves the SQL migrations of the launchpad services and the JSON files beside them into it from launchpad/spec/production-system/integration/migrations, and sources and tests name the directory by its path from the repository root."
 fix = "A reference to the former path is written as migrations, and a directory of the same name under services or tools is a different directory."
+
+[gotcha.4355]
+title = "The page list of the documentation site includes the home page"
+symptom = "The files named page.tsx under docs/site/paxeer-docs/src/app include the home page docs/site/paxeer-docs/src/app/page.tsx, which lies in no route directory, beside one page in each route directory."
+fix = "A reading of the pages of the site reads the home page as well. Task 22.41.117 reads the home page and the programs page."

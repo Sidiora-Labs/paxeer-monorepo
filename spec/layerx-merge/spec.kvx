@@ -13738,6 +13738,12 @@ value = "Task 22.41.116 writes the files .neron and package.kvx at the repositor
 basis = "A digest or a revision written into the tree goes stale with the next change, and an installation resolves it."
 affects = []
 
+[decision.3438]
+title = "The home page and the programs page of the site are read against the tree, and the scopes of the root files follow the tree"
+value = "Task 22.41.117 reads docs/site/paxeer-docs/src/app/page.tsx and docs/site/paxeer-docs/src/app/programs/page.tsx against the tree, corrects their text content and regenerates the derived files of the site. Task 22.41.118 brings the scopes and the mount paths of the files .neron and package.kvx at the repository root in line with the directories and root files that the tree holds after task 22.41.115."
+basis = "Every page of the site is read once, and a scope names what the tree holds."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43398,6 +43404,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.41.118]
+title = "Bring the scopes of the root source configuration and environment package in line with the tree"
+reqs = ["22998.1"]
+touches = [".neron", "package.kvx"]
+tests = []
+verification_contract = "test -s .neron && test -s package.kvx && test ! -e launchpad && ! grep -q '[^/a-z-]launchpad/[*][*]' .neron package.kvx"
+do_1 = "do_1 Decision 3438. The files .neron and package.kvx at the repository root list directories and root files in their read scope, their write scope and their mount paths. Task 22.41.115 removed the directory launchpad at the repository root; its files lie in the directory migrations."
+symbols = []
+
+[capability.22.41.117]
+title = "Correct the text of the home page and the programs page of the documentation site and regenerate the derived files"
+reqs = ["22998.1"]
+touches = ["docs/site"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/docs/review/22.41.117.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.117.kvx && npm --prefix docs/site/paxeer-docs run build && test -s docs/site/paxeer-docs/out/index.html"
+do_1 = "do_1 Decision 3438, gotcha 4355. The pages of this task are docs/site/paxeer-docs/src/app/page.tsx and docs/site/paxeer-docs/src/app/programs/page.tsx. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+symbols = []
 
 [capability.22.41.116]
 title = "Write the source configuration and the environment package of the repository root"
@@ -165799,6 +165823,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.41.117]
+title = "Correct the text of the home page and the programs page of the documentation site and regenerate the derived files"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["22.41.114"]
+reqs = ["22998.1"]
+capabilities = ["22.41.117"]
+interfaces = []
+do_1 = "do_1 Decision 3438, gotcha 4355. The pages of this task are docs/site/paxeer-docs/src/app/page.tsx and docs/site/paxeer-docs/src/app/programs/page.tsx. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+do_2 = "do_2 Read both pages fully. For each thing a page states, look it up in the tree: each path of a file or a directory, each command with its options, each make target, each package and its install instruction, each name of a function, a type, a method, a route, a precompile, a configuration key and an environment variable, each port, chain identifier, endpoint, version and number, and each repository the page names. The sources, the manifests and the Makefiles govern; where the page differs, correct the page and never the source. A reference to a separate repository of a component that lies in this tree is written as the path in this tree. Remove a statement about a file, a command, a service or a feature that the tree does not hold. Write plainly and neutrally what the product does at present, with no history, no internal process, no credentials, no addresses of hosts and no personal data."
+do_3 = "do_3 Change the text content only: the prose, the tables, the code samples and the title and description strings of a page. Keep the components, the imports, the layout, the styling and the route of both pages as they are, and keep each page valid TSX. Then in docs/site/paxeer-docs run npm ci and npm run prepare:docs and commit the derived files under docs/site/paxeer-docs/public and docs/site/paxeer-docs/.generated as the generators write them, with no edit by hand. Do not commit the directories that the build writes. Change no file outside docs/site apart from the manifest. Delete, rename and move nothing. Before each commit read the output of git status."
+do_4 = "do_4 Write the manifest spec/layerx-merge/programme/docs/review/22.41.117.kvx in the form of the manifest spec/layerx-merge/programme/docs/review/22.41.43.kvx: a manifest section with the task and the number of pages and one page section with the path and the status reviewed or corrected for each of the two pages. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/docs/review/22.41.117.kvx"]
+build_cmd = "npm ci --prefix docs/site/paxeer-docs"
+verify_cmd = "test -s spec/layerx-merge/programme/docs/review/22.41.117.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.117.kvx && npm --prefix docs/site/paxeer-docs run build && test -s docs/site/paxeer-docs/out/index.html"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 75
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.41.114]
 title = "Regenerate the derived files of the documentation site and build it"
 status = "pending"
@@ -165831,7 +165886,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.113]
 title = "Build the documentation site in its workflow and correct the references to the former generator"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362159,9 +362214,38 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.41.118]
+title = "Bring the scopes of the root source configuration and environment package in line with the tree"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.41.115", "22.41.116"]
+reqs = ["22998.1"]
+capabilities = ["22.41.118"]
+interfaces = []
+do_1 = "do_1 Decision 3438. The files .neron and package.kvx at the repository root list directories and root files in their read scope, their write scope and their mount paths. Task 22.41.115 removed the directory launchpad at the repository root; its files lie in the directory migrations."
+do_2 = "do_2 In both files remove every entry of a scope or of a mount path that names a directory or a root file that the tree does not hold, the entry of the directory launchpad among them, and add an entry for a top-level directory of sources that the tree holds and the lists lack. Change nothing else in the two files, and change no other file. Before each commit read the output of git status and confirm that it names only the two files. Run the build once and the verification once at the final revision."
+symbols = []
+touches = [".neron", "package.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
+verify_cmd = "test -s .neron && test -s package.kvx && test ! -e launchpad && ! grep -q '[^/a-z-]launchpad/[*][*]' .neron package.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 45
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.41.116]
 title = "Write the source configuration and the environment package of the repository root"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362223,7 +362307,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.111]
 title = "Correct the text of pages 86 to 94 of the documentation site against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362254,7 +362338,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.110]
 title = "Correct the text of pages 78 to 85 of the documentation site against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362285,7 +362369,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.109]
 title = "Correct the text of pages 68 to 77 of the documentation site against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362316,7 +362400,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.108]
 title = "Correct the text of pages 60 to 67 of the documentation site against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362378,7 +362462,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.106]
 title = "Correct the text of pages 43 to 52 of the documentation site against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362409,7 +362493,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.105]
 title = "Correct the text of pages 35 to 42 of the documentation site against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362440,7 +362524,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.104]
 title = "Correct the text of pages 26 to 34 of the documentation site against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362471,7 +362555,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.103]
 title = "Correct the text of pages 17 to 25 of the documentation site against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362502,7 +362586,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.102]
 title = "Correct the text of pages 9 to 16 of the documentation site against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362533,7 +362617,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.101]
 title = "Correct the text of pages 1 to 8 of the documentation site against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362564,7 +362648,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.100]
 title = "Correct the header of two generated pages under spec/layerx-merge/source-control"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
