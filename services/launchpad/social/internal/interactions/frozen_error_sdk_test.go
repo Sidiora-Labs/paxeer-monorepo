@@ -24,7 +24,7 @@ import (
 
 // Compile the repository SDK in a disposable directory with its pinned validator
 // dependencies. The producer proof never substitutes a decoder or a transport.
-func repair67SDK(t *testing.T) string {
+func frozenErrorSDK(t *testing.T) string {
 	t.Helper()
 	root, err := filepath.Abs("../../../../../sdk/launchpad/packages")
 	if err != nil {
@@ -69,13 +69,13 @@ func repair67SDK(t *testing.T) string {
 			t.Fatal("SDK dependency missing", dependency)
 		}
 	}
-	repair67Command(t, "npm", "install", "--prefix", sdk, "--ignore-scripts", "--no-audit", "--no-fund", "--package-lock=false", "--save=false", "ajv@"+manifest.Dependencies["ajv"], "ajv-formats@"+manifest.Dependencies["ajv-formats"])
-	repair67Command(t, "node", filepath.Join(sdk, "scripts/compile-validators.mjs"))
-	repair67Command(t, "node", "repair_67_sdk.mjs", sdk, "prepare")
+	frozenErrorCommand(t, "npm", "install", "--prefix", sdk, "--ignore-scripts", "--no-audit", "--no-fund", "--package-lock=false", "--save=false", "ajv@"+manifest.Dependencies["ajv"], "ajv-formats@"+manifest.Dependencies["ajv-formats"])
+	frozenErrorCommand(t, "node", filepath.Join(sdk, "scripts/compile-validators.mjs"))
+	frozenErrorCommand(t, "node", "frozen_error_sdk.mjs", sdk, "prepare")
 	return sdk
 }
 
-func repair67Command(t *testing.T, binary string, args ...string) {
+func frozenErrorCommand(t *testing.T, binary string, args ...string) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -85,7 +85,7 @@ func repair67Command(t *testing.T, binary string, args ...string) {
 	}
 }
 
-func repair67AssertSDK(t *testing.T, sdk string, handler http.Handler, method, path string, status int, code, message string) {
+func frozenErrorAssertSDK(t *testing.T, sdk string, handler http.Handler, method, path string, status int, code, message string) {
 	t.Helper()
 	upstream := httptest.NewServer(handler)
 	defer upstream.Close()
@@ -95,11 +95,11 @@ func repair67AssertSDK(t *testing.T, sdk string, handler http.Handler, method, p
 	}
 	gateway := httptest.NewServer(httputil.NewSingleHostReverseProxy(upstreamURL))
 	defer gateway.Close()
-	repair67Command(t, "node", "repair_67_sdk.mjs", sdk, "check", gateway.URL, path, method, uuid.NewString(), strconv.Itoa(status), code, message, strconv.FormatBool(status == 503))
+	frozenErrorCommand(t, "node", "frozen_error_sdk.mjs", sdk, "check", gateway.URL, path, method, uuid.NewString(), strconv.Itoa(status), code, message, strconv.FormatBool(status == 503))
 }
 
-func TestRepair_67_FrozenErrorsDriveSDK(t *testing.T) {
-	sdk := repair67SDK(t)
+func TestFrozenErrorsDriveSDK(t *testing.T) {
+	sdk := frozenErrorSDK(t)
 	t.Run("writer-mappings", func(t *testing.T) { testContractErrorMapping(t, sdk) })
 	t.Run("request-identity", TestContractErrorRequestIdentity)
 	// A real pool closed before use exercises dependency failures without any
@@ -158,7 +158,7 @@ func TestRepair_67_FrozenErrorsDriveSDK(t *testing.T) {
 				handler = nil
 			}
 			handler.RegisterContractRoutes(router)
-			repair67AssertSDK(t, sdk, router, tc.method, tc.path, tc.status, tc.code, tc.message)
+			frozenErrorAssertSDK(t, sdk, router, tc.method, tc.path, tc.status, tc.code, tc.message)
 		})
 	}
 	for _, tc := range []struct{ name, method, path string }{
@@ -177,7 +177,7 @@ func TestRepair_67_FrozenErrorsDriveSDK(t *testing.T) {
 				})
 			})
 			h.RegisterContractRoutes(router)
-			repair67AssertSDK(t, sdk, router, tc.method, tc.path, 503, "DEPENDENCY_UNAVAILABLE", "store unavailable")
+			frozenErrorAssertSDK(t, sdk, router, tc.method, tc.path, 503, "DEPENDENCY_UNAVAILABLE", "store unavailable")
 		})
 	}
 	// Exercise real follow validation before the transaction boundary. The
@@ -197,7 +197,7 @@ func TestRepair_67_FrozenErrorsDriveSDK(t *testing.T) {
 				contractHeaders(w)
 				contractError(w, r, err)
 			})
-			repair67AssertSDK(t, sdk, handler, tc.method, "/v2/me/following/"+tc.target, 422, "FIELD_INVALID", "invalid follow request")
+			frozenErrorAssertSDK(t, sdk, handler, tc.method, "/v2/me/following/"+tc.target, 422, "FIELD_INVALID", "invalid follow request")
 		})
 	}
 	if db.Stat().TotalConns() != 0 || db.Stat().AcquireCount() != 0 {

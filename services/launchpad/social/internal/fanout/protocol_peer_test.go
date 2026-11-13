@@ -28,55 +28,55 @@ import (
 // The production store uses pgx against this committed, transaction-aware wire
 // peer. Only COMMIT publishes state; unknown SQL fails. No store method, codec,
 // identity check or socket handler under repair is replaced.
-type repair1027Conversation struct {
+type chatAdmissionConversation struct {
 	Kind          string
 	Next, Version int64
 	Members       map[string]bool
 }
-type repair1027Data struct {
-	Conversations map[string]*repair1027Conversation
+type chatAdmissionData struct {
+	Conversations map[string]*chatAdmissionConversation
 	Messages      map[string]fanout.DurableMessage
 	Outbox        map[string][]byte
 	Channels      map[string][]string
 	Delivered     map[string]bool
 }
 
-func repair1027EmptyData() *repair1027Data {
-	return &repair1027Data{Conversations: map[string]*repair1027Conversation{}, Messages: map[string]fanout.DurableMessage{}, Outbox: map[string][]byte{}, Channels: map[string][]string{}, Delivered: map[string]bool{}}
+func chatAdmissionEmptyData() *chatAdmissionData {
+	return &chatAdmissionData{Conversations: map[string]*chatAdmissionConversation{}, Messages: map[string]fanout.DurableMessage{}, Outbox: map[string][]byte{}, Channels: map[string][]string{}, Delivered: map[string]bool{}}
 }
-func (d *repair1027Data) clone() *repair1027Data {
+func (d *chatAdmissionData) clone() *chatAdmissionData {
 	raw, err := json.Marshal(d)
 	if err != nil {
 		panic(err)
 	}
-	var result repair1027Data
+	var result chatAdmissionData
 	if err := json.Unmarshal(raw, &result); err != nil {
 		panic(err)
 	}
 	return &result
 }
 
-type repair1027Peer struct {
+type chatAdmissionPeer struct {
 	mu   sync.Mutex
-	data *repair1027Data
+	data *chatAdmissionData
 }
-type repair1027Result struct {
+type chatAdmissionResult struct {
 	rows [][]any
 	tag  string
 	err  error
 }
 
-func repair1027Rows(rows ...[]any) repair1027Result {
-	return repair1027Result{rows: rows, tag: fmt.Sprintf("SELECT %d", len(rows))}
+func chatAdmissionRows(rows ...[]any) chatAdmissionResult {
+	return chatAdmissionResult{rows: rows, tag: fmt.Sprintf("SELECT %d", len(rows))}
 }
-func repair1027Write(tag string) repair1027Result { return repair1027Result{tag: tag} }
-func repair1027Failure(message string) repair1027Result {
-	return repair1027Result{err: errors.New(message)}
+func chatAdmissionWrite(tag string) chatAdmissionResult { return chatAdmissionResult{tag: tag} }
+func chatAdmissionFailure(message string) chatAdmissionResult {
+	return chatAdmissionResult{err: errors.New(message)}
 }
 
-func newRepair1027Database(t *testing.T) (*repair1027Peer, func() *pgxpool.Pool) {
+func newChatAdmissionDatabase(t *testing.T) (*chatAdmissionPeer, func() *pgxpool.Pool) {
 	t.Helper()
-	peer := &repair1027Peer{data: repair1027EmptyData()}
+	peer := &chatAdmissionPeer{data: chatAdmissionEmptyData()}
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -112,7 +112,7 @@ func newRepair1027Database(t *testing.T) (*repair1027Peer, func() *pgxpool.Pool)
 // pgx's Exec mode uses text parameters without a prepared-statement cache.
 // Values returned by the peer carry their real PostgreSQL scalar OIDs, so pgx
 // performs the same scanning/JSON conversions as against the service database.
-func (p *repair1027Peer) serve(conn net.Conn) {
+func (p *chatAdmissionPeer) serve(conn net.Conn) {
 	defer conn.Close()
 	backend := pgproto3.NewBackend(conn, conn)
 	startup, err := backend.ReceiveStartupMessage()
@@ -136,36 +136,36 @@ func (p *repair1027Peer) serve(conn net.Conn) {
 	statements := map[string]string{}
 	var sql string
 	var args []string
-	var result *repair1027Result
-	var transaction *repair1027Data
+	var result *chatAdmissionResult
+	var transaction *chatAdmissionData
 	dirty := false
 	failed := false
-	evaluate := func(query string, parameters []string) repair1027Result {
+	evaluate := func(query string, parameters []string) chatAdmissionResult {
 		p.mu.Lock()
 		defer p.mu.Unlock()
 		normalized := strings.TrimSpace(query)
 		switch {
 		case strings.HasPrefix(strings.ToLower(normalized), "begin"):
 			if transaction != nil {
-				return repair1027Failure("nested transaction")
+				return chatAdmissionFailure("nested transaction")
 			}
 			transaction = p.data.clone()
 			dirty = false
-			return repair1027Write("BEGIN")
+			return chatAdmissionWrite("BEGIN")
 		case strings.EqualFold(normalized, "commit"):
 			if transaction == nil {
-				return repair1027Failure("commit without transaction")
+				return chatAdmissionFailure("commit without transaction")
 			}
 			if dirty {
 				p.data = transaction
 			}
 			transaction = nil
 			dirty = false
-			return repair1027Write("COMMIT")
+			return chatAdmissionWrite("COMMIT")
 		case strings.EqualFold(normalized, "rollback"):
 			transaction = nil
 			dirty = false
-			return repair1027Write("ROLLBACK")
+			return chatAdmissionWrite("ROLLBACK")
 		}
 		data := p.data
 		if transaction != nil {
@@ -177,7 +177,7 @@ func (p *repair1027Peer) serve(conn net.Conn) {
 		}
 		return r
 	}
-	describe := func(r repair1027Result) {
+	describe := func(r chatAdmissionResult) {
 		if len(r.rows) == 0 {
 			backend.Send(&pgproto3.NoData{})
 			return
@@ -199,7 +199,7 @@ func (p *repair1027Peer) serve(conn net.Conn) {
 		}
 		backend.Send(&pgproto3.RowDescription{Fields: fields})
 	}
-	emit := func(r repair1027Result) {
+	emit := func(r chatAdmissionResult) {
 		if r.err != nil {
 			backend.Send(&pgproto3.ErrorResponse{Severity: "ERROR", Code: "42501", Message: r.err.Error()})
 			failed = true
@@ -311,14 +311,14 @@ func (p *repair1027Peer) serve(conn net.Conn) {
 		}
 	}
 }
-func repair1027Number(raw string) int64 {
+func chatAdmissionNumber(raw string) int64 {
 	n, err := strconv.ParseInt(raw, 10, 64)
 	if err != nil {
 		panic(err)
 	}
 	return n
 }
-func repair1027Time(raw string) time.Time {
+func chatAdmissionTime(raw string) time.Time {
 	for _, layout := range []string{time.RFC3339Nano, "2006-01-02 15:04:05.999999999Z07:00", "2006-01-02 15:04:05.999999999-07:00:00", "2006-01-02 15:04:05.999999999-07"} {
 		if t, err := time.Parse(layout, raw); err == nil {
 			return t
@@ -326,7 +326,7 @@ func repair1027Time(raw string) time.Time {
 	}
 	panic("invalid fixture time: " + raw)
 }
-func repair1027Bytes(raw string) []byte {
+func chatAdmissionBytes(raw string) []byte {
 	if strings.HasPrefix(raw, `\x`) {
 		b, err := hex.DecodeString(raw[2:])
 		if err != nil {
@@ -336,15 +336,15 @@ func repair1027Bytes(raw string) []byte {
 	}
 	return []byte(raw)
 }
-func repair1027MessageRow(m fanout.DurableMessage) []any {
+func chatAdmissionMessageRow(m fanout.DurableMessage) []any {
 	return []any{m.ID, m.ConversationID, m.Sender, m.Content, m.ReplyTo, m.Sequence, m.Revision, m.CreatedAt, m.Deleted, m.ClientID}
 }
-func (d *repair1027Data) execute(q string, a []string, user string) repair1027Result {
+func (d *chatAdmissionData) execute(q string, a []string, user string) chatAdmissionResult {
 	// sqlc includes a name comment; strip comments without changing its SQL.
 	for strings.HasPrefix(q, "--") {
 		i := strings.IndexByte(q, '\n')
 		if i < 0 {
-			return repair1027Failure("SQL comment without query")
+			return chatAdmissionFailure("SQL comment without query")
 		}
 		q = strings.TrimSpace(q[i+1:])
 	}
@@ -355,18 +355,18 @@ func (d *repair1027Data) execute(q string, a []string, user string) repair1027Re
 		}
 		return a[i]
 	}
-	exists := func(value bool) repair1027Result { return repair1027Rows([]any{value}) }
+	exists := func(value bool) chatAdmissionResult { return chatAdmissionRows([]any{value}) }
 	member := func(conv, wallet string) bool { c := d.Conversations[conv]; return c != nil && c.Members[wallet] }
 	switch {
 	case strings.HasPrefix(q, "SELECT pg_advisory_xact_lock"):
-		return repair1027Rows([]any{nil})
+		return chatAdmissionRows([]any{nil})
 	case strings.HasPrefix(q, "SELECT EXISTS(SELECT 1 FROM chat.chat_bans"), strings.HasPrefix(q, "SELECT EXISTS(SELECT 1 FROM chat.interaction_erased_wallets"):
 		return exists(false)
 	case q == "SELECT lower(token),lower(creator) FROM indexer.indexer_canonical_creations_v1 WHERE pool=lower($1)":
 		if get(0) != addr(1) {
-			return repair1027Rows()
+			return chatAdmissionRows()
 		}
-		return repair1027Rows([]any{addr(2), addr(0xbb)})
+		return chatAdmissionRows([]any{addr(2), addr(0xbb)})
 	case q == "SELECT EXISTS(SELECT 1 FROM chat_conversations WHERE id=$1)":
 		return exists(d.Conversations[get(0)] != nil)
 	case strings.HasPrefix(q, "INSERT INTO chat_conversations"):
@@ -376,34 +376,34 @@ func (d *repair1027Data) execute(q string, a []string, user string) repair1027Re
 			kind = get(1)
 		}
 		if d.Conversations[id] != nil {
-			return repair1027Write("INSERT 0 0")
+			return chatAdmissionWrite("INSERT 0 0")
 		}
-		d.Conversations[id] = &repair1027Conversation{Kind: kind, Version: 1, Members: map[string]bool{}}
+		d.Conversations[id] = &chatAdmissionConversation{Kind: kind, Version: 1, Members: map[string]bool{}}
 		if strings.Contains(q, "RETURNING") {
-			return repair1027Rows([]any{id})
+			return chatAdmissionRows([]any{id})
 		}
-		return repair1027Write("INSERT 0 1")
+		return chatAdmissionWrite("INSERT 0 1")
 	case strings.HasPrefix(q, "INSERT INTO chat_members"):
 		c := d.Conversations[get(0)]
 		if c == nil {
-			return repair1027Failure("conversation foreign key")
+			return chatAdmissionFailure("conversation foreign key")
 		}
 		for _, w := range a[1:] {
 			c.Members[w] = true
 		}
-		return repair1027Write("INSERT 0 1")
+		return chatAdmissionWrite("INSERT 0 1")
 	case strings.HasPrefix(q, "SELECT EXISTS(SELECT 1 FROM chat_members"):
 		return exists(member(get(0), get(1)))
 	case strings.HasPrefix(q, "SELECT wallet FROM chat_members"):
 		c := d.Conversations[get(0)]
 		if c == nil {
-			return repair1027Rows()
+			return chatAdmissionRows()
 		}
 		if strings.Contains(q, "wallet=$2") {
 			if c.Members[get(1)] {
-				return repair1027Rows([]any{get(1)})
+				return chatAdmissionRows([]any{get(1)})
 			}
-			return repair1027Rows()
+			return chatAdmissionRows()
 		}
 		wallets := []string{}
 		for w := range c.Members {
@@ -419,33 +419,33 @@ func (d *repair1027Data) execute(q string, a []string, user string) repair1027Re
 				break
 			}
 		}
-		return repair1027Rows(rows...)
+		return chatAdmissionRows(rows...)
 	case strings.HasPrefix(q, "UPDATE chat_conversations SET next_sequence=next_sequence+1"):
 		c := d.Conversations[get(0)]
 		if c == nil {
-			return repair1027Rows()
+			return chatAdmissionRows()
 		}
 		c.Next++
-		return repair1027Rows([]any{c.Next})
+		return chatAdmissionRows([]any{c.Next})
 	case strings.HasPrefix(q, "UPDATE chat_conversations SET history_version=history_version+1"):
 		c := d.Conversations[get(0)]
 		if c == nil {
-			return repair1027Failure("conversation absent")
+			return chatAdmissionFailure("conversation absent")
 		}
 		c.Version++
-		return repair1027Write("UPDATE 1")
+		return chatAdmissionWrite("UPDATE 1")
 	case strings.HasPrefix(q, "SELECT kind FROM chat_conversations"):
 		c := d.Conversations[get(0)]
 		if c == nil {
-			return repair1027Rows()
+			return chatAdmissionRows()
 		}
-		return repair1027Rows([]any{c.Kind})
+		return chatAdmissionRows([]any{c.Kind})
 	case strings.HasPrefix(q, "SELECT retained_from,kind,history_version,m.read_sequence"):
 		c := d.Conversations[get(0)]
 		if c == nil || !member(get(0), get(1)) {
-			return repair1027Rows()
+			return chatAdmissionRows()
 		}
-		return repair1027Rows([]any{int64(1), c.Kind, c.Version, int64(0)})
+		return chatAdmissionRows([]any{int64(1), c.Kind, c.Version, int64(0)})
 	case strings.HasPrefix(q, "SELECT c.id FROM chat_conversations"):
 		ids := []string{}
 		for id, c := range d.Conversations {
@@ -456,16 +456,16 @@ func (d *repair1027Data) execute(q string, a []string, user string) repair1027Re
 		sort.Strings(ids)
 		rows := [][]any{}
 		for _, id := range ids {
-			if int64(len(rows)) == repair1027Number(get(1)) {
+			if int64(len(rows)) == chatAdmissionNumber(get(1)) {
 				break
 			}
 			rows = append(rows, []any{id})
 		}
-		return repair1027Rows(rows...)
+		return chatAdmissionRows(rows...)
 	case strings.HasPrefix(q, "SELECT peer.wallet,extract(epoch from max(msg.created_at))"):
 		c := d.Conversations[get(0)]
 		if c == nil || !member(get(0), get(1)) {
-			return repair1027Rows()
+			return chatAdmissionRows()
 		}
 		peer := ""
 		for w := range c.Members {
@@ -482,29 +482,29 @@ func (d *repair1027Data) execute(q string, a []string, user string) repair1027Re
 			}
 		}
 		if peer == "" {
-			return repair1027Rows()
+			return chatAdmissionRows()
 		}
-		return repair1027Rows([]any{peer, last})
+		return chatAdmissionRows([]any{peer, last})
 	case strings.HasPrefix(q, "INSERT INTO chat_messages"):
-		m := fanout.DurableMessage{ID: get(0), ConversationID: get(1), Sender: get(2), ClientID: get(3), Content: get(4), ReplyTo: get(5), Sequence: repair1027Number(get(6)), CreatedAt: repair1027Time(get(7)).Unix(), Revision: 1}
+		m := fanout.DurableMessage{ID: get(0), ConversationID: get(1), Sender: get(2), ClientID: get(3), Content: get(4), ReplyTo: get(5), Sequence: chatAdmissionNumber(get(6)), CreatedAt: chatAdmissionTime(get(7)).Unix(), Revision: 1}
 		if _, ok := d.Messages[m.ID]; ok {
-			return repair1027Failure("duplicate message")
+			return chatAdmissionFailure("duplicate message")
 		}
 		d.Messages[m.ID] = m
-		return repair1027Write("INSERT 0 1")
+		return chatAdmissionWrite("INSERT 0 1")
 	case strings.HasPrefix(q, "UPDATE chat_messages SET content=$2"):
 		m, ok := d.Messages[get(0)]
 		if !ok {
-			return repair1027Write("UPDATE 0")
+			return chatAdmissionWrite("UPDATE 0")
 		}
 		m.Content = get(1)
-		m.Revision = repair1027Number(get(2))
+		m.Revision = chatAdmissionNumber(get(2))
 		m.Deleted = get(4) == "true" || get(4) == "t"
 		if m.Deleted {
 			m.ReplyTo = ""
 		}
 		d.Messages[m.ID] = m
-		return repair1027Write("UPDATE 1")
+		return chatAdmissionWrite("UPDATE 1")
 	case strings.HasPrefix(q, "SELECT EXISTS(SELECT 1 FROM chat_messages"):
 		m, ok := d.Messages[get(0)]
 		return exists(ok && m.ConversationID == get(1))
@@ -514,49 +514,49 @@ func (d *repair1027Data) execute(q string, a []string, user string) repair1027Re
 		case strings.Contains(q, "WHERE sender=$1 AND client_id=$2"):
 			for _, m := range d.Messages {
 				if m.Sender == get(0) && m.ClientID == get(1) {
-					rows = append(rows, repair1027MessageRow(m))
+					rows = append(rows, chatAdmissionMessageRow(m))
 				}
 			}
 		case strings.Contains(q, "WHERE conversation_id=$1 AND sequence>$2"):
 			messages := []fanout.DurableMessage{}
 			for _, m := range d.Messages {
-				if m.ConversationID == get(0) && m.Sequence > repair1027Number(get(1)) && member(get(0), get(2)) {
+				if m.ConversationID == get(0) && m.Sequence > chatAdmissionNumber(get(1)) && member(get(0), get(2)) {
 					messages = append(messages, m)
 				}
 			}
 			sort.Slice(messages, func(i, j int) bool { return messages[i].Sequence < messages[j].Sequence })
 			for _, m := range messages {
-				if int64(len(rows)) == repair1027Number(get(3)) {
+				if int64(len(rows)) == chatAdmissionNumber(get(3)) {
 					break
 				}
-				rows = append(rows, repair1027MessageRow(m))
+				rows = append(rows, chatAdmissionMessageRow(m))
 			}
 		case strings.Contains(q, "WHERE id=$1"):
 			m, ok := d.Messages[get(0)]
 			if ok && (!strings.Contains(q, "sender=$2") || m.Sender == get(1) && member(m.ConversationID, get(1))) {
-				rows = append(rows, repair1027MessageRow(m))
+				rows = append(rows, chatAdmissionMessageRow(m))
 			}
 		default:
-			return repair1027Failure("unsupported message selection: " + q)
+			return chatAdmissionFailure("unsupported message selection: " + q)
 		}
-		return repair1027Rows(rows...)
+		return chatAdmissionRows(rows...)
 	case strings.HasPrefix(q, "INSERT INTO chat_outbox"):
 		if _, ok := d.Outbox[get(0)]; ok {
-			return repair1027Failure("duplicate outbox event")
+			return chatAdmissionFailure("duplicate outbox event")
 		}
-		d.Outbox[get(0)] = repair1027Bytes(get(3))
+		d.Outbox[get(0)] = chatAdmissionBytes(get(3))
 		var channels []string
-		if err := json.Unmarshal(repair1027Bytes(get(4)), &channels); err != nil {
-			return repair1027Failure(err.Error())
+		if err := json.Unmarshal(chatAdmissionBytes(get(4)), &channels); err != nil {
+			return chatAdmissionFailure(err.Error())
 		}
 		d.Channels[get(0)] = channels
-		return repair1027Write("INSERT 0 1")
+		return chatAdmissionWrite("INSERT 0 1")
 	case strings.HasPrefix(q, "SELECT payload FROM chat_outbox WHERE message_id=$1 AND revision=1"):
 		raw, ok := d.Outbox[get(0)+":1"]
 		if !ok {
-			return repair1027Rows()
+			return chatAdmissionRows()
 		}
-		return repair1027Rows([]any{raw})
+		return chatAdmissionRows([]any{raw})
 	case strings.HasPrefix(q, "SELECT event_id,payload,channels FROM chat_outbox WHERE delivered_at IS NULL"):
 		ids := []string{}
 		for id := range d.Outbox {
@@ -566,19 +566,19 @@ func (d *repair1027Data) execute(q string, a []string, user string) repair1027Re
 		}
 		sort.Strings(ids)
 		if len(ids) == 0 {
-			return repair1027Rows()
+			return chatAdmissionRows()
 		}
 		id := ids[0]
 		ch, err := json.Marshal(d.Channels[id])
 		if err != nil {
-			return repair1027Failure(err.Error())
+			return chatAdmissionFailure(err.Error())
 		}
-		return repair1027Rows([]any{id, d.Outbox[id], ch})
+		return chatAdmissionRows([]any{id, d.Outbox[id], ch})
 	case strings.HasPrefix(q, "UPDATE chat_outbox SET delivered_at=now(),attempts=attempts+1 WHERE event_id=$1"):
 		d.Delivered[get(0)] = true
-		return repair1027Write("UPDATE 1")
+		return chatAdmissionWrite("UPDATE 1")
 	default:
-		return repair1027Failure("unsupported fixture SQL: " + q)
+		return chatAdmissionFailure("unsupported fixture SQL: " + q)
 	}
 }
 
@@ -586,14 +586,14 @@ func (d *repair1027Data) execute(q string, a []string, user string) repair1027Re
 // MULTI queues commands and EXEC applies them under one lock, including Redis's
 // per-command errors (a failed command does not roll back earlier commands).
 // The safety script has a pinned transcript identity and token-bucket state.
-type repair1027Bucket struct{ tokens, at float64 }
-type repair1027Redis struct {
+type chatAdmissionBucket struct{ tokens, at float64 }
+type chatAdmissionRedis struct {
 	mu                       sync.Mutex
 	now                      time.Time
 	counters                 map[string]int64
 	expires                  map[string]time.Time
-	buckets                  map[string]repair1027Bucket
-	peers                    map[*repair1027RedisConn]bool
+	buckets                  map[string]chatAdmissionBucket
+	peers                    map[*chatAdmissionRedisConn]bool
 	addr                     string
 	interrupt                string
 	interruptKey             string
@@ -603,24 +603,24 @@ type repair1027Redis struct {
 	transactions, abuseCalls int
 	scripts                  map[string]string
 }
-type repair1027RedisConn struct {
+type chatAdmissionRedisConn struct {
 	net.Conn
 	writeMu sync.Mutex
 	topics  map[string]bool // guarded by the peer's mutex
 }
 
-func (c *repair1027RedisConn) write(raw string) {
+func (c *chatAdmissionRedisConn) write(raw string) {
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
 	_, _ = io.WriteString(c.Conn, raw)
 }
-func newRepair1027Redis(t *testing.T) *repair1027Redis {
+func newChatAdmissionRedis(t *testing.T) *chatAdmissionRedis {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	p := &repair1027Redis{now: time.Now(), counters: map[string]int64{}, expires: map[string]time.Time{}, buckets: map[string]repair1027Bucket{}, peers: map[*repair1027RedisConn]bool{}, scripts: map[string]string{}, addr: listener.Addr().String()}
+	p := &chatAdmissionRedis{now: time.Now(), counters: map[string]int64{}, expires: map[string]time.Time{}, buckets: map[string]chatAdmissionBucket{}, peers: map[*chatAdmissionRedisConn]bool{}, scripts: map[string]string{}, addr: listener.Addr().String()}
 	t.Cleanup(func() {
 		_ = listener.Close()
 		p.mu.Lock()
@@ -635,7 +635,7 @@ func newRepair1027Redis(t *testing.T) *repair1027Redis {
 			if err != nil {
 				return
 			}
-			c := &repair1027RedisConn{Conn: conn, topics: map[string]bool{}}
+			c := &chatAdmissionRedisConn{Conn: conn, topics: map[string]bool{}}
 			p.mu.Lock()
 			p.peers[c] = true
 			p.mu.Unlock()
@@ -644,13 +644,13 @@ func newRepair1027Redis(t *testing.T) *repair1027Redis {
 	}()
 	return p
 }
-func (p *repair1027Redis) client(t *testing.T) *goredis.Client {
+func (p *chatAdmissionRedis) client(t *testing.T) *goredis.Client {
 	t.Helper()
 	c := goredis.NewClient(&goredis.Options{Addr: p.addr, Protocol: 2, DisableIdentity: true, MaxRetries: -1, DialTimeout: time.Second, ReadTimeout: time.Second, WriteTimeout: time.Second})
 	t.Cleanup(func() { _ = c.Close() })
 	return c
 }
-func repair1027RESP(args ...string) string {
+func chatAdmissionRESP(args ...string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "*%d\r\n", len(args))
 	for _, arg := range args {
@@ -658,7 +658,7 @@ func repair1027RESP(args ...string) string {
 	}
 	return b.String()
 }
-func repair1027ReadRESP(r *bufio.Reader) ([]string, error) {
+func chatAdmissionReadRESP(r *bufio.Reader) ([]string, error) {
 	line, err := r.ReadString('\n')
 	if err != nil {
 		return nil, err
@@ -691,14 +691,14 @@ func repair1027ReadRESP(r *bufio.Reader) ([]string, error) {
 	}
 	return args, nil
 }
-func (p *repair1027Redis) serve(c *repair1027RedisConn) {
+func (p *chatAdmissionRedis) serve(c *chatAdmissionRedisConn) {
 	defer c.Close()
 	defer func() { p.mu.Lock(); delete(p.peers, c); p.mu.Unlock() }()
 	reader := bufio.NewReader(c.Conn)
 	var queued [][]string
 	multi := false
 	for {
-		args, err := repair1027ReadRESP(reader)
+		args, err := chatAdmissionReadRESP(reader)
 		if err != nil {
 			return
 		}
@@ -770,7 +770,7 @@ func (p *repair1027Redis) serve(c *repair1027RedisConn) {
 			count := 0
 			for subscriber := range p.peers {
 				if subscriber.topics[args[1]] {
-					subscriber.write(repair1027RESP("message", args[1], args[2]))
+					subscriber.write(chatAdmissionRESP("message", args[1], args[2]))
 					count++
 				}
 			}
@@ -784,13 +784,13 @@ func (p *repair1027Redis) serve(c *repair1027RedisConn) {
 		}
 	}
 }
-func (p *repair1027Redis) expire(key string) {
+func (p *chatAdmissionRedis) expire(key string) {
 	if until, ok := p.expires[key]; ok && !until.After(p.now) {
 		delete(p.counters, key)
 		delete(p.expires, key)
 	}
 }
-func (p *repair1027Redis) execute(a []string) string {
+func (p *chatAdmissionRedis) execute(a []string) string {
 	integer := func(n int64) string { return fmt.Sprintf(":%d\r\n", n) }
 	switch strings.ToLower(a[0]) {
 	case "incr":
@@ -811,7 +811,7 @@ func (p *repair1027Redis) execute(a []string) string {
 		if _, ok := p.expires[a[1]]; ok {
 			return integer(0)
 		}
-		p.expires[a[1]] = p.now.Add(time.Duration(repair1027Number(a[2])) * time.Millisecond)
+		p.expires[a[1]] = p.now.Add(time.Duration(chatAdmissionNumber(a[2])) * time.Millisecond)
 		return integer(1)
 	case "pttl":
 		p.expire(a[1])
@@ -834,7 +834,7 @@ func (p *repair1027Redis) execute(a []string) string {
 		digest := sha1.Sum([]byte(script))
 		// Pin the real safety.AbuseLimiter script's recorded wire contract. This
 		// peer never claims to be a Lua interpreter or to qualify Redis itself.
-		if hex.EncodeToString(digest[:]) != repair1027AbuseSHA {
+		if hex.EncodeToString(digest[:]) != chatAdmissionAbuseSHA {
 			return "-ERR unrecorded script\r\n"
 		}
 		p.scripts[hex.EncodeToString(digest[:])] = script
@@ -842,18 +842,18 @@ func (p *repair1027Redis) execute(a []string) string {
 		if p.abuseUnavailable {
 			return "-ERR abuse authority unavailable\r\n"
 		}
-		n := int(repair1027Number(a[2]))
+		n := int(chatAdmissionNumber(a[2]))
 		if len(a) != 3+n*3 {
 			return "-ERR script argument mismatch\r\n"
 		}
 		now := float64(p.now.UnixMilli())
 		retry := float64(0)
-		next := make(map[string]repair1027Bucket, n)
+		next := make(map[string]chatAdmissionBucket, n)
 		for i, key := range a[3 : 3+n] {
-			limit, span := float64(repair1027Number(a[3+n+i*2])), float64(repair1027Number(a[4+n+i*2]))
+			limit, span := float64(chatAdmissionNumber(a[3+n+i*2])), float64(chatAdmissionNumber(a[4+n+i*2]))
 			bucket, ok := p.buckets[key]
 			if !ok {
-				bucket = repair1027Bucket{tokens: limit, at: now}
+				bucket = chatAdmissionBucket{tokens: limit, at: now}
 			}
 			bucket.tokens = math.Min(limit, bucket.tokens+math.Max(0, now-bucket.at)*limit/span)
 			bucket.at = now
@@ -875,4 +875,4 @@ func (p *repair1027Redis) execute(a []string) string {
 	}
 }
 
-const repair1027AbuseSHA = "d73c7abe1c7d25d5be8eda955b68668efd4bcf91"
+const chatAdmissionAbuseSHA = "d73c7abe1c7d25d5be8eda955b68668efd4bcf91"

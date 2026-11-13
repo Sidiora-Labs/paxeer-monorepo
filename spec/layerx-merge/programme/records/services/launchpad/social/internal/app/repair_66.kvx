@@ -4,7 +4,7 @@ audit = "22.30.39"
 base_revision = "ff6bf6162f496eda36bdb11465eb09d6f21a6fdd"
 status = "implemented-partially-proven"
 evidence = "/out/run/gates.jsonl (runner-owned candidate revision, exact commands, exits and private log paths)"
-baseline = "Not run: the explicit qualification order forbids verification before complete implementation; no repair_66_test.go or prior gate ledger existed at admission."
+baseline = "Not run: the explicit qualification order forbids verification before complete implementation; no frozen_contracts_test.go or prior gate ledger existed at admission."
 retention = "Moderation is a reversible safety_visibility overlay over the existing source-table retention lifecycle; it creates no archive of originals. Author deletion and account erasure retain their existing destructive semantics and cannot be undone by moderation restoration."
 
 [finding.1]
