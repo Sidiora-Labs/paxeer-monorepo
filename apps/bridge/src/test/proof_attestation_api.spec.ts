@@ -10,7 +10,7 @@
  */
 // @vitest-environment jsdom
 
-import { attestationWireFixturesSurviveListenerReopening } from './repair-22-33-266.proofs';
+import { attestationWireFixturesSurviveListenerReopening } from './bridge-lifecycle.proofs';
 
 import {
   AttestationApiError,

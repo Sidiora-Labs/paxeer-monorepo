@@ -10,7 +10,7 @@
  */
 // @vitest-environment jsdom
 
-import { solanaRecipientFixtureReopensThroughRpcAndHook } from './repair-22-33-266.proofs';
+import { solanaRecipientFixtureReopensThroughRpcAndHook } from './bridge-lifecycle.proofs';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';

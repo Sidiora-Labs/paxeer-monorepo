@@ -7,7 +7,7 @@ order: 5
 The following tables describe attributes emitted directly by the transfer
 [message server](../keeper/msg_server.go),
 [IBC callbacks](../ibc_module.go) and [receive keeper](../keeper/relay.go).
-`TestRepairM_1206_CallbackEvents` checks the receive, acknowledgement and timeout
+`TestTransferContractCallbackEvents` checks the receive, acknowledgement and timeout
 tables against real packet processing and bank refunds.
 Core IBC and bank operations can emit additional events. Packet `denom` and
 `amount` attributes are the packet's full denomination path and decimal amount
