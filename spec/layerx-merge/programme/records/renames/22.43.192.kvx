@@ -1,0 +1,28 @@
+[manifest]
+task = "22.43.192"
+records_moved = 1
+files_renamed = 1
+
+[file.1]
+from = "tests/daemon/repair_22_33_1076.kvx"
+to = "spec/layerx-merge/programme/records/tests/daemon/repair_22_33_1076.kvx"
+
+[file.2]
+from = "tests/daemon/test_repair_22_33_1076.py"
+to = "tests/daemon/test_retained_runtime_and_program_receipts.py"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "tests/daemon/test_repair_22_33_1076.py"
+
+[reference.2]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "tests/daemon/test_repair_22_33_1076.py"
+
+[reference.3]
+file = "spec/layerx-merge/qualification.kvx"
+name = "tests/daemon/test_repair_22_33_1076.py"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "tests/daemon/test_repair_22_33_1076.py"
