@@ -406,7 +406,7 @@ type policyTestTransferLeg struct {
 }
 
 func TestLayerxpayBudgetFundCountsNativeSpend(t *testing.T) {
-	repairM156ConstructDebits(t, false, []string{"budgetFund", "budgetFundNative", "transfer", "sandboxFund"})
+	debitAccountingConstructDebits(t, false, []string{"budgetFund", "budgetFundNative", "transfer", "sandboxFund"})
 }
 
 func TestLayerxprogramsUnlistedSelectorRefused(t *testing.T) {
@@ -445,7 +445,7 @@ func TestLayerxprogramsUnlistedSelectorRefused(t *testing.T) {
 }
 
 func TestShippedPolicyAllowsConstructSelectors(t *testing.T) {
-	repairM156ConstructDebits(t, true, []string{"budgetCreate", "budgetFund", "budgetFundNative", "escrowOpen", "transfer"})
+	debitAccountingConstructDebits(t, true, []string{"budgetCreate", "budgetFund", "budgetFundNative", "escrowOpen", "transfer"})
 	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -1799,7 +1799,7 @@ func TestShippedPolicyCountsPerpsPulls(t *testing.T) {
 	leverage := new(big.Int).Mul(big.NewInt(5), big.NewInt(1e18))
 	h := newHarness(t)
 	h.policy = New(doc)
-	repairM156InstallPerpsReader(t, h.policy, common.HexToAddress(testAccount), usdl)
+	debitAccountingInstallPerpsReader(t, h.policy, common.HexToAddress(testAccount), usdl)
 	erc20, err := evm.PrecompileABI("erc20")
 	if err != nil {
 		t.Fatal(err)
