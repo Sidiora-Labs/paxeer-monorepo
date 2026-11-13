@@ -12,7 +12,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func repairM1100Indexer(t *testing.T) *blockidxkv.BlockerIndexer {
+func newHeightEventIndexer(t *testing.T) *blockidxkv.BlockerIndexer {
 	t.Helper()
 	store := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, store.Close()) })
@@ -47,8 +47,8 @@ func repairM1100Indexer(t *testing.T) *blockidxkv.BlockerIndexer {
 	return idx
 }
 
-func TestRepairM_1100_HeightAndEvents(t *testing.T) {
-	idx := repairM1100Indexer(t)
+func TestBlockSearchHeightAndEvents(t *testing.T) {
+	idx := newHeightEventIndexer(t)
 	for _, tc := range []struct {
 		name  string
 		query string
@@ -82,8 +82,8 @@ func TestRepairM_1100_HeightAndEvents(t *testing.T) {
 	}
 }
 
-func TestRepairM_1100_ContradictoryHeights(t *testing.T) {
-	idx := repairM1100Indexer(t)
+func TestBlockSearchContradictoryHeights(t *testing.T) {
+	idx := newHeightEventIndexer(t)
 	for _, tc := range []struct {
 		name  string
 		query string

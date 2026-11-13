@@ -16,7 +16,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func repair82Embedded(t *testing.T, sequence int64) func() *EventSink {
+func openEmbeddedEventSink(t *testing.T, sequence int64) func() *EventSink {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "events.sqlite")
 	open := func() *EventSink {
@@ -42,7 +42,7 @@ func repair82Embedded(t *testing.T, sequence int64) func() *EventSink {
 
 // Finding 7: exercise all three generated IDs, SQL foreign keys, driver Scan,
 // block lookup, transaction encoding, and the joined consumer views.
-func TestRepair_82_BigintIdentifiers(t *testing.T) {
+func TestEventSinkStorageBigintIdentifiers(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		sequence int64
@@ -50,17 +50,19 @@ func TestRepair_82_BigintIdentifiers(t *testing.T) {
 		{"uint32_boundary", 1<<32 - 1},
 		{"signed_64_bit", math.MaxInt64 - 64},
 	} {
-		t.Run(tc.name, func(t *testing.T) { repair82RoundTrip(t, repair82Embedded(t, tc.sequence), tc.sequence+1) })
+		t.Run(tc.name, func(t *testing.T) {
+			assertEventStorageRoundTrip(t, openEmbeddedEventSink(t, tc.sequence), tc.sequence+1)
+		})
 	}
 }
 
 // Finding 34: repeated keys (including identical key/value pairs) are preserved
 // separately in block and transaction events, including after Stop and reopen.
-func TestRepair_82_RepeatedKeysSurviveReopen(t *testing.T) {
-	repair82RoundTrip(t, repair82Embedded(t, 0), 1)
+func TestEventSinkStorageRepeatedKeysSurviveReopen(t *testing.T) {
+	assertEventStorageRoundTrip(t, openEmbeddedEventSink(t, 0), 1)
 }
 
-func repair82RoundTrip(t *testing.T, open func() *EventSink, firstID int64) {
+func assertEventStorageRoundTrip(t *testing.T, open func() *EventSink, firstID int64) {
 	t.Helper()
 	event := abci.Event{Type: "transfer", Attributes: []abci.EventAttribute{
 		{Key: []byte("account"), Value: []byte("sender"), Index: true},
@@ -80,7 +82,7 @@ func repair82RoundTrip(t *testing.T, open func() *EventSink, firstID int64) {
 	sink := open()
 	require.NoError(t, sink.IndexBlockEvents(block))
 	require.NoError(t, sink.IndexTxEvents([]*abci.TxResultV2{txr}))
-	repair82AssertStored(t, sink.DB(), sink.chainID, txr, firstID)
+	assertStoredEventAttributes(t, sink.DB(), sink.chainID, txr, firstID)
 
 	// Identity still rejects conflicting positions and invalid ordinals.
 	for _, ordinal := range []int{-1, 0} {
@@ -94,15 +96,15 @@ WHERE b.chain_id = $2 AND e.type = 'transfer' AND e.tx_id IS NULL`, ordinal, sin
 	require.NoError(t, sink.Stop())
 
 	sink = open()
-	repair82AssertStored(t, sink.DB(), sink.chainID, txr, firstID)
+	assertStoredEventAttributes(t, sink.DB(), sink.chainID, txr, firstID)
 	// Replaying committed records after reopening must not duplicate attributes.
 	require.NoError(t, sink.IndexBlockEvents(block))
 	require.NoError(t, sink.IndexTxEvents([]*abci.TxResultV2{txr}))
-	repair82AssertStored(t, sink.DB(), sink.chainID, txr, firstID)
+	assertStoredEventAttributes(t, sink.DB(), sink.chainID, txr, firstID)
 	require.NoError(t, sink.Stop())
 }
 
-func repair82AssertStored(t *testing.T, db *sql.DB, chain string, txr *abci.TxResultV2, firstID int64) {
+func assertStoredEventAttributes(t *testing.T, db *sql.DB, chain string, txr *abci.TxResultV2, firstID int64) {
 	t.Helper()
 	var blockID, txID int64
 	var encoded []byte

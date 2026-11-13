@@ -12,7 +12,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/state/indexer/sink/psql/repairfixture"
 )
 
-func repairM1106Sink(t *testing.T) *EventSink {
+func newMetadataEventSink(t *testing.T) *EventSink {
 	t.Helper()
 	db, err := repairfixture.Open(":memory:")
 	require.NoError(t, err)
@@ -25,7 +25,7 @@ func repairM1106Sink(t *testing.T) *EventSink {
 	return sink
 }
 
-func repairM1106Produce(t *testing.T, sink *EventSink, height int64) (time.Time, time.Time) {
+func produceEventMetadata(t *testing.T, sink *EventSink, height int64) (time.Time, time.Time) {
 	t.Helper()
 	block := newTestBlockHeader()
 	block.Header.Height = height
@@ -39,10 +39,10 @@ func repairM1106Produce(t *testing.T, sink *EventSink, height int64) (time.Time,
 	return started, time.Now().UTC()
 }
 
-func TestRepairM_1106_PersistedHeightAndTimestamp(t *testing.T) {
-	sink := repairM1106Sink(t)
+func TestEventSinkMetadataPersistedHeightAndTimestamp(t *testing.T) {
+	sink := newMetadataEventSink(t)
 	for _, height := range []int64{1, 2} {
-		started, finished := repairM1106Produce(t, sink, height)
+		started, finished := produceEventMetadata(t, sink, height)
 		require.NoError(t, verifyBlock(sink.DB(), height, sink.chainID))
 		for _, table := range []string{tableBlocks, tableTxResults, viewTxEvents} {
 			require.NoError(t, verifyTimeStamp(sink.DB(), table, height, sink.chainID, started, finished))
@@ -50,9 +50,9 @@ func TestRepairM_1106_PersistedHeightAndTimestamp(t *testing.T) {
 	}
 }
 
-func TestRepairM_1106_UnproducedRowsFailQualification(t *testing.T) {
-	sink := repairM1106Sink(t)
-	started, finished := repairM1106Produce(t, sink, 1)
+func TestEventSinkMetadataRejectsUnproducedRows(t *testing.T) {
+	sink := newMetadataEventSink(t)
+	started, finished := produceEventMetadata(t, sink, 1)
 	for _, tc := range []struct {
 		height int64
 		chain  string
@@ -67,13 +67,13 @@ func TestRepairM_1106_UnproducedRowsFailQualification(t *testing.T) {
 	}
 }
 
-func TestRepairM_1106_RemovedRowsFailQualification(t *testing.T) {
+func TestEventSinkMetadataRejectsMissingRows(t *testing.T) {
 	for _, table := range []string{tableBlocks, tableTxResults, viewTxEvents} {
 		t.Run(table, func(t *testing.T) {
-			sink := repairM1106Sink(t)
-			started, finished := repairM1106Produce(t, sink, 1)
+			sink := newMetadataEventSink(t)
+			started, finished := produceEventMetadata(t, sink, 1)
 			// A different persisted height must not hide the expected row's loss.
-			repairM1106Produce(t, sink, 2)
+			produceEventMetadata(t, sink, 2)
 			require.NoError(t, verifyBlock(sink.DB(), 1, sink.chainID))
 			require.NoError(t, verifyTimeStamp(sink.DB(), table, 1, sink.chainID, started, finished))
 
@@ -111,11 +111,11 @@ func TestRepairM_1106_RemovedRowsFailQualification(t *testing.T) {
 	}
 }
 
-func TestRepairM_1106_OutOfIntervalTimestampsFailQualification(t *testing.T) {
+func TestEventSinkMetadataRejectsOutOfIntervalTimestamps(t *testing.T) {
 	for _, table := range []string{tableBlocks, tableTxResults, viewTxEvents} {
 		t.Run(table, func(t *testing.T) {
-			sink := repairM1106Sink(t)
-			started, finished := repairM1106Produce(t, sink, 1)
+			sink := newMetadataEventSink(t)
+			started, finished := produceEventMetadata(t, sink, 1)
 			require.NoError(t, verifyTimeStamp(sink.DB(), table, 1, sink.chainID, started, finished))
 			source := table
 			if table == viewTxEvents {

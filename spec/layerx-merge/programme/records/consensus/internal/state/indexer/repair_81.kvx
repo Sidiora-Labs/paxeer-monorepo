@@ -10,7 +10,7 @@ compatibility = "Existing event-only constructors receive an explicit durable-re
 
 [finding.3]
 tests = ["TestRepair_81_FailedWriteReopen", "TestRepair_81_CheckpointFailureReopen", "TestRepair_81_LiveGapAndOfflineRecovery", "TestRepair_81_MissingHistoryDoesNotAdvance", "TestRepair_81_ReplayOnlyCommittedHeight"]
-path = "consensus/internal/state/indexer/repair_81_test.go"
+path = "consensus/internal/state/indexer/recovery_test.go"
 producer = "ABCI KV application's FinalizeBlock and Commit, persisted by the real state and block stores; live events emitted by state.FireEvents."
 consumer = "Real indexer service and KV sink, with transaction and block search assertions after closing and reopening the on-disk stores and sink."
 failed_write = "A closed LevelDB sink refuses writes; startup remains unacknowledged until cancellation, then reopening replays both committed heights."

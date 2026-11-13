@@ -40,7 +40,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repair89Fixture struct {
+type proposalAdmissionFixture struct {
 	app        *app.App
 	node       *sequencer.Node
 	cfg        sequencer.Config
@@ -55,7 +55,7 @@ type repair89Fixture struct {
 	recipient  utils.TestAcct
 }
 
-func newRepair89Fixture(t *testing.T) *repair89Fixture {
+func newProposalAdmissionFixture(t *testing.T) *proposalAdmissionFixture {
 	t.Helper()
 	previousOCC := app.EnableOCC
 	app.EnableOCC = false
@@ -66,7 +66,7 @@ func newRepair89Fixture(t *testing.T) *repair89Fixture {
 		ba.SetOccEnabled(false)
 		ba.SetConcurrencyWorkers(1)
 	})
-	f := &repair89Fixture{app: tw.App, recipient: utils.NewSigner(), stateDir: t.TempDir()}
+	f := &proposalAdmissionFixture{app: tw.App, recipient: utils.NewSigner(), stateDir: t.TempDir()}
 	for range 3 {
 		sender := utils.NewSigner()
 		f.senders = append(f.senders, sender)
@@ -122,7 +122,7 @@ func newRepair89Fixture(t *testing.T) *repair89Fixture {
 	return f
 }
 
-func (f *repair89Fixture) openConsensus(t *testing.T) {
+func (f *proposalAdmissionFixture) openConsensus(t *testing.T) {
 	t.Helper()
 	var err error
 	f.db, err = dbm.NewGoLevelDB("state", f.stateDir)
@@ -137,7 +137,7 @@ func (f *repair89Fixture) openConsensus(t *testing.T) {
 	f.exec.SetSequencerSource(f.node.ConsensusSource)
 }
 
-func (f *repair89Fixture) restart(t *testing.T) {
+func (f *proposalAdmissionFixture) restart(t *testing.T) {
 	t.Helper()
 	f.exec.Stop()
 	if !f.dbClosed {
@@ -156,7 +156,7 @@ func (f *repair89Fixture) restart(t *testing.T) {
 	require.Zero(t, f.pool.Size(), "recovery must not depend on mempool resubmission")
 }
 
-func (f *repair89Fixture) tx(t *testing.T, sender utils.TestAcct, amount int64) tmtypes.Tx {
+func (f *proposalAdmissionFixture) tx(t *testing.T, sender utils.TestAcct, amount int64) tmtypes.Tx {
 	t.Helper()
 	acct := f.app.AccountKeeper.GetAccount(f.app.GetCheckCtx(), sender.AccountAddress)
 	require.NotNil(t, acct)
@@ -180,7 +180,7 @@ func (f *repair89Fixture) tx(t *testing.T, sender utils.TestAcct, amount int64) 
 	return raw
 }
 
-func (f *repair89Fixture) add(t *testing.T, txs ...tmtypes.Tx) {
+func (f *proposalAdmissionFixture) add(t *testing.T, txs ...tmtypes.Tx) {
 	t.Helper()
 	for _, tx := range txs {
 		result, err := f.pool.CheckTx(t.Context(), tx)
@@ -189,13 +189,13 @@ func (f *repair89Fixture) add(t *testing.T, txs ...tmtypes.Tx) {
 	}
 }
 
-func (f *repair89Fixture) propose(t *testing.T) (*tmtypes.Block, error) {
+func (f *proposalAdmissionFixture) propose(t *testing.T) (*tmtypes.Block, error) {
 	t.Helper()
 	return f.exec.CreateProposalBlock(t.Context(), f.app.LastBlockHeight()+1, f.state,
 		&tmtypes.Commit{}, f.state.Validators.GetProposer().Address)
 }
 
-func (f *repair89Fixture) journal(t *testing.T) (tmtypes.Txs, map[string]bool) {
+func (f *proposalAdmissionFixture) journal(t *testing.T) (tmtypes.Txs, map[string]bool) {
 	t.Helper()
 	raw, err := f.db.Get([]byte("sequencer/proposal-admission/v1"))
 	require.NoError(t, err)
@@ -208,7 +208,7 @@ func (f *repair89Fixture) journal(t *testing.T) (tmtypes.Txs, map[string]bool) {
 	return saved.Pending, saved.Acknowledged
 }
 
-func (f *repair89Fixture) commit(t *testing.T, block *tmtypes.Block) {
+func (f *proposalAdmissionFixture) commit(t *testing.T, block *tmtypes.Block) {
 	t.Helper()
 	result, err := f.app.FinalizeBlock(t.Context(), &abci.RequestFinalizeBlock{
 		Header: block.Header.ToProto(), Txs: block.Txs.ToSliceOfBytes(),
@@ -225,7 +225,7 @@ func (f *repair89Fixture) commit(t *testing.T, block *tmtypes.Block) {
 	require.Equal(t, block.Height, f.app.LastBlockHeight())
 }
 
-func (f *repair89Fixture) assertCommitted(t *testing.T, txs tmtypes.Txs, amount int64) {
+func (f *proposalAdmissionFixture) assertCommitted(t *testing.T, txs tmtypes.Txs, amount int64) {
 	t.Helper()
 	ctx := f.app.GetCheckCtx()
 	require.Equal(t, sdk.NewInt(amount), f.app.BankKeeper.GetBalance(ctx, f.recipient.AccountAddress, "uhpx").Amount)
@@ -239,10 +239,10 @@ func (f *repair89Fixture) assertCommitted(t *testing.T, txs tmtypes.Txs, amount 
 	}
 }
 
-func TestRepair_89_FatalAdmissionRestart(t *testing.T) {
+func TestProposalAdmissionFatalAdmissionRestart(t *testing.T) {
 	for _, failure := range []string{"fenced", "layer-not-open", "replication-halted"} {
 		t.Run(failure, func(t *testing.T) {
-			f := newRepair89Fixture(t)
+			f := newProposalAdmissionFixture(t)
 			txs := tmtypes.Txs{f.tx(t, f.senders[0], 7), f.tx(t, f.senders[1], 11)}
 			f.add(t, txs...)
 			var want error
@@ -279,8 +279,8 @@ func TestRepair_89_FatalAdmissionRestart(t *testing.T) {
 	}
 }
 
-func TestRepair_89_PartialReplicationRestart(t *testing.T) {
-	f := newRepair89Fixture(t)
+func TestProposalAdmissionPartialReplicationRestart(t *testing.T) {
+	f := newProposalAdmissionFixture(t)
 	txs := tmtypes.Txs{f.tx(t, f.senders[0], 3), f.tx(t, f.senders[1], 5), f.tx(t, f.senders[2], 7)}
 	f.add(t, txs...)
 	// The production sync observer closes the real WAL after its first durable
@@ -328,8 +328,8 @@ func TestRepair_89_PartialReplicationRestart(t *testing.T) {
 	}
 }
 
-func TestRepair_89_SealedRetryAndNextHeightRestart(t *testing.T) {
-	f := newRepair89Fixture(t)
+func TestProposalAdmissionSealedRetryAndNextHeightRestart(t *testing.T) {
+	f := newProposalAdmissionFixture(t)
 	first, later := f.tx(t, f.senders[0], 7), f.tx(t, f.senders[1], 11)
 	f.add(t, first)
 	block, err := f.propose(t)
@@ -354,8 +354,8 @@ func TestRepair_89_SealedRetryAndNextHeightRestart(t *testing.T) {
 	f.assertCommitted(t, tmtypes.Txs{first, later}, 18)
 }
 
-func TestRepair_89_IndividualRefusalAndAdmission(t *testing.T) {
-	f := newRepair89Fixture(t)
+func TestProposalAdmissionIndividualRefusalAndAdmission(t *testing.T) {
+	f := newProposalAdmissionFixture(t)
 	earlier := f.tx(t, f.senders[0], 2)
 	stale := f.tx(t, f.senders[0], 3)
 	good := f.tx(t, f.senders[1], 7)
@@ -378,8 +378,8 @@ func TestRepair_89_IndividualRefusalAndAdmission(t *testing.T) {
 	f.assertCommitted(t, tmtypes.Txs{earlier, good}, 9)
 }
 
-func TestRepair_89_ReplayedAcceptanceIsNotRefused(t *testing.T) {
-	f := newRepair89Fixture(t)
+func TestProposalAdmissionReplayedAcceptanceIsNotRefused(t *testing.T) {
+	f := newProposalAdmissionFixture(t)
 	tx := f.tx(t, f.senders[0], 7)
 	original, err := f.node.Accepter.Accept(tx)
 	require.NoError(t, err)
@@ -401,8 +401,8 @@ func TestRepair_89_ReplayedAcceptanceIsNotRefused(t *testing.T) {
 	require.Equal(t, uint64(1), f.app.AccountKeeper.GetAccount(f.app.GetCheckCtx(), f.senders[0].AccountAddress).GetSequence())
 }
 
-func TestRepair_89_CancelledAdmissionRetainsTransactions(t *testing.T) {
-	f := newRepair89Fixture(t)
+func TestProposalAdmissionCancelledAdmissionRetainsTransactions(t *testing.T) {
+	f := newProposalAdmissionFixture(t)
 	tx := f.tx(t, f.senders[0], 7)
 	f.add(t, tx)
 	ctx, cancel := context.WithCancel(t.Context())
@@ -422,8 +422,8 @@ func TestRepair_89_CancelledAdmissionRetainsTransactions(t *testing.T) {
 	f.assertCommitted(t, tmtypes.Txs{tx}, 7)
 }
 
-func TestRepair_89_PendingSealRetryRetainsTransactions(t *testing.T) {
-	f := newRepair89Fixture(t)
+func TestProposalAdmissionPendingSealRetryRetainsTransactions(t *testing.T) {
+	f := newProposalAdmissionFixture(t)
 	first, later := f.tx(t, f.senders[0], 7), f.tx(t, f.senders[1], 11)
 	f.add(t, first)
 	pins, err := f.app.SequencerKeeper.ReceiptKeyPins(f.app.GetCheckCtx())
@@ -458,8 +458,8 @@ func TestRepair_89_PendingSealRetryRetainsTransactions(t *testing.T) {
 	f.assertCommitted(t, tmtypes.Txs{first, later}, 18)
 }
 
-func TestRepair_89_AcknowledgementWriteFailureRestart(t *testing.T) {
-	f := newRepair89Fixture(t)
+func TestProposalAdmissionAcknowledgementWriteFailureRestart(t *testing.T) {
+	f := newProposalAdmissionFixture(t)
 	txs := tmtypes.Txs{f.tx(t, f.senders[0], 7), f.tx(t, f.senders[1], 11)}
 	f.add(t, txs...)
 	f.node.Replicator.Close()

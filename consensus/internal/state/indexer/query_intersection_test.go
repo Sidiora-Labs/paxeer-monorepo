@@ -29,7 +29,7 @@ import (
 
 // The application emits app.key from the transaction, the sink persists the
 // encoded result and indexes, and searches decode the stored result again.
-func repairM1099Produce(t *testing.T, sink indexer.EventSink, height int64, txs ...string) []*abci.TxResultV2 {
+func produceIndexedTransactions(t *testing.T, sink indexer.EventSink, height int64, txs ...string) []*abci.TxResultV2 {
 	t.Helper()
 	app := kvstore.NewApplication()
 	defer func() { require.NoError(t, app.Close()) }()
@@ -56,7 +56,7 @@ func repairM1099Produce(t *testing.T, sink indexer.EventSink, height int64, txs 
 	return results
 }
 
-func repairM1099Permutations(parts []string, visit func([]string)) {
+func permuteQueryConditions(parts []string, visit func([]string)) {
 	var walk func(int)
 	walk = func(i int) {
 		if i == len(parts) {
@@ -72,7 +72,7 @@ func repairM1099Permutations(parts []string, visit func([]string)) {
 	walk(0)
 }
 
-func repairM1099AssertSearch(t *testing.T, sink indexer.EventSink, expression string, want []int64, block bool) {
+func assertIndexedQueryHeights(t *testing.T, sink indexer.EventSink, expression string, want []int64, block bool) {
 	t.Helper()
 	q, err := query.New(expression)
 	require.NoError(t, err)
@@ -98,11 +98,11 @@ func repairM1099AssertSearch(t *testing.T, sink indexer.EventSink, expression st
 	}
 }
 
-func TestRepairM_1099_RangeIntersection(t *testing.T) {
+func TestIndexerRangeIntersection(t *testing.T) {
 	sink := kv.NewEventSink(dbm.NewMemDB())
 	t.Cleanup(func() { require.NoError(t, sink.Stop()) })
 	for height := int64(1); height <= 15; height++ {
-		repairM1099Produce(t, sink, height, fmt.Sprintf("%d=value", height))
+		produceIndexedTransactions(t, sink, height, fmt.Sprintf("%d=value", height))
 	}
 	cases := []struct {
 		name       string
@@ -128,7 +128,7 @@ func TestRepairM_1099_RangeIntersection(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			repairM1099Permutations(strings.Split(tc.conditions, " AND "), func(parts []string) {
+			permuteQueryConditions(strings.Split(tc.conditions, " AND "), func(parts []string) {
 				for _, consumer := range []struct {
 					key   string
 					block bool
@@ -136,20 +136,20 @@ func TestRepairM_1099_RangeIntersection(t *testing.T) {
 					{"block.height", true}, {"tx.height", false}, {"app.key", false},
 				} {
 					expression := strings.ReplaceAll(strings.Join(parts, " AND "), "x ", consumer.key+" ")
-					repairM1099AssertSearch(t, sink, expression, tc.want, consumer.block)
+					assertIndexedQueryHeights(t, sink, expression, tc.want, consumer.block)
 				}
 			})
 		})
 	}
 }
 
-func TestRepairM_1099_TemporalRangeIntersection(t *testing.T) {
+func TestIndexerTemporalRangeIntersection(t *testing.T) {
 	sink := kv.NewEventSink(dbm.NewMemDB())
 	t.Cleanup(func() { require.NoError(t, sink.Stop()) })
 	start := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 	for day := int64(0); day < 5; day++ {
 		height := start.Add(time.Duration(day) * 24 * time.Hour).Unix()
-		repairM1099Produce(t, sink, height, fmt.Sprintf("%d=value", height))
+		produceIndexedTransactions(t, sink, height, fmt.Sprintf("%d=value", height))
 	}
 	for _, tc := range []struct {
 		expression string
@@ -165,16 +165,16 @@ func TestRepairM_1099_TemporalRangeIntersection(t *testing.T) {
 		for _, day := range tc.wantDays {
 			want = append(want, start.Add(time.Duration(day)*24*time.Hour).Unix())
 		}
-		repairM1099Permutations(strings.Split(tc.expression, " AND "), func(parts []string) {
+		permuteQueryConditions(strings.Split(tc.expression, " AND "), func(parts []string) {
 			for _, key := range []string{"block.height", "tx.height", "app.key"} {
 				expression := strings.ReplaceAll(strings.Join(parts, " AND "), "x ", key+" ")
-				repairM1099AssertSearch(t, sink, expression, want, key == "block.height")
+				assertIndexedQueryHeights(t, sink, expression, want, key == "block.height")
 			}
 		})
 	}
 }
 
-func TestRepairM_1099_DocumentedSQL(t *testing.T) {
+func TestIndexerDocumentedSQL(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "events.sqlite")
 	open := func(chain string) *psql.EventSink {
 		db, err := repairfixture.Open(path)
@@ -187,10 +187,10 @@ func TestRepairM_1099_DocumentedSQL(t *testing.T) {
 	require.NoError(t, err)
 	_, err = sink.DB().ExecContext(t.Context(), string(schema))
 	require.NoError(t, err)
-	results := repairM1099Produce(t, sink, 25, "recipient=alice", "other=bob")
-	repairM1099Produce(t, sink, 26, "third=carol")
+	results := produceIndexedTransactions(t, sink, 25, "recipient=alice", "other=bob")
+	produceIndexedTransactions(t, sink, 26, "third=carol")
 	other := open("another-chain")
-	repairM1099Produce(t, other, 25, "other-chain=dan")
+	produceIndexedTransactions(t, other, 25, "other-chain=dan")
 	// A committed ABCI event fixture supplies the type.key used in the docs.
 	// All view rows, composite keys, hashes and encoded results are sink output.
 	transfer := &abci.TxResultV2{Height: 26, Index: 1, Tx: []byte("transfer-to-alice"), Result: abci.ExecTxResult{Events: []abci.Event{

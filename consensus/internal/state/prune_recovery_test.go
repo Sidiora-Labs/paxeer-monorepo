@@ -14,20 +14,20 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repairM1098Stores struct {
+type pruneRecoveryStores struct {
 	dir    string
 	states Store
 	blocks *blockstore.BlockStore
 	state  State
 }
 
-func newRepairM1098Stores(t *testing.T) *repairM1098Stores {
+func newPruneRecoveryStores(t *testing.T) *pruneRecoveryStores {
 	t.Helper()
 	key := ed25519.GenerateSecretKey()
 	vals := types.NewValidatorSet([]*types.Validator{
 		types.NewValidator(key.Public(), 10),
 	})
-	f := &repairM1098Stores{
+	f := &pruneRecoveryStores{
 		dir: t.TempDir(),
 		state: State{
 			Version: InitStateVersion, ChainID: "repair-m1098", InitialHeight: 1,
@@ -69,7 +69,7 @@ func newRepairM1098Stores(t *testing.T) *repairM1098Stores {
 	return f
 }
 
-func (f *repairM1098Stores) open(t *testing.T) {
+func (f *pruneRecoveryStores) open(t *testing.T) {
 	t.Helper()
 	stateDB, err := dbm.NewGoLevelDB("state", f.dir)
 	require.NoError(t, err)
@@ -79,7 +79,7 @@ func (f *repairM1098Stores) open(t *testing.T) {
 	f.blocks = blockstore.NewBlockStore(blockDB)
 }
 
-func (f *repairM1098Stores) close(t *testing.T) {
+func (f *pruneRecoveryStores) close(t *testing.T) {
 	t.Helper()
 	if f.states != nil {
 		require.NoError(t, f.states.Close())
@@ -91,7 +91,7 @@ func (f *repairM1098Stores) close(t *testing.T) {
 	}
 }
 
-func (f *repairM1098Stores) save(t *testing.T, height int64) {
+func (f *pruneRecoveryStores) save(t *testing.T, height int64) {
 	t.Helper()
 	s := f.state.Copy()
 	s.LastBlockHeight = height - 1
@@ -100,7 +100,7 @@ func (f *repairM1098Stores) save(t *testing.T, height int64) {
 	require.NoError(t, f.states.Save(s))
 }
 
-func repairM1098Wait(t *testing.T, p *AsyncPruner) {
+func waitForPruneWorker(t *testing.T, p *AsyncPruner) {
 	t.Helper()
 	// Observe the production worker's completion signal without polling or
 	// stopping it, so another request exercises the same running component.
@@ -116,12 +116,12 @@ func repairM1098Wait(t *testing.T, p *AsyncPruner) {
 	}
 }
 
-func (f *repairM1098Stores) failedPrune(t *testing.T) *AsyncPruner {
+func (f *pruneRecoveryStores) failedPrune(t *testing.T) *AsyncPruner {
 	t.Helper()
 	p := newAsyncPruner(f.blocks, f.states, NopMetrics())
 	t.Cleanup(p.stop)
 	p.Request(5)
-	repairM1098Wait(t, p)
+	waitForPruneWorker(t, p)
 	require.Error(t, p.Err())
 	require.Zero(t, p.RetainedBase())
 	require.Equal(t, int64(5), f.blocks.Base())
@@ -133,7 +133,7 @@ func (f *repairM1098Stores) failedPrune(t *testing.T) *AsyncPruner {
 	return p
 }
 
-func (f *repairM1098Stores) requirePruned(t *testing.T, p *AsyncPruner, height int64) {
+func (f *pruneRecoveryStores) requirePruned(t *testing.T, p *AsyncPruner, height int64) {
 	t.Helper()
 	require.NoError(t, p.Err())
 	require.Equal(t, height, p.RetainedBase())
@@ -161,27 +161,27 @@ func (f *repairM1098Stores) requirePruned(t *testing.T, p *AsyncPruner, height i
 	}
 }
 
-func TestRepairM_1098_RetryStatePruneAtBlockBase(t *testing.T) {
-	f := newRepairM1098Stores(t)
+func TestStatePruneRecoveryRetryStatePruneAtBlockBase(t *testing.T) {
+	f := newPruneRecoveryStores(t)
 	p := f.failedPrune(t)
 	p.Request(5)
-	repairM1098Wait(t, p)
+	waitForPruneWorker(t, p)
 	require.Error(t, p.Err(), "equal block base must retry the unfinished state prune")
 	require.Zero(t, p.RetainedBase())
 	f.save(t, 4)
 	f.save(t, 6)
 	p.Request(5)
-	repairM1098Wait(t, p)
+	waitForPruneWorker(t, p)
 	f.requirePruned(t, p, 5)
 	for _, height := range []int64{5, 3} {
 		p.Request(height)
-		repairM1098Wait(t, p)
+		waitForPruneWorker(t, p)
 		f.requirePruned(t, p, 5)
 	}
 }
 
-func TestRepairM_1098_RestartResumesStatePrune(t *testing.T) {
-	f := newRepairM1098Stores(t)
+func TestStatePruneRecoveryRestartResumesStatePrune(t *testing.T) {
+	f := newPruneRecoveryStores(t)
 	p := f.failedPrune(t)
 	p.stop()
 	f.close(t)
@@ -192,38 +192,38 @@ func TestRepairM_1098_RestartResumesStatePrune(t *testing.T) {
 	p = newAsyncPruner(f.blocks, f.states, NopMetrics())
 	t.Cleanup(p.stop)
 	// No new retain-height request: reopening reconstructs pending pruning.
-	repairM1098Wait(t, p)
+	waitForPruneWorker(t, p)
 	f.requirePruned(t, p, 5)
 	p.stop()
 	f.close(t)
 	f.open(t)
 	p = newAsyncPruner(f.blocks, f.states, NopMetrics())
 	t.Cleanup(p.stop)
-	repairM1098Wait(t, p)
+	waitForPruneWorker(t, p)
 	f.requirePruned(t, p, 5)
 }
 
-func TestRepairM_1098_RestartKeepsFailedPrunePending(t *testing.T) {
-	f := newRepairM1098Stores(t)
+func TestStatePruneRecoveryRestartKeepsFailedPrunePending(t *testing.T) {
+	f := newPruneRecoveryStores(t)
 	p := f.failedPrune(t)
 	p.stop()
 	f.close(t)
 	f.open(t)
 	p = newAsyncPruner(f.blocks, f.states, NopMetrics())
 	t.Cleanup(p.stop)
-	repairM1098Wait(t, p)
+	waitForPruneWorker(t, p)
 	require.Error(t, p.Err())
 	require.Zero(t, p.RetainedBase())
 	p.Request(3)
-	repairM1098Wait(t, p)
+	waitForPruneWorker(t, p)
 	require.Error(t, p.Err(), "a lower request must not acknowledge the pending boundary")
 	require.Zero(t, p.RetainedBase())
 	f.save(t, 4)
 	f.save(t, 6)
 	p.Request(3)
-	repairM1098Wait(t, p)
+	waitForPruneWorker(t, p)
 	f.requirePruned(t, p, 5)
 	p.Request(6)
-	repairM1098Wait(t, p)
+	waitForPruneWorker(t, p)
 	f.requirePruned(t, p, 6)
 }

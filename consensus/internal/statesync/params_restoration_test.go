@@ -26,7 +26,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-type repair120Network struct {
+type paramsRestorationNetwork struct {
 	client    *Reactor
 	witness   *Reactor
 	clientID  types.NodeID
@@ -36,7 +36,7 @@ type repair120Network struct {
 	states    map[int64]sm.State
 }
 
-func newRepair120Network(t *testing.T, ctx context.Context, s scope.Scope) *repair120Network {
+func newParamsRestorationNetwork(t *testing.T, ctx context.Context, s scope.Scope) *paramsRestorationNetwork {
 	t.Helper()
 	keyDir := t.TempDir()
 	pv, err := privval.GenFilePV(filepath.Join(keyDir, "key.json"), filepath.Join(keyDir, "state.json"), types.ABCIPubKeyTypeEd25519)
@@ -128,13 +128,13 @@ func newRepair120Network(t *testing.T, ctx context.Context, s scope.Scope) *repa
 		client.processParamsCh(ctx)
 		return nil
 	})
-	return &repair120Network{
+	return &paramsRestorationNetwork{
 		client: client, witness: reactors[2], clientID: nodes[0].NodeID, witnessID: nodes[2].NodeID,
 		provider: sp, blocks: blocks, states: states,
 	}
 }
 
-func (n *repair120Network) serveParams(ctx context.Context, s scope.Scope) {
+func (n *paramsRestorationNetwork) serveParams(ctx context.Context, s scope.Scope) {
 	s.SpawnBg(func() error {
 		request, err := n.witness.paramsChannel.Recv(ctx)
 		if err != nil {
@@ -147,11 +147,11 @@ func (n *repair120Network) serveParams(ctx context.Context, s scope.Scope) {
 	})
 }
 
-func TestRepair_120_ParamsHeightRestoration(t *testing.T) {
+func TestStateProviderParamsHeightRestoration(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()
 	err := scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
-		n := newRepair120Network(t, ctx, s)
+		n := newParamsRestorationNetwork(t, ctx, s)
 		n.serveParams(ctx, s)
 		restored, err := n.provider.State(ctx, 1)
 		if err != nil {
@@ -180,11 +180,11 @@ func TestRepair_120_ParamsHeightRestoration(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestRepair_120_ParamsWrongHeightRefused(t *testing.T) {
+func TestStateProviderParamsWrongHeightRefused(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()
 	err := scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
-		n := newRepair120Network(t, ctx, s)
+		n := newParamsRestorationNetwork(t, ctx, s)
 		require.Equal(t, n.blocks[1].ConsensusHash, n.blocks[2].ConsensusHash)
 		s.SpawnBg(func() error {
 			pending, err := n.witness.paramsChannel.Recv(ctx)
@@ -213,11 +213,11 @@ func TestRepair_120_ParamsWrongHeightRefused(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestRepair_120_ParamsWrongHashRefused(t *testing.T) {
+func TestStateProviderParamsWrongHashRefused(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()
 	err := scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
-		n := newRepair120Network(t, ctx, s)
+		n := newParamsRestorationNetwork(t, ctx, s)
 		wrong := n.states[2]
 		wrong.ConsensusParams = n.states[3].ConsensusParams
 		require.NoError(t, n.witness.stateStore.Bootstrap(wrong))

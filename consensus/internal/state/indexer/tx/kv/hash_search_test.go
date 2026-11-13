@@ -16,7 +16,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func TestRepairM_1101_HashConjunctions(t *testing.T) {
+func TestTxSearchHashConjunctions(t *testing.T) {
 	store := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, store.Close()) })
 	txi := NewTxIndex(store)
@@ -84,7 +84,7 @@ func TestRepairM_1101_HashConjunctions(t *testing.T) {
 	}
 }
 
-func TestRepairM_1101_UnsupportedHashOperators(t *testing.T) {
+func TestTxSearchUnsupportedHashOperators(t *testing.T) {
 	store := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, store.Close()) })
 	txi := NewTxIndex(store)
@@ -121,7 +121,7 @@ func TestRepairM_1101_UnsupportedHashOperators(t *testing.T) {
 	}
 }
 
-func TestRepairM_1101_InvalidHashes(t *testing.T) {
+func TestTxSearchInvalidHashes(t *testing.T) {
 	store := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, store.Close()) })
 	txi := NewTxIndex(store)
@@ -143,6 +143,6 @@ func TestRepairM_1101_InvalidHashes(t *testing.T) {
 	}
 }
 
-func TestRepairM_1101_LegacyIndexRecovery(t *testing.T) {
+func TestTxSearchLegacyIndexRecovery(t *testing.T) {
 	testTxSearchDeprecatedIndexing(t)
 }

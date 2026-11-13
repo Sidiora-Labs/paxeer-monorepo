@@ -9,7 +9,7 @@ wiring_request = "node/sequencer/consensus_source_test.go, owning domain 5 (node
 
 [finding.32]
 tests = ["TestRepair_89_FatalAdmissionRestart", "TestRepair_89_PartialReplicationRestart", "TestRepair_89_SealedRetryAndNextHeightRestart", "TestRepair_89_IndividualRefusalAndAdmission", "TestRepair_89_ReplayedAcceptanceIsNotRefused", "TestRepair_89_CancelledAdmissionRetainsTransactions", "TestRepair_89_PendingSealRetryRetainsTransactions", "TestRepair_89_AcknowledgementWriteFailureRestart"]
-path = "consensus/internal/state/repair_89_test.go"
+path = "consensus/internal/state/proposal_admission_recovery_test.go"
 producer = "Signed bank sends accepted by the real application's CheckTx into TxMempool, reaped by BlockExecutor.CreateProposalBlock."
 consumer = "Real ConsensusSource, Accepter, Receipter, Executor, Replicator, WAL and state database; application FinalizeBlock and Commit prove recipient balances, sender sequences, unchanged transaction hashes and verified signed receipts."
 restart = "Stop the block executor and sequencer node, close and reopen the on-disk state database and WAL, reconstruct the sequencer over committed application state, and propose from an empty fresh mempool without resubmitting transactions."
