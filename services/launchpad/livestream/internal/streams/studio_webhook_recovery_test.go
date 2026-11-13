@@ -30,11 +30,11 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const repairM1001OperationID = "11111111-1111-4111-8111-111111111111"
+const studioRecoveryOperationID = "11111111-1111-4111-8111-111111111111"
 
 // These frames were emitted by the pinned Studio serialization expression in
 // testdata/studio-72187/producer.txt. Only the producer's input bindings change.
-func repairM1001StudioBody(t *testing.T, id, provider, kind string, observed, delivered time.Time) []byte {
+func studioRecoveryStudioBody(t *testing.T, id, provider, kind string, observed, delivered time.Time) []byte {
 	t.Helper()
 	raw, err := os.ReadFile(filepath.Join("testdata", "studio-72187", kind+".json"))
 	if err != nil {
@@ -57,17 +57,17 @@ func repairM1001StudioBody(t *testing.T, id, provider, kind string, observed, de
 	return raw
 }
 
-func repairM1001StudioSignature(raw []byte, secret string, delivered time.Time) string {
+func studioRecoveryStudioSignature(raw []byte, secret string, delivered time.Time) string {
 	mac := hmac.New(sha256.New, []byte(secret))
 	_, _ = mac.Write(raw)
 	return fmt.Sprintf("t=%d,v1=%s", delivered.UnixMilli(), hex.EncodeToString(mac.Sum(nil)))
 }
 
-func repairM1001Normalize(t *testing.T, raw []byte, secret string, now time.Time) NormalizedProviderWebhook {
+func studioRecoveryNormalize(t *testing.T, raw []byte, secret string, now time.Time) NormalizedProviderWebhook {
 	t.Helper()
 	request := httptest.NewRequest(http.MethodPost, "/webhooks/livepeer", bytes.NewReader(raw))
 	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("Livepeer-Signature", repairM1001StudioSignature(raw, secret, now))
+	request.Header.Set("Livepeer-Signature", studioRecoveryStudioSignature(raw, secret, now))
 	rec := httptest.NewRecorder()
 	wire, ok := NormalizeStudioWebhook(rec, request, secret, now)
 	if !ok {
@@ -79,7 +79,7 @@ func repairM1001Normalize(t *testing.T, raw []byte, secret string, now time.Time
 	return wire
 }
 
-func repairM1001Post(t *testing.T, server *httptest.Server, path string, body []byte, headers map[string]string, status int) []byte {
+func studioRecoveryPost(t *testing.T, server *httptest.Server, path string, body []byte, headers map[string]string, status int) []byte {
 	t.Helper()
 	request, err := http.NewRequest(http.MethodPost, server.URL+path, bytes.NewReader(body))
 	if err != nil {
@@ -114,26 +114,26 @@ func repairM1001Post(t *testing.T, server *httptest.Server, path string, body []
 	return raw
 }
 
-func repairM1001AssertAliases(t *testing.T, handler http.Handler, secret string, now time.Time, lastOutcome *string) {
+func studioRecoveryAssertAliases(t *testing.T, handler http.Handler, secret string, now time.Time, lastOutcome *string) {
 	t.Helper()
 	server := httptest.NewServer(handler)
 	defer server.Close()
-	raw := repairM1001StudioBody(t, "webhook_test_12", "streamid", "stream.started", now.Add(-time.Minute), now)
-	wire := repairM1001Normalize(t, raw, secret, now)
+	raw := studioRecoveryStudioBody(t, "webhook_test_12", "streamid", "stream.started", now.Add(-time.Minute), now)
+	wire := studioRecoveryNormalize(t, raw, secret, now)
 	normalizedHeaders := func(timestamp, signature string) map[string]string {
 		return map[string]string{NormalizedWebhookTimestampHeader: timestamp, NormalizedWebhookSignatureHeader: signature}
 	}
 	studioHeader := func(body []byte, at time.Time) map[string]string {
-		return map[string]string{"Livepeer-Signature": repairM1001StudioSignature(body, secret, at)}
+		return map[string]string{"Livepeer-Signature": studioRecoveryStudioSignature(body, secret, at)}
 	}
 	malformed := []byte(`{"timestamp":` + strconv.FormatInt(now.UnixMilli(), 10) + `,"event":`)
 	malformedFrozen := []byte(`{"eventId":"webhook_test_12","streamId":"streamid","event":"unknown","occurredAt":"` + now.Format(v2LifecycleTimeLayout) + `"}`)
 	duplicate := bytes.Replace(raw, []byte(`"id":"webhook_test_12"`), []byte(`"id":"webhook_test_12","id":"another_event"`), 1)
 	nestedDuplicate := bytes.Replace(raw, []byte(`"stream":{"id":"streamid"}`), []byte(`"stream":{"id":"streamid","id":"other"}`), 1)
-	expired := repairM1001StudioBody(t, "webhook_test_12", "streamid", "stream.started", now.Add(-time.Hour), now.Add(-301*time.Second))
-	future := repairM1001StudioBody(t, "webhook_test_12", "streamid", "stream.started", now.Add(-time.Minute), now.Add(301*time.Second))
+	expired := studioRecoveryStudioBody(t, "webhook_test_12", "streamid", "stream.started", now.Add(-time.Hour), now.Add(-301*time.Second))
+	future := studioRecoveryStudioBody(t, "webhook_test_12", "streamid", "stream.started", now.Add(-time.Minute), now.Add(301*time.Second))
 	seconds := bytes.Replace(raw, []byte(strconv.FormatInt(now.UnixMilli(), 10)), []byte(strconv.FormatInt(now.Unix(), 10)), 1)
-	signature := repairM1001StudioSignature(raw, secret, now)
+	signature := studioRecoveryStudioSignature(raw, secret, now)
 	_, mac, _ := strings.Cut(signature, ",v1=")
 	*lastOutcome = ""
 	for _, tc := range []struct {
@@ -146,7 +146,7 @@ func repairM1001AssertAliases(t *testing.T, handler http.Handler, secret string,
 		{"wrong_signature", "/webhooks/livepeer", raw, map[string]string{"Livepeer-Signature": fmt.Sprintf("t=%d,v1=%s", now.UnixMilli(), strings.Repeat("0", 64))}, 401},
 		{"tampered", "/webhooks/livepeer", bytes.Replace(raw, []byte("stream.started"), []byte("stream.idle"), 1), studioHeader(raw, now), 401},
 		{"substituted_timestamp", "/webhooks/livepeer", raw, map[string]string{"Livepeer-Signature": fmt.Sprintf("t=%d,v1=%s", now.Add(time.Second).UnixMilli(), mac)}, 401},
-		{"seconds_refused", "/webhooks/livepeer", seconds, map[string]string{"Livepeer-Signature": strings.Replace(repairM1001StudioSignature(seconds, secret, now), strconv.FormatInt(now.UnixMilli(), 10), strconv.FormatInt(now.Unix(), 10), 1)}, 401},
+		{"seconds_refused", "/webhooks/livepeer", seconds, map[string]string{"Livepeer-Signature": strings.Replace(studioRecoveryStudioSignature(seconds, secret, now), strconv.FormatInt(now.UnixMilli(), 10), strconv.FormatInt(now.Unix(), 10), 1)}, 401},
 		{"stale", "/webhooks/livepeer", expired, studioHeader(expired, now.Add(-301*time.Second)), 401},
 		{"future", "/webhooks/livepeer", future, studioHeader(future, now.Add(301*time.Second)), 401},
 		{"malformed", "/webhooks/livepeer", malformed, studioHeader(malformed, now), 400},
@@ -162,21 +162,21 @@ func repairM1001AssertAliases(t *testing.T, handler http.Handler, secret string,
 		{"studio_body_on_frozen", "/v2/provider-webhooks/livepeer", raw, normalizedHeaders(wire.Timestamp, sharedauth.SignWebhook(normalizedWebhookKey(secret), wire.Timestamp, string(raw))), 400},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			repairM1001Post(t, server, tc.path, tc.body, tc.headers, tc.status)
+			studioRecoveryPost(t, server, tc.path, tc.body, tc.headers, tc.status)
 			if *lastOutcome != "" {
 				t.Fatalf("refused delivery reached observer: %s", *lastOutcome)
 			}
 		})
 	}
-	repairM1001Post(t, server, "/webhooks/livepeer", raw, studioHeader(raw, now), 200)
+	studioRecoveryPost(t, server, "/webhooks/livepeer", raw, studioHeader(raw, now), 200)
 	if *lastOutcome != "applied" {
 		t.Fatalf("producer callback outcome=%s", *lastOutcome)
 	}
-	repairM1001Post(t, server, "/v2/provider-webhooks/livepeer", wire.Body, normalizedHeaders(wire.Timestamp, wire.Signature), 200)
+	studioRecoveryPost(t, server, "/v2/provider-webhooks/livepeer", wire.Body, normalizedHeaders(wire.Timestamp, wire.Signature), 200)
 	if *lastOutcome != "duplicate" {
 		t.Fatalf("frozen redelivery outcome=%s", *lastOutcome)
 	}
-	repairM1001Post(t, server, "/webhooks/livepeer", raw, studioHeader(raw, now), 200)
+	studioRecoveryPost(t, server, "/webhooks/livepeer", raw, studioHeader(raw, now), 200)
 	if *lastOutcome != "duplicate" {
 		t.Fatalf("Studio redelivery outcome=%s", *lastOutcome)
 	}
@@ -184,16 +184,16 @@ func repairM1001AssertAliases(t *testing.T, handler http.Handler, secret string,
 
 // A committed inbox peer gives the HTTP adapter durable observable effects. The
 // PostgreSQL lifecycle assertions remain in the existing integration proofs.
-type repairM1001Inbox struct {
+type studioRecoveryInbox struct {
 	path      string
 	mu        sync.Mutex
 	operation Operation
 	events    map[string]string
 }
 
-func repairM1001OpenInbox(t *testing.T, path string) *repairM1001Inbox {
+func studioRecoveryOpenInbox(t *testing.T, path string) *studioRecoveryInbox {
 	t.Helper()
-	peer := &repairM1001Inbox{path: path, operation: Operation{ID: repairM1001OperationID, ProviderID: "streamid", State: "READY", Revision: 1}, events: map[string]string{}}
+	peer := &studioRecoveryInbox{path: path, operation: Operation{ID: studioRecoveryOperationID, ProviderID: "streamid", State: "READY", Revision: 1}, events: map[string]string{}}
 	raw, err := os.ReadFile(path)
 	if err == nil {
 		var state struct {
@@ -210,7 +210,7 @@ func repairM1001OpenInbox(t *testing.T, path string) *repairM1001Inbox {
 	return peer
 }
 
-func (p *repairM1001Inbox) Observe(ctx context.Context, event ProviderEvent) (string, error) {
+func (p *studioRecoveryInbox) Observe(ctx context.Context, event ProviderEvent) (string, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -241,14 +241,14 @@ func (p *repairM1001Inbox) Observe(ctx context.Context, event ProviderEvent) (st
 	if err != nil {
 		return "", err
 	}
-	if err = repairM1001WriteSnapshot(p.path, raw); err != nil {
+	if err = studioRecoveryWriteSnapshot(p.path, raw); err != nil {
 		return "", err
 	}
 	p.operation, p.events = operation, events
 	return "applied", nil
 }
 
-func repairM1001WriteSnapshot(path string, raw []byte) error {
+func studioRecoveryWriteSnapshot(path string, raw []byte) error {
 	file, err := os.OpenFile(path+".next", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
@@ -275,7 +275,7 @@ func repairM1001WriteSnapshot(path string, raw []byte) error {
 	return dir.Sync()
 }
 
-func repairM1001AdapterRouter(peer ProviderEventObserver, secret string, now time.Time, outcome *string) http.Handler {
+func studioRecoveryAdapterRouter(peer ProviderEventObserver, secret string, now time.Time, outcome *string) http.Handler {
 	adapter := ProviderWebhookAdapter{Observer: peer, Secret: secret, Clock: func() time.Time { return now }, ObserveOutcome: func(value string) { *outcome = value }}
 	router := chi.NewRouter()
 	router.Post("/webhooks/livepeer", adapter.Studio)
@@ -283,44 +283,44 @@ func repairM1001AdapterRouter(peer ProviderEventObserver, secret string, now tim
 	return router
 }
 
-func TestRepairM_1001_006_StudioAliases(t *testing.T) {
+func TestStudioRecoveryStudioAliases(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Millisecond)
-	peer := repairM1001OpenInbox(t, filepath.Join(t.TempDir(), "inbox.json"))
+	peer := studioRecoveryOpenInbox(t, filepath.Join(t.TempDir(), "inbox.json"))
 	var outcome string
-	repairM1001AssertAliases(t, repairM1001AdapterRouter(peer, strings.Repeat("k", 32), now, &outcome), strings.Repeat("k", 32), now, &outcome)
+	studioRecoveryAssertAliases(t, studioRecoveryAdapterRouter(peer, strings.Repeat("k", 32), now, &outcome), strings.Repeat("k", 32), now, &outcome)
 	if len(peer.events) != 1 || peer.operation.State != "LIVE" || peer.operation.Revision != 2 {
 		t.Fatalf("alias effects: %+v %v", peer.operation, peer.events)
 	}
 }
 
-func TestRepairM_1001_007_StudioRestart(t *testing.T) {
+func TestStudioRecoveryStudioRestart(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "inbox.json")
 	now := time.Now().UTC().Truncate(time.Millisecond)
 	secret := strings.Repeat("k", 32)
-	peer := repairM1001OpenInbox(t, path)
+	peer := studioRecoveryOpenInbox(t, path)
 	var outcome string
-	server := httptest.NewServer(repairM1001AdapterRouter(peer, secret, now, &outcome))
-	raw := repairM1001StudioBody(t, "webhook_test_12", "streamid", "stream.started", now.Add(-time.Minute), now)
-	headers := map[string]string{"Livepeer-Signature": repairM1001StudioSignature(raw, secret, now)}
-	repairM1001Post(t, server, "/webhooks/livepeer", raw, map[string]string{"Livepeer-Signature": repairM1001StudioSignature(raw, strings.Repeat("x", 32), now)}, 401)
+	server := httptest.NewServer(studioRecoveryAdapterRouter(peer, secret, now, &outcome))
+	raw := studioRecoveryStudioBody(t, "webhook_test_12", "streamid", "stream.started", now.Add(-time.Minute), now)
+	headers := map[string]string{"Livepeer-Signature": studioRecoveryStudioSignature(raw, secret, now)}
+	studioRecoveryPost(t, server, "/webhooks/livepeer", raw, map[string]string{"Livepeer-Signature": studioRecoveryStudioSignature(raw, strings.Repeat("x", 32), now)}, 401)
 	if len(peer.events) != 0 || peer.operation.Revision != 1 {
 		t.Fatal("HMAC refusal mutated durable peer")
 	}
-	repairM1001Post(t, server, "/webhooks/livepeer", raw, headers, 200)
+	studioRecoveryPost(t, server, "/webhooks/livepeer", raw, headers, 200)
 	if outcome != "applied" {
 		t.Fatal(outcome)
 	}
 	server.Close()
 	peer = nil
-	reopened := repairM1001OpenInbox(t, path)
-	server = httptest.NewServer(repairM1001AdapterRouter(reopened, secret, now, &outcome))
+	reopened := studioRecoveryOpenInbox(t, path)
+	server = httptest.NewServer(studioRecoveryAdapterRouter(reopened, secret, now, &outcome))
 	defer server.Close()
-	repairM1001Post(t, server, "/webhooks/livepeer", raw, headers, 200)
+	studioRecoveryPost(t, server, "/webhooks/livepeer", raw, headers, 200)
 	if outcome != "duplicate" || len(reopened.events) != 1 || reopened.operation.Revision != 2 || reopened.operation.ProviderTime == nil || !reopened.operation.ProviderTime.Equal(now.Add(-time.Minute)) {
 		t.Fatalf("reopened delivery: %s %+v", outcome, reopened.operation)
 	}
-	idle := repairM1001StudioBody(t, "webhook_test_42", "streamid", "stream.idle", now, now)
-	repairM1001Post(t, server, "/webhooks/livepeer", idle, map[string]string{"Livepeer-Signature": repairM1001StudioSignature(idle, secret, now)}, 200)
+	idle := studioRecoveryStudioBody(t, "webhook_test_42", "streamid", "stream.idle", now, now)
+	studioRecoveryPost(t, server, "/webhooks/livepeer", idle, map[string]string{"Livepeer-Signature": studioRecoveryStudioSignature(idle, secret, now)}, 200)
 	if outcome != "applied" || reopened.operation.State != "ENDED" || reopened.operation.Revision != 3 {
 		t.Fatalf("idle producer not consumed: %s %+v", outcome, reopened.operation)
 	}
@@ -328,7 +328,7 @@ func TestRepairM_1001_007_StudioRestart(t *testing.T) {
 
 // The resolver's repository peer atomically checkpoints the shared production
 // transition and its receipt, so reopening discards all component memory.
-type repairM1001RecoveryPeer struct {
+type studioRecoveryRecoveryPeer struct {
 	mu       sync.Mutex
 	path     string
 	state    ProvisionRecoveryState
@@ -336,9 +336,9 @@ type repairM1001RecoveryPeer struct {
 	receipts []ProvisionResolutionReceipt
 }
 
-func repairM1001OpenRecovery(t *testing.T, path string) *repairM1001RecoveryPeer {
+func studioRecoveryOpenRecovery(t *testing.T, path string) *studioRecoveryRecoveryPeer {
 	t.Helper()
-	peer := &repairM1001RecoveryPeer{path: path}
+	peer := &studioRecoveryRecoveryPeer{path: path}
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -355,7 +355,7 @@ func repairM1001OpenRecovery(t *testing.T, path string) *repairM1001RecoveryPeer
 	return peer
 }
 
-func repairM1001NewRecovery(t *testing.T, state ProvisionRecoveryState) *repairM1001RecoveryPeer {
+func studioRecoveryNewRecovery(t *testing.T, state ProvisionRecoveryState) *studioRecoveryRecoveryPeer {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "recovery.json")
 	raw, err := json.Marshal(struct {
@@ -365,13 +365,13 @@ func repairM1001NewRecovery(t *testing.T, state ProvisionRecoveryState) *repairM
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = repairM1001WriteSnapshot(path, raw); err != nil {
+	if err = studioRecoveryWriteSnapshot(path, raw); err != nil {
 		t.Fatal(err)
 	}
-	return repairM1001OpenRecovery(t, path)
+	return studioRecoveryOpenRecovery(t, path)
 }
 
-func (p *repairM1001RecoveryPeer) ProvisionRecovery(ctx context.Context, id string) (ProvisionRecoveryState, error) {
+func (p *studioRecoveryRecoveryPeer) ProvisionRecovery(ctx context.Context, id string) (ProvisionRecoveryState, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -383,7 +383,7 @@ func (p *repairM1001RecoveryPeer) ProvisionRecovery(ctx context.Context, id stri
 	return p.state, nil
 }
 
-func (p *repairM1001RecoveryPeer) applyProvisionResolution(ctx context.Context, d ProvisionResolutionDecision, receipt ProvisionResolutionReceipt) (Operation, error) {
+func (p *studioRecoveryRecoveryPeer) applyProvisionResolution(ctx context.Context, d ProvisionResolutionDecision, receipt ProvisionResolutionReceipt) (Operation, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -402,14 +402,14 @@ func (p *repairM1001RecoveryPeer) applyProvisionResolution(ctx context.Context, 
 	if err != nil {
 		return Operation{}, err
 	}
-	if err = repairM1001WriteSnapshot(p.path, raw); err != nil {
+	if err = studioRecoveryWriteSnapshot(p.path, raw); err != nil {
 		return Operation{}, err
 	}
 	p.state, p.receipts, p.owner = next, receipts, ""
 	return next.Operation, nil
 }
 
-func (p *repairM1001RecoveryPeer) save() error {
+func (p *studioRecoveryRecoveryPeer) save() error {
 	raw, err := json.Marshal(struct {
 		State    ProvisionRecoveryState
 		Receipts []ProvisionResolutionReceipt
@@ -418,10 +418,10 @@ func (p *repairM1001RecoveryPeer) save() error {
 	if err != nil {
 		return err
 	}
-	return repairM1001WriteSnapshot(p.path, raw)
+	return studioRecoveryWriteSnapshot(p.path, raw)
 }
 
-func (p *repairM1001RecoveryPeer) claim(owner string) error {
+func (p *studioRecoveryRecoveryPeer) claim(owner string) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.state.LeaseActive {
@@ -433,7 +433,7 @@ func (p *repairM1001RecoveryPeer) claim(owner string) error {
 	return p.save()
 }
 
-func (p *repairM1001RecoveryPeer) release() error {
+func (p *studioRecoveryRecoveryPeer) release() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.owner = ""
@@ -441,7 +441,7 @@ func (p *repairM1001RecoveryPeer) release() error {
 	return p.save()
 }
 
-func (p *repairM1001RecoveryPeer) reserveProviderCreate(ctx context.Context, id, owner string, revision int64) error {
+func (p *studioRecoveryRecoveryPeer) reserveProviderCreate(ctx context.Context, id, owner string, revision int64) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -454,7 +454,7 @@ func (p *repairM1001RecoveryPeer) reserveProviderCreate(ctx context.Context, id,
 	return p.save()
 }
 
-func (p *repairM1001RecoveryPeer) latestProvisionResolution(ctx context.Context, id string) (*ProvisionResolutionReceipt, error) {
+func (p *studioRecoveryRecoveryPeer) latestProvisionResolution(ctx context.Context, id string) (*ProvisionResolutionReceipt, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -466,15 +466,15 @@ func (p *repairM1001RecoveryPeer) latestProvisionResolution(ctx context.Context,
 	return p.state.Resolution, nil
 }
 
-func repairM1001AmbiguousState() ProvisionRecoveryState {
-	return ProvisionRecoveryState{Operation: Operation{ID: repairM1001OperationID, Wallet: "0x" + strings.Repeat("1", 40), Pool: "0x" + strings.Repeat("2", 40), State: "PROVISIONING", Intent: "create", Revision: 2}, Attempt: 1, CreateSent: true, LastReason: "provider_create_ambiguous"}
+func studioRecoveryAmbiguousState() ProvisionRecoveryState {
+	return ProvisionRecoveryState{Operation: Operation{ID: studioRecoveryOperationID, Wallet: "0x" + strings.Repeat("1", 40), Pool: "0x" + strings.Repeat("2", 40), State: "PROVISIONING", Intent: "create", Revision: 2}, Attempt: 1, CreateSent: true, LastReason: "provider_create_ambiguous"}
 }
 
-func repairM1001Decision(state ProvisionRecoveryState, action ProvisionResolutionAction) ProvisionResolutionDecision {
+func studioRecoveryDecision(state ProvisionRecoveryState, action ProvisionResolutionAction) ProvisionResolutionDecision {
 	return ProvisionResolutionDecision{OperationID: state.Operation.ID, Revision: state.Operation.Revision, Attempt: state.Attempt, Action: action, Actor: "stream_operator", Allowed: true, NonallocationConfirmed: action != ProvisionAdopt, ConfirmationReference: "provider_receipt_123", ConfirmedAt: time.Now().UTC().Add(-time.Second), ExpiresAt: time.Now().Add(time.Minute)}
 }
 
-func repairM1001Provider(t *testing.T, serve http.HandlerFunc) (*livepeer.Client, *httptest.Server) {
+func studioRecoveryProvider(t *testing.T, serve http.HandlerFunc) (*livepeer.Client, *httptest.Server) {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer repair-fixture-key" {
@@ -489,17 +489,17 @@ func repairM1001Provider(t *testing.T, serve http.HandlerFunc) (*livepeer.Client
 	return livepeer.New("repair-fixture-key", server.URL, nil, livepeer.WithHTTPClient(server.Client())), server
 }
 
-func TestRepairM_1001_008_CrashBeforeSendResume(t *testing.T) {
-	state := repairM1001AmbiguousState()
-	peer := repairM1001NewRecovery(t, state)
+func TestStudioRecoveryCrashBeforeSendResume(t *testing.T) {
+	state := studioRecoveryAmbiguousState()
+	peer := studioRecoveryNewRecovery(t, state)
 	path := peer.path
 	peer = nil // crash after the durable send reservation, before an HTTP create
-	peer = repairM1001OpenRecovery(t, path)
+	peer = studioRecoveryOpenRecovery(t, path)
 	if !reflect.DeepEqual(peer.state.Actions(), []ProvisionResolutionAction{ProvisionResume, ProvisionRelease, ProvisionAdopt}) {
 		t.Fatal("no actionable recovery", peer.state)
 	}
 	var creates int
-	provider, _ := repairM1001Provider(t, func(w http.ResponseWriter, r *http.Request) {
+	provider, _ := studioRecoveryProvider(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			creates++
 			_, _ = fmt.Fprintf(w, `{"id":"resumed_stream","name":%q,"streamKey":"provider_secret","playbackId":"playback_id"}`, livepeer.CorrelationName(state.Operation.ID))
@@ -517,7 +517,7 @@ func TestRepairM_1001_008_CrashBeforeSendResume(t *testing.T) {
 		t.Fatalf("crash checkpoint caused blind create: %v creates=%d", err, creates)
 	}
 	resolver := &ProvisionAmbiguityResolver{Store: peer, Provider: provider}
-	d := repairM1001Decision(state, ProvisionResume)
+	d := studioRecoveryDecision(state, ProvisionResume)
 	unconfirmed := d
 	unconfirmed.NonallocationConfirmed = false
 	if _, err := resolver.Resolve(context.Background(), unconfirmed); !errors.Is(err, ErrDenied) {
@@ -529,7 +529,7 @@ func TestRepairM_1001_008_CrashBeforeSendResume(t *testing.T) {
 	}
 	resolver = nil
 	peer = nil
-	reopened := repairM1001OpenRecovery(t, path)
+	reopened := studioRecoveryOpenRecovery(t, path)
 	if reopened.state.CreateSent || reopened.state.LastReason != "provider_nonallocation_resume" || len(reopened.receipts) != 1 || reopened.receipts[0].ConfirmationReference != d.ConfirmationReference {
 		t.Fatalf("resume lost on restart: %+v %+v", reopened.state, reopened.receipts)
 	}
@@ -555,11 +555,11 @@ func TestRepairM_1001_008_CrashBeforeSendResume(t *testing.T) {
 	}
 }
 
-func TestRepairM_1001_008_RejectionRelease(t *testing.T) {
-	state := repairM1001AmbiguousState()
-	peer := repairM1001NewRecovery(t, state)
+func TestStudioRecoveryRejectionRelease(t *testing.T) {
+	state := studioRecoveryAmbiguousState()
+	peer := studioRecoveryNewRecovery(t, state)
 	var creates int
-	provider, _ := repairM1001Provider(t, func(w http.ResponseWriter, r *http.Request) {
+	provider, _ := studioRecoveryProvider(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			creates++
 			http.Error(w, `{"error":"quota exceeded"}`, http.StatusTooManyRequests)
@@ -581,21 +581,21 @@ func TestRepairM_1001_008_RejectionRelease(t *testing.T) {
 	}
 	state = peer.state
 	resolver := &ProvisionAmbiguityResolver{Store: peer, Provider: provider}
-	d := repairM1001Decision(state, ProvisionRelease)
+	d := studioRecoveryDecision(state, ProvisionRelease)
 	o, err := resolver.Resolve(context.Background(), d)
 	if err != nil || o.State != "FAILED" || o.Revision != 3 || creates != 1 {
 		t.Fatalf("rejected allocation release: %+v creates=%d %v", o, creates, err)
 	}
-	peer = repairM1001OpenRecovery(t, peer.path)
+	peer = studioRecoveryOpenRecovery(t, peer.path)
 	if peer.state.Operation.State != "FAILED" || len(peer.state.Actions()) != 0 || len(peer.receipts) != 1 || peer.receipts[0].Action != ProvisionRelease {
 		t.Fatalf("terminal release lost: %+v %+v", peer.state, peer.receipts)
 	}
 	// Ending and suspended operations release to ENDED without resurrecting them.
 	for _, terminalIntent := range []string{"ENDING", "SUSPENDED"} {
 		state.Operation.State = terminalIntent
-		repository := repairM1001NewRecovery(t, state)
+		repository := studioRecoveryNewRecovery(t, state)
 		resolver.Store = repository
-		d = repairM1001Decision(state, ProvisionRelease)
+		d = studioRecoveryDecision(state, ProvisionRelease)
 		o, err = resolver.Resolve(context.Background(), d)
 		if err != nil || o.State != "ENDED" || creates != 1 {
 			t.Fatalf("%s release: %+v %v", terminalIntent, o, err)
@@ -603,12 +603,12 @@ func TestRepairM_1001_008_RejectionRelease(t *testing.T) {
 	}
 }
 
-func TestRepairM_1001_008_VerifiedAdoptionRestart(t *testing.T) {
-	state := repairM1001AmbiguousState()
-	peer := repairM1001NewRecovery(t, state)
+func TestStudioRecoveryVerifiedAdoptionRestart(t *testing.T) {
+	state := studioRecoveryAmbiguousState()
+	peer := studioRecoveryNewRecovery(t, state)
 	var creates int
 	allocationID := "allocated_stream"
-	provider, _ := repairM1001Provider(t, func(w http.ResponseWriter, r *http.Request) {
+	provider, _ := studioRecoveryProvider(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			creates++
 			http.Error(w, "create forbidden", 500)
@@ -617,11 +617,11 @@ func TestRepairM_1001_008_VerifiedAdoptionRestart(t *testing.T) {
 		_, _ = fmt.Fprintf(w, `[{"id":%q,"name":%q,"streamKey":"provider_secret","playbackId":"playback_id"}]`, allocationID, livepeer.CorrelationName(state.Operation.ID))
 	})
 	resolver := &ProvisionAmbiguityResolver{Store: peer, Provider: provider}
-	absent := repairM1001Decision(state, ProvisionRelease)
+	absent := studioRecoveryDecision(state, ProvisionRelease)
 	if _, err := resolver.Resolve(context.Background(), absent); !errors.Is(err, ErrConflict) {
 		t.Fatalf("existing allocation released admission: %v", err)
 	}
-	d := repairM1001Decision(state, ProvisionAdopt)
+	d := studioRecoveryDecision(state, ProvisionAdopt)
 	d.ProviderID = "other_stream"
 	if _, err := resolver.Resolve(context.Background(), d); !errors.Is(err, ErrConflict) {
 		t.Fatalf("wrong allocation adopted: %v", err)
@@ -634,7 +634,7 @@ func TestRepairM_1001_008_VerifiedAdoptionRestart(t *testing.T) {
 	path := peer.path
 	resolver = nil
 	peer = nil
-	peer = repairM1001OpenRecovery(t, path)
+	peer = studioRecoveryOpenRecovery(t, path)
 	if len(peer.receipts) != 1 || peer.receipts[0].ProviderID != d.ProviderID || peer.state.LastReason != "provider_adoption_verified" || !peer.state.CreateSent {
 		t.Fatalf("adoption evidence lost: %+v %+v", peer.state, peer.receipts)
 	}
@@ -658,7 +658,7 @@ func TestRepairM_1001_008_VerifiedAdoptionRestart(t *testing.T) {
 	}
 }
 
-func TestRepairM_1001_008_RevisionLeaseAndProviderRefusals(t *testing.T) {
+func TestStudioRecoveryRevisionLeaseAndProviderRefusals(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		change func(*ProvisionRecoveryState, *ProvisionResolutionDecision)
@@ -682,11 +682,11 @@ func TestRepairM_1001_008_RevisionLeaseAndProviderRefusals(t *testing.T) {
 		{"end_cannot_resume", func(s *ProvisionRecoveryState, d *ProvisionResolutionDecision) { s.Operation.State = "ENDING" }, ErrConflict},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			state := repairM1001AmbiguousState()
-			d := repairM1001Decision(state, ProvisionResume)
+			state := studioRecoveryAmbiguousState()
+			d := studioRecoveryDecision(state, ProvisionResume)
 			tc.change(&state, &d)
-			peer := repairM1001NewRecovery(t, state)
-			provider, _ := repairM1001Provider(t, func(w http.ResponseWriter, r *http.Request) {
+			peer := studioRecoveryNewRecovery(t, state)
+			provider, _ := studioRecoveryProvider(t, func(w http.ResponseWriter, r *http.Request) {
 				t.Error("refused authority reached provider")
 				_, _ = io.WriteString(w, `[]`)
 			})
@@ -694,19 +694,19 @@ func TestRepairM_1001_008_RevisionLeaseAndProviderRefusals(t *testing.T) {
 			if _, err := resolver.Resolve(context.Background(), d); !errors.Is(err, tc.want) {
 				t.Fatalf("got %v want %v", err, tc.want)
 			}
-			reopened := repairM1001OpenRecovery(t, peer.path)
+			reopened := studioRecoveryOpenRecovery(t, peer.path)
 			if !reflect.DeepEqual(state, reopened.state) || len(reopened.receipts) != 0 {
 				t.Fatal("refused resolution changed durable state")
 			}
 		})
 	}
-	for _, body := range []string{`null`, `[{"id":"one","playbackId":"pb","streamKey":"key","name":"KindleLaunch:` + repairM1001OperationID + `"},{"id":"two","playbackId":"pb","streamKey":"key","name":"KindleLaunch:` + repairM1001OperationID + `"}]`, `not-json`} {
+	for _, body := range []string{`null`, `[{"id":"one","playbackId":"pb","streamKey":"key","name":"KindleLaunch:` + studioRecoveryOperationID + `"},{"id":"two","playbackId":"pb","streamKey":"key","name":"KindleLaunch:` + studioRecoveryOperationID + `"}]`, `not-json`} {
 		t.Run(body, func(t *testing.T) {
-			state := repairM1001AmbiguousState()
-			peer := repairM1001NewRecovery(t, state)
-			provider, _ := repairM1001Provider(t, func(w http.ResponseWriter, r *http.Request) { _, _ = io.WriteString(w, body) })
+			state := studioRecoveryAmbiguousState()
+			peer := studioRecoveryNewRecovery(t, state)
+			provider, _ := studioRecoveryProvider(t, func(w http.ResponseWriter, r *http.Request) { _, _ = io.WriteString(w, body) })
 			resolver := ProvisionAmbiguityResolver{Store: peer, Provider: provider}
-			if _, err := resolver.Resolve(context.Background(), repairM1001Decision(state, ProvisionResume)); !errors.Is(err, ErrUnavailable) {
+			if _, err := resolver.Resolve(context.Background(), studioRecoveryDecision(state, ProvisionResume)); !errors.Is(err, ErrUnavailable) {
 				t.Fatalf("ambiguous provider evidence accepted: %v", err)
 			}
 			if !reflect.DeepEqual(state, peer.state) || len(peer.receipts) != 0 {
@@ -716,41 +716,41 @@ func TestRepairM_1001_008_RevisionLeaseAndProviderRefusals(t *testing.T) {
 	}
 }
 
-func TestRepairM_1001_008_LeaseAcquiredDuringDiscovery(t *testing.T) {
-	state := repairM1001AmbiguousState()
-	peer := repairM1001NewRecovery(t, state)
-	provider, _ := repairM1001Provider(t, func(w http.ResponseWriter, r *http.Request) {
+func TestStudioRecoveryLeaseAcquiredDuringDiscovery(t *testing.T) {
+	state := studioRecoveryAmbiguousState()
+	peer := studioRecoveryNewRecovery(t, state)
+	provider, _ := studioRecoveryProvider(t, func(w http.ResponseWriter, r *http.Request) {
 		if err := peer.claim("competing_worker"); err != nil {
 			t.Error(err)
 		}
 		_, _ = io.WriteString(w, `[]`)
 	})
 	resolver := ProvisionAmbiguityResolver{Store: peer, Provider: provider}
-	if _, err := resolver.Resolve(context.Background(), repairM1001Decision(state, ProvisionResume)); !errors.Is(err, ErrConflict) {
+	if _, err := resolver.Resolve(context.Background(), studioRecoveryDecision(state, ProvisionResume)); !errors.Is(err, ErrConflict) {
 		t.Fatalf("lost lease race overwrote worker: %v", err)
 	}
 	if !peer.state.CreateSent || len(peer.receipts) != 0 {
 		t.Fatal("racing resolution re-armed create")
 	}
-	reopened := repairM1001OpenRecovery(t, peer.path)
+	reopened := studioRecoveryOpenRecovery(t, peer.path)
 	if !reopened.state.LeaseActive || !reopened.state.CreateSent || reopened.state.Attempt != state.Attempt+1 {
 		t.Fatal("lease race lost after reopening", reopened.state)
 	}
 }
 
-func repairM1001Budget() BudgetPolicy {
+func studioRecoveryBudget() BudgetPolicy {
 	return BudgetPolicy{VendorUserID: "studio_user", DeliveryPricePerMinute: "0.25", TranscodePricePerMinute: "0.5", StoragePricePerMinute: "0.125", MonthlyUnits: "10.25", BroadcastReserveUnits: "0.25", DeliveryPricePerTB: "7.25", Currency: "USD", PeakDurationSeconds: 60, ApprovalReference: "approved_policy"}
 }
 
-func repairM1001Usage(value string) UsageRecord {
-	return UsageRecord{ProviderEvent: "usage_receipt", OperationID: repairM1001OperationID, ViewerMinutes: value, TranscodeMinutes: value, StorageBytes: value, DeliveryBytes: value, CostUnits: value}
+func studioRecoveryUsage(value string) UsageRecord {
+	return UsageRecord{ProviderEvent: "usage_receipt", OperationID: studioRecoveryOperationID, ViewerMinutes: value, TranscodeMinutes: value, StorageBytes: value, DeliveryBytes: value, CostUnits: value}
 }
 
-func TestRepairM_1001_016_DecimalNumericRoundTrip(t *testing.T) {
+func TestStudioRecoveryDecimalNumericRoundTrip(t *testing.T) {
 	codec := pgtype.NewMap()
 	for _, value := range []string{"0", "1", "0.25", "10.2500", "0.000000000000000001", strings.Repeat("9", usageIntegerDigits) + "." + strings.Repeat("9", usageFractionDigits)} {
 		t.Run(value, func(t *testing.T) {
-			if err := repairM1001Usage(value).Validate(); err != nil {
+			if err := studioRecoveryUsage(value).Validate(); err != nil {
 				t.Fatal("valid usage refused", err)
 			}
 			rational, err := parseUsageDecimal(value)
@@ -780,7 +780,7 @@ func TestRepairM_1001_016_DecimalNumericRoundTrip(t *testing.T) {
 			if !ok || result.Cmp(rational) != 0 {
 				t.Fatalf("numeric round trip changed units: %q -> %v", value, text)
 			}
-			policy := repairM1001Budget()
+			policy := studioRecoveryBudget()
 			policy.DeliveryPricePerMinute = value
 			policy.TranscodePricePerMinute = value
 			policy.StoragePricePerMinute = value
@@ -822,14 +822,14 @@ func TestRepairM_1001_016_DecimalNumericRoundTrip(t *testing.T) {
 	}
 }
 
-func TestRepairM_1001_016_RejectNonDecimalBeforeStorage(t *testing.T) {
+func TestStudioRecoveryRejectNonDecimalBeforeStorage(t *testing.T) {
 	invalid := []string{"1/2", "2/1", "0/1", "1e3", "1E-3", "1e-999999999", "1e999999999", "0x10", "+1", "-0", "-1", ".5", "1.", "01", "00.1", " 1", "1 ", "NaN", "Infinity", "", strings.Repeat("9", usageIntegerDigits+1), "0." + strings.Repeat("1", usageFractionDigits+1), strings.Repeat("0", 100000)}
 	for i, value := range invalid {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			if _, err := parseUsageDecimal(value); !errors.Is(err, ErrInvalid) {
 				t.Fatalf("invalid decimal accepted: %.120q %v", value, err)
 			}
-			record := repairM1001Usage("0.25")
+			record := studioRecoveryUsage("0.25")
 			fields := []*string{&record.ViewerMinutes, &record.TranscodeMinutes, &record.StorageBytes, &record.DeliveryBytes, &record.CostUnits}
 			for _, field := range fields {
 				*field = value
@@ -841,7 +841,7 @@ func TestRepairM_1001_016_RejectNonDecimalBeforeStorage(t *testing.T) {
 				*field = "0.25"
 			}
 			for field := 0; field < 6; field++ {
-				policy := repairM1001Budget()
+				policy := studioRecoveryBudget()
 				amounts := []*string{&policy.MonthlyUnits, &policy.BroadcastReserveUnits, &policy.DeliveryPricePerTB, &policy.DeliveryPricePerMinute, &policy.TranscodePricePerMinute, &policy.StoragePricePerMinute}
 				*amounts[field] = value
 				if err := policy.ValidateVendor(); !errors.Is(err, ErrInvalid) {
@@ -864,7 +864,7 @@ func TestRepairM_1001_016_RejectNonDecimalBeforeStorage(t *testing.T) {
 			}
 		})
 	}
-	policy := repairM1001Budget()
+	policy := studioRecoveryBudget()
 	policy.MonthlyUnits = "0"
 	if !errors.Is(policy.Validate(), ErrInvalid) {
 		t.Fatal("zero budget admitted")
@@ -874,7 +874,7 @@ func TestRepairM_1001_016_RejectNonDecimalBeforeStorage(t *testing.T) {
 	}
 }
 
-func TestRepairM_1001_006_PinnedProducerFrames(t *testing.T) {
+func TestStudioRecoveryPinnedProducerFrames(t *testing.T) {
 	for _, frame := range []struct{ kind, hash, state string }{
 		{"stream.started", "f7ea5b5a9c0ae4a74273801d407eb9f810a4b5a798c789d9b94a8e6327da6883", "LIVE"},
 		{"stream.idle", "3225d15f23fe929d833ce87f57c29d4803e3d7ff7b064d8a1110b03a26b86deb", "ENDED"},
@@ -892,7 +892,7 @@ func TestRepairM_1001_006_PinnedProducerFrames(t *testing.T) {
 			t.Fatalf("producer decoder mismatch: %+v %v", event, err)
 		}
 		now := time.UnixMilli(1793780060000).UTC()
-		wire := repairM1001Normalize(t, raw, strings.Repeat("k", 32), now)
+		wire := studioRecoveryNormalize(t, raw, strings.Repeat("k", 32), now)
 		request := httptest.NewRequest(http.MethodPost, "/v2/provider-webhooks/livepeer", bytes.NewReader(wire.Body))
 		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set(NormalizedWebhookTimestampHeader, wire.Timestamp)

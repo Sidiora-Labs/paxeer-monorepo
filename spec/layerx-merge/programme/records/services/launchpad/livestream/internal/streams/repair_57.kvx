@@ -67,5 +67,5 @@ assumption = "These external qualification prerequisites are outside the scoped 
 
 [qualification.boundary]
 focused_gate = "Only TestRepair_57_* executes; those tests use actual production codecs/handlers, HTTP, signed mTLS ingress and the SDK without PostgreSQL, Redis, S3, Anvil or a live RPC endpoint."
-integration_preservation = "All five inherited repair test bodies and assertions are retained in repair_57_integration_test.go under TestRepairIntegration_57_* names; they remain normal package tests, without skip, ignore, conditional suppression or altered assertions."
+integration_preservation = "All five inherited repair test bodies and assertions are retained in stream_contract_recovery_integration_test.go under TestRepairIntegration_57_* names; they remain normal package tests, without skip, ignore, conditional suppression or altered assertions."
 unrun = "The focused gate does not establish live provider/Vault readiness, SQL transaction/restart semantics or end-to-end successor migration; the integration assertions and out-of-path wiring requests remain explicit and no such result is claimed."

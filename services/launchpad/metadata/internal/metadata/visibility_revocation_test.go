@@ -32,7 +32,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/media/metadata/pkg/types"
 )
 
-type repair59Fixture struct {
+type visibilityRevocationFixture struct {
 	runtime                                     *pgxpool.Pool
 	store                                       *ProductionStore
 	media                                       ConnectedMedia
@@ -43,9 +43,9 @@ type repair59Fixture struct {
 	objectReads                                 atomic.Int64
 }
 
-func newRepair59Fixture(t *testing.T) *repair59Fixture {
+func newVisibilityRevocationFixture(t *testing.T) *visibilityRevocationFixture {
 	t.Helper()
-	f := &repair59Fixture{
+	f := &visibilityRevocationFixture{
 		creation: loadCreationFixture(t), metadataSchema: "repair59_metadata",
 		visibilitySchema: "repair59_visibility", statePath: filepath.Join(t.TempDir(), "store.json"),
 		logo: pngBytes(t, 512, 384),
@@ -54,7 +54,7 @@ func newRepair59Fixture(t *testing.T) *repair59Fixture {
 	logoHash := sha256.Sum256(f.logo)
 	hash := hex.EncodeToString(originalHash[:])
 	key := fmt.Sprintf("approved/%s/512/%x.png", hash, logoHash)
-	state := repair59State{
+	state := visibilityRevocationState{
 		AssetID: "11111111-1111-4111-8111-111111111111", Hash: hash, Key: key,
 		Document:           json.RawMessage(`{"name":"Creator override","symbol":"EDIT","description":"Creator secret description","tags":["creator-tag"],"socials":[{"label":"Site","url":"https://creator.example"}]}`),
 		AuthorityAvailable: true,
@@ -119,7 +119,7 @@ func newRepair59Fixture(t *testing.T) *repair59Fixture {
 	return f
 }
 
-func (f *repair59Fixture) stop() {
+func (f *visibilityRevocationFixture) stop() {
 	if f.server != nil {
 		f.server.Close()
 		f.server = nil
@@ -131,7 +131,7 @@ func (f *repair59Fixture) stop() {
 	f.store = nil
 }
 
-func (f *repair59Fixture) open(t *testing.T) {
+func (f *visibilityRevocationFixture) open(t *testing.T) {
 	t.Helper()
 	// Each open loads a new database fixture from disk. No reader, connection,
 	// moderation state or canonical cache survives a stop/open cycle.
@@ -139,7 +139,7 @@ func (f *repair59Fixture) open(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	db := &repair59Database{fixture: f.creation, path: f.statePath, t: t}
+	db := &visibilityRevocationDatabase{fixture: f.creation, path: f.statePath, t: t}
 	if e = json.Unmarshal(raw, &db.state); e != nil {
 		t.Fatal(e)
 	}
@@ -170,7 +170,7 @@ func (f *repair59Fixture) open(t *testing.T) {
 	f.server = httptest.NewServer(router)
 }
 
-func (f *repair59Fixture) visibility(t *testing.T, revision int64, status string) {
+func (f *visibilityRevocationFixture) visibility(t *testing.T, revision int64, status string) {
 	t.Helper()
 	table := pgx.Identifier{f.visibilitySchema, "safety_visibility"}.Sanitize()
 	if _, e := f.runtime.Exec(context.Background(), "INSERT INTO "+table+"(target_type,target_id,revision,status) VALUES('token',$1,$2,$3) ON CONFLICT(target_type,target_id) DO UPDATE SET revision=EXCLUDED.revision,status=EXCLUDED.status", f.creation.Pool, revision, status); e != nil {
@@ -178,7 +178,7 @@ func (f *repair59Fixture) visibility(t *testing.T, revision int64, status string
 	}
 }
 
-func (f *repair59Fixture) path(route string) string {
+func (f *visibilityRevocationFixture) path(route string) string {
 	switch route {
 	case "single":
 		return "/metadata/" + f.creation.Token + ".json"
@@ -189,7 +189,7 @@ func (f *repair59Fixture) path(route string) string {
 	}
 }
 
-func (f *repair59Fixture) read(t *testing.T, route string, removed bool) {
+func (f *visibilityRevocationFixture) read(t *testing.T, route string, removed bool) {
 	t.Helper()
 	objectReads := f.objectReads.Load()
 	status, header, body := getBody(t, f.server.URL+f.path(route))
@@ -235,7 +235,7 @@ func (f *repair59Fixture) read(t *testing.T, route string, removed bool) {
 	}
 }
 
-func (f *repair59Fixture) persisted(t *testing.T, revision string, blocked bool) {
+func (f *visibilityRevocationFixture) persisted(t *testing.T, revision string, blocked bool) {
 	t.Helper()
 	var actualRevision string
 	var actualBlocked bool
@@ -247,10 +247,10 @@ func (f *repair59Fixture) persisted(t *testing.T, revision string, blocked bool)
 	}
 }
 
-func TestRepair_59_RevocationLegacyRoutes(t *testing.T) {
+func TestVisibilityRevocationRevocationLegacyRoutes(t *testing.T) {
 	for _, first := range []string{"single", "batch", "logo"} {
 		t.Run(first, func(t *testing.T) {
-			f := newRepair59Fixture(t)
+			f := newVisibilityRevocationFixture(t)
 			for _, route := range []string{"single", "batch", "logo"} {
 				f.read(t, route, false)
 			}
@@ -272,8 +272,8 @@ func TestRepair_59_RevocationLegacyRoutes(t *testing.T) {
 	}
 }
 
-func TestRepair_59_RevocationAfterRestart(t *testing.T) {
-	f := newRepair59Fixture(t)
+func TestVisibilityRevocationRevocationAfterRestart(t *testing.T) {
+	f := newVisibilityRevocationFixture(t)
 	for _, route := range []string{"single", "batch", "logo"} {
 		f.read(t, route, false)
 	}
@@ -302,8 +302,8 @@ func TestRepair_59_RevocationAfterRestart(t *testing.T) {
 	f.persisted(t, "18", false)
 }
 
-func TestRepair_59_AuthorityUnavailable(t *testing.T) {
-	f := newRepair59Fixture(t)
+func TestVisibilityRevocationAuthorityUnavailable(t *testing.T) {
+	f := newVisibilityRevocationFixture(t)
 	for _, route := range []string{"single", "batch", "logo"} {
 		f.read(t, route, false)
 	}
@@ -330,11 +330,11 @@ func TestRepair_59_AuthorityUnavailable(t *testing.T) {
 	}
 }
 
-// repair59Database supplies only the database transport for this repair proof.
+// visibilityRevocationDatabase supplies the database transport for the revocation tests.
 // The real pgx pool, ProductionStore SQL, canonical event decoder, visibility
 // authority and HTTP handlers run unchanged. Unknown SQL is an explicit failure.
 // Committed rows live on disk so reopening cannot reuse an in-memory blocked bit.
-type repair59State struct {
+type visibilityRevocationState struct {
 	AssetID, Hash, Key string
 	Document           json.RawMessage
 	ModerationRevision int64
@@ -344,25 +344,25 @@ type repair59State struct {
 	AuthorityAvailable bool
 }
 
-type repair59Database struct {
+type visibilityRevocationDatabase struct {
 	mu      sync.Mutex
-	state   repair59State
+	state   visibilityRevocationState
 	fixture creationFixture
 	path    string
 	t       *testing.T
 }
 
-type repair59Result struct {
+type visibilityRevocationResult struct {
 	oids []uint32
 	rows [][]string
 	tag  string
 }
 
-func repair59Row(oids []uint32, values ...string) repair59Result {
-	return repair59Result{oids: oids, rows: [][]string{values}, tag: "SELECT 1"}
+func visibilityRevocationRow(oids []uint32, values ...string) visibilityRevocationResult {
+	return visibilityRevocationResult{oids: oids, rows: [][]string{values}, tag: "SELECT 1"}
 }
 
-func (d *repair59Database) save(state repair59State) error {
+func (d *visibilityRevocationDatabase) save(state visibilityRevocationState) error {
 	raw, e := json.Marshal(state)
 	if e != nil {
 		return e
@@ -373,7 +373,7 @@ func (d *repair59Database) save(state repair59State) error {
 	return os.Rename(d.path+".new", d.path)
 }
 
-func (d *repair59Database) serve(conn net.Conn) {
+func (d *visibilityRevocationDatabase) serve(conn net.Conn) {
 	defer conn.Close()
 	if e := conn.SetDeadline(time.Now().Add(30 * time.Second)); e != nil {
 		d.t.Error(e)
@@ -392,7 +392,7 @@ func (d *repair59Database) serve(conn net.Conn) {
 	if e := backend.Flush(); e != nil {
 		return
 	}
-	var transaction *repair59State
+	var transaction *visibilityRevocationState
 	for {
 		message, e := backend.Receive()
 		if e != nil {
@@ -403,7 +403,7 @@ func (d *repair59Database) serve(conn net.Conn) {
 			return
 		case *pgproto3.Query:
 			d.mu.Lock()
-			var result repair59Result
+			var result visibilityRevocationResult
 			var err error
 			sql := strings.TrimSpace(message.String)
 			switch {
@@ -443,7 +443,7 @@ func (d *repair59Database) serve(conn net.Conn) {
 			}
 			d.mu.Unlock()
 			if err != nil {
-				if err != errRepair59AuthorityUnavailable {
+				if err != errVisibilityRevocationAuthorityUnavailable {
 					d.t.Errorf("in-process store: %v", err)
 				}
 				backend.Send(&pgproto3.ErrorResponse{Severity: "ERROR", Code: "XX000", Message: err.Error()})
@@ -479,7 +479,7 @@ func (d *repair59Database) serve(conn net.Conn) {
 	}
 }
 
-func (d *repair59Database) query(sql string, state *repair59State) (repair59Result, error) {
+func (d *visibilityRevocationDatabase) query(sql string, state *visibilityRevocationState) (visibilityRevocationResult, error) {
 	f := d.fixture
 	has := func(value string) bool { return strings.Contains(sql, "'"+value+"'") }
 	text := uint32(25)
@@ -489,86 +489,88 @@ func (d *repair59Database) query(sql string, state *repair59State) (repair59Resu
 		}
 		return "f"
 	}
-	noRows := func(oids ...uint32) repair59Result { return repair59Result{oids: oids, tag: "SELECT 0"} }
+	noRows := func(oids ...uint32) visibilityRevocationResult {
+		return visibilityRevocationResult{oids: oids, tag: "SELECT 0"}
+	}
 	switch {
 	case strings.HasPrefix(sql, `SELECT pool FROM "repair59_metadata"."pools" WHERE token=`):
 		if !has(f.Token) {
 			return noRows(text), nil
 		}
-		return repair59Row([]uint32{text}, f.Pool), nil
+		return visibilityRevocationRow([]uint32{text}, f.Pool), nil
 	case strings.HasPrefix(sql, `SELECT creator FROM "repair59_metadata"."pools" WHERE pool=`):
 		if !has(f.Pool) {
 			return noRows(text), nil
 		}
-		return repair59Row([]uint32{text}, f.Creator), nil
+		return visibilityRevocationRow([]uint32{text}, f.Creator), nil
 	case strings.HasPrefix(sql, `INSERT INTO "repair59_metadata"."documents"(pool,moderation_revision,blocked)`):
 		if !strings.Contains(sql, `WHERE "repair59_metadata"."documents".moderation_revision<EXCLUDED.moderation_revision`) {
-			return repair59Result{}, fmt.Errorf("restriction lost monotonic revision predicate: %s", sql)
+			return visibilityRevocationResult{}, fmt.Errorf("restriction lost monotonic revision predicate: %s", sql)
 		}
 		matches := regexp.MustCompile(`VALUES\(\s*'([^']+)'\s*,\s*'([0-9]+)'\s*::numeric\s*,\s*'(t|f)'\s*\)`).FindStringSubmatch(sql)
 		if len(matches) != 4 || matches[1] != f.Pool {
-			return repair59Result{}, fmt.Errorf("invalid restriction SQL: %s", sql)
+			return visibilityRevocationResult{}, fmt.Errorf("invalid restriction SQL: %s", sql)
 		}
 		revision, e := strconv.ParseInt(matches[2], 10, 64)
 		if e != nil {
-			return repair59Result{}, e
+			return visibilityRevocationResult{}, e
 		}
 		if revision > state.ModerationRevision {
 			state.ModerationRevision, state.Blocked = revision, matches[3] == "t"
 		}
-		return repair59Result{tag: "INSERT 0 1"}, nil
+		return visibilityRevocationResult{tag: "INSERT 0 1"}, nil
 	case strings.HasPrefix(sql, `SELECT moderation_revision::text,blocked FROM "repair59_metadata"."documents" WHERE pool=`):
 		if !has(f.Pool) {
 			return noRows(text, 16), nil
 		}
-		return repair59Row([]uint32{text, 16}, strconv.FormatInt(state.ModerationRevision, 10), boolean(state.Blocked)), nil
+		return visibilityRevocationRow([]uint32{text, 16}, strconv.FormatInt(state.ModerationRevision, 10), boolean(state.Blocked)), nil
 	case strings.HasPrefix(sql, `SELECT revision,status FROM "repair59_visibility"."safety_visibility_v2" WHERE target_type=`):
 		if !state.AuthorityAvailable {
 			// A missing authority is a transport failure, not an allowed row.
-			return repair59Result{}, errRepair59AuthorityUnavailable
+			return visibilityRevocationResult{}, errVisibilityRevocationAuthorityUnavailable
 		}
 		if !has("token") || !has(f.Pool) {
-			return repair59Result{}, fmt.Errorf("wrong authority target: %s", sql)
+			return visibilityRevocationResult{}, fmt.Errorf("wrong authority target: %s", sql)
 		}
 		if state.AuthorityStatus == "" {
 			return noRows(20, text), nil
 		}
-		return repair59Row([]uint32{20, text}, strconv.FormatInt(state.AuthorityRevision, 10), state.AuthorityStatus), nil
+		return visibilityRevocationRow([]uint32{20, text}, strconv.FormatInt(state.AuthorityRevision, 10), state.AuthorityStatus), nil
 	case strings.HasPrefix(sql, `INSERT INTO "repair59_visibility"."safety_visibility"`):
 		matches := regexp.MustCompile(`VALUES\('token',\s*'([^']+)'\s*,\s*'([0-9]+)'\s*,\s*'(removed|restored)'\s*\)`).FindStringSubmatch(sql)
 		if len(matches) != 4 || matches[1] != f.Pool {
-			return repair59Result{}, fmt.Errorf("invalid authority write: %s", sql)
+			return visibilityRevocationResult{}, fmt.Errorf("invalid authority write: %s", sql)
 		}
 		revision, e := strconv.ParseInt(matches[2], 10, 64)
 		if e != nil {
-			return repair59Result{}, e
+			return visibilityRevocationResult{}, e
 		}
 		state.AuthorityRevision, state.AuthorityStatus = revision, matches[3]
-		return repair59Result{tag: "INSERT 0 1"}, nil
+		return visibilityRevocationResult{tag: "INSERT 0 1"}, nil
 	case strings.HasPrefix(sql, `DELETE FROM "repair59_visibility"."safety_visibility" WHERE target_id=`):
 		if !has(f.Pool) {
-			return repair59Result{}, fmt.Errorf("wrong authority delete: %s", sql)
+			return visibilityRevocationResult{}, fmt.Errorf("wrong authority delete: %s", sql)
 		}
 		state.AuthorityRevision, state.AuthorityStatus = 0, ""
-		return repair59Result{tag: "DELETE 1"}, nil
+		return visibilityRevocationResult{tag: "DELETE 1"}, nil
 	case sql == `DROP VIEW "repair59_visibility"."safety_visibility_v2"`:
 		state.AuthorityAvailable = false
-		return repair59Result{tag: "DROP VIEW"}, nil
+		return visibilityRevocationResult{tag: "DROP VIEW"}, nil
 	case strings.HasPrefix(sql, `SELECT p.pool,p.token,d.revision::text,d.document,d.updated_at,d.asset_id,COALESCE(m.blocked,false)`):
 		oids := []uint32{text, text, text, 114, 1184, text, 16}
 		if !has(f.Token) {
 			return noRows(oids...), nil
 		}
-		return repair59Row(oids, f.Pool, f.Token, "1", string(state.Document), "2026-01-01 00:00:00+00", state.AssetID, boolean(state.Blocked)), nil
+		return visibilityRevocationRow(oids, f.Pool, f.Token, "1", string(state.Document), "2026-01-01 00:00:00+00", state.AssetID, boolean(state.Blocked)), nil
 	case strings.HasPrefix(sql, `SELECT a.hash,d.variants FROM "repair59_metadata"."assets"`):
 		if !has(state.AssetID) || !has(f.Pool) || !has("APPROVED") {
 			return noRows(text, 114), nil
 		}
 		variants, e := json.Marshal(map[string]string{"512": state.Key})
 		if e != nil {
-			return repair59Result{}, e
+			return visibilityRevocationResult{}, e
 		}
-		return repair59Row([]uint32{text, 114}, state.Hash, string(variants)), nil
+		return visibilityRevocationRow([]uint32{text, 114}, state.Hash, string(variants)), nil
 	case strings.HasPrefix(sql, `SELECT token,pool,creator,factory,optical,nft_id::text`):
 		oids := []uint32{text, text, text, text, text, text, text, text, text, text, text, text, 114, 114}
 		if !has(f.Token) {
@@ -580,18 +582,18 @@ func (d *repair59Database) query(sql string, state *repair59State) (repair59Resu
 			"metadata": map[string]any{"emitter": f.Emitter, "name": f.Name, "symbol": f.Symbol, "decimals": f.Decimals, "totalSupply": f.Supply, "position": f.position(f.Deployed), "provenance": provenance}}
 		proof, e := json.Marshal(provenance)
 		if e != nil {
-			return repair59Result{}, e
+			return visibilityRevocationResult{}, e
 		}
 		raw, e := json.Marshal(payload)
 		if e != nil {
-			return repair59Result{}, e
+			return visibilityRevocationResult{}, e
 		}
-		return repair59Row(oids, f.Token, f.Pool, f.Creator, f.Factory, f.Optical, f.NFTID, strconv.FormatUint(f.Height, 10), f.BlockHash, f.TxHash, strconv.FormatUint(f.TxIndex, 10), strconv.FormatInt(mustHex(f.Market.LogIndex), 10), strconv.FormatUint(f.Timestamp, 10), string(proof), string(raw)), nil
+		return visibilityRevocationRow(oids, f.Token, f.Pool, f.Creator, f.Factory, f.Optical, f.NFTID, strconv.FormatUint(f.Height, 10), f.BlockHash, f.TxHash, strconv.FormatUint(f.TxIndex, 10), strconv.FormatInt(mustHex(f.Market.LogIndex), 10), strconv.FormatUint(f.Timestamp, 10), string(proof), string(raw)), nil
 	case strings.HasPrefix(sql, `SELECT EXISTS(SELECT 1 FROM "repair59_indexer"."indexer_block_completeness_v1"`):
 		if !has(f.BlockHash) || !has("paxeer125-canonical") {
-			return repair59Result{}, fmt.Errorf("wrong canonical completeness binding: %s", sql)
+			return visibilityRevocationResult{}, fmt.Errorf("wrong canonical completeness binding: %s", sql)
 		}
-		return repair59Row([]uint32{16}, "t"), nil
+		return visibilityRevocationRow([]uint32{16}, "t"), nil
 	case strings.HasPrefix(sql, `SELECT height::text,transaction_index::text,block_hash,emitter,topics,data FROM "repair59_indexer"."indexer_raw_logs_v1"`):
 		if !has(f.TxHash) {
 			return noRows(text, text, text, text, 114, 17), nil
@@ -602,14 +604,14 @@ func (d *repair59Database) query(sql string, state *repair59State) (repair59Resu
 			}
 			topics, e := json.Marshal(log.Topics)
 			if e != nil {
-				return repair59Result{}, e
+				return visibilityRevocationResult{}, e
 			}
-			return repair59Row([]uint32{text, text, text, text, 114, 17}, strconv.FormatUint(f.Height, 10), strconv.FormatUint(f.TxIndex, 10), f.BlockHash, strings.ToLower(log.Address), string(topics), "\\x"+strings.TrimPrefix(log.Data, "0x")), nil
+			return visibilityRevocationRow([]uint32{text, text, text, text, 114, 17}, strconv.FormatUint(f.Height, 10), strconv.FormatUint(f.TxIndex, 10), f.BlockHash, strings.ToLower(log.Address), string(topics), "\\x"+strings.TrimPrefix(log.Data, "0x")), nil
 		}
-		return repair59Result{}, fmt.Errorf("unknown canonical log: %s", sql)
+		return visibilityRevocationResult{}, fmt.Errorf("unknown canonical log: %s", sql)
 	default:
-		return repair59Result{}, fmt.Errorf("unsupported SQL: %s", sql)
+		return visibilityRevocationResult{}, fmt.Errorf("unsupported SQL: %s", sql)
 	}
 }
 
-var errRepair59AuthorityUnavailable = fmt.Errorf("visibility authority view is unavailable")
+var errVisibilityRevocationAuthorityUnavailable = fmt.Errorf("visibility authority view is unavailable")

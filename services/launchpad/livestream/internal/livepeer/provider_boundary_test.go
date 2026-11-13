@@ -9,23 +9,23 @@ import (
 	"testing"
 )
 
-func TestRepairM_1003_ProviderFailureClassifications(t *testing.T) {
+func TestProviderBoundaryProviderFailureClassifications(t *testing.T) {
 	TestProviderFailureRedactsSecretsAndBoundsBody(t)
 }
 
-func TestRepairM_1003_ResponseMediaType(t *testing.T) {
+func TestProviderBoundaryResponseMediaType(t *testing.T) {
 	TestProviderRejectsInvalidResponseMediaType(t)
 }
 
-func TestRepairM_1003_RedirectAuthorization(t *testing.T) {
+func TestProviderBoundaryRedirectAuthorization(t *testing.T) {
 	TestProviderRedirectDoesNotForwardAuthorization(t)
 }
 
-func TestRepairM_1003_Cancellation(t *testing.T) {
+func TestProviderBoundaryCancellation(t *testing.T) {
 	TestProviderUnavailableAndCancellation(t)
 }
 
-func TestRepairM_1003_JSONBodyLimit(t *testing.T) {
+func TestProviderBoundaryJSONBodyLimit(t *testing.T) {
 	const limit = 1 << 20
 	const prefix = `{"id":"id","playbackId":"playback","streamKey":"SECRET-stream-key","padding":"`
 	const suffix = `"}`

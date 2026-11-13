@@ -15,7 +15,7 @@ import (
 
 // Supplementary PostgreSQL qualification; the bounded TestRepairM_1001_ gate
 // exercises the codec and resolver without requiring a database process.
-func TestPostgresRepairM1001DecimalsAndAlerts(t *testing.T) {
+func TestPostgresStreamRecoveryDecimalsAndAlerts(t *testing.T) {
 	s := fixture(t)
 	ctx := context.Background()
 	if _, err := s.pool.Exec(ctx, s.ConnectedSchemaSQL()+s.BudgetSchemaSQL()); err != nil {
@@ -26,11 +26,11 @@ func TestPostgresRepairM1001DecimalsAndAlerts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	policy := repairM1001Budget()
+	policy := studioRecoveryBudget()
 	s.Budget = &policy
 	s.Budget.VendorUserID = ""
 	for i, cost := range []string{"5.125", "3.075", "2.05"} {
-		record := repairM1001Usage("0.25")
+		record := studioRecoveryUsage("0.25")
 		record.ProviderEvent = fmt.Sprintf("usage_%d", i)
 		record.OperationID = o.ID
 		record.CostUnits = cost
@@ -73,7 +73,7 @@ func TestPostgresRepairM1001DecimalsAndAlerts(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, invalid := range []string{"1/2", "1e3", "1e-999999999", "0." + strings.Repeat("1", 19)} {
-		record := repairM1001Usage("0.25")
+		record := studioRecoveryUsage("0.25")
 		record.OperationID = o.ID
 		record.CostUnits = invalid
 		if err = s.RecordUsage(ctx, record); !errors.Is(err, ErrInvalid) {
@@ -90,7 +90,7 @@ func TestPostgresRepairM1001DecimalsAndAlerts(t *testing.T) {
 	}
 }
 
-func TestPostgresRepairM1001AmbiguityRestartAndAdmission(t *testing.T) {
+func TestPostgresStreamRecoveryAmbiguityRestartAndAdmission(t *testing.T) {
 	base := fixture(t)
 	ctx := context.Background()
 	if _, err := base.pool.Exec(ctx, base.ConnectedSchemaSQL()); err != nil {
@@ -140,7 +140,7 @@ func TestPostgresRepairM1001AmbiguityRestartAndAdmission(t *testing.T) {
 		t.Fatal("recovered ambiguity", state, err)
 	}
 	var creates int
-	provider, _ := repairM1001Provider(t, func(w http.ResponseWriter, r *http.Request) {
+	provider, _ := studioRecoveryProvider(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			creates++
 			http.Error(w, "provider rejected", 429)
@@ -149,7 +149,7 @@ func TestPostgresRepairM1001AmbiguityRestartAndAdmission(t *testing.T) {
 		_, _ = io.WriteString(w, `[]`)
 	})
 	worker := ProvisionWorker{Store: s, Provider: provider}
-	o, err = worker.ResolveAmbiguity(ctx, repairM1001Decision(state, ProvisionResume))
+	o, err = worker.ResolveAmbiguity(ctx, studioRecoveryDecision(state, ProvisionResume))
 	if err != nil || o.Revision != 3 {
 		t.Fatal(o, err)
 	}
@@ -183,7 +183,7 @@ func TestPostgresRepairM1001AmbiguityRestartAndAdmission(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	o, err = worker.ResolveAmbiguity(ctx, repairM1001Decision(state, ProvisionRelease))
+	o, err = worker.ResolveAmbiguity(ctx, studioRecoveryDecision(state, ProvisionRelease))
 	if err != nil || o.State != "FAILED" || creates != 1 {
 		t.Fatalf("release: %+v creates=%d %v", o, creates, err)
 	}

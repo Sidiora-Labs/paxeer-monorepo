@@ -51,17 +51,17 @@ import (
 // The database and object peers implement their wire protocols and persist
 // committed state to disk. Every keeper, codec, SQL query and handler under
 // repair is production code. Unknown queries fail explicitly.
-type repair1007Work struct {
+type publicationRecoveryWork struct {
 	Token, State    string
 	Staged, Retired []string
 	Old             bool
 }
-type repair1007State struct {
-	Visibility                  repair59State
+type publicationRecoveryState struct {
+	Visibility                  visibilityRevocationState
 	Canonical                   []byte
 	Meta                        *sqlcdb.UpsertTokenMetadataParams
 	Images                      map[string]sqlcdb.UpsertTokenImageParams
-	Work                        map[string]repair1007Work
+	Work                        map[string]publicationRecoveryWork
 	Asset                       AssetRecord
 	AssetState, Mime            string
 	Width, Height               int
@@ -69,21 +69,21 @@ type repair1007State struct {
 	Revision                    int
 	NonceOperation, NonceDigest string
 }
-type repair1007Database struct {
+type publicationRecoveryDatabase struct {
 	mu          sync.Mutex
 	connections sync.WaitGroup
-	state       repair1007State
+	state       publicationRecoveryState
 	fixture     creationFixture
 	path        string
 	t           *testing.T
 	fail        string
 	delayInsert time.Duration
 }
-type repair1007Fixture struct {
+type publicationRecoveryFixture struct {
 	t                      *testing.T
 	path                   string
 	creation               creationFixture
-	db                     *repair1007Database
+	db                     *publicationRecoveryDatabase
 	pool                   *pgxpool.Pool
 	store                  *ProductionStore
 	objects                *s3.Client
@@ -94,7 +94,7 @@ type repair1007Fixture struct {
 	puts                   atomic.Int64
 }
 
-func repair1007Key(t *testing.T) *ecdsa.PrivateKey {
+func publicationRecoveryKey(t *testing.T) *ecdsa.PrivateKey {
 	t.Helper()
 	key, e := crypto.HexToECDSA(strings.Repeat("0", 63) + "1")
 	if e != nil {
@@ -105,7 +105,7 @@ func repair1007Key(t *testing.T) *ecdsa.PrivateKey {
 
 // The signing fixture rebinds only the recorded event's indexed creator to
 // the committed local signing key, keeping both event topics coherent.
-func repair1007Creator(f creationFixture, key *ecdsa.PrivateKey) creationFixture {
+func publicationRecoveryCreator(f creationFixture, key *ecdsa.PrivateKey) creationFixture {
 	f.Creator = strings.ToLower(crypto.PubkeyToAddress(key.PublicKey).Hex())
 	f.Market.Topics = append([]string(nil), f.Market.Topics...)
 	f.Deployed.Topics = append([]string(nil), f.Deployed.Topics...)
@@ -114,14 +114,14 @@ func repair1007Creator(f creationFixture, key *ecdsa.PrivateKey) creationFixture
 	return f
 }
 
-func newRepair1007Fixture(t *testing.T) *repair1007Fixture {
+func newPublicationRecoveryFixture(t *testing.T) *publicationRecoveryFixture {
 	t.Helper()
 	dir := t.TempDir()
-	f := &repair1007Fixture{t: t, path: filepath.Join(dir, "database.json"), objectDir: filepath.Join(dir, "objects"), creation: loadCreationFixture(t)}
+	f := &publicationRecoveryFixture{t: t, path: filepath.Join(dir, "database.json"), objectDir: filepath.Join(dir, "objects"), creation: loadCreationFixture(t)}
 	if e := os.Mkdir(f.objectDir, 0700); e != nil {
 		t.Fatal(e)
 	}
-	initial := repair1007State{Images: map[string]sqlcdb.UpsertTokenImageParams{}, Work: map[string]repair1007Work{}, Visibility: repair59State{AuthorityAvailable: true}}
+	initial := publicationRecoveryState{Images: map[string]sqlcdb.UpsertTokenImageParams{}, Work: map[string]publicationRecoveryWork{}, Visibility: visibilityRevocationState{AuthorityAvailable: true}}
 	raw, e := json.Marshal(initial)
 	if e != nil {
 		t.Fatal(e)
@@ -208,7 +208,7 @@ func newRepair1007Fixture(t *testing.T) *repair1007Fixture {
 	t.Cleanup(func() { f.stop(); f.objectServer.Close() })
 	return f
 }
-func (f *repair1007Fixture) stop() {
+func (f *publicationRecoveryFixture) stop() {
 	if f.pool != nil {
 		f.pool.Close()
 		f.pool = nil
@@ -217,10 +217,10 @@ func (f *repair1007Fixture) stop() {
 		f.db.connections.Wait()
 	}
 }
-func (f *repair1007Fixture) open() {
+func (f *publicationRecoveryFixture) open() {
 	t := f.t
 	t.Helper()
-	db := &repair1007Database{fixture: f.creation, path: f.path, t: t}
+	db := &publicationRecoveryDatabase{fixture: f.creation, path: f.path, t: t}
 	raw, e := os.ReadFile(f.path)
 	if e != nil {
 		t.Fatal(e)
@@ -250,24 +250,24 @@ func (f *repair1007Fixture) open() {
 	}
 	f.db = db
 }
-func (f *repair1007Fixture) reopen() { f.stop(); f.open() }
-func (d *repair1007Database) snapshot() repair1007State {
+func (f *publicationRecoveryFixture) reopen() { f.stop(); f.open() }
+func (d *publicationRecoveryDatabase) snapshot() publicationRecoveryState {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	return repair1007Clone(d.state)
+	return publicationRecoveryClone(d.state)
 }
-func repair1007Clone(s repair1007State) repair1007State {
+func publicationRecoveryClone(s publicationRecoveryState) publicationRecoveryState {
 	raw, e := json.Marshal(s)
 	if e != nil {
 		panic(e)
 	}
-	var out repair1007State
+	var out publicationRecoveryState
 	if e = json.Unmarshal(raw, &out); e != nil {
 		panic(e)
 	}
 	return out
 }
-func (d *repair1007Database) save(s repair1007State) error {
+func (d *publicationRecoveryDatabase) save(s publicationRecoveryState) error {
 	raw, e := json.Marshal(s)
 	if e != nil {
 		return e
@@ -289,7 +289,7 @@ func (d *repair1007Database) save(s repair1007State) error {
 	}
 	return os.Rename(d.path+".new", d.path)
 }
-func (d *repair1007Database) serve(conn net.Conn) {
+func (d *publicationRecoveryDatabase) serve(conn net.Conn) {
 	defer conn.Close()
 	if e := conn.SetDeadline(time.Now().Add(30 * time.Second)); e != nil {
 		d.t.Error(e)
@@ -308,7 +308,7 @@ func (d *repair1007Database) serve(conn net.Conn) {
 	if e := backend.Flush(); e != nil {
 		return
 	}
-	var transaction *repair1007State
+	var transaction *publicationRecoveryState
 	for {
 		message, e := backend.Receive()
 		if e != nil {
@@ -319,7 +319,7 @@ func (d *repair1007Database) serve(conn net.Conn) {
 			return
 		case *pgproto3.Query:
 			d.mu.Lock()
-			var result repair59Result
+			var result visibilityRevocationResult
 			var err error
 			sql := strings.TrimSpace(message.String)
 			switch {
@@ -327,7 +327,7 @@ func (d *repair1007Database) serve(conn net.Conn) {
 				if transaction != nil {
 					err = fmt.Errorf("nested transaction")
 				} else {
-					snapshot := repair1007Clone(d.state)
+					snapshot := publicationRecoveryClone(d.state)
 					transaction = &snapshot
 					result.tag = "BEGIN"
 				}
@@ -359,7 +359,7 @@ func (d *repair1007Database) serve(conn net.Conn) {
 			}
 			d.mu.Unlock()
 			if err != nil {
-				if !errors.Is(err, errRepair1007Injected) {
+				if !errors.Is(err, errPublicationRecoveryInjected) {
 					d.t.Errorf("in-process store: %v", err)
 				}
 				backend.Send(&pgproto3.ErrorResponse{Severity: "ERROR", Code: "XX000", Message: err.Error()})
@@ -373,7 +373,7 @@ func (d *repair1007Database) serve(conn net.Conn) {
 					for _, row := range result.rows {
 						values := make([][]byte, len(row))
 						for i := range row {
-							if row[i] != repair1007Null {
+							if row[i] != publicationRecoveryNull {
 								values[i] = []byte(row[i])
 							}
 						}
@@ -397,11 +397,11 @@ func (d *repair1007Database) serve(conn net.Conn) {
 	}
 }
 
-var errRepair1007Injected = errors.New("injected dependency outage")
+var errPublicationRecoveryInjected = errors.New("injected dependency outage")
 
-const repair1007Null = "\x00"
+const publicationRecoveryNull = "\x00"
 
-func repair1007Literals(sql string) []string {
+func publicationRecoveryLiterals(sql string) []string {
 	matches := regexp.MustCompile(`'((?:[^']|'')*)'`).FindAllStringSubmatch(sql, -1)
 	out := make([]string, len(matches))
 	for i, m := range matches {
@@ -409,67 +409,74 @@ func repair1007Literals(sql string) []string {
 	}
 	return out
 }
-func repair1007Int(v string) int64 {
+func publicationRecoveryInt(v string) int64 {
 	n, e := strconv.ParseInt(v, 10, 64)
 	if e != nil {
 		panic(e)
 	}
 	return n
 }
-func repair1007Nullable(v bool, s string) string {
+func publicationRecoveryNullable(v bool, s string) string {
 	if !v {
-		return repair1007Null
+		return publicationRecoveryNull
 	}
 	return s
 }
-func (d *repair1007Database) query(sql string, state *repair1007State) (repair59Result, error) {
+func (d *publicationRecoveryDatabase) query(sql string, state *publicationRecoveryState) (visibilityRevocationResult, error) {
 	if d.fail != "" && strings.Contains(sql, d.fail) {
-		return repair59Result{}, errRepair1007Injected
+		return visibilityRevocationResult{}, errPublicationRecoveryInjected
 	}
 	if strings.HasPrefix(sql, "-- name:") {
 		sql = strings.TrimSpace(sql[strings.Index(sql, "\n")+1:])
 	}
-	l := repair1007Literals(sql)
+	l := publicationRecoveryLiterals(sql)
 	text := uint32(25)
-	row := func(values ...string) repair59Result {
+	row := func(values ...string) visibilityRevocationResult {
 		oids := make([]uint32, len(values))
 		for i := range oids {
 			oids[i] = text
 		}
-		return repair59Row(oids, values...)
+		return visibilityRevocationRow(oids, values...)
 	}
-	empty := func(n int) repair59Result { r := row(make([]string, n)...); r.rows = nil; r.tag = "SELECT 0"; return r }
-	tag := func(value string) (repair59Result, error) { return repair59Result{tag: value}, nil }
+	empty := func(n int) visibilityRevocationResult {
+		r := row(make([]string, n)...)
+		r.rows = nil
+		r.tag = "SELECT 0"
+		return r
+	}
+	tag := func(value string) (visibilityRevocationResult, error) {
+		return visibilityRevocationResult{tag: value}, nil
+	}
 	f := d.fixture
 	switch {
 	case strings.HasPrefix(sql, "SELECT pg_advisory_lock") || strings.HasPrefix(sql, "SELECT pg_advisory_unlock"):
 		return row(""), nil
 	case strings.HasPrefix(sql, "SELECT pg_try_advisory_xact_lock"):
-		return repair59Row([]uint32{16}, "t"), nil
+		return visibilityRevocationRow([]uint32{16}, "t"), nil
 	case strings.HasPrefix(sql, `SELECT token_json FROM "repair59_metadata"."development_canonical_tokens"`):
 		if len(state.Canonical) == 0 {
 			return empty(1), nil
 		}
-		return repair59Row([]uint32{114}, string(state.Canonical)), nil
+		return visibilityRevocationRow([]uint32{114}, string(state.Canonical)), nil
 	case strings.HasPrefix(sql, `INSERT INTO "repair59_metadata"."development_canonical_tokens"`):
 		if d.delayInsert > 0 {
 			time.Sleep(d.delayInsert)
 		}
 		if len(l) != 5 || l[0] != f.Token || l[1] != f.Pool || l[2] != f.Creator || l[3] != f.TxHash {
-			return repair59Result{}, fmt.Errorf("canonical write binding: %s", sql)
+			return visibilityRevocationResult{}, fmt.Errorf("canonical write binding: %s", sql)
 		}
 		state.Canonical = json.RawMessage(l[4])
 		return tag("INSERT 0 1")
 	case strings.HasPrefix(sql, "SELECT lower(pool_address)"):
-		return repair59Row([]uint32{text, text, text, text, 20}, f.Pool, f.Token, f.Creator, f.TxHash, strconv.FormatUint(f.Height, 10)), nil
+		return visibilityRevocationRow([]uint32{text, text, text, text, 20}, f.Pool, f.Token, f.Creator, f.TxHash, strconv.FormatUint(f.Height, 10)), nil
 	case strings.HasPrefix(sql, "SELECT pool_address, token_address, creator"):
 		return row(f.Pool, f.Token, f.Creator), nil
 	case strings.HasPrefix(sql, "INSERT INTO metadata.legacy_publications"):
 		var keys []string
 		if len(l) != 4 || json.Unmarshal([]byte(l[3]), &keys) != nil {
-			return repair59Result{}, fmt.Errorf("invalid intent %s", sql)
+			return visibilityRevocationResult{}, fmt.Errorf("invalid intent %s", sql)
 		}
-		state.Work[l[0]] = repair1007Work{Token: l[1], State: l[2], Staged: keys}
+		state.Work[l[0]] = publicationRecoveryWork{Token: l[1], State: l[2], Staged: keys}
 		return tag("INSERT 0 1")
 	case strings.HasPrefix(sql, "UPDATE metadata.legacy_publications SET state='published'"):
 		work, ok := state.Work[l[2]]
@@ -478,7 +485,7 @@ func (d *repair1007Database) query(sql string, state *repair1007State) (repair59
 		}
 		work.State = "published"
 		if e := json.Unmarshal([]byte(l[1]), &work.Retired); e != nil {
-			return repair59Result{}, e
+			return visibilityRevocationResult{}, e
 		}
 		state.Work[l[2]] = work
 		return tag("UPDATE 1")
@@ -506,14 +513,14 @@ func (d *repair1007Database) query(sql string, state *repair1007State) (repair59
 			keys = w.Staged
 		}
 		raw, e := json.Marshal(keys)
-		return repair59Row([]uint32{114}, string(raw)), e
+		return visibilityRevocationRow([]uint32{114}, string(raw)), e
 	case strings.HasPrefix(sql, "SELECT EXISTS(SELECT 1 FROM metadata.token_images WHERE storage_key="):
 		for _, img := range state.Images {
 			if img.StorageKey == l[0] {
-				return repair59Row([]uint32{16}, "t"), nil
+				return visibilityRevocationRow([]uint32{16}, "t"), nil
 			}
 		}
-		return repair59Row([]uint32{16}, "f"), nil
+		return visibilityRevocationRow([]uint32{16}, "f"), nil
 	case strings.HasPrefix(sql, "DELETE FROM metadata.legacy_publications"):
 		delete(state.Work, l[0])
 		return tag("DELETE 1")
@@ -529,16 +536,16 @@ func (d *repair1007Database) query(sql string, state *repair1007State) (repair59
 		return r, nil
 	case strings.HasPrefix(sql, "INSERT INTO metadata.token_images"):
 		if len(l) != 7 {
-			return repair59Result{}, fmt.Errorf("image params: %s", sql)
+			return visibilityRevocationResult{}, fmt.Errorf("image params: %s", sql)
 		}
-		state.Images[l[2]] = sqlcdb.UpsertTokenImageParams{ID: l[0], TokenAddress: l[1], ImageType: l[2], StorageKey: l[3], MimeType: l[4], SizeBytes: int32(repair1007Int(l[5])), UploadedAt: repair1007Int(l[6])}
+		state.Images[l[2]] = sqlcdb.UpsertTokenImageParams{ID: l[0], TokenAddress: l[1], ImageType: l[2], StorageKey: l[3], MimeType: l[4], SizeBytes: int32(publicationRecoveryInt(l[5])), UploadedAt: publicationRecoveryInt(l[6])}
 		return tag("INSERT 0 1")
 	case strings.HasPrefix(sql, "SELECT token_address, pool_address, name, symbol"):
 		if state.Meta == nil {
 			return empty(14), nil
 		}
 		m := state.Meta
-		return repair59Row([]uint32{text, text, text, text, text, text, text, text, text, text, text, 20, 20, 23}, m.TokenAddress, m.PoolAddress, repair1007Nullable(m.Name.Valid, m.Name.String), repair1007Nullable(m.Symbol.Valid, m.Symbol.String), repair1007Nullable(m.Description.Valid, m.Description.String), repair1007Nullable(m.Website.Valid, m.Website.String), repair1007Nullable(m.Twitter.Valid, m.Twitter.String), repair1007Nullable(m.Telegram.Valid, m.Telegram.String), repair1007Nullable(m.Discord.Valid, m.Discord.String), repair1007Nullable(m.CustomTags.Valid, m.CustomTags.String), m.CreatedBy, strconv.FormatInt(m.CreatedAt, 10), strconv.FormatInt(m.UpdatedAt, 10), strconv.FormatInt(int64(m.Decimals), 10)), nil
+		return visibilityRevocationRow([]uint32{text, text, text, text, text, text, text, text, text, text, text, 20, 20, 23}, m.TokenAddress, m.PoolAddress, publicationRecoveryNullable(m.Name.Valid, m.Name.String), publicationRecoveryNullable(m.Symbol.Valid, m.Symbol.String), publicationRecoveryNullable(m.Description.Valid, m.Description.String), publicationRecoveryNullable(m.Website.Valid, m.Website.String), publicationRecoveryNullable(m.Twitter.Valid, m.Twitter.String), publicationRecoveryNullable(m.Telegram.Valid, m.Telegram.String), publicationRecoveryNullable(m.Discord.Valid, m.Discord.String), publicationRecoveryNullable(m.CustomTags.Valid, m.CustomTags.String), m.CreatedBy, strconv.FormatInt(m.CreatedAt, 10), strconv.FormatInt(m.UpdatedAt, 10), strconv.FormatInt(int64(m.Decimals), 10)), nil
 	case strings.HasPrefix(sql, "INSERT INTO metadata.token_metadata"):
 		// SQL NULL is intentionally absent from the literal list, so parse the
 		// VALUES tuple separately to preserve nullable pgtype fields.
@@ -546,7 +553,7 @@ func (d *repair1007Database) query(sql string, state *repair1007State) (repair59
 		end := strings.Index(sql[start:], ")") + start
 		parts := regexp.MustCompile(`(?i)'(?:[^']|'')*'|null`).FindAllString(sql[start:end], -1)
 		if len(parts) != 14 {
-			return repair59Result{}, fmt.Errorf("metadata values: %s", sql)
+			return visibilityRevocationResult{}, fmt.Errorf("metadata values: %s", sql)
 		}
 		vals := make([]string, 14)
 		for i, p := range parts {
@@ -554,7 +561,7 @@ func (d *repair1007Database) query(sql string, state *repair1007State) (repair59
 				vals[i] = strings.ReplaceAll(p[1:len(p)-1], "''", "'")
 			}
 		}
-		m := &sqlcdb.UpsertTokenMetadataParams{TokenAddress: vals[0], PoolAddress: vals[1], Name: strToText(vals[2]), Symbol: strToText(vals[3]), Description: strToText(vals[4]), Website: strToText(vals[5]), Twitter: strToText(vals[6]), Telegram: strToText(vals[7]), Discord: strToText(vals[8]), CustomTags: strToText(vals[9]), Decimals: int32(repair1007Int(vals[10])), CreatedBy: vals[11], CreatedAt: repair1007Int(vals[12]), UpdatedAt: repair1007Int(vals[13])}
+		m := &sqlcdb.UpsertTokenMetadataParams{TokenAddress: vals[0], PoolAddress: vals[1], Name: strToText(vals[2]), Symbol: strToText(vals[3]), Description: strToText(vals[4]), Website: strToText(vals[5]), Twitter: strToText(vals[6]), Telegram: strToText(vals[7]), Discord: strToText(vals[8]), CustomTags: strToText(vals[9]), Decimals: int32(publicationRecoveryInt(vals[10])), CreatedBy: vals[11], CreatedAt: publicationRecoveryInt(vals[12]), UpdatedAt: publicationRecoveryInt(vals[13])}
 		if state.Meta != nil {
 			m.CreatedAt = state.Meta.CreatedAt
 			m.CreatedBy = state.Meta.CreatedBy
@@ -563,18 +570,18 @@ func (d *repair1007Database) query(sql string, state *repair1007State) (repair59
 		state.Meta = m
 		return tag("INSERT 0 1")
 	case strings.HasPrefix(sql, `INSERT INTO "repair59_metadata"."assets"`):
-		state.Asset = AssetRecord{ID: l[0], Pool: l[1], Hash: l[3], Size: repair1007Int(l[4]), ObjectKey: l[5]}
+		state.Asset = AssetRecord{ID: l[0], Pool: l[1], Hash: l[3], Size: publicationRecoveryInt(l[4]), ObjectKey: l[5]}
 		state.AssetState = "CREATED"
 		return tag("INSERT 0 1")
 	case strings.HasPrefix(sql, `SELECT pool,hash,size FROM "repair59_metadata"."assets"`):
-		return repair59Row([]uint32{text, text, 20}, state.Asset.Pool, state.Asset.Hash, strconv.FormatInt(state.Asset.Size, 10)), nil
+		return visibilityRevocationRow([]uint32{text, text, 20}, state.Asset.Pool, state.Asset.Hash, strconv.FormatInt(state.Asset.Size, 10)), nil
 	case strings.HasPrefix(sql, `INSERT INTO "repair59_metadata"."asset_details_v2"`):
 		state.Mime = l[1]
-		state.Width = int(repair1007Int(l[2]))
-		state.Height = int(repair1007Int(l[3]))
+		state.Width = int(publicationRecoveryInt(l[2]))
+		state.Height = int(publicationRecoveryInt(l[3]))
 		return tag("INSERT 0 1")
 	case strings.HasPrefix(sql, `SELECT mime,width,height FROM "repair59_metadata"."asset_details_v2"`):
-		return repair59Row([]uint32{text, 23, 23}, state.Mime, strconv.Itoa(state.Width), strconv.Itoa(state.Height)), nil
+		return visibilityRevocationRow([]uint32{text, 23, 23}, state.Mime, strconv.Itoa(state.Width), strconv.Itoa(state.Height)), nil
 	case strings.HasPrefix(sql, `UPDATE "repair59_metadata"."assets" SET state='APPROVED'`):
 		state.AssetState = "APPROVED"
 		state.Asset.ObjectKey = l[1]
@@ -590,15 +597,15 @@ func (d *repair1007Database) query(sql string, state *repair1007State) (repair59
 	case strings.HasPrefix(sql, `SELECT pool FROM "repair59_metadata"."assets"`):
 		return row(state.Asset.Pool), nil
 	case strings.HasPrefix(sql, `SELECT pool,state,hash,size FROM "repair59_metadata"."assets"`):
-		return repair59Row([]uint32{text, text, text, 20}, state.Asset.Pool, state.AssetState, state.Asset.Hash, strconv.FormatInt(state.Asset.Size, 10)), nil
+		return visibilityRevocationRow([]uint32{text, text, text, 20}, state.Asset.Pool, state.AssetState, state.Asset.Hash, strconv.FormatInt(state.Asset.Size, 10)), nil
 	case strings.HasPrefix(sql, `SELECT blocked FROM "repair59_metadata"."documents"`):
 		value := "f"
 		if state.Visibility.Blocked {
 			value = "t"
 		}
-		return repair59Row([]uint32{16}, value), nil
+		return visibilityRevocationRow([]uint32{16}, value), nil
 	case strings.HasPrefix(sql, "SELECT to_regclass("):
-		return repair59Row([]uint32{16}, "t"), nil
+		return visibilityRevocationRow([]uint32{16}, "t"), nil
 	case strings.HasPrefix(sql, `UPDATE "repair59_metadata"."asset_details_v2" SET variants=`):
 		state.Variants = json.RawMessage(l[0])
 		return tag("UPDATE 1")
@@ -620,12 +627,12 @@ func (d *repair1007Database) query(sql string, state *repair1007State) (repair59
 	case strings.HasPrefix(sql, `UPDATE "repair59_metadata"."v2_documents" SET revision=`):
 		var patch map[string]any
 		if e := json.Unmarshal([]byte(l[0]), &patch); e != nil {
-			return repair59Result{}, e
+			return visibilityRevocationResult{}, e
 		}
 		var doc map[string]any
 		if len(state.Visibility.Document) > 0 {
 			if e := json.Unmarshal(state.Visibility.Document, &doc); e != nil {
-				return repair59Result{}, e
+				return visibilityRevocationResult{}, e
 			}
 		}
 		if doc == nil {
@@ -636,7 +643,7 @@ func (d *repair1007Database) query(sql string, state *repair1007State) (repair59
 		}
 		raw, e := json.Marshal(doc)
 		if e != nil {
-			return repair59Result{}, e
+			return visibilityRevocationResult{}, e
 		}
 		state.Visibility.Document = raw
 		state.Revision++
@@ -652,18 +659,18 @@ func (d *repair1007Database) query(sql string, state *repair1007State) (repair59
 		if state.Visibility.Blocked {
 			blocked = "t"
 		}
-		return repair59Row([]uint32{text, text, text, 114, 1184, text, 16}, f.Pool, f.Token, strconv.Itoa(state.Revision), string(state.Visibility.Document), "2026-10-13 09:00:00+00", state.Visibility.AssetID, blocked), nil
+		return visibilityRevocationRow([]uint32{text, text, text, 114, 1184, text, 16}, f.Pool, f.Token, strconv.Itoa(state.Revision), string(state.Visibility.Document), "2026-10-13 09:00:00+00", state.Visibility.AssetID, blocked), nil
 	case strings.HasPrefix(sql, `SELECT a.hash,d.variants FROM "repair59_metadata"."assets"`):
 		if state.AssetState != "APPROVED" {
 			return empty(2), nil
 		}
-		return repair59Row([]uint32{text, 114}, state.Asset.Hash, string(state.Variants)), nil
+		return visibilityRevocationRow([]uint32{text, 114}, state.Asset.Hash, string(state.Variants)), nil
 	}
-	base := repair59Database{fixture: f}
+	base := visibilityRevocationDatabase{fixture: f}
 	return base.query(sql, &state.Visibility)
 }
 
-func repair1007Scanner(t *testing.T) sharedhttp.ScanOptions {
+func publicationRecoveryScanner(t *testing.T) sharedhttp.ScanOptions {
 	t.Helper()
 	listener, e := net.Listen("tcp", "127.0.0.1:0")
 	if e != nil {
@@ -718,7 +725,7 @@ func repair1007Scanner(t *testing.T) sharedhttp.ScanOptions {
 	return sharedhttp.ScanOptions{Host: "127.0.0.1", Port: listener.Addr().(*net.TCPAddr).Port, Timeout: time.Second}
 }
 
-func repair1007PublishApproved(t *testing.T, store *ProductionStore, objects S3AssetObjects, f creationFixture, key *ecdsa.PrivateKey, original []byte, asset string, document map[string]any) raster.Raster {
+func publicationRecoveryPublishApproved(t *testing.T, store *ProductionStore, objects S3AssetObjects, f creationFixture, key *ecdsa.PrivateKey, original []byte, asset string, document map[string]any) raster.Raster {
 	t.Helper()
 	ctx := context.Background()
 	decoded, e := raster.Reencode(ctx, original)
@@ -736,7 +743,7 @@ func repair1007PublishApproved(t *testing.T, store *ProductionStore, objects S3A
 		}
 	}
 	store.RasterWorker = fixtureRasterWorker{}
-	scan := sharedhttp.ScanVerifiedBuffer(ctx, original, repair1007Scanner(t))
+	scan := sharedhttp.ScanVerifiedBuffer(ctx, original, publicationRecoveryScanner(t))
 	if !scan.Clean {
 		t.Fatalf("scan: %+v", scan)
 	}
@@ -796,20 +803,20 @@ func repair1007PublishApproved(t *testing.T, store *ProductionStore, objects S3A
 	return decoded
 }
 
-func (f *repair1007Fixture) media() ConnectedMedia {
+func (f *publicationRecoveryFixture) media() ConnectedMedia {
 	return ConnectedMedia{Metadata: V2ContractHandlers{Store: f.store, Canonical: PostgresCanonicalSource{Schema: "repair59_indexer", CanonicalStreamID: "paxeer125-canonical"}}, Objects: S3AssetObjects{Client: f.objects, PublicBucket: "bucket", PublicOrigin: "https://metadata.example"}, Moderation: PostgresVisibilityAuthority{Pool: f.pool, Schema: "repair59_visibility"}}
 }
 
-func TestRepairM_1007_ModerationPublishedContent(t *testing.T) {
+func TestPublicationRecoveryModerationPublishedContent(t *testing.T) {
 	for _, first := range []string{"single", "batch", "logo"} {
 		t.Run(first, func(t *testing.T) {
-			f := newRepair1007Fixture(t)
+			f := newPublicationRecoveryFixture(t)
 			f.stop()
-			key := repair1007Key(t)
-			f.creation = repair1007Creator(f.creation, key)
+			key := publicationRecoveryKey(t)
+			f.creation = publicationRecoveryCreator(f.creation, key)
 			f.open()
 			document := map[string]any{"name": "Creator override", "symbol": "EDIT", "description": "Creator secret description", "tags": []string{"creator-tag"}, "socials": []V2Social{{Label: "Site", URL: "https://creator.example"}}}
-			decoded := repair1007PublishApproved(t, f.store, f.media().Objects, f.creation, key, pngBytes(t, 640, 480), "11111111-1111-4111-8111-111111111111", document)
+			decoded := publicationRecoveryPublishApproved(t, f.store, f.media().Objects, f.creation, key, pngBytes(t, 640, 480), "11111111-1111-4111-8111-111111111111", document)
 			state := f.db.snapshot()
 			if state.AssetState != "APPROVED" || state.Revision != 1 || state.Visibility.Blocked {
 				t.Fatalf("not published: %+v", state)
@@ -817,7 +824,7 @@ func TestRepairM_1007_ModerationPublishedContent(t *testing.T) {
 			initialRouter := chi.NewRouter()
 			NewProductionLegacyReads(f.media(), "https://metadata.example").RegisterRoutes(initialRouter)
 			initialServer := httptest.NewServer(initialRouter)
-			initialReader := &repair59Fixture{creation: f.creation, logo: decoded.Variants[512], server: initialServer}
+			initialReader := &visibilityRevocationFixture{creation: f.creation, logo: decoded.Variants[512], server: initialServer}
 			for _, route := range []string{"single", "batch", "logo"} {
 				initialReader.read(t, route, false)
 			}
@@ -836,7 +843,7 @@ func TestRepairM_1007_ModerationPublishedContent(t *testing.T) {
 			NewProductionLegacyReads(media, "https://metadata.example").RegisterRoutes(router)
 			server := httptest.NewServer(router)
 			defer server.Close()
-			readFixture := &repair59Fixture{creation: f.creation, logo: decoded.Variants[512], server: server}
+			readFixture := &visibilityRevocationFixture{creation: f.creation, logo: decoded.Variants[512], server: server}
 			readFixture.read(t, first, true)
 			for _, route := range []string{"single", "batch", "logo"} {
 				readFixture.read(t, route, true)
@@ -857,8 +864,8 @@ func TestRepairM_1007_ModerationPublishedContent(t *testing.T) {
 	}
 }
 
-func TestRepairM_1007_CanonicalRetentionRestart(t *testing.T) {
-	f := newRepair1007Fixture(t)
+func TestPublicationRecoveryCanonicalRetentionRestart(t *testing.T) {
+	f := newPublicationRecoveryFixture(t)
 	chainURL := os.Getenv("L34_ANVIL_URL")
 	if chainURL == "" {
 		t.Fatal("L34_ANVIL_URL must name the public job's real chain-125 fixture")
@@ -980,7 +987,7 @@ func TestRepairM_1007_CanonicalRetentionRestart(t *testing.T) {
 	}
 }
 
-func (f *repair1007Fixture) handler() (*Handlers, *httptest.Server) {
+func (f *publicationRecoveryFixture) handler() (*Handlers, *httptest.Server) {
 	t := f.t
 	t.Helper()
 	authority := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -994,7 +1001,7 @@ func (f *repair1007Fixture) handler() (*Handlers, *httptest.Server) {
 		_ = json.NewEncoder(w).Encode(sharedauth.IdentityPrincipal{AccountID: "11111111-1111-4111-8111-111111111111", SessionID: "22222222-2222-4222-8222-222222222222", Wallet: f.creation.Creator, AuthEpoch: 1, ProofAt: now, AccessExpiresAt: now.Add(time.Hour)})
 	}))
 	t.Cleanup(authority.Close)
-	options := repair1007Scanner(t)
+	options := publicationRecoveryScanner(t)
 	h := New(Deps{Queries: sqlcdb.New(f.pool), LegacyDB: f.pool, Store: f.legacy, PublicURL: "https://metadata.example", PoolLookupAttempts: 1, Identity: sharedauth.HTTPIdentityAuthority{Endpoint: authority.URL, ServiceToken: strings.Repeat("s", 32), AllowPlainHTTP: true}, Scan: func(ctx context.Context, b []byte) sharedhttp.ScanResult {
 		return sharedhttp.ScanVerifiedBuffer(ctx, b, options)
 	}})
@@ -1005,7 +1012,7 @@ func (f *repair1007Fixture) handler() (*Handlers, *httptest.Server) {
 	return h, server
 }
 
-func repair1007Upload(t *testing.T, server *httptest.Server, token, name string, logo, banner []byte) int {
+func publicationRecoveryUpload(t *testing.T, server *httptest.Server, token, name string, logo, banner []byte) int {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -1061,7 +1068,7 @@ func repair1007Upload(t *testing.T, server *httptest.Server, token, name string,
 	return response.StatusCode
 }
 
-func repair1007ReadLegacy(t *testing.T, server *httptest.Server, f *repair1007Fixture, name string, logo, banner []byte) {
+func publicationRecoveryReadLegacy(t *testing.T, server *httptest.Server, f *publicationRecoveryFixture, name string, logo, banner []byte) {
 	t.Helper()
 	for _, path := range []string{"/metadata/" + f.creation.Token, "/metadata/batch?addresses=" + f.creation.Token} {
 		status, header, body := getBody(t, server.URL+path)
@@ -1093,17 +1100,17 @@ func repair1007ReadLegacy(t *testing.T, server *httptest.Server, f *repair1007Fi
 	}
 }
 
-func TestRepairM_1007_LegacyAtomicPublicationRecovery(t *testing.T) {
+func TestPublicationRecoveryLegacyAtomicPublicationRecovery(t *testing.T) {
 	for _, failure := range []string{"database-after-objects", "second-image"} {
 		t.Run(failure, func(t *testing.T) {
-			f := newRepair1007Fixture(t)
+			f := newPublicationRecoveryFixture(t)
 			h, server := f.handler()
 			oldLogo, oldBanner := pngBytes(t, 32, 24), pngBytes(t, 48, 24)
 			newLogo, newBanner := pngBytes(t, 40, 30), pngBytes(t, 60, 30)
-			if status := repair1007Upload(t, server, f.creation.Token, "Old", oldLogo, oldBanner); status != 200 {
+			if status := publicationRecoveryUpload(t, server, f.creation.Token, "Old", oldLogo, oldBanner); status != 200 {
 				t.Fatalf("initial publication: %d", status)
 			}
-			repair1007ReadLegacy(t, server, f, "Old", oldLogo, oldBanner)
+			publicationRecoveryReadLegacy(t, server, f, "Old", oldLogo, oldBanner)
 			before := f.db.snapshot()
 			puts := f.puts.Load()
 			if failure == "database-after-objects" {
@@ -1113,7 +1120,7 @@ func TestRepairM_1007_LegacyAtomicPublicationRecovery(t *testing.T) {
 			} else {
 				f.failBanner.Store(true)
 			}
-			if status := repair1007Upload(t, server, f.creation.Token, "New", newLogo, newBanner); status != 500 {
+			if status := publicationRecoveryUpload(t, server, f.creation.Token, "New", newLogo, newBanner); status != 500 {
 				t.Fatalf("failed update status: %d", status)
 			}
 			expectedPuts := int64(2)
@@ -1140,13 +1147,13 @@ func TestRepairM_1007_LegacyAtomicPublicationRecovery(t *testing.T) {
 			f.db.fail = ""
 			f.db.mu.Unlock()
 			f.failBanner.Store(false)
-			repair1007ReadLegacy(t, server, f, "Old", oldLogo, oldBanner)
+			publicationRecoveryReadLegacy(t, server, f, "Old", oldLogo, oldBanner)
 			// Close the handler transport and database, then reconstruct both from
 			// durable fixture files. No in-memory intent or pointer can survive.
 			server.Close()
 			f.reopen()
 			h, server = f.handler()
-			repair1007ReadLegacy(t, server, f, "Old", oldLogo, oldBanner)
+			publicationRecoveryReadLegacy(t, server, f, "Old", oldLogo, oldBanner)
 			f.failDelete.Store(true)
 			if e := h.RecoverLegacyPublications(context.Background()); e == nil {
 				t.Fatal("cleanup failure was hidden")
@@ -1178,8 +1185,8 @@ func TestRepairM_1007_LegacyAtomicPublicationRecovery(t *testing.T) {
 					t.Fatal("staging operation survived successful cleanup")
 				}
 			}
-			repair1007ReadLegacy(t, server, f, "Old", oldLogo, oldBanner)
-			if status := repair1007Upload(t, server, f.creation.Token, "New", newLogo, newBanner); status != 200 {
+			publicationRecoveryReadLegacy(t, server, f, "Old", oldLogo, oldBanner)
+			if status := publicationRecoveryUpload(t, server, f.creation.Token, "New", newLogo, newBanner); status != 200 {
 				t.Fatalf("retry publication: %d", status)
 			}
 			current := f.db.snapshot()
@@ -1196,7 +1203,7 @@ func TestRepairM_1007_LegacyAtomicPublicationRecovery(t *testing.T) {
 			server.Close()
 			f.reopen()
 			h, server = f.handler()
-			repair1007ReadLegacy(t, server, f, "New", newLogo, newBanner)
+			publicationRecoveryReadLegacy(t, server, f, "New", newLogo, newBanner)
 			if _, e := f.pool.Exec(context.Background(), "UPDATE metadata.legacy_publications SET created_at=clock_timestamp()-interval '2 hours'"); e != nil {
 				t.Fatal(e)
 			}
@@ -1214,13 +1221,13 @@ func TestRepairM_1007_LegacyAtomicPublicationRecovery(t *testing.T) {
 					t.Fatalf("replaced object survived cleanup: %v", e)
 				}
 			}
-			repair1007ReadLegacy(t, server, f, "New", newLogo, newBanner)
+			publicationRecoveryReadLegacy(t, server, f, "New", newLogo, newBanner)
 		})
 	}
 }
 
-func TestRepairM_1007_LegacyMissingTransactionFailsClosed(t *testing.T) {
-	f := newRepair1007Fixture(t)
+func TestPublicationRecoveryLegacyMissingTransactionFailsClosed(t *testing.T) {
+	f := newPublicationRecoveryFixture(t)
 	h, _ := f.handler()
 	h.db = nil
 	router := chi.NewRouter()

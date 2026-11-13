@@ -20,7 +20,7 @@ import (
 	"time"
 )
 
-func repairM1009PNG(t *testing.T, width, height int, noise bool) []byte {
+func codecWorkerPNG(t *testing.T, width, height int, noise bool) []byte {
 	t.Helper()
 	im := image.NewNRGBA(image.Rect(0, 0, width, height))
 	if noise {
@@ -43,7 +43,7 @@ func repairM1009PNG(t *testing.T, width, height int, noise bool) []byte {
 	return b.Bytes()
 }
 
-func repairM1009AssertRaster(t *testing.T, out Raster, width, height int) {
+func codecWorkerAssertRaster(t *testing.T, out Raster, width, height int) {
 	t.Helper()
 	if out.MIME != "image/png" || out.Width != width || out.Height != height || len(out.Variants) != 3 {
 		t.Fatalf("unexpected raster: MIME=%s size=%dx%d variants=%d", out.MIME, out.Width, out.Height, len(out.Variants))
@@ -73,12 +73,12 @@ func repairM1009AssertRaster(t *testing.T, out Raster, width, height int) {
 	}
 }
 
-func TestRepairM_1009_RealCodecRoundTrip(t *testing.T) {
+func TestCodecWorkerRealCodecRoundTrip(t *testing.T) {
 	worker := InProcessWorker{}
 	if err := worker.Ready(); err != nil {
 		t.Fatal(err)
 	}
-	pngBody := repairM1009PNG(t, 1536, 32, true)
+	pngBody := codecWorkerPNG(t, 1536, 32, true)
 	im, err := png.Decode(bytes.NewReader(pngBody))
 	if err != nil {
 		t.Fatal(err)
@@ -108,7 +108,7 @@ func TestRepairM_1009_RealCodecRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			repairM1009AssertRaster(t, out, config.Width, config.Height)
+			codecWorkerAssertRaster(t, out, config.Width, config.Height)
 			if tc.name == "png" {
 				variant, err := png.Decode(bytes.NewReader(out.Variants[256]))
 				if err != nil {
@@ -123,7 +123,7 @@ func TestRepairM_1009_RealCodecRoundTrip(t *testing.T) {
 	}
 }
 
-type repairM1009Job struct {
+type codecWorkerJob struct {
 	done    chan struct{}
 	cancel  context.CancelFunc
 	out     Raster
@@ -132,10 +132,10 @@ type repairM1009Job struct {
 	started time.Time
 }
 
-func repairM1009Start(t *testing.T, ctx context.Context, body []byte) *repairM1009Job {
+func codecWorkerStart(t *testing.T, ctx context.Context, body []byte) *codecWorkerJob {
 	t.Helper()
 	ctx, cancel := context.WithCancel(ctx)
-	job := &repairM1009Job{done: make(chan struct{}), cancel: cancel, started: time.Now()}
+	job := &codecWorkerJob{done: make(chan struct{}), cancel: cancel, started: time.Now()}
 	go func() { job.out, job.err = (InProcessWorker{}).Decode(ctx, body); close(job.done) }()
 	t.Cleanup(func() {
 		cancel()
@@ -154,7 +154,7 @@ func repairM1009Start(t *testing.T, ctx context.Context, body []byte) *repairM10
 // Suspend the actual production codec participant, rather than substituting a
 // slow decoder or encoder. SIGSTOP stalls every instruction in either codec;
 // the parent must still kill and reap it at the advertised wall deadline.
-func repairM1009Suspend(t *testing.T, job *repairM1009Job, exclude map[int]bool) {
+func codecWorkerSuspend(t *testing.T, job *codecWorkerJob, exclude map[int]bool) {
 	t.Helper()
 	deadline := time.Now().Add(time.Second)
 	for time.Now().Before(deadline) {
@@ -205,7 +205,7 @@ func repairM1009Suspend(t *testing.T, job *repairM1009Job, exclude map[int]bool)
 	t.Fatal("the real isolated codec participant was not started")
 }
 
-func repairM1009Wait(t *testing.T, job *repairM1009Job, want error, bound time.Duration) {
+func codecWorkerWait(t *testing.T, job *codecWorkerJob, want error, bound time.Duration) {
 	t.Helper()
 	select {
 	case <-job.done:
@@ -223,7 +223,7 @@ func repairM1009Wait(t *testing.T, job *repairM1009Job, want error, bound time.D
 	}
 }
 
-func TestRepairM_1009_DecodeAndEncodeWallDeadline(t *testing.T) {
+func TestCodecWorkerDecodeAndEncodeWallDeadline(t *testing.T) {
 	for _, tc := range []struct {
 		name          string
 		width, height int
@@ -233,32 +233,32 @@ func TestRepairM_1009_DecodeAndEncodeWallDeadline(t *testing.T) {
 		{"encode_heavy", 1024, 1024, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			body := repairM1009PNG(t, tc.width, tc.height, tc.noise)
-			job := repairM1009Start(t, context.Background(), body)
-			repairM1009Suspend(t, job, nil)
-			repairM1009Wait(t, job, ErrLimit, 6*time.Second)
+			body := codecWorkerPNG(t, tc.width, tc.height, tc.noise)
+			job := codecWorkerStart(t, context.Background(), body)
+			codecWorkerSuspend(t, job, nil)
+			codecWorkerWait(t, job, ErrLimit, 6*time.Second)
 			elapsed := time.Since(job.started)
 			// The timer is five seconds; allow only scheduling/reaping overhead.
 			if elapsed < 4900*time.Millisecond || elapsed > 5750*time.Millisecond {
 				t.Fatalf("five-second wall deadline took %s", elapsed)
 			}
-			out, err := (InProcessWorker{}).Decode(context.Background(), repairM1009PNG(t, 16, 12, false))
+			out, err := (InProcessWorker{}).Decode(context.Background(), codecWorkerPNG(t, 16, 12, false))
 			if err != nil {
 				t.Fatal("worker slot was not recovered:", err)
 			}
-			repairM1009AssertRaster(t, out, 16, 12)
+			codecWorkerAssertRaster(t, out, 16, 12)
 		})
 	}
 }
 
-func TestRepairM_1009_ParentCancellationAndDeadline(t *testing.T) {
-	body := repairM1009PNG(t, 5000, 4000, false)
+func TestCodecWorkerParentCancellationAndDeadline(t *testing.T) {
+	body := codecWorkerPNG(t, 5000, 4000, false)
 	t.Run("cancel", func(t *testing.T) {
-		job := repairM1009Start(t, context.Background(), body)
-		repairM1009Suspend(t, job, nil)
+		job := codecWorkerStart(t, context.Background(), body)
+		codecWorkerSuspend(t, job, nil)
 		canceled := time.Now()
 		job.cancel()
-		repairM1009Wait(t, job, context.Canceled, time.Second)
+		codecWorkerWait(t, job, context.Canceled, time.Second)
 		if time.Since(canceled) > time.Second {
 			t.Fatal("parent cancellation did not interrupt the codec")
 		}
@@ -266,21 +266,21 @@ func TestRepairM_1009_ParentCancellationAndDeadline(t *testing.T) {
 	t.Run("deadline", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
 		defer cancel()
-		job := repairM1009Start(t, ctx, body)
-		repairM1009Suspend(t, job, nil)
-		repairM1009Wait(t, job, context.DeadlineExceeded, time.Second)
+		job := codecWorkerStart(t, ctx, body)
+		codecWorkerSuspend(t, job, nil)
+		codecWorkerWait(t, job, context.DeadlineExceeded, time.Second)
 		if time.Since(job.started) > time.Second {
 			t.Fatal("parent deadline was replaced by the worker's five-second deadline")
 		}
 	})
 }
 
-func TestRepairM_1009_BoundedAdmission(t *testing.T) {
-	body := repairM1009PNG(t, 5000, 4000, false)
-	first := repairM1009Start(t, context.Background(), body)
-	repairM1009Suspend(t, first, nil)
-	second := repairM1009Start(t, context.Background(), body)
-	repairM1009Suspend(t, second, map[int]bool{first.pid: true})
+func TestCodecWorkerBoundedAdmission(t *testing.T) {
+	body := codecWorkerPNG(t, 5000, 4000, false)
+	first := codecWorkerStart(t, context.Background(), body)
+	codecWorkerSuspend(t, first, nil)
+	second := codecWorkerStart(t, context.Background(), body)
+	codecWorkerSuspend(t, second, map[int]bool{first.pid: true})
 	start := time.Now()
 	out, err := (InProcessWorker{}).Decode(context.Background(), body)
 	if err != ErrLimit || len(out.Variants) != 0 || time.Since(start) > 250*time.Millisecond {
@@ -288,16 +288,16 @@ func TestRepairM_1009_BoundedAdmission(t *testing.T) {
 	}
 	first.cancel()
 	second.cancel()
-	repairM1009Wait(t, first, context.Canceled, time.Second)
-	repairM1009Wait(t, second, context.Canceled, time.Second)
-	out, err = (InProcessWorker{}).Decode(context.Background(), repairM1009PNG(t, 16, 12, false))
+	codecWorkerWait(t, first, context.Canceled, time.Second)
+	codecWorkerWait(t, second, context.Canceled, time.Second)
+	out, err = (InProcessWorker{}).Decode(context.Background(), codecWorkerPNG(t, 16, 12, false))
 	if err != nil {
 		t.Fatal("admission did not recover after cancellation:", err)
 	}
-	repairM1009AssertRaster(t, out, 16, 12)
+	codecWorkerAssertRaster(t, out, 16, 12)
 }
 
-func TestRepairM_1009_AdmissionAndValidation(t *testing.T) {
+func TestCodecWorkerAdmissionAndValidation(t *testing.T) {
 	worker := InProcessWorker{}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -310,7 +310,7 @@ func TestRepairM_1009_AdmissionAndValidation(t *testing.T) {
 	if _, err := worker.Decode(context.Background(), []byte("not an image")); err != ErrInvalid {
 		t.Fatal("invalid image:", err)
 	}
-	bomb := repairM1009PNG(t, 1, 1, false)
+	bomb := codecWorkerPNG(t, 1, 1, false)
 	binary.BigEndian.PutUint32(bomb[16:20], 8193)
 	binary.BigEndian.PutUint32(bomb[29:33], crc32.ChecksumIEEE(bomb[12:29]))
 	if _, err := worker.Decode(context.Background(), bomb); err != ErrLimit {

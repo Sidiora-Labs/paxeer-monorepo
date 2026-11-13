@@ -33,7 +33,7 @@ func TestProviderWireRejectsMalformedKeysAndOversizedResponses(t *testing.T) {
 	if _, err := ecKey(string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: []byte("not-pkcs8")}))); err == nil {
 		t.Fatal("malformed signing key accepted")
 	}
-	key, err := ecKey(repair958PEM(t))
+	key, err := ecKey(notificationDeliveryPEM(t))
 	if err != nil {
 		t.Fatal(err)
 	}

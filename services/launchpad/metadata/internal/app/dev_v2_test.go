@@ -354,7 +354,7 @@ func checkMediaContract(t *testing.T, f devFixture) {
 // real indexer's retained creation output.
 func trackedDevFactory(t *testing.T) (string, *types.Receipt) {
 	t.Helper()
-	raw, err := os.ReadFile("testdata/repair_m1006_factory.json")
+	raw, err := os.ReadFile("testdata/metadata_maintenance_factory.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -366,7 +366,7 @@ func trackedDevFactory(t *testing.T) (string, *types.Receipt) {
 	if err = json.Unmarshal(evidence.Receipt, &receipt); err != nil {
 		t.Fatal(err)
 	}
-	indexed, err := os.ReadFile("testdata/repair_m1006_indexer.json")
+	indexed, err := os.ReadFile("testdata/metadata_maintenance_indexer.json")
 	if err != nil {
 		t.Fatal(err)
 	}

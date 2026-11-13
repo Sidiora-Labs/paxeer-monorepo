@@ -1,4 +1,4 @@
-module github.com/Sidiora-Technologies/KindleLaunch/media/gateway/repair40identity
+module github.com/Sidiora-Technologies/KindleLaunch/media/gateway/identity_fixture
 
 go 1.25.0
 

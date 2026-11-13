@@ -35,7 +35,7 @@ import (
 
 // The SQL peer embeds its WASI engine and uses the actual pgx transport. It
 // executes the production schema unchanged, with no external database process.
-func repair958Open(t *testing.T, dir string) (*sql.DB, func()) {
+func notificationDeliveryOpen(t *testing.T, dir string) (*sql.DB, func()) {
 	t.Helper()
 	engine, e := pglite.New(pglite.Config{DataDir: dir})
 	if e != nil {
@@ -52,7 +52,7 @@ func repair958Open(t *testing.T, dir string) (*sql.DB, func()) {
 	t.Cleanup(closeDB)
 	return engine.DB(), closeDB
 }
-func repair958Schema(t *testing.T, db *sql.DB) {
+func notificationDeliverySchema(t *testing.T, db *sql.DB) {
 	t.Helper()
 	if _, e := db.Exec(Schema); e != nil {
 		t.Fatal("production notification schema:", e)
@@ -61,7 +61,7 @@ func repair958Schema(t *testing.T, db *sql.DB) {
 		t.Fatal("production discovery schema:", e)
 	}
 }
-func repair958PEM(t *testing.T) string {
+func notificationDeliveryPEM(t *testing.T) string {
 	t.Helper()
 	key, e := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if e != nil {
@@ -76,7 +76,7 @@ func repair958PEM(t *testing.T) string {
 
 // Committed loopback peers supply the owner protocols; the production clients
 // still validate mTLS, account/target revisions, consent, and signed identity.
-type repair958Peers struct {
+type notificationDeliveryPeers struct {
 	server     *httptest.Server
 	client     *http.Client
 	identity   sharedauth.MTLSIdentityAuthority
@@ -87,9 +87,9 @@ type repair958Peers struct {
 	calls      atomic.Int64
 }
 
-func repair958Authorities(t *testing.T) *repair958Peers {
+func notificationDeliveryAuthorities(t *testing.T) *notificationDeliveryPeers {
 	t.Helper()
-	p := &repair958Peers{account: Principal{AccountID: uuid.NewString(), Wallet: "0x1111111111111111111111111111111111111111"}}
+	p := &notificationDeliveryPeers{account: Principal{AccountID: uuid.NewString(), Wallet: "0x1111111111111111111111111111111111111111"}}
 	p.target = PushTarget{AccountID: p.account.AccountID, DeviceInstallationID: "repair958-device", Provider: "apns", EncryptedEndpointRef: "fixture-endpoint", Status: "active", ConsentRevision: 7, Revision: 11}
 	p.preference = DeliveryPreference{AccountID: p.account.AccountID, Timezone: "UTC", Language: "en", Revision: 7, Linked: true, CategoryChannels: map[string]map[string]bool{"chat": {"push": true}, "watchlist": {"push": true}}}
 	pki := testpki.New(t)
@@ -213,11 +213,11 @@ func repair958Authorities(t *testing.T) *repair958Peers {
 	t.Cleanup(p.identity.Client.CloseIdleConnections)
 	return p
 }
-func (p *repair958Peers) principal(r *http.Request) (Principal, error) {
+func (p *notificationDeliveryPeers) principal(r *http.Request) (Principal, error) {
 	actor, e := p.identity.AuthenticateRequest(r.Context(), r)
 	return Principal{AccountID: actor.AccountID, Wallet: actor.Wallet}, e
 }
-func repair958Credentials(t *testing.T) secrets.Options {
+func notificationDeliveryCredentials(t *testing.T) secrets.Options {
 	t.Helper()
 	for _, key := range []string{"REPAIR958_D11", "REPAIR958_D12", "REPAIR958_INTERNAL"} {
 		t.Setenv(key, "repair958-owner-token")
@@ -226,13 +226,13 @@ func repair958Credentials(t *testing.T) secrets.Options {
 	return secrets.Options{Provider: secrets.ProviderEnv}
 }
 
-func TestRepairM_958_PushOriginSlash(t *testing.T) {
+func TestNotificationDeliveryPushOriginSlash(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
-	db, _ := repair958Open(t, t.TempDir())
-	repair958Schema(t, db)
-	peer := repair958Authorities(t)
-	options := repair958Credentials(t)
+	db, _ := notificationDeliveryOpen(t, t.TempDir())
+	notificationDeliverySchema(t, db)
+	peer := notificationDeliveryAuthorities(t)
+	options := notificationDeliveryCredentials(t)
 	credentials, e := NewCredentials(ctx, options, "REPAIR958_D11")
 	if e != nil {
 		t.Fatal(e)
@@ -241,7 +241,7 @@ func TestRepairM_958_PushOriginSlash(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	t.Setenv("REPAIR958_APNS", repair958PEM(t))
+	t.Setenv("REPAIR958_APNS", notificationDeliveryPEM(t))
 	t.Setenv("REPAIR958_KID", "key-id")
 	t.Setenv("REPAIR958_TEAM", "team-id")
 	t.Setenv("REPAIR958_TOPIC", "example.notifications")
@@ -343,14 +343,14 @@ func TestRepairM_958_PushOriginSlash(t *testing.T) {
 	}
 }
 
-func TestRepairM_958_RuntimePositivePath(t *testing.T) {
+func TestNotificationDeliveryRuntimePositivePath(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 	defer cancel()
 	dataDir := t.TempDir()
-	db, closeDB := repair958Open(t, dataDir)
-	repair958Schema(t, db)
-	peer := repair958Authorities(t)
-	options := repair958Credentials(t)
+	db, closeDB := notificationDeliveryOpen(t, dataDir)
+	notificationDeliverySchema(t, db)
+	peer := notificationDeliveryAuthorities(t)
+	options := notificationDeliveryCredentials(t)
 	if _, e := db.Exec(`CREATE SCHEMA IF NOT EXISTS indexer;
  CREATE TABLE IF NOT EXISTS indexer.indexer_canonical_creations_v1(pool text PRIMARY KEY,token text,creator text,height bigint,block_hash text,transaction_hash text,log_index bigint,block_timestamp bigint);
  CREATE SCHEMA IF NOT EXISTS pnl;
@@ -542,7 +542,7 @@ func TestRepairM_958_RuntimePositivePath(t *testing.T) {
 	if e = db.PingContext(ctx); e == nil {
 		t.Fatal("closed store remained usable")
 	}
-	db, closeDB = repair958Open(t, dataDir)
+	db, closeDB = notificationDeliveryOpen(t, dataDir)
 	runtime = construct()
 	after, e := runtime.Notifications.Store.ListPage(ctx, peer.account.AccountID, false, "", 50)
 	if e != nil || !reflect.DeepEqual(after, recoveredPage) {

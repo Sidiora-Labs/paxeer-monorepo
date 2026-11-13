@@ -10,7 +10,7 @@ import (
 )
 
 func TestCreatorCredentialRouteRequiresCurrentStateAndEncryptedKey(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	requested, _ := f.create("credential-pending")
 	ready, _ := f.create("credential-authorized")
 	ready, err := f.store.BindProvider(t.Context(), ready.ID, "credential_provider")
