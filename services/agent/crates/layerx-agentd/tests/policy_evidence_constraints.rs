@@ -1,4 +1,4 @@
-#[path = "../../../tests/repair_22_33_1573.rs"]
+#[path = "../../../tests/policy_constraint_denials.rs"]
 mod repair;
 #[path = "support/authority_receipt_transcripts.rs"]
 mod repair_support;

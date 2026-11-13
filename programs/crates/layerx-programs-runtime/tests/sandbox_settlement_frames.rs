@@ -14,10 +14,10 @@ use layerx_programs_runtime::{
 
 const NON_CANONICAL: i32 = -3;
 const NATIVE_RESULT: &str = include_str!(
-    "../../layerx-programs-sandbox/src/repair_22_31_262_recordings/sandboxExecute.result.hex"
+    "../../layerx-programs-sandbox/src/native_submission_recordings/sandboxExecute.result.hex"
 );
 const NATIVE_USAGE_FRAMES: &str =
-    include_str!("../../layerx-programs-sandbox/src/repair_22_31_262_recordings/usage.frames.hex");
+    include_str!("../../layerx-programs-sandbox/src/native_submission_recordings/usage.frames.hex");
 
 struct NativeSettlement {
     execution: Vec<u8>,

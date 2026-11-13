@@ -389,10 +389,10 @@ fn chain_header_refuses_malformed_fields() -> Result<(), ChainProofError> {
 }
 
 #[allow(dead_code)]
-#[path = "support/repair_22_33_221.rs"]
-mod repair_22_33_221;
+#[path = "support/chain_deployment_support.rs"]
+mod chain_deployment_support;
 
 #[test]
 fn go_bootstrap_headers_and_field_refusals() {
-    repair_22_33_221::header_bootstrap_test();
+    chain_deployment_support::header_bootstrap_test();
 }

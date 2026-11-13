@@ -1,2 +1,2 @@
-#[path = "../../../tests/repair_22_33_1571.rs"]
+#[path = "../../../tests/exactly_once_recovery.rs"]
 mod exactly_once_recovery;

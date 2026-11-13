@@ -13900,6 +13900,30 @@ value = "One task for each area of the tree brings the stale references under it
 basis = "Gotcha 4377. The verification of each task for Rust compiles the tests of its area."
 affects = []
 
+[decision.3465]
+title = "The build command of task 22.39.498 runs go mod download before make agent-build"
+value = "The build command of task 22.39.498 is go mod download followed by make agent-build with the silent option. The verification command, the paths and the do items of the task stay as they are."
+basis = "Gotcha 4378. The verification of the task runs make agent-test, which reaches the node build."
+affects = []
+
+[decision.3466]
+title = "The build command of task 22.39.498 installs the Python packages of tests/bridge/requirements.txt first"
+value = "The build command of task 22.39.498 is the pip install of tests/bridge/requirements.txt, then go mod download, then make agent-build with the silent option. The verification command, the paths and the do items of the task stay as they are."
+basis = "Gotcha 4379 and gotcha 4378. The build command of task 22.39.499 installs the same file."
+affects = []
+
+[decision.3467]
+title = "The build command of task 22.39.511 fetches the Rust and Go packages that make paxeer-manifest-lint reads"
+value = "The build command of task 22.39.511 is make paxeer-tools-install with the silent option, then cargo fetch with the locked option for each of the thirteen manifests of the list PAXEER_LOCKED_RUST_MANIFESTS, then go mod download in tools/hpx/registry, sdk/cosmovisor and sdk/ics23. The verification command, the paths and the do items of the task stay as they are."
+basis = "Gotcha 4380. The lint target runs cargo clippy with the offline option."
+affects = []
+
+[decision.3468]
+title = "The paths of task 22.43.253 leave out services/platform/ramps"
+value = "The paths of task 22.43.253 are services/platform/hosted, services/platform/middleware and docker/layerx. The directory services/platform/ramps holds no stale reference to a renamed file. The build command, the verification command and the do items of the task stay as they are."
+basis = "Gotcha 4381."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -170224,7 +170248,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.133]
 title = "Move the task records and name the files after what they hold in services/agent/crates/layerx-wire and 3 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -194533,7 +194557,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.257]
 title = "Bring the readers of renamed files under the interop services, the bring-up tools and the chain packages to the present paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.43.151", "22.43.152"]
@@ -194656,7 +194680,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.512]
 title = "Build the program members that hold a section for the target wasm32 for both targets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204533,7 +204557,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.254]
 title = "Bring the readers of renamed files under the programs workspace to the present paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.43.93", "22.43.96"]
@@ -204576,7 +204600,7 @@ do_2 = "do_2 Find the stale references in the files under the paths of this task
 do_3 = "do_3 A name that is an identifier and not a path or a file name stays as it is: the name of a test function, a module name with no moved file behind it, a record id inside a data file, a title. The present path of a moved record that holds the earlier path as its last part is not stale. Change no assertion beyond the path text, rename no file and delete nothing."
 do_4 = "do_4 Run the build command by hand first. Each line of a source or test file that reads a missing file with include_str, include_bytes or a path attribute, and each target path of a package manifest under the paths that names no file, is a stale reference as well; bring it to the present name. Where the check stops at a line outside the paths of this task, name the line in the final message and change nothing there. Before each commit read the output of git status. Name in the final message the count of references changed for each file and every stale reference left in the paths with its reason. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/platform/hosted", "services/platform/middleware", "services/platform/ramps", "docker/layerx"]
+touches = ["services/platform/hosted", "services/platform/middleware", "docker/layerx"]
 tests = []
 planned_paths = []
 build_cmd = "cargo check --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway -p layerx-platform-internal -p layerx-platform-core --tests"
@@ -204595,7 +204619,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.252]
 title = "Bring the readers of renamed files under the agent service to the present paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.43.132", "22.43.133", "22.39.514"]
@@ -204656,7 +204680,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.514]
 title = "Give the environment documentation test of the agent daemon pages of the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204910,7 +204934,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.168]
 title = "Move the task records and name the files after what they hold in services/platform/hosted/human and 4 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204943,7 +204967,7 @@ do_6 = "do_6 Decision 3457, gotcha 4371. One test file under services/platform/h
 
 [task.22.43.167]
 title = "Move the task records and name the files after what they hold in services/platform/hosted/dashboard and 2 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205040,7 +205064,7 @@ do_6 = "do_6 Decision 3451, gotcha 4367. The paths of this task now hold service
 
 [task.22.43.152]
 title = "Move the task records and name the files after what they hold in services/interop/crates/layerx-fiat and 5 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205072,7 +205096,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.151]
 title = "Move the task records and name the files after what they hold in services/interop and 5 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205364,7 +205388,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.132]
 title = "Move the task records and name the files after what they hold in services/agent/crates/layerx-proof and 2 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205557,7 +205581,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.96]
 title = "Move the task records and name the files after what they hold in programs/sdk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205653,7 +205677,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.93]
 title = "Move the task records and name the files after what they hold in programs/crates/layerx-programs-arbiter and 3 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205976,7 +206000,7 @@ symbols = []
 touches = ["services/agent/crates"]
 tests = []
 planned_paths = ["services/agent/crates/layerx-sdk/repair_22_39_498.kvx"]
-build_cmd = "make -s agent-build"
+build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt && go mod download && make -s agent-build"
 verify_cmd = "anvil --version > /dev/null && test -s services/agent/crates/layerx-sdk/repair_22_39_498.kvx && make -s agent-test"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -238655,7 +238679,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.43.249]
 title = "Bring the inventory files under tools/workspace and the readers of four test data directories to the present paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238717,7 +238741,7 @@ do_4 = "do_4 Decision 3462, gotcha 4375. The file consensus/internal/rpc/core/pr
 
 [task.22.41.120]
 title = "Read the node inventory of the bring-up tools from docs/readme/PUBLIC-RPC.md"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.41.119"]
@@ -327404,7 +327428,7 @@ symbols = []
 touches = ["go.mod", "go.sum", "tools/hpx/registry", "core/deps/cosmwasm/packages/go-gen", "tools/hyperfide/tests/fixtures", "services/platform/hosted/gateway/tests", "apps/launchpad/web/src/widgets/rewards", ".golangci.yml", "Makefile", "contracts/src/xweb/examples/ApiConsumer.sol", "contracts/test/XWebConsumer.t.sol"]
 tests = []
 planned_paths = ["tools/hpx/registry/repair_22_39_511.kvx"]
-build_cmd = "make -s paxeer-tools-install"
+build_cmd = "make -s paxeer-tools-install && for m in tests/fixtures/example/cosmwasm/cw1155 tests/fixtures/example/cosmwasm/cw20 tests/fixtures/example/cosmwasm/cw721 tests/fixtures/example/cosmwasm/echo tests/fixtures/example/cosmwasm/iter tools/benchmark/loadtest/contracts/jupiter tools/benchmark/loadtest/contracts/mars tools/benchmark/loadtest/contracts/saturn tools/benchmark/loadtest/contracts/venus tests/fixtures/example/cosmwasm/parallelization/bank tests/fixtures/example/cosmwasm/parallelization/staking tests/fixtures/example/cosmwasm/parallelization/wasm wasm-runtime/libwasmvm; do cargo fetch --locked --manifest-path $m/Cargo.toml || exit 1; done && for d in tools/hpx/registry sdk/cosmovisor sdk/ics23; do (cd $d && go mod download) || exit 1; done"
 verify_cmd = "test -s tools/hpx/registry/repair_22_39_511.kvx && make -s paxeer-manifest-lint && GOPROXY=off go mod tidy -diff && cd tools/hpx/registry && GOPROXY=off go build ./..."
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
@@ -373313,7 +373337,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.43.251]
 title = "Bring the readers of renamed files under the repository tests, the inventory test scripts and the workflows to the present paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.43.249"]
@@ -373344,7 +373368,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.250]
 title = "Bring the readers of renamed files under the qualification tools to the present paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

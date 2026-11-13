@@ -276,6 +276,6 @@ def test_f54_repair_record_maps_the_audit_to_executed_proofs():
     wiring = record["wiring"]["readme"]
     assert wiring["path"] == "README.md" and wiring["owner_domain"] == 17
     assert wiring["owning_task"] == "22.31.470" and wiring["status"] == "supplied"
-    owner = tomllib.loads(source("tools/qualification/audit_repairs/repair_22_31_470.kvx"))
+    owner = tomllib.loads(source("spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_31_470.kvx"))
     coverage = owner["coverage"]["audit_22_30_114"]
     assert coverage["finding"] == "54" and coverage["consumer_tasks"] == ["22.33.134"]

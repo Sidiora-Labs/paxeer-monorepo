@@ -77,7 +77,7 @@ def test_relay_retirement_9_and_10_maintained_ownership_and_consumers():
         "compatibility-root": "services/platform/hosted/paxeer",
         "rehearsal-profiles": ["merged-v7.0"],
         "relay-deployment": False,
-        "relocation-record": "tools/qualification/audit_repairs/repair_22_33_1320.kvx",
+        "relocation-record": "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1320.kvx",
     }
     for name in ("gov-consensus-params.sh", "gov-upgrade.sh", "fork-rehearsal.sh", "gov-lib.sh"):
         assert "Maintained owner: domain 8 paxd operators" in source(name)
