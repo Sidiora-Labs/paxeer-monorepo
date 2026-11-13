@@ -29,7 +29,7 @@ from layerx_sdk.verifier import SequencerReceiptVerificationError
 
 
 def load(name):
-    spec = importlib.util.spec_from_file_location('repair_779_' + name.replace('-', '_'), QUAL / (name + '.py'))
+    spec = importlib.util.spec_from_file_location('program_router_wallet_contract_' + name.replace('-', '_'), QUAL / (name + '.py'))
     result = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(result)
     return result

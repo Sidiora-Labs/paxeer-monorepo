@@ -38,7 +38,7 @@ sys.path.insert(0, str(QUAL))
 
 
 def load(name):
-    spec = importlib.util.spec_from_file_location('repair_876_' + name.replace('-', '_'), QUAL / (name + '.py'))
+    spec = importlib.util.spec_from_file_location('native_manifest_contract_' + name.replace('-', '_'), QUAL / (name + '.py'))
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

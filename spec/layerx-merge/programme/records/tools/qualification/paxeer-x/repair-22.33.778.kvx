@@ -2,7 +2,7 @@
 task = "22.33.778"
 audit = "spec/layerx-merge/programme/audit/records/22.30.174.kvx"
 base = "f25ab9129415b70e1e47d668e4d2d04777519969"
-tests = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+tests = "tools/qualification/paxeer-x/tests/test_qualification_client_transports.py"
 verified_revision = "The exact candidate revision is recorded with command, exit and private log in /out/run/gates.jsonl by hf-build and hf-done; only a passing hf-done at the built revision qualifies this repair."
 baseline = "Not run: the explicit implementation-first, hf-done-only gate order overrides the contradictory baseline instruction in step 12; no unchanged-tree failure is claimed."
 proof = "Production qualification clients and Python SDK codecs/signature verifiers traverse real OS pipes or loopback HTTP with committed node/native lifecycle recordings and persistent peer stores; stop/reopen checks retained state and receipt identity."

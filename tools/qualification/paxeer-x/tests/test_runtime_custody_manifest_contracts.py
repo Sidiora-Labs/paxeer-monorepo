@@ -27,7 +27,7 @@ SETTINGS = {"PROGRAMS_TARGET_DIR": "/private/programs", "PROGRAMS_RUNTIME_LIB": 
 
 def load(name):
     definition = importlib.util.spec_from_file_location(
-        "repair_877_" + name.replace("-", "_"), QUAL / (name + ".py"))
+        "runtime_custody_manifest_contract_" + name.replace("-", "_"), QUAL / (name + ".py"))
     module = importlib.util.module_from_spec(definition)
     definition.loader.exec_module(module)
     return module

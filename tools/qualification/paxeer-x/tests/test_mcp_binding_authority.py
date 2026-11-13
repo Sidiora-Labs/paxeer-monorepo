@@ -2,7 +2,7 @@
 
 Rust publisher/consumer agreement is checked against their committed sources.
 The Python-only gate does not execute Rust enrolment or MCP; native lifecycle
-and host configuration wiring are recorded in repair-22.31.332.kvx.
+and host configuration wiring are recorded in spec/layerx-merge/programme/records/tools/qualification/paxeer-x/repair-22.31.332.kvx.
 """
 
 import ast

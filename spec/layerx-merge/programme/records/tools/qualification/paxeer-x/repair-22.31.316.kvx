@@ -5,7 +5,7 @@ base_revision = "9d1a06c7f3635f5556023760af7a75ee9755efdd"
 status = "implemented; bounded qualification pending; native finding closure remains a release-kit responsibility"
 build = "hf-build: python3 -m py_compile tools/qualification/paxeer-x/agent_operation_envelope.py"
 verify = "hf-done: cg spec done 22.31.316 -f layerx-merge --root $TASK_ROOT"
-verify_cmd = "python3 -m pytest -q tools/qualification/paxeer-x/tests/test_repair_22_31_316.py"
+verify_cmd = "python3 -m pytest -q tools/qualification/paxeer-x/tests/test_agent_operation_envelope.py"
 evidence = "The runner's private gates.jsonl and final hf-done JSON identify the exact candidate revision, command, exit and log; this record does not assert a gate pass."
 baseline = "The supplied attempt-1 evidence reports 92 passed and six failed: test_proof_bundle_current_sdk_request_round_trip, test_offline_export_wire_before_after_restart, test_proof_bundle_wire_before_after_restart, test_program_read_selectors, test_wait_request_rung and test_availability_rung; no additional unchanged-tree verification was run."
 

@@ -31,7 +31,7 @@ from cryptography.x509.oid import NameOID
 QUAL = Path(__file__).resolve().parents[1]
 ROOT = QUAL.parents[2]
 sys.path.insert(0, str(QUAL / 'fixtures'))
-spec = importlib.util.spec_from_file_location('repair_22_33_765_envelope', QUAL / 'agent_operation_envelope.py')
+spec = importlib.util.spec_from_file_location('agent_envelope_routes_contract', QUAL / 'agent_operation_envelope.py')
 ENVELOPE = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ENVELOPE)
 from layerx_sdk.account_derivation import keccak256

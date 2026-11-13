@@ -59,14 +59,14 @@ def load(name, path):
 
 
 C = load('human_committed_projections', QUAL / 'human-canonical-projections.py')
-S = load('repair860_security', QUAL / 'human-security-prerequisites.py')
-A = load('repair860_attestor', QUAL / 'human_attestor_intents.py')
-D = load('repair860_response', QUAL / 'human_deposit_initial_response.py')
-J = load('repair860_journey', QUAL / 'human_journey_projections.py')
-P = load('repair860_approvals', QUAL / 'human_program_approvals.py')
+S = load('human_journey_contract_security', QUAL / 'human-security-prerequisites.py')
+A = load('human_journey_contract_attestor', QUAL / 'human_attestor_intents.py')
+D = load('human_journey_contract_response', QUAL / 'human_deposit_initial_response.py')
+J = load('human_journey_contract_journey', QUAL / 'human_journey_projections.py')
+P = load('human_journey_contract_approvals', QUAL / 'human_program_approvals.py')
 F = load('committed_funded_operator', QUAL / 'migration-funded-operator.py')
-M = load('repair860_migration', QUAL / 'migration-v2.py')
-R = load('repair860_recorded_peer', QUAL / 'tests/test_repair_22_33_779.py')
+M = load('human_journey_contract_migration', QUAL / 'migration-v2.py')
+R = load('human_journey_contract_recorded_peer', QUAL / 'tests/test_program_router_wallet_contracts.py')
 from layerx_sdk.intent import IntentLegBinding, IntentMoney, SubmitPlanRequest, encode_submit_plan_request
 from layerx_sdk.verifier import SequencerReceiptVerificationError
 
@@ -542,7 +542,7 @@ def test_budget_export_replays_real_bank_abi_and_commit(tmp_path):
 
 
 def test_human_security_node_material(tmp_path):
-    producer = load('repair860_policy_producer', ROOT / 'services/platform/hosted/human/test_repair_22_31_348.py')
+    producer = load('human_journey_contract_policy_producer', ROOT / 'services/platform/hosted/human/test_repair_22_31_348.py')
     private = tmp_path / 'policy-producer'
     private.mkdir(mode=0o700)
     with producer.merged_environment(private) as environment:
@@ -657,7 +657,7 @@ def ownership_capture(source_network):
     lifetime = (1_700_000_000).to_bytes(8, 'big') + (1_700_000_600).to_bytes(8, 'big')
     nonce = bytes.fromhex('69' * 32)
     if source_network.startswith('ethereum:'):
-        wallet = load('repair860_source_wallet', ROOT / 'services/platform/hosted/paxeer/evm.py')
+        wallet = load('human_journey_contract_source_wallet', ROOT / 'services/platform/hosted/paxeer/evm.py')
         address = wallet.address_of(17)
         fields = (1).to_bytes(8, 'big') + address + identity + lifetime + nonce
         message = b'LayerX Ethereum migration ownership v1\n' + fields

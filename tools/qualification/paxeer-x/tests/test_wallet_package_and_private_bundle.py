@@ -49,7 +49,7 @@ PACKAGE_FILES = {
 
 
 def load(name):
-    spec = importlib.util.spec_from_file_location('repair_862_' + name.replace('-', '_'), QUAL / (name + '.py'))
+    spec = importlib.util.spec_from_file_location('wallet_package_private_bundle_' + name.replace('-', '_'), QUAL / (name + '.py'))
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

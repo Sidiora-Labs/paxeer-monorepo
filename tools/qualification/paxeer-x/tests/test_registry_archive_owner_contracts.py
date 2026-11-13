@@ -37,7 +37,7 @@ from layerx_sdk.verifier import SequencerReceiptVerificationError
 
 
 def load(name, path):
-    spec = importlib.util.spec_from_file_location('repair_810_' + name, path)
+    spec = importlib.util.spec_from_file_location('registry_archive_owner_contract_' + name, path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -48,7 +48,7 @@ ARCHIVE = load('archive', QUAL / 'interop-archive-contract.py')
 BOOTSTRAP = load('bootstrap', QUAL / 'registry-router-bootstrap.py')
 HUMAN = load('human', QUAL / 'human-owner-evidence.py')
 XWEB = load('xweb', QUAL / 'fixtures/xweb_fixture.py')
-RECORDED = load('recorded', QUAL / 'tests/test_repair_22_33_779.py')
+RECORDED = load('recorded', QUAL / 'tests/test_program_router_wallet_contracts.py')
 OWNER = load('owner', HUMAN_PATH / 'test_repair_22_31_348.py')
 REVISION = '76c050242a1edcad6212aa52fac15670ecb5612d'
 GENESIS = '0x' + 'aa' * 32
