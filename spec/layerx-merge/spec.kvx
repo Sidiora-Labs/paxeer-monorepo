@@ -197767,7 +197767,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.506]
 title = "Bring the example contracts and the contract runtime library in line with their lint and test commands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
