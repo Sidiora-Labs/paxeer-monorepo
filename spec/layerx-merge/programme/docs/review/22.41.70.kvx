@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.70"
+pages = 20
+
+[page.1]
+path = "docs/wallet/service/runbooks/rpc-pool-failure.md"
+status = "corrected"
+
+[page.2]
+path = "docs/wallet/service/security-review.md"
+status = "corrected"
+
+[page.3]
+path = "docs/wiki/AgentApi.md"
+status = "corrected"
+
+[page.4]
+path = "docs/wiki/Agentd.md"
+status = "corrected"
+
+[page.5]
+path = "docs/wiki/Ap2Mandates.md"
+status = "corrected"
+
+[page.6]
+path = "docs/wiki/Asset.md"
+status = "corrected"
+
+[page.7]
+path = "docs/wiki/Assets.md"
+status = "corrected"
+
+[page.8]
+path = "docs/wiki/BetaCluster.md"
+status = "reviewed"
+
+[page.9]
+path = "docs/wiki/Bridge.md"
+status = "reviewed"
+
+[page.10]
+path = "docs/wiki/Budget.md"
+status = "corrected"
+
+[page.11]
+path = "docs/wiki/Cli.md"
+status = "corrected"
+
+[page.12]
+path = "docs/wiki/CommitmentLevels.md"
+status = "corrected"
+
+[page.13]
+path = "docs/wiki/Custody.md"
+status = "corrected"
+
+[page.14]
+path = "docs/wiki/DataAvailability.md"
+status = "corrected"
+
+[page.15]
+path = "docs/wiki/Escrow.md"
+status = "corrected"
+
+[page.16]
+path = "docs/wiki/Fees.md"
+status = "corrected"
+
+[page.17]
+path = "docs/wiki/FiatRamps.md"
+status = "reviewed"
+
+[page.18]
+path = "docs/wiki/Finality.md"
+status = "corrected"
+
+[page.19]
+path = "docs/wiki/Getting-Started-Beta.md"
+status = "corrected"
+
+[page.20]
+path = "docs/wiki/Governance.md"
+status = "corrected"

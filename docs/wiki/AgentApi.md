@@ -9,8 +9,7 @@ See [Agentd](Agentd.md) for trust and recovery, and [MCP](Mcp.md) for tool routi
 
 Paxeer mainnet-beta is one BFT network, with EVM chain id **125 (`0x7d`)**.
 The kernel is part of the network and proposes blocks. Public node JSON-RPC
-uses the root URL, for example `https://api-mainnet-beta.paxeer.network/` or
-`https://api1.mainnet-beta.paxeer.network/` (numbered nodes run through `api14`).
+uses the node root URL; select an endpoint from [Public RPC](PublicRpc.md).
 The hosted gateway's `px_` contract is declared separately in
 `services/platform/hosted/gateway/openrpc.json`; do not assume every node
 serves those methods. Sub-chains are tenant domains in the database.

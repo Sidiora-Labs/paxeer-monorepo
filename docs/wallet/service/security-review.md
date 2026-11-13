@@ -48,7 +48,7 @@ inventory to approve that epoch.
 
 The gateway verifies user access tokens, and each attestor verifies the token
 independently. The attestor's [JWT verifier](../../../services/wallet/attestor/internal/auth/jwt/jwt.go)
-accepts its supported asymmetric algorithms, checks issuer, audience, expiry,
+accepts RS256 and ES256, checks issuer, audience, expiry,
 maximum token age and ownership of the requested key, and bounds JWKS cache age.
 
 Bearer replay protection is request-scoped. It persists the token hash together
@@ -68,9 +68,10 @@ identity, inventory and policy checks before running a threshold session.
 EVM transaction inspection checks chain identity and transaction encoding.
 Typed data and supported digest constructions are decoded and recomputed by
 [`internal/policy/evm`](../../../services/wallet/attestor/internal/policy/evm).
-`eth_sign_digest` requires the supported construction; it does not accept an
-arbitrary transaction digest. Policy applies allowed kinds, transaction and
-rolling spend limits, rate limits, destination and selector rules, and approved
+`eth_sign_digest` accepts the supported authorization and sponsored-batch
+constructions and recomputes their digests. Policy applies allowed kinds,
+transaction and rolling spend limits, rate limits, destination and selector
+rules, and approved
 authorization delegates. Missing applicable policy refuses signing. The shipped
 [policy](../../../services/wallet/deploy/attestor-policy.json) has an empty
 `authorization_delegates` list, which admits no EIP-7702 delegate.
