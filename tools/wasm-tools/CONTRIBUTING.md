@@ -6,12 +6,12 @@ requests. Feel free to reach out on the [Bytecode Alliance
 Zulip](https://bytecodealliance.zulipchat.com/) as well if you'd like assistance
 in contributing or would just like to say hi.
 
-### Building From Source
+## Building From Source
 
 To create a debug build of this project from source, execute this command at the
-root of the repository:
+root of this component (`tools/wasm-tools` in the monorepo):
 
-```
+```sh
 $ cargo build
 ```
 
@@ -20,62 +20,62 @@ current platform.
 
 An optimized build can be produced with:
 
-```
+```sh
 $ cargo build --release
 ```
 
-### Testing
+## Testing
 
 Many crates in this repository (located in `crates/*`) both have unit tests
 (`#[test]` functions throughout the source) and integration tests
 (`crates/*/tests/*.rs`). Testing an individual crate can be done with:
 
-```
+```sh
 $ cargo test -p wasmparser
 ```
 
 Running all tests can be done by first ensuring that the spec test suite is
 checked out:
 
-```
-$ git submodule update --init
+```sh
+$ git submodule update --init -- tests/testsuite
 ```
 
 and then using Cargo to execute all tests:
 
-```
+```sh
 $ cargo test --workspace
 ```
 
 The majority of all tests is located in `tests/cli/*` and can be run with:
 
-```
+```sh
 $ cargo test --test cli
 ```
 
 Each individual file is a standalone test and documents at the top how to run
 it. Running individual tests can be done through:
 
-```
+```sh
 $ cargo test --test cli -- test_name_filter
 ```
 
 Or you can use `cargo run` plus the test's arguments to run a single test.
 
-```
+```sh
 $ cargo run wast tests/cli/empty.wast
 ```
 
 Running just the spec test suite can be done with:
 
-```
+```sh
 $ cargo test --test cli -- spec
 ```
 
 and running a single spec test can be done with an argument to this command as a
 string filter on the filename.
 
-```
+```sh
 $ cargo test --test cli binary-leb128.wast
 $ cargo run wast tests/testsuite/binary-leb128.wast --ignore-error-messages
 ```
@@ -97,7 +97,7 @@ that these files need to be edited by hand, but instead setting the environment
 variable `BLESS=1` when running tests will update all of these test
 expectations.
 
-### Continuous Integration
+## Continuous Integration
 
 All changes to `wasm-tools` are required to pass the CI suite powered by GitHub
 Actions. Pull requests will automatically have checks performed and can only be
@@ -111,26 +111,26 @@ merged once all tests are passing. CI checks currently include:
 * Various miscellaneous checks such as building the tool with various
   combinations of Cargo features.
 
-### Fuzzing
+## Fuzzing
 
 This repository uses LLVM's libFuzzer through the [`cargo
 fuzz`](https://github.com/rust-fuzz/cargo-fuzz) tool. Building fuzzers requires
 a Nightly Rust toolchain which can be acquired with Rustup-based installations
 of Rust by executing:
 
-```
+```sh
 $ rustup update nightly
 ```
 
 Next the `cargo-fuzz` runner should be installed:
 
-```
+```sh
 $ cargo install cargo-fuzz
 ```
 
 Fuzzers are then built with:
 
-```
+```sh
 $ cargo +nightly fuzz build
 ```
 
@@ -146,7 +146,7 @@ The fuzzing binary for this project is located at
 `target/$host_target/release/run`. Due to limitations on OSS-Fuzz all fuzzers
 are combined into a single binary at this time. This binary can be run with:
 
-```
+```sh
 $ cargo +nightly fuzz run run
 ```
 
@@ -157,14 +157,14 @@ individual fuzzer lives in `fuzz/src/*.rs`.
 Running a single fuzzer can be done by configuring the `FUZZER` environment
 variable:
 
-```
+```sh
 $ FUZZER=roundtrip cargo +nightly fuzz run run
 ```
 
 More documentation of `cargo fuzz` can [be found
 online](https://rust-fuzz.github.io/book/cargo-fuzz.html).
 
-### Adding a new Crate
+## Adding a new Crate
 
 When a new crate is added to this repository it'll need to be accompanied with a
 reservation of the crate name on crates.io. That enables this repository to
@@ -194,7 +194,7 @@ want to add `publish = false` to the manifest.
 This project is licensed under the Apache 2.0 license with the LLVM exception.
 See [LICENSE](https://www.apache.org/licenses/LICENSE-2.0) for more details.
 
-### Contribution
+## Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in this project by you, as defined in the Apache-2.0 license,

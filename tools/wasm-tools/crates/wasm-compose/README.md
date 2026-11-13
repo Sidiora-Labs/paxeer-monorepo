@@ -16,7 +16,7 @@
 
 ## Overview
 
-**IMPORTANT**:  `wasm-compose` has been been deprecated in favor of [`wac`](https://github.com/bytecodealliance/wac).
+**IMPORTANT**: `wasm-compose` has been deprecated in favor of [`wac`](https://github.com/bytecodealliance/wac).
 
 `wasm-compose` is a library for composing [WebAssembly components](https://github.com/webassembly/component-model)
 from other WebAssembly components.

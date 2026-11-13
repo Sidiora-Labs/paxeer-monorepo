@@ -17,11 +17,11 @@ Run from the repository root with Bash, `jq`, Python 3, `realpath` and a compati
 shows the required arguments followed by optional arguments in brackets:
 
 ```text
-tools/paxeer-x/gov/render.sh --out DIR --paxd build/paxd \
+tools/paxeer-x/gov/render.sh --out DIR \
   --height H --release-url URL --release-sha256 HEX --deposit COINS --pax-usd PRICE \
   --kernel-network-id N [--rate-update-height H] \
   [--bridge-config FILE]... [--bridge-manifest FILE] \
-  [--from BECH32] [--chain-id ID]
+  [--paxd BIN] [--from BECH32] [--chain-id ID]
 ```
 
 `--paxd` overrides `PAXD`, which otherwise defaults to `paxd` on `PATH`.
@@ -32,6 +32,9 @@ overriding `--from` does not change that message authority.
 
 `--kernel-network-id` is a positive uint32 used by the xweb proposal; use `125`
 for mainnet-beta.
+
+The selected bridge manifest must exist even when no `--bridge-config` is
+supplied: the renderer resolves its path before generating proposals.
 
 ## Outputs
 

@@ -33,3 +33,8 @@
 
 `[Inline code](this-is-not-a-link.md)`
 <!-- [Comment](this-is-not-a-link-either.md) -->
+
+## Local anchor
+
+The examples above supply Markdown syntax to the link parser, including literal
+anchor tokens and destinations interpreted relative to the repository root.
