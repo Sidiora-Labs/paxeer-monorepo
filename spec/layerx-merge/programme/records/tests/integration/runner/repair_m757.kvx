@@ -12,8 +12,8 @@ proof = "Committed YAML drives RunFile through real subprocess pipes into captur
 [finding.go-python-regex-semantics]
 tests = ["TestRepairM_757_RegexPrefixTransport"]
 repair = "Regex patterns are grouped under an absolute start anchor, matching Python re.match prefix semantics after trimming output; alternatives and multiline anchors cannot bypass offset zero."
-cases = "tests/integration/runner/testdata/repair_m757_regex.yaml"
-wiring_request = "Domain 16: tests/integration/scripts/runner.py should document its existing re.match prefix boundary and consume tests/integration/runner/testdata/repair_m757_regex.yaml with expected outcomes [true, false, false, false, true]; Python edits and execution are outside this task's permitted paths/gate."
+cases = "tests/integration/runner/testdata/regex_prefix.yaml"
+wiring_request = "Domain 16: tests/integration/scripts/runner.py should document its existing re.match prefix boundary and consume tests/integration/runner/testdata/regex_prefix.yaml with expected outcomes [true, false, false, false, true]; Python edits and execution are outside this task's permitted paths/gate."
 
 [finding.go-runner-expression-precedence]
 tests = ["TestRepairM_757_ExpressionPrecedence"]

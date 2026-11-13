@@ -1,6 +1,6 @@
 - name: unexpected setup rejection must fail despite matching stdout
   inputs:
-    - cmd: repair-m757:negative
+    - cmd: command-fixture:negative
       env: RESULT
   verifiers:
     - type: eval
