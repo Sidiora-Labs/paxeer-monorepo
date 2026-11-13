@@ -374846,7 +374846,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.298]
 title = "Bring the contract pages to the kernel sentence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
