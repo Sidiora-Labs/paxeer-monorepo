@@ -14,18 +14,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type repair87Value struct {
+type batchEchoValue struct {
 	Value string `json:"value"`
 }
 
-func repair87HTTPClient(t *testing.T, delivery string) *Client {
+func newBatchDeliveryClient(t *testing.T, delivery string) *Client {
 	t.Helper()
 	mux := http.NewServeMux()
 	rpcserver.RegisterRPCFuncs(mux, map[string]*rpcserver.RPCFunc{
-		"echo": rpcserver.NewRPCFunc(func(_ context.Context, arg *repair87Value) (*repair87Value, error) {
-			return &repair87Value{Value: arg.Value}, nil
+		"echo": rpcserver.NewRPCFunc(func(_ context.Context, arg *batchEchoValue) (*batchEchoValue, error) {
+			return &batchEchoValue{Value: arg.Value}, nil
 		}),
-		"refuse": rpcserver.NewRPCFunc(func(_ context.Context) (*repair87Value, error) {
+		"refuse": rpcserver.NewRPCFunc(func(_ context.Context) (*batchEchoValue, error) {
 			return nil, &rpctypes.RPCError{
 				Code: int(rpctypes.CodeInvalidRequest), Message: "Refused", Data: "request denied",
 			}
@@ -85,15 +85,15 @@ func repair87HTTPClient(t *testing.T, delivery string) *Client {
 	return c
 }
 
-func TestRepair_87_ReorderedReplies(t *testing.T) {
-	c := repair87HTTPClient(t, "reverse")
+func TestRequestBatchReorderedReplies(t *testing.T) {
+	c := newBatchDeliveryClient(t, "reverse")
 	// Consume an ID first so correlation cannot rely on zero-based batch indices.
 	batch := c.NewRequestBatch()
-	require.NoError(t, batch.Call(t.Context(), "echo", repair87Value{Value: "discarded"}, &repair87Value{}))
+	require.NoError(t, batch.Call(t.Context(), "echo", batchEchoValue{Value: "discarded"}, &batchEchoValue{}))
 	require.Equal(t, 1, batch.Clear())
-	first, second, third := &repair87Value{}, &repair87Value{}, &repair87Value{}
-	for i, result := range []*repair87Value{first, second, third} {
-		require.NoError(t, batch.Call(t.Context(), "echo", repair87Value{Value: []string{"first", "second", "third"}[i]}, result))
+	first, second, third := &batchEchoValue{}, &batchEchoValue{}, &batchEchoValue{}
+	for i, result := range []*batchEchoValue{first, second, third} {
+		require.NoError(t, batch.Call(t.Context(), "echo", batchEchoValue{Value: []string{"first", "second", "third"}[i]}, result))
 	}
 	results, err := batch.Send(t.Context())
 	require.NoError(t, err)
@@ -107,12 +107,12 @@ func TestRepair_87_ReorderedReplies(t *testing.T) {
 	require.Zero(t, batch.Count())
 }
 
-func TestRepair_87_DuplicateReplies(t *testing.T) {
-	c := repair87HTTPClient(t, "duplicate")
+func TestRequestBatchDuplicateReplies(t *testing.T) {
+	c := newBatchDeliveryClient(t, "duplicate")
 	batch := c.NewRequestBatch()
-	first, second := &repair87Value{Value: "untouched first"}, &repair87Value{Value: "untouched second"}
-	require.NoError(t, batch.Call(t.Context(), "echo", repair87Value{Value: "first"}, first))
-	require.NoError(t, batch.Call(t.Context(), "echo", repair87Value{Value: "second"}, second))
+	first, second := &batchEchoValue{Value: "untouched first"}, &batchEchoValue{Value: "untouched second"}
+	require.NoError(t, batch.Call(t.Context(), "echo", batchEchoValue{Value: "first"}, first))
+	require.NoError(t, batch.Call(t.Context(), "echo", batchEchoValue{Value: "second"}, second))
 	results, err := batch.Send(t.Context())
 	require.Error(t, err)
 	require.Nil(t, results)
@@ -121,14 +121,14 @@ func TestRepair_87_DuplicateReplies(t *testing.T) {
 	require.Zero(t, batch.Count())
 }
 
-func TestRepair_87_ExactIDSet(t *testing.T) {
+func TestRequestBatchExactIDSet(t *testing.T) {
 	for _, delivery := range []string{"missing", "extra", "unexpected"} {
 		t.Run(delivery, func(t *testing.T) {
-			c := repair87HTTPClient(t, delivery)
+			c := newBatchDeliveryClient(t, delivery)
 			batch := c.NewRequestBatch()
-			first, second := &repair87Value{Value: "unchanged"}, &repair87Value{Value: "unchanged"}
-			require.NoError(t, batch.Call(t.Context(), "echo", repair87Value{Value: "first"}, first))
-			require.NoError(t, batch.Call(t.Context(), "echo", repair87Value{Value: "second"}, second))
+			first, second := &batchEchoValue{Value: "unchanged"}, &batchEchoValue{Value: "unchanged"}
+			require.NoError(t, batch.Call(t.Context(), "echo", batchEchoValue{Value: "first"}, first))
+			require.NoError(t, batch.Call(t.Context(), "echo", batchEchoValue{Value: "second"}, second))
 			results, err := batch.Send(t.Context())
 			require.Error(t, err)
 			require.Nil(t, results)
@@ -138,19 +138,19 @@ func TestRepair_87_ExactIDSet(t *testing.T) {
 	}
 }
 
-func TestRepair_87_MixedSuccessesAndRefusals(t *testing.T) {
+func TestRequestBatchMixedSuccessesAndRefusals(t *testing.T) {
 	for _, methods := range [][]string{
 		{"refuse", "echo", "unknown", "echo"},
 		{"echo", "refuse", "echo", "unknown"},
 	} {
 		t.Run(methods[0], func(t *testing.T) {
-			c := repair87HTTPClient(t, "reverse")
+			c := newBatchDeliveryClient(t, "reverse")
 			batch := c.NewRequestBatch()
-			values := make([]*repair87Value, len(methods))
+			values := make([]*batchEchoValue, len(methods))
 			for i, method := range methods {
-				values[i] = &repair87Value{Value: "unchanged"}
+				values[i] = &batchEchoValue{Value: "unchanged"}
 				if method == "echo" {
-					require.NoError(t, batch.Call(t.Context(), method, repair87Value{Value: "success"}, values[i]))
+					require.NoError(t, batch.Call(t.Context(), method, batchEchoValue{Value: "success"}, values[i]))
 				} else {
 					require.NoError(t, batch.Call(t.Context(), method, nil, values[i]))
 				}

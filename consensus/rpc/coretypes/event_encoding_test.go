@@ -25,7 +25,7 @@ import (
 
 // Finding 35: use the real bus, Subscribe handler, JSON-RPC WebSocket transport,
 // and the same ResultEvent decoder used by the HTTP client's event listener.
-func TestRepair_90_SubscriptionDottedNames(t *testing.T) {
+func TestResultEventSubscriptionDottedNames(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()
 	bus := eventbus.NewDefault()
@@ -113,7 +113,7 @@ func TestRepair_90_SubscriptionDottedNames(t *testing.T) {
 	require.Zero(t, bus.NumClients())
 }
 
-func TestRepair_90_EventEncodingCompatibility(t *testing.T) {
+func TestResultEventEventEncodingCompatibility(t *testing.T) {
 	want := coretypes.ResultEvent{
 		SubscriptionID: "subscription-90", Query: "transfer.amount = '7'", Data: types.EventDataString("payload"),
 		Events: []abci.Event{{Type: "transfer", Attributes: []abci.EventAttribute{
@@ -150,7 +150,7 @@ func TestRepair_90_EventEncodingCompatibility(t *testing.T) {
 	}
 }
 
-func TestRepair_90_RejectUnsupportedEventFormat(t *testing.T) {
+func TestResultEventRejectUnsupportedEventFormat(t *testing.T) {
 	raw, err := json.Marshal(coretypes.ResultEvent{
 		Data: types.EventDataString("payload"),
 		Events: []abci.Event{{Type: "transfer", Attributes: []abci.EventAttribute{

@@ -15,15 +15,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type repair88Args struct {
+type uppercaseArgs struct {
 	Value string `json:"value"`
 }
 
-func repair88Server(t *testing.T) *httptest.Server {
+func newUppercaseServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
 	RegisterRPCFuncs(mux, map[string]*RPCFunc{
-		"uppercase": NewRPCFunc(func(_ context.Context, args *repair88Args) (string, error) {
+		"uppercase": NewRPCFunc(func(_ context.Context, args *uppercaseArgs) (string, error) {
 			return strings.ToUpper(args.Value), nil
 		}),
 	})
@@ -32,13 +32,13 @@ func repair88Server(t *testing.T) *httptest.Server {
 	return srv
 }
 
-func TestRepair_88_SingleRequestBatch(t *testing.T) {
-	srv := repair88Server(t)
+func TestHTTPBatchFramingSingleRequestBatch(t *testing.T) {
+	srv := newUppercaseServer(t)
 	client, err := rpcclient.NewWithHTTPClient(srv.URL, srv.Client())
 	require.NoError(t, err)
 	batch := client.NewRequestBatch()
 	var result string
-	require.NoError(t, batch.Call(t.Context(), "uppercase", &repair88Args{Value: "one request"}, &result))
+	require.NoError(t, batch.Call(t.Context(), "uppercase", &uppercaseArgs{Value: "one request"}, &result))
 	require.Equal(t, 1, batch.Count())
 	results, err := batch.Send(t.Context())
 	require.NoError(t, err)
@@ -48,12 +48,12 @@ func TestRepair_88_SingleRequestBatch(t *testing.T) {
 	require.Zero(t, batch.Count())
 
 	var single string
-	require.NoError(t, client.Call(t.Context(), "uppercase", &repair88Args{Value: "single object"}, &single))
+	require.NoError(t, client.Call(t.Context(), "uppercase", &uppercaseArgs{Value: "single object"}, &single))
 	require.Equal(t, "SINGLE OBJECT", single)
 
 	var first, second string
-	require.NoError(t, batch.Call(t.Context(), "uppercase", &repair88Args{Value: "first"}, &first))
-	require.NoError(t, batch.Call(t.Context(), "uppercase", &repair88Args{Value: "second"}, &second))
+	require.NoError(t, batch.Call(t.Context(), "uppercase", &uppercaseArgs{Value: "first"}, &first))
+	require.NoError(t, batch.Call(t.Context(), "uppercase", &uppercaseArgs{Value: "second"}, &second))
 	results, err = batch.Send(t.Context())
 	require.NoError(t, err)
 	require.Len(t, results, 2)
@@ -61,8 +61,8 @@ func TestRepair_88_SingleRequestBatch(t *testing.T) {
 	require.Equal(t, "SECOND", second)
 }
 
-func TestRepair_88_BatchNotifications(t *testing.T) {
-	srv := repair88Server(t)
+func TestHTTPBatchFramingBatchNotifications(t *testing.T) {
+	srv := newUppercaseServer(t)
 	for _, tc := range []struct {
 		name      string
 		method    string
@@ -75,11 +75,11 @@ func TestRepair_88_BatchNotifications(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var notification rpctypes.RPCRequest
-			require.NoError(t, notification.SetMethodAndParams("uppercase", &repair88Args{Value: "notification"}))
+			require.NoError(t, notification.SetMethodAndParams("uppercase", &uppercaseArgs{Value: "notification"}))
 			requests := []rpctypes.RPCRequest{notification}
 			request := rpctypes.NewRequest(88)
 			if tc.respond {
-				require.NoError(t, request.SetMethodAndParams(tc.method, &repair88Args{Value: "batch result"}))
+				require.NoError(t, request.SetMethodAndParams(tc.method, &uppercaseArgs{Value: "batch result"}))
 				requests = append(requests, request, notification)
 			}
 			payload, err := json.Marshal(requests)
