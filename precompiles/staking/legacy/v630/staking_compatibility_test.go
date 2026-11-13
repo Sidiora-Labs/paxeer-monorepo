@@ -34,12 +34,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const repair1210Height int64 = 100
+const stakingReplayHeight int64 = 100
 
-func repair1210Fixture(t *testing.T) (*node.App, sdk.Context, common.Address, sdk.AccAddress) {
+func stakingReplayFixture(t *testing.T) (*node.App, sdk.Context, common.Address, sdk.AccAddress) {
 	t.Helper()
 	a := testkeeper.EVMTestApp
-	ctx, _ := a.GetContextForDeliverTx(nil).WithBlockHeight(repair1210Height).
+	ctx, _ := a.GetContextForDeliverTx(nil).WithBlockHeight(stakingReplayHeight).
 		WithBlockTime(time.Unix(1_800_000_000, 0).UTC()).
 		WithGasMeter(sdk.NewInfiniteGasMeter(1, 1)).CacheContext()
 	key, err := crypto.ToECDSA(bytes.Repeat([]byte{0x12}, 32))
@@ -50,21 +50,21 @@ func repair1210Fixture(t *testing.T) (*node.App, sdk.Context, common.Address, sd
 	return a, ctx, caller, payer
 }
 
-func repair1210Fund(t *testing.T, a *node.App, ctx sdk.Context, address sdk.AccAddress, amount int64) {
+func stakingReplayFund(t *testing.T, a *node.App, ctx sdk.Context, address sdk.AccAddress, amount int64) {
 	t.Helper()
 	coins := sdk.NewCoins(sdk.NewInt64Coin(a.StakingKeeper.BondDenom(ctx), amount))
 	require.NoError(t, a.BankKeeper.MintCoins(ctx, evmtypes.ModuleName, coins))
 	require.NoError(t, a.BankKeeper.SendCoinsFromModuleToAccount(ctx, evmtypes.ModuleName, address, coins))
 }
 
-func repair1210Input(t *testing.T, contractABI abi.ABI, key string) []byte {
+func stakingReplayInput(t *testing.T, contractABI abi.ABI, key string) []byte {
 	t.Helper()
 	input, err := contractABI.Pack(staking.CreateValidatorMethod, key, "repair-1210", "0.1", "0.2", "0.05", big.NewInt(1))
 	require.NoError(t, err)
 	return input
 }
 
-func repair1210Call(t *testing.T, ctx sdk.Context, k *evmkeeper.Keeper, runner vm.PrecompiledContract, caller common.Address, input []byte) ([]byte, error, *state.DBImpl) {
+func stakingReplayCall(t *testing.T, ctx sdk.Context, k *evmkeeper.Keeper, runner vm.PrecompiledContract, caller common.Address, input []byte) ([]byte, error, *state.DBImpl) {
 	t.Helper()
 	db := state.NewDBImpl(ctx, k, true)
 	evm := &vm.EVM{StateDB: db}
@@ -77,23 +77,23 @@ func repair1210Call(t *testing.T, ctx sdk.Context, k *evmkeeper.Keeper, runner v
 	return ret, err, db
 }
 
-func TestRepairM_1210_InvalidKeyBeforePayment(t *testing.T) {
+func TestInvalidKeyBeforePayment(t *testing.T) {
 	for _, size := range []int{0, 1, 31, 33, 64} {
 		t.Run(fmt.Sprintf("bytes_%d", size), func(t *testing.T) {
-			a, ctx, caller, payer := repair1210Fixture(t)
+			a, ctx, caller, payer := stakingReplayFixture(t)
 			a.UpgradeKeeper.SetDone(ctx, pcommon.MergeUpgrade)
 			p, err := staking.NewPrecompile(a.GetPrecompileKeepers())
 			require.NoError(t, err)
 			precompileAccount := a.EvmKeeper.GetPaxAddressOrDefault(ctx, p.Address())
 			// Fund the actual payment source, so a missing guard reaches the
 			// keeper's consensus-address construction rather than a bank error.
-			repair1210Fund(t, a, ctx, precompileAccount, 1_000_000)
+			stakingReplayFund(t, a, ctx, precompileAccount, 1_000_000)
 			balances := a.BankKeeper.GetAllBalances(ctx, payer)
 			precompileBalances := a.BankKeeper.GetAllBalances(ctx, precompileAccount)
 			validators := a.StakingKeeper.GetAllValidators(ctx)
 			supply := a.BankKeeper.GetSupply(ctx, a.StakingKeeper.BondDenom(ctx))
-			input := repair1210Input(t, p.GetABI(), hex.EncodeToString(bytes.Repeat([]byte{1}, size)))
-			ret, err, db := repair1210Call(t, ctx, &a.EvmKeeper, p, caller, input)
+			input := stakingReplayInput(t, p.GetABI(), hex.EncodeToString(bytes.Repeat([]byte{1}, size)))
+			ret, err, db := stakingReplayCall(t, ctx, &a.EvmKeeper, p, caller, input)
 			require.ErrorIs(t, err, vm.ErrExecutionReverted)
 			require.Empty(t, ret)
 			require.EqualError(t, db.GetPrecompileError(), "invalid public key length: expected 32 bytes")
@@ -108,15 +108,15 @@ func TestRepairM_1210_InvalidKeyBeforePayment(t *testing.T) {
 	}
 }
 
-func TestRepairM_1210_ValidKeyCreatesValidator(t *testing.T) {
-	a, ctx, caller, payer := repair1210Fixture(t)
+func TestValidKeyCreatesValidator(t *testing.T) {
+	a, ctx, caller, payer := stakingReplayFixture(t)
 	a.UpgradeKeeper.SetDone(ctx, pcommon.MergeUpgrade)
 	p, err := staking.NewPrecompile(a.GetPrecompileKeepers())
 	require.NoError(t, err)
 	precompileAccount := a.EvmKeeper.GetPaxAddressOrDefault(ctx, p.Address())
-	repair1210Fund(t, a, ctx, precompileAccount, 1_000_000)
+	stakingReplayFund(t, a, ctx, precompileAccount, 1_000_000)
 	key := ed25519.GenPrivKeyFromSecret([]byte("repair-1210-consensus-key")).PubKey()
-	ret, err, db := repair1210Call(t, ctx, &a.EvmKeeper, p, caller, repair1210Input(t, p.GetABI(), hex.EncodeToString(key.Bytes())))
+	ret, err, db := stakingReplayCall(t, ctx, &a.EvmKeeper, p, caller, stakingReplayInput(t, p.GetABI(), hex.EncodeToString(key.Bytes())))
 	require.NoError(t, err)
 	ctx = db.Ctx()
 	decoded, err := p.GetABI().Methods[staking.CreateValidatorMethod].Outputs.Unpack(ret)
@@ -135,8 +135,8 @@ func TestRepairM_1210_ValidKeyCreatesValidator(t *testing.T) {
 	require.True(t, a.BankKeeper.GetAllBalances(ctx, precompileAccount).IsZero())
 }
 
-func TestRepairM_1210_KeyUpgradeReplay(t *testing.T) {
-	a, base, caller, _ := repair1210Fixture(t)
+func TestKeyUpgradeReplay(t *testing.T) {
+	a, base, caller, _ := stakingReplayFixture(t)
 	k := a.EvmKeeper
 	address := common.HexToAddress(staking.StakingAddress)
 	versions := staking.GetVersioned(pcommon.MergeUpgrade, a.GetPrecompileKeepers())
@@ -146,40 +146,40 @@ func TestRepairM_1210_KeyUpgradeReplay(t *testing.T) {
 	archived, err := stakingv630.NewPrecompile(a.GetPrecompileKeepers())
 	require.NoError(t, err)
 	precompileAccount := k.GetPaxAddressOrDefault(base, address)
-	repair1210Fund(t, a, base, precompileAccount, 1_000_000)
-	input := repair1210Input(t, archived.GetABI(), hex.EncodeToString(bytes.Repeat([]byte{1}, 31)))
+	stakingReplayFund(t, a, base, precompileAccount, 1_000_000)
+	input := stakingReplayInput(t, archived.GetABI(), hex.EncodeToString(bytes.Repeat([]byte{1}, 31)))
 	for _, phase := range []string{"unscheduled", "scheduled", "applied"} {
 		switch phase {
 		case "scheduled":
-			require.NoError(t, a.UpgradeKeeper.ScheduleUpgrade(base, upgradetypes.Plan{Name: pcommon.MergeUpgrade, Height: repair1210Height}))
+			require.NoError(t, a.UpgradeKeeper.ScheduleUpgrade(base, upgradetypes.Plan{Name: pcommon.MergeUpgrade, Height: stakingReplayHeight}))
 		case "applied":
-			a.UpgradeKeeper.SetDone(base.WithBlockHeight(repair1210Height), pcommon.MergeUpgrade)
+			a.UpgradeKeeper.SetDone(base.WithBlockHeight(stakingReplayHeight), pcommon.MergeUpgrade)
 		}
-		for _, height := range []int64{1, repair1210Height - 1, repair1210Height, repair1210Height + 1} {
+		for _, height := range []int64{1, stakingReplayHeight - 1, stakingReplayHeight, stakingReplayHeight + 1} {
 			for _, tracing := range []bool{false, true} {
 				t.Run(fmt.Sprintf("%s/height_%d/tracing_%t", phase, height, tracing), func(t *testing.T) {
 					ctx, _ := base.WithBlockHeight(height).WithIsTracing(tracing).CacheContext()
 					selected := k.CustomPrecompiles(ctx)[address]
 					require.NotNil(t, selected)
-					active := phase == "applied" && height >= repair1210Height
+					active := phase == "applied" && height >= stakingReplayHeight
 					wantVersion := "v6.3.0"
 					if active {
 						wantVersion = pcommon.MergeUpgrade
 					}
 					require.Equal(t, wantVersion, k.GetCustomPrecompilesVersions(ctx)[address])
 					if active {
-						_, err, db := repair1210Call(t, ctx, &k, selected, caller, input)
+						_, err, db := stakingReplayCall(t, ctx, &k, selected, caller, input)
 						require.ErrorIs(t, err, vm.ErrExecutionReverted)
 						require.EqualError(t, db.GetPrecompileError(), "invalid public key length: expected 32 bytes")
 					} else {
 						require.PanicsWithValue(t, "pubkey is incorrect size", func() {
-							repair1210Call(t, ctx, &k, selected, caller, input)
+							stakingReplayCall(t, ctx, &k, selected, caller, input)
 						})
 					}
 					// The archived snapshot retains the old behavior at every height.
 					legacyCtx, _ := base.WithBlockHeight(height).CacheContext()
 					require.PanicsWithValue(t, "pubkey is incorrect size", func() {
-						repair1210Call(t, legacyCtx, &k, archived, caller, input)
+						stakingReplayCall(t, legacyCtx, &k, archived, caller, input)
 					})
 				})
 			}
@@ -187,17 +187,17 @@ func TestRepairM_1210_KeyUpgradeReplay(t *testing.T) {
 	}
 }
 
-func TestRepairM_1210_EVMTransactionRefusal(t *testing.T) {
+func TestEVMTransactionRefusal(t *testing.T) {
 	for _, size := range []int{0, 31, 33} {
 		t.Run(fmt.Sprintf("bytes_%d", size), func(t *testing.T) {
-			a, ctx, caller, payer := repair1210Fixture(t)
+			a, ctx, caller, payer := stakingReplayFixture(t)
 			a.UpgradeKeeper.SetDone(ctx, pcommon.MergeUpgrade)
 			k := a.EvmKeeper
 			address := common.HexToAddress(staking.StakingAddress)
 			versions := staking.GetVersioned(pcommon.MergeUpgrade, a.GetPrecompileKeepers())
 			k.SetCustomPrecompiles(map[common.Address]utils.VersionedPrecompiles{address: versions}, pcommon.MergeUpgrade)
 			p := versions[pcommon.MergeUpgrade].(*pcommon.DynamicGasPrecompile)
-			repair1210Fund(t, a, ctx, payer, 2_000_000_000_000)
+			stakingReplayFund(t, a, ctx, payer, 2_000_000_000_000)
 			balances := a.BankKeeper.GetAllBalances(ctx, payer)
 			precompileAccount := k.GetPaxAddressOrDefault(ctx, address)
 			precompileBalances := a.BankKeeper.GetAllBalances(ctx, precompileAccount)
@@ -208,7 +208,7 @@ func TestRepairM_1210_EVMTransactionRefusal(t *testing.T) {
 			tx, err := ethtypes.SignTx(ethtypes.NewTx(&ethtypes.LegacyTx{
 				GasPrice: big.NewInt(1_000_000_000_000), Gas: 2_000_000, To: &address,
 				Value: big.NewInt(1_000_000_000_000_000_000),
-				Data:  repair1210Input(t, p.GetABI(), hex.EncodeToString(bytes.Repeat([]byte{1}, size))),
+				Data:  stakingReplayInput(t, p.GetABI(), hex.EncodeToString(bytes.Repeat([]byte{1}, size))),
 			}), signer, key)
 			require.NoError(t, err)
 			require.Equal(t, caller, crypto.PubkeyToAddress(key.PublicKey))
@@ -234,7 +234,7 @@ func TestRepairM_1210_EVMTransactionRefusal(t *testing.T) {
 // Produce the entry through BeginRedelegation, after a real slash has changed
 // the destination's exchange rate. No query response or ABI output is supplied
 // by the fixture: both are produced by the real keepers and precompile.
-func repair1210RedelegationState(t *testing.T) (*node.App, sdk.Context, *stakingtypes.QueryRedelegationsRequest) {
+func stakingReplayRedelegationState(t *testing.T) (*node.App, sdk.Context, *stakingtypes.QueryRedelegationsRequest) {
 	t.Helper()
 	a := testkeeper.EVMTestApp
 	ctx, _ := a.GetContextForDeliverTx(nil).WithBlockHeight(20).
@@ -280,7 +280,7 @@ func repair1210RedelegationState(t *testing.T) (*node.App, sdk.Context, *staking
 	}
 }
 
-func repair1210Query(t *testing.T, a *node.App, ctx sdk.Context, req *stakingtypes.QueryRedelegationsRequest) *stakingtypes.QueryRedelegationsResponse {
+func stakingReplayQuery(t *testing.T, a *node.App, ctx sdk.Context, req *stakingtypes.QueryRedelegationsRequest) *stakingtypes.QueryRedelegationsResponse {
 	t.Helper()
 	response, err := (stakingkeeper.Querier{Keeper: a.StakingKeeper}).Redelegations(sdk.WrapSDKContext(ctx), req)
 	require.NoError(t, err)
@@ -289,7 +289,7 @@ func repair1210Query(t *testing.T, a *node.App, ctx sdk.Context, req *stakingtyp
 	return response
 }
 
-func repair1210SharesCall(t *testing.T, ctx sdk.Context, k *evmkeeper.Keeper, runner vm.DynamicGasPrecompiledContract, contractABI abi.ABI, req *stakingtypes.QueryRedelegationsRequest) ([]byte, staking.RedelegationsResponse) {
+func stakingReplaySharesCall(t *testing.T, ctx sdk.Context, k *evmkeeper.Keeper, runner vm.DynamicGasPrecompiledContract, contractABI abi.ABI, req *stakingtypes.QueryRedelegationsRequest) ([]byte, staking.RedelegationsResponse) {
 	t.Helper()
 	input, err := contractABI.Pack(staking.RedelegationsMethod, req.DelegatorAddr, req.SrcValidatorAddr, req.DstValidatorAddr, req.Pagination.Key)
 	require.NoError(t, err)
@@ -306,9 +306,9 @@ func repair1210SharesCall(t *testing.T, ctx sdk.Context, k *evmkeeper.Keeper, ru
 	return ret, *decoded
 }
 
-func TestRepairM_1210_RedelegationShares(t *testing.T) {
-	a, base, request := repair1210RedelegationState(t)
-	a.UpgradeKeeper.SetDone(base.WithBlockHeight(repair1210Height), pcommon.MergeUpgrade)
+func TestRedelegationShares(t *testing.T) {
+	a, base, request := stakingReplayRedelegationState(t)
+	a.UpgradeKeeper.SetDone(base.WithBlockHeight(stakingReplayHeight), pcommon.MergeUpgrade)
 	precompile, err := staking.NewPrecompile(a.GetPrecompileKeepers())
 	require.NoError(t, err)
 	for _, sourceIndex := range []bool{false, true} {
@@ -317,8 +317,8 @@ func TestRepairM_1210_RedelegationShares(t *testing.T) {
 			if sourceIndex {
 				req.DelegatorAddr, req.DstValidatorAddr = "", ""
 			}
-			ctx, _ := base.WithBlockHeight(repair1210Height).CacheContext()
-			producer := repair1210Query(t, a, ctx, &req)
+			ctx, _ := base.WithBlockHeight(stakingReplayHeight).CacheContext()
+			producer := stakingReplayQuery(t, a, ctx, &req)
 			entry := producer.RedelegationResponses[0].Entries[0]
 			// SharesFromTokens uses Dec.QuoInt, which truncates to 18 places.
 			delegator, err := sdk.AccAddressFromBech32(request.DelegatorAddr)
@@ -333,7 +333,7 @@ func TestRepairM_1210_RedelegationShares(t *testing.T) {
 			require.Equal(t, stored.Entries[0], entry.RedelegationEntry)
 			require.Equal(t, "11.666666666666666666", entry.RedelegationEntry.SharesDst.String())
 			require.NotEqual(t, entry.Balance.ToDec(), entry.RedelegationEntry.SharesDst)
-			_, consumer := repair1210SharesCall(t, ctx, &a.EvmKeeper, precompile, precompile.GetABI(), &req)
+			_, consumer := stakingReplaySharesCall(t, ctx, &a.EvmKeeper, precompile, precompile.GetABI(), &req)
 			redel := consumer.Redelegations[0]
 			require.Equal(t, request.DelegatorAddr, redel.DelegatorAddress)
 			require.Equal(t, request.SrcValidatorAddr, redel.ValidatorSrcAddress)
@@ -348,8 +348,8 @@ func TestRepairM_1210_RedelegationShares(t *testing.T) {
 	}
 }
 
-func TestRepairM_1210_SharesUpgradeReplay(t *testing.T) {
-	a, base, req := repair1210RedelegationState(t)
+func TestSharesUpgradeReplay(t *testing.T) {
+	a, base, req := stakingReplayRedelegationState(t)
 	k := a.EvmKeeper
 	address := common.HexToAddress(staking.StakingAddress)
 	versions := staking.GetVersioned(pcommon.MergeUpgrade, a.GetPrecompileKeepers())
@@ -360,19 +360,19 @@ func TestRepairM_1210_SharesUpgradeReplay(t *testing.T) {
 	require.NoError(t, err)
 	current := versions[pcommon.MergeUpgrade].(*pcommon.DynamicGasPrecompile)
 	contractABI := current.GetABI()
-	producer := repair1210Query(t, a, base, req)
+	producer := stakingReplayQuery(t, a, base, req)
 	entry := producer.RedelegationResponses[0].Entries[0]
 
 	for _, phase := range []string{"unscheduled", "scheduled", "applied"} {
 		switch phase {
 		case "scheduled":
 			require.NoError(t, a.UpgradeKeeper.ScheduleUpgrade(base, upgradetypes.Plan{
-				Name: pcommon.MergeUpgrade, Height: repair1210Height,
+				Name: pcommon.MergeUpgrade, Height: stakingReplayHeight,
 			}))
 		case "applied":
-			a.UpgradeKeeper.SetDone(base.WithBlockHeight(repair1210Height), pcommon.MergeUpgrade)
+			a.UpgradeKeeper.SetDone(base.WithBlockHeight(stakingReplayHeight), pcommon.MergeUpgrade)
 		}
-		for _, height := range []int64{1, repair1210Height - 1, repair1210Height, repair1210Height + 1} {
+		for _, height := range []int64{1, stakingReplayHeight - 1, stakingReplayHeight, stakingReplayHeight + 1} {
 			for _, tracing := range []bool{false, true} {
 				t.Run(fmt.Sprintf("%s/height_%d/tracing_%t", phase, height, tracing), func(t *testing.T) {
 					ctx, _ := base.WithBlockHeight(height).WithIsTracing(tracing).CacheContext()
@@ -381,16 +381,16 @@ func TestRepairM_1210_SharesUpgradeReplay(t *testing.T) {
 					runner, ok := served.(vm.DynamicGasPrecompiledContract)
 					require.True(t, ok)
 					wantVersion := "v6.3.0"
-					if phase == "applied" && height >= repair1210Height {
+					if phase == "applied" && height >= stakingReplayHeight {
 						wantVersion = pcommon.MergeUpgrade
 					}
 					require.Equal(t, wantVersion, k.GetCustomPrecompilesVersions(ctx)[address])
-					actual, decoded := repair1210SharesCall(t, ctx, &k, runner, contractABI, req)
+					actual, decoded := stakingReplaySharesCall(t, ctx, &k, runner, contractABI, req)
 					legacyCtx, _ := ctx.CacheContext()
-					historical, historicalDecoded := repair1210SharesCall(t, legacyCtx, &k, legacy, contractABI, req)
+					historical, historicalDecoded := stakingReplaySharesCall(t, legacyCtx, &k, legacy, contractABI, req)
 					require.Equal(t, entry.Balance.String(), historicalDecoded.Redelegations[0].Entries[0].SharesDst,
 						"archived implementation must preserve historical bytes even after activation")
-					if phase == "applied" && height >= repair1210Height {
+					if phase == "applied" && height >= stakingReplayHeight {
 						require.Equal(t, entry.RedelegationEntry.SharesDst.String(), decoded.Redelegations[0].Entries[0].SharesDst)
 						expected := historicalDecoded
 						expected.Redelegations[0].Entries[0].SharesDst = entry.RedelegationEntry.SharesDst.String()
@@ -407,8 +407,8 @@ func TestRepairM_1210_SharesUpgradeReplay(t *testing.T) {
 	}
 }
 
-func TestRepairM_1210_ABICompatibility(t *testing.T) {
-	a, _, _, _ := repair1210Fixture(t)
+func TestABICompatibility(t *testing.T) {
+	a, _, _, _ := stakingReplayFixture(t)
 	current, err := staking.NewPrecompile(a.GetPrecompileKeepers())
 	require.NoError(t, err)
 	historical, err := stakingv630.NewPrecompile(a.GetPrecompileKeepers())

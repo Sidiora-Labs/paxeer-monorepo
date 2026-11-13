@@ -30,12 +30,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const repair1209Height int64 = 100
+const stakingReplayHeight int64 = 100
 
-func repair1209Fixture(t *testing.T) (*node.App, sdk.Context, common.Address, sdk.AccAddress) {
+func stakingReplayFixture(t *testing.T) (*node.App, sdk.Context, common.Address, sdk.AccAddress) {
 	t.Helper()
 	a := testkeeper.EVMTestApp
-	ctx, _ := a.GetContextForDeliverTx(nil).WithBlockHeight(repair1209Height).
+	ctx, _ := a.GetContextForDeliverTx(nil).WithBlockHeight(stakingReplayHeight).
 		WithBlockTime(time.Unix(1_800_000_000, 0).UTC()).
 		WithGasMeter(sdk.NewInfiniteGasMeter(1, 1)).CacheContext()
 	key, err := crypto.ToECDSA(bytes.Repeat([]byte{0x12}, 32))
@@ -46,21 +46,21 @@ func repair1209Fixture(t *testing.T) (*node.App, sdk.Context, common.Address, sd
 	return a, ctx, caller, payer
 }
 
-func repair1209Fund(t *testing.T, a *node.App, ctx sdk.Context, address sdk.AccAddress, amount int64) {
+func stakingReplayFund(t *testing.T, a *node.App, ctx sdk.Context, address sdk.AccAddress, amount int64) {
 	t.Helper()
 	coins := sdk.NewCoins(sdk.NewInt64Coin(a.StakingKeeper.BondDenom(ctx), amount))
 	require.NoError(t, a.BankKeeper.MintCoins(ctx, evmtypes.ModuleName, coins))
 	require.NoError(t, a.BankKeeper.SendCoinsFromModuleToAccount(ctx, evmtypes.ModuleName, address, coins))
 }
 
-func repair1209Input(t *testing.T, contractABI abi.ABI, key string) []byte {
+func stakingReplayInput(t *testing.T, contractABI abi.ABI, key string) []byte {
 	t.Helper()
 	input, err := contractABI.Pack(staking.CreateValidatorMethod, key, "repair-1209", "0.1", "0.2", "0.05", big.NewInt(1))
 	require.NoError(t, err)
 	return input
 }
 
-func repair1209Call(t *testing.T, ctx sdk.Context, k *evmkeeper.Keeper, runner vm.PrecompiledContract, caller common.Address, input []byte) ([]byte, error, *state.DBImpl) {
+func stakingReplayCall(t *testing.T, ctx sdk.Context, k *evmkeeper.Keeper, runner vm.PrecompiledContract, caller common.Address, input []byte) ([]byte, error, *state.DBImpl) {
 	t.Helper()
 	db := state.NewDBImpl(ctx, k, true)
 	evm := &vm.EVM{StateDB: db}
@@ -73,23 +73,23 @@ func repair1209Call(t *testing.T, ctx sdk.Context, k *evmkeeper.Keeper, runner v
 	return ret, err, db
 }
 
-func TestRepairM_1209_InvalidKeyBeforePayment(t *testing.T) {
+func TestInvalidKeyBeforePayment(t *testing.T) {
 	for _, size := range []int{0, 1, 31, 33, 64} {
 		t.Run(fmt.Sprintf("bytes_%d", size), func(t *testing.T) {
-			a, ctx, caller, payer := repair1209Fixture(t)
+			a, ctx, caller, payer := stakingReplayFixture(t)
 			a.UpgradeKeeper.SetDone(ctx, pcommon.MergeUpgrade)
 			p, err := staking.NewPrecompile(a.GetPrecompileKeepers())
 			require.NoError(t, err)
 			precompileAccount := a.EvmKeeper.GetPaxAddressOrDefault(ctx, p.Address())
 			// Fund the actual payment source, so a missing guard reaches the
 			// keeper's consensus-address construction rather than a bank error.
-			repair1209Fund(t, a, ctx, precompileAccount, 1_000_000)
+			stakingReplayFund(t, a, ctx, precompileAccount, 1_000_000)
 			balances := a.BankKeeper.GetAllBalances(ctx, payer)
 			precompileBalances := a.BankKeeper.GetAllBalances(ctx, precompileAccount)
 			validators := a.StakingKeeper.GetAllValidators(ctx)
 			supply := a.BankKeeper.GetSupply(ctx, a.StakingKeeper.BondDenom(ctx))
-			input := repair1209Input(t, p.GetABI(), hex.EncodeToString(bytes.Repeat([]byte{1}, size)))
-			ret, err, db := repair1209Call(t, ctx, &a.EvmKeeper, p, caller, input)
+			input := stakingReplayInput(t, p.GetABI(), hex.EncodeToString(bytes.Repeat([]byte{1}, size)))
+			ret, err, db := stakingReplayCall(t, ctx, &a.EvmKeeper, p, caller, input)
 			require.ErrorIs(t, err, vm.ErrExecutionReverted)
 			require.Empty(t, ret)
 			require.EqualError(t, db.GetPrecompileError(), "invalid public key length: expected 32 bytes")
@@ -104,15 +104,15 @@ func TestRepairM_1209_InvalidKeyBeforePayment(t *testing.T) {
 	}
 }
 
-func TestRepairM_1209_ValidKeyCreatesValidator(t *testing.T) {
-	a, ctx, caller, payer := repair1209Fixture(t)
+func TestValidKeyCreatesValidator(t *testing.T) {
+	a, ctx, caller, payer := stakingReplayFixture(t)
 	a.UpgradeKeeper.SetDone(ctx, pcommon.MergeUpgrade)
 	p, err := staking.NewPrecompile(a.GetPrecompileKeepers())
 	require.NoError(t, err)
 	precompileAccount := a.EvmKeeper.GetPaxAddressOrDefault(ctx, p.Address())
-	repair1209Fund(t, a, ctx, precompileAccount, 1_000_000)
+	stakingReplayFund(t, a, ctx, precompileAccount, 1_000_000)
 	key := ed25519.GenPrivKeyFromSecret([]byte("repair-1209-consensus-key")).PubKey()
-	ret, err, db := repair1209Call(t, ctx, &a.EvmKeeper, p, caller, repair1209Input(t, p.GetABI(), hex.EncodeToString(key.Bytes())))
+	ret, err, db := stakingReplayCall(t, ctx, &a.EvmKeeper, p, caller, stakingReplayInput(t, p.GetABI(), hex.EncodeToString(key.Bytes())))
 	require.NoError(t, err)
 	ctx = db.Ctx()
 	decoded, err := p.GetABI().Methods[staking.CreateValidatorMethod].Outputs.Unpack(ret)
@@ -131,8 +131,8 @@ func TestRepairM_1209_ValidKeyCreatesValidator(t *testing.T) {
 	require.True(t, a.BankKeeper.GetAllBalances(ctx, precompileAccount).IsZero())
 }
 
-func TestRepairM_1209_UpgradeReplay(t *testing.T) {
-	a, base, caller, _ := repair1209Fixture(t)
+func TestUpgradeReplay(t *testing.T) {
+	a, base, caller, _ := stakingReplayFixture(t)
 	k := a.EvmKeeper
 	address := common.HexToAddress(staking.StakingAddress)
 	versions := staking.GetVersioned(pcommon.MergeUpgrade, a.GetPrecompileKeepers())
@@ -142,40 +142,40 @@ func TestRepairM_1209_UpgradeReplay(t *testing.T) {
 	archived, err := stakingv620.NewPrecompile(a.GetPrecompileKeepers())
 	require.NoError(t, err)
 	precompileAccount := k.GetPaxAddressOrDefault(base, address)
-	repair1209Fund(t, a, base, precompileAccount, 1_000_000)
-	input := repair1209Input(t, archived.GetABI(), hex.EncodeToString(bytes.Repeat([]byte{1}, 31)))
+	stakingReplayFund(t, a, base, precompileAccount, 1_000_000)
+	input := stakingReplayInput(t, archived.GetABI(), hex.EncodeToString(bytes.Repeat([]byte{1}, 31)))
 	for _, phase := range []string{"unscheduled", "scheduled", "applied"} {
 		switch phase {
 		case "scheduled":
-			require.NoError(t, a.UpgradeKeeper.ScheduleUpgrade(base, upgradetypes.Plan{Name: pcommon.MergeUpgrade, Height: repair1209Height}))
+			require.NoError(t, a.UpgradeKeeper.ScheduleUpgrade(base, upgradetypes.Plan{Name: pcommon.MergeUpgrade, Height: stakingReplayHeight}))
 		case "applied":
-			a.UpgradeKeeper.SetDone(base.WithBlockHeight(repair1209Height), pcommon.MergeUpgrade)
+			a.UpgradeKeeper.SetDone(base.WithBlockHeight(stakingReplayHeight), pcommon.MergeUpgrade)
 		}
-		for _, height := range []int64{1, repair1209Height - 1, repair1209Height, repair1209Height + 1} {
+		for _, height := range []int64{1, stakingReplayHeight - 1, stakingReplayHeight, stakingReplayHeight + 1} {
 			for _, tracing := range []bool{false, true} {
 				t.Run(fmt.Sprintf("%s/height_%d/tracing_%t", phase, height, tracing), func(t *testing.T) {
 					ctx, _ := base.WithBlockHeight(height).WithIsTracing(tracing).CacheContext()
 					selected := k.CustomPrecompiles(ctx)[address]
 					require.NotNil(t, selected)
-					active := phase == "applied" && height >= repair1209Height
+					active := phase == "applied" && height >= stakingReplayHeight
 					wantVersion := "v6.2.0"
 					if active {
 						wantVersion = pcommon.MergeUpgrade
 					}
 					require.Equal(t, wantVersion, k.GetCustomPrecompilesVersions(ctx)[address])
 					if active {
-						_, err, db := repair1209Call(t, ctx, &k, selected, caller, input)
+						_, err, db := stakingReplayCall(t, ctx, &k, selected, caller, input)
 						require.ErrorIs(t, err, vm.ErrExecutionReverted)
 						require.EqualError(t, db.GetPrecompileError(), "invalid public key length: expected 32 bytes")
 					} else {
 						require.PanicsWithValue(t, "pubkey is incorrect size", func() {
-							repair1209Call(t, ctx, &k, selected, caller, input)
+							stakingReplayCall(t, ctx, &k, selected, caller, input)
 						})
 					}
 					// The archived snapshot retains the old behavior at every height.
 					legacyCtx, _ := base.WithBlockHeight(height).CacheContext()
 					require.PanicsWithValue(t, "pubkey is incorrect size", func() {
-						repair1209Call(t, legacyCtx, &k, archived, caller, input)
+						stakingReplayCall(t, legacyCtx, &k, archived, caller, input)
 					})
 				})
 			}
@@ -183,17 +183,17 @@ func TestRepairM_1209_UpgradeReplay(t *testing.T) {
 	}
 }
 
-func TestRepairM_1209_EVMTransactionRefusal(t *testing.T) {
+func TestEVMTransactionRefusal(t *testing.T) {
 	for _, size := range []int{0, 31, 33} {
 		t.Run(fmt.Sprintf("bytes_%d", size), func(t *testing.T) {
-			a, ctx, caller, payer := repair1209Fixture(t)
+			a, ctx, caller, payer := stakingReplayFixture(t)
 			a.UpgradeKeeper.SetDone(ctx, pcommon.MergeUpgrade)
 			k := a.EvmKeeper
 			address := common.HexToAddress(staking.StakingAddress)
 			versions := staking.GetVersioned(pcommon.MergeUpgrade, a.GetPrecompileKeepers())
 			k.SetCustomPrecompiles(map[common.Address]utils.VersionedPrecompiles{address: versions}, pcommon.MergeUpgrade)
 			p := versions[pcommon.MergeUpgrade].(*pcommon.DynamicGasPrecompile)
-			repair1209Fund(t, a, ctx, payer, 2_000_000_000_000)
+			stakingReplayFund(t, a, ctx, payer, 2_000_000_000_000)
 			balances := a.BankKeeper.GetAllBalances(ctx, payer)
 			precompileAccount := k.GetPaxAddressOrDefault(ctx, address)
 			precompileBalances := a.BankKeeper.GetAllBalances(ctx, precompileAccount)
@@ -204,7 +204,7 @@ func TestRepairM_1209_EVMTransactionRefusal(t *testing.T) {
 			tx, err := ethtypes.SignTx(ethtypes.NewTx(&ethtypes.LegacyTx{
 				GasPrice: big.NewInt(1_000_000_000_000), Gas: 2_000_000, To: &address,
 				Value: big.NewInt(1_000_000_000_000_000_000),
-				Data:  repair1209Input(t, p.GetABI(), hex.EncodeToString(bytes.Repeat([]byte{1}, size))),
+				Data:  stakingReplayInput(t, p.GetABI(), hex.EncodeToString(bytes.Repeat([]byte{1}, size))),
 			}), signer, key)
 			require.NoError(t, err)
 			require.Equal(t, caller, crypto.PubkeyToAddress(key.PublicKey))

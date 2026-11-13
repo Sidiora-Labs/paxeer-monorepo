@@ -29,7 +29,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM1201TransactionSetup(t *testing.T, height int64) *createValidatorTestSetup {
+func setupValidatorTransaction(t *testing.T, height int64) *createValidatorTestSetup {
 	t.Helper()
 	s := setupCreateValidatorTest(t)
 	s.ctx = s.ctx.WithBlockHeight(height).WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
@@ -44,7 +44,7 @@ func repairM1201TransactionSetup(t *testing.T, height int64) *createValidatorTes
 	return s
 }
 
-func repairM1201Send(t *testing.T, s *createValidatorTestSetup, pubkey string) (*evmtypes.MsgEVMTransactionResponse, *evmtypes.Receipt) {
+func sendValidatorTransaction(t *testing.T, s *createValidatorTestSetup, pubkey string) (*evmtypes.MsgEVMTransactionResponse, *evmtypes.Receipt) {
 	t.Helper()
 	input, err := s.abi.Pack(staking.CreateValidatorMethod, pubkey, "RepairM1201", "0.05", "0.20", "0.01", big.NewInt(1_000_000))
 	require.NoError(t, err)
@@ -65,12 +65,12 @@ func repairM1201Send(t *testing.T, s *createValidatorTestSetup, pubkey string) (
 	return response, receipt
 }
 
-func TestRepairM_1201_ValidatorKeyLength(t *testing.T) {
-	for _, height := range []int64{repair126PlanHeight, repair126PlanHeight + 1} {
+func TestValidatorKeyLength(t *testing.T) {
+	for _, height := range []int64{mergePlanHeight, mergePlanHeight + 1} {
 		for _, size := range []int{0, 31, 32, 33} {
 			t.Run(fmt.Sprintf("height_%d/bytes_%d", height, size), func(t *testing.T) {
-				s := repairM1201TransactionSetup(t, height)
-				s.testApp.UpgradeKeeper.SetDone(s.ctx.WithBlockHeight(repair126PlanHeight), pcommon.MergeUpgrade)
+				s := setupValidatorTransaction(t, height)
+				s.testApp.UpgradeKeeper.SetDone(s.ctx.WithBlockHeight(mergePlanHeight), pcommon.MergeUpgrade)
 				pax, _ := testkeeper.PrivateKeyToAddresses(s.testPrivKey)
 				validatorsBefore := s.testApp.StakingKeeper.GetAllValidators(s.ctx)
 				callerBefore := s.testApp.BankKeeper.GetAllBalances(s.ctx, pax)
@@ -79,7 +79,7 @@ func TestRepairM_1201_ValidatorKeyLength(t *testing.T) {
 				poolBefore := s.testApp.StakingKeeper.GetNotBondedPool(s.ctx).GetAddress()
 				poolBalanceBefore := s.testApp.BankKeeper.GetAllBalances(s.ctx, poolBefore)
 				key := hex.EncodeToString(bytes.Repeat([]byte{0x42}, size))
-				response, receipt := repairM1201Send(t, s, key)
+				response, receipt := sendValidatorTransaction(t, s, key)
 				if size == ed25519.PubKeySize {
 					require.Empty(t, response.VmError)
 					require.Equal(t, uint32(ethtypes.ReceiptStatusSuccessful), receipt.Status)
@@ -109,18 +109,18 @@ func TestRepairM_1201_ValidatorKeyLength(t *testing.T) {
 	}
 }
 
-func TestRepairM_1201_ForwardVersionPolicy(t *testing.T) {
-	s := repairM1201TransactionSetup(t, repair126PlanHeight-1)
+func TestValidatorKeyActivation(t *testing.T) {
+	s := setupValidatorTransaction(t, mergePlanHeight-1)
 	require.Zero(t, s.testApp.UpgradeKeeper.GetDoneHeight(s.ctx, pcommon.MergeUpgrade))
 	s.testApp.UpgradeKeeper.SetDone(s.ctx.WithBlockHeight(1), "v6.4.0")
 	for _, phase := range []string{"unscheduled", "scheduled", "applied"} {
 		switch phase {
 		case "scheduled":
-			require.NoError(t, s.testApp.UpgradeKeeper.ScheduleUpgrade(s.ctx, upgradetypes.Plan{Name: pcommon.MergeUpgrade, Height: repair126PlanHeight}))
+			require.NoError(t, s.testApp.UpgradeKeeper.ScheduleUpgrade(s.ctx, upgradetypes.Plan{Name: pcommon.MergeUpgrade, Height: mergePlanHeight}))
 		case "applied":
-			s.testApp.UpgradeKeeper.SetDone(s.ctx.WithBlockHeight(repair126PlanHeight), pcommon.MergeUpgrade)
+			s.testApp.UpgradeKeeper.SetDone(s.ctx.WithBlockHeight(mergePlanHeight), pcommon.MergeUpgrade)
 		}
-		for _, height := range []int64{repair126PlanHeight - 1, repair126PlanHeight, repair126PlanHeight + 1} {
+		for _, height := range []int64{mergePlanHeight - 1, mergePlanHeight, mergePlanHeight + 1} {
 			for _, tracing := range []bool{false, true} {
 				t.Run(fmt.Sprintf("%s/height_%d/tracing_%t", phase, height, tracing), func(t *testing.T) {
 					ctx, _ := s.ctx.WithBlockHeight(height).WithIsTracing(tracing).CacheContext()
@@ -135,7 +135,7 @@ func TestRepairM_1201_ForwardVersionPolicy(t *testing.T) {
 					_, _, err = runner.RunAndCalculateGas(&vm.EVM{StateDB: db}, caller, caller, input, 20_000_000, nil, nil, false, false)
 					require.ErrorIs(t, err, vm.ErrExecutionReverted)
 					reason := "set `value` field to non-zero to send delegate fund"
-					if phase == "applied" && height >= repair126PlanHeight {
+					if phase == "applied" && height >= mergePlanHeight {
 						reason = "invalid public key length: expected 32 bytes, got 0"
 					}
 					require.EqualError(t, db.GetPrecompileError(), reason)
@@ -145,13 +145,13 @@ func TestRepairM_1201_ForwardVersionPolicy(t *testing.T) {
 	}
 }
 
-func TestRepairM_1201_StakingErrorAssertion(t *testing.T) {
+func TestStakingRefusalReasons(t *testing.T) {
 	t.Run("createValidator refusal reasons", TestCreateValidator)
-	for _, height := range []int64{repair126PlanHeight - 1, repair126PlanHeight} {
+	for _, height := range []int64{mergePlanHeight - 1, mergePlanHeight} {
 		t.Run(fmt.Sprintf("validators/height_%d", height), func(t *testing.T) {
-			s := repairM1201TransactionSetup(t, height)
+			s := setupValidatorTransaction(t, height)
 			s.testApp.UpgradeKeeper.SetDone(s.ctx.WithBlockHeight(1), "v6.4.0")
-			s.testApp.UpgradeKeeper.SetDone(s.ctx.WithBlockHeight(repair126PlanHeight), pcommon.MergeUpgrade)
+			s.testApp.UpgradeKeeper.SetDone(s.ctx.WithBlockHeight(mergePlanHeight), pcommon.MergeUpgrade)
 			p, found := s.k.CustomPrecompiles(s.ctx)[s.addr]
 			require.True(t, found)
 			runner, ok := p.(vm.DynamicGasPrecompiledContract)
@@ -168,11 +168,11 @@ func TestRepairM_1201_StakingErrorAssertion(t *testing.T) {
 	}
 }
 
-func repairM1201RedelegationShares(t *testing.T) {
+func assertRedelegationShares(t *testing.T) {
 	t.Helper()
-	a, ctx, req := repair126RedelegationState(t)
-	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(repair126PlanHeight), pcommon.MergeUpgrade)
-	ctx = ctx.WithBlockHeight(repair126PlanHeight)
+	a, ctx, req := redelegationState(t)
+	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(mergePlanHeight), pcommon.MergeUpgrade)
+	ctx = ctx.WithBlockHeight(mergePlanHeight)
 	del := sdk.MustAccAddressFromBech32(req.DelegatorAddr)
 	src, err := sdk.ValAddressFromBech32(req.SrcValidatorAddr)
 	require.NoError(t, err)
@@ -183,24 +183,24 @@ func repairM1201RedelegationShares(t *testing.T) {
 	require.Len(t, persisted.Entries, 1)
 	entry := persisted.Entries[0]
 	require.Equal(t, "11.666666666666666666", entry.SharesDst.String())
-	producer := repair126Query(t, a, ctx, req)
+	producer := queryRedelegations(t, a, ctx, req)
 	require.NotEqual(t, producer.RedelegationResponses[0].Entries[0].Balance.ToDec(), entry.SharesDst)
 	p, err := staking.NewPrecompile(a.GetPrecompileKeepers())
 	require.NoError(t, err)
-	_, decoded := repair126Call(t, ctx, &a.EvmKeeper, p, p.GetABI(), req)
+	_, decoded := callRedelegations(t, ctx, &a.EvmKeeper, p, p.GetABI(), req)
 	require.Equal(t, entry.SharesDst.String(), decoded.Redelegations[0].Entries[0].SharesDst)
 	require.Equal(t, entry.InitialBalance.String(), decoded.Redelegations[0].Entries[0].InitialBalance)
 }
 
-func TestRepairM_1201_SharesTestFixture(t *testing.T) {
-	repairM1201RedelegationShares(t)
+func TestPersistedRedelegationShares(t *testing.T) {
+	assertRedelegationShares(t)
 }
 
-func repairM1201StaticDelegation(t *testing.T) {
+func assertStaticDelegation(t *testing.T) {
 	t.Helper()
-	a, ctx, req := repair126RedelegationState(t)
-	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(repair126PlanHeight), pcommon.MergeUpgrade)
-	ctx = ctx.WithBlockHeight(repair126PlanHeight)
+	a, ctx, req := redelegationState(t)
+	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(mergePlanHeight), pcommon.MergeUpgrade)
+	ctx = ctx.WithBlockHeight(mergePlanHeight)
 	del := sdk.MustAccAddressFromBech32(req.DelegatorAddr)
 	dst, err := sdk.ValAddressFromBech32(req.DstValidatorAddr)
 	require.NoError(t, err)
@@ -263,6 +263,6 @@ func repairM1201StaticDelegation(t *testing.T) {
 	require.Equal(t, persisted, after)
 }
 
-func TestRepairM_1201_StaticQueryNoAssertion(t *testing.T) {
-	repairM1201StaticDelegation(t)
+func TestStaticDelegationQuery(t *testing.T) {
+	assertStaticDelegation(t)
 }
