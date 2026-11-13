@@ -15,7 +15,7 @@ export default function Engine() {
       </div>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/engine/</code>
+        <strong>Source:</strong> <code>engine/</code>
       </div>
 
       <h2>Overview</h2>
@@ -27,11 +27,11 @@ export default function Engine() {
       <h2>Executor</h2>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/engine/executor/</code>
+        <strong>Source:</strong> <code>engine/executor/</code>
       </div>
 
       <p>
-        The executor is the core EVM execution wrapper. It provides two entry points:
+        The executor wraps EVM execution with separate constructors for the Geth interpreter and the EVMC backend.
       </p>
 
       <h3>Executor Types</h3>
@@ -71,7 +71,7 @@ func NewEvmoneExecutor(evmoneVM *evmc.VM, blockCtx vm.BlockContext,
     gasPool *core.GasPool) (*core.ExecutionResult, error)`}</code></pre>
 
       <p>
-        Standard execution charges gas fees from the sender, executes the transaction, and refunds unused gas. This path is used for direct EVM transaction submission.
+        Standard execution converts the transaction into an internal message and calls go-ethereum’s ApplyMessage, including its gas purchase and refund handling.
       </p>
 
       <h4>Fee-Already-Charged Execution</h4>
@@ -87,7 +87,7 @@ func NewEvmoneExecutor(evmoneVM *evmc.VM, blockCtx vm.BlockContext,
       <h3>Internal Components</h3>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/engine/executor/internal/</code>
+        <strong>Source:</strong> <code>engine/executor/internal/</code>
       </div>
 
       <p>
@@ -103,7 +103,7 @@ func NewEvmoneExecutor(evmoneVM *evmc.VM, blockCtx vm.BlockContext,
       <h2>Precompiles</h2>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/precompiles/</code>; <code>engine/executor/precompiles/failfast.go</code>
+        <strong>Source:</strong> <code>precompiles/</code>; <code>engine/executor/precompiles/failfast.go</code>
       </div>
 
       <p>
@@ -117,7 +117,7 @@ func NewEvmoneExecutor(evmoneVM *evmc.VM, blockCtx vm.BlockContext,
       <h2>Dependencies (xbank, xevm)</h2>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/engine/deps/</code>
+        <strong>Source:</strong> <code>engine/deps/</code>
       </div>
 
       <p>
@@ -149,14 +149,14 @@ func NewEvmoneExecutor(evmoneVM *evmc.VM, blockCtx vm.BlockContext,
         <li><strong>Address:</strong> Cosmos ↔ EVM address association</li>
         <li><strong>Nonce:</strong> Account nonce management</li>
         <li><strong>Fee:</strong> Gas price and fee collection</li>
-        <li><strong>Coinbase:</strong> Block reward recipient</li>
+        <li><strong>Coinbase:</strong> EVM coinbase address and fee-collector lookup</li>
         <li><strong>Precompile:</strong> Precompile address registration</li>
       </ul>
 
       <h2>Configuration</h2>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/engine/executor/config/</code>
+        <strong>Source:</strong> <code>engine/executor/config/</code>
       </div>
 
       <p>
@@ -180,11 +180,11 @@ occ_enabled = true`}</code></pre>
       <h2>Testing</h2>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/engine/tests/</code>
+        <strong>Source:</strong> <code>engine/tests/</code>
       </div>
 
       <p>
-        The engine includes comprehensive test suites:
+        The engine includes state-transition tests and an execution harness:
       </p>
 
       <ul>
@@ -196,17 +196,17 @@ occ_enabled = true`}</code></pre>
       <h2>Chain ID</h2>
 
       <p>
-        The chain configuration maps the Cosmos identifier <code>hyperpax_125-1</code> to <strong>EVM chain ID 125</strong>. Transactions on that network must use chain ID 125 for EIP-155 replay protection. Unknown Cosmos identifiers use the separate development fallback chain ID and must not be treated as Paxeer mainnet.
+        The chain configuration maps the Cosmos identifier <code>hyperpax_125-1</code> to <strong>EVM chain ID 125</strong>. Transactions on that network must use chain ID 125 for EIP-155 replay protection. Unmapped Cosmos identifiers also return the default EVM chain ID 125 in <code>modules/evm/config/config.go</code>. Check the configured network as well as the numeric chain ID.
       </p>
 
       <h2>Utilities</h2>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/engine/executor/utils/</code>
+        <strong>Source:</strong> <code>engine/executor/utils/</code>
       </div>
 
       <p>
-        The utils package (<code>errors.go</code>) defines the Giga abort sentinel (<code>giga_fallback_to_v2</code>) and <code>ShouldExecutionAbort</code>, which reports whether an error should abort Giga execution and fall back to the standard (V2) execution path.
+        The utils package (<code>errors.go</code>) defines the Giga abort sentinel (<code>giga_fallback_to_v2</code>). <code>ShouldExecutionAbort</code> checks whether a <code>vm.AbortError</code> requests an abort, allowing the caller to select the standard (V2) execution path.
       </p>
 
       <h2>Integration with EVM Module</h2>
