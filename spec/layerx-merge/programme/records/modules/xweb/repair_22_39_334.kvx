@@ -11,6 +11,6 @@ after = "The shared\n[`types/testdata/preimage-vectors.json`](types/testdata/pre
 preservation = "Only the frozen-corpus paragraph changes. Every vector, digest, signature, corpus byte and test case is preserved; the paragraph retains the origin-2 fixture value, byte-for-byte corpus preservation, explicit historical keeper configuration, live chain-state signing, archived-byte meaning, chain-125 disclaimer and separate-scope requirement."
 test = "modules/evm/config/repair_476_test.go::TestRepair476_AttestationDocumentation"
 build_command = "go build ./modules/evm/config/ ./modules/xweb/types/"
-verify_command = "test -s modules/xweb/repair_22_39_334.kvx && go test -count=1 -run '^TestRepair476_' ./modules/evm/config/"
+verify_command = "test -s spec/layerx-merge/programme/records/modules/xweb/repair_22_39_334.kvx && go test -count=1 -run '^TestRepair476_' ./modules/evm/config/"
 qualification = "The final passing verify row in /out/run/gates.jsonl and the JSON emitted by hf-done name the exact verified candidate revision, command, exit code and private log. The build and verify must name the same candidate revision; no qualification is claimed before those gates run."
 scope_note = "Task instructions limit changes to this record and ATTESTATION.md, prohibit root/spec ledger edits, commits and pushes, and assign publication to the runner."

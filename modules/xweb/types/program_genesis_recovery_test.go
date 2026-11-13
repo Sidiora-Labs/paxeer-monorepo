@@ -48,7 +48,7 @@ import (
 
 // This fixture constructs production keepers directly. No application VM,
 // external process, endpoint or native guest artifact is started by the tests.
-type repair1249Store struct {
+type programGenesisStore struct {
 	home     string
 	store    sdk.CommitMultiStore
 	ctx      sdk.Context
@@ -62,7 +62,7 @@ type repair1249Store struct {
 	closed   bool
 }
 
-func repair1249Open(t *testing.T, home string, initialize bool) *repair1249Store {
+func openProgramGenesisStore(t *testing.T, home string, initialize bool) *programGenesisStore {
 	t.Helper()
 	if _, exists := sdk.GetDenomUnit(types.ProgramFeeDenomPAX); !exists {
 		require.NoError(t, sdk.RegisterDenom(types.ProgramFeeDenomPAX, sdk.OneDec()))
@@ -70,7 +70,7 @@ func repair1249Open(t *testing.T, home string, initialize bool) *repair1249Store
 	require.Equal(t, types.ProgramFeeDenomPAX, sdk.MustGetBaseDenom())
 	db, err := dbm.NewGoLevelDB("state", home)
 	require.NoError(t, err)
-	s := &repair1249Store{home: home, store: store.NewCommitMultiStore(db), keys: map[string]*sdk.KVStoreKey{}, registry: codectypes.NewInterfaceRegistry()}
+	s := &programGenesisStore{home: home, store: store.NewCommitMultiStore(db), keys: map[string]*sdk.KVStoreKey{}, registry: codectypes.NewInterfaceRegistry()}
 	for _, name := range []string{types.StoreKey, "auth", "bank", "evm", "params", "upgrade"} {
 		s.keys[name] = sdk.NewKVStoreKey(name)
 		s.store.MountStoreWithDB(s.keys[name], sdk.StoreTypeDB, nil)
@@ -111,7 +111,7 @@ func repair1249Open(t *testing.T, home string, initialize bool) *repair1249Store
 	return s
 }
 
-func (s *repair1249Store) close(t *testing.T) {
+func (s *programGenesisStore) close(t *testing.T) {
 	t.Helper()
 	if !s.closed {
 		require.NoError(t, s.store.Close())
@@ -119,37 +119,37 @@ func (s *repair1249Store) close(t *testing.T) {
 	}
 }
 
-func (s *repair1249Store) commit() {
+func (s *programGenesisStore) commit() {
 	s.ctx.MultiStore().(sdk.CacheMultiStore).Write()
 	s.store.Commit(true)
 	s.ctx = s.ctx.WithMultiStore(s.store.CacheMultiStore()).WithBlockHeight(s.store.LastCommitID().Version + 1)
 }
 
-func (s *repair1249Store) client() types.QueryClient {
+func (s *programGenesisStore) client() types.QueryClient {
 	router := baseapp.NewQueryServerTestHelper(s.ctx, s.registry)
 	xweb.NewAppModule(s.web).RegisterServices(module.NewConfigurator(s.cdc, router, router))
 	return types.NewQueryClient(router)
 }
 
-func (s *repair1249Store) fund(t *testing.T, account sdk.AccAddress, denom string, amount int64) {
+func (s *programGenesisStore) fund(t *testing.T, account sdk.AccAddress, denom string, amount int64) {
 	t.Helper()
 	coins := sdk.NewCoins(sdk.NewInt64Coin(denom, amount))
 	require.NoError(t, s.bank.MintCoins(s.ctx, "repair1249", coins))
 	require.NoError(t, s.bank.SendCoinsFromModuleToAccount(s.ctx, "repair1249", account, coins))
 }
 
-func repair1249Program() types.Hash32 { return types.Hash32{0x49} }
-func repair1249Payload() []byte       { return []byte("https://example.test/repair1249") }
+func genesisRecoveryProgram() types.Hash32 { return types.Hash32{0x49} }
+func genesisRecoveryPayload() []byte       { return []byte("https://example.test/repair1249") }
 
-func (s *repair1249Store) request(t *testing.T, id uint64, denom string) {
+func (s *programGenesisStore) request(t *testing.T, id uint64, denom string) {
 	t.Helper()
-	program, asset := repair1249Program(), types.Hash32{byte(id), 0x49}
+	program, asset := genesisRecoveryProgram(), types.Hash32{byte(id), 0x49}
 	principal := sdk.AccAddress(bytes.Repeat([]byte{0x42}, 20))
 	s.fund(t, principal, denom, 7)
 	data := binary.BigEndian.AppendUint64(nil, id)
 	data = append(data, types.KindFetch)
-	data = binary.BigEndian.AppendUint32(data, uint32(len(repair1249Payload())))
-	data = append(data, repair1249Payload()...)
+	data = binary.BigEndian.AppendUint32(data, uint32(len(genesisRecoveryPayload())))
+	data = append(data, genesisRecoveryPayload()...)
 	branch, write := s.ctx.CacheContext()
 	require.NoError(t, s.bank.SendCoins(branch, principal, keeper.ProgramFeeAccount(asset), sdk.NewCoins(sdk.NewInt64Coin(denom, 7))))
 	call := &keeper.ProgramCall{ProgramID: program, Principal: principal, Sequence: id,
@@ -158,10 +158,10 @@ func (s *repair1249Store) request(t *testing.T, id uint64, denom string) {
 	write()
 }
 
-func repair1249Observation(t *testing.T, id uint64, response []byte) (types.Observation, []byte) {
+func genesisRecoveryObservation(t *testing.T, id uint64, response []byte) (types.Observation, []byte) {
 	t.Helper()
-	observation := types.Observation{Origin: types.OriginProgram, NetworkID: 125, ProgramID: repair1249Program(), RequestID: id,
-		Kind: types.KindFetch, PayloadHash: types.Keccak(repair1249Payload()), ContentDigest: types.Keccak(response),
+	observation := types.Observation{Origin: types.OriginProgram, NetworkID: 125, ProgramID: genesisRecoveryProgram(), RequestID: id,
+		Kind: types.KindFetch, PayloadHash: types.Keccak(genesisRecoveryPayload()), ContentDigest: types.Keccak(response),
 		FullLength: uint32(len(response)), Response: response}
 	digest := types.Digest(types.Attestation{Origin: observation.Origin, NetworkID: big.NewInt(125), Requester: observation.ProgramID,
 		RequestID: id, Kind: observation.Kind, PayloadHash: observation.PayloadHash, ContentDigest: observation.ContentDigest,
@@ -172,7 +172,7 @@ func repair1249Observation(t *testing.T, id uint64, response []byte) (types.Obse
 	return observation, raw
 }
 
-func repair1249JSON(t *testing.T, g types.GenesisState) []byte {
+func encodeProgramGenesisJSON(t *testing.T, g types.GenesisState) []byte {
 	t.Helper()
 	raw, err := json.Marshal(g)
 	require.NoError(t, err)
@@ -181,7 +181,7 @@ func repair1249JSON(t *testing.T, g types.GenesisState) []byte {
 
 // Export through the module, stop the producer, import both its actual bank
 // ledger and web JSON, then close and reopen every store and keeper.
-func repair1249Recover(t *testing.T, source *repair1249Store) *repair1249Store {
+func recoverProgramGenesisStore(t *testing.T, source *programGenesisStore) *programGenesisStore {
 	t.Helper()
 	webJSON := xweb.NewAppModule(source.web).ExportGenesis(source.ctx, source.cdc)
 	bankJSON, err := json.Marshal(source.bank.ExportGenesis(source.ctx))
@@ -189,7 +189,7 @@ func repair1249Recover(t *testing.T, source *repair1249Store) *repair1249Store {
 	source.commit()
 	source.close(t)
 	targetHome := filepath.Join(t.TempDir(), "imported")
-	target := repair1249Open(t, targetHome, true)
+	target := openProgramGenesisStore(t, targetHome, true)
 	var bankGenesis banktypes.GenesisState
 	require.NoError(t, json.Unmarshal(bankJSON, &bankGenesis))
 	target.bank.InitGenesis(target.ctx, &bankGenesis)
@@ -199,10 +199,10 @@ func repair1249Recover(t *testing.T, source *repair1249Store) *repair1249Store {
 	require.JSONEq(t, string(webJSON), string(am.ExportGenesis(target.ctx, target.cdc)))
 	target.commit()
 	target.close(t)
-	return repair1249Open(t, targetHome, false)
+	return openProgramGenesisStore(t, targetHome, false)
 }
 
-func repair1249Snapshot(t *testing.T, s *repair1249Store) map[string][]byte {
+func snapshotProgramGenesisStore(t *testing.T, s *programGenesisStore) map[string][]byte {
 	t.Helper()
 	out := map[string][]byte{}
 	it := s.ctx.KVStore(s.keys[types.StoreKey]).Iterator(nil, nil)
@@ -213,21 +213,21 @@ func repair1249Snapshot(t *testing.T, s *repair1249Store) map[string][]byte {
 	return out
 }
 
-func repair1249Reject(t *testing.T, s *repair1249Store, g types.GenesisState) {
+func assertProgramGenesisRejected(t *testing.T, s *programGenesisStore, g types.GenesisState) {
 	t.Helper()
-	raw := repair1249JSON(t, g)
+	raw := encodeProgramGenesisJSON(t, g)
 	var decoded types.GenesisState
 	require.NoError(t, json.Unmarshal(raw, &decoded))
 	require.ErrorIs(t, decoded.Validate(), types.ErrInvalidGenesis)
 	am := xweb.NewAppModule(s.web)
 	require.ErrorIs(t, am.ValidateGenesis(s.cdc, nil, raw), types.ErrInvalidGenesis)
-	before := repair1249Snapshot(t, s)
+	before := snapshotProgramGenesisStore(t, s)
 	require.Panics(t, func() { am.InitGenesis(s.ctx, s.cdc, raw) })
-	require.Equal(t, before, repair1249Snapshot(t, s), "invalid import must write no state")
+	require.Equal(t, before, snapshotProgramGenesisStore(t, s), "invalid import must write no state")
 }
 
-func TestRepairM_1249_StorageReceiptErrorName(t *testing.T) {
-	s := repair1249Open(t, filepath.Join(t.TempDir(), "source"), true)
+func TestStorageReceiptErrorNamePropagation(t *testing.T) {
+	s := openProgramGenesisStore(t, filepath.Join(t.TempDir(), "source"), true)
 	valid, err := types.EncodeStorageReceiptPayload(types.StorageReceiptPayload{ObjectDigest: types.Keccak([]byte("object")), BaseURL: "https://storage.example/bucket"})
 	require.NoError(t, err)
 	cases := map[string][]byte{
@@ -249,7 +249,7 @@ func TestRepairM_1249_StorageReceiptErrorName(t *testing.T) {
 	const name = "LXP_XWEB_INVALID_PAYLOAD"
 	for label, payload := range cases {
 		t.Run(label, func(t *testing.T) {
-			before := repair1249Snapshot(t, s)
+			before := snapshotProgramGenesisStore(t, s)
 			balance := s.bank.GetBalance(s.ctx, payer, types.ProgramFeeDenomPAX)
 			_, directErr := s.web.Request(s.ctx, caller, types.KindStorageReceipt, payload, 100_000, s.web.Fee(s.ctx))
 			require.ErrorIs(t, directErr, types.ErrInvalidPayload)
@@ -272,7 +272,7 @@ func TestRepairM_1249_StorageReceiptErrorName(t *testing.T) {
 			registeredReason, err := abi.UnpackRevert(pcommon.LXPRevert(name, ""))
 			require.NoError(t, err)
 			require.Equal(t, name+": invalid storage receipt payload", registeredReason)
-			require.Equal(t, before, repair1249Snapshot(t, s))
+			require.Equal(t, before, snapshotProgramGenesisStore(t, s))
 			require.Equal(t, balance, s.bank.GetBalance(s.ctx, payer, types.ProgramFeeDenomPAX))
 		})
 	}
@@ -304,8 +304,8 @@ func TestRepairM_1249_StorageReceiptErrorName(t *testing.T) {
 	require.Equal(t, types.Keccak(valid), request.PayloadHash)
 }
 
-func TestRepairM_1249_PendingGenesisFeeDenom(t *testing.T) {
-	s := repair1249Open(t, filepath.Join(t.TempDir(), "source"), true)
+func TestPendingProgramGenesisFeeDenom(t *testing.T) {
+	s := openProgramGenesisStore(t, filepath.Join(t.TempDir(), "source"), true)
 	denoms := []string{types.ProgramFeeDenomPAX, types.ProgramFeeDenomSID, types.ProgramFeeDenomUSDC, types.ProgramFeeDenomUSDL}
 	for i, denom := range denoms {
 		s.request(t, uint64(i+1), denom)
@@ -315,10 +315,10 @@ func TestRepairM_1249_PendingGenesisFeeDenom(t *testing.T) {
 	for i := range original.ProgramFeeDenoms {
 		bad := s.web.ExportGenesis(s.ctx)
 		bad.ProgramFeeDenoms = append(bad.ProgramFeeDenoms[:i], bad.ProgramFeeDenoms[i+1:]...)
-		repair1249Reject(t, s, bad)
+		assertProgramGenesisRejected(t, s, bad)
 	}
-	s = repair1249Recover(t, s)
-	program := repair1249Program()
+	s = recoverProgramGenesisStore(t, s)
+	program := genesisRecoveryProgram()
 	keys := xwebtestutil.Attestors(3)
 	for i, denom := range denoms {
 		id := uint64(i + 1)
@@ -330,7 +330,7 @@ func TestRepairM_1249_PendingGenesisFeeDenom(t *testing.T) {
 		require.False(t, record.Fulfilled)
 		require.Equal(t, sdk.NewInt(7), record.Amount)
 		require.Equal(t, original.ProgramPending[i].Record, answer.Record)
-		_, raw := repair1249Observation(t, id, []byte("recovered"))
+		_, raw := genesisRecoveryObservation(t, id, []byte("recovered"))
 		require.NoError(t, s.web.FulfilProgram(s.ctx, raw))
 		for index, key := range keys {
 			share := int64(2)
@@ -346,11 +346,11 @@ func TestRepairM_1249_PendingGenesisFeeDenom(t *testing.T) {
 	require.NoError(t, fulfilled.Validate())
 	bad := s.web.ExportGenesis(s.ctx)
 	bad.ProgramFeeDenoms = nil
-	repair1249Reject(t, s, bad)
+	assertProgramGenesisRejected(t, s, bad)
 	s.commit()
 	home := s.home
 	s.close(t)
-	s = repair1249Open(t, home, false)
+	s = openProgramGenesisStore(t, home, false)
 	require.Equal(t, fulfilled, s.web.ExportGenesis(s.ctx))
 	for i, denom := range denoms {
 		answer, err := s.client().ProgramRequest(context.Background(), &types.QueryProgramRequestRequest{ProgramId: program[:], RequestId: uint64(i + 1)})
@@ -366,7 +366,7 @@ func TestRepairM_1249_PendingGenesisFeeDenom(t *testing.T) {
 	}
 }
 
-func TestRepairM_1249_ZeroFeeGenesisPolicy(t *testing.T) {
+func TestProgramGenesisZeroFeePolicy(t *testing.T) {
 	// Preserve only the existing exemption: an unpaid historical pending
 	// fixture needs no mapping. Fulfilled records still require one.
 	g := programGenesis(1, 0)
@@ -385,9 +385,9 @@ func TestRepairM_1249_ZeroFeeGenesisPolicy(t *testing.T) {
 	require.ErrorIs(t, g.Validate(), types.ErrInvalidGenesis)
 }
 
-func TestRepairM_1249_ProgramAnswerGenesisRecovery(t *testing.T) {
+func TestProgramAnswerGenesisRecovery(t *testing.T) {
 	require.Equal(t, keeper.ProgramAnswerChunkBytes, types.ProgramAnswerChunkBytes)
-	s := repair1249Open(t, filepath.Join(t.TempDir(), "source"), true)
+	s := openProgramGenesisStore(t, filepath.Join(t.TempDir(), "source"), true)
 	lengths := []int{0, 1, 1023, 1024, 1025, 2048, 3073, 4096}
 	observations := make([]types.Observation, len(lengths))
 	for i, length := range lengths {
@@ -397,13 +397,13 @@ func TestRepairM_1249_ProgramAnswerGenesisRecovery(t *testing.T) {
 		if length > 0 {
 			body = bytes.Repeat([]byte{byte(id)}, length)
 		}
-		observation, raw := repair1249Observation(t, id, body)
+		observation, raw := genesisRecoveryObservation(t, id, body)
 		observations[i] = observation
 		require.NoError(t, s.web.FulfilProgram(s.ctx, raw))
 	}
 	before := s.web.ExportGenesis(s.ctx)
 	require.NoError(t, before.Validate())
-	s = repair1249Recover(t, s)
+	s = recoverProgramGenesisStore(t, s)
 	require.Equal(t, before, s.web.ExportGenesis(s.ctx))
 	for _, observation := range observations {
 		answer, err := s.client().ProgramResult(context.Background(), &types.QueryProgramResultRequest{ProgramId: observation.ProgramID[:], RequestId: observation.RequestID})
@@ -417,10 +417,10 @@ func TestRepairM_1249_ProgramAnswerGenesisRecovery(t *testing.T) {
 	require.False(t, broken, message)
 }
 
-func TestRepairM_1249_ProgramAnswerGenesisRejectsCorruption(t *testing.T) {
-	s := repair1249Open(t, filepath.Join(t.TempDir(), "source"), true)
+func TestProgramAnswerGenesisRejectsCorruption(t *testing.T) {
+	s := openProgramGenesisStore(t, filepath.Join(t.TempDir(), "source"), true)
 	s.request(t, 1, types.ProgramFeeDenomUSDL)
-	_, raw := repair1249Observation(t, 1, bytes.Repeat([]byte{0x41}, 2049))
+	_, raw := genesisRecoveryObservation(t, 1, bytes.Repeat([]byte{0x41}, 2049))
 	require.NoError(t, s.web.FulfilProgram(s.ctx, raw))
 	mutations := []struct {
 		name  string
@@ -466,7 +466,7 @@ func TestRepairM_1249_ProgramAnswerGenesisRejectsCorruption(t *testing.T) {
 		t.Run(mutation.name, func(t *testing.T) {
 			g := s.web.ExportGenesis(s.ctx)
 			mutation.apply(&g)
-			repair1249Reject(t, s, g)
+			assertProgramGenesisRejected(t, s, g)
 		})
 	}
 	// The audited one-byte response with no part 1 must fail before import.
@@ -474,7 +474,7 @@ func TestRepairM_1249_ProgramAnswerGenesisRejectsCorruption(t *testing.T) {
 	binary.BigEndian.PutUint32(g.ProgramAnswers[0].Value[32:36], 1)
 	binary.BigEndian.PutUint32(g.ProgramAnswers[0].Value[36:40], 1)
 	g.ProgramAnswers = g.ProgramAnswers[:1]
-	repair1249Reject(t, s, g)
+	assertProgramGenesisRejected(t, s, g)
 	// Genesis entry order is immaterial; only the canonical key set matters.
 	g = s.web.ExportGenesis(s.ctx)
 	for i, j := 0, len(g.ProgramAnswers)-1; i < j; i, j = i+1, j-1 {
@@ -483,12 +483,12 @@ func TestRepairM_1249_ProgramAnswerGenesisRejectsCorruption(t *testing.T) {
 	require.NoError(t, g.Validate())
 	// Empty answers have exactly the header and no chunks, even empty ones.
 	s.request(t, 2, types.ProgramFeeDenomUSDL)
-	_, raw = repair1249Observation(t, 2, nil)
+	_, raw = genesisRecoveryObservation(t, 2, nil)
 	require.NoError(t, s.web.FulfilProgram(s.ctx, raw))
 	g = s.web.ExportGenesis(s.ctx)
 	require.NoError(t, g.Validate())
-	g.ProgramAnswers = append(g.ProgramAnswers, types.ProgramAnswerEntry{ProgramID: repair1249Program(), RequestID: 2, Part: 1})
-	repair1249Reject(t, s, g)
+	g.ProgramAnswers = append(g.ProgramAnswers, types.ProgramAnswerEntry{ProgramID: genesisRecoveryProgram(), RequestID: 2, Part: 1})
+	assertProgramGenesisRejected(t, s, g)
 	// Retain every pre-existing genesis assertion with the newly mapped fixture.
 	t.Run("existing genesis assertions", TestGenesisValidateRefusesCountersThatDisagreeWithRecords)
 	t.Run("pending capacity", TestGenesisValidateRefusesPendingOverCapacity)
