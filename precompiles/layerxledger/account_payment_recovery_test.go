@@ -30,7 +30,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type repair144Fixture struct {
+type ledgerAccountFixture struct {
 	p                 *ledgerPath
 	dir               string
 	sender, recipient common.Address
@@ -38,9 +38,9 @@ type repair144Fixture struct {
 	asset, from, to   [32]byte
 }
 
-func (f *repair144Fixture) open(t *testing.T, restart bool) {
+func (f *ledgerAccountFixture) open(t *testing.T, restart bool) {
 	t.Helper()
-	db, err := sdk.NewLevelDB("repair-144", f.dir)
+	db, err := sdk.NewLevelDB("ledger-accounts", f.dir)
 	require.NoError(t, err)
 	encoding := app.MakeEncodingConfig()
 	a := app.New(db, nil, true, map[int64]bool{}, f.dir, 1, true,
@@ -67,7 +67,7 @@ func (f *repair144Fixture) open(t *testing.T, restart bool) {
 	f.p = &ledgerPath{app: a, ctx: ctx, abi: layerxledger.GetABI()}
 }
 
-func (f *repair144Fixture) reopen(t *testing.T) {
+func (f *ledgerAccountFixture) reopen(t *testing.T) {
 	t.Helper()
 	require.NoError(t, f.p.app.SetSealedStateToCommit(f.p.ctx, f.p.ctx.MultiStore().(sdk.CacheMultiStore)))
 	_, err := f.p.app.Commit(context.Background())
@@ -77,7 +77,7 @@ func (f *repair144Fixture) reopen(t *testing.T) {
 	f.open(t, true)
 }
 
-func (f *repair144Fixture) bind(t *testing.T, caller common.Address, tag byte) ledgerkeeper.Actor {
+func (f *ledgerAccountFixture) bind(t *testing.T, caller common.Address, tag byte) ledgerkeeper.Actor {
 	t.Helper()
 	var seed [32]byte
 	seed[0] = tag
@@ -107,9 +107,9 @@ func (f *repair144Fixture) bind(t *testing.T, caller common.Address, tag byte) l
 	return actor
 }
 
-func newRepair144Fixture(t *testing.T) *repair144Fixture {
+func newLedgerAccountFixture(t *testing.T) *ledgerAccountFixture {
 	t.Helper()
-	f := &repair144Fixture{dir: t.TempDir(), sender: common.HexToAddress("0x2320000000000000000000000000000000000001"),
+	f := &ledgerAccountFixture{dir: t.TempDir(), sender: common.HexToAddress("0x2320000000000000000000000000000000000001"),
 		recipient: common.HexToAddress("0x2320000000000000000000000000000000000002")}
 	f.open(t, false)
 	t.Cleanup(func() {
@@ -135,7 +135,7 @@ func newRepair144Fixture(t *testing.T) *repair144Fixture {
 	return f
 }
 
-func (f *repair144Fixture) sequence(t *testing.T, id [32]byte, want uint64) {
+func (f *ledgerAccountFixture) sequence(t *testing.T, id [32]byte, want uint64) {
 	t.Helper()
 	values, logs := f.p.success(t, f.sender, "nextSequence", id, f.asset)
 	require.Empty(t, logs)
@@ -145,7 +145,7 @@ func (f *repair144Fixture) sequence(t *testing.T, id [32]byte, want uint64) {
 	require.Equal(t, want, actual)
 }
 
-func (f *repair144Fixture) balances(t *testing.T, from, to int64) {
+func (f *ledgerAccountFixture) balances(t *testing.T, from, to int64) {
 	t.Helper()
 	for id, want := range map[[32]byte]int64{f.from: from, f.to: to} {
 		values, _ := f.p.success(t, f.sender, "balanceOf", id, f.asset)
@@ -159,7 +159,7 @@ func (f *repair144Fixture) balances(t *testing.T, from, to int64) {
 	}
 }
 
-func (f *repair144Fixture) refused(t *testing.T, caller common.Address, reason, method string, args ...interface{}) {
+func (f *ledgerAccountFixture) refused(t *testing.T, caller common.Address, reason, method string, args ...interface{}) {
 	t.Helper()
 	before := storeSnapshot(t, f.p.ctx.KVStore(f.p.app.GetKey(app.LayerXHostStoreKey)))
 	data, logs, err := f.p.call(t, caller, method, args...)
@@ -169,7 +169,7 @@ func (f *repair144Fixture) refused(t *testing.T, caller common.Address, reason, 
 	require.Equal(t, before, storeSnapshot(t, f.p.ctx.KVStore(f.p.app.GetKey(app.LayerXHostStoreKey))))
 }
 
-func (f *repair144Fixture) envelope(t *testing.T, sequence uint64, amount int64, reference byte) []byte {
+func (f *ledgerAccountFixture) envelope(t *testing.T, sequence uint64, amount int64, reference byte) []byte {
 	t.Helper()
 	key := [32]byte{reference}
 	material := append(append(append([]byte(nil), f.from[:]...), f.to[:]...), f.asset[:]...)
@@ -188,8 +188,8 @@ func (f *repair144Fixture) envelope(t *testing.T, sequence uint64, amount int64,
 	return payload
 }
 
-func TestRepair_144_OpenAccountNextSequence(t *testing.T) {
-	f := newRepair144Fixture(t)
+func TestOpenAccountNextSequenceRecovery(t *testing.T) {
+	f := newLedgerAccountFixture(t)
 	f.sequence(t, f.from, 0)
 	f.sequence(t, f.to, 0)
 	f.balances(t, 0, 0)
@@ -202,8 +202,8 @@ func TestRepair_144_OpenAccountNextSequence(t *testing.T) {
 	f.balances(t, 0, 0)
 }
 
-func TestRepair_144_PayExactExpiresAtMs(t *testing.T) {
-	f := newRepair144Fixture(t)
+func TestPayExactExpiryMilliseconds(t *testing.T) {
+	f := newLedgerAccountFixture(t)
 	method := f.p.abi.Methods["payExact"]
 	require.Equal(t, "expiresAtMs", method.Inputs[4].Name)
 	require.Equal(t, "uint64", method.Inputs[4].Type.String())
@@ -234,8 +234,8 @@ func TestRepair_144_PayExactExpiresAtMs(t *testing.T) {
 	f.balances(t, 229, 21)
 }
 
-func TestRepair_144_AssetAccountSend(t *testing.T) {
-	f := newRepair144Fixture(t)
+func TestAssetAccountSendRecovery(t *testing.T) {
+	f := newLedgerAccountFixture(t)
 	f.p.success(t, f.sender, "mint", f.asset, f.from, big.NewInt(250))
 	f.sequence(t, f.from, 0)
 	f.balances(t, 250, 0)
