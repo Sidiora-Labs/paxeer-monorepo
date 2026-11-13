@@ -3,7 +3,7 @@ audit = "22.30.121"
 base_revision = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
 evidence = "The hf-build/hf-done private ledger records the exact candidate revision, command, exit and log; this record does not claim qualification before the gates run."
 baseline = "Not run: the explicit implementation/build/done order forbids an unchanged-tree verify or a manual verify_cmd; no TestRepairM_212_* existed and the initial ledger contained no gate runs."
-prior_repairs = "The base already returns schedule.Asset and account.Frozen and provides a Go execution decoder and bounded Wasm fixture in repair_251_test.go; preserve those repairs."
+prior_repairs = "The base already returns schedule.Asset and account.Frozen and provides a Go execution decoder and bounded Wasm fixture in execution_contract_test.go; preserve those repairs."
 
 [finding.solidity-output-semantics]
 test = "TestRepairM_212_SolidityOutputSemantics"

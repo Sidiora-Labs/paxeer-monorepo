@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM212Merge(t *testing.T, h *harness) *app.PrecompileKeepers {
+func programsMergePrecompile(t *testing.T, h *harness) *app.PrecompileKeepers {
 	t.Helper()
 	application := testkeeper.EVMTestApp
 	previousHost := application.LayerXHost
@@ -43,7 +43,7 @@ func repairM212Merge(t *testing.T, h *harness) *app.PrecompileKeepers {
 	return keepers
 }
 
-func repairM212SetFrozen(t *testing.T, h *harness, account [32]byte, frozen bool) {
+func setProgramsValueAccountFrozen(t *testing.T, h *harness, account [32]byte, frozen bool) {
 	t.Helper()
 	key := append([]byte{6}, account[:]...)
 	row := bytes.Clone(h.stateDB.Ctx().KVStore(h.key).Get(key))
@@ -57,10 +57,10 @@ func repairM212SetFrozen(t *testing.T, h *harness, account [32]byte, frozen bool
 	h.stateDB.Ctx().KVStore(h.key).Set(key, row)
 }
 
-func repairM212OutputSemantics(t *testing.T) {
+func assertProgramsMergeOutputSemantics(t *testing.T) {
 	t.Helper()
 	h, program, asset := registerAccountFixture(t)
-	repairM212Merge(t, h)
+	programsMergePrecompile(t, h)
 	seed := []byte("repair-m212-value")
 	conservationCall(t, h, "registerAccount", program, uint8(2), asset, seed)
 	registered, err := h.host.ReadProgramAccount(h.stateDB.Ctx(), program, asset, seed)
@@ -69,11 +69,11 @@ func repairM212OutputSemantics(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEqual(t, [32]byte{}, authority.Principal)
 	for _, frozen := range []bool{false, true, false} {
-		repairM212SetFrozen(t, h, registered.AccountID, frozen)
+		setProgramsValueAccountFrozen(t, h, registered.AccountID, frozen)
 		value, err := h.host.ReadValueAccount(h.stateDB.Ctx(), program, registered.AccountID)
 		require.NoError(t, err)
 		require.Equal(t, frozen, value.Frozen)
-		values := repair251View(t, h, "getValueAccount", program, registered.AccountID)
+		values := programsStaticView(t, h, "getValueAccount", program, registered.AccountID)
 		require.Zero(t, value.Balance.BigInt().Cmp(values[0].(*big.Int)))
 		require.Equal(t, value.Frozen, values[1])
 	}
@@ -87,8 +87,8 @@ func repairM212OutputSemantics(t *testing.T) {
 		h.stateDB.Ctx().KVStore(h.key).Set(append([]byte{1, 0, 9}, []byte("progfee/active/v1")...), raw)
 		schedule, err := lp.DecodeFeeScheduleRecord(raw)
 		require.NoError(t, err)
-		current := repair251View(t, h, "getCurrentFeeSchedule")
-		quote := repair251View(t, h, "quoteCallFee", budget)
+		current := programsStaticView(t, h, "getCurrentFeeSchedule")
+		quote := programsStaticView(t, h, "quoteCallFee", budget)
 		require.Equal(t, schedule.Version, quote[0])
 		require.Equal(t, schedule.Asset, quote[2])
 		require.Equal(t, current[2], quote[2])
@@ -101,15 +101,15 @@ func repairM212OutputSemantics(t *testing.T) {
 	}
 }
 
-func TestRepairM_212_SolidityOutputSemantics(t *testing.T) {
+func TestProgramsMergeSolidityOutputSemantics(t *testing.T) {
 	source, err := os.ReadFile("LayerXPrograms.sol")
 	require.NoError(t, err)
 	require.Regexp(t, regexp.MustCompile(`(?s)function getValueAccount\(bytes32 programId, bytes32 accountId\)\s*external view returns \(uint128 balance, bool frozen\)`), string(source))
 	require.Regexp(t, regexp.MustCompile(`(?s)function quoteCallFee\(uint64\[7\] calldata budget\)\s*external\s*view\s*returns \(uint32 version, uint128 executionCeiling, bytes32 feeAsset\)`), string(source))
-	repairM212OutputSemantics(t)
+	assertProgramsMergeOutputSemantics(t)
 }
 
-func TestRepairM_212_ABIOutputSemantics(t *testing.T) {
+func TestProgramsMergeABIOutputSemantics(t *testing.T) {
 	source, err := os.ReadFile("abi.json")
 	require.NoError(t, err)
 	contract, err := abi.JSON(bytes.NewReader(source))
@@ -120,14 +120,14 @@ func TestRepairM_212_ABIOutputSemantics(t *testing.T) {
 	require.Equal(t, "bytes32", contract.Methods["quoteCallFee"].Outputs[2].Type.String())
 	require.Equal(t, contract.Methods["getValueAccount"], lp.ProgramsABI.Methods["getValueAccount"])
 	require.Equal(t, contract.Methods["quoteCallFee"], lp.ProgramsABI.Methods["quoteCallFee"])
-	repairM212OutputSemantics(t)
+	assertProgramsMergeOutputSemantics(t)
 }
 
-func TestRepairM_212_BankParityFrozen(t *testing.T) {
+func TestProgramsMergeFrozenBankParity(t *testing.T) {
 	TestProgramsValueAccountMatchesBankBalance(t)
 }
 
-func TestRepairM_212_RegistryAddressType(t *testing.T) {
+func TestProgramsMergeRegistryAddressAndEmitter(t *testing.T) {
 	var address common.Address = lp.Address
 	require.Equal(t, common.HexToAddress("0x000000000000000000000000000000000000101d"), address)
 	log, program := transfer(t)
@@ -141,23 +141,23 @@ func TestRepairM_212_RegistryAddressType(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestRepairM_212_RegistryHostKeepers(t *testing.T) {
+func TestProgramsMergeHostKeepersAndFeeAsset(t *testing.T) {
 	h := newHarness(t)
-	keepers := repairM212Merge(t, h)
+	keepers := programsMergePrecompile(t, h)
 	require.NotNil(t, keepers.XWebK())
 	require.Equal(t, lp.PrecompileName, h.precompile.GetName())
 	require.Equal(t, lp.ProgramsABI, h.precompile.GetABI())
 	record, err := h.host.ReadFeeSchedule(h.stateDB.Ctx())
 	require.NoError(t, err)
-	quote := repair251View(t, h, "quoteCallFee", [7]uint64{1, 1, 1, 1, 1, 1, 1})
+	quote := programsStaticView(t, h, "quoteCallFee", [7]uint64{1, 1, 1, 1, 1, 1, 1})
 	require.Equal(t, [32]byte(record[65:97]), quote[2])
 }
 
-func TestRepairM_212_RetiredCustodyWiring(t *testing.T) {
+func TestProgramsMergeNativeBankWiring(t *testing.T) {
 	t.Run("governed_fee_denom", lp.TestProgramsCallRecordsFirstWebRequestFeeDenomFromAssetMapping)
 	t.Run("ungoverned_fee_denom_refused", lp.TestProgramsCallRefusesFirstWebRequestWithoutAssetMapping)
-	h, args, payload, guest := repair251Responder(t)
-	keepers := repairM212Merge(t, h)
+	h, args, payload, guest := programsTransferResponder(t)
+	keepers := programsMergePrecompile(t, h)
 	// This adapter has no custody keeper at all; the constructor and transfer
 	// resolve the real registered host asset to its native bank mirror denom.
 	application := testkeeper.EVMTestApp
@@ -175,7 +175,7 @@ func TestRepairM_212_RetiredCustodyWiring(t *testing.T) {
 	h.executor = h.precompile.GetExecutor().(*lp.PrecompileExecutor)
 	h.evm.SetPrecompiles(vm.PrecompiledContracts{lp.Address: h.precompile})
 	require.Nil(t, keepers.LayerXCustodyK())
-	receipt, reference := repair251Receipt(t, h, args, payload)
+	receipt, reference := programsReferenceCallReceipt(t, h, args, payload)
 	leg := receipt.Transfers[0]
 	registered, err := h.host.ReadAsset(h.stateDB.Ctx(), leg.Asset)
 	require.NoError(t, err)
@@ -197,17 +197,17 @@ func TestRepairM_212_RetiredCustodyWiring(t *testing.T) {
 	require.Equal(t, beforeFrom.Sub(leg.Amount), bank.GetBalance(h.stateDB.Ctx(), from, denom).Amount)
 	require.Equal(t, beforeTo.Add(leg.Amount), bank.GetBalance(h.stateDB.Ctx(), to, denom).Amount)
 	require.Equal(t, h.dump(reference), h.dump(h.stateDB.Ctx()))
-	decoded, err := lp.DecodeProgramExecutionResult(output, 64, repair251TransferRoot(t, receipt))
+	decoded, err := lp.DecodeProgramExecutionResult(output, 64, programsReceiptTransferRoot(t, receipt))
 	require.NoError(t, err)
 	require.Equal(t, guest, decoded.GuestResponse)
 }
 
-func TestRepairM_212_CallTestResponseOracle(t *testing.T) {
+func TestProgramsMergeCallResponseAndFeeRefusals(t *testing.T) {
 	assertProgramsKnownBoundedResponse(t)
 	t.Run("fee_refusals", TestProgramsCallFeeLimitBelowFeeReverts)
 }
 
-func TestRepairM_212_QuoteTestDigest(t *testing.T) {
-	TestRepair_251_QuoteAsset(t)
+func TestProgramsMergeQuoteAssetAndCeiling(t *testing.T) {
+	TestProgramsQuoteActiveAssetAcrossReopen(t)
 	lp.TestProgramsQuoteCallFeeMatchesKernelCeiling(t)
 }

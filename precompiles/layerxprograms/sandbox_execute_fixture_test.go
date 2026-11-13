@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepair22_31_584(t *testing.T) {
+func TestProgramsSandboxExecuteFixtureIdentityAndGas(t *testing.T) {
 	t.Run("distinct fixture request", func(t *testing.T) {
 		h, args, request := gasSandboxExecuteFixture(t)
 		decoded := decodeSandboxLeaseRequest(t, request)

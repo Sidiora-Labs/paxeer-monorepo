@@ -16,17 +16,17 @@ import (
 )
 
 // These recordings come from the live native sandboxExecute EVM path in
-// TestRepairM_213_StorageEnvironmentResponse, encoded with the production ABI
+// TestProgramsNativeSandboxResponse, encoded with the production ABI
 // and transaction-result codecs alongside the host's kind-2 usage ledger.
 //
-//go:embed testdata/repair_m213_execute_result.hex
-var repairM213ExecuteResultHex string
+//go:embed testdata/sandbox_execute_result.hex
+var sandboxExecuteResultHex string
 
-//go:embed testdata/repair_m213_usage_ledger.hex
-var repairM213UsageLedgerHex string
+//go:embed testdata/sandbox_usage_ledger.hex
+var sandboxUsageLedgerHex string
 
-func TestRepairM_213_StorageEnvironmentRecordedConsumer(t *testing.T) {
-	result, err := hex.DecodeString(strings.TrimSpace(repairM213ExecuteResultHex))
+func TestProgramsRecordedSandboxExecutionConsumer(t *testing.T) {
+	result, err := hex.DecodeString(strings.TrimSpace(sandboxExecuteResultHex))
 	require.NoError(t, err)
 	var messages sdk.TxMsgData
 	require.NoError(t, messages.Unmarshal(result))
@@ -42,7 +42,7 @@ func TestRepairM_213_StorageEnvironmentRecordedConsumer(t *testing.T) {
 	require.Equal(t, execution.ReturnData, encoded, "the recorded native return must match the production ABI encoder byte for byte")
 	frame := frameValues[2].([]byte)
 	require.True(t, bytes.HasPrefix(frame, []byte("LXP/programs/terminal-applied-legs/v1\x00")))
-	ledger, err := hex.DecodeString(strings.TrimSpace(repairM213UsageLedgerHex))
+	ledger, err := hex.DecodeString(strings.TrimSpace(sandboxUsageLedgerHex))
 	require.NoError(t, err)
 	const ledgerDomain = "LayerX/programs/sandbox/usage-ledger/v2\x00"
 	require.Equal(t, ledgerDomain, string(ledger[:len(ledgerDomain)]))
@@ -107,32 +107,32 @@ func TestRepairM_213_StorageEnvironmentRecordedConsumer(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestRepairM_213_StorageEnvironmentResponse(t *testing.T) {
+func TestProgramsNativeSandboxResponse(t *testing.T) {
 	TestProgramsSandboxExecuteEmitsUsage(t)
 	t.Run("zero asset refusal", TestProgramsSandboxExecuteZeroAssetReverts)
 }
 
-func TestRepairM_213_SimulationResponseOracle(t *testing.T) {
+func TestProgramsNativeSimulationResponseAndState(t *testing.T) {
 	TestProgramsSimulateCallMatchesCallOutput(t)
 	TestProgramsSimulateCallLeavesStateUnchanged(t)
 }
 
-func TestRepairM_213_PublicProof(t *testing.T) {
+func TestProgramsNativeExecutionConsumer(t *testing.T) {
 	proofProgramsExecutionConsumer(t)
 }
 
-func TestRepairM_213_SimulationParity(t *testing.T) {
+func TestProgramsNativeSimulationEntrypointParity(t *testing.T) {
 	TestProgramsSimulateMatchesCallForEveryFixtureEntrypoint(t)
 }
 
-func TestRepairM_213_Frozen(t *testing.T) {
-	lp.RunRepairM213Frozen(t)
+func TestProgramsNativeValueAccountFrozen(t *testing.T) {
+	lp.RunProgramsValueAccountFrozen(t)
 }
 
-func TestRepairM_213_NativeAssetResolver(t *testing.T) {
-	lp.RunRepairM213NativeResolver(t)
+func TestProgramsNativeAssetMappingAndRestart(t *testing.T) {
+	lp.RunProgramsNativeAssetMapping(t)
 }
 
-func TestRepairM_213_NativeWebFixture(t *testing.T) {
-	lp.RunRepairM213NativeWeb(t)
+func TestProgramsNativeWebFeesAndAttestation(t *testing.T) {
+	lp.RunProgramsNativeWebFeesAndAttestation(t)
 }
