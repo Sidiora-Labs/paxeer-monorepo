@@ -22,8 +22,8 @@ the [daemon boot path](../../../services/agent/crates/layerx-agentd/src/main.rs)
 | Variable | Meaning |
 | --- | --- |
 | `LAYERX_AGENT_MODE` | `inference-market` |
-| `LAYERX_AGENT_INFERENCE_SIGNAL_LISTEN` | WebSocket signalling bind, default `127.0.0.1:8790` |
-| `LAYERX_AGENT_INFERENCE_SERVE_LISTEN` | Completion bind, default `127.0.0.1:8791` |
+| `LAYERX_AGENT_INFERENCE_SIGNAL_LISTEN` | WebSocket signalling socket address, default loopback port `8790` |
+| `LAYERX_AGENT_INFERENCE_SERVE_LISTEN` | Completion socket address, default loopback port `8791` |
 | `LAYERX_AGENT_INFERENCE_MODEL_DIGEST` | Digest of the model served by this room |
 | `LAYERX_AGENT_INFERENCE_RUNTIME_DIGEST` | Digest of the exact inference runtime |
 | `LAYERX_AGENT_INFERENCE_ROOM_PROFILE` | Path to the JSON `RoomOffer` read at startup |
@@ -63,9 +63,11 @@ LockBond must succeed before PostBid at the configured price quote. A peer's
 bid capability digest must match its enrolled manifest.
 
 The [native peer CLI](../../../apps/inference-peer/README.md) provides `join <host> <room>`,
-`serve` and `status`. The peer signs its own enrolment, even when the host
-relays it through `enrol_peer(manifest, quote)`; it does not give its private
-key to the host. Join may provide an attestation envelope file. Only the
+`serve` and `status`. With `--enrolment <signed-json-file>`, join sends the peer's
+signed enrolment document to `POST /enrol_peer` on the signalling listener.
+The host relays the signed document when its enrolment service is configured;
+the peer retains its private key. `--attestation <file>` checks a binding
+envelope locally before enrolment or hello. Only the
 development envelope is accepted; see the [threat statement](threats.md).
 
 Peers connect to the signalling listener with a hello carrying a peer key,
@@ -119,8 +121,10 @@ signatures and reveal evidence through the challenge window.
 Apply SplitPayout to eligible settlement with no open challenge. Read the reward
 ledger for the credited epoch and connected peer; submit CLAIM (`0x0602`)
 through the existing signed write path and verify its result. An estimated
-earning or a submitted claim is not a paid claim. Close remaining deals before
-CloseRoom; RefundBond waits for the challenge window and returns only the
+earning or a submitted claim is not a paid claim. In the active room's bond
+settlement path, CloseRoom requires every deal's payout to be complete and
+all challenges resolved, then marks its deals settled. RefundBond waits for
+room closure and the applicable challenge windows, and returns only the
 unslashed remainder. See [protocol accounting](protocol.md#payout-split-and-bonds).
 
 ## Recovery and service limits
