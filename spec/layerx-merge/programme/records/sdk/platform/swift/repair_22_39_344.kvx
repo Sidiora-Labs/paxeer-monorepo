@@ -5,7 +5,7 @@ base_revision = "00af874880f4448f88311d4ece767c58b77d7f58"
 inherited_revision = "4247e57acebcf5cbdfdbee914bedc15a46f90dd3"
 verified_revision = "/out/run/gates.jsonl: matching revision fields of the final build and verify rows"
 build_command = "swift build --package-path sdk/platform/swift"
-verify_command = "test -s sdk/platform/swift/repair_22_39_344.kvx && swift test --package-path sdk/platform/swift --filter 'ReceiptFixtureTests'"
+verify_command = "test -s spec/layerx-merge/programme/records/sdk/platform/swift/repair_22_39_344.kvx && swift test --package-path sdk/platform/swift --filter 'ReceiptFixtureTests'"
 private_build_log = "/out/logs/build-1.log"
 private_verify_log = "/out/logs/verify-1.log"
 

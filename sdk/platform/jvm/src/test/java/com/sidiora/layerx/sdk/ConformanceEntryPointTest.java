@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
 
-public final class Repair22331393Test {
+public final class ConformanceEntryPointTest {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final String FIXTURES = "sdk/platform/conformance/fixtures/";
     private static final String NODE = "daemon/committed-fixture/vectors/vector-v4-committed.json";
@@ -52,7 +52,7 @@ public final class Repair22331393Test {
             assertTrue(compiled, diagnostics.toString());
         }
         loader = new URLClassLoader(new java.net.URL[] {classes.toUri().toURL()},
-            Repair22331393Test.class.getClassLoader());
+            ConformanceEntryPointTest.class.getClassLoader());
         conformance = Class.forName("com.sidiora.layerx.sdk.ConformanceMain", true, loader);
     }
 

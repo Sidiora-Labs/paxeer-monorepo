@@ -39,7 +39,7 @@ import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
 
 /** Compiles and runs the published examples against the real SDK and recorded producer evidence. */
-public final class Repair22331392Test {
+public final class PublishedExamplesTest {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final String PACKAGE = "com.sidiora.layerx.sdk.examples.";
     // Public transaction-vector key from rpc/sequencer_receipt_vectors_test.go; never a funded credential.
@@ -100,7 +100,7 @@ public final class Repair22331392Test {
         } finally {
             Thread.currentThread().setContextClassLoader(previous);
         }
-        examples = new URLClassLoader(new URL[] {compiled.toUri().toURL()}, Repair22331392Test.class.getClassLoader());
+        examples = new URLClassLoader(new URL[] {compiled.toUri().toURL()}, PublishedExamplesTest.class.getClassLoader());
         paymentType = examples.loadClass(PACKAGE + "Eip1559Payment$Payment");
         assertNotNull(examples.loadClass(PACKAGE + "ServiceLifecycleExample").getMethod("main", String[].class));
     }

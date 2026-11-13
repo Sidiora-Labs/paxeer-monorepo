@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public final class Repair22331391Test {
+public final class RetainedTransactionReceiptTest {
     private static final ObjectMapper JSON = new ObjectMapper();
 
     @Test

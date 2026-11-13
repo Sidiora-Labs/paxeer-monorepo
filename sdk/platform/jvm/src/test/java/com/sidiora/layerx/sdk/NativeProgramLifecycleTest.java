@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public final class Repair2231344Test {
+public final class NativeProgramLifecycleTest {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final BigInteger FEE = BigInteger.valueOf(1000);
 

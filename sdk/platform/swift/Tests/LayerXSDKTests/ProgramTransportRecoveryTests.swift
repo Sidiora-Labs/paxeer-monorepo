@@ -32,7 +32,7 @@ import XCTest
 // The current RPC view includes paymentDenom=uhpx, authenticated by the retained
 // receipt's asset commitment. Both this transcript and the retained ProgramsEvmTests
 // deploy RPC view include that denomination.
-final class Repair22331397Tests: XCTestCase {
+final class ProgramTransportRecoveryTests: XCTestCase {
   private typealias Record = [String: JSONValue]
   private var root: URL {
     var url = URL(fileURLWithPath: #filePath)
@@ -68,7 +68,7 @@ final class Repair22331397Tests: XCTestCase {
       lastHeight: UInt64(XCTUnwrap(key["lastHeight"]?.integerValue)))
   }
   private func client(
-    _ server: RepairHTTPServer22331397, receiptKeys: [ReceiptKeys] = [],
+    _ server: ProgramTransportHTTPServer, receiptKeys: [ReceiptKeys] = [],
     prevSeqHash: Data = Data(repeating: 0, count: 32),
     recovery: ProgramSequenceRecovery? = nil
   ) throws -> ProgramsClient {
@@ -119,14 +119,14 @@ final class Repair22331397Tests: XCTestCase {
         "jsonrpc": .string("2.0"), "id": .integer(1), "result": .string("0x7"),
       ]))
     let atLimit = value + Data(repeating: 32, count: limit - value.count)
-    let exact = try RepairHTTPServer22331397 { _ in .body(atLimit) }
+    let exact = try ProgramTransportHTTPServer { _ in .body(atLimit) }
     defer { exact.stop() }
     let accepted = try await ProgramRPC(url: exact.url, session: .shared).quantity(
       "eth_blockNumber", [])
     XCTAssertEqual(accepted, 7)
     for declared in [true, false] {
       let cancelled = expectation(description: "oversized HTTP connection cancelled \(declared)")
-      let server = try RepairHTTPServer22331397 { _ in
+      let server = try ProgramTransportHTTPServer { _ in
         .oversized(declaredLength: declared, limit: limit, cancelled: cancelled)
       }
       defer { server.stop() }
@@ -139,7 +139,7 @@ final class Repair22331397Tests: XCTestCase {
       }
       await fulfillment(of: [cancelled], timeout: 10)
     }
-    let malformed = try RepairHTTPServer22331397 { _ in .body(Data("{".utf8)) }
+    let malformed = try ProgramTransportHTTPServer { _ in .body(Data("{".utf8)) }
     defer { malformed.stop() }
     do {
       _ = try await ProgramRPC(url: malformed.url, session: .shared).call("eth_blockNumber", [])
@@ -174,7 +174,7 @@ final class Repair22331397Tests: XCTestCase {
     }
     try JSONEncoder().encode(history).write(to: path, options: .atomic)
     let transcript = byHash
-    let server = try RepairHTTPServer22331397 { request in
+    let server = try ProgramTransportHTTPServer { request in
       guard let method = request.json?["method"]?.stringValue,
         case .array(let params)? = request.json?["params"],
         let hash = params.first?.stringValue, let vector = transcript[hash]
@@ -237,7 +237,7 @@ final class Repair22331397Tests: XCTestCase {
   }
 
   func testRetiredConstructorRefusesAtConstruction() throws {
-    let server = try RepairHTTPServer22331397 { _ in throw NativeProgramCallError.invalid }
+    let server = try ProgramTransportHTTPServer { _ in throw NativeProgramCallError.invalid }
     defer { server.stop() }
     let platform = PlatformClient(transport: try HumanHTTPTransport(baseURL: server.url))
     XCTAssertThrowsError(
@@ -280,7 +280,7 @@ final class Repair22331397Tests: XCTestCase {
     let operation = try NativeProgramDeploy.decode(nativeTransportHex(text(vector, "payload_hex")))
     let lifecycle = try NativeProgramLifecycleRequest(
       operation: operation, signedActivity: nativeTransportHex(text(vector, "signed_activity_hex")))
-    let buildServer = try RepairHTTPServer22331397()
+    let buildServer = try ProgramTransportHTTPServer()
     defer { buildServer.stop() }
     let transaction = try await client(buildServer).deploy(
       operation, signedActivity: lifecycle.signedActivity,
@@ -360,7 +360,7 @@ final class Repair22331397Tests: XCTestCase {
       "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e")
     receiptJSON["receipt"] = .string(
       "0x" + canonicalReceipt.map { String(format: "%02x", $0) }.joined())
-    let server = try RepairHTTPServer22331397(results: [
+    let server = try ProgramTransportHTTPServer(results: [
       "eth_getTransactionByHash": .object(["hash": .string(hashText)]),
       "pax_sequencerReceipt": .object(receiptJSON),
       "eth_getRawTransactionByHash": .string(
@@ -465,7 +465,7 @@ final class Repair22331397Tests: XCTestCase {
       read("services/human/schema/human-api/golden/stream.open.response.json"), "body")
     let next = try object(
       read("services/human/schema/human-api/golden/stream.next.response.json"), "body")
-    let server = try RepairHTTPServer22331397 { request in
+    let server = try ProgramTransportHTTPServer { request in
       if request.path == "/v1/stream" { return .body(try JSONEncoder().encode(open)) }
       XCTAssertEqual(request.path, "/v1/stream/cur-000000000000000042")
       return .body(try JSONEncoder().encode(next))
@@ -484,7 +484,7 @@ final class Repair22331397Tests: XCTestCase {
 
   func testSlowConsumerOverflowResumesWithoutLoss() async throws {
     let values = try streamValues()
-    let server = try RepairHTTPServer22331397 { request in
+    let server = try ProgramTransportHTTPServer { request in
       let cursor = try XCTUnwrap(Int(request.path.split(separator: "/").last ?? ""))
       let end = min(200, cursor + StreamLimits.pageEvents)
       let records: [JSONValue] = try (cursor..<end).map { index in
@@ -529,7 +529,7 @@ final class Repair22331397Tests: XCTestCase {
   }
 
   func testReplayWindowAndEmptyPagePacing() async throws {
-    let journal = RecordedStreamJournal22331397(values: try streamValues(), count: 1536)
+    let journal = RecordedStreamJournal(values: try streamValues(), count: 1536)
     let stream = ResumableStream<JSONValue>(cursor: try StreamCursor("0"))
     for _ in 0..<12 {
       let page = try await stream.next { try await journal.page($0) }
@@ -548,14 +548,14 @@ final class Repair22331397Tests: XCTestCase {
         StreamPage(requestedCursor: cursor, events: [duplicate], nextCursor: duplicate.cursor))
       XCTFail("Recent replay accepted")
     } catch let error as PlatformSDKError { XCTAssertEqual(error.code, .decodeFailure) }
-    let tooLarge = try await RecordedStreamJournal22331397(values: streamValues(), count: 129).page(
+    let tooLarge = try await RecordedStreamJournal(values: streamValues(), count: 129).page(
       try StreamCursor("0"), size: 129)
     let fresh = ResumableStream<JSONValue>(cursor: try StreamCursor("0"))
     do {
       _ = try await fresh.accept(tooLarge)
       XCTFail("Oversized page accepted")
     } catch let error as StreamOverflow { XCTAssertEqual(error.resumeCursor.rawValue, "0") }
-    let empty = RecordedEmptyPages22331397()
+    let empty = RecordedEmptyPages()
     let polling = fresh.events { await empty.page($0) }
     let consumer = Task {
       var iterator = polling.makeAsyncIterator()
@@ -574,7 +574,7 @@ final class Repair22331397Tests: XCTestCase {
 
 // A finite, in-memory event journal retains the recorded human event payloads.
 // Positions are assigned by the journal; pages are read through the production stream.
-private actor RecordedStreamJournal22331397 {
+private actor RecordedStreamJournal {
   let values: [JSONValue]
   let count: Int
   init(values: [JSONValue], count: Int) {
@@ -602,7 +602,7 @@ private actor RecordedStreamJournal22331397 {
   }
 }
 
-private actor RecordedEmptyPages22331397 {
+private actor RecordedEmptyPages {
   var times: [UInt64] = []
   func page(_ cursor: StreamCursor) -> StreamPage<JSONValue> {
     times.append(DispatchTime.now().uptimeNanoseconds)
@@ -610,7 +610,7 @@ private actor RecordedEmptyPages22331397 {
   }
 }
 
-private final class RepairHTTPServer22331397: @unchecked Sendable {
+private final class ProgramTransportHTTPServer: @unchecked Sendable {
   struct Request {
     let path: String
     let json: [String: JSONValue]?
