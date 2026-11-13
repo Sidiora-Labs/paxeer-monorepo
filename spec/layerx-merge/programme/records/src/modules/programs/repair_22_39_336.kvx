@@ -63,5 +63,5 @@ execution = "main invokes all four destination cases independently, prints each 
 build_gate = "hf-build"
 build_command = "make -C . build/liblayerx.a"
 verify_gate = "hf-done"
-verify_command = "test -s src/modules/programs/repair_22_39_336.kvx && make -C . build/tests/programs_call_escrow_principal && ./build/tests/programs_call_escrow_principal"
+verify_command = "test -s spec/layerx-merge/programme/records/src/modules/programs/repair_22_39_336.kvx && make -C . build/tests/programs_call_escrow_principal && ./build/tests/programs_call_escrow_principal"
 revision_evidence = "/out/run/gates.jsonl records the exact candidate revision, command, exit and private log location for each gate; the final response copies the hf-done evidence line. The candidate includes this record, so its own hash is held in that external ledger."
