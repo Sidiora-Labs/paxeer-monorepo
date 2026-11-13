@@ -252,6 +252,5 @@ Current source coverage lives in
 [`tests/human_tls.rs`](../../services/platform/hosted/authority/tests/human_tls.rs)
 (TLS, durable evidence and committed-state boundaries). Committed state-proof
 coverage also lives in `tests/repair_22_31_207.rs`.
-These are coverage references, not results of this documentation task.
 
 [Hosted identity](HostedIdentity.md) · [Hosted gateway](HostedGateway.md) · [Home](Home.md)
