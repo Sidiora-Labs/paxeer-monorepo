@@ -1,6 +1,6 @@
 [repair.22.33.1476]
 status = "implemented-not-qualified"
-record = "repair-22-33-1476.test.mjs::REPAIR_TASK_RECORD maps every finding to its proving tests and records baseline limitations, producer provenance and out-of-path wiring requests."
+record = "agent-spend-example.test.mjs::REPAIR_TASK_RECORD maps every finding to its proving tests and records baseline limitations, producer provenance and out-of-path wiring requests."
 limitation = "Successful real 0x101A grant draw execution remains unavailable: the owning ledger producer refuses LXP_NO_PAYER_GRANT; retained signed grant cases prove codec binding only."
 
 [qualification.build]

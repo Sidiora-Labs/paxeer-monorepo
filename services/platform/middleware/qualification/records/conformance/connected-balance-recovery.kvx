@@ -1,6 +1,6 @@
 [repair.22.31.362]
 finding = "connected-verification-rung"
-test = "services/platform/middleware/conformance/test/repair-22-31-362.test.mjs::connected_verification_rung_uses_real_balance_during_recovery"
+test = "services/platform/middleware/conformance/test/connected-balance-recovery.test.mjs::connected_verification_rung_uses_real_balance_during_recovery"
 implementation = "Require achieved/committed in read.balance responses; send the producer's account, asset and requested rung; retain canonical amounts, account/asset binding and the existing before/after recovery assertion."
 proof_path = "Committed BalanceValue/VerificationStatus peer fixture in a reopened SQLite store -> loopback HTTP -> production AgentEnvelopeTransport codec -> readConnectedBalance and verifyConnectedRecovery, also called by connected.mjs. The real transport maps the lowercase wire rung to Rung.Committed; weaker or legacy evidence, changed replay identities and a second debit fail."
 baseline_revision = "7f80bc77d69d432a30797265253debe7936b8dfb"

@@ -1,10 +1,10 @@
 [repair.22.33.1480]
 requirement = "22998.1"
 node_finding = "conformance-node-router-fixture"
-node_test = "services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs::conformance_node_router_fixture_uses_root_and_separate_hosted_identity"
+node_test = "services/platform/middleware/conformance/test/node-daemon-recovery.test.mjs::conformance_node_router_fixture_uses_root_and_separate_hosted_identity"
 node_path = "Conformance signed EIP-1559 payment -> real merchant application server, settlement and node root JSON-RPC -> receipt verification and buyer settlement capture; independent hosted /rpc resolves identity. Close and reopen the merchant server on the same durable orders and fulfillments, then verify replay and unchanged bytes without a second settlement."
 daemon_finding = "conformance-daemon-fixture"
-daemon_test = "services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs::conformance_daemon_fixture_tracks_and_recovers_real_serializer_output"
+daemon_test = "services/platform/middleware/conformance/test/node-daemon-recovery.test.mjs::conformance_daemon_fixture_tracks_and_recovers_real_serializer_output"
 daemon_path = "Committed Rust dispatcher transcript -> loopback agent envelope HTTP -> authenticatedAgentTransport, LayerXAgentTransport, ProductionClient and AgentMiddleware; concrete signer, receipt and budget HTTP clients. Lost submit and unresolved Unknown/submitted observation retain the reservation; stop the peer and destroy clients, reopen on the same budget file, resume the exact Committed/committed observation and verify the signed receipt before committing once."
 provenance = "fixtures/daemon-submission.json is byte-value identical to MIDDLEWARE_SUBMISSION_TRANSCRIPT in services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs; its producer tests middleware_submit_transcript_is_produced_by_dispatch and middleware_observation_transcripts_are_produced_by_dispatch establish the serde output. The repair test asserts equality without requiring Rust or a native binary. Terminal failure uses the same decode_observation/decode_tracked fields with state Failed and result_code."
 commitment = "Committed is an observation state. These spend requests require receipted evidence and verify the signed receipt at receipted; a label alone never establishes cryptographic commitment."

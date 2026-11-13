@@ -7,7 +7,7 @@ gotchas = ["3118", "2962", "3121", "3126"]
 implementation = "Transaction and legacy receipt-digest hints serve identical-request replay from the stored record. A differing request reaches the same authority settlement call as a new request; only a settled outcome permits receipt_reuse, before any fulfillment or release. Existing post-verification reuse checks remain."
 fixture = "The committed V1-layerxledger-pay-exact case from sdk/platform/conformance/fixtures/sequencer-receipt-v1.json, also used by receipt-replay.test.mjs."
 fixture_digest = "Use the real verifySequencerReceipt result receiptDigest; hashing the complete signedReceipt with keccak256, as older tests do, disagrees with the current verifier."
-real_path = "SellerMiddleware, ReceiptPayloadAuthority, DurableFulfillmentRepository and the Next resource handler; source loading uses Node's TypeScript transform, as repair-22-31-434.test.mjs does for consumers, without replacing implementations."
+real_path = "SellerMiddleware, ReceiptPayloadAuthority, DurableFulfillmentRepository and the Next resource handler; source loading uses Node's TypeScript transform, as payment-boundaries.test.mjs does for consumers, without replacing implementations."
 
 [case.settle]
 test = "settlesOnceAndReleases"

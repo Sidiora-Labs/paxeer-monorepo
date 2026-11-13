@@ -24,5 +24,5 @@ rung_case = "daemonSubmissionShapeUsesDispatchTranscripts now asserts the adapte
 recovery_case = "daemonSubmissionRecoversAfterLostSubmit replaces the fabricated four-validator commitment with the real recorded resolver and asserts it is never consulted for the requested receipted rung. After the tracker supplies the signed receipt, exactly one budget transition verifies that receipt without resubmitting; both tracker Committed assertions remain."
 format = "No JavaScript/TypeScript formatter is configured for these middleware packages; touched text follows the repository EditorConfig."
 build_gate = "hf-build runs the declared build_cmd."
-verify_gate = "hf-done runs cg spec done 22.31.492 -f layerx-merge with the declared verify_cmd and graph checks, including repair-22-31-435.test.mjs."
+verify_gate = "hf-done runs cg spec done 22.31.492 -f layerx-merge with the declared verify_cmd and graph checks, including daemon-grant-recovery.test.mjs."
 evidence = "The private hf-build/hf-done ledger records the candidate revision, command, exit code and log path. The final evidence line names the verified revision; no success is asserted before hf-done passes."

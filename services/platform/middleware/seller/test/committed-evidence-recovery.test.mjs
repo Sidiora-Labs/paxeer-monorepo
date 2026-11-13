@@ -9,7 +9,7 @@ import {
   verifyPaymentCommitment, verifyPaymentCommitmentEvidence,
 } from "../dist/index.js";
 import { committedVector, recordedCommittedReceipt } from "./committed-fixture.mjs";
-import "../../agent/test/repair-22-31-457.test.mjs";
+import "../../agent/test/grant-resolution.test.mjs";
 
 const hex = (value) => `0x${Buffer.from(value).toString("hex")}`;
 const failure = (error) => error.code === "verification-failure";

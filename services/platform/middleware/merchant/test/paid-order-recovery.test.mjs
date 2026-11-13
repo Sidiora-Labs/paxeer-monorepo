@@ -104,11 +104,11 @@ async function paidCheckoutFixture(context) {
   return { ...fixture, lines, receipt, payload, header, paid, files, fulfillment };
 }
 
-async function repair2231525PaysWithSignedReceipt(context) {
+async function merchantPaysWithSignedReceipt(context) {
   await paidCheckoutFixture(context);
 }
 
-async function repair2231525ReplaysPaidOrderAfterReopening(context) {
+async function merchantReplaysPaidOrderAfterReopening(context) {
   const fixture = await paidCheckoutFixture(context);
   const reopened = fixture.create();
   const replay = await reopened.checkout("merchant", "proof", fixture.lines, fixture.header);
@@ -118,7 +118,7 @@ async function repair2231525ReplaysPaidOrderAfterReopening(context) {
   assert.deepEqual(await readdir(fixture.fulfillmentsDirectory), fixture.files);
 }
 
-async function repair2231525RefusesTamperedAttemptWithoutChangingPaidOrder(context) {
+async function merchantRefusesTamperedAttemptWithoutChangingPaidOrder(context) {
   const fixture = await paidCheckoutFixture(context);
   const reopened = fixture.create();
   const orderFiles = await readdir(fixture.ordersDirectory);
@@ -140,7 +140,7 @@ async function repair2231525RefusesTamperedAttemptWithoutChangingPaidOrder(conte
   )), fixture.fulfillment);
 }
 
-async function repair2231525RejectsMissingSkuOnFreshCheckout(context) {
+async function merchantRejectsMissingSkuOnFreshCheckout(context) {
   const fixture = await checkoutFixture(context);
   await assert.rejects(
     fixture.merchant.checkout("merchant", "unknown", [{ sku: "missing", quantity: 1 }]),
@@ -149,7 +149,7 @@ async function repair2231525RejectsMissingSkuOnFreshCheckout(context) {
   assert.equal(await new FileOrders(fixture.ordersDirectory).get("unknown"), undefined);
 }
 
-test(repair2231525PaysWithSignedReceipt);
-test(repair2231525ReplaysPaidOrderAfterReopening);
-test(repair2231525RefusesTamperedAttemptWithoutChangingPaidOrder);
-test(repair2231525RejectsMissingSkuOnFreshCheckout);
+test(merchantPaysWithSignedReceipt);
+test(merchantReplaysPaidOrderAfterReopening);
+test(merchantRefusesTamperedAttemptWithoutChangingPaidOrder);
+test(merchantRejectsMissingSkuOnFreshCheckout);

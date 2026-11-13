@@ -5,7 +5,7 @@ base_revision = "5f6b5f0aad35a415da93671f70183d5e5688bda0"
 status = "implemented-with-external-wiring-requests"
 evidence = "hf-build and hf-done retain the exact candidate revision, command, exit and private log; their final JSON line is the verified revision record."
 baseline = "UNRUN: the explicit implementation-first gate order and ban on manual verify_cmd execution override do_12's unchanged-tree run; no pre-change failures are claimed."
-gate = "repair-22-33-1479.test.mjs imports the repaired JS tests and executes the real payment walkthrough with Node source loading, committed node transcripts and loopback servers; no Python runtime, native artifact, credential, environment variable or subprocess is needed."
+gate = "committed-inclusion-transport.test.mjs imports the repaired JS tests and executes the real payment walkthrough with Node source loading, committed node transcripts and loopback servers; no Python runtime, native artifact, credential, environment variable or subprocess is needed."
 python_gate = "The Python conformance assertions are retained and repaired, but the declared Node-only gate cannot execute Python; node_peer.py uses the same real TS peer when the owning Python gate runs. Python qualification is not claimed."
 
 [finding.validator-mismatch-test-masks-hash]
