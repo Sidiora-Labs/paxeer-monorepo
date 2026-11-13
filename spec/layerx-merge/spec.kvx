@@ -204346,7 +204346,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.248]
 title = "Bring the test section of programs/Cargo.toml to the present file of the test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204695,7 +204695,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.166]
 title = "Move the task records and name the files after what they hold in services/platform/hosted and 5 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204727,7 +204727,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.153]
 title = "Move the task records and name the files after what they hold in services/interop/crates/layerx-mirror-signer and 5 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204922,7 +204922,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.147]
 title = "Move the task records and name the files after what they hold in services/human/crates/layerx-human-identity-provider and 3 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239459,7 +239459,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.158]
 title = "Move the task records and name the files after what they hold in services/launchpad/indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239555,7 +239555,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.155]
 title = "Move the task records and name the files after what they hold in services/launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240417,7 +240417,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.67]
 title = "Move the task records and name the files after what they hold in modules/perps"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326475,7 +326475,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.82]
 title = "Move the task records and name the files after what they hold in precompiles/layerxledger"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373002,7 +373002,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.41.125]
 title = "Link the pages of sdk and services to the node inventory page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.41.119"]
@@ -373182,7 +373182,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.247]
 title = "Move the task records and name the files after what they hold in tools/qualification/audit_repairs, the smaller series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
