@@ -14,7 +14,9 @@ The node links the C kernel, Rust program sandbox and EVM native library. The re
 
 ## Program guest
 
-The AI market crate's release profile uses `opt-level = "z"`. Its chain domain is selected at build time by `PAXAI_CHAIN_DOMAIN`, with the merged-network domain as default. Deployment payloads are bounded by `524288` bytes including a `104`-byte envelope. See [the AI market crate](../../../programs/crates/layerx-programs-ai-market) and [programs contract](../contracts/programs.md).
+The AI market crate's release profile uses `opt-level = "z"`. Its [deployment-domain reader](../../../programs/crates/layerx-programs-ai-market/src/lib.rs) uses the merged chain-125 domain when the build-time `PAXAI_CHAIN_DOMAIN` setting is absent and requires an explicit value to match that domain. The domain is SHA-256 of `PAXAI/chain-domain/v1` followed by chain ID `125` as a big-endian `u64`.
+
+The [guest recipe](../../../programs/crates/layerx-programs-ai-market/tests/fixtures/guest-recipe.sh) compiles a release `cdylib` for `wasm32-unknown-unknown`, then packages it using `wasm-opt` from Binaryen 133. The `paxai-host-boundary-build` target limits the packaged guest to `524184` bytes, leaving room for the `104`-byte envelope within the `524288`-byte deployment payload cap. See [the AI market crate](../../../programs/crates/layerx-programs-ai-market) and [programs contract](../contracts/programs.md).
 
 ## Runtime assembly
 
